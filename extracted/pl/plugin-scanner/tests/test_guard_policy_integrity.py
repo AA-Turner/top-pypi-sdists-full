@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 import base64
 import json
 import pickle
 import sqlite3
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +17,8 @@ import pytest
 from codex_plugin_scanner.cli import _resolve_legacy_args, main
 from codex_plugin_scanner.guard import local_trust_contract as local_trust_contract_module
 from codex_plugin_scanner.guard import store as guard_store_module
+from codex_plugin_scanner.guard.cli import commands_dispatch_trust as trust_dispatch_module
+from codex_plugin_scanner.guard.daemon.manager import ApprovalCenterLocator
 from codex_plugin_scanner.guard.local_trust_contract import (
     LOCAL_TRUST_DEGRADED_REASON_LABELS,
     LOCAL_TRUST_MODES,
@@ -54,6 +56,25 @@ def _default_store_platform(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _store(tmp_path: Path) -> GuardStore:
     return GuardStore(tmp_path / "guard-home")
+
+
+def _enable_macos_native_policy_integrity(
+    monkeypatch: pytest.MonkeyPatch,
+    install_fake_system_keyring,
+):
+    fake_keyring = install_fake_system_keyring()
+    monkeypatch.setattr(guard_store_module.sys, "platform", "darwin", raising=False)
+    monkeypatch.setattr(
+        SystemKeyringSecretStore,
+        "_supports_native_macos_security_reads",
+        classmethod(lambda cls: True),
+    )
+    monkeypatch.setattr(
+        SystemKeyringSecretStore,
+        "_get_secret_without_macos_ui",
+        lambda self, secret_id: fake_keyring.get_password(self.service_name, secret_id),
+    )
+    return fake_keyring
 
 
 @dataclass
@@ -894,31 +915,31 @@ def test_policy_integrity_status_and_verify_do_not_create_keyring_material_on_fr
     assert secret_store.get_secret(store._policy_integrity_control_ref) is None
 
 
-def test_policy_integrity_status_skips_passive_macos_keychain_reads(
+def test_policy_integrity_status_uses_native_no_ui_reads_on_macos(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    install_fake_system_keyring,
 ) -> None:
-    monkeypatch.setattr(guard_store_module.sys, "platform", "darwin", raising=False)
+    _enable_macos_native_policy_integrity(monkeypatch, install_fake_system_keyring)
     store = _store(tmp_path)
     store.upsert_policy(
         _decision(artifact_id="codex:project:passive-skip", artifact_hash="hash-passive-skip"),
         "2026-06-14T00:00:00Z",
     )
-    assert store._policy_integrity_secret_store is None
+    secret_store = store._policy_integrity_secret_store
+    assert isinstance(secret_store, SystemKeyringSecretStore)
     store._clear_policy_integrity_cache()
-    monkeypatch.setattr(sys, "platform", "darwin", raising=False)
     monkeypatch.setattr(
-        SystemKeyringSecretStore,
-        "_supports_native_macos_security_reads",
-        classmethod(lambda cls: (_ for _ in ()).throw(AssertionError("passive macOS keychain probe should not run"))),
+        secret_store,
+        "get_secret",
+        lambda _secret_id: (_ for _ in ()).throw(AssertionError("plain keyring reads should not run")),
     )
 
     status = store.get_policy_integrity_status()
     verify = store.verify_policy_integrity()
 
-    assert status["mode"] == "degraded"
-    assert verify["mode"] == "degraded"
-    assert status["degraded_reasons"] == ["system_keyring_unavailable", "policy_integrity_control_unavailable"]
+    assert status["mode"] == "protected"
+    assert verify["mode"] == "protected"
     assert verify["local_rows_scanned"] == 1
 
 
@@ -963,9 +984,11 @@ def test_tampered_signed_row_is_ignored_and_event_emitted(tmp_path: Path) -> Non
         now="2026-06-14T00:01:00Z",
     )
     events = store.list_events(limit=100, event_name="policy_integrity_violation")
+    ignored_events = store.list_events(limit=100, event_name="rule.ignored.local_integrity")
 
     assert resolved is None
     assert any(event.get("payload", {}).get("artifact_id") == "codex:project:tampered" for event in events)
+    assert any(event.get("payload", {}).get("artifact_id") == "codex:project:tampered" for event in ignored_events)
 
 
 def test_remote_policy_row_is_honored_without_local_mac(tmp_path: Path) -> None:
@@ -982,8 +1005,64 @@ def test_remote_policy_row_is_honored_without_local_mac(tmp_path: Path) -> None:
         "hash-remote",
         now="2026-06-14T00:01:00Z",
     )
+    events = store.list_events(limit=100, event_name="policy.cloud.applied")
 
     assert resolved == "allow"
+    assert any(event.get("payload", {}).get("artifact_id") == "codex:project:remote" for event in events)
+
+
+def test_remote_policy_integrity_failure_does_not_emit_local_rule_event(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from codex_plugin_scanner.guard.policy_integrity import PolicyIntegrityVerificationResult
+
+    store = _store(tmp_path)
+    store.replace_remote_policies(
+        [_decision(artifact_id="codex:project:remote-tampered", artifact_hash="hash-remote", source="cloud-sync")],
+        "2026-06-14T00:00:00Z",
+        remote_write_authorized=True,
+    )
+    original_result = GuardStore._policy_integrity_result_for_row
+
+    def _forced_invalid(
+        self: GuardStore,
+        row: sqlite3.Row,
+        *,
+        mode: str,
+        key: bytes | None,
+        key_id: str | None,
+        trusted_generation: int | None = None,
+    ) -> PolicyIntegrityVerificationResult:
+        if row["artifact_id"] == "codex:project:remote-tampered":
+            return PolicyIntegrityVerificationResult(status="invalid_mac", message="remote bundle row was tampered")
+        return original_result(
+            self,
+            row,
+            mode=mode,
+            key=key,
+            key_id=key_id,
+            trusted_generation=trusted_generation,
+        )
+
+    monkeypatch.setattr(GuardStore, "_policy_integrity_result_for_row", _forced_invalid)
+
+    resolved = store.resolve_policy(
+        "codex",
+        "codex:project:remote-tampered",
+        "hash-remote",
+        now="2026-06-14T00:01:00Z",
+    )
+    integrity_events = store.list_events(limit=100, event_name="policy_integrity_violation")
+    ignored_events = store.list_events(limit=100, event_name="rule.ignored.local_integrity")
+
+    assert resolved is None
+    assert any(
+        event.get("payload", {}).get("artifact_id") == "codex:project:remote-tampered" for event in integrity_events
+    )
+    assert not any(
+        event.get("payload", {}).get("artifact_id") == "codex:project:remote-tampered" for event in ignored_events
+    )
 
 
 def test_local_policy_write_cannot_impersonate_remote_policy_source(tmp_path: Path) -> None:
@@ -1379,11 +1458,14 @@ def test_guard_doctor_includes_safe_trust_diagnostics(tmp_path: Path, capsys) ->
     assert trust_payload["one_time_approvals"] == "available"
     assert trust_payload["durable_local_rules"] in {"enforced", "limited"}
     assert trust_payload["checks"]["passive_no_ui"] is True
-    assert trust_payload["checks"]["runtime_protection"] is (
-        trust_payload["runtime_protection"] == "protected"
-    )
+    assert trust_payload["checks"]["runtime_protection"] is (trust_payload["runtime_protection"] == "protected")
     assert trust_payload["official_install"]["package"] == "hol-guard"
     assert trust_payload["official_install"]["update_command"] == "hol-guard update"
+    assert "active_command_status" in trust_payload["official_install"]
+    assert "self_check_command" in trust_payload["official_install"]
+    assert trust_payload["approval_center"]["active"] is False
+    assert trust_payload["approval_url_base"] is None
+    assert trust_payload["passive_read_guarantee"]
     assert "recommended_actions" in trust_payload
     assert "key_id" not in trust_payload
     assert "last_proof" not in trust_payload
@@ -1400,6 +1482,7 @@ def test_guard_doctor_human_output_includes_trust_diagnostics(tmp_path: Path, ca
     assert rc == 0
     assert "Local trust" in output
     assert "Passive OS prompts" in output
+    assert "Install check" in output
     assert "hol-guard update" in output
     assert "Guard Cloud policies" in output
     assert "trust test --no-ui --json" in output
@@ -1413,9 +1496,441 @@ def test_trust_cli_doctor_human_output_uses_trust_renderer(tmp_path: Path, capsy
 
     assert rc == 0
     assert "Local trust" in output
+    assert "Mode" in output
     assert "Passive OS prompts" in output
+    assert "Install mode" in output
+    assert "Install check" in output
     assert "hol-guard update" in output
     assert '"runtime_protection"' not in output
+
+
+def test_build_trust_doctor_payload_reports_active_approval_center_port(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    locator = ApprovalCenterLocator(
+        guard_home=home_dir,
+        daemon_url="http://127.0.0.1:5481",
+        approval_url_base="http://127.0.0.1:5481",
+        pid=1234,
+        started_at="2026-06-19T12:00:00+00:00",
+        state_path=home_dir / "guard-daemon-state.json",
+    )
+    monkeypatch.setattr(trust_dispatch_module, "read_approval_center_locator", lambda _home: locator)
+    monkeypatch.setattr(trust_dispatch_module, "load_guard_daemon_url", lambda _home: locator.daemon_url)
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["approval_center"]["active"] is True
+    assert payload["approval_center"]["approval_url_base"] == "http://127.0.0.1:5481"
+    assert payload["approval_center"]["port"] == 5481
+    assert payload["checks"]["approval_center_active"] is True
+    assert payload["approval_url_base"] == "http://127.0.0.1:5481"
+
+
+def test_build_trust_doctor_payload_prefers_live_daemon_port_when_locator_is_stale(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    stale_locator = ApprovalCenterLocator(
+        guard_home=home_dir,
+        daemon_url="http://127.0.0.1:5481",
+        approval_url_base="http://127.0.0.1:5481",
+        pid=1234,
+        started_at="2026-06-19T12:00:00+00:00",
+        state_path=home_dir / "guard-daemon-state.json",
+    )
+    monkeypatch.setattr(trust_dispatch_module, "read_approval_center_locator", lambda _home: stale_locator)
+    monkeypatch.setattr(trust_dispatch_module, "load_guard_daemon_url", lambda _home: "http://127.0.0.1:5499")
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "_load_state",
+        lambda _home: {
+            "pid": 7777,
+            "port": 5499,
+            "package_version": trust_dispatch_module.__version__,
+            "started_at": "2026-06-19T12:01:00+00:00",
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["approval_center"]["approval_url_base"] == "http://127.0.0.1:5499"
+    assert payload["approval_center"]["port"] == 5499
+    assert payload["approval_center"]["snapshot_fresh"] is False
+    assert payload["checks"]["approval_center_route_current"] is False
+    assert any("refresh the local browser approval route" in action for action in payload["recommended_actions"])
+
+
+def test_build_trust_doctor_payload_tolerates_mixed_naive_and_aware_locator_timestamps(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    locator = ApprovalCenterLocator(
+        guard_home=home_dir,
+        daemon_url="http://127.0.0.1:5481",
+        approval_url_base="http://127.0.0.1:5481",
+        pid=1234,
+        started_at="2026-06-19T12:01:00",
+        state_path=home_dir / "guard-daemon-state.json",
+    )
+    monkeypatch.setattr(trust_dispatch_module, "read_approval_center_locator", lambda _home: locator)
+    monkeypatch.setattr(trust_dispatch_module, "load_guard_daemon_url", lambda _home: locator.daemon_url)
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "_load_state",
+        lambda _home: {
+            "pid": 1234,
+            "port": 5481,
+            "package_version": trust_dispatch_module.__version__,
+            "started_at": "2026-06-19T12:00:00+00:00",
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["approval_center"]["snapshot_fresh"] is True
+    assert payload["approval_center"]["approval_url_base"] == "http://127.0.0.1:5481"
+
+
+def test_build_trust_doctor_payload_tolerates_missing_locator_daemon_port(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    locator = ApprovalCenterLocator(
+        guard_home=home_dir,
+        daemon_url="http://127.0.0.1",
+        approval_url_base="http://127.0.0.1:5481",
+        pid=1234,
+        started_at="2026-06-19T12:01:00+00:00",
+        state_path=home_dir / "guard-daemon-state.json",
+    )
+    monkeypatch.setattr(trust_dispatch_module, "read_approval_center_locator", lambda _home: locator)
+    monkeypatch.setattr(trust_dispatch_module, "load_guard_daemon_url", lambda _home: locator.daemon_url)
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "_load_state",
+        lambda _home: {
+            "pid": 1234,
+            "port": 5481,
+            "package_version": trust_dispatch_module.__version__,
+            "started_at": "2026-06-19T12:00:00+00:00",
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["approval_center"]["snapshot_fresh"] is True
+    assert payload["approval_center"]["approval_url_base"] == "http://127.0.0.1:5481"
+    assert payload["approval_center"]["port"] == 5481
+
+
+def test_build_trust_doctor_payload_detects_editable_install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+
+    class _FakeDistribution:
+        version = "9.9.9"
+
+        def read_text(self, filename: str) -> str | None:
+            if filename == "direct_url.json":
+                return json.dumps({"dir_info": {"editable": True}})
+            return None
+
+        def locate_file(self, _path: str) -> Path:
+            return Path("editable/hol-guard/src")
+
+    monkeypatch.setattr(trust_dispatch_module.importlib.metadata, "distribution", lambda _name: _FakeDistribution())
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "build_guard_install_surface_payload",
+        lambda: {
+            "installer": "pipx",
+            "binary_diagnostics": {
+                "resolved_hol_guard": "/mock-home/.local/bin/hol-guard",
+                "expected_script_dir": None,
+                "path_status": "pipx_shim_detected",
+            },
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["official_install"]["version"] == "9.9.9"
+    assert payload["official_install"]["installation_mode"] == "editable"
+    assert payload["official_install"]["editable_install"] is True
+    assert payload["official_install"]["official_install"] is False
+    assert payload["official_install"]["official_install_verified"] is False
+    assert any("official pipx install" in action for action in payload["recommended_actions"])
+
+
+def test_build_trust_doctor_payload_tolerates_distribution_path_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+
+    class _FakeDistribution:
+        version = "9.9.9"
+
+        def read_text(self, _filename: str) -> str | None:
+            return None
+
+        def locate_file(self, _path: str) -> Path:
+            raise RuntimeError("bad metadata")
+
+    monkeypatch.setattr(trust_dispatch_module.importlib.metadata, "distribution", lambda _name: _FakeDistribution())
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "build_guard_install_surface_payload",
+        lambda: {
+            "installer": "pipx",
+            "binary_diagnostics": {
+                "resolved_hol_guard": "/usr/local/bin/hol-guard",
+                "expected_script_dir": None,
+                "path_status": "path_mismatch",
+            },
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["official_install"]["version"] == "9.9.9"
+    assert payload["official_install"]["installation_mode"] == "packaged"
+    assert payload["official_install"]["official_install"] is False
+    assert payload["official_install"]["active_command_status"] == "path_mismatch"
+    assert payload["official_install"]["active_command_verified"] is False
+    assert any("command -v hol-guard" in action for action in payload["recommended_actions"])
+
+
+def test_build_trust_doctor_payload_reports_missing_command_path_help(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+
+    class _FakeDistribution:
+        version = "9.9.9"
+
+        def read_text(self, _filename: str) -> str | None:
+            return None
+
+        def locate_file(self, _path: str) -> Path:
+            return Path("/mock-home/.local/pipx/venvs/hol-guard/lib/python3.12/site-packages")
+
+    monkeypatch.setattr(trust_dispatch_module.importlib.metadata, "distribution", lambda _name: _FakeDistribution())
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "build_guard_install_surface_payload",
+        lambda: {
+            "installer": "pipx",
+            "binary_diagnostics": {
+                "resolved_hol_guard": None,
+                "expected_script_dir": None,
+                "path_status": "not_on_path",
+            },
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["official_install"]["active_command_status"] == "not_on_path"
+    assert payload["official_install"]["active_command_verified"] is False
+    assert any("not on PATH" in action for action in payload["recommended_actions"])
+    assert not any("command -v hol-guard" in action for action in payload["recommended_actions"])
+
+
+def test_build_trust_doctor_payload_verifies_official_pipx_command_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+
+    class _FakeDistribution:
+        version = "9.9.9"
+
+        def read_text(self, _filename: str) -> str | None:
+            return None
+
+        def locate_file(self, _path: str) -> Path:
+            return Path("/mock-home/.local/pipx/venvs/hol-guard/lib/python3.12/site-packages")
+
+    monkeypatch.setattr(trust_dispatch_module.importlib.metadata, "distribution", lambda _name: _FakeDistribution())
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "build_guard_install_surface_payload",
+        lambda: {
+            "installer": "pipx",
+            "binary_diagnostics": {
+                "resolved_hol_guard": "/mock-home/.local/bin/hol-guard",
+                "expected_script_dir": None,
+                "path_status": "pipx_shim_detected",
+            },
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["official_install"]["installation_mode"] == "official-pipx"
+    assert payload["official_install"]["official_install"] is True
+    assert payload["official_install"]["official_install_verified"] is True
+    assert payload["checks"]["official_install_verified"] is True
+
+
+def test_build_trust_doctor_payload_recommends_daemon_restart_only_for_version_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    locator = ApprovalCenterLocator(
+        guard_home=home_dir,
+        daemon_url="http://127.0.0.1:5481",
+        approval_url_base="http://127.0.0.1:5481",
+        pid=1234,
+        started_at="2026-06-19T12:01:00+00:00",
+        state_path=home_dir / "guard-daemon-state.json",
+    )
+    monkeypatch.setattr(trust_dispatch_module, "read_approval_center_locator", lambda _home: locator)
+    monkeypatch.setattr(trust_dispatch_module, "load_guard_daemon_url", lambda _home: locator.daemon_url)
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "_load_state",
+        lambda _home: {
+            "pid": 1234,
+            "port": 5481,
+            "package_version": "0.0.1",
+            "started_at": "2026-06-19T12:00:00+00:00",
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["approval_center"]["snapshot_fresh"] is True
+    assert payload["approval_center"]["restart_required"] is True
+    assert any("restart the Guard daemon" in action for action in payload["recommended_actions"])
+
+
+def test_build_trust_doctor_payload_skips_daemon_restart_when_current(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    locator = ApprovalCenterLocator(
+        guard_home=home_dir,
+        daemon_url="http://127.0.0.1:5481",
+        approval_url_base="http://127.0.0.1:5481",
+        pid=1234,
+        started_at="2026-06-19T12:01:00+00:00",
+        state_path=home_dir / "guard-daemon-state.json",
+    )
+    monkeypatch.setattr(trust_dispatch_module, "read_approval_center_locator", lambda _home: locator)
+    monkeypatch.setattr(trust_dispatch_module, "load_guard_daemon_url", lambda _home: locator.daemon_url)
+    monkeypatch.setattr(
+        trust_dispatch_module,
+        "_load_state",
+        lambda _home: {
+            "pid": 1234,
+            "port": 5481,
+            "package_version": trust_dispatch_module.__version__,
+            "started_at": "2026-06-19T12:00:00+00:00",
+        },
+    )
+
+    payload = trust_dispatch_module.build_trust_doctor_payload(store)
+
+    assert payload["approval_center"]["snapshot_fresh"] is True
+    assert payload["approval_center"]["restart_required"] is False
+    assert not any("restart the Guard daemon" in action for action in payload["recommended_actions"])
+
+
+def test_trust_cli_doctor_reports_macos_no_prompt_copy(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    monkeypatch.setattr(trust_dispatch_module.sys, "platform", "darwin", raising=False)
+
+    rc = main(["guard", "trust", "doctor", "--home", str(home_dir)])
+    output = capsys.readouterr().out
+
+    assert rc == 0
+    assert "No passive macOS Keychain access" in output
+
+
+def test_trust_cli_doctor_redacts_secret_like_assignments_in_json_output(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    original_trust_payload = trust_dispatch_module._trust_status_payload
+
+    def fake_trust_payload(store: GuardStore, *, command: str, backend: str) -> dict[str, object]:
+        payload = original_trust_payload(store, command=command, backend=backend)
+        payload["summary"] = (
+            "Guard saw MY_SECRET_TOKEN=super-secret-value and "
+            "guard-oauth-local-credentials:8126370c0eb65a02 while checking trust."
+        )
+        return payload
+
+    monkeypatch.setattr(trust_dispatch_module, "_trust_status_payload", fake_trust_payload)
+
+    rc = main(
+        [
+            "guard",
+            "trust",
+            "doctor",
+            "--home",
+            str(home_dir),
+            "--json",
+        ]
+    )
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    summary = str(payload.get("summary") or "")
+
+    assert rc == 0
+    assert "MY_SECRET_TOKEN" not in output
+    assert "super-secret-value" not in output
+    assert "8126370c0eb65a02" not in output
+    assert "MY_SECRET_TOKEN" not in summary
+    assert "super-secret-value" not in summary
+    assert "8126370c0eb65a02" not in summary
+    assert summary
+
+
+def test_trust_cli_explain_preserves_non_secret_colon_rule_text(capsys) -> None:
+    trust_dispatch_module._emit_trust_payload(
+        "trust.explain",
+        {
+            "rule": {
+                "pattern": "api_key: forbidden_pattern",
+                "description": "credential: oauth-style",
+                "status": "token: active",
+            }
+        },
+        True,
+    )
+    payload = json.loads(capsys.readouterr().out)
+    rule = payload["rule"]
+
+    assert rule["pattern"] == "api_key: forbidden_pattern"
+    assert rule["description"] == "credential: oauth-style"
+    assert rule["status"] == "token: active"
 
 
 def test_trust_cli_bare_combined_command_routes_to_guard() -> None:
@@ -1445,49 +1960,103 @@ def test_trust_cli_no_ui_probe_requires_no_ui_flag(tmp_path: Path, capsys) -> No
     assert no_ui_payload["trust_health"] in {"protected", "degraded_safe"}
 
 
-def test_trust_cli_rejects_unavailable_backend_status(tmp_path: Path, capsys) -> None:
+def test_trust_cli_explain_requires_rule_id(tmp_path: Path, capsys) -> None:
     home_dir = tmp_path / "home"
-    rc = main(
-        [
-            "guard",
-            "trust",
-            "status",
-            "--backend",
-            "macos-native",
-            "--home",
-            str(home_dir),
-            "--json",
-        ]
+
+    rc = main(["guard", "trust", "explain", "--home", str(home_dir), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 2
+    assert "trust explain --rule" in payload["error"]
+
+
+def test_trust_cli_explain_rejects_boolean_rule_id(tmp_path: Path, capsys) -> None:
+    store = GuardStore(tmp_path / "home")
+
+    rc = trust_dispatch_module._run_guard_trust_command(
+        argparse.Namespace(trust_command="explain", rule=True, json=True, backend="auto"),
+        store=store,
     )
     payload = json.loads(capsys.readouterr().out)
 
     assert rc == 2
-    assert payload["backend_requested"] == "macos-native"
-    assert "not available for passive status" in payload["error"]
-    assert payload["passive_prompt_allowed"] is False
+    assert "trust explain --rule" in payload["error"]
 
 
-def test_trust_cli_degraded_safe_backend_is_explicit(tmp_path: Path, capsys) -> None:
+def test_trust_cli_explain_reports_protected_local_rule(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+    install_fake_system_keyring,
+) -> None:
     home_dir = tmp_path / "home"
-    rc = main(
-        [
-            "guard",
-            "trust",
-            "status",
-            "--backend",
-            "degraded-safe",
-            "--home",
-            str(home_dir),
-            "--json",
-        ]
-    )
+    _enable_macos_native_policy_integrity(monkeypatch, install_fake_system_keyring)
+    store = GuardStore(home_dir)
+    setup = store.setup_policy_integrity(now="2026-06-19T12:00:00Z")
+    assert setup["mode"] == "protected"
+    store.upsert_policy(_decision(artifact_id="codex:project:local-rule"), "2026-06-19T12:01:00Z")
+    decision_id = int(_policy_row(home_dir, artifact_id="codex:project:local-rule")["decision_id"])
+
+    rc = main(["guard", "trust", "explain", "--home", str(home_dir), "--rule", str(decision_id), "--json"])
     payload = json.loads(capsys.readouterr().out)
 
     assert rc == 0
-    assert payload["backend_requested"] == "degraded-safe"
-    assert payload["backend"] == "degraded-safe"
-    assert payload["remembered_rules"] == "disabled_degraded"
-    assert payload["durable_local_rules"] == "limited"
+    assert payload["rule_status"] == "remembered_rule_protected"
+    assert payload["rule_status_label"] == "Remembered and protected"
+    assert payload["rule"]["decision_id"] == decision_id
+    assert payload["rule"]["integrity_status"] == "valid"
+    assert payload["trust_status"]["remembered_rules"] == "enforced"
+    assert "integrity_key_id" not in payload["rule"]
+
+
+def test_trust_cli_explain_human_output_uses_trust_renderer(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+    install_fake_system_keyring,
+) -> None:
+    home_dir = tmp_path / "home"
+    _enable_macos_native_policy_integrity(monkeypatch, install_fake_system_keyring)
+    store = GuardStore(home_dir)
+    store.setup_policy_integrity(now="2026-06-19T12:00:00Z")
+    store.upsert_policy(_decision(artifact_id="codex:project:local-rule-human"), "2026-06-19T12:01:00Z")
+    decision_id = int(_policy_row(home_dir, artifact_id="codex:project:local-rule-human")["decision_id"])
+
+    rc = main(["guard", "trust", "explain", "--home", str(home_dir), "--rule", str(decision_id)])
+    output = capsys.readouterr().out
+
+    assert rc == 0
+    assert "Remembered rule authority" in output
+    assert "Remembered and protected" in output
+
+
+def test_trust_cli_explain_reports_guard_cloud_rule(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    store.replace_remote_policies(
+        [
+            PolicyDecision(
+                harness="codex",
+                scope="publisher",
+                action="block",
+                publisher="npm",
+                reason="cloud block",
+                source="cloud-sync",
+            )
+        ],
+        "2026-06-19T12:01:00Z",
+        remote_write_authorized=True,
+    )
+    decision_id = int(store.list_policy_decisions("codex")[0]["decision_id"])
+
+    rc = main(["guard", "trust", "explain", "--home", str(home_dir), "--rule", str(decision_id), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    assert payload["rule_status"] == "guard_cloud"
+    assert payload["rule_status_label"] == "From Guard Cloud"
+    assert payload["rule"]["source"] == "cloud-sync"
+    assert "integrity_status" not in payload["rule"]
 
 
 def test_trust_cli_doctor_degraded_safe_does_not_pass_runtime_check(tmp_path: Path, capsys) -> None:
@@ -1513,8 +2082,21 @@ def test_trust_cli_doctor_degraded_safe_does_not_pass_runtime_check(tmp_path: Pa
     assert payload["summary"].startswith("Runtime protection is degraded.")
 
 
-def test_trust_cli_macos_native_setup_is_explicitly_unavailable(tmp_path: Path, capsys) -> None:
+def test_trust_cli_macos_native_setup_and_reset_work(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+    install_fake_system_keyring,
+) -> None:
+    _enable_macos_native_policy_integrity(monkeypatch, install_fake_system_keyring)
     home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    store.upsert_policy(
+        _decision(artifact_id="codex:project:trust-setup", artifact_hash="hash-trust-setup"),
+        "2026-06-14T00:00:00Z",
+    )
+    store.reset_policy_integrity(now="2026-06-14T00:00:01Z")
+
     rc = main(
         [
             "guard",
@@ -1529,10 +2111,12 @@ def test_trust_cli_macos_native_setup_is_explicitly_unavailable(tmp_path: Path, 
     )
     payload = json.loads(capsys.readouterr().out)
 
-    assert rc == 2
+    assert rc == 0
     assert payload["backend_requested"] == "macos-native"
-    assert "not enabled yet" in payload["error"]
-    assert "trust setup" in payload["error"]
+    assert payload["backend"] == "system-keyring"
+    assert payload["mode"] == "protected"
+    assert payload["remembered_rules"] == "enforced"
+    assert payload["ok"] is True
     assert payload["passive_prompt_allowed"] is False
 
     reset_rc = main(
@@ -1548,8 +2132,32 @@ def test_trust_cli_macos_native_setup_is_explicitly_unavailable(tmp_path: Path, 
         ]
     )
     reset_payload = json.loads(capsys.readouterr().out)
-    assert reset_rc == 2
-    assert "trust reset" in reset_payload["error"]
+    assert reset_rc == 0
+    assert reset_payload["mode"] == "degraded"
+    assert reset_payload["remembered_rules"] == "disabled_degraded"
+    assert reset_payload["ok"] is True
+
+
+def test_setup_policy_integrity_rolls_back_degraded_refresh_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GuardStore(tmp_path / "home")
+    monkeypatch.setattr(store, "_load_policy_integrity_control_state", lambda create: None)
+
+    baseline = _policy_integrity_state_payload(store.guard_home)
+    observed: dict[str, dict[str, object]] = {}
+
+    def _verify_policy_integrity(*, harness: str | None = None) -> dict[str, object]:
+        observed["state_payload"] = _policy_integrity_state_payload(store.guard_home)
+        return {"harness": harness, "mode": "degraded"}
+
+    monkeypatch.setattr(store, "verify_policy_integrity", _verify_policy_integrity)
+
+    result = store.setup_policy_integrity(harness="codex", now="2026-06-14T00:00:00Z")
+
+    assert result == {"harness": "codex", "mode": "degraded"}
+    assert observed["state_payload"] == baseline
 
 
 def test_policies_cli_verify_returns_nonzero_for_rollback_detected(tmp_path: Path, capsys) -> None:

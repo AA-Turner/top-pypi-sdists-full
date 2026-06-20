@@ -37,7 +37,7 @@ class MemoryStorage(dict):
 
     def __setitem__(self, key, value):
         uri, metadata = value
-        super(MemoryStorage, self).__setitem__(key, (uri, metadata or frozenset()))
+        super(MemoryStorage, self).__setitem__(key, (uri, metadata if metadata is not None else frozenset()))
 
     def optimized_prefix_list(self, prefix, return_metadata=False):
         return None
@@ -315,7 +315,7 @@ class NameServer(object):
         with self.lock:
             if safe and name in self.storage:
                 raise NamingError("name already registered: " + name)
-            self.storage[name] = uri, set(metadata) if metadata else None
+            self.storage[name] = uri, set(metadata) if metadata is not None else None
 
     def set_metadata(self, name, metadata):
         """update the metadata for an existing registration"""
@@ -327,28 +327,32 @@ class NameServer(object):
         with self.lock:
             try:
                 uri, old_meta = self.storage[name]
-                self.storage[name] = uri, set(metadata) if metadata else None
+                self.storage[name] = uri, set(metadata) if metadata is not None else None
             except KeyError:
                 raise NamingError("unknown name: " + name)
 
     def remove(self, name=None, prefix=None, regex=None):
         """Remove a registration. returns the number of items removed."""
-        if name and name in self.storage and name != core.NAMESERVER_NAME:
+        if name and name != core.NAMESERVER_NAME:
             with self.lock:
-                del self.storage[name]
-            return 1
+                if name in self.storage:
+                    del self.storage[name]
+                    return 1
+                return 0
         if prefix:
-            items = list(self.list(prefix=prefix).keys())
-            if core.NAMESERVER_NAME in items:
-                items.remove(core.NAMESERVER_NAME)
-            self.storage.remove_items(items)
-            return len(items)
+            with self.lock:
+                items = list(self.list(prefix=prefix).keys())
+                if core.NAMESERVER_NAME in items:
+                    items.remove(core.NAMESERVER_NAME)
+                self.storage.remove_items(items)
+                return len(items)
         if regex:
-            items = list(self.list(regex=regex).keys())
-            if core.NAMESERVER_NAME in items:
-                items.remove(core.NAMESERVER_NAME)
-            self.storage.remove_items(items)
-            return len(items)
+            with self.lock:
+                items = list(self.list(regex=regex).keys())
+                if core.NAMESERVER_NAME in items:
+                    items.remove(core.NAMESERVER_NAME)
+                self.storage.remove_items(items)
+                return len(items)
         return 0
 
     # noinspection PyNoneFunctionAssignment

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: piccolo_api
-Version: 1.9.0
+Version: 1.10.0
 Summary: Utilities for using the Piccolo ORM in ASGI apps, plus essential ASGI middleware such as authentication and rate limiting.
 Home-page: https://github.com/piccolo-orm/piccolo_api
 Author: Daniel Townsend
@@ -29,7 +29,7 @@ Provides-Extra: authenticator
 Requires-Dist: pyotp==2.9.0; extra == "authenticator"
 Requires-Dist: qrcode==7.4.2; extra == "authenticator"
 Provides-Extra: cryptography
-Requires-Dist: cryptography==46.0.5; extra == "cryptography"
+Requires-Dist: cryptography==48.0.1; extra == "cryptography"
 Provides-Extra: pynacl
 Requires-Dist: PyNaCl==1.6.2; extra == "pynacl"
 Provides-Extra: s3
@@ -37,7 +37,7 @@ Requires-Dist: boto3==1.*; extra == "s3"
 Provides-Extra: all
 Requires-Dist: pyotp==2.9.0; extra == "all"
 Requires-Dist: qrcode==7.4.2; extra == "all"
-Requires-Dist: cryptography==46.0.5; extra == "all"
+Requires-Dist: cryptography==48.0.1; extra == "all"
 Requires-Dist: PyNaCl==1.6.2; extra == "all"
 Requires-Dist: boto3==1.*; extra == "all"
 Dynamic: author

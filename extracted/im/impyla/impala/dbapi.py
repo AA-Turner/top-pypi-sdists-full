@@ -14,9 +14,6 @@
 
 """Implements the Python DB API 2.0 (PEP 249) for Impala"""
 
-from __future__ import absolute_import
-
-import six
 import time
 import datetime
 
@@ -259,6 +256,5 @@ def TimeFromTicks(ticks):
 def TimestampFromTicks(ticks):
     return Timestamp(*time.localtime(ticks)[:6])
 
-if six.PY3:
-    buffer = memoryview
+buffer = memoryview
 Binary = buffer

@@ -4,11 +4,11 @@
 
 __name__ = "biotite.structure.info"
 __author__ = "Tom David Müller, Patrick Kunzmann"
-__all__ = ["amino_acid_names", "nucleotide_names", "carbohydrate_names"]
+__all__ = ["amino_acid_names", "nucleotide_names", "carbohydrate_names", "ion_names"]
 
 import functools
 import numpy as np
-from biotite.structure.info.ccd import get_ccd
+from biotite.structure.info.ccd import get_ccd, get_from_ccd
 
 _AMINO_ACID_TYPES = [
     "D-beta-peptide, C-gamma linking",
@@ -45,16 +45,16 @@ _CARBOHYDRATE_TYPES = [
 
 
 @functools.cache
-def amino_acid_names():
+def amino_acid_names() -> list[str]:
     """
-    Get a tuple of amino acid three-letter codes according to the
-    PDB *Chemical Component Dictionary*.
+    Get a list of all amino acid residues according to the PDB
+    *Chemical Component Dictionary*.
     :footcite:`Westbrook2015`
 
     Returns
     -------
-    amino_acid_names : tuple of str
-        A list of three-letter-codes containing residues that are
+    amino_acid_names : list of str
+        A list of codes containing residues that are
         peptide monomers.
 
     References
@@ -66,16 +66,16 @@ def amino_acid_names():
 
 
 @functools.cache
-def nucleotide_names():
+def nucleotide_names() -> list[str]:
     """
-    Get a tuple of nucleotide three-letter codes according to the
+    Get a list of all nucleotide residues according to the
     PDB *Chemical Component Dictionary*.
     :footcite:`Westbrook2015`
 
     Returns
     -------
-    nucleotide_names : tuple of str
-        A list of three-letter-codes containing residues that are
+    nucleotide_names : list of str
+        A list of codes containing residues that are
         DNA/RNA monomers.
 
     References
@@ -87,16 +87,16 @@ def nucleotide_names():
 
 
 @functools.cache
-def carbohydrate_names():
+def carbohydrate_names() -> list[str]:
     """
-    Get a tuple of carbohydrate three-letter codes according to the
+    Get a list of all carbohydrate residues according to the
     PDB *Chemical Component Dictionary*.
     :footcite:`Westbrook2015`
 
     Returns
     -------
-    carbohydrate_names : tuple of str
-        A list of three-letter-codes containing residues that are
+    carbohydrate_names : list of str
+        A list of codes containing residues that are
         saccharide monomers.
 
     References
@@ -107,7 +107,46 @@ def carbohydrate_names():
     return _get_group_members(_CARBOHYDRATE_TYPES)
 
 
-def _get_group_members(match_types):
+@functools.cache
+def ion_names() -> list[str]:
+    """
+    Get a list of all residues in the
+    PDB *Chemical Component Dictionary* (CCD) that are monoatomic ions.
+    :footcite:`Westbrook2015`
+
+    Returns
+    -------
+    ion_names : list of str
+        A list of codes containing residues that are monoatomic ions.
+
+    References
+    ----------
+
+    .. footbibliography::
+    """
+    chem_comp = get_ccd()["chem_comp"]
+    comp_ids = chem_comp["id"].as_array()
+    formulas = chem_comp["formula"].as_array()
+
+    # Simple filter: The formula must contain only one element
+    mask = np.char.isalpha(formulas)
+    comp_ids = comp_ids[mask]
+    formulas = formulas[mask]
+
+    # More complex filter: The component must only contain a single charged atom
+    ion_comp_ids = []
+    for comp_id in comp_ids.tolist():
+        chem_comp_atom = get_from_ccd("chem_comp_atom", comp_id)
+        if chem_comp_atom is None or chem_comp_atom.row_count != 1:
+            continue
+        if chem_comp_atom["charge"].as_item() == 0:
+            continue
+        ion_comp_ids.append(comp_id)
+
+    return ion_comp_ids
+
+
+def _get_group_members(match_types: list[str]) -> list[str]:
     """
     Identify component IDs that matches a given component *type* from the CCD.
 

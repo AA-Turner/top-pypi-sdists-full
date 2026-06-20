@@ -353,6 +353,12 @@ class TenantHostSpec(BaseModel):
     not_found_template: str | None = None
     expired_template: str | None = None
     order: int | None = None
+    # #1418: whether declaring this host implies membership-gated login. Default True
+    # (back-compat: tenant_host presence gates login + 403s a host-pinned non-member).
+    # Set False for an app that uses host resolution + the `current_tenant` host-lens
+    # WITHOUT the enterprise-auth membership table — a host-pin with no membership then
+    # proceeds (the app self-authorizes) instead of 403.
+    membership_gated: bool = True
     # ADR-0036 (#1394 Layer 2): tenant-hierarchy parent edge. Names a `ref` field
     # on THIS entity whose target is another `tenant_host` entity (the parent
     # kind). The linker derives the kind partial-order from these edges; the
@@ -384,6 +390,44 @@ class MembershipSpec(BaseModel):
     # The per-tenant role/persona source field on the membership (the personas an
     # identity holds *in this tenant*). `None` = the framework membership `roles`.
     roles: str | None = None
+
+
+# Auth-identity binding source tokens (the auth principal's attributes the
+# registration mirror can read). Closed vocabulary — validated at parse time.
+AUTH_IDENTITY_SOURCES: tuple[str, ...] = (
+    "id",
+    "email",
+    "email_localpart",
+    "username",
+    "role",
+)
+
+
+class AuthIdentitySpec(BaseModel):
+    """Declares that this entity IS the auth principal's domain projection (ADR-0039).
+
+    Declared with an `auth_identity:` block on the framework `User` entity. It is the
+    single declared source of the auth↔domain bridge: on real auth-user creation the
+    framework provisions (mirrors) a domain row, and a `ref User` FK resolves to the
+    domain row's id (joined by `link_via`) rather than assuming `domain User.id == auth id`.
+
+    Opt-in (ADR-0039 D7): with no declaration, `User` behaves exactly as today — the auth
+    id is injected and no row is mirrored. The binding is FK-graph/link-validated at
+    `dazzle validate` (D6/A1): `link_via` must be a column and every required-no-default
+    column on `User` must be resolved via `field_map` or `defaults`, else a validate error.
+
+    **Never** changes `session.user_id` or any auth-store/membership/RLS/audit lookup (D1).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    # Column joining the domain row to the auth identity. v1 validates/tests `email` only.
+    link_via: str = "email"
+    # (domain_col, source) — source ∈ AUTH_IDENTITY_SOURCES — mapping auth-principal
+    # attributes onto domain columns at provisioning time.
+    field_map: tuple[tuple[str, str], ...] = ()
+    # (domain_col, literal) — NOT-NULL columns the auth flow can't supply, given a literal.
+    defaults: tuple[tuple[str, str], ...] = ()
 
 
 class EntitySpec(BaseModel):
@@ -497,6 +541,10 @@ class EntitySpec(BaseModel):
     # backward compatible); () = no generated public REST (`api: none`); a tuple
     # of op names (subset of list/read/create/update/delete) = explicit allowlist.
     api_expose: tuple[str, ...] | None = None
+    # ADR-0039 (#778/#1398): when set on the `User` entity, declares the auth↔domain
+    # bridge — provision the domain row on auth-user creation + resolve `ref User` FKs
+    # by `link_via`. None = no bridge (behaves exactly as today; D5/D7).
+    auth_identity: AuthIdentitySpec | None = None
 
     model_config = ConfigDict(frozen=True)
 

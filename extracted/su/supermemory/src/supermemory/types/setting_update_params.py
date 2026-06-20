@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from typing import Dict, Union, Iterable, Optional
-from typing_extensions import Annotated, TypedDict
+from typing_extensions import Required, Annotated, TypedDict
 
 from .._utils import PropertyInfo
 
-__all__ = ["SettingUpdateParams"]
+__all__ = ["SettingUpdateParams", "ProfileBucket"]
 
 
 class SettingUpdateParams(TypedDict, total=False):
@@ -47,4 +47,17 @@ class SettingUpdateParams(TypedDict, total=False):
 
     onedrive_custom_key_enabled: Annotated[Optional[bool], PropertyInfo(alias="onedriveCustomKeyEnabled")]
 
+    profile_buckets: Annotated[Iterable[ProfileBucket], PropertyInfo(alias="profileBuckets")]
+    """Profile bucket definitions"""
+
     should_llm_filter: Annotated[Optional[bool], PropertyInfo(alias="shouldLLMFilter")]
+
+
+class ProfileBucket(TypedDict, total=False):
+    """Definition of a single profile bucket"""
+
+    key: Required[str]
+    """Stable slug for the bucket, stored on each memory"""
+
+    description: str
+    """What belongs in this bucket — used to guide the ingestion classifier."""

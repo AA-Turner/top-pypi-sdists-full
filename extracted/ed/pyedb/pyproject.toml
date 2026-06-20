@@ -31,7 +31,8 @@ dependencies = [
     "ansys-edb-core>=0.3.1",
     "psutil",
     "defusedxml>=0.7,<8.0",
-    "xmltodict"
+    "xmltodict",
+    "typer>=0.20.0",
 ]
 
 [project.optional-dependencies]
@@ -66,6 +67,10 @@ all = [
 [tool.flit.module]
 name = "pyedb"
 
+[project.entry-points."pyaedt.cli"]
+antenna = "ansys.aedt.toolkits.antenna.cli:antenna_app"
+edb = "pyedb.cli:app"
+
 # uv configuration
 [tool.uv]
 compile-bytecode = true
@@ -80,7 +85,7 @@ tests = [
     "mock>=5.1.0,<5.3",
     "pytest>=7.4.0,<9.1",
     "pytest-cov>=4.0.0,<7.2",
-    "pytest-xdist>=3.5.0,<3.7",
+    "pytest-xdist>=3.5.0,<3.9",
     "pytest-rerunfailures>=14.0,<17",
 ]
 doc = [

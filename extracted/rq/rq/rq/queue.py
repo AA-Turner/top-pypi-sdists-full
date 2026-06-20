@@ -37,6 +37,7 @@ from .scripts import save_unique_job, schedule_unique_job
 from .serializers import Serializer, resolve_serializer
 from .types import FunctionReferenceType, JobDependencyType
 from .utils import as_text, backend_class, compact, get_version, import_attribute, now, parse_timeout
+from .webhook import Webhook
 
 logger = logging.getLogger('rq.queue')
 
@@ -62,6 +63,7 @@ class EnqueueData(
             'on_failure',
             'on_stopped',
             'repeat',
+            'webhooks',
         ],
     )
 ):
@@ -94,6 +96,7 @@ class EnqueueArgs(NamedTuple):
     unique: bool
     args: tuple | list | None
     kwargs: dict | None
+    webhooks: Sequence[Webhook] | None
 
 
 @total_ordering
@@ -266,10 +269,13 @@ class Queue:
 
     @property
     def scheduler_pid(self) -> int | None:
-        from rq.scheduler import RQScheduler
+        from rq.scheduler import SCHEDULER_KEY_TEMPLATE, RQScheduler
 
-        pid = self.connection.get(RQScheduler.get_locking_key(self.name))
-        return int(pid.decode()) if pid is not None else None
+        name = self.connection.get(RQScheduler.get_locking_key(self.name))
+        if name is None:
+            return None
+        pid = self.connection.hget(SCHEDULER_KEY_TEMPLATE % name.decode(), 'pid')
+        return int(pid) if pid else None
 
     def acquire_maintenance_lock(self) -> bool:
         """Returns a boolean indicating whether a lock to clean this queue
@@ -551,6 +557,7 @@ class Queue:
         on_success: Callback | Callable | None = None,
         on_failure: Callback | Callable | None = None,
         on_stopped: Callback | Callable | None = None,
+        webhooks: Sequence[Webhook] | None = None,
         group_id: str | None = None,
     ) -> Job:
         """Creates a job based on parameters given
@@ -576,6 +583,8 @@ class Queue:
                 None. Callable is deprecated.
             on_stopped (Optional[Union[Callback, Callable[..., Any]]], optional): Callback for on stopped. Defaults to
                 None. Callable is deprecated.
+            webhooks (Optional[Sequence[Webhook]], optional): Webhooks to send on matching terminal job statuses.
+                Defaults to None.
             pipeline (Optional[Pipeline], optional): The Redis Pipeline. Defaults to None.
             group_id (Optional[str], optional): A group ID that the job is being added to. Defaults to None.
 
@@ -619,6 +628,7 @@ class Queue:
             on_success=on_success,
             on_failure=on_failure,
             on_stopped=on_stopped,
+            webhooks=webhooks,
             group_id=group_id,
         )
 
@@ -713,6 +723,7 @@ class Queue:
         on_stopped: Callback | Callable[..., Any] | None = None,
         pipeline: Pipeline | None = None,
         unique: bool = False,
+        webhooks: Sequence[Webhook] | None = None,
     ) -> Job:
         """Creates a job to represent the delayed function call and enqueues it.
 
@@ -743,6 +754,8 @@ class Queue:
             pipeline (Optional[Pipeline], optional): The Redis Pipeline. Defaults to None.
             unique (bool, optional): If True, raises DuplicateJobError if a job with the same ID exists.
                 Defaults to False.
+            webhooks (Optional[Sequence[Webhook]], optional): Webhooks to send on matching terminal job statuses.
+                Defaults to None.
 
         Returns:
             Job: The enqueued Job
@@ -768,6 +781,7 @@ class Queue:
             on_success=on_success,
             on_failure=on_failure,
             on_stopped=on_stopped,
+            webhooks=webhooks,
         )
         return self.enqueue_job(job, pipeline=pipeline, at_front=at_front, unique=unique)
 
@@ -790,6 +804,7 @@ class Queue:
         on_failure: Callback | Callable | None = None,
         on_stopped: Callback | Callable | None = None,
         repeat: Repeat | None = None,
+        webhooks: Sequence[Webhook] | None = None,
     ) -> EnqueueData:
         """Need this till support dropped for python_version < 3.7, where defaults can be specified for named tuples
         And can keep this logic within EnqueueData
@@ -815,6 +830,8 @@ class Queue:
             on_stopped (Optional[Union[Callback, Callable[..., Any]]], optional): Callback for on stopped. Defaults to
                 None. Callable is deprecated.
             repeat (Optional[Repeat], optional): Repeat object. Defaults to None.
+            webhooks (Optional[Sequence[Webhook]], optional): Webhooks to send on matching terminal job statuses.
+                Defaults to None.
 
         Returns:
             EnqueueData: The EnqueueData
@@ -837,6 +854,7 @@ class Queue:
             on_failure,
             on_stopped,
             repeat,
+            webhooks,
         )
 
     def enqueue_many(
@@ -879,6 +897,7 @@ class Queue:
                 'on_success': job_data.on_success,
                 'on_failure': job_data.on_failure,
                 'on_stopped': job_data.on_stopped,
+                'webhooks': job_data.webhooks,
                 'group_id': group_id,
                 'repeat': job_data.repeat,
             }
@@ -976,6 +995,7 @@ class Queue:
         on_success = kwargs.pop('on_success', None)
         on_failure = kwargs.pop('on_failure', None)
         on_stopped = kwargs.pop('on_stopped', None)
+        webhooks = kwargs.pop('webhooks', None)
         pipeline = kwargs.pop('pipeline', None)
         unique = kwargs.pop('unique', False)
 
@@ -1004,6 +1024,7 @@ class Queue:
             unique,
             args,
             kwargs,
+            webhooks,
         )
 
     def enqueue(self, f: FunctionReferenceType, *args, **kwargs) -> Job:
@@ -1038,6 +1059,7 @@ class Queue:
             unique,
             args,
             kwargs,
+            webhooks,
         ) = Queue.parse_args(f, *args, **kwargs)
 
         return self.enqueue_call(
@@ -1058,6 +1080,7 @@ class Queue:
             on_success=on_success,
             on_failure=on_failure,
             on_stopped=on_stopped,
+            webhooks=webhooks,
             pipeline=pipeline,
             unique=unique,
         )
@@ -1092,6 +1115,7 @@ class Queue:
             unique,  # Not used for scheduled jobs, but parsed for consistency
             args,
             kwargs,
+            webhooks,
         ) = Queue.parse_args(f, *args, **kwargs)
         job = self.create_job(
             f,
@@ -1111,6 +1135,7 @@ class Queue:
             on_success=on_success,
             on_failure=on_failure,
             on_stopped=on_stopped,
+            webhooks=webhooks,
         )
         if at_front:
             job.enqueue_at_front = True
@@ -1345,9 +1370,11 @@ class Queue:
 
             if job.failure_callback:
                 job.failure_callback(job, self.connection, *sys.exc_info())
+            job.send_webhooks(JobStatus.FAILED, exc_string=exc_string)
         else:
             if job.success_callback:
                 job.success_callback(job, self.connection, job.return_value())
+            job.send_webhooks(JobStatus.FINISHED)
 
         return job
 

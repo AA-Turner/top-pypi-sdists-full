@@ -59,6 +59,7 @@ __all__ = (
     "FlowValidationSeverityType",
     "FlowValidationTypeType",
     "IncludeExcludeType",
+    "IncludedDataType",
     "IncompatibleLoopNodeTypeType",
     "IngestionJobFilterAttributeType",
     "IngestionJobFilterOperatorType",
@@ -244,6 +245,7 @@ FlowValidationTypeType = Literal[
     "Unspecified",
 ]
 IncludeExcludeType = Literal["EXCLUDE", "INCLUDE"]
+IncludedDataType = Literal["ALL_DATA", "METADATA_ONLY"]
 IncompatibleLoopNodeTypeType = Literal["Collector", "Condition", "Input", "Iterator"]
 IngestionJobFilterAttributeType = Literal["STATUS"]
 IngestionJobFilterOperatorType = Literal["EQ"]

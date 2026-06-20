@@ -67,6 +67,7 @@ from ..service.helpers import (
     _validate_tool_call_params,
     _wait_with_disconnect,
     build_extended_sampling_kwargs,
+    enforce_context_length_for_messages,
     get_engine,
     get_usage,
 )
@@ -120,6 +121,76 @@ def _tool_call_name(tc) -> str | None:
         return getattr(fn, "name", None)
     # Flat attr-shape — no ``function`` attribute.
     return getattr(tc, "name", None)
+
+
+def _forced_tool_call_prefix(parser_name: str | None, function_name: str) -> str | None:
+    """Build the assistant-turn prefix string that the model continues
+    when ``tool_choice`` forces a named function.
+
+    Returns ``None`` for parsers where prefix injection isn't a known
+    win (e.g. channel-routed harmony / gemma4: those publish tool calls
+    via the OutputRouter's tool-call channel directly, so the model
+    already produces a structured call when prompted — and pre-pending
+    the wire opener would actually CONFUSE the channel state machine).
+    For parser-only families (hermes / qwen3coder / llama / kimi /
+    glm47 / mistral / minimax / deepseek / nemotron / xlam / functionary)
+    the wire opener is unambiguous; insert ``<tool_call>\\n{"name":
+    "X", "arguments":`` so the model continues with the arguments object
+    and the closer.
+
+    This is the OpenAI ``tool_choice`` forced-function lever — pure
+    prefix injection, parser-shape-agnostic of the underlying alias.
+    """
+    if not function_name:
+        return None
+    # Verified parsers that explicitly recognise the hermes ``<tool_call>``
+    # JSON-body wire shape in their primary path (both non-streaming
+    # ``extract_tool_calls`` regex AND the streaming state-machine
+    # sentinel set). Each one's source was audited against this opener
+    # before being added:
+    #   - ``hermes`` (vllm_mlx/tool_parsers/hermes_tool_parser.py):
+    #     ``TOOL_CALL_PATTERN = <tool_call>{JSON}</tool_call>``;
+    #     ``_STREAMING_SENTINELS = ("<tool_call>", "<function=")``
+    #
+    # Parsers EXCLUDED on purpose because their primary wire is NOT
+    # the JSON ``<tool_call>`` body shape — even when the OPENER
+    # matches, the body shape conflicts with the parser's
+    # expectations (codex r1 + r3 P2 on this PR):
+    #   - ``qwen3coder`` / ``qwen3_coder_xml`` — same ``<tool_call>``
+    #     opener but the body uses XML ``<function=NAME>...`` markers,
+    #     NOT JSON. ``Qwen3CoderToolParser.extract_tool_calls`` looks
+    #     for ``<function=`` after the opener and would miss a JSON
+    #     body entirely.
+    #   - ``minimax``  → ``<minimax:tool_call>`` / ``<invoke name="...">``
+    #   - ``mistral``  → ``[TOOL_CALLS]``
+    #   - ``deepseek`` → ``<｜tool▁calls▁begin｜>``
+    #   - ``llama``    → ``<|python_tag|>`` / bare JSON (its own opener)
+    #   - ``kimi``     → ``<|tool_calls_section_begin|>``
+    #   - ``glm47``    → ``<tool_call>...<arg_key>...</arg_value>``
+    #     (XML body, NOT JSON — same body-shape conflict as
+    #     qwen3coder above)
+    #   - ``granite``, ``xlam``, ``functionary``, ``nemotron``,
+    #     ``seed_oss`` — distinct wire formats; defer to the
+    #     post-parse synthesis fallback rather than risk a wrong
+    #     opener.
+    _verified_json_tool_call_parsers = {
+        "hermes",
+    }
+    if parser_name in _verified_json_tool_call_parsers:
+        # JSON envelope opener — model continues with the arguments
+        # object body. Leave a trailing space so the model picks up
+        # immediately with ``{...}``.
+        #
+        # ``json.dumps(function_name)`` escapes any quoted / backslash /
+        # control character in the function name so a hostile tool
+        # spec (``{"name": "x\\\\\\", \\"arguments\\": ..."}``) cannot
+        # corrupt the wire envelope or inject extra fields. Codex r4
+        # BLOCKING — direct f-string interpolation was vulnerable.
+        return f'<tool_call>\n{{"name": {json.dumps(function_name)}, "arguments": '
+    # Channel-routed (harmony / gemma4) and parsers whose wire shape
+    # we have NOT audited: no prefix injection. The post-parse
+    # synthesis path remains as a fallback (``_synthesize_forced_tool_call``).
+    return None
 
 
 def _synthesize_forced_tool_call(name: str, arguments: str = "{}"):
@@ -719,6 +790,35 @@ async def _create_chat_completion_impl(
     if request.tools:
         chat_kwargs["tools"] = convert_tools_for_template(request.tools)
 
+    # OpenAI ``tool_choice`` forced-function — assistant-turn prefix
+    # injection. The chat-template renderer (and the engine's
+    # ``chat()``/``stream_chat()``) accept ``forced_assistant_prefix``;
+    # when set, the rendered prompt is suffixed with the parser's wire-
+    # envelope opener and the model continues from inside the tool
+    # call. The text parser then recovers the call in the normal flow.
+    # No per-model regex, no per-alias config — the prefix is derived
+    # solely from ``cfg.tool_call_parser`` and the requested function
+    # name. See ``_forced_tool_call_prefix`` for the parser-shape
+    # taxonomy.
+    _forced_prefix = None
+    if request.tools and request.tool_choice is not None:
+        _forced_name: str | None = None
+        if (
+            isinstance(request.tool_choice, dict)
+            and request.tool_choice.get("type") == "function"
+        ):
+            _forced_name = (request.tool_choice.get("function") or {}).get("name")
+        elif request.tool_choice == "required" and len(request.tools) == 1:
+            # OpenAI spec: ``required`` with a single tool is unambiguous
+            # — same forcing semantics as a named choice.
+            _forced_name = request.tools[0].function.get("name")
+        if _forced_name:
+            _forced_prefix = _forced_tool_call_prefix(
+                cfg.tool_call_parser, _forced_name
+            )
+    if _forced_prefix:
+        chat_kwargs["forced_assistant_prefix"] = _forced_prefix
+
     # PFlash routing (#287): structured-output prompts are
     # prompt-integrity-sensitive — lossy compression would corrupt the
     # JSON schema context, and there is no user-facing opt-out for
@@ -736,6 +836,18 @@ async def _create_chat_completion_impl(
 
     if resolved_thinking is not None:
         chat_kwargs["enable_thinking"] = resolved_thinking
+
+    # Context-length pre-check (DoS defense + UX, rapid-desktop#273 / #463).
+    # See ``service/helpers.py::enforce_context_length_for_messages`` for
+    # the rationale (8 MiB body still holds ~2M tokens → context window
+    # blown → ~60–90 s of wasted prefill before client gives up). Same
+    # gate runs in routes/completions, routes/anthropic, routes/responses.
+    enforce_context_length_for_messages(
+        engine,
+        messages,
+        tools=request.tools,
+        max_tokens=chat_kwargs.get("max_tokens"),
+    )
 
     # Cloud routing: offload large-context requests to cloud LLM.
     #
@@ -1087,6 +1199,25 @@ async def _create_chat_completion_impl(
                     text="".join(routed_content_parts),
                     reasoning_text="".join(routed_reasoning_parts),
                 )
+            # Forced-tool prefix on the logprobs path: the stream
+            # yields a synthetic first chunk carrying the prefix
+            # bytes for the SSE postprocessor, but THIS internal
+            # consumer only retains the last chunk. Fold the prefix
+            # into ``output.text`` so the downstream tool parser sees
+            # the full ``<tool_call>{"name":...,"arguments":...}``
+            # envelope and recovers the model-generated arguments
+            # instead of falling through to ``_synthesize_forced_tool_call``'s
+            # empty-args default (codex r1 P2 on this PR).
+            _forced_prefix_value = chat_kwargs.get("forced_assistant_prefix")
+            if (
+                _forced_prefix_value
+                and output is not None
+                and not (output.text or "").startswith(_forced_prefix_value)
+            ):
+                output = _dc_replace(
+                    output,
+                    text=_forced_prefix_value + (output.text or ""),
+                )
         elif use_guided and json_schema:
             try:
                 output = await _wait_with_disconnect(
@@ -1143,7 +1274,20 @@ async def _create_chat_completion_impl(
         # "Failed to process image|video" prefix. Convert to 400 so VLM
         # clients get a clear error instead of a 200 with empty completion
         # (#457).
-        if "Failed to process image" in err_msg or "Failed to process video" in err_msg:
+        #
+        # The "exceeds the per-batch cap" marker comes from
+        # ``mllm_batch_generator._process_prompts`` when vision + text
+        # tokens exceed the configured cap. The MLLM scheduler now flags
+        # this as a client-actionable error (#682); without the explicit
+        # 400 mapping the engine would still return ``HTTPException``-less
+        # 500. Surface as 400 so Desktop / curl clients see the actionable
+        # message ("downscale image / raise --prefill-step-size") instead
+        # of a generic server error.
+        if (
+            "Failed to process image" in err_msg
+            or "Failed to process video" in err_msg
+            or "exceeds the per-batch cap" in err_msg
+        ):
             raise HTTPException(status_code=400, detail=err_msg)
         raise
     finally:
@@ -1321,6 +1465,7 @@ async def _create_chat_completion_impl(
     # The tool_calls vs no-tool_calls split is encapsulated in
     # _finalize_content_and_reasoning so the regression test suite can exercise
     # the same orchestration without re-implementing it.
+    cleaned_text_before_helper = cleaned_text
     cleaned_text, reasoning_text = _finalize_content_and_reasoning(
         raw_text=output.raw_text or output.text,
         cleaned_text=cleaned_text,
@@ -1404,8 +1549,31 @@ async def _create_chat_completion_impl(
     # 1 inlined the check here only; codex round 2 caught the
     # streaming path drifting because it had no gate at all.
     if not _is_structured_output_requested(response_format):
+        # PR #715 bundle, fuzz finding C / live-test repro: when the
+        # parser's Case-4 fallback blanked ``cleaned_text`` (no tags +
+        # ``enable_thinking=True`` → route the whole output to
+        # reasoning, #575), the rescue must NOT then surface that
+        # reasoning back as ``content`` — that would duplicate the
+        # trace byte-identically into both fields. The helper signals
+        # Case-4 by returning an empty ``cleaned_text`` when the
+        # pre-helper text was non-empty AND a reasoning_parser was
+        # wired AND the engine wasn't already routing (engine path
+        # has its own plug). Detect by comparing the pre- and post-
+        # helper ``cleaned_text``.
+        reasoning_is_case4 = bool(
+            cleaned_text_before_helper
+            and not cleaned_text
+            and reasoning_text
+            and cfg.reasoning_parser is not None
+            and not (getattr(output, "reasoning_text", "") or "")
+        )
         final_content = _rescue_silent_drop_from_reasoning(
-            final_content, reasoning_text, tool_calls
+            final_content,
+            reasoning_text,
+            tool_calls,
+            finish_reason=finish_reason,
+            raw_text=output.raw_text or output.text,
+            reasoning_is_case4=reasoning_is_case4,
         )
 
     # Build logprobs for response if requested
@@ -1536,6 +1704,24 @@ async def stream_chat_completion(
         )
         processor.set_thinking_model(request.model)
         processor.reset()
+
+        # Forced ``tool_choice`` synthetic-prefix replay swallow (PR #716
+        # codex r9 BLOCKING #1). When the upstream chat_kwargs builder
+        # set ``forced_assistant_prefix`` (the route's
+        # ``_forced_tool_call_prefix`` branch), the engine's
+        # ``stream_chat`` yields the prefix back as a synthetic first
+        # chunk so plain-text consumers see the wire envelope. Seed the
+        # postprocessor with the same bytes so it can swallow that
+        # synthetic chunk BEFORE the reasoning parser sees it — without
+        # this, the prefix bytes route through ``Case-3 → reasoning``
+        # in ``BaseThinkingReasoningParser``, polluting
+        # ``accumulated_reasoning`` AND risking a raw-byte leak into
+        # ``delta.reasoning_content`` on parser variants the MiniMax
+        # tool-markup redirect doesn't catch (chunk-boundary splits,
+        # future parsers). See ``StreamingPostProcessor.__init__`` for
+        # the swallow-buffer state machine. No-op when the prefix is
+        # absent.
+        processor.seed_forced_assistant_prefix(kwargs.get("forced_assistant_prefix"))
 
         # Track token counts for usage reporting
         prompt_tokens = 0
@@ -1748,10 +1934,58 @@ async def stream_chat_completion(
                 # tool-call branch would never fire here regardless,
                 # but keeping the call symmetric with non-streaming
                 # is the point.
+                # Codex r3 P1: streaming rescue must skip the
+                # truncated-``<think>`` case. The streaming reasoning
+                # parser consumes the literal ``<think>`` token as a
+                # state transition, so ``accumulated_reasoning`` never
+                # carries it — but the parser's ``_saw_any_tag`` flag
+                # records that a ``<think>``/``</think>`` boundary was
+                # crossed. When the model truncated mid-thought
+                # (``finish_reason="length"`` AND the parser saw the
+                # opener AND never saw the closer), the reasoning
+                # trace is NOT the final answer and promoting it to
+                # ``content`` re-introduces the leak the non-streaming
+                # gate now suppresses. Synthesise a ``raw_text`` with
+                # an unclosed ``<think>`` opener so the rescue's
+                # existing finish=length-with-unclosed-think gate
+                # fires uniformly across both paths.
+                rp = processor.reasoning_parser
+                saw_open_no_close = bool(
+                    rp
+                    and getattr(rp, "_saw_any_tag", False)
+                    and "</think>"
+                    not in (
+                        processor.accumulated_reasoning + processor.accumulated_text
+                    )
+                )
+                synthetic_raw = (
+                    "<think>" + processor.accumulated_reasoning
+                    if saw_open_no_close
+                    else processor.accumulated_reasoning or ""
+                )
+                # PR #715 bundle, fuzz finding C: streaming Case-4
+                # mirror of the non-streaming detection. When the
+                # parser never saw a ``<think>``/``</think>`` token
+                # (``_saw_any_tag`` False) BUT routed everything into
+                # reasoning (accumulated_text empty, accumulated_reasoning
+                # non-empty) AND a parser is wired, the streamer's
+                # Case-3 fallback ("no tags seen yet → reasoning") IS
+                # firing — analogous to the non-streaming Case-4
+                # blanking. Suppress the rescue on length-truncated
+                # streams in that state too.
+                reasoning_is_case4_stream = bool(
+                    rp
+                    and not getattr(rp, "_saw_any_tag", False)
+                    and processor.accumulated_reasoning
+                    and not processor.accumulated_text
+                )
                 rescued_content = _rescue_silent_drop_from_reasoning(
                     terminal_content or None,
                     processor.accumulated_reasoning,
                     None,
+                    finish_reason=finish_event.finish_reason,
+                    raw_text=synthetic_raw,
+                    reasoning_is_case4=reasoning_is_case4_stream,
                 )
                 # The helper returns the rescued reasoning ONLY when
                 # all four predicates pass (empty/whitespace content,

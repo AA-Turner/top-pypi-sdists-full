@@ -215,19 +215,6 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         ...
 
 
-class StepBaseOptimizationStrategySettings(QuantConnect.Optimizer.Strategies.OptimizationStrategySettings):
-    """Defines the specific optimization strategy settings"""
-
-    @property
-    def default_segment_amount(self) -> int:
-        """Defines the default number of segments for the next step"""
-        ...
-
-    @default_segment_amount.setter
-    def default_segment_amount(self, value: int) -> None:
-        ...
-
-
 class EulerSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBaseOptimizationStrategy):
     """Advanced brute-force strategy with search in-depth for best solution on previous step"""
 
@@ -271,6 +258,19 @@ class GridSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBaseO
         
         :param result: Lean compute job result and corresponding parameter set
         """
+        ...
+
+
+class StepBaseOptimizationStrategySettings(QuantConnect.Optimizer.Strategies.OptimizationStrategySettings):
+    """Defines the specific optimization strategy settings"""
+
+    @property
+    def default_segment_amount(self) -> int:
+        """Defines the default number of segments for the next step"""
+        ...
+
+    @default_segment_amount.setter
+    def default_segment_amount(self, value: int) -> None:
         ...
 
 

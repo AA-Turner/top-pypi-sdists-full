@@ -561,19 +561,21 @@ class TrafficType(_common.CaseInSensitiveEnum):
   """Type for Provisioned Throughput traffic."""
 
 
-class Modality(_common.CaseInSensitiveEnum):
-  """Server content modalities."""
+class MediaModality(_common.CaseInSensitiveEnum):
+  """The modality that this token count applies to."""
 
   MODALITY_UNSPECIFIED = 'MODALITY_UNSPECIFIED'
-  """The modality is unspecified."""
+  """When a modality is not specified, it is treated as `TEXT`."""
   TEXT = 'TEXT'
-  """Indicates the model should return text"""
+  """The `Part` contains plain text."""
   IMAGE = 'IMAGE'
-  """Indicates the model should return images."""
-  AUDIO = 'AUDIO'
-  """Indicates the model should return audio."""
+  """The `Part` contains an image."""
   VIDEO = 'VIDEO'
-  """Indicates the model should return video."""
+  """The `Part` contains a video."""
+  AUDIO = 'AUDIO'
+  """The `Part` contains audio."""
+  DOCUMENT = 'DOCUMENT'
+  """The `Part` contains a document, such as a PDF."""
 
 
 class ModelStage(_common.CaseInSensitiveEnum):
@@ -611,6 +613,21 @@ class MediaResolution(_common.CaseInSensitiveEnum):
   """Media resolution set to medium (256 tokens)."""
   MEDIA_RESOLUTION_HIGH = 'MEDIA_RESOLUTION_HIGH'
   """Media resolution set to high (zoomed reframing with 256 tokens)."""
+
+
+class Modality(_common.CaseInSensitiveEnum):
+  """Server content modalities."""
+
+  MODALITY_UNSPECIFIED = 'MODALITY_UNSPECIFIED'
+  """The modality is unspecified."""
+  TEXT = 'TEXT'
+  """Indicates the model should return text"""
+  IMAGE = 'IMAGE'
+  """Indicates the model should return images."""
+  AUDIO = 'AUDIO'
+  """Indicates the model should return audio."""
+  VIDEO = 'VIDEO'
+  """Indicates the model should return video."""
 
 
 class TuningMode(_common.CaseInSensitiveEnum):
@@ -795,6 +812,19 @@ class DocumentState(_common.CaseInSensitiveEnum):
   """Some `Chunks` of the `Document` failed processing."""
 
 
+class ServiceTier(_common.CaseInSensitiveEnum):
+  """Pricing and performance service tier."""
+
+  UNSPECIFIED = 'unspecified'
+  """Default service tier, which is standard."""
+  FLEX = 'flex'
+  """Flex service tier."""
+  STANDARD = 'standard'
+  """Standard service tier."""
+  PRIORITY = 'priority'
+  """Priority service tier."""
+
+
 class RubricContentType(_common.CaseInSensitiveEnum):
   """Represents the rubric content type."""
 
@@ -864,19 +894,6 @@ class ResourceScope(_common.CaseInSensitiveEnum):
       For example, if base_url is set to "https://aiplatform.googleapis.com",
       then the resource name for a Model would be
       "https://aiplatform.googleapis.com/publishers/google/models/gemini-3-pro-preview"""
-
-
-class ServiceTier(_common.CaseInSensitiveEnum):
-  """Pricing and performance service tier."""
-
-  UNSPECIFIED = 'unspecified'
-  """Default service tier, which is standard."""
-  FLEX = 'flex'
-  """Flex service tier."""
-  STANDARD = 'standard'
-  """Standard service tier."""
-  PRIORITY = 'priority'
-  """Priority service tier."""
 
 
 class JSONSchemaType(Enum):
@@ -1185,23 +1202,6 @@ class TurnCompleteReason(_common.CaseInSensitiveEnum):
   """Max regeneration attempts reached."""
 
 
-class MediaModality(_common.CaseInSensitiveEnum):
-  """Server content modalities."""
-
-  MODALITY_UNSPECIFIED = 'MODALITY_UNSPECIFIED'
-  """The modality is unspecified."""
-  TEXT = 'TEXT'
-  """Plain text."""
-  IMAGE = 'IMAGE'
-  """Images."""
-  VIDEO = 'VIDEO'
-  """Video."""
-  AUDIO = 'AUDIO'
-  """Audio."""
-  DOCUMENT = 'DOCUMENT'
-  """Document, e.g. PDF."""
-
-
 class VadSignalType(_common.CaseInSensitiveEnum):
   """The type of the VAD signal."""
 
@@ -1228,7 +1228,7 @@ class StartSensitivity(_common.CaseInSensitiveEnum):
   """Start of speech sensitivity."""
 
   START_SENSITIVITY_UNSPECIFIED = 'START_SENSITIVITY_UNSPECIFIED'
-  """The default is START_SENSITIVITY_LOW."""
+  """The default is START_SENSITIVITY_LOW for Gemini Enterprise Agent Platform and START_SENSITIVITY_HIGH for Gemini Live."""
   START_SENSITIVITY_HIGH = 'START_SENSITIVITY_HIGH'
   """Automatic detection will detect the start of speech more often."""
   START_SENSITIVITY_LOW = 'START_SENSITIVITY_LOW'
@@ -1239,7 +1239,7 @@ class EndSensitivity(_common.CaseInSensitiveEnum):
   """End of speech sensitivity."""
 
   END_SENSITIVITY_UNSPECIFIED = 'END_SENSITIVITY_UNSPECIFIED'
-  """The default is END_SENSITIVITY_LOW."""
+  """The default is END_SENSITIVITY_LOW for Gemini Enterprise Agent Platform and END_SENSITIVITY_HIGH for Gemini Live."""
   END_SENSITIVITY_HIGH = 'END_SENSITIVITY_HIGH'
   """Automatic detection ends speech more often."""
   END_SENSITIVITY_LOW = 'END_SENSITIVITY_LOW'
@@ -7846,11 +7846,18 @@ GenerateContentResponsePromptFeedbackOrDict = Union[
 
 
 class ModalityTokenCount(_common.BaseModel):
-  """Represents token counting info for a single modality."""
+  """Represents a breakdown of token usage by modality.
+
+  This message is used in CountTokensResponse and
+  GenerateContentResponse.UsageMetadata to provide a detailed view of how many
+  tokens are used by each modality (e.g., text, image, video) in a request. This
+  is particularly useful for multimodal models, allowing you to track and manage
+  token consumption for billing and quota purposes.
+  """
 
   modality: Optional[MediaModality] = Field(
       default=None,
-      description="""The modality associated with this token count.""",
+      description="""The modality that this token count applies to.""",
   )
   token_count: Optional[int] = Field(
       default=None,
@@ -7859,10 +7866,17 @@ class ModalityTokenCount(_common.BaseModel):
 
 
 class ModalityTokenCountDict(TypedDict, total=False):
-  """Represents token counting info for a single modality."""
+  """Represents a breakdown of token usage by modality.
+
+  This message is used in CountTokensResponse and
+  GenerateContentResponse.UsageMetadata to provide a detailed view of how many
+  tokens are used by each modality (e.g., text, image, video) in a request. This
+  is particularly useful for multimodal models, allowing you to track and manage
+  token consumption for billing and quota purposes.
+  """
 
   modality: Optional[MediaModality]
-  """The modality associated with this token count."""
+  """The modality that this token count applies to."""
 
   token_count: Optional[int]
   """The number of tokens counted for this modality."""
@@ -19241,7 +19255,7 @@ LiveServerSetupCompleteOrDict = Union[
 
 
 class Transcription(_common.BaseModel):
-  """Audio transcription in Server Conent."""
+  """Audio transcription in Server Content."""
 
   text: Optional[str] = Field(
       default=None, description="""Optional. Transcription text."""
@@ -19257,7 +19271,7 @@ class Transcription(_common.BaseModel):
 
 
 class TranscriptionDict(TypedDict, total=False):
-  """Audio transcription in Server Conent."""
+  """Audio transcription in Server Content."""
 
   text: Optional[str]
   """Optional. Transcription text."""
@@ -19332,6 +19346,10 @@ class LiveServerContent(_common.BaseModel):
       it is waiting for more input from the user, e.g. because it expects the
       user to continue talking.""",
   )
+  interim_input_transcription: Optional[Transcription] = Field(
+      default=None,
+      description="""Low latency transcription updated while the user is speaking.""",
+  )
 
 
 class LiveServerContentDict(TypedDict, total=False):
@@ -19384,6 +19402,9 @@ class LiveServerContentDict(TypedDict, total=False):
   """If true, indicates that the model is not generating content because
       it is waiting for more input from the user, e.g. because it expects the
       user to continue talking."""
+
+  interim_input_transcription: Optional[TranscriptionDict]
+  """Low latency transcription updated while the user is speaking."""
 
 
 LiveServerContentOrDict = Union[LiveServerContent, LiveServerContentDict]
@@ -19442,11 +19463,11 @@ class UsageMetadata(_common.BaseModel):
 
   prompt_token_count: Optional[int] = Field(
       default=None,
-      description="""Number of tokens in the prompt. When `cached_content` is set, this is still the total effective prompt size meaning this includes the number of tokens in the cached content.""",
+      description="""The total number of tokens in the prompt. This includes any text, images, or other media provided in the request. When `cached_content` is set, this also includes the number of tokens in the cached content.""",
   )
   cached_content_token_count: Optional[int] = Field(
       default=None,
-      description="""Number of tokens in the cached part of the prompt (the cached content).""",
+      description="""Output only. The number of tokens in the cached content that was used for this request.""",
   )
   response_token_count: Optional[int] = Field(
       default=None,
@@ -19454,23 +19475,23 @@ class UsageMetadata(_common.BaseModel):
   )
   tool_use_prompt_token_count: Optional[int] = Field(
       default=None,
-      description="""Number of tokens present in tool-use prompt(s).""",
+      description="""Output only. The number of tokens in the results from tool executions, which are provided back to the model as input, if applicable.""",
   )
   thoughts_token_count: Optional[int] = Field(
       default=None,
-      description="""Number of tokens of thoughts for thinking models.""",
+      description="""Output only. The number of tokens that were part of the model's generated "thoughts" output, if applicable.""",
   )
   total_token_count: Optional[int] = Field(
       default=None,
-      description="""Total token count for prompt, response candidates, and tool-use prompts(if present).""",
+      description="""The total number of tokens for the entire request. This is the sum of `prompt_token_count`, `candidates_token_count`, `tool_use_prompt_token_count`, and `thoughts_token_count`.""",
   )
   prompt_tokens_details: Optional[list[ModalityTokenCount]] = Field(
       default=None,
-      description="""List of modalities that were processed in the request input.""",
+      description="""Output only. A detailed breakdown of the token count for each modality in the prompt.""",
   )
   cache_tokens_details: Optional[list[ModalityTokenCount]] = Field(
       default=None,
-      description="""List of modalities that were processed in the cache input.""",
+      description="""Output only. A detailed breakdown of the token count for each modality in the cached content.""",
   )
   response_tokens_details: Optional[list[ModalityTokenCount]] = Field(
       default=None,
@@ -19478,12 +19499,15 @@ class UsageMetadata(_common.BaseModel):
   )
   tool_use_prompt_tokens_details: Optional[list[ModalityTokenCount]] = Field(
       default=None,
-      description="""List of modalities that were processed in the tool-use prompt.""",
+      description="""Output only. A detailed breakdown by modality of the token counts from the results of tool executions, which are provided back to the model as input.""",
   )
   traffic_type: Optional[TrafficType] = Field(
       default=None,
-      description="""Traffic type. This shows whether a request consumes Pay-As-You-Go
- or Provisioned Throughput quota.""",
+      description="""Output only. The traffic type for this request. This field is not supported in Gemini API.""",
+  )
+  service_tier: Optional[ServiceTier] = Field(
+      default=None,
+      description="""Output only. Service tier of the request. This field is not supported in Vertex AI.""",
   )
 
 
@@ -19491,38 +19515,40 @@ class UsageMetadataDict(TypedDict, total=False):
   """Usage metadata about response(s)."""
 
   prompt_token_count: Optional[int]
-  """Number of tokens in the prompt. When `cached_content` is set, this is still the total effective prompt size meaning this includes the number of tokens in the cached content."""
+  """The total number of tokens in the prompt. This includes any text, images, or other media provided in the request. When `cached_content` is set, this also includes the number of tokens in the cached content."""
 
   cached_content_token_count: Optional[int]
-  """Number of tokens in the cached part of the prompt (the cached content)."""
+  """Output only. The number of tokens in the cached content that was used for this request."""
 
   response_token_count: Optional[int]
   """Total number of tokens across all the generated response candidates."""
 
   tool_use_prompt_token_count: Optional[int]
-  """Number of tokens present in tool-use prompt(s)."""
+  """Output only. The number of tokens in the results from tool executions, which are provided back to the model as input, if applicable."""
 
   thoughts_token_count: Optional[int]
-  """Number of tokens of thoughts for thinking models."""
+  """Output only. The number of tokens that were part of the model's generated "thoughts" output, if applicable."""
 
   total_token_count: Optional[int]
-  """Total token count for prompt, response candidates, and tool-use prompts(if present)."""
+  """The total number of tokens for the entire request. This is the sum of `prompt_token_count`, `candidates_token_count`, `tool_use_prompt_token_count`, and `thoughts_token_count`."""
 
   prompt_tokens_details: Optional[list[ModalityTokenCountDict]]
-  """List of modalities that were processed in the request input."""
+  """Output only. A detailed breakdown of the token count for each modality in the prompt."""
 
   cache_tokens_details: Optional[list[ModalityTokenCountDict]]
-  """List of modalities that were processed in the cache input."""
+  """Output only. A detailed breakdown of the token count for each modality in the cached content."""
 
   response_tokens_details: Optional[list[ModalityTokenCountDict]]
   """List of modalities that were returned in the response."""
 
   tool_use_prompt_tokens_details: Optional[list[ModalityTokenCountDict]]
-  """List of modalities that were processed in the tool-use prompt."""
+  """Output only. A detailed breakdown by modality of the token counts from the results of tool executions, which are provided back to the model as input."""
 
   traffic_type: Optional[TrafficType]
-  """Traffic type. This shows whether a request consumes Pay-As-You-Go
- or Provisioned Throughput quota."""
+  """Output only. The traffic type for this request. This field is not supported in Gemini API."""
+
+  service_tier: Optional[ServiceTier]
+  """Output only. Service tier of the request. This field is not supported in Vertex AI."""
 
 
 UsageMetadataOrDict = Union[UsageMetadata, UsageMetadataDict]
@@ -19620,6 +19646,10 @@ class VoiceActivity(_common.BaseModel):
   voice_activity_type: Optional[VoiceActivityType] = Field(
       default=None, description="""The type of the voice activity signal."""
   )
+  audio_offset: Optional[str] = Field(
+      default=None,
+      description="""The time voice activity detected in audio time, relative to the start of the audio stream.""",
+  )
 
 
 class VoiceActivityDict(TypedDict, total=False):
@@ -19627,6 +19657,9 @@ class VoiceActivityDict(TypedDict, total=False):
 
   voice_activity_type: Optional[VoiceActivityType]
   """The type of the voice activity signal."""
+
+  audio_offset: Optional[str]
+  """The time voice activity detected in audio time, relative to the start of the audio stream."""
 
 
 VoiceActivityOrDict = Union[VoiceActivity, VoiceActivityDict]
@@ -19876,13 +19909,58 @@ ContextWindowCompressionConfigOrDict = Union[
 ]
 
 
+class LanguageAuto(_common.BaseModel):
+  """Indicates the language of the audio should be automatically detected."""
+
+  pass
+
+
+class LanguageAutoDict(TypedDict, total=False):
+  """Indicates the language of the audio should be automatically detected."""
+
+  pass
+
+
+LanguageAutoOrDict = Union[LanguageAuto, LanguageAutoDict]
+
+
+class LanguageHints(_common.BaseModel):
+  """Provides hints to the model about possible languages present in the audio."""
+
+  language_codes: Optional[list[str]] = Field(
+      default=None,
+      description="""BCP-47 language codes. At least one must be specified.""",
+  )
+
+
+class LanguageHintsDict(TypedDict, total=False):
+  """Provides hints to the model about possible languages present in the audio."""
+
+  language_codes: Optional[list[str]]
+  """BCP-47 language codes. At least one must be specified."""
+
+
+LanguageHintsOrDict = Union[LanguageHints, LanguageHintsDict]
+
+
 class AudioTranscriptionConfig(_common.BaseModel):
   """The audio transcription configuration in Setup."""
 
   language_codes: Optional[list[str]] = Field(
       default=None,
-      description="""The language codes of the audio. BCP-47 language code. If not set, the transcription will be in the language detected by the model. If set, the server will use the language code specified in the model config as a hint for the language of the audio
-      """,
+      description="""Deprecated: use LanguageAuto or LanguageHints instead.""",
+  )
+  language_auto: Optional[LanguageAuto] = Field(
+      default=None,
+      description="""The model will detect the language automatically. Do not use together with LanguageHints.""",
+  )
+  language_hints: Optional[LanguageHints] = Field(
+      default=None,
+      description="""Specifies one or more languages in the audio. Do not use together with LanguageAuto.""",
+  )
+  adaptation_phrases: Optional[list[str]] = Field(
+      default=None,
+      description="""A list of phrases used for speech adaptation, which biases the ASR model to improve recognition of these specific terms.""",
   )
 
 
@@ -19890,8 +19968,16 @@ class AudioTranscriptionConfigDict(TypedDict, total=False):
   """The audio transcription configuration in Setup."""
 
   language_codes: Optional[list[str]]
-  """The language codes of the audio. BCP-47 language code. If not set, the transcription will be in the language detected by the model. If set, the server will use the language code specified in the model config as a hint for the language of the audio
-      """
+  """Deprecated: use LanguageAuto or LanguageHints instead."""
+
+  language_auto: Optional[LanguageAutoDict]
+  """The model will detect the language automatically. Do not use together with LanguageHints."""
+
+  language_hints: Optional[LanguageHintsDict]
+  """Specifies one or more languages in the audio. Do not use together with LanguageAuto."""
+
+  adaptation_phrases: Optional[list[str]]
+  """A list of phrases used for speech adaptation, which biases the ASR model to improve recognition of these specific terms."""
 
 
 AudioTranscriptionConfigOrDict = Union[

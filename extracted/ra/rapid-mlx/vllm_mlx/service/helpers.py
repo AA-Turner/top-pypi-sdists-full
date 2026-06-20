@@ -181,6 +181,47 @@ def _finalize_content_and_reasoning(
     # the parser. (No reasoning_parser is still a short-circuit
     # below.) Issue #442.
     if engine_reasoning_text:
+        # 2026-06-17 VibeThinker live test: when the engine routes via
+        # ``OutputRouter`` (Qwen ``<think>`` token IDs) and the response
+        # is truncated mid-thought (``finish_reason=length``), the
+        # router emits ``reasoning_text`` (the post-``<think>`` trace)
+        # but ``cleaned_text`` — passed through from
+        # ``clean_output_text`` which preserves ``<think>`` blocks for
+        # the parser stack — still carries the full raw text including
+        # the unclosed ``<think>`` opener and the trace. The result is
+        # ``content`` and ``reasoning_content`` carrying the same
+        # bytes (the live-test math row showed content_len=4974,
+        # reasoning_content_len=4967, identical except for the
+        # ``<think>`` opener).
+        #
+        # ``strip_thinking_tags`` (the downstream sanitiser) only
+        # matches **closed** ``<think>…</think>`` blocks, so the
+        # unclosed opener falls through. Trim everything from the
+        # ``<think>`` opener onward — preserves any pre-think preamble
+        # ("Okay, let me think...\n<think>...") as legitimate
+        # ``content`` while dropping the leaked thought trace.
+        # Codex r1 P2: the previous ``startswith`` check missed the
+        # documented VibeThinker preamble shape (model emits a chatty
+        # intro BEFORE ``<think>``, then truncates mid-thought) —
+        # ``partition`` handles both the start-aligned (math row) and
+        # preamble (live-test merge_intervals streaming) cases.
+        truncated_think = (
+            cleaned_text
+            and "<think>" in cleaned_text
+            and "</think>" not in cleaned_text
+        )
+        if truncated_think:
+            cleaned_text = cleaned_text.partition("<think>")[0].rstrip()
+            # Codex r3 P2: ``_apply_reasoning_cap`` prepends the
+            # over-cap reasoning suffix back into ``cleaned_text`` so
+            # the wire ordering matches the model's emission order —
+            # but for a truncated thought the overflow IS the leaked
+            # thought, which is exactly what we just trimmed. Use the
+            # reasoning-only cap so cleaned_text stays blanked / preamble-
+            # only and the overflow does NOT re-leak into ``content``.
+            return cleaned_text, _truncate_reasoning_only(
+                engine_reasoning_text, reasoning_max_tokens
+            )
         return _apply_reasoning_cap(
             cleaned_text, engine_reasoning_text, reasoning_max_tokens
         )
@@ -226,6 +267,47 @@ def _finalize_content_and_reasoning(
             and new_cleaned is None
             and bool(text_to_parse)
             and "<think>" not in text_to_parse
+            and "</think>" not in text_to_parse
+        )
+        # 2026-06-17 VibeThinker live test: Case-3 (truncated
+        # ``<think>`` with no ``</think>``) leaks identically to Case-4
+        # but the #575 plug above doesn't catch it because ``<think>``
+        # IS in ``text_to_parse``. Parser returned ``(reasoning, None)``
+        # — i.e. the reasoning parser found a ``<think>`` opener and
+        # routed everything after it into reasoning — but the original
+        # ``cleaned_text`` still carries the full raw text including
+        # ``<think>…<the trace>``. ``strip_thinking_tags`` (the
+        # downstream sanitiser) only matches CLOSED ``<think>…</think>``
+        # blocks, so a truncated ``finish_reason=length`` response
+        # with an unclosed ``<think>`` opener falls straight through
+        # and the client sees identical bytes in ``content`` and
+        # ``reasoning_content`` (live-test math row: content_len ==
+        # reasoning_len == 5449, byte-identical).
+        #
+        # Signal: parser returned reasoning-only AND ``text_to_parse``
+        # contains an unclosed ``<think>`` opener (so the parser's
+        # ``(reasoning, None)`` was Case-3, not Case-4, not the
+        # harmony-style ``(None, None)`` rescued by the retry above).
+        # Unlike the #575 plug, this branch is NOT gated on
+        # ``enable_thinking`` — the literal ``<think>`` token in the
+        # output is the model's own evidence that thinking was active
+        # for this turn, irrespective of what the caller passed.
+        #
+        # Codex r1 P2: the previous ``lstrip().startswith("<think>")``
+        # gate missed the documented VibeThinker preamble shape (the
+        # model emits a chatty intro BEFORE ``<think>``, then truncates
+        # mid-thought). The fix below uses ``partition("<think>")[0]``
+        # so a preamble like ``"Okay, let me think...\n<think>..."``
+        # has the preamble preserved as ``content`` while the unclosed
+        # thought trace is dropped (the trace is already carried in
+        # ``reasoning_text``). Catches BOTH the live-test math row
+        # (``<think>`` at lstrip-start) and the merge_intervals
+        # streaming row (preamble before ``<think>``).
+        first_parse_was_truncated_think = (
+            new_reasoning is not None
+            and new_cleaned is None
+            and bool(text_to_parse)
+            and "<think>" in text_to_parse
             and "</think>" not in text_to_parse
         )
         # Harmony retry: the engine's ``clean_output_text`` strips
@@ -281,7 +363,57 @@ def _finalize_content_and_reasoning(
         # MUST survive (codex R2 BLOCKING).
         if enable_thinking is True and first_parse_was_case4:
             cleaned_text = ""
+        # Truncated-``<think>`` plug (2026-06-17). Mirrors the #575
+        # Case-4 plug above but fires on the explicit-start-no-end
+        # signal independent of ``enable_thinking`` — see the
+        # ``first_parse_was_truncated_think`` definition for the
+        # full rationale and the live-test repro.
+        #
+        # ``partition`` keeps any pre-think preamble (legitimate
+        # content) and drops the unclosed thought trace (already
+        # carried in ``reasoning_text``). For the live-test math
+        # row the preamble is empty so this collapses to ``""``;
+        # for the merge_intervals streaming row it preserves the
+        # ~80-char chatty intro the model emitted before ``<think>``.
+        if first_parse_was_truncated_think:
+            cleaned_text = (cleaned_text or "").partition("<think>")[0].rstrip()
+            # Codex r3 P2: bypass the cleaned_text overflow prepend
+            # path of ``_apply_reasoning_cap`` for truncated thoughts
+            # — see the engine-routed branch above for the rationale.
+            return cleaned_text, _truncate_reasoning_only(
+                reasoning_text, reasoning_max_tokens
+            )
     return _apply_reasoning_cap(cleaned_text, reasoning_text, reasoning_max_tokens)
+
+
+def _truncate_reasoning_only(
+    reasoning_text: str | None,
+    reasoning_max_tokens: int | None,
+) -> str | None:
+    """Cap ``reasoning_text`` to the per-request budget WITHOUT
+    rerouting the overflow into ``content``.
+
+    Used by the truncated-``<think>`` plug paths
+    (``first_parse_was_truncated_think`` and the engine-routed
+    branch) where the reasoning trace is an in-progress thought,
+    not the final answer. ``_apply_reasoning_cap``'s default
+    behaviour of prepending overflow into ``cleaned_text`` would
+    re-introduce exactly the leak the plug is trying to prevent —
+    codex r3 P2.
+
+    Uses the same chars-÷4 heuristic as ``_apply_reasoning_cap``
+    so the OpenAI usage block stays consistent across both paths.
+    """
+    if (
+        reasoning_max_tokens is None
+        or not reasoning_text
+        or not isinstance(reasoning_text, str)
+    ):
+        return reasoning_text
+    max_chars = reasoning_max_tokens * 4
+    if len(reasoning_text) <= max_chars:
+        return reasoning_text
+    return reasoning_text[:max_chars]
 
 
 def _apply_reasoning_cap(
@@ -335,6 +467,10 @@ def _rescue_silent_drop_from_reasoning(
     final_content: str | None,
     reasoning_text: str | None,
     tool_calls: list | None,
+    finish_reason: str | None = None,
+    raw_text: str | None = None,
+    *,
+    reasoning_is_case4: bool = False,
 ) -> str | None:
     """Issue #569: never silently drop an assistant turn.
 
@@ -410,6 +546,46 @@ def _rescue_silent_drop_from_reasoning(
     if tool_calls:
         return final_content
     if not reasoning_text or not reasoning_text.strip():
+        return final_content
+    # 2026-06-17 VibeThinker live test: when the model was truncated
+    # mid-thought (``finish_reason="length"``) with an unclosed
+    # ``<think>`` opener in ``raw_text``, the reasoning trace is NOT
+    # the final answer — it's an interrupted chain of thought. Surfacing
+    # it as ``content`` per the #569 rescue would feed the client the
+    # SAME bytes as ``reasoning_content`` and break the "content is the
+    # final answer" contract. Skip the rescue and let the client see
+    # ``content=null`` so they can detect "model ran out of budget
+    # before producing an answer" via the ``finish_reason="length"``
+    # signal — symmetric with how OpenAI's o1 / o3 behave on truncated
+    # reasoning.
+    #
+    # Gate on BOTH ``finish_reason="length"`` AND raw_text opening with
+    # an unclosed ``<think>``. Other ``finish_reason="length"`` cases
+    # (e.g. a non-thinking model truncated mid-answer where reasoning
+    # was empty but content was building) still get rescued — the
+    # opener check is the discriminator.
+    #
+    # Also gate on the helper-Case-4 signal (``reasoning_is_case4``)
+    # passed from the route — covers the PR #715-bundle live-test
+    # repro where VibeThinker is asked a no-tool no-think prompt:
+    # the chat template doesn't pre-inject ``<think>``, the model
+    # answers in plain prose (no ``<think>`` token emitted), but the
+    # route still defaults ``enable_thinking=True`` for the family.
+    # The parser's Case-4 fallback routes the WHOLE output to
+    # reasoning AND the helper blanks ``cleaned_text=""``. The
+    # ``raw_text`` opener check then misses (raw_text doesn't start
+    # with ``<think>``), and the rescue without the Case-4 signal
+    # mistakes the no-content state for a #569 silent drop and
+    # surfaces the reasoning as content — duplicating the trace
+    # byte-identically. The Case-4 signal stops that.
+    if (
+        finish_reason == "length"
+        and raw_text
+        and raw_text.lstrip().startswith("<think>")
+        and "</think>" not in raw_text
+    ):
+        return final_content
+    if finish_reason == "length" and reasoning_is_case4:
         return final_content
     return reasoning_text
 
@@ -933,6 +1109,37 @@ def get_engine(model_name: str | None = None) -> BaseEngine:
     return cfg.engine
 
 
+def _resolve_reasoning_enabled(model_name: str | None) -> bool:
+    """Return whether the selected alias is reasoning-capable.
+
+    Issue #702: the Anthropic-compat route gates the ``thinking``
+    content block on this predicate so that a non-thinking alias (i.e.
+    one whose ``aliases.json`` entry declares ``reasoning_parser:
+    null``) never emits one regardless of what the OpenAI-side
+    response carries.
+
+    In multi-model mode (``cfg.model_registry`` set) the served alias
+    can be a per-request choice rather than the process-wide default,
+    so consult the registry entry first. Fall back to the global
+    ``cfg.reasoning_parser`` / ``cfg.reasoning_parser_name`` pair
+    (single-model mode) when registry lookup fails — both fields are
+    populated together by ``server.load_model`` so either being set
+    means "this serve has a reasoning parser configured". Accept
+    either to keep test fixtures that only set
+    ``cfg.reasoning_parser_name`` working unchanged. Codex r1
+    BLOCKING on PR #705.
+    """
+    cfg = get_config()
+    if cfg.model_registry:
+        try:
+            entry = cfg.model_registry.get_entry(model_name)
+        except KeyError:
+            entry = None
+        if entry is not None:
+            return bool(getattr(entry, "reasoning_parser", None))
+    return cfg.reasoning_parser is not None or bool(cfg.reasoning_parser_name)
+
+
 def _validate_model_name(request_model: str) -> None:
     """Validate that the request model name matches a served model."""
     if request_model is None:
@@ -1424,3 +1631,280 @@ async def _wait_with_disconnect(
             disconnect_task.cancel()
         if not task.done():
             task.cancel()
+
+
+# ─── Context-length pre-check (DoS defense, rapid-desktop#273 / #463) ──
+#
+# A 8 MiB body of plain ASCII is still ~2M tokens — well past any model's
+# context window. The body-size middleware ``vllm_mlx/middleware/body_size.py``
+# stops the worst of the DoS, but a request that fits inside the byte
+# cap can still drag a small-context model into pointless prefill.
+#
+# These helpers surface the model's max context length and raise a
+# structured OpenAI ``context_length_exceeded`` error when a prompt is
+# too long, so the rejection lands BEFORE the engine starts prefill.
+
+# Sentinel-large fallback used when the model exposes no useful context
+# field. We do NOT silently bypass the gate (returning ``None`` would
+# accept any prompt); instead we use a value so large that legitimate
+# requests pass while the DoS pattern (≈ millions of tokens in one body)
+# still trips. Sized for 8 MiB body cap × ~3.5 chars/token worst-case.
+_FALLBACK_MAX_CONTEXT_TOKENS = 4_194_304
+
+
+def get_model_max_context(engine) -> int:
+    """Return the model's max prompt-token context window for ``engine``.
+
+    Resolution order (first hit wins):
+      1. ``engine._model.args.max_position_embeddings`` — mlx-lm dense
+         LLMs and most MLX models expose the HF config there.
+      2. ``engine._model.args.text_config.max_position_embeddings`` —
+         multimodal Qwen3.5 / Gemma 4 nest the text-config inside.
+      3. ``engine._model.config.max_position_embeddings`` — older
+         attribute style.
+      4. ``engine.tokenizer.model_max_length`` if not the HuggingFace
+         "VERY_LARGE_INTEGER" sentinel (``1e30``). Some tokenizers
+         report a useful cap here even when the model object doesn't.
+      5. ``_FALLBACK_MAX_CONTEXT_TOKENS`` — see module-level comment.
+
+    The function is intentionally permissive about missing fields: we'd
+    rather pass through a request the model can handle than refuse a
+    legitimate one on metadata absence. The byte cap stays as the
+    last-resort DoS gate even if every probe falls through.
+    """
+
+    def _maybe_int(value) -> int | None:
+        try:
+            ivalue = int(value)
+        except (TypeError, ValueError):
+            return None
+        if ivalue <= 0:
+            return None
+        return ivalue
+
+    model = getattr(engine, "_model", None) or getattr(engine, "model", None)
+
+    if model is not None:
+        args = getattr(model, "args", None)
+        if args is not None:
+            direct = _maybe_int(getattr(args, "max_position_embeddings", None))
+            if direct is not None:
+                return direct
+            text_cfg = getattr(args, "text_config", None)
+            if text_cfg is not None:
+                nested = _maybe_int(getattr(text_cfg, "max_position_embeddings", None))
+                if nested is not None:
+                    return nested
+        config = getattr(model, "config", None)
+        if config is not None:
+            cfg_direct = _maybe_int(getattr(config, "max_position_embeddings", None))
+            if cfg_direct is not None:
+                return cfg_direct
+            text_cfg = getattr(config, "text_config", None)
+            if text_cfg is not None:
+                nested = _maybe_int(getattr(text_cfg, "max_position_embeddings", None))
+                if nested is not None:
+                    return nested
+
+    tokenizer = getattr(engine, "tokenizer", None) or getattr(
+        engine, "_tokenizer", None
+    )
+    if tokenizer is not None:
+        tok_max = getattr(tokenizer, "model_max_length", None)
+        if tok_max is not None:
+            # HuggingFace tokenizers report 1e30 ("no cap known") which
+            # is useless as a guard. Treat anything above 10M as the
+            # sentinel since no real model has that context yet.
+            if isinstance(tok_max, int | float) and 0 < tok_max < 10_000_000:
+                return int(tok_max)
+
+    return _FALLBACK_MAX_CONTEXT_TOKENS
+
+
+def count_prompt_tokens(engine, prompt) -> int:
+    """Return the integer prompt-token count under ``engine``'s tokenizer.
+
+    Accepts both string prompts (chat-template output, raw completions)
+    and pre-tokenised forms (list[int] / list[list[int]]). The
+    completions API contract today is ``str | list[str]`` (token-id
+    prompts would be an OpenAI feature flag), but the helper is the
+    one DoS-gate boundary and codex round-2 BLOCKING #3 flagged that a
+    list arriving there should not silently bypass the cap. So we
+    handle both shapes explicitly: token-id lists skip tokenization
+    entirely and use ``len()``; strings flow through ``tokenizer.encode``
+    with BOS-aware ``add_special_tokens`` handling that mirrors
+    ``BatchedEngine.estimate_new_tokens``.
+
+    Returns 0 on tokenizer failure / unknown shape so the caller
+    falls through to engine-side validation rather than 500-ing on a
+    metadata edge case. The wire-level body cap stays as the last
+    line of DoS defense.
+    """
+    # Pre-tokenised forms — pure-arithmetic answer, no tokenizer needed.
+    if isinstance(prompt, list):
+        if not prompt:
+            return 0
+        first = prompt[0]
+        if isinstance(first, int):
+            # list[int] — a single tokenised prompt.
+            return len(prompt)
+        if isinstance(first, list):
+            # list[list[int]] — multi-prompt batch; conservatively
+            # return the longest so the cap fires on the worst entry.
+            try:
+                return max((len(p) for p in prompt if isinstance(p, list)), default=0)
+            except TypeError:
+                return 0
+        # Fall through for list[str] — caller should have unpacked it,
+        # but defensively handle the single-string case.
+        if isinstance(first, str) and len(prompt) == 1:
+            prompt = first
+        else:
+            return 0
+    if not isinstance(prompt, str):
+        return 0
+
+    tokenizer = getattr(engine, "tokenizer", None) or getattr(
+        engine, "_tokenizer", None
+    )
+    if tokenizer is None:
+        return 0
+    try:
+        bos = getattr(tokenizer, "bos_token", None)
+        add_special_tokens = bos is None or not prompt.startswith(bos)
+        token_ids = tokenizer.encode(prompt, add_special_tokens=add_special_tokens)
+        return len(token_ids)
+    except Exception:
+        logger.debug("count_prompt_tokens: tokenizer.encode failed", exc_info=True)
+        return 0
+
+
+def enforce_context_length(
+    engine,
+    prompt_tokens: int,
+    *,
+    max_tokens: int | None = None,
+) -> None:
+    """Raise HTTP 400 ``context_length_exceeded`` if ``prompt_tokens`` is
+    over the model's max context window.
+
+    The check also includes ``max_tokens`` (the requested completion
+    budget) so a borderline prompt that would force the decoder past
+    the cap is rejected up-front rather than mid-generation. OpenAI's
+    own error is shaped the same way — ``context_length_exceeded``
+    fires when ``prompt + completion > model max``.
+    """
+    max_context = get_model_max_context(engine)
+    completion = int(max_tokens) if max_tokens else 0
+    requested_total = int(prompt_tokens) + max(0, completion)
+    if requested_total <= max_context:
+        return
+
+    # Format the message in the OpenAI shape so SDKs can branch on the
+    # ``code`` field. The exception handler in ``vllm_mlx/server.py``
+    # wraps the ``detail`` payload back into the OpenAI envelope.
+    detail = (
+        f"This model's maximum context length is {max_context} tokens. "
+        f"However, you requested {requested_total} tokens "
+        f"({int(prompt_tokens)} prompt + {max(0, completion)} completion). "
+        "Please reduce the length of the messages or completion."
+    )
+    raise HTTPException(
+        status_code=400,
+        detail={
+            "error": {
+                "message": detail,
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded",
+                "param": "messages",
+            }
+        },
+    )
+
+
+def enforce_context_length_for_messages(
+    engine,
+    messages: list,
+    *,
+    tools: list | None = None,
+    max_tokens: int | None = None,
+) -> None:
+    """Run the context-length gate for a chat-style request.
+
+    Renders the prompt through the engine's chat template (same path
+    used by ``BatchedEngine.build_prompt``), counts the tokens, then
+    delegates to :func:`enforce_context_length`. Wraps the template /
+    tokenization step in a permissive try-except so a metadata edge
+    case (e.g. unloaded engine on a route stub) doesn't 500 — the
+    downstream scheduler still has its own validation.
+
+    Scoped to text-only engines: MLLM models accept image / video /
+    audio inputs whose token cost is computed by the multimodal
+    processor and tracked separately by ``MLLMScheduler``. The
+    body-size middleware still bounds the wire-level payload for
+    those routes.
+
+    Used by chat, anthropic, and responses routes so the same DoS gate
+    applies regardless of which compatibility surface the client uses.
+    """
+    if getattr(engine, "is_mllm", False):
+        return
+    build_prompt = getattr(engine, "build_prompt", None)
+    if build_prompt is None:
+        return
+    try:
+        prompt = build_prompt(messages, tools=tools)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Chat-template / malformed-tools-schema failures are user-
+        # facing config errors. Fail fast with a clean 400 here so the
+        # route doesn't waste cycles re-rendering the same template
+        # downstream just to surface the same diagnosis (codex r3 F7).
+        # Other exception shapes (tokenizer 500s, engine half-loaded
+        # races) keep their original silent-fallthrough so the
+        # scheduler's own validation has a chance to run — the
+        # body-size middleware is still the last DoS line.
+        err_msg = str(exc)
+        err_type = type(exc).__name__
+        if (
+            "TemplateError" in err_type
+            or "template" in err_msg.lower()
+            or ("user" in err_msg.lower() and "found" in err_msg.lower())
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Chat template error: {err_msg}",
+            )
+        return
+    if not prompt:
+        return
+    prompt_tokens = count_prompt_tokens(engine, prompt)
+    if prompt_tokens <= 0:
+        return
+    enforce_context_length(engine, prompt_tokens, max_tokens=max_tokens)
+
+
+def enforce_context_length_for_prompt(
+    engine,
+    prompt,
+    *,
+    max_tokens: int | None = None,
+) -> None:
+    """Run the context-length gate for a raw-prompt completion request.
+
+    Same shape as :func:`enforce_context_length_for_messages` but for
+    routes that already hold a raw text prompt (``/v1/completions``).
+    No chat template applied — the client provided the string (or
+    list-of-ints token sequence) verbatim. ``count_prompt_tokens``
+    handles both shapes; see its docstring for the codex round-2
+    BLOCKING #3 rationale on non-string prompts.
+    """
+    if getattr(engine, "is_mllm", False):
+        return
+    if not prompt:
+        return
+    prompt_tokens = count_prompt_tokens(engine, prompt)
+    if prompt_tokens <= 0:
+        return
+    enforce_context_length(engine, prompt_tokens, max_tokens=max_tokens)

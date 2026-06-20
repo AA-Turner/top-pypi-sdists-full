@@ -3,8 +3,6 @@ import os
 
 import torch
 
-from sevenn import __version__
-
 description_get_model = (
     'deploy LAMMPS model from the checkpoint'
 )
@@ -53,6 +51,12 @@ def add_args(parser):
         action='store_true',
     )
     ag.add_argument(
+        '-oeq',
+        '--enable_oeq',
+        help='use OpenEquivariance. LAMMPS must be specially compiled.',
+        action='store_true',
+    )
+    ag.add_argument(
         '-mliap',
         '--use_mliap',
         help='Use LAMMPS ML-IAP interface.',
@@ -70,6 +74,7 @@ def run(args):
     modal = args.modal
     use_flash = args.enable_flash
     use_cueq = args.enable_cueq
+    use_oeq = args.enable_oeq
     use_mliap = args.use_mliap
 
     # Check dependencies
@@ -84,6 +89,12 @@ def run(args):
 
         if not is_cue_available():
             raise ImportError('cuEquivariance is not installed.')
+
+    if use_oeq:
+        from sevenn.nn.oeq_helper import is_oeq_available
+
+        if not is_oeq_available():
+            raise ImportError('OpenEquivariance not installed or no GPU found.')
 
     if use_cueq and not use_mliap:
         raise ValueError('cuEquivariance is only supported in ML-IAP interface.')
@@ -108,11 +119,16 @@ def run(args):
         from sevenn.scripts.deploy import deploy, deploy_parallel
 
         if get_serial:
-            deploy(checkpoint_path, output_prefix, modal, use_flash=use_flash)
+            deploy(checkpoint_path, output_prefix, modal, use_flash=use_flash, use_oeq=use_oeq)  # noqa: E501
         else:
-            deploy_parallel(checkpoint_path, output_prefix, modal, use_flash=use_flash)  # noqa: E501
+            deploy_parallel(checkpoint_path, output_prefix, modal, use_flash=use_flash, use_oeq=use_oeq)  # noqa: E501
     else:
         from sevenn import mliap
+
+        if not (use_cueq or use_flash or use_oeq):
+            sevenn.util.warn_no_tp_accelerator(
+                'LAMMPS ML-IAP deployment',
+            )
 
         if output_prefix.endswith('.pt') is False:
             output_prefix += '.pt'
@@ -122,6 +138,7 @@ def run(args):
             modal=modal,
             use_cueq=use_cueq,
             use_flash=use_flash,
+            use_oeq=use_oeq,
         )
         torch.save(mliap_module, output_prefix)
 

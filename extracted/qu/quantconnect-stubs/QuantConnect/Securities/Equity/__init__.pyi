@@ -11,6 +11,45 @@ import QuantConnect.Securities.Equity
 import System
 
 
+class EquityCache(QuantConnect.Securities.SecurityCache):
+    """Equity cache override."""
+
+    def __init__(self) -> None:
+        """Start a new Cache for the set Index Code"""
+        ...
+
+
+class ShortMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
+    """
+    Short margin interest rate model
+    
+    When shorting charges the fee rate provided by the QuantConnect.Interfaces.IShortableProvider.
+    When long adds the rebate fee provided by the QuantConnect.Interfaces.IShortableProvider.
+    """
+
+    @property
+    def amount(self) -> float:
+        """
+        Accumulated shorting fee, negative means paid, positive earned.
+        
+        Negative due to borrowing the asset to short, the fee rate.
+        Positive due to lending the asset for shorting, the rebate rate.
+        """
+        ...
+
+    @amount.setter
+    def amount(self, value: float) -> None:
+        ...
+
+    def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
+        """
+        Apply margin interest rates to the portfolio
+        
+        :param margin_interest_rate_parameters: The parameters to use
+        """
+        ...
+
+
 class EquityExchange(QuantConnect.Securities.SecurityExchange):
     """Equity exchange information"""
 
@@ -38,11 +77,33 @@ class EquityExchange(QuantConnect.Securities.SecurityExchange):
         ...
 
 
-class EquityCache(QuantConnect.Securities.SecurityCache):
-    """Equity cache override."""
+class EquityHolding(QuantConnect.Securities.SecurityHolding):
+    """Holdings class for equities securities: no specific properties here but it is a placeholder for future equities specific behaviours."""
+
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Constructor for equities holdings.
+        
+        :param security: The security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+
+class EquityDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Equity security type data filter"""
 
     def __init__(self) -> None:
-        """Start a new Cache for the set Index Code"""
+        """Initialize Data Filter Class:"""
+        ...
+
+    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
+        """
+        Equity filter the data: true - accept, false - fail.
+        
+        :param data: Data class
+        :param vehicle: Security asset
+        """
         ...
 
 
@@ -90,67 +151,6 @@ class Equity(QuantConnect.Securities.Security):
 
     def set_data_normalization_mode(self, mode: QuantConnect.DataNormalizationMode) -> None:
         """Sets the data normalization mode to be used by this security"""
-        ...
-
-
-class ShortMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
-    """
-    Short margin interest rate model
-    
-    When shorting charges the fee rate provided by the QuantConnect.Interfaces.IShortableProvider.
-    When long adds the rebate fee provided by the QuantConnect.Interfaces.IShortableProvider.
-    """
-
-    @property
-    def amount(self) -> float:
-        """
-        Accumulated shorting fee, negative means paid, positive earned.
-        
-        Negative due to borrowing the asset to short, the fee rate.
-        Positive due to lending the asset for shorting, the rebate rate.
-        """
-        ...
-
-    @amount.setter
-    def amount(self, value: float) -> None:
-        ...
-
-    def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
-        """
-        Apply margin interest rates to the portfolio
-        
-        :param margin_interest_rate_parameters: The parameters to use
-        """
-        ...
-
-
-class EquityHolding(QuantConnect.Securities.SecurityHolding):
-    """Holdings class for equities securities: no specific properties here but it is a placeholder for future equities specific behaviours."""
-
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        Constructor for equities holdings.
-        
-        :param security: The security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-
-class EquityDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Equity security type data filter"""
-
-    def __init__(self) -> None:
-        """Initialize Data Filter Class:"""
-        ...
-
-    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
-        """
-        Equity filter the data: true - accept, false - fail.
-        
-        :param data: Data class
-        :param vehicle: Security asset
-        """
         ...
 
 

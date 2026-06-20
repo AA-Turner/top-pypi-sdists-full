@@ -463,7 +463,7 @@ class Article:
                                 node = ImageNode()
                                 node_list.append(node)
 
-                                node.url = e.find("img").attrs["data-src"]  # type: ignore
+                                node.url = e.find("img").attrs["src"]  # type: ignore
 
                                 figcaption_el: BeautifulSoup = e.find("figcaption")  # type: ignore
 
@@ -595,11 +595,7 @@ class Article:
             dict: 调用 API 返回的结果
         """
         if not self.__get_all_data:
-            self.__get_all_data = (
-                await get_initial_state(
-                    f"https://www.bilibili.com/read/cv{self.__cvid}/?jump_opus=1"
-                )
-            )[0]
+            self.__get_all_data = {"readInfo": await self.get_detail()}
             cache_pool.article2dynamic[self.__cvid] = self.__get_all_data["readInfo"][
                 "dyn_id_str"
             ]

@@ -41,6 +41,7 @@ from .utils.network import (
     # credential
     Credential,
     # api
+    Api,
     HEADERS,
     bili_simple_download,
 )
@@ -115,7 +116,7 @@ from . import (
 )
 
 
-BILIBILI_API_VERSION = "17.4.1"
+BILIBILI_API_VERSION = "17.4.2"
 
 
 def __register_all_clients():
@@ -137,6 +138,7 @@ __register_all_clients()
 
 
 __all__ = [
+    "Api",
     "ApiException",
     "AsyncEvent",
     "ArgsException",

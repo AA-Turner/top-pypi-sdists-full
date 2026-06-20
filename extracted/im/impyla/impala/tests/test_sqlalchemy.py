@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-
 from sqlalchemy.engine import create_engine
 from sqlalchemy import Table, Column, select, insert, text
 from sqlalchemy.schema import MetaData, CreateTable
@@ -120,4 +118,7 @@ def test_pandas_dataframe_to_sql():
             assert ['a', 'b', 'c'] == columns
 
         finally:
-            conn.execute(text('DROP TABLE test_table'))
+            try:
+                conn.execute(text('DROP TABLE IF EXISTS test_table'))
+            except Exception:
+                pass

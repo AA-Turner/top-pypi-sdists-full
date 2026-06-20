@@ -26,6 +26,8 @@ This project is distributed under the [Apache License, Version 2.0](./LICENSE).
 
 This module is part of the [cdk8s project](https://github.com/cdk8s-team/cdk8s).
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -44,7 +46,22 @@ from jsii._type_checking import check_type
 
 from ._jsii import *
 
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class ApiObject(

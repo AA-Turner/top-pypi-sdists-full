@@ -66,11 +66,14 @@ def sync_detailed(
      Create a job for this account.
 
     The caller supplies the job's id as `data.id`. Ids are unique within an
-    account and immutable. A recurring job supplies `environments` to choose
-    where it runs and begins scheduling immediately in each enabled
+    account and immutable. The job's kind follows from its `schedule`: omit the
+    schedule for a permanent **manual** job (triggered on demand), give a cron
+    expression for a **recurring** job, or a datetime / `now` for a **one-off**
+    job. A recurring or manual job supplies `environments` to choose where it
+    runs; a recurring job begins scheduling immediately in each enabled
     environment. A one-off job is created in the environment named by the
     `X-Smplkit-Environment` header (implied when the credential is scoped to a
-    single environment).
+    single environment); a `now` one-off enqueues its single run immediately.
 
     Args:
         x_smplkit_environment (None | str | Unset): The environment to operate in. Names the
@@ -112,11 +115,14 @@ def sync(
      Create a job for this account.
 
     The caller supplies the job's id as `data.id`. Ids are unique within an
-    account and immutable. A recurring job supplies `environments` to choose
-    where it runs and begins scheduling immediately in each enabled
+    account and immutable. The job's kind follows from its `schedule`: omit the
+    schedule for a permanent **manual** job (triggered on demand), give a cron
+    expression for a **recurring** job, or a datetime / `now` for a **one-off**
+    job. A recurring or manual job supplies `environments` to choose where it
+    runs; a recurring job begins scheduling immediately in each enabled
     environment. A one-off job is created in the environment named by the
     `X-Smplkit-Environment` header (implied when the credential is scoped to a
-    single environment).
+    single environment); a `now` one-off enqueues its single run immediately.
 
     Args:
         x_smplkit_environment (None | str | Unset): The environment to operate in. Names the
@@ -153,11 +159,14 @@ async def asyncio_detailed(
      Create a job for this account.
 
     The caller supplies the job's id as `data.id`. Ids are unique within an
-    account and immutable. A recurring job supplies `environments` to choose
-    where it runs and begins scheduling immediately in each enabled
+    account and immutable. The job's kind follows from its `schedule`: omit the
+    schedule for a permanent **manual** job (triggered on demand), give a cron
+    expression for a **recurring** job, or a datetime / `now` for a **one-off**
+    job. A recurring or manual job supplies `environments` to choose where it
+    runs; a recurring job begins scheduling immediately in each enabled
     environment. A one-off job is created in the environment named by the
     `X-Smplkit-Environment` header (implied when the credential is scoped to a
-    single environment).
+    single environment); a `now` one-off enqueues its single run immediately.
 
     Args:
         x_smplkit_environment (None | str | Unset): The environment to operate in. Names the
@@ -197,11 +206,14 @@ async def asyncio(
      Create a job for this account.
 
     The caller supplies the job's id as `data.id`. Ids are unique within an
-    account and immutable. A recurring job supplies `environments` to choose
-    where it runs and begins scheduling immediately in each enabled
+    account and immutable. The job's kind follows from its `schedule`: omit the
+    schedule for a permanent **manual** job (triggered on demand), give a cron
+    expression for a **recurring** job, or a datetime / `now` for a **one-off**
+    job. A recurring or manual job supplies `environments` to choose where it
+    runs; a recurring job begins scheduling immediately in each enabled
     environment. A one-off job is created in the environment named by the
     `X-Smplkit-Environment` header (implied when the credential is scoped to a
-    single environment).
+    single environment); a `now` one-off enqueues its single run immediately.
 
     Args:
         x_smplkit_environment (None | str | Unset): The environment to operate in. Names the

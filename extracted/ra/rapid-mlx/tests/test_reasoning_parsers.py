@@ -307,6 +307,11 @@ class TestDeepSeekR1:
         assert self.parser.end_token == "</think>"
 
     def test_no_tag_threshold_constant(self):
+        # Codex r2 P2 — kept at 64 on the base ``deepseek_r1`` parser
+        # so distilled-on-Qwen aliases that open with ``<think>``
+        # immediately don't pay the wider-buffer cost. The Qwen2-derived
+        # VibeThinker family that needs a 1024-char window lives in
+        # ``VibeThinkerReasoningParser`` (registered as ``vibethinker``).
         assert self.parser.NO_TAG_CONTENT_THRESHOLD == 64
 
     def test_no_start_only_end(self):
@@ -368,6 +373,219 @@ class TestDeepSeekR1:
         self.parser.reset_state()
         result = self.parser.finalize_streaming("")
         assert result is None
+
+
+class TestThinkParserSSEBoundary:
+    """SSE-boundary withhold for split ``<think>`` / ``</think>`` tags
+    (PR #715 bundle, fuzz finding C).
+
+    The 2026-06-18 fuzz battery against PR #714 hit
+    ``phi-4-mini-reasoning-4bit`` with streaming requests and observed
+    ``content=">\\n", reasoning="<thinkOkay..."`` — the parser was
+    splitting the literal ``<think>`` open tag across SSE chunk
+    boundaries and falling through ``_handle_explicit_think``'s
+    "treat as content" fallback for the trailing tag bytes.
+
+    Tested via the ``DeepSeekR1ReasoningParser`` concrete class (the
+    base parser is abstract); ``Qwen3ReasoningParser`` inherits the
+    same streaming machinery and gets coverage via the
+    inheritance-sensitive ``test_qwen3_sse_boundary_inherited``
+    test below.
+    """
+
+    @staticmethod
+    def _run_stream(parser, chunks):
+        """Replay ``chunks`` through the parser's streaming interface
+        exactly the way ``stream_chat_completion`` does and return
+        ``(joined_reasoning, joined_content)``."""
+        parser.reset_state()
+        prev = ""
+        reasoning = ""
+        content = ""
+        for ch in chunks:
+            cur = prev + ch
+            msg = parser.extract_reasoning_streaming(prev, cur, ch)
+            if msg:
+                if msg.reasoning:
+                    reasoning += msg.reasoning
+                if msg.content:
+                    content += msg.content
+            prev = cur
+        return reasoning, content
+
+    def test_start_tag_straddles_sse_boundary(self):
+        """``<think>`` split as ``<thi`` / ``nk>`` MUST produce clean
+        reasoning + clean content — no literal tag bytes in either
+        channel. This is the exact phi-4-mini-reasoning fuzz repro."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["<thi", "nk>", "Okay, ", "thinking.", "</think>", "Hello!"],
+        )
+        assert "<thi" not in reasoning, (
+            f"partial start tag leaked into reasoning: {reasoning!r}"
+        )
+        assert "<thi" not in content, (
+            f"partial start tag leaked into content: {content!r}"
+        )
+        assert reasoning == "Okay, thinking."
+        assert content == "Hello!"
+
+    def test_start_tag_split_one_char_at_a_time(self):
+        """Worst-case: every character is its own SSE chunk. The parser
+        must still reconstruct ``<think>`` from 7 one-char deltas
+        without leaking any of the partial bytes."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            list("<think>") + ["Okay"] + ["</think>"] + ["Hi"],
+        )
+        assert reasoning == "Okay"
+        assert content == "Hi"
+
+    def test_end_tag_straddles_sse_boundary(self):
+        """``</think>`` split as ``</thi`` / ``nk>`` MUST not leak the
+        literal closing tag bytes into either channel."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["<think>", "thinking", "</thi", "nk>", "answer"],
+        )
+        assert "</thi" not in reasoning, (
+            f"partial end tag leaked into reasoning: {reasoning!r}"
+        )
+        assert "</thi" not in content
+        assert reasoning == "thinking"
+        assert content == "answer"
+
+    def test_false_prefix_lt_recovered(self):
+        """A lone ``<`` that turns out to NOT be a tag must be flushed
+        into the stream on the next delta (not silently dropped).
+
+        Regression for the held-buffer flush: an aggressive withhold
+        without recovery would swallow user-visible characters."""
+        parser = DeepSeekR1ReasoningParser()
+        # Use the streaming interface directly so we don't hit the
+        # NO_TAG_CONTENT_THRESHOLD path in the subclass.
+        reasoning, _ = self._run_stream(parser, ["<", "angle bracket"])
+        assert reasoning == "<angle bracket", (
+            f"held '<' was dropped instead of flushed: {reasoning!r}"
+        )
+
+    def test_qwen3_sse_boundary_inherited(self):
+        """Qwen3 parser inherits the streaming machinery and must get
+        the same SSE-boundary safety as deepseek_r1."""
+        from vllm_mlx.reasoning.qwen3_parser import Qwen3ReasoningParser
+
+        parser = Qwen3ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["<thi", "nk>", "Okay", "</think>", "Hello!"],
+        )
+        assert "<thi" not in reasoning
+        assert "<thi" not in content
+        assert reasoning == "Okay"
+        assert content == "Hello!"
+
+    def test_classic_in_delta_tag_unaffected(self):
+        """Regression: when the entire ``<think>...</think>`` arrives
+        in normal chunks (no straddle), behaviour must be unchanged."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["<think>", "reasoning here", "</think>", "the answer"],
+        )
+        assert reasoning == "reasoning here"
+        assert content == "the answer"
+
+    def test_no_tags_at_all_streams_normally(self):
+        """Regression: no-tag streams must still reach the Case-3
+        fallback (reasoning) without being held indefinitely."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["plain ", "answer"],
+        )
+        # Case 3 routes no-tag to reasoning; finalize_streaming corrects
+        # it. We only check the streamed bytes here are intact.
+        assert reasoning == "plain answer"
+        assert content == ""
+
+    def test_false_partial_tag_inside_think_block_flushed(self):
+        """Codex r1 P2 follow-up: when a ``<`` appears mid-reasoning
+        and the next delta resolves it to non-tag content, the held
+        ``<`` must be flushed back into reasoning. Without the
+        recovery the byte was silently dropped — reasoning text
+        ``2 < 5`` would render as ``2  5`` (the comparison operator
+        eaten by the partial-tag withhold).
+
+        This case fires inside an OPEN ``<think>`` block
+        (``start_in_prev`` True), distinct from the Case-3 fallback
+        path the prior tests cover. Codex flagged the asymmetry
+        before merge."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["<think>2 ", "<", " 5</think>", "ans"],
+        )
+        assert reasoning == "2 < 5", (
+            f"false partial tag inside <think> block must flush — got "
+            f"reasoning={reasoning!r}"
+        )
+        assert content == "ans"
+
+    def test_in_think_block_with_lt_and_gt_chars(self):
+        """Counter-test: reasoning that includes both ``<`` and ``>``
+        characters mid-text (common in math / code) must not be
+        garbled by the partial-tag withhold."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["<think>x > 5 and y < 10", "</think>", "done"],
+        )
+        assert reasoning == "x > 5 and y < 10"
+        assert content == "done"
+
+    def test_split_opener_completed_with_reasoning_no_duplication(self):
+        """Codex r2 P2 follow-up: when the start tag straddles SSE
+        chunks AND the completing chunk also carries reasoning bytes
+        (``['<thi', 'nk>Okay', ' more']``), the held suffix from the
+        prior ``<thi`` delta must be cleared after consumption. A
+        leftover held value caused the next ``start_in_prev`` delta to
+        compute ``already_emitted_after_opener`` as if the held bytes
+        were un-emitted reasoning, re-emitting the just-sent text and
+        duplicating streamed reasoning."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["<thi", "nk>Okay", " more", "</think>", "done"],
+        )
+        assert reasoning == "Okay more", (
+            f"split opener + reasoning in same delta must not duplicate "
+            f"reasoning on subsequent deltas — got reasoning={reasoning!r}"
+        )
+        assert content == "done"
+
+    def test_split_opener_completes_with_partial_end_tag_no_leak(self):
+        """Codex r4 P2 follow-up: when the same chunk that completes a
+        split opener ALSO ends with a partial ``</think>``, the recovery
+        branch must withhold the partial-end-tag suffix from the emit
+        so the next chunk can complete the close. Otherwise the literal
+        ``</thi`` bytes leak into ``reasoning_content`` and the client
+        sees stray closing-tag bytes (live-fuzz repro shape:
+        ``['<thi', 'nk>OK</thi', 'nk>ans']``)."""
+        parser = DeepSeekR1ReasoningParser()
+        reasoning, content = self._run_stream(
+            parser,
+            ["<thi", "nk>OK</thi", "nk>ans"],
+        )
+        assert reasoning == "OK", (
+            f"split opener + split closer in same completing delta must "
+            f"not leak partial-end-tag bytes — got reasoning={reasoning!r}"
+        )
+        assert content == "ans", (
+            f"content after split closer must be clean — got content={content!r}"
+        )
 
 
 # ---------------------------------------------------------------------------

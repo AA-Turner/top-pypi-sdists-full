@@ -3433,7 +3433,6 @@ class Release:
     jsii_type="projen.gitlab.Reports",
     jsii_struct_bases=[],
     name_mapping={
-        "cobertura": "cobertura",
         "codequality": "codequality",
         "container_scanning": "containerScanning",
         "coverage_report": "coverageReport",
@@ -3456,7 +3455,6 @@ class Reports:
     def __init__(
         self,
         *,
-        cobertura: typing.Optional[typing.Sequence[builtins.str]] = None,
         codequality: typing.Optional[typing.Sequence[builtins.str]] = None,
         container_scanning: typing.Optional[typing.Sequence[builtins.str]] = None,
         coverage_report: typing.Optional[typing.Union["CoverageReport", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3476,7 +3474,6 @@ class Reports:
     ) -> None:
         '''(experimental) Reports will be uploaded as artifacts, and often displayed in the Gitlab UI, such as in Merge Requests.
 
-        :param cobertura: (deprecated) Path for file(s) that should be parsed as Cobertura XML coverage report.
         :param codequality: (experimental) Path to file or list of files with code quality report(s) (such as Code Climate).
         :param container_scanning: (experimental) Path to file or list of files with Container scanning vulnerabilities report(s).
         :param coverage_report: (experimental) Code coverage report information.
@@ -3501,7 +3498,6 @@ class Reports:
             coverage_report = CoverageReport(**coverage_report)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c9f4030cd6e6d9c8988080afe12341d674a6d0751da1c7937dd3901c9d6062c)
-            check_type(argname="argument cobertura", value=cobertura, expected_type=type_hints["cobertura"])
             check_type(argname="argument codequality", value=codequality, expected_type=type_hints["codequality"])
             check_type(argname="argument container_scanning", value=container_scanning, expected_type=type_hints["container_scanning"])
             check_type(argname="argument coverage_report", value=coverage_report, expected_type=type_hints["coverage_report"])
@@ -3519,8 +3515,6 @@ class Reports:
             check_type(argname="argument secret_detection", value=secret_detection, expected_type=type_hints["secret_detection"])
             check_type(argname="argument terraform", value=terraform, expected_type=type_hints["terraform"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cobertura is not None:
-            self._values["cobertura"] = cobertura
         if codequality is not None:
             self._values["codequality"] = codequality
         if container_scanning is not None:
@@ -3553,17 +3547,6 @@ class Reports:
             self._values["secret_detection"] = secret_detection
         if terraform is not None:
             self._values["terraform"] = terraform
-
-    @builtins.property
-    def cobertura(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Path for file(s) that should be parsed as Cobertura XML coverage report.
-
-        :deprecated: per {@link https://docs.gitlab.com/ee/update/deprecations.html#artifactsreportscobertura-keyword} use {@link coverageReport } instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("cobertura")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def codequality(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4960,7 +4943,6 @@ def _typecheckingstub__c38e7545caf21650d3fd8d9c8672f7ac49978e130308eff721d262f5c
 
 def _typecheckingstub__2c9f4030cd6e6d9c8988080afe12341d674a6d0751da1c7937dd3901c9d6062c(
     *,
-    cobertura: typing.Optional[typing.Sequence[builtins.str]] = None,
     codequality: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_scanning: typing.Optional[typing.Sequence[builtins.str]] = None,
     coverage_report: typing.Optional[typing.Union[CoverageReport, typing.Dict[builtins.str, typing.Any]]] = None,

@@ -62,6 +62,7 @@ from .literals import (
     ThemeStateType,
     ThemeStylingType,
     UsageReportExecutionErrorCodeType,
+    UserControlModeType,
     UserStackAssociationErrorCodeType,
     VisibilityTypeType,
 )
@@ -812,6 +813,7 @@ class AgentAccessConfigForUpdateTypeDef(TypedDict):
     ScreenshotsUploadEnabled: NotRequired[bool]
     ScreenResolution: NotRequired[Literal["W_1280xH_720"]]
     ScreenImageFormat: NotRequired[ScreenImageFormatType]
+    UserControlMode: NotRequired[UserControlModeType]
 
 class AgentAccessConfigOutputTypeDef(TypedDict):
     Settings: list[AgentAccessSettingTypeDef]
@@ -819,6 +821,7 @@ class AgentAccessConfigOutputTypeDef(TypedDict):
     ScreenImageFormat: ScreenImageFormatType
     S3BucketArn: NotRequired[str]
     ScreenshotsUploadEnabled: NotRequired[bool]
+    UserControlMode: NotRequired[UserControlModeType]
 
 class AgentAccessConfigTypeDef(TypedDict):
     Settings: Sequence[AgentAccessSettingTypeDef]
@@ -826,6 +829,7 @@ class AgentAccessConfigTypeDef(TypedDict):
     ScreenImageFormat: ScreenImageFormatType
     S3BucketArn: NotRequired[str]
     ScreenshotsUploadEnabled: NotRequired[bool]
+    UserControlMode: NotRequired[UserControlModeType]
 
 class AppBlockBuilderTypeDef(TypedDict):
     Arn: str

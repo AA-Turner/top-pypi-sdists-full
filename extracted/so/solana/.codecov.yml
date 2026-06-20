@@ -1,0 +1,25 @@
+codecov:
+  notify:
+    require_ci_to_pass: true
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1.5%
+    patch: false
+    changes: false
+
+comment:
+  layout: "header, diff"
+  behavior: default
+  require_changes: false
+
+ignore:
+  - tests
+  - docs/conf.py

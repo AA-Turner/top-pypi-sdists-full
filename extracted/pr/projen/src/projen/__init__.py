@@ -4731,7 +4731,7 @@ class InitProject:
         args: typing.Mapping[builtins.str, typing.Any],
         comments: "InitProjectOptionHints",
         fqn: builtins.str,
-        type: "ProjectType",
+        type: typing.Union["ProjectType", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''(experimental) Information passed from ``projen new`` to the project object when the project is first created.
 
@@ -4744,6 +4744,8 @@ class InitProject:
 
         :stability: experimental
         '''
+        if isinstance(type, dict):
+            type = ProjectType(**type)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68e857a70558d977f23eac6a7f43184bde159ec35b45b301dd96f1d6b8649cee)
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
@@ -6238,21 +6240,6 @@ class Project(
 
         return typing.cast("Task", jsii.invoke(self, "addTask", [name, props]))
 
-    @jsii.member(jsii_name="addTip")
-    def add_tip(self, message: builtins.str) -> None:
-        '''(deprecated) Prints a "tip" message during synthesis.
-
-        :param message: The message.
-
-        :deprecated: - use ``project.logger.info(message)`` to show messages during synthesis
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0beed63feccf79f49b05c93c6f457a41e13e37287b4e20c3cb4a68a06a68f3da)
-            check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(None, jsii.invoke(self, "addTip", [message]))
-
     @jsii.member(jsii_name="annotateGenerated")
     def annotate_generated(self, _glob: builtins.str) -> None:
         '''(experimental) Consider a set of files as "generated".
@@ -6347,24 +6334,6 @@ class Project(
             type_hints = typing.get_type_hints(_typecheckingstub__f70766139ef881860aaf10aeef6ebdb1465d98e99bad4472ae17e63f34c7fd4f)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast(typing.Optional["FileBase"], jsii.invoke(self, "tryFindFile", [file_path]))
-
-    @jsii.member(jsii_name="tryFindJsonFile")
-    def try_find_json_file(
-        self,
-        file_path: builtins.str,
-    ) -> typing.Optional["JsonFile"]:
-        '''(deprecated) Finds a json file by name.
-
-        :param file_path: The file path.
-
-        :deprecated: use ``tryFindObjectFile``
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d65eb5e92f4d625ac2145ddbfa1b0e23e3eac098ec0084123d40298e71d45dac)
-            check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(typing.Optional["JsonFile"], jsii.invoke(self, "tryFindJsonFile", [file_path]))
 
     @jsii.member(jsii_name="tryFindObjectFile")
     def try_find_object_file(
@@ -6716,6 +6685,164 @@ class ProjectBuild(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Project
 
 
 @jsii.data_type(
+    jsii_type="projen.ProjectOption",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "type": "type",
+        "default": "default",
+        "deprecated": "deprecated",
+        "docs": "docs",
+        "featured": "featured",
+        "fqn": "fqn",
+        "initial_value": "initialValue",
+        "optional": "optional",
+    },
+)
+class ProjectOption:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        type: typing.Any,
+        default: typing.Optional[builtins.str] = None,
+        deprecated: typing.Optional[builtins.bool] = None,
+        docs: typing.Optional[builtins.str] = None,
+        featured: typing.Optional[builtins.bool] = None,
+        fqn: typing.Optional[builtins.str] = None,
+        initial_value: typing.Optional[builtins.str] = None,
+        optional: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param name: 
+        :param type: 
+        :param default: 
+        :param deprecated: 
+        :param docs: 
+        :param featured: 
+        :param fqn: 
+        :param initial_value: 
+        :param optional: 
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20624ca0374bd369906662881cd555d2551bd9812a2eb58c5fc317146efd2861)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument default", value=default, expected_type=type_hints["default"])
+            check_type(argname="argument deprecated", value=deprecated, expected_type=type_hints["deprecated"])
+            check_type(argname="argument docs", value=docs, expected_type=type_hints["docs"])
+            check_type(argname="argument featured", value=featured, expected_type=type_hints["featured"])
+            check_type(argname="argument fqn", value=fqn, expected_type=type_hints["fqn"])
+            check_type(argname="argument initial_value", value=initial_value, expected_type=type_hints["initial_value"])
+            check_type(argname="argument optional", value=optional, expected_type=type_hints["optional"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "type": type,
+        }
+        if default is not None:
+            self._values["default"] = default
+        if deprecated is not None:
+            self._values["deprecated"] = deprecated
+        if docs is not None:
+            self._values["docs"] = docs
+        if featured is not None:
+            self._values["featured"] = featured
+        if fqn is not None:
+            self._values["fqn"] = fqn
+        if initial_value is not None:
+            self._values["initial_value"] = initial_value
+        if optional is not None:
+            self._values["optional"] = optional
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> typing.Any:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def default(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("default")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deprecated(self) -> typing.Optional[builtins.bool]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("deprecated")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def docs(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("docs")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def featured(self) -> typing.Optional[builtins.bool]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("featured")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def fqn(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("fqn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def initial_value(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("initial_value")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def optional(self) -> typing.Optional[builtins.bool]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("optional")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProjectOption(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="projen.ProjectOptions",
     jsii_struct_bases=[],
     name_mapping={
@@ -7021,33 +7148,134 @@ class ProjectTree(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.ProjectT
         jsii.set(self, "file", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.enum(jsii_type="projen.ProjectType")
-class ProjectType(enum.Enum):
-    '''(deprecated) Which type of project this is.
+@jsii.data_type(
+    jsii_type="projen.ProjectType",
+    jsii_struct_bases=[],
+    name_mapping={
+        "docsurl": "docsurl",
+        "fqn": "fqn",
+        "module_name": "moduleName",
+        "options": "options",
+        "pjid": "pjid",
+        "typename": "typename",
+        "docs": "docs",
+    },
+)
+class ProjectType:
+    def __init__(
+        self,
+        *,
+        docsurl: builtins.str,
+        fqn: builtins.str,
+        module_name: builtins.str,
+        options: typing.Sequence[typing.Union["ProjectOption", typing.Dict[builtins.str, typing.Any]]],
+        pjid: builtins.str,
+        typename: builtins.str,
+        docs: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param docsurl: 
+        :param fqn: 
+        :param module_name: 
+        :param options: 
+        :param pjid: 
+        :param typename: 
+        :param docs: 
 
-    :deprecated: no longer supported at the base project level
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afc882431308538ccac3d804bf666b94cd63138423d6d13d1a56e210d3421fdd)
+            check_type(argname="argument docsurl", value=docsurl, expected_type=type_hints["docsurl"])
+            check_type(argname="argument fqn", value=fqn, expected_type=type_hints["fqn"])
+            check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            check_type(argname="argument pjid", value=pjid, expected_type=type_hints["pjid"])
+            check_type(argname="argument typename", value=typename, expected_type=type_hints["typename"])
+            check_type(argname="argument docs", value=docs, expected_type=type_hints["docs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "docsurl": docsurl,
+            "fqn": fqn,
+            "module_name": module_name,
+            "options": options,
+            "pjid": pjid,
+            "typename": typename,
+        }
+        if docs is not None:
+            self._values["docs"] = docs
 
-    :stability: deprecated
-    '''
+    @builtins.property
+    def docsurl(self) -> builtins.str:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("docsurl")
+        assert result is not None, "Required property 'docsurl' is missing"
+        return typing.cast(builtins.str, result)
 
-    UNKNOWN = "UNKNOWN"
-    '''(deprecated) This module may be a either a library or an app.
+    @builtins.property
+    def fqn(self) -> builtins.str:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("fqn")
+        assert result is not None, "Required property 'fqn' is missing"
+        return typing.cast(builtins.str, result)
 
-    :stability: deprecated
-    '''
-    LIB = "LIB"
-    '''(deprecated) This is a library, intended to be published to a package manager and consumed by other projects.
+    @builtins.property
+    def module_name(self) -> builtins.str:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("module_name")
+        assert result is not None, "Required property 'module_name' is missing"
+        return typing.cast(builtins.str, result)
 
-    :stability: deprecated
-    '''
-    APP = "APP"
-    '''(deprecated) This is an app (service, tool, website, etc).
+    @builtins.property
+    def options(self) -> typing.List["ProjectOption"]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("options")
+        assert result is not None, "Required property 'options' is missing"
+        return typing.cast(typing.List["ProjectOption"], result)
 
-    Its artifacts are intended to
-    be deployed or published for end-user consumption.
+    @builtins.property
+    def pjid(self) -> builtins.str:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("pjid")
+        assert result is not None, "Required property 'pjid' is missing"
+        return typing.cast(builtins.str, result)
 
-    :stability: deprecated
-    '''
+    @builtins.property
+    def typename(self) -> builtins.str:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("typename")
+        assert result is not None, "Required property 'typename' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def docs(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("docs")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProjectType(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class Projects(metaclass=jsii.JSIIMeta, jsii_type="projen.Projects"):
@@ -7255,50 +7483,6 @@ class ProjenrcJsonOptions:
 
     def __repr__(self) -> str:
         return "ProjenrcJsonOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="projen.ProjenrcOptions",
-    jsii_struct_bases=[ProjenrcJsonOptions],
-    name_mapping={"filename": "filename"},
-)
-class ProjenrcOptions(ProjenrcJsonOptions):
-    def __init__(self, *, filename: typing.Optional[builtins.str] = None) -> None:
-        '''
-        :param filename: (experimental) The name of the projenrc file. Default: ".projenrc.json"
-
-        :deprecated: use ``ProjenrcJsonOptions``
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e65c016c9638462ddcfa91c71dec3094782bd55bb80eb39df93ca1b9caee431)
-            check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if filename is not None:
-            self._values["filename"] = filename
-
-    @builtins.property
-    def filename(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the projenrc file.
-
-        :default: ".projenrc.json"
-
-        :stability: experimental
-        '''
-        result = self._values.get("filename")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ProjenrcOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -8199,116 +8383,6 @@ class SampleReadmeProps:
         )
 
 
-class Semver(metaclass=jsii.JSIIMeta, jsii_type="projen.Semver"):
-    '''
-    :deprecated:
-
-    This class will be removed in upcoming releases. if you wish to
-    specify semver requirements in ``deps``, ``devDeps``, etc, specify them like so
-    ``express@^2.1``.
-
-    :stability: deprecated
-    '''
-
-    @jsii.member(jsii_name="caret")
-    @builtins.classmethod
-    def caret(cls, version: builtins.str) -> "Semver":
-        '''(deprecated) Accept any minor version.
-
-        .. epigraph::
-
-           = version
-           < next major version
-
-        :param version: -
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__882a814624f99ac08715fce7fc18a428ae23a52ec698a5ebec9e072a6d4bee7b)
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast("Semver", jsii.sinvoke(cls, "caret", [version]))
-
-    @jsii.member(jsii_name="latest")
-    @builtins.classmethod
-    def latest(cls) -> "Semver":
-        '''(deprecated) Latest version.
-
-        :stability: deprecated
-        '''
-        return typing.cast("Semver", jsii.sinvoke(cls, "latest", []))
-
-    @jsii.member(jsii_name="of")
-    @builtins.classmethod
-    def of(cls, spec: builtins.str) -> "Semver":
-        '''
-        :param spec: -
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d08be6ee4b9a3cf93d50853ebba8a8bec4e9ba922550d4990871f38e90d2202c)
-            check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
-        return typing.cast("Semver", jsii.sinvoke(cls, "of", [spec]))
-
-    @jsii.member(jsii_name="pinned")
-    @builtins.classmethod
-    def pinned(cls, version: builtins.str) -> "Semver":
-        '''(deprecated) Accept only an exact version.
-
-        :param version: -
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bc51091a63dc9aed397af0467d8120c4946b43f9c07bf576f1e7f9c0a7c1670)
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast("Semver", jsii.sinvoke(cls, "pinned", [version]))
-
-    @jsii.member(jsii_name="tilde")
-    @builtins.classmethod
-    def tilde(cls, version: builtins.str) -> "Semver":
-        '''(deprecated) Accept patches.
-
-        .. epigraph::
-
-           = version
-           < next minor version
-
-        :param version: -
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf95810f46ca22192ebf45b7182c9dc075240639ad5062da86d9cc145589b8a1)
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast("Semver", jsii.sinvoke(cls, "tilde", [version]))
-
-    @builtins.property
-    @jsii.member(jsii_name="spec")
-    def spec(self) -> builtins.str:
-        '''
-        :stability: deprecated
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "spec"))
-
-    @builtins.property
-    @jsii.member(jsii_name="mode")
-    def mode(self) -> typing.Optional[builtins.str]:
-        '''
-        :stability: deprecated
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "mode"))
-
-    @builtins.property
-    @jsii.member(jsii_name="version")
-    def version(self) -> typing.Optional[builtins.str]:
-        '''
-        :stability: deprecated
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "version"))
-
-
 @jsii.data_type(
     jsii_type="projen.SnapshotOptions",
     jsii_struct_bases=[],
@@ -8704,46 +8778,6 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         return typing.cast(None, jsii.invoke(self, "lock", []))
-
-    @jsii.member(jsii_name="prepend")
-    def prepend(
-        self,
-        shell: builtins.str,
-        *,
-        args: typing.Optional[typing.Sequence[builtins.str]] = None,
-        condition: typing.Optional[builtins.str] = None,
-        cwd: typing.Optional[builtins.str] = None,
-        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        name: typing.Optional[builtins.str] = None,
-        receive_args: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''(deprecated) Adds a command at the beginning of the task.
-
-        :param shell: The command to add.
-        :param args: (experimental) A list of fixed arguments always passed to the step. Useful to re-use existing tasks without having to re-define the whole task. Fixed args are always passed to the step, even if ``receiveArgs`` is ``false`` and are always passed before any args the task is called with. If the step executes a shell commands, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. If the step calls a builtin script, args are passed to the script. It is up to the script to use or discard the arguments. Default: - no arguments are passed to the step
-        :param condition: (experimental) A shell command which determines if the this step should be executed. If the program exits with a zero exit code, the step will be executed. A non-zero code means the step will be skipped (subsequent task steps will still be evaluated/executed).
-        :param cwd: (experimental) The working directory for this step. Default: - determined by the task
-        :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
-        :param name: (experimental) Step name. Default: - no name
-        :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in single quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
-
-        :deprecated: use ``prependExec()``
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72dcbc585fdab7a308274ba33cb7b5bcf9e106aaf01bef404fbb15b6c60db4c4)
-            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
-        options = TaskStepOptions(
-            args=args,
-            condition=condition,
-            cwd=cwd,
-            env=env,
-            name=name,
-            receive_args=receive_args,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "prepend", [shell, options]))
 
     @jsii.member(jsii_name="prependExec")
     def prepend_exec(
@@ -9431,98 +9465,6 @@ class TaskOptions(TaskCommonOptions):
         )
 
 
-class TaskRuntime(metaclass=jsii.JSIIMeta, jsii_type="projen.TaskRuntime"):
-    '''(experimental) The runtime component of the tasks engine.
-
-    :stability: experimental
-    '''
-
-    def __init__(self, workdir: builtins.str) -> None:
-        '''
-        :param workdir: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e15f59ab4d32890cdb2f631bc8b086ac603a9f80c504c1ac6e3645e63dd4250)
-            check_type(argname="argument workdir", value=workdir, expected_type=type_hints["workdir"])
-        jsii.create(self.__class__, self, [workdir])
-
-    @jsii.member(jsii_name="runTask")
-    def run_task(
-        self,
-        name: builtins.str,
-        parents: typing.Optional[typing.Sequence[builtins.str]] = None,
-        args: typing.Optional[typing.Sequence[typing.Union[builtins.str, jsii.Number]]] = None,
-        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''(experimental) Runs the task.
-
-        :param name: The task name.
-        :param parents: -
-        :param args: -
-        :param env: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f502dc8ce342b578300faffc5bd3c8c920c8565849215d7cec099d782d3ebf2)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument parents", value=parents, expected_type=type_hints["parents"])
-            check_type(argname="argument args", value=args, expected_type=type_hints["args"])
-            check_type(argname="argument env", value=env, expected_type=type_hints["env"])
-        return typing.cast(None, jsii.invoke(self, "runTask", [name, parents, args, env]))
-
-    @jsii.member(jsii_name="tryFindTask")
-    def try_find_task(self, name: builtins.str) -> typing.Optional["TaskSpec"]:
-        '''(experimental) Find a task by name, or ``undefined`` if not found.
-
-        :param name: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7792ab86c20765ed6722e2a1881c2907a4f0a114336f30cefaefba00de3330c2)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        return typing.cast(typing.Optional["TaskSpec"], jsii.invoke(self, "tryFindTask", [name]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="MANIFEST_FILE")
-    def MANIFEST_FILE(cls) -> builtins.str:
-        '''(experimental) The project-relative path of the tasks manifest file.
-
-        :stability: experimental
-        '''
-        return typing.cast(builtins.str, jsii.sget(cls, "MANIFEST_FILE"))
-
-    @builtins.property
-    @jsii.member(jsii_name="manifest")
-    def manifest(self) -> "TasksManifest":
-        '''(experimental) The contents of tasks.json.
-
-        :stability: experimental
-        '''
-        return typing.cast("TasksManifest", jsii.get(self, "manifest"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tasks")
-    def tasks(self) -> typing.List["TaskSpec"]:
-        '''(experimental) The tasks in this project.
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.List["TaskSpec"], jsii.get(self, "tasks"))
-
-    @builtins.property
-    @jsii.member(jsii_name="workdir")
-    def workdir(self) -> builtins.str:
-        '''(experimental) The root directory of the project and the cwd for executing tasks.
-
-        :stability: experimental
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "workdir"))
-
-
 @jsii.data_type(
     jsii_type="projen.TaskSpec",
     jsii_struct_bases=[TaskCommonOptions],
@@ -9848,7 +9790,7 @@ class TaskStepOptions:
 
 
 class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
-    '''(experimental) Defines project tasks.
+    '''(experimental) Defines and manages project tasks.
 
     Tasks extend the projen CLI by adding subcommands to it. Task definitions are
     synthesized into ``.projen/tasks.json``.
@@ -9943,6 +9885,18 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
             type_hints = typing.get_type_hints(_typecheckingstub__6c96f29b4423e28b4b65e683fc7e07a1024953e3610bb284fa1a0a90b8c77c07)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(typing.Optional["Task"], jsii.invoke(self, "removeTask", [name]))
+
+    @jsii.member(jsii_name="resolveTasksManifest")
+    def resolve_tasks_manifest(self, resolver: "IResolver") -> "TasksManifest":
+        '''
+        :param resolver: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d89f9c18e161fdaa91f44df1e97af40e8a9831ed109d587ae4b187346cab346)
+            check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
+        return typing.cast("TasksManifest", jsii.invoke(self, "resolveTasksManifest", [resolver]))
 
     @jsii.member(jsii_name="runTask")
     def run_task(
@@ -10636,16 +10590,6 @@ class Version(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Version"):
         )
 
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.invoke(self, "envForBranch", [branch_options]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STANDARD_VERSION")
-    def STANDARD_VERSION(cls) -> builtins.str:
-        '''
-        :deprecated: use ``version.bumpPackage`` on the component instance instead
-
-        :stability: deprecated
-        '''
-        return typing.cast(builtins.str, jsii.sget(cls, "STANDARD_VERSION"))
 
     @builtins.property
     @jsii.member(jsii_name="bumpPackage")
@@ -11496,7 +11440,6 @@ class AiInstructions(
 
         const project = new TypeScriptProject({
           name: "my-project",
-          defaultReleaseBranch: "main",
         });
         
         // Basic usage - generates files for all supported AI agents
@@ -12761,33 +12704,6 @@ class JsonFileOptions(ObjectFileOptions):
         )
 
 
-class Projenrc(ProjenrcJson, metaclass=jsii.JSIIMeta, jsii_type="projen.Projenrc"):
-    '''
-    :deprecated: use ``ProjenrcJson``
-
-    :stability: deprecated
-    '''
-
-    def __init__(
-        self,
-        project: "Project",
-        *,
-        filename: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param project: -
-        :param filename: (experimental) The name of the projenrc file. Default: ".projenrc.json"
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3116496b7a7f86911d3f5b5fc2758a136c1b6b18f32ffdb3a80bbd8fe0439914)
-            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
-        options = ProjenrcJsonOptions(filename=filename)
-
-        jsii.create(self.__class__, self, [project, options])
-
-
 @jsii.data_type(
     jsii_type="projen.TaskStep",
     jsii_struct_bases=[TaskStepOptions],
@@ -13111,15 +13027,14 @@ __all__ = [
     "ObjectFileOptions",
     "Project",
     "ProjectBuild",
+    "ProjectOption",
     "ProjectOptions",
     "ProjectTree",
     "ProjectType",
     "Projects",
-    "Projenrc",
     "ProjenrcFile",
     "ProjenrcJson",
     "ProjenrcJsonOptions",
-    "ProjenrcOptions",
     "ReleasableCommits",
     "Renovatebot",
     "RenovatebotMinimumReleaseAgeBehaviour",
@@ -13133,14 +13048,12 @@ __all__ = [
     "SampleFileOptions",
     "SampleReadme",
     "SampleReadmeProps",
-    "Semver",
     "SnapshotOptions",
     "SourceCode",
     "SourceCodeOptions",
     "Task",
     "TaskCommonOptions",
     "TaskOptions",
-    "TaskRuntime",
     "TaskSpec",
     "TaskStep",
     "TaskStepOptions",
@@ -13831,7 +13744,7 @@ def _typecheckingstub__68e857a70558d977f23eac6a7f43184bde159ec35b45b301dd96f1d6b
     args: typing.Mapping[builtins.str, typing.Any],
     comments: InitProjectOptionHints,
     fqn: builtins.str,
-    type: ProjectType,
+    type: typing.Union[ProjectType, typing.Dict[builtins.str, typing.Any]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14128,12 +14041,6 @@ def _typecheckingstub__deb7240461e3476c5778bf65eccdf771a733a6c994c9ab1093bf53022
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0beed63feccf79f49b05c93c6f457a41e13e37287b4e20c3cb4a68a06a68f3da(
-    message: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2a3f8f3de4a0f7089b9f05f29e319867a4481d3441eff34d4e9f3eab0130ec70(
     _glob: builtins.str,
 ) -> None:
@@ -14158,12 +14065,6 @@ def _typecheckingstub__f70766139ef881860aaf10aeef6ebdb1465d98e99bad4472ae17e63f3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d65eb5e92f4d625ac2145ddbfa1b0e23e3eac098ec0084123d40298e71d45dac(
-    file_path: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__fbb95b1525dde337216151338c677538f9fef8920e8ec9c6f33444b7f936f545(
     file_path: builtins.str,
 ) -> None:
@@ -14178,6 +14079,21 @@ def _typecheckingstub__16d37a5c5825b9b3d7ff7498ac7929ccb4efdb7a4d051b9f355807df9
 
 def _typecheckingstub__3bda3bf4e486437808f86825b7c514ecdc1487047c8a912a8ec695f6c7994008(
     project: Project,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20624ca0374bd369906662881cd555d2551bd9812a2eb58c5fc317146efd2861(
+    *,
+    name: builtins.str,
+    type: typing.Any,
+    default: typing.Optional[builtins.str] = None,
+    deprecated: typing.Optional[builtins.bool] = None,
+    docs: typing.Optional[builtins.str] = None,
+    featured: typing.Optional[builtins.bool] = None,
+    fqn: typing.Optional[builtins.str] = None,
+    initial_value: typing.Optional[builtins.str] = None,
+    optional: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14213,6 +14129,19 @@ def _typecheckingstub__dd1d331084783b1e11404a33c550a54f472b9e2d656ca02bdc7287828
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__afc882431308538ccac3d804bf666b94cd63138423d6d13d1a56e210d3421fdd(
+    *,
+    docsurl: builtins.str,
+    fqn: builtins.str,
+    module_name: builtins.str,
+    options: typing.Sequence[typing.Union[ProjectOption, typing.Dict[builtins.str, typing.Any]]],
+    pjid: builtins.str,
+    typename: builtins.str,
+    docs: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__eceaec699c352362ccbd6e243d30a2e6cb72fca16183fc6917e8140a42c29f57(
     scope: _constructs_77d1e7e8.IConstruct,
     id: typing.Optional[builtins.str] = None,
@@ -14235,13 +14164,6 @@ def _typecheckingstub__0f15d342ae05206d72b7818258b15e3fe0c8d8a752a91c55d215d8b04
     pass
 
 def _typecheckingstub__77a99955e971461d6a1a22bde13c0353d22c81866a29b67be950a0e26b50c76d(
-    *,
-    filename: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7e65c016c9638462ddcfa91c71dec3094782bd55bb80eb39df93ca1b9caee431(
     *,
     filename: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -14379,30 +14301,6 @@ def _typecheckingstub__77957e29d490dd06dbcef8d6f6f12b818295fcdd57ba6e23c2f47a789
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__882a814624f99ac08715fce7fc18a428ae23a52ec698a5ebec9e072a6d4bee7b(
-    version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d08be6ee4b9a3cf93d50853ebba8a8bec4e9ba922550d4990871f38e90d2202c(
-    spec: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4bc51091a63dc9aed397af0467d8120c4946b43f9c07bf576f1e7f9c0a7c1670(
-    version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf95810f46ca22192ebf45b7182c9dc075240639ad5062da86d9cc145589b8a1(
-    version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4033d52c0dc0e7955fb3f2d24e186e7b85bc74bcaf036fc11fbd959c943d9dba(
     *,
     parse_json: typing.Optional[builtins.bool] = None,
@@ -14505,19 +14403,6 @@ def _typecheckingstub__866645d9e72b430281a892f9aec648a8a4d11dfd83393ea8d1cf161c6
 def _typecheckingstub__f45a21d1f9e615dd1b225d6cafbe381a43b42811d1d21efd5a3f6630613e94af(
     index: jsii.Number,
     *steps: TaskStep,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__72dcbc585fdab7a308274ba33cb7b5bcf9e106aaf01bef404fbb15b6c60db4c4(
-    shell: builtins.str,
-    *,
-    args: typing.Optional[typing.Sequence[builtins.str]] = None,
-    condition: typing.Optional[builtins.str] = None,
-    cwd: typing.Optional[builtins.str] = None,
-    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    name: typing.Optional[builtins.str] = None,
-    receive_args: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14667,27 +14552,6 @@ def _typecheckingstub__4b67d140d8d3bc0d4265c1dc732e2e99b3a05600097a65f0baa880371
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9e15f59ab4d32890cdb2f631bc8b086ac603a9f80c504c1ac6e3645e63dd4250(
-    workdir: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9f502dc8ce342b578300faffc5bd3c8c920c8565849215d7cec099d782d3ebf2(
-    name: builtins.str,
-    parents: typing.Optional[typing.Sequence[builtins.str]] = None,
-    args: typing.Optional[typing.Sequence[typing.Union[builtins.str, jsii.Number]]] = None,
-    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7792ab86c20765ed6722e2a1881c2907a4f0a114336f30cefaefba00de3330c2(
-    name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__284f616dbd3bd02d58106f246e9393ed2115e81d7707ebd8741034d2e9d7faa8(
     *,
     condition: typing.Optional[builtins.str] = None,
@@ -14744,6 +14608,12 @@ def _typecheckingstub__836b8399b5241179b18880b35ae533996a76c85a9b01d5c5c846aaef0
 
 def _typecheckingstub__6c96f29b4423e28b4b65e683fc7e07a1024953e3610bb284fa1a0a90b8c77c07(
     name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d89f9c18e161fdaa91f44df1e97af40e8a9831ed109d587ae4b187346cab346(
+    resolver: IResolver,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15198,14 +15068,6 @@ def _typecheckingstub__13520dccfc7567565533a60eb68d854a29a519fa88a2a00e2abe76dd2
     omit_empty: typing.Optional[builtins.bool] = None,
     allow_comments: typing.Optional[builtins.bool] = None,
     newline: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3116496b7a7f86911d3f5b5fc2758a136c1b6b18f32ffdb3a80bbd8fe0439914(
-    project: Project,
-    *,
-    filename: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

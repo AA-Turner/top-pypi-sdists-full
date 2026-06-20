@@ -20,19 +20,44 @@ __all__ = [
     "index_dihedral",
     "dihedral_backbone",
     "dihedral_side_chain",
+    "nucleotide_dihedral_backbone",
+    "nucleotide_dihedral_side_chain",
     "centroid",
 ]
 
 import functools
+from collections.abc import Callable
+from typing import Any, overload
 import numpy as np
-from biotite.structure.atoms import AtomArray, AtomArrayStack, coord
+from biotite.structure.atoms import (
+    AtomArray,
+    AtomArrayStack,
+    Coord,
+    MultiCoord,
+    SingleCoord,
+    coord,
+)
 from biotite.structure.box import coord_to_fraction, fraction_to_coord, is_orthogonal
-from biotite.structure.filter import filter_amino_acids, filter_canonical_amino_acids
+from biotite.structure.filter import (
+    filter_amino_acids,
+    filter_canonical_amino_acids,
+    filter_nucleotides,
+)
 from biotite.structure.residues import get_residue_starts
 from biotite.structure.util import (
     coord_for_atom_name_per_residue,
     norm_vector,
     vector_dot,
+)
+from biotite.typing import (
+    C4,
+    XYZ,
+    K,
+    M,
+    N,
+    NDArray1,
+    NDArray2,
+    NDArray3,
 )
 
 # The names of the atoms participating in chi angle
@@ -93,7 +118,17 @@ _CHI_ATOMS = {
 }
 
 
-def displacement(atoms1, atoms2, box=None):
+def displacement(
+    atoms1: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    atoms2: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    box: (
+        NDArray2[XYZ, XYZ, np.floating] | NDArray3[M, XYZ, XYZ, np.floating] | None
+    ) = None,
+) -> (
+    NDArray1[XYZ, np.floating]
+    | NDArray2[N, XYZ, np.floating]
+    | NDArray3[M, N, XYZ, np.floating]
+):
     """
     Measure the displacement vector, i.e. the vector difference, from
     one array of atom coordinates to another array of coordinates.
@@ -151,24 +186,24 @@ def displacement(atoms1, atoms2, box=None):
             fractions = fractions[np.newaxis, :]
             disp = disp[np.newaxis, :]
             if orthogonality:
-                _displacement_orthogonal_box(fractions, box, disp)
+                _displacement_orthogonal_box(fractions, box, disp)  # pyright: ignore[reportArgumentType]
             else:
                 _displacement_triclinic_box(
-                    fractions.astype(diff.dtype, copy=False),
-                    box.astype(diff.dtype, copy=False),
-                    disp,
+                    fractions.astype(diff.dtype, copy=False),  # pyright: ignore[reportArgumentType]
+                    box.astype(diff.dtype, copy=False),  # pyright: ignore[reportArgumentType]
+                    disp,  # pyright: ignore[reportArgumentType]
                 )
             # Transform back
             disp = disp[0]
         if fractions.ndim == 2:
             # Single model
             if orthogonality:
-                _displacement_orthogonal_box(fractions, box, disp)
+                _displacement_orthogonal_box(fractions, box, disp)  # pyright: ignore[reportArgumentType]
             else:
                 _displacement_triclinic_box(
-                    fractions.astype(diff.dtype, copy=False),
-                    box.astype(diff.dtype, copy=False),
-                    disp,
+                    fractions.astype(diff.dtype, copy=False),  # pyright: ignore[reportArgumentType]
+                    box.astype(diff.dtype, copy=False),  # pyright: ignore[reportArgumentType]
+                    disp,  # pyright: ignore[reportArgumentType]
                 )
         elif fractions.ndim == 3:
             # Multiple models
@@ -179,26 +214,28 @@ def displacement(atoms1, atoms2, box=None):
                     orthogonality_for_model = orthogonality
                 elif box.ndim == 3:
                     box_for_model = box[i]
-                    orthogonality_for_model = orthogonality[i]
+                    orthogonality_for_model = orthogonality[i]  # pyright: ignore[reportIndexIssue]
                 else:
                     raise ValueError(f"{box.ndim} are to many box dimensions")
                 if orthogonality_for_model:
-                    _displacement_orthogonal_box(fractions[i], box_for_model, disp[i])
+                    _displacement_orthogonal_box(fractions[i], box_for_model, disp[i])  # pyright: ignore[reportArgumentType]
                 else:
                     _displacement_triclinic_box(
-                        fractions[i].astype(diff.dtype, copy=False),
-                        box_for_model.astype(diff.dtype, copy=False),
-                        disp[i],
+                        fractions[i].astype(diff.dtype, copy=False),  # pyright: ignore[reportArgumentType]
+                        box_for_model.astype(diff.dtype, copy=False),  # pyright: ignore[reportArgumentType]
+                        disp[i],  # pyright: ignore[reportArgumentType]
                     )
         else:
             raise ValueError(f"{diff.shape} is an invalid shape for atom coordinates")
-        return disp
+        return disp  # pyright: ignore[reportReturnType]
 
     else:
         return diff
 
 
-def index_displacement(*args, **kwargs):
+def index_displacement(
+    *args: Any, **kwargs: Any
+) -> NDArray2[K, XYZ, np.floating] | NDArray3[M, K, XYZ, np.floating]:
     """
     index_displacement(atoms, indices, periodic=False, box=None)
 
@@ -255,10 +292,16 @@ def index_displacement(*args, **kwargs):
     --------
     displacement
     """
-    return _call_non_index_function(displacement, 2, *args, **kwargs)
+    return _call_non_index_function(displacement, 2, *args, **kwargs)  # pyright: ignore[reportReturnType]
 
 
-def distance(atoms1, atoms2, box=None):
+def distance(
+    atoms1: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    atoms2: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    box: (
+        NDArray2[XYZ, XYZ, np.floating] | NDArray3[M, XYZ, XYZ, np.floating] | None
+    ) = None,
+) -> NDArray1[N, np.floating] | NDArray2[M, N, np.floating] | np.floating:
     """
     Measure the euclidian distance between atoms.
 
@@ -292,7 +335,9 @@ def distance(atoms1, atoms2, box=None):
     return np.sqrt(vector_dot(diff, diff))
 
 
-def index_distance(*args, **kwargs):
+def index_distance(
+    *args: Any, **kwargs: Any
+) -> NDArray1[K, np.floating] | NDArray2[M, K, np.floating]:
     """
     index_distance(atoms, indices, periodic=False, box=None)
 
@@ -346,10 +391,17 @@ def index_distance(*args, **kwargs):
     --------
     distance
     """
-    return _call_non_index_function(distance, 2, *args, **kwargs)
+    return _call_non_index_function(distance, 2, *args, **kwargs)  # pyright: ignore[reportReturnType]
 
 
-def angle(atoms1, atoms2, atoms3, box=None):
+def angle(
+    atoms1: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    atoms2: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    atoms3: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    box: (
+        NDArray2[XYZ, XYZ, np.floating] | NDArray3[M, XYZ, XYZ, np.floating] | None
+    ) = None,
+) -> NDArray1[N, np.floating] | NDArray2[M, N, np.floating] | np.floating:
     """
     Measure the angle between 3 atoms.
 
@@ -383,7 +435,9 @@ def angle(atoms1, atoms2, atoms3, box=None):
     return np.arccos(vector_dot(v1, v2))
 
 
-def index_angle(*args, **kwargs):
+def index_angle(
+    *args: Any, **kwargs: Any
+) -> NDArray1[K, np.floating] | NDArray2[M, K, np.floating]:
     """
     index_angle(atoms, indices, periodic=False, box=None)
 
@@ -435,10 +489,18 @@ def index_angle(*args, **kwargs):
     --------
     angle
     """
-    return _call_non_index_function(angle, 3, *args, **kwargs)
+    return _call_non_index_function(angle, 3, *args, **kwargs)  # pyright: ignore[reportReturnType]
 
 
-def dihedral(atoms1, atoms2, atoms3, atoms4, box=None):
+def dihedral(
+    atoms1: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    atoms2: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    atoms3: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    atoms4: (SingleCoord | Coord[N] | MultiCoord[M, N]),
+    box: (
+        NDArray2[XYZ, XYZ, np.floating] | NDArray3[M, XYZ, XYZ, np.floating] | None
+    ) = None,
+) -> NDArray1[N, np.floating] | NDArray2[M, N, np.floating] | np.floating:
     """
     Measure the dihedral angle between 4 atoms.
 
@@ -483,7 +545,9 @@ def dihedral(atoms1, atoms2, atoms3, atoms4, box=None):
     return np.arctan2(y, x)
 
 
-def index_dihedral(*args, **kwargs):
+def index_dihedral(
+    *args: Any, **kwargs: Any
+) -> NDArray1[K, np.floating] | NDArray2[M, K, np.floating]:
     """
     index_dihedral(atoms, indices, periodic=False, box=None)
 
@@ -537,10 +601,36 @@ def index_dihedral(*args, **kwargs):
     dihedral
     dihedral_backbone
     """
-    return _call_non_index_function(dihedral, 4, *args, **kwargs)
+    return _call_non_index_function(dihedral, 4, *args, **kwargs)  # pyright: ignore[reportReturnType]
 
 
-def dihedral_backbone(atom_array):
+@overload
+def dihedral_backbone(
+    atom_array: AtomArray[N],
+) -> tuple[
+    NDArray1[N, np.floating],
+    NDArray1[N, np.floating],
+    NDArray1[N, np.floating],
+]: ...
+
+
+@overload
+def dihedral_backbone(
+    atom_array: AtomArrayStack[M, N],
+) -> tuple[
+    NDArray2[M, N, np.floating],
+    NDArray2[M, N, np.floating],
+    NDArray2[M, N, np.floating],
+]: ...
+
+
+def dihedral_backbone(
+    atom_array: AtomArray[N] | AtomArrayStack[M, N],
+) -> tuple[
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+]:
     """
     Measure the characteristic backbone dihedral angles of a chain.
 
@@ -600,29 +690,31 @@ def dihedral_backbone(atom_array):
     coord_for_omg[..., 0:-1, :, 3] = coord_ca[..., 1:,   :]
     # fmt: on
 
-    phi = dihedral(
-        coord_for_phi[..., 0],
-        coord_for_phi[..., 1],
-        coord_for_phi[..., 2],
-        coord_for_phi[..., 3],
-    )
-    psi = dihedral(
-        coord_for_psi[..., 0],
-        coord_for_psi[..., 1],
-        coord_for_psi[..., 2],
-        coord_for_psi[..., 3],
-    )
-    omg = dihedral(
-        coord_for_omg[..., 0],
-        coord_for_omg[..., 1],
-        coord_for_omg[..., 2],
-        coord_for_omg[..., 3],
-    )
+    phi = dihedral(*(coord_for_phi[..., i] for i in range(4)))
+    psi = dihedral(*(coord_for_psi[..., i] for i in range(4)))
+    omg = dihedral(*(coord_for_omg[..., i] for i in range(4)))
 
-    return phi, psi, omg
+    # `dihedral`'s union return includes a scalar `np.floating` branch
+    # that only fires on rank-0 inputs; here the inputs are always at
+    # least 2D so the scalar branch is unreachable.
+    return phi, psi, omg  # pyright: ignore[reportReturnType]
 
 
-def dihedral_side_chain(atoms):
+@overload
+def dihedral_side_chain(
+    atoms: AtomArray[N],
+) -> NDArray2[N, C4, np.floating]: ...
+
+
+@overload
+def dihedral_side_chain(
+    atoms: AtomArrayStack[M, N],
+) -> NDArray3[M, N, C4, np.floating]: ...  # last dim = 4 chi angles
+
+
+def dihedral_side_chain(
+    atoms: AtomArray[N] | AtomArrayStack[M, N],
+) -> NDArray2[N, C4, np.floating] | NDArray3[M, N, C4, np.floating]:
     r"""
     Measure the side chain :math:`\chi` dihedral angles of amino acid residues.
 
@@ -691,28 +783,230 @@ def dihedral_side_chain(atoms):
         res_mask = res_names == res_name
         for chi_i, chi_atom_names in enumerate(chi_atom_names_for_all_angles):
             dihedrals = dihedral(
-                chi_atom_coord[
-                    chi_atoms_to_coord_index[chi_atom_names[0]], ..., res_mask, :
-                ],
-                chi_atom_coord[
-                    chi_atoms_to_coord_index[chi_atom_names[1]], ..., res_mask, :
-                ],
-                chi_atom_coord[
-                    chi_atoms_to_coord_index[chi_atom_names[2]], ..., res_mask, :
-                ],
-                chi_atom_coord[
-                    chi_atoms_to_coord_index[chi_atom_names[3]], ..., res_mask, :
-                ],
+                *(
+                    chi_atom_coord[
+                        chi_atoms_to_coord_index[atom_name], ..., res_mask, :
+                    ]
+                    for atom_name in chi_atom_names
+                )
             )
             if is_multi_model:
                 # Swap dimensions due to NumPy's behavior when using advanced indexing
                 # (https://numpy.org/devdocs/user/basics.indexing.html#combining-advanced-and-basic-indexing)
                 dihedrals = dihedrals.T
             chi_angles[..., res_mask, chi_i] = dihedrals
-    return chi_angles
+    return chi_angles  # pyright: ignore[reportReturnType]
 
 
-def centroid(atoms):
+@overload
+def nucleotide_dihedral_backbone(
+    atom_array: AtomArray[N],
+) -> tuple[
+    NDArray1[N, np.floating],
+    NDArray1[N, np.floating],
+    NDArray1[N, np.floating],
+    NDArray1[N, np.floating],
+    NDArray1[N, np.floating],
+    NDArray1[N, np.floating],
+]: ...
+
+
+@overload
+def nucleotide_dihedral_backbone(
+    atom_array: AtomArrayStack[M, N],
+) -> tuple[
+    NDArray2[M, N, np.floating],
+    NDArray2[M, N, np.floating],
+    NDArray2[M, N, np.floating],
+    NDArray2[M, N, np.floating],
+    NDArray2[M, N, np.floating],
+    NDArray2[M, N, np.floating],
+]: ...
+
+
+def nucleotide_dihedral_backbone(
+    atom_array: AtomArray[N] | AtomArrayStack[M, N],
+) -> tuple[
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+    NDArray1[N, np.floating] | NDArray2[M, N, np.floating],
+]:
+    r"""
+    Measure the six characteristic backbone dihedral angles of a nucleotide chain.
+
+    Parameters
+    ----------
+    atom_array : AtomArray or AtomArrayStack
+        The nucleic acid structure to measure the dihedral angles for.
+        For missing backbone atoms the corresponding angles are `NaN`.
+
+    Returns
+    -------
+    alpha, beta, gamma, delta, epsilon, zeta : ndarray, shape=(m,n) or shape=(n,), dtype=float
+        An array containing the six backbone dihedral angles for every nucleotide
+        residue.
+        :math:`\alpha` is not defined at the 5'-terminus, :math:`\epsilon` and
+        :math:`\zeta` are not defined at the 3'-terminus.
+        In these places the arrays have *NaN* values.
+        If an :class:`AtomArrayStack` is given, the output angles are 2-dimensional,
+        the first dimension corresponds to the model number.
+
+    Notes
+    -----
+    The nucleotide backbone dihedral angles are defined as follows
+    (indices refer to the residue position along the chain):
+
+    - :math:`\alpha`: O3'(i-1) - P(i) - O5'(i) - C5'(i)
+    - :math:`\beta`: P(i) - O5'(i) - C5'(i) - C4'(i)
+    - :math:`\gamma`: O5'(i) - C5'(i) - C4'(i) - C3'(i)
+    - :math:`\delta`: C5'(i) - C4'(i) - C3'(i) - O3'(i)
+    - :math:`\epsilon`: C4'(i) - C3'(i) - O3'(i) - P(i+1)
+    - :math:`\zeta`: C3'(i) - O3'(i) - P(i+1) - O5'(i+1)
+    """
+    coord_p, coord_o5p, coord_c5p, coord_c4p, coord_c3p, coord_o3p = (
+        coord_for_atom_name_per_residue(
+            atom_array,
+            ("P", "O5'", "C5'", "C4'", "C3'", "O3'"),
+            filter_nucleotides(atom_array),
+        )
+    )
+    n_residues = coord_p.shape[-2]
+
+    # Coordinates for dihedral angle calculation
+    # Dim 0: Model index (only for atom array stacks)
+    # Dim 1: Angle index
+    # Dim 2: X, Y, Z coordinates
+    # Dim 3: Atoms involved in dihedral angle
+    if isinstance(atom_array, AtomArray):
+        angle_coord_shape: tuple[int, ...] = (n_residues, 3, 4)
+    elif isinstance(atom_array, AtomArrayStack):
+        angle_coord_shape = (atom_array.stack_depth(), n_residues, 3, 4)
+    (
+        coord_for_alpha,
+        coord_for_beta,
+        coord_for_gamma,
+        coord_for_delta,
+        coord_for_epsilon,
+        coord_for_zeta,
+    ) = [np.full(angle_coord_shape, np.nan, dtype=np.float32) for _ in range(6)]
+
+    # fmt: off
+    coord_for_alpha[..., 1:, :, 0] = coord_o3p[..., 0:-1, :]
+    coord_for_alpha[..., 1:, :, 1] =   coord_p[...,   1:, :]
+    coord_for_alpha[..., 1:, :, 2] = coord_o5p[...,   1:, :]
+    coord_for_alpha[..., 1:, :, 3] = coord_c5p[...,   1:, :]
+
+    coord_for_beta[..., :, :, 0]  =   coord_p
+    coord_for_beta[..., :, :, 1]  = coord_o5p
+    coord_for_beta[..., :, :, 2]  = coord_c5p
+    coord_for_beta[..., :, :, 3]  = coord_c4p
+
+    coord_for_gamma[..., :, :, 0]  = coord_o5p
+    coord_for_gamma[..., :, :, 1]  = coord_c5p
+    coord_for_gamma[..., :, :, 2]  = coord_c4p
+    coord_for_gamma[..., :, :, 3]  = coord_c3p
+
+    coord_for_delta[..., :, :, 0]  = coord_c5p
+    coord_for_delta[..., :, :, 1]  = coord_c4p
+    coord_for_delta[..., :, :, 2]  = coord_c3p
+    coord_for_delta[..., :, :, 3]  = coord_o3p
+
+    coord_for_epsilon[..., 0:-1, :, 0] = coord_c4p[..., 0:-1, :]
+    coord_for_epsilon[..., 0:-1, :, 1] = coord_c3p[..., 0:-1, :]
+    coord_for_epsilon[..., 0:-1, :, 2] = coord_o3p[..., 0:-1, :]
+    coord_for_epsilon[..., 0:-1, :, 3] =   coord_p[...,   1:, :]
+
+    coord_for_zeta[..., 0:-1, :, 0] = coord_c3p[..., 0:-1, :]
+    coord_for_zeta[..., 0:-1, :, 1] = coord_o3p[..., 0:-1, :]
+    coord_for_zeta[..., 0:-1, :, 2] =   coord_p[...,   1:, :]
+    coord_for_zeta[..., 0:-1, :, 3] = coord_o5p[...,   1:, :]
+    # fmt: on
+
+    alpha = dihedral(*(coord_for_alpha[..., i] for i in range(4)))
+    beta = dihedral(*(coord_for_beta[..., i] for i in range(4)))
+    gamma = dihedral(*(coord_for_gamma[..., i] for i in range(4)))
+    delta = dihedral(*(coord_for_delta[..., i] for i in range(4)))
+    epsilon = dihedral(*(coord_for_epsilon[..., i] for i in range(4)))
+    zeta = dihedral(*(coord_for_zeta[..., i] for i in range(4)))
+
+    # See note in `dihedral_backbone` about the scalar branch of
+    # `dihedral`'s return type being unreachable here.
+    return alpha, beta, gamma, delta, epsilon, zeta  # pyright: ignore[reportReturnType]
+
+
+@overload
+def nucleotide_dihedral_side_chain(
+    atoms: AtomArray[N],
+) -> NDArray1[N, np.floating]: ...
+
+
+@overload
+def nucleotide_dihedral_side_chain(
+    atoms: AtomArrayStack[M, N],
+) -> NDArray2[M, N, np.floating]: ...
+
+
+def nucleotide_dihedral_side_chain(
+    atoms: AtomArray[N] | AtomArrayStack[M, N],
+) -> NDArray1[N, np.floating] | NDArray2[M, N, np.floating]:
+    r"""
+    Measure the glycosidic :math:`\chi` dihedral angle of nucleotide residues.
+
+    Parameters
+    ----------
+    atoms : AtomArray or AtomArrayStack
+        The nucleic acid structure to measure the glycosidic dihedral angles for.
+
+    Returns
+    -------
+    chi : ndarray, shape=(m, n) or shape=(n,), dtype=float
+        An array containing the :math:`\chi` angle for every residue.
+        Residues that are not nucleotides or lack the required atoms are filled with
+        :math:`NaN` values.
+
+    Notes
+    -----
+    The :math:`\chi` angle is defined between the sugar and the base:
+
+    - Purines (e.g. ``A``, ``G``): ``O4' - C1' - N9 - C4``
+    - Pyrimidines (e.g. ``C``, ``U``, ``T``): ``O4' - C1' - N1 - C2``
+
+    The base type is inferred from the presence of the ``N9`` atom, so modified
+    nucleotides are handled as long as they use the canonical glycosidic linkage.
+    """
+    coord_o4p, coord_c1p, coord_n9, coord_c4, coord_n1, coord_c2 = (
+        coord_for_atom_name_per_residue(
+            atoms,
+            ("O4'", "C1'", "N9", "C4", "N1", "C2"),
+            filter_nucleotides(atoms),
+        )
+    )
+
+    purine_chi = dihedral(coord_o4p, coord_c1p, coord_n9, coord_c4)
+    pyrimidine_chi = dihedral(coord_o4p, coord_c1p, coord_n1, coord_c2)
+    # Purines are distinguished from pyrimidines by the presence of the N9 atom
+    is_pyrimidine = np.isnan(coord_n9[..., 0])
+    return np.where(is_pyrimidine, pyrimidine_chi, purine_chi)
+
+
+@overload
+def centroid(
+    atoms: Coord[N],
+) -> NDArray1[XYZ, np.floating]: ...
+
+
+@overload
+def centroid(
+    atoms: MultiCoord[M, N],
+) -> NDArray2[M, XYZ, np.floating]: ...
+
+
+def centroid(
+    atoms: (Coord[N] | MultiCoord[M, N]),
+) -> NDArray1[XYZ, np.floating] | NDArray2[M, XYZ, np.floating]:
     """
     Measure the centroid of a structure.
 
@@ -733,7 +1027,19 @@ def centroid(atoms):
 
 
 def _call_non_index_function(
-    function, expected_amount, atoms, indices, periodic=False, box=None
+    function: Callable[..., Any],
+    expected_amount: int,
+    atoms: Coord[N] | MultiCoord[M, N],
+    indices: NDArray2[K, Any, np.integer],
+    periodic: bool = False,
+    box: NDArray2[Any, Any, np.floating]
+    | NDArray3[M, Any, Any, np.floating]
+    | None = None,
+) -> (
+    NDArray1[K, np.floating]
+    | NDArray2[K, XYZ, np.floating]
+    | NDArray2[M, K, np.floating]
+    | NDArray3[M, K, XYZ, np.floating]
 ):
     """
     Call an `xxx()` function based on the parameters given to a
@@ -760,7 +1066,11 @@ def _call_non_index_function(
     return function(*coord_list, box)
 
 
-def _displacement_orthogonal_box(fractions, box, disp):
+def _displacement_orthogonal_box(
+    fractions: NDArray2[K, XYZ, np.floating],
+    box: NDArray2[XYZ, XYZ, np.floating],
+    disp: NDArray2[K, XYZ, np.floating],
+) -> None:
     """
     Fill in the PBC-aware displacement vector for non-PBC-aware
     displacements given as fractions of given box vectors.
@@ -772,7 +1082,11 @@ def _displacement_orthogonal_box(fractions, box, disp):
     disp[:] = fraction_to_coord(fractions, box)
 
 
-def _displacement_triclinic_box(fractions, box, disp):
+def _displacement_triclinic_box(
+    fractions: NDArray2[K, XYZ, np.floating],
+    box: NDArray2[XYZ, XYZ, np.floating],
+    disp: NDArray2[K, XYZ, np.floating],
+) -> None:
     """
     Fill in the PBC-aware displacement vector for non-PBC-aware
     displacements given as fractions of given box vectors.
@@ -806,7 +1120,7 @@ def _displacement_triclinic_box(fractions, box, disp):
 
 
 @functools.cache
-def _all_chi_atoms():
+def _all_chi_atoms() -> list[str]:
     """
     Get the names of the atoms participating in any chi angle.
     """

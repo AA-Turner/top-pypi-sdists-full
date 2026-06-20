@@ -887,10 +887,6 @@ class Customer(StripeModel):
                 # The exception was raised for another reason, re-raise it
                 raise
 
-        # toggle the deleted flag on Customer to indicate it has been
-        # deleted upstream in Stripe
-        self.deleted = True
-
         if self.subscriber:
             # Delete the idempotency key used by Customer.create()
             # So re-creating a customer for this subscriber before the key expires
@@ -951,10 +947,14 @@ class Customer(StripeModel):
         Returns active subscriptions
         (subscriptions with an active status that end in the future).
         """
-        return self.subscriptions.filter(
-            status=enums.SubscriptionStatus.active,
-            current_period_end__gt=timezone.now(),
-        )
+        now = timezone.now()
+        return [
+            subscription
+            for subscription in self.subscriptions.all()
+            if subscription.status == enums.SubscriptionStatus.active
+            and subscription.current_period_end
+            and subscription.current_period_end > now
+        ]
 
     @property
     def valid_subscriptions(self):
@@ -962,12 +962,15 @@ class Customer(StripeModel):
         Returns this customer's valid subscriptions
         (subscriptions that aren't canceled or incomplete_expired).
         """
-        return self.subscriptions.exclude(
-            status__in=[
+        return [
+            subscription
+            for subscription in self.subscriptions.all()
+            if subscription.status
+            not in [
                 enums.SubscriptionStatus.canceled,
                 enums.SubscriptionStatus.incomplete_expired,
             ]
-        )
+        ]
 
     @property
     def subscription(self):
@@ -983,13 +986,15 @@ class Customer(StripeModel):
 
         subscriptions = self.valid_subscriptions
 
-        if subscriptions.count() > 1:
+        if len(subscriptions) > 1:
             raise MultipleSubscriptionException(
                 "This customer has multiple subscriptions. Use Customer.subscriptions "
                 "to access them."
             )
+        elif subscriptions:
+            return subscriptions[0]
         else:
-            return subscriptions.first()
+            return None
 
     def send_invoice(self, **kwargs):
         """

@@ -10,6 +10,14 @@ import QuantConnect.Securities.Index
 import System
 
 
+class IndexCache(QuantConnect.Securities.SecurityCache):
+    """INDEX specific caching support"""
+
+
+class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
 class IndexSymbol(System.Object):
     """Helper methods for Index Symbols"""
 
@@ -30,10 +38,6 @@ class IndexSymbol(System.Object):
         :returns: The market of the index.
         """
         ...
-
-
-class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 
 class Index(QuantConnect.Securities.Security):
@@ -87,8 +91,17 @@ class Index(QuantConnect.Securities.Security):
         ...
 
 
-class IndexCache(QuantConnect.Securities.SecurityCache):
-    """INDEX specific caching support"""
+class IndexHolding(QuantConnect.Securities.SecurityHolding):
+    """Index holdings implementation of the base securities class"""
+
+    def __init__(self, security: QuantConnect.Securities.Index.Index, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        INDEX Holding Class constructor
+        
+        :param security: The INDEX security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
 
 
 class IndexExchange(QuantConnect.Securities.SecurityExchange):
@@ -105,19 +118,6 @@ class IndexExchange(QuantConnect.Securities.SecurityExchange):
         exchange hours to determine open/close times
         
         :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class IndexHolding(QuantConnect.Securities.SecurityHolding):
-    """Index holdings implementation of the base securities class"""
-
-    def __init__(self, security: QuantConnect.Securities.Index.Index, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        INDEX Holding Class constructor
-        
-        :param security: The INDEX security being held
-        :param currency_converter: A currency converter instance
         """
         ...
 

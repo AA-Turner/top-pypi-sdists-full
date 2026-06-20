@@ -7,7 +7,11 @@ import logging
 from typing import TYPE_CHECKING, Literal
 
 from ...helpers.api import CommandError
-from ...helpers.device_yaml import generate_device_yaml, generate_minimal_stub_yaml
+from ...helpers.device_yaml import (
+    NETWORK_PROVIDER_COMPONENT_IDS,
+    generate_device_yaml,
+    generate_minimal_stub_yaml,
+)
 from ...models import ErrorCode
 
 if TYPE_CHECKING:
@@ -40,22 +44,53 @@ async def yaml_content_for_create(
     ssid: str,
     psk: str,
     *,
+    wifi_secrets_available: bool = True,
+    wifi_requested: bool = False,
     catalog: ComponentCatalog | None = None,
 ) -> tuple[str, CreateYamlSource]:
-    """Pick the YAML body for ``devices/create`` based on the inputs."""
+    """
+    Pick the YAML body for ``devices/create`` based on the inputs.
+
+    A board with onboard-network suggested hardware (``ethernet:``) is
+    wired by default — the network component is auto-pulled into
+    *defaults*, and the generator drops the ``wifi:`` block in its
+    favour — unless the user opts that device into Wi-Fi. *wifi_requested*
+    is that opt-in for the ``!secret`` path (the caller persisted the
+    credentials and cleared *ssid*); a literal *ssid* opts in the same way.
+    """
     if file_content:
         return file_content, "user"
     if board:
         defaults = (
             await catalog.resolve_default_components(board)
             if catalog and board.default_components
-            else None
+            else []
         )
+        # Auto-pull onboard ethernet only when the board doesn't already
+        # provide a network through ``default_components`` — a board listing a
+        # provider in both lists would otherwise merge its block twice.
+        already_networked = any(
+            component.id in NETWORK_PROVIDER_COMPONENT_IDS for component, _ in defaults
+        )
+        wants_wifi = bool(ssid) or wifi_requested
+        if catalog and not wants_wifi and not already_networked and board.featured_components:
+            defaults.extend(await catalog.resolve_network_components(board))
         return (
-            generate_device_yaml(name, friendly, board, ssid, psk, defaults=defaults),
+            generate_device_yaml(
+                name,
+                friendly,
+                board,
+                ssid,
+                psk,
+                wifi_secrets_available=wifi_secrets_available,
+                defaults=defaults,
+            ),
             "template",
         )
-    return generate_minimal_stub_yaml(name, friendly), "stub"
+    return (
+        generate_minimal_stub_yaml(name, friendly, wifi_secrets_available=wifi_secrets_available),
+        "stub",
+    )
 
 
 async def validate_rewritten_yaml_or_raise(

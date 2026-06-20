@@ -24,9 +24,12 @@ import urllib.parse
 import argcomplete
 import crcmod
 
+from . import display
 from . import helpers
 from . import tockloader
 from .exceptions import TockLoaderException
+from .kernel import Kernel
+from . import kernel_attributes
 from .tab import TAB
 from .tickv import TicKV, TockTicKV
 from .tockloader import TockLoader
@@ -415,6 +418,36 @@ def command_inspect_tab(args):
         print("")
 
 
+def command_inspect_kernel(args):
+    kernel_names = args.kernel
+
+    # Concatenate the binaries.
+    kernels = []
+    for kernel_name in kernel_names:
+        try:
+            kernels.append(Kernel(kernel_name, args))
+        except Exception as e:
+            if args.debug:
+                logging.debug("Exception: {}".format(e))
+            logging.error('Error opening and reading "{}"'.format(kernel_name))
+
+    if len(kernels) == 0:
+        raise TockLoaderException("No valid kernel to use.")
+
+    if args.output_format == "json":
+        displayer = display.JSONDisplay()
+    elif args.output_format == "visual":
+        displayer = display.VisualDisplay()
+    else:
+        displayer = display.HumanReadableDisplay(show_headers=True)
+
+    logging.status("Inspecting kernels...")
+    for kernel in kernels:
+        attrs = kernel.get_attributes()
+        displayer.kernel_attributes(attrs)
+        print(displayer.get())
+
+
 def command_local_board_set(args):
     board_name = args.board[0]
 
@@ -467,6 +500,30 @@ def command_local_board_path(args):
 def command_local_board_flush(args):
     logging.status(f"Flushing the local board binary file to the actual board")
     tockloader.flush_local_board(args)
+
+
+def command_kernel_attrs_add(args):
+    kernel_names = args.kernel
+
+    # Concatenate the binaries.
+    kernels = []
+    for kernel_name in kernel_names:
+        try:
+            kernels.append(Kernel(kernel_name, args))
+        except Exception as e:
+            if args.debug:
+                logging.debug("Exception: {}".format(e))
+            logging.error('Error opening and reading "{}"'.format(kernel_name))
+
+    if len(kernels) == 0:
+        raise TockLoaderException("No valid kernel to use.")
+
+    tlvname = args.subsubsubcommand
+    parameters = args.parameters
+    logging.status("Adding Kernel Attribute TLV {}...".format(tlvname))
+    for kernel in kernels:
+        kernel.add_attribute(tlvname, parameters)
+        kernel.update()
 
 
 def command_tbf_tlv_delete(args):
@@ -858,6 +915,9 @@ def main():
         "--jlink", action="store_true", help="Use JLinkExe to flash."
     )
     parent_channel.add_argument(
+        "--nrfutil", action="store_true", help="Use nrfutil to flash."
+    )
+    parent_channel.add_argument(
         "--openocd", action="store_true", help="Use OpenOCD to flash."
     )
     parent_channel.add_argument(
@@ -865,6 +925,9 @@ def main():
     )
     parent_channel.add_argument(
         "--probers", action="store_true", help="Use probe-rs to flash."
+    )
+    parent_channel.add_argument(
+        "--linkserver", action="store_true", help="Use NXP LinkServer to flash."
     )
     parent_channel.add_argument(
         "--local-board", action="store_true", help="Use a local binary file to flash."
@@ -891,6 +954,12 @@ def main():
         default=None,
         help="Specify a specific JLink via serial number. Useful when multiple JLinks are connected to the same machine.",
     )
+    parent_channel.add_argument(
+        "--nrfutil-serial-number",
+        default=None,
+        help="Specify a specific board via serial number when using nrfutil. Useful when multiple boards are connected.",
+    )
+    parent_channel.add_argument("--nrfutil-cmd", help="The nrfutil binary to invoke.")
     parent_channel.add_argument(
         "--openocd-serial-number",
         default=None,
@@ -930,6 +999,19 @@ def main():
         "--probers-probe",
         default=None,
         help="Specify a specific probe when using probe-rs.",
+    )
+    parent_channel.add_argument(
+        "--linkserver-device", help="The device for LinkServer."
+    )
+    parent_channel.add_argument(
+        "--linkserver-cmd",
+        default="LinkServer",
+        help="The LinkServer binary to invoke.",
+    )
+    parent_channel.add_argument(
+        "--linkserver-probe",
+        default=None,
+        help="Specify a specific probe when using LinkServer.",
     )
     parent_channel.add_argument(
         "--flash-file",
@@ -1035,6 +1117,11 @@ def main():
         help="The interface type to pass to JLinkExe. Only used with --rtt.",
     )
     listen.add_argument(
+        "--jlink-serial-number",
+        default=None,
+        help="Specify a specific JLink via serial number. Only used with --rtt.",
+    )
+    listen.add_argument(
         "--openocd-board",
         help="The cfg file in OpenOCD `board` folder. Only used with --rtt.",
     )
@@ -1057,6 +1144,7 @@ def main():
         help='Directly specify which OpenOCD commands to use for "program", "read", or "erase" actions. Example: "program=flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};" Only used with --rtt.',
         nargs="*",
     )
+    listen.add_argument("--nrfutil-cmd", help="The nrfutil binary to invoke.")
     listen.set_defaults(func=command_listen)
 
     install = subparser.add_parser(
@@ -1306,6 +1394,16 @@ def main():
     )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
 
+    inspect_kernel = subparser.add_parser(
+        "inspect-kernel",
+        parents=[parent, parent_format],
+        help="Get details about a Tock kernel binary",
+    )
+    inspect_kernel.set_defaults(func=command_inspect_kernel)
+    inspect_kernel.add_argument(
+        "kernel", help="The kernel binary (.bin) to inspect", nargs="*"
+    )
+
     #################
     ## LOCAL BOARD ##
     #################
@@ -1378,6 +1476,57 @@ def main():
         help="Flush the local board binary file to the hardware board",
     )
     local_board_flush.set_defaults(func=command_local_board_flush)
+
+    ############
+    ## KERNEL ##
+    ############
+
+    kernel = subparser.add_parser(
+        "kernel",
+        help="Commands for interacting with Tock kernel binaries",
+    )
+
+    kernel_subparser = kernel.add_subparsers(
+        title="Commands", metavar="            ", dest="subcommand"
+    )
+
+    #######################
+    ## KERNEL ATTRIBUTES ##
+    #######################
+
+    kernel_attrs = kernel_subparser.add_parser(
+        "attrs",
+        help="Commands for interacting with kernel attributes in kernel binaries",
+    )
+
+    kernel_attrs_subparser = kernel_attrs.add_subparsers(
+        title="Commands", metavar="", dest="subsubcommand"
+    )
+
+    ## ADD
+
+    kernel_attrs_add = kernel_attrs_subparser.add_parser(
+        "add",
+        help="Add a TLV to the kernel attributes",
+    )
+    kernel_attrs_add_subparser = kernel_attrs_add.add_subparsers(
+        title="Commands", metavar="", dest="subsubsubcommand"
+    )
+
+    # Add subcommands for adding each TLV so we can specify number of arguments.
+    for tlvname, nargs, param_help in kernel_attributes.get_addable_tlvs():
+        kernel_attrs_add_attr = kernel_attrs_add_subparser.add_parser(
+            tlvname,
+            parents=[parent],
+            help="Add a {} kernel attribute to the kernel binary attributes".format(
+                tlvname
+            ),
+        )
+        kernel_attrs_add_attr.set_defaults(func=command_kernel_attrs_add)
+        kernel_attrs_add_attr.add_argument("parameters", help=param_help, nargs=nargs)
+        kernel_attrs_add_attr.add_argument(
+            "kernel", help="The kernel binary (.bin) to inspect", nargs="+"
+        )
 
     #########
     ## TBF ##

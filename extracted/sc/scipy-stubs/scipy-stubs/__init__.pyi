@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Final, Literal, TypeAlias
+from typing import Final, Literal
 
 from numpy import __version__ as __numpy_version__  # noqa: ICN003
 
@@ -15,7 +15,6 @@ from . import (
     io,
     linalg,
     ndimage,
-    odr,
     optimize,
     signal,
     sparse,
@@ -42,7 +41,6 @@ __all__ = [
     "io",
     "linalg",
     "ndimage",
-    "odr",
     "optimize",
     "show_config",
     "signal",
@@ -55,7 +53,7 @@ __all__ = [
 
 ###
 
-_SubModule: TypeAlias = Literal[
+type _SubModule = Literal[
     "cluster",
     "constants",
     "datasets",
@@ -67,7 +65,6 @@ _SubModule: TypeAlias = Literal[
     "io",
     "linalg",
     "ndimage",
-    "odr",
     "optimize",
     "signal",
     "sparse",
@@ -78,7 +75,7 @@ _SubModule: TypeAlias = Literal[
 
 ###
 
-np_minversion: Final = "1.26.4"  # undocumented
-np_maxversion: Final = "2.7.0"  # undocumented
+np_minversion: Final = "2.0.0"  # undocumented
+np_maxversion: Final = "2.8.0"  # undocumented
 test: Final[PytestTester] = ...  # undocumented
 submodules: Final[Sequence[_SubModule]] = ...  # undocumented

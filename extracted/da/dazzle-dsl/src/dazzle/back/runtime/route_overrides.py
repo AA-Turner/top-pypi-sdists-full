@@ -17,6 +17,7 @@ FastAPI's first-match behavior ensures the project handler wins.
 """
 
 import importlib.util
+import inspect
 import logging
 import re
 import sys
@@ -45,6 +46,18 @@ _IMPLEMENTS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# #1392 item 3 — declared link/fetch targets a handler emits (one path per line).
+# `verify_emits_paths` resolves each against the mounted route set; a dead target
+# fails the build (the custom-mode analogue of `primary_action -> surface`).
+_EMITS_RE = re.compile(r"#\s*dazzle:emits\s+(\S+)", re.IGNORECASE)
+
+# #1392 item 2 — declared response shape. The kind ENCODES chrome: only `fragment` is
+# shell-wrapped; `page` is a full document (novel/full-bleed UX, never refused);
+# `partial` is raw HTML for a targeted HTMX swap; `json` is data. Drives
+# `_wrap_with_response_contract`. None = undeclared (today's behaviour + advisory nudge).
+_RETURNS_RE = re.compile(r"#\s*dazzle:returns\s+(\w+)", re.IGNORECASE)
+_VALID_RETURN_KINDS = frozenset({"page", "fragment", "partial", "json"})
+
 # Valid Python module path: dotted identifier segments only.
 # Enforces that extension router specs from dazzle.toml resolve to
 # real package paths and prevents injection via the config value.
@@ -67,6 +80,12 @@ class RouteOverrideDescriptor:
     implements_entity: str | None = None
     implements_op: str | None = None  # one of: list, read, create, update, delete
     implements_via: str | None = None  # path-param name holding the row's PK
+    # #1392 item 3 — declared `# dazzle:emits <path>` link targets. Each must resolve
+    # to a mounted route (verify_emits_paths). () = undeclared (opt-in).
+    emits_paths: tuple[str, ...] = ()
+    # #1392 item 2 — declared response shape (page|fragment|partial|json). Drives
+    # `_wrap_with_response_contract` (kind encodes chrome). None = undeclared.
+    returns_kind: str | None = None
 
 
 def find_unbound_shadowing_overrides(
@@ -99,6 +118,29 @@ def find_unbound_shadowing_overrides(
 
 
 _VALID_CRUD_OPS = frozenset({"list", "read", "create", "update", "delete"})
+
+
+def verify_emits_paths(
+    overrides: list[RouteOverrideDescriptor], route_paths: set[str]
+) -> list[str]:
+    """#1392 item 3 — every ``# dazzle:emits <path>`` must match a mounted route.
+
+    The route-override analogue of the surface ``emits:`` gate (and of
+    ``primary_action -> surface``): a route-override declares the link/fetch targets
+    its handler emits; an emitted path that matches no mounted route is a dead target.
+    ``route_paths`` is the mounted-route set in template form (generated CRUD routes +
+    route-override paths + page routes, e.g. ``/app/tasks/{id}``). Returns one
+    ``E_DEAD_EMIT_TARGET`` violation string per unresolved path; empty = clean.
+    """
+    violations: list[str] = []
+    for o in overrides:
+        for path in o.emits_paths:
+            if path not in route_paths:
+                violations.append(
+                    f"E_DEAD_EMIT_TARGET: route-override {o.path!r} emits {path!r}, which "
+                    f"matches no mounted route."
+                )
+    return violations
 
 
 def verify_route_matrix_completeness(
@@ -224,6 +266,20 @@ def discover_route_overrides(routes_dir: Path) -> list[RouteOverrideDescriptor]:
                 )
                 implements_entity = implements_op = implements_via = None
 
+        # #1392 item 3 — declared link/fetch targets (one `# dazzle:emits <path>` per line).
+        emits_paths = tuple(m.group(1) for m in _EMITS_RE.finditer(content))
+
+        # #1392 item 2 — declared response shape. Unknown kind = a discovery error.
+        returns_kind: str | None = None
+        returns_match = _RETURNS_RE.search(content)
+        if returns_match:
+            returns_kind = returns_match.group(1).lower()
+            if returns_kind not in _VALID_RETURN_KINDS:
+                raise ValueError(
+                    f"Route override {py_file.name}: `# dazzle:returns {returns_kind}` is not a "
+                    f"valid kind. Expected one of: {', '.join(sorted(_VALID_RETURN_KINDS))}."
+                )
+
         overrides.append(
             RouteOverrideDescriptor(
                 method=method,
@@ -233,6 +289,8 @@ def discover_route_overrides(routes_dir: Path) -> list[RouteOverrideDescriptor]:
                 implements_entity=implements_entity,
                 implements_op=implements_op,
                 implements_via=implements_via,
+                emits_paths=emits_paths,
+                returns_kind=returns_kind,
             )
         )
         if implements_entity:
@@ -406,11 +464,140 @@ def load_extension_routers(
     return routers
 
 
-def build_override_router(routes_dir: Path) -> APIRouter | None:
+# #1392 item 2 — one-time advisory dedup (keyed by route path), like #1413's signpost.
+_RESPONSE_CONTRACT_NUDGED: set[str] = set()
+
+
+def _is_full_document(body: str) -> bool:
+    """True if the body sniffs as a full HTML document (vs an inner fragment)."""
+    head = body.lstrip()[:200].lower()
+    return head.startswith("<!doctype") or head.startswith("<html")
+
+
+def _normalise_html_result(result: Any) -> tuple[str | None, int, dict[str, str], str]:
+    """Normalise a handler return to ``(html_body|None, status, headers, media_type)``.
+
+    ``html_body`` is None for a non-HTML response (JSON/redirect/file/stream) — those pass
+    through the contract wrapper untouched. A bare ``str`` is treated as HTML.
+    """
+    from starlette.responses import Response
+
+    if isinstance(result, str):
+        return result, 200, {}, "text/html"
+    if isinstance(result, Response):
+        media = (result.media_type or "").lower()
+        if "html" in media or media == "":
+            raw = result.body
+            body = raw.decode() if isinstance(raw, (bytes, bytearray)) else str(raw)
+            return body, result.status_code, dict(result.headers), result.media_type or "text/html"
+        return None, result.status_code, dict(result.headers), result.media_type or ""
+    return None, 200, {}, ""
+
+
+def _wrap_with_response_contract(
+    handler: Callable[..., Any],
+    *,
+    returns_kind: str | None,
+    path: str,
+    page_ctx_builder: Callable[..., Any] | None,
+) -> Callable[..., Any]:
+    """Apply the #1392 item-2 response contract to a route-override handler.
+
+    By ``returns_kind``: ``fragment`` → HTMX-aware shell-wrap (inner HTML for an
+    ``HX-Request``; a full chromed document otherwise, via ``page_ctx_builder`` +
+    ``dispatch_render_page``); ``partial`` → raw inner HTML; ``page`` → full document
+    served as-is (never refused — novel/full-bleed UX); ``json`` → pass through;
+    ``None`` (undeclared) → pass through + a one-time advisory for ``/app`` HTML.
+    Consistency: a ``fragment``/``partial`` handler returning a full ``<!doctype>`` is a
+    typed 500. Composes OUTSIDE ``_wrap_with_policy_gate`` (RBAC already ran).
+    """
+    import functools
+
+    from fastapi import HTTPException, Request
+    from starlette.responses import HTMLResponse
+
+    def _find_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
+        req = kwargs.get("request")
+        if req is None:
+            req = next((a for a in args if isinstance(a, Request)), None)
+        return req
+
+    @functools.wraps(handler)
+    async def contract_handler(*args: Any, **kwargs: Any) -> Any:
+        result = handler(*args, **kwargs)
+        if inspect.isawaitable(result):
+            result = await result
+
+        body, status, headers, media = _normalise_html_result(result)
+        if body is None:
+            return result  # non-HTML → untouched
+
+        request = _find_request(args, kwargs)
+        is_htmx = bool(request is not None and request.headers.get("HX-Request"))
+
+        if returns_kind in ("fragment", "partial") and _is_full_document(body):
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "response_contract_violation",
+                    "reason": (
+                        f"Route override {path} declared `# dazzle:returns {returns_kind}` but "
+                        f"returned a full HTML document. Return inner HTML — the app shell is the "
+                        f"framework's. Use `# dazzle:returns page` for a deliberate full document."
+                    ),
+                },
+            )
+
+        if returns_kind == "fragment" and not is_htmx and page_ctx_builder is not None:
+            from dazzle.render.dispatch import dispatch_render_page
+
+            page_ctx, assets = await page_ctx_builder(request, path)
+            html = dispatch_render_page(
+                page_ctx,
+                body,
+                css_links=assets.css_links,
+                js_scripts=assets.js_scripts,
+                theme=assets.theme,
+                font_preconnect=assets.font_preconnect,
+                favicon=assets.favicon,
+            )
+            return HTMLResponse(content=html, status_code=status)
+
+        if returns_kind is None:
+            # Undeclared: pass through + a one-time nudge for HTML under /app on a full nav.
+            if (
+                path.startswith("/app")
+                and not is_htmx
+                and "html" in media.lower()
+                and path not in _RESPONSE_CONTRACT_NUDGED
+            ):
+                _RESPONSE_CONTRACT_NUDGED.add(path)
+                logger.warning(
+                    "Route override %s returns HTML but declares no `# dazzle:returns` — declare "
+                    "`page` (full-bleed), `fragment` (live in the app shell), or `partial` (raw "
+                    "HTMX swap) so the framework knows whether to chrome it (#1392).",
+                    path,
+                )
+            return result
+
+        # fragment+HTMX, partial, page, json → serve the handler's HTML/response as-is.
+        if isinstance(result, str):
+            return HTMLResponse(content=body, status_code=status, headers=headers or None)
+        return result
+
+    return contract_handler
+
+
+def build_override_router(
+    routes_dir: Path, *, page_ctx_builder: Callable[..., Any] | None = None
+) -> APIRouter | None:
     """Build a FastAPI router from discovered route overrides.
 
     Args:
         routes_dir: Path to the project's ``routes/`` directory.
+        page_ctx_builder: async ``(request, current_route) -> (PageContext, _ChromeAssets)``
+            for the #1392 item-2 ``fragment`` chrome-wrap (None ⇒ fragments are served
+            un-chromed, with the contract still enforcing the no-full-document rule).
 
     Returns:
         APIRouter with project routes, or None if no overrides found.
@@ -443,6 +630,18 @@ def build_override_router(routes_dir: Path) -> APIRouter | None:
                     entity=override.implements_entity,
                     op=override.implements_op or "",
                     via=override.implements_via or "",
+                )
+            # #1392 item 2 — apply the response contract OUTSIDE the policy gate (RBAC
+            # runs first, then chrome/shape the result). Applied when a kind is declared,
+            # or for an undeclared GET under /app (the advisory nudge needs that case).
+            if override.returns_kind is not None or (
+                override.method == "GET" and override.path.startswith("/app")
+            ):
+                handler = _wrap_with_response_contract(
+                    handler,
+                    returns_kind=override.returns_kind,
+                    path=override.path,
+                    page_ctx_builder=page_ctx_builder,
                 )
             decorator(override.path)(handler)
             logger.info(

@@ -38,24 +38,16 @@ from ansys.edb.core.hierarchy.sparameter_model import (
     SParameterModel as CoreSParameterModel,
 )
 from ansys.edb.core.hierarchy.spice_model import SPICEModel as CoreSPICEModel
-from ansys.edb.core.primitive.padstack_instance import (
-    PadstackInstance as CorePadstackInstance,
-)
-from ansys.edb.core.terminal.padstack_instance_terminal import (
-    PadstackInstanceTerminal as CorePadstackInstanceTerminal,
-)
 from ansys.edb.core.utility.rlc import Rlc as CoreRlc
 import numpy as np
 
+from pyedb.grpc.database.hierarchy.group import Group
 from pyedb.grpc.database.hierarchy.netlist_model import NetlistModel
 from pyedb.grpc.database.hierarchy.pin_pair_model import PinPairModel
 from pyedb.grpc.database.hierarchy.s_parameter_model import SparamModel
 from pyedb.grpc.database.hierarchy.spice_model import SpiceModel
 from pyedb.grpc.database.layers.stackup_layer import StackupLayer
 from pyedb.grpc.database.primitive.padstack_instance import PadstackInstance
-from pyedb.grpc.database.terminal.padstack_instance_terminal import (
-    PadstackInstanceTerminal,
-)
 from pyedb.grpc.database.utility.value import Value
 from pyedb.misc.decorators import deprecated_property
 
@@ -127,7 +119,7 @@ class ComponentProperty:
         self.core.solder_ball_property = value
 
 
-class Component:
+class Component(Group):
     """Manages EDB functionalities for components.
 
     Parameters
@@ -138,9 +130,8 @@ class Component:
             An instance of the EDB component object.
     """
 
-    def __init__(self, pedb, edb_object):
-        self.core = edb_object
-        self._pedb = pedb
+    def __init__(self, pedb, core):
+        super().__init__(pedb, core)
         self._layout_instance = None
         self._comp_instance = None
         self._logger = pedb.logger
@@ -384,9 +375,11 @@ class Component:
 
         Returns
         -------
-        :class:`PackageDef <ansys.edb.core.definition.package_def.PackageDef>`
+        :class:`PackageDef <pyedb.grpc.database.definition.package_def.PackageDef>`
         """
-        return self.core.component_property.package_def
+        from pyedb.grpc.database.definition.package_def import PackageDef
+
+        return PackageDef(self._pedb, self.core.component_property.package_def)
 
     @package_def.setter
     def package_def(self, value):
@@ -1013,25 +1006,6 @@ class Component:
         self.core.location = value
 
     @property
-    def location(self) -> tuple[float, float]:
-        """Component center.
-
-        Returns
-        -------
-        List[float, float]
-            [x, y].
-
-        """
-        location = self.core.location
-        return location[0].value, location[1].value
-
-    @location.setter
-    def location(self, value):
-        if isinstance(value, list):
-            _location = Value(value[0], Value(value[1]))
-            self.core.location = _location
-
-    @property
     def bounding_box(self) -> list[float, float, float, float]:
         """Component's bounding box.
 
@@ -1067,7 +1041,7 @@ class Component:
         list
             List of Pins of Component.
         """
-        return list(self.pins.values())
+        return [PadstackInstance(self._pedb, connectable) for connectable in self.core.members]
 
     @property
     def nets(self):
@@ -1093,15 +1067,7 @@ class Component:
         Dic[str,:class:`PadstackInstance <pyedb.grpc.database.primitive.padstack_instance.PadstackInstance>`]
             Component dictionary pins.
         """
-        _pins = {}
-        for connectable in self.core.members:
-            if isinstance(connectable, CorePadstackInstanceTerminal):
-                if connectable.padstack_instance.is_layout_pin:
-                    _pins[connectable.name] = PadstackInstanceTerminal(self._pedb, connectable)
-            if isinstance(connectable, CorePadstackInstance):
-                if connectable.is_layout_pin:
-                    _pins[connectable.name] = PadstackInstance(self._pedb, connectable)
-        return _pins
+        return {connectable.name: PadstackInstance(self._pedb, connectable) for connectable in self.core.members}
 
     @property
     def num_pins(self):
@@ -1179,22 +1145,6 @@ class Component:
         self.part_name = name
 
     @property
-    def name(self):
-        """Component part name.
-
-        Returns
-        -------
-        str
-            Component part name.
-        """
-        return self.core.name
-
-    @name.setter
-    def name(self, name):  # pragma: no cover
-        """Set component part name."""
-        self.core.name = name
-
-    @property
     def ref_des(self):
         """Reference Designator Name.
 
@@ -1232,17 +1182,6 @@ class Component:
     def part_name(self, name):  # pragma: no cover
         """Set component part name."""
         self.core.component_def.name = name
-
-    @property
-    def placement_layer(self) -> str:
-        """Placement layern name.
-
-        Returns
-        -------
-        str
-           Placement layer name.
-        """
-        return self.core.placement_layer.name
 
     @property
     def layer(self) -> StackupLayer:

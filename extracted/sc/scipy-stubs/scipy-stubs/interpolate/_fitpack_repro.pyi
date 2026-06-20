@@ -1,5 +1,5 @@
 from collections.abc import Callable, Generator
-from typing import Final, Literal, TypeAlias, type_check_only
+from typing import Final, Literal, type_check_only
 
 import numpy as np
 import optype as op
@@ -8,10 +8,10 @@ import optype.numpy.compat as npc
 
 from ._bsplines import BSpline
 
-_Float: TypeAlias = float | np.float32 | np.float64 | np.longdouble
-_Float64: TypeAlias = float | np.float64
+type _Float = float | np.float32 | np.float64 | np.longdouble
+type _Float64 = float | np.float64
 
-_BCType: TypeAlias = Literal["periodic", "not-a-knot"]
+type _BCType = Literal["periodic", "not-a-knot"]
 
 @type_check_only
 class _RootRatiBunch(Bunch):
@@ -116,6 +116,7 @@ def root_rati(
     p0: onp.ToFloat,
     bracket: tuple[tuple[onp.ToFloat, onp.ToFloat], tuple[onp.ToFloat, onp.ToFloat]],
     acc: onp.ToFloat,
+    maxit: int = 20,
 ) -> _RootRatiBunch: ...  # undocumented
 
 # public api

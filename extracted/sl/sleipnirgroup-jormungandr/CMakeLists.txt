@@ -105,7 +105,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.14.0
+        GIT_TAG v3.15.1
         GIT_SHALLOW ON
         EXCLUDE_FROM_ALL
         SYSTEM
@@ -123,7 +123,7 @@ install(
     INCLUDES DESTINATION include
 )
 export(TARGETS Sleipnir FILE Sleipnir.cmake NAMESPACE Sleipnir::)
-install(DIRECTORY include/ COMPONENT Sleipnir DESTINATION "include")
+install(DIRECTORY include/ COMPONENT Sleipnir DESTINATION include)
 install(
     EXPORT SleipnirTargets
     FILE Sleipnir.cmake
@@ -135,7 +135,7 @@ install(
 configure_package_config_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/SleipnirConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/SleipnirConfig.cmake
-    INSTALL_DESTINATION "lib/cmake/Sleipnir"
+    INSTALL_DESTINATION lib/cmake/Sleipnir
     NO_SET_AND_CHECK_MACRO
     NO_CHECK_REQUIRED_COMPONENTS_MACRO
 )
@@ -276,7 +276,7 @@ if(SLEIPNIR_BUILD_PYTHON)
         FetchContent_Declare(
             nanobind
             GIT_REPOSITORY https://github.com/wjakob/nanobind.git
-            GIT_TAG v2.12.0
+            GIT_TAG v2.13.0
             GIT_SHALLOW ON
             EXCLUDE_FROM_ALL
             SYSTEM

@@ -6,7 +6,7 @@
  *
  */
 
-#define OBJC_VERSION "12.2"
+#define OBJC_VERSION "12.2.1"
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
@@ -155,6 +155,7 @@
 #import "struct-sockaddr.h"
 #import "struct-wrapper.h"
 #import "super-call.h"
+#import "swiftobject.h"
 #import "varlist.h"
 #import "weakref.h"
 

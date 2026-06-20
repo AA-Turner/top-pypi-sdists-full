@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 # Pinned @coana-tech/cli version. Bumped deliberately per Python CLI release so the
 # reachability engine version only changes through a standard pip upgrade (advance notice).
 # Pass --reach-version latest to opt into the newest published version instead.
-DEFAULT_COANA_CLI_VERSION: Final = "15.3.24"
+DEFAULT_COANA_CLI_VERSION: Final = "15.5.0"
 
 # Resolved @coana-tech/cli script paths from the npm-install fallback, keyed by version.
 # Lives for the process lifetime so repeated fallback invocations install only once
@@ -55,7 +55,7 @@ class ReachabilityAnalyzer:
     
     def _resolve_coana_package_spec(self, version: Optional[str] = None) -> str:
         """
-        Resolve the @coana-tech/cli package spec to run (e.g. '@coana-tech/cli@15.3.24').
+        Resolve the @coana-tech/cli package spec to run (e.g. '@coana-tech/cli@15.5.0').
 
         Args:
             version: Coana CLI version to use.
@@ -64,7 +64,7 @@ class ReachabilityAnalyzer:
                 - '<semver>': that exact version.
 
         Returns:
-            str: The package specifier to use with npx (e.g. '@coana-tech/cli@15.3.24').
+            str: The package specifier to use with npx (e.g. '@coana-tech/cli@15.5.0').
         """
         return f"@coana-tech/cli@{self._resolve_coana_version(version)}"
 
@@ -79,8 +79,8 @@ class ReachabilityAnalyzer:
         target_directory: str,
         tar_hash: Optional[str] = None,
         output_path: str = ".socket.facts.json",
-        timeout: Optional[int] = None,
-        memory_limit: Optional[int] = None,
+        timeout: Optional[str] = None,
+        memory_limit: Optional[str] = None,
         ecosystems: Optional[List[str]] = None,
         exclude_paths: Optional[List[str]] = None,
         min_severity: Optional[str] = None,
@@ -112,8 +112,10 @@ class ReachabilityAnalyzer:
             target_directory: Directory to analyze
             tar_hash: Tar hash from manifest upload or existing scan (optional)
             output_path: Output file path for results
-            timeout: Analysis timeout in seconds
-            memory_limit: Memory limit in MB
+            timeout: Analysis timeout, forwarded verbatim to coana --analysis-timeout
+                (coana parses the units, e.g. '90s', '10m', '1h'; a bare number is seconds)
+            memory_limit: Memory limit, forwarded verbatim to coana --memory-limit
+                (coana parses the units, e.g. '512MB', '8GB'; a bare number is MB)
             ecosystems: List of ecosystems to analyze (e.g., ['npm', 'pypi'])
             exclude_paths: Paths to exclude from analysis
             min_severity: Minimum severity level (info, low, moderate, high, critical)
@@ -149,11 +151,15 @@ class ReachabilityAnalyzer:
             "--disable-report-submission"
         ])
         
-        # Add conditional arguments
-        if timeout:
+        # Add conditional arguments. timeout/memory_limit are forwarded verbatim; coana owns
+        # unit parsing/validation (e.g. '90s', '8GB'). We coerce to str only for subprocess
+        # safety — config-file values can arrive as ints via argparse set_defaults — and use
+        # `is not None` (not truthiness) so an explicit empty string still reaches coana and
+        # triggers coana's own error, rather than being silently dropped.
+        if timeout is not None:
             coana_args.extend(["--analysis-timeout", str(timeout)])
-        
-        if memory_limit:
+
+        if memory_limit is not None:
             coana_args.extend(["--memory-limit", str(memory_limit)])
         
         if disable_analytics:
@@ -298,6 +304,31 @@ class ReachabilityAnalyzer:
         """
         return returncode < 0 or returncode >= 128
 
+    @staticmethod
+    def _resolve_coana_launcher_mode() -> str:
+        """Resolve the coana launcher mode: ``auto``, ``npx``, or ``npm-install``.
+
+        ``SOCKET_CLI_COANA_LAUNCHER`` wins when set to a recognized value; an unrecognized
+        value warns and behaves as ``auto``. Only when it is unset/empty do the legacy vars
+        apply: ``SOCKET_CLI_COANA_FORCE_NPM_INSTALL`` -> ``npm-install``, else
+        ``SOCKET_CLI_COANA_DISABLE_NPM_FALLBACK`` -> ``npx``. Mirrors the Node CLI.
+        """
+        raw = os.environ.get("SOCKET_CLI_COANA_LAUNCHER", "")
+        mode = raw.strip().lower()
+        if mode in ("auto", "npx", "npm-install"):
+            return mode
+        if mode:
+            log.warning(
+                f'Ignoring unrecognized SOCKET_CLI_COANA_LAUNCHER value "{raw}"; '
+                'expected "auto", "npm-install", or "npx".'
+            )
+            return "auto"
+        if os.environ.get("SOCKET_CLI_COANA_FORCE_NPM_INSTALL"):
+            return "npm-install"
+        if os.environ.get("SOCKET_CLI_COANA_DISABLE_NPM_FALLBACK"):
+            return "npx"
+        return "auto"
+
     def _spawn_coana(
         self,
         coana_args: List[str],
@@ -318,14 +349,15 @@ class ReachabilityAnalyzer:
 
         Fallback path: if npx is missing, or its launcher dies before coana starts, install
         @coana-tech/cli into a temp dir via ``npm install`` and run it directly via ``node``.
-        Toggle with ``SOCKET_CLI_COANA_FORCE_NPM_INSTALL`` (use the fallback as the primary
-        path) and ``SOCKET_CLI_COANA_DISABLE_NPM_FALLBACK`` (never fall back).
+        Tune with ``SOCKET_CLI_COANA_LAUNCHER``: ``auto`` (default; npx with the npm-install
+        fallback), ``npm-install`` (skip npx, always use the fallback path), or ``npx``
+        (never fall back).
         """
         effective_version = self._resolve_coana_version(version)
         coana_env = self._sanitize_coana_env(env)
-        disable_fallback = bool(os.environ.get("SOCKET_CLI_COANA_DISABLE_NPM_FALLBACK"))
+        launcher_mode = self._resolve_coana_launcher_mode()
 
-        if os.environ.get("SOCKET_CLI_COANA_FORCE_NPM_INSTALL"):
+        if launcher_mode == "npm-install":
             return self._spawn_coana_via_npm_install(coana_args, effective_version, coana_env, cwd)
 
         package_spec = f"@coana-tech/cli@{effective_version}"
@@ -341,7 +373,7 @@ class ReachabilityAnalyzer:
             )
         except FileNotFoundError:
             # npx is not on PATH: the launcher provably never started coana.
-            if disable_fallback:
+            if launcher_mode == "npx":
                 raise
             log.warning("npx not found on PATH; retrying reachability analysis via `npm install` + `node`.")
             return self._spawn_coana_via_npm_install(coana_args, effective_version, coana_env, cwd)
@@ -349,7 +381,7 @@ class ReachabilityAnalyzer:
         if result.returncode == 0:
             return 0
 
-        if not disable_fallback and self._npx_launcher_failed_before_coana(result.returncode):
+        if launcher_mode != "npx" and self._npx_launcher_failed_before_coana(result.returncode):
             log.warning(
                 f"npx launcher failed (exit {result.returncode}) before coana started; "
                 "retrying reachability analysis via `npm install` + `node`."

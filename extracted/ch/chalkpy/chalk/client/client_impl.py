@@ -48,7 +48,6 @@ import pyarrow as pa
 import pyarrow.feather
 import requests
 import requests.structures
-from chalk_rs import parse_datetime as _parse_datetime
 from requests import HTTPError
 from requests.adapters import DEFAULT_POOLBLOCK, DEFAULT_POOLSIZE, DEFAULT_RETRIES, HTTPAdapter
 from typing_extensions import override
@@ -216,6 +215,7 @@ from chalk.utils.pandas_utils import is_pandas_dataframe, require_pandas
 from chalk.utils.retry import retry_call, retry_if_exception_message, wait_exponential_jitter
 from chalk.utils.string import s
 from chalk.utils.tracing import current_or_new_trace_context, current_trace_context, inject_trace_context, safe_trace
+from chalk_rs import parse_datetime as _parse_datetime
 
 if TYPE_CHECKING:
     import ssl
@@ -5473,40 +5473,43 @@ https://docs.chalk.ai/cli/apply
                         f"Stream resolver '{resolver.fqn}' has no feature expressions; "
                         + "check_stream_scenario only works with resolvers created via make_stream_resolver."
                     )
-                parsed_rows = _parse_stream_messages(resolver, [step.message])
-                features_to_upload: dict[Any, Any] = dict(parsed_rows[0])
-                if step.timestamp is not None:
-                    feature_time_feat = next(
-                        (f for f in resolver.feature_expressions.keys() if f.is_feature_time),
-                        None,
-                    )
-                    if feature_time_feat is not None:
-                        features_to_upload[feature_time_feat] = step.timestamp
-                # gRPC upload_features with update_mataggs=True drives mataggs; REST does not.
-                bulk_inputs = {k: [v] for k, v in features_to_upload.items()}
-                grpc_branch = branch if branch is not ... else self._branch
-                resp = self._get_grpc_client(environment=environment).upload_features(
-                    inputs=bulk_inputs,
-                    update_mataggs=True,
-                    branch=grpc_branch,
+                # _parse_stream_messages returns one group of rows per message: a
+                # scalar parse yields one row, a fan-out (list-returning) parse yields
+                # many, and a filtered-out message yields none. Upload each row.
+                parsed_groups = _parse_stream_messages(resolver, [step.message])
+                feature_time_feat = next(
+                    (f for f in resolver.feature_expressions.keys() if f.is_feature_time),
+                    None,
                 )
-                if resp.errors:
-                    raise RuntimeError(f"upload_features failed: {resp.errors}")
-                if tree is not None:
-                    event_idx += 1
-                    tree.add(
-                        Group(
-                            Text.assemble(
-                                ("●  ", "bold cyan"),
-                                (f"Event {event_idx}", "bold cyan"),
-                                (
-                                    f"  @  {step.timestamp.isoformat()}" if step.timestamp is not None else "",
-                                    "dim",
-                                ),
-                            ),
-                            self._render_event_detail_table(step, resolver, features_to_upload),
-                        )
+                for parsed_row in parsed_groups[0]:
+                    features_to_upload: dict[Any, Any] = dict(parsed_row)
+                    if step.timestamp is not None and feature_time_feat is not None:
+                        features_to_upload[feature_time_feat] = step.timestamp
+                    # gRPC upload_features with update_mataggs=True drives mataggs; REST does not.
+                    bulk_inputs = {k: [v] for k, v in features_to_upload.items()}
+                    grpc_branch = branch if branch is not ... else self._branch
+                    resp = self._get_grpc_client(environment=environment).upload_features(
+                        inputs=bulk_inputs,
+                        update_mataggs=True,
+                        branch=grpc_branch,
                     )
+                    if resp.errors:
+                        raise RuntimeError(f"upload_features failed: {resp.errors}")
+                    if tree is not None:
+                        event_idx += 1
+                        tree.add(
+                            Group(
+                                Text.assemble(
+                                    ("●  ", "bold cyan"),
+                                    (f"Event {event_idx}", "bold cyan"),
+                                    (
+                                        f"  @  {step.timestamp.isoformat()}" if step.timestamp is not None else "",
+                                        "dim",
+                                    ),
+                                ),
+                                self._render_event_detail_table(step, resolver, features_to_upload),
+                            )
+                        )
             elif isinstance(step, UploadFeatures):
                 bulk = _do_upload_features_step(step.inputs)
                 if tree is not None:

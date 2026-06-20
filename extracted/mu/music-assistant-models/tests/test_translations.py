@@ -7,7 +7,17 @@ from typing import Any
 from music_assistant_models.background_task import BackgroundTask
 from music_assistant_models.config_entries import ConfigEntry, ConfigValueOption
 from music_assistant_models.enums import ConfigEntryType, ProviderType
-from music_assistant_models.media_items import BrowseFolder, Genre, RecommendationFolder
+from music_assistant_models.media_items import (
+    BrowseFolder,
+    Genre,
+    ItemMapping,
+    Playlist,
+    Podcast,
+    ProviderMapping,
+    Radio,
+    RecommendationFolder,
+    Track,
+)
 from music_assistant_models.player import (
     PlayerOption,
     PlayerOptionEntry,
@@ -25,8 +35,12 @@ _CATALOG = {
     "media.recommendations.recently_played.name": "Onlangs afgespeeld",
     "media.recommendations.recently_played.subtitle": "Ga verder waar je gebleven was",
     "media.folder.libraries.name": "Bibliotheken",
+    "media.podcast.unknown_podcast.name": "Onbekende podcast",
     "media.genre.jazz.name": "Jazz (NL)",
     "media.genre.jazz.description": "Jazz is een Amerikaans muziekgenre.",
+    "media.playlist.infinite_mix.name": "Oneindige mix",
+    "media.playlist.flow.name": "Stroom: {0}",
+    "media.radio.pandora_station.name": "Pandora-zender {0}",
     "provider.demo.manifest.name": "Demo-muziekprovider",
     "provider.demo.manifest.description": "Een demoprovider.",
     "core.cache.manifest.name": "Cache (NL)",
@@ -121,6 +135,79 @@ def test_genre_resolves_nested_metadata_description() -> None:
     assert localized["name"] == "Jazz (NL)"
     assert localized["metadata"]["description"] == "Jazz is een Amerikaans muziekgenre."
     assert "translation_key" not in localized
+
+
+def test_playlist_resolves_static_name_and_with_params() -> None:
+    """A Playlist localizes a static name, and interpolates params for dynamic titles."""
+    pm = {ProviderMapping(item_id="x", provider_domain="builtin", provider_instance="builtin")}
+    static = Playlist(
+        item_id="infinite_mix",
+        provider="builtin",
+        name="Infinite Mix",
+        translation_key="infinite_mix",
+        provider_mappings=set(pm),
+    )
+    dynamic = Playlist(
+        item_id="flow",
+        provider="deezer",
+        name="Flow: Pop",
+        translation_key="flow",
+        translation_params=["Pop"],
+        provider_mappings=set(pm),
+    )
+    with _resolver_active():
+        assert static.to_dict()["name"] == "Oneindige mix"
+        localized = dynamic.to_dict()
+    assert localized["name"] == "Stroom: Pop"
+    assert "translation_key" not in localized
+    assert "translation_params" not in localized
+
+
+def test_radio_resolves_name_with_params() -> None:
+    """A Radio interpolates translation_params into its localized name (e.g. Pandora stations)."""
+    pm = {ProviderMapping(item_id="5", provider_domain="pandora", provider_instance="pandora")}
+    radio = Radio(
+        item_id="5",
+        provider="pandora",
+        name="Pandora Station 5",
+        translation_key="pandora_station",
+        translation_params=["5"],
+        provider_mappings=set(pm),
+    )
+    with _resolver_active():
+        assert radio.to_dict()["name"] == "Pandora-zender 5"
+
+
+def test_podcast_resolves_name() -> None:
+    """A Podcast localizes its name from media.podcast.<key>.name (e.g. an Unknown placeholder)."""
+    podcast = Podcast(
+        item_id="unknown",
+        provider="spotify",
+        name="Unknown Podcast",
+        translation_key="unknown_podcast",
+        provider_mappings=set(),
+    )
+    with _resolver_active():
+        assert podcast.to_dict()["name"] == "Onbekende podcast"
+
+
+def test_item_mapping_media_type_keeps_its_default() -> None:
+    """The mixin must keep ItemMapping.media_type optional (no phantom required field)."""
+    # constructs without media_type; a mixin field lacking a default would break that
+    mapping = ItemMapping(item_id="x", provider="p", name="N")
+    assert mapping.media_type.value == "unknown"
+
+
+def test_plain_media_item_has_no_translation_machinery() -> None:
+    """Non-localizable media types (e.g. Track) carry neither translation_key nor params."""
+    pm = {ProviderMapping(item_id="t", provider_domain="d", provider_instance="i")}
+    track = Track(item_id="t", provider="i", name="Some Track", provider_mappings=set(pm))
+    plain = track.to_dict()
+    assert "translation_key" not in plain
+    assert "translation_params" not in plain
+    # serialization works even with a resolver bound (the hook simply isn't present)
+    with _resolver_active():
+        assert track.to_dict()["name"] == "Some Track"
 
 
 def test_browse_and_recommendation_folders_use_distinct_namespaces() -> None:

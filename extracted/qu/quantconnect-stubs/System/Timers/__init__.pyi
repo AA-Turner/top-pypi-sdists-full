@@ -11,17 +11,6 @@ System_Timers__EventContainer_Callable = typing.TypeVar("System_Timers__EventCon
 System_Timers__EventContainer_ReturnType = typing.TypeVar("System_Timers__EventContainer_ReturnType")
 
 
-class TimersDescriptionAttribute(System.ComponentModel.DescriptionAttribute):
-    """This class has no documentation."""
-
-    @property
-    def description(self) -> str:
-        ...
-
-    def __init__(self, description: str) -> None:
-        ...
-
-
 class ElapsedEventArgs(System.EventArgs):
     """This class has no documentation."""
 
@@ -112,6 +101,17 @@ class Timer(System.ComponentModel.Component, System.ComponentModel.ISupportIniti
         ...
 
     def stop(self) -> None:
+        ...
+
+
+class TimersDescriptionAttribute(System.ComponentModel.DescriptionAttribute):
+    """This class has no documentation."""
+
+    @property
+    def description(self) -> str:
+        ...
+
+    def __init__(self, description: str) -> None:
         ...
 
 

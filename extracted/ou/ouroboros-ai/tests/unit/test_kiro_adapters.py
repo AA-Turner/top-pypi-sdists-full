@@ -395,6 +395,7 @@ class TestKiroCodeAdapterComplete:
                 "OUROBOROS_RUNTIME": "kiro",
                 "CLAUDECODE": "1",
             },
+            clear=True,
         ):
             env = adapter._build_child_env()
 
@@ -865,6 +866,7 @@ class TestKiroPermissionModeContract:
                 "OUROBOROS_RUNTIME": "kiro",
                 "CLAUDECODE": "1",
             },
+            clear=True,
         ):
             env = adapter._build_child_env()
 
@@ -1008,13 +1010,27 @@ class TestKiroCapabilities:
         assert caps.structured_output is False
 
     def test_claude_declares_full_capabilities(self) -> None:
+        from dataclasses import replace
+
         from ouroboros.orchestrator.adapter import (
+            CLAUDE_REASONING_EFFORT_LEVELS,
             FULL_CAPABILITIES,
             ClaudeAgentAdapter,
+            ParamSupport,
         )
 
         caps = ClaudeAgentAdapter().capabilities
-        assert caps == FULL_CAPABILITIES
+        # Claude matches the first-class default except that it opts into NATIVE
+        # reasoning-effort support (the Agent SDK honors the per-call effort knob)
+        # and declares the effort vocabulary it can actually enforce.
+        assert caps == replace(
+            FULL_CAPABILITIES,
+            reasoning_effort_support=ParamSupport.NATIVE,
+            enforceable_reasoning_efforts=CLAUDE_REASONING_EFFORT_LEVELS,
+        )
+        assert caps.reasoning_effort_support is ParamSupport.NATIVE
+        assert "minimal" not in caps.enforceable_reasoning_efforts
+        assert "max" in caps.enforceable_reasoning_efforts
         assert caps.skill_dispatch is True
         assert caps.targeted_resume is True
         assert caps.structured_output is True

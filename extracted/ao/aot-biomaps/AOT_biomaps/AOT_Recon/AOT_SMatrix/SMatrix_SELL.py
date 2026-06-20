@@ -89,43 +89,44 @@ class SMatrix_SELL(SMatrix):
         return row_nnz[self.row_perm]
 
     def _allocate_gpu(self):
-        """Allocate and fill the SELL matrix on GPU using custom kernels."""
+        """Allocate and fill the SELL matrix on GPU using PCIe block-streaming to prevent OOM."""
         num_rows = int(self.N * self.T)
         num_cols = int(self.Z * self.X)
         C = int(self.slice_height)
         br = int(self.block_rows)
 
-        all_fields_gpu = cp.empty((self.N, self.T, num_cols), dtype=np.float32)
-        for n_idx in range(self.N):
-            for t_idx in range(self.T):
-                all_fields_gpu[n_idx, t_idx] = cp.asarray(
-                    self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
-                )
+        # Temporary CPU buffer to avoid loading the entire dataset into RAM/VRAM at once
+        dense_block_host = np.empty((br, num_cols), dtype=np.float32)
 
-        # 1) Count NNZ per physical row
+        # 1) Count NNZ per physical row (Stream 1)
         row_nnz_gpu = cp.zeros(num_rows, dtype=np.int32)
-        dense_gpu = cp.empty((br, num_cols), dtype=np.float32)
         count_kernel = self.sparse_mod.get_function("count_nnz_rows_kernel")
         threads = 256
 
         for b in trange(0, num_rows, br, desc="Count NNZ (GPU)"):
             current_rows = min(br, num_rows - b)
+            
+            # Fetch a small block from CPU RAM
             for r in range(current_rows):
                 global_row = b + r
                 n_idx = global_row // self.T
                 t_idx = global_row % self.T
-                dense_gpu[r] = all_fields_gpu[n_idx, t_idx]
+                dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
+            # Transfer only this specific block to the GPU
+            dense_gpu = cp.asarray(dense_block_host[:current_rows])
             grid = ((current_rows + threads - 1) // threads, 1, 1)
+            
             count_kernel(
                 grid=grid, block=(threads, 1, 1),
                 args=[dense_gpu, row_nnz_gpu[b:], np.int32(current_rows), np.int32(num_cols),
                       np.float32(self.relative_threshold)]
             )
+            cp.cuda.Stream.null.synchronize()
 
         row_nnz = cp.asnumpy(row_nnz_gpu)
         
-        # 2) Apply SELL-C-sigma sorting
+        # 2) Apply SELL-C-sigma sorting (on the CPU)
         row_nnz = self._apply_sigma_sorting(row_nnz, num_rows)
 
         # 3) Compute per-slice maxlen and slice_ptr based on sorted rows
@@ -146,30 +147,46 @@ class SMatrix_SELL(SMatrix):
             self.slice_ptr[s+1] = self.slice_ptr[s] + (self.slice_len[s] * C)
         self.total_storage = int(self.slice_ptr[-1])
 
+        # Allocate final sparse arrays on GPU
         self.sell_values_gpu = cp.zeros(self.total_storage, dtype=np.float32)
         self.sell_colinds_gpu = cp.zeros(self.total_storage, dtype=np.uint32)
         self.slice_ptr_gpu = cp.asarray(self.slice_ptr)
         self.slice_len_gpu = cp.asarray(self.slice_len)
 
-        # 4) Fill SELL arrays (fetching dense rows according to permutation)
-        fill_kernel = self.sparse_mod.get_function("fill_kernel__SELL") # Correction du nom
+        # 4) Fill SELL arrays (Stream 2 - fetching dense rows according to permutation)
+        fill_kernel = self.sparse_mod.get_function("fill_kernel__SELL")
         
         for b in trange(0, num_rows, br, desc="Fill SELL (GPU)"):
             current_rows = min(br, num_rows - b)
+            
+            # Fetch sorted blocks from CPU RAM
             for r in range(current_rows):
                 sorted_row = b + r
                 physical_row = int(self.row_perm[sorted_row])
                 n_idx = physical_row // self.T
                 t_idx = physical_row % self.T
-                dense_gpu[r] = all_fields_gpu[n_idx, t_idx]
+                dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
+            # Transfer the chunk to the GPU
+            dense_gpu = cp.asarray(dense_block_host[:current_rows])
             grid = ((current_rows + threads - 1) // threads, 1, 1)
             count_offset = b
             
-            # Correction stricte de l'ordre des arguments et des types
             fill_kernel(
                 grid=grid, block=(threads, 1, 1),
-                args=[dense_gpu, row_nnz_gpu, self.slice_ptr_gpu, self.slice_len_gpu, self.sell_colinds_gpu, self.sell_values_gpu, np.int32(current_rows), np.int32(num_cols),  np.int32(count_offset), np.int32(C), np.float32(self.relative_threshold)]
+                args=[
+                    dense_gpu, 
+                    row_nnz_gpu, 
+                    self.slice_ptr_gpu, 
+                    self.slice_len_gpu, 
+                    self.sell_colinds_gpu, 
+                    self.sell_values_gpu, 
+                    np.int32(current_rows), 
+                    np.int32(num_cols),  
+                    np.int32(count_offset), 
+                    np.int32(C), 
+                    np.float32(self.relative_threshold)
+                ]
             )
             cp.cuda.Stream.null.synchronize()
 

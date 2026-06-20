@@ -17,22 +17,6 @@ class ISlippageModel(metaclass=abc.ABCMeta):
         ...
 
 
-class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """Represents a slippage model that uses a constant percentage of slip"""
-
-    def __init__(self, slippage_percent: float) -> None:
-        """
-        Initializes a new instance of the ConstantSlippageModel class
-        
-        :param slippage_percent: The slippage percent for each order. Percent is ranged 0 to 1.
-        """
-        ...
-
-    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """Slippage Model. Return a decimal cash slippage approximation on the order."""
-        ...
-
-
 class VolumeShareSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
     """
     Represents a slippage model that is calculated by multiplying the price impact constant
@@ -73,6 +57,22 @@ class MarketImpactSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISli
         :param eta: Coefficient of the temporary impact function
         :param delta: Liquidity scaling factor for permanent impact
         :param random_seed: Random seed for generating gaussian noise
+        """
+        ...
+
+    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
+        """Slippage Model. Return a decimal cash slippage approximation on the order."""
+        ...
+
+
+class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """Represents a slippage model that uses a constant percentage of slip"""
+
+    def __init__(self, slippage_percent: float) -> None:
+        """
+        Initializes a new instance of the ConstantSlippageModel class
+        
+        :param slippage_percent: The slippage percent for each order. Percent is ranged 0 to 1.
         """
         ...
 

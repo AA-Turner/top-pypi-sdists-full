@@ -69,16 +69,36 @@ _REQUIRED_COLS = frozenset({
 # Variables the GA can use. Order matters only for output column order.
 _VAR_COLS = ("ndvi", "tmax", "tmin", "precip")
 
-# Aggregation per variable when collapsing the DOY axis to a seasonal
-# value. NDVI tracks peak greenness (max); T and P are accumulated /
-# averaged over the season (mean). Matches threshold_optimizer's policy
-# for NDVI; T/P are new and the mean is the conservative default.
-_DOY_AGG = {
-    "ndvi":   "max",
+# Default DOY-axis aggregations per variable. Each instance of
+# CellOptimizer reads per-variable overrides from
+# ``[CELL_OPTIMIZER] {var}_doy_agg`` in geocif.txt; the values below are
+# the fallbacks.
+#
+# NDVI default is ``auc`` (area-under-curve, integrated over the
+# season) — picks up sustained greenness across the growing window,
+# not just the peak. Matches the GEOGLAM ``AUC_NDVI`` definition. The
+# previous default was ``max``; flip back via ``ndvi_doy_agg = max``
+# in the config if you want peak-only behaviour.
+#
+# T and P are accumulated / averaged over the season (mean). The
+# conservative default for new variables.
+_DOY_AGG_DEFAULTS = {
+    "ndvi":   "auc",
     "tmax":   "mean",
     "tmin":   "mean",
     "precip": "mean",
 }
+
+# Allowed agg values per variable. ``auc`` is an alias for ``sum``
+# (literal area-under-curve over evenly-spaced DOY samples == sum of
+# samples up to a constant cadence factor that cancels in correlation
+# and OLS — so we map auc → sum at the pandas-groupby layer). The
+# others are passed through to pandas.GroupBy.agg as-is.
+_DOY_AGG_VALID = frozenset({"auc", "sum", "max", "mean", "median", "min"})
+
+# Backwards-compat module-level alias — referenced by older tests and
+# external scripts. Updated to the new defaults.
+_DOY_AGG = _DOY_AGG_DEFAULTS
 
 
 def _ndvi_byte_to_unit(arr):
@@ -203,6 +223,41 @@ def fitness(
     return r2 - lam * (sel / mask.size)
 
 
+def aggregate_held_out(
+    per_cell: np.ndarray,
+    years: np.ndarray,
+    masks_by_year: dict,
+) -> np.ndarray:
+    """For each year Y, aggregate that year's per-cell EO using mask_Y
+    (the GA-selected mask trained on every year EXCEPT Y). Returns an
+    ``(n_years, n_vars)`` array of out-of-sample aggregations.
+
+    When ``masks_by_year`` is missing an entry for year Y (e.g. that
+    year's GA was skipped because too few finite-yield years remained
+    after holding it out), the corresponding row is left as NaN —
+    downstream R² / r computations skip those years naturally.
+
+    This is the building block for the honest-LOOCV diagnostic stack:
+    each year's EO aggregate was computed without that year's yield
+    informing the cell selection, so the resulting yield-vs-EO fit is
+    genuinely out-of-sample.
+    """
+    n_years, n_vars = len(years), per_cell.shape[2]
+    out = np.full((n_years, n_vars), np.nan, dtype=float)
+    years_arr = np.asarray(years, dtype=int)
+    for i, year in enumerate(years_arr):
+        Y = int(year)
+        if Y not in masks_by_year:
+            continue
+        mask_Y = masks_by_year[Y]
+        # Single-year slice: (n_cells, 1, n_vars). aggregate_over_mask
+        # returns (1, n_vars) — flatten to (n_vars,).
+        out[i] = aggregate_over_mask(
+            per_cell[:, i:i + 1, :], mask_Y,
+        )[0]
+    return out
+
+
 # ----------------------------------------------------------------------
 # GA primitives
 # ----------------------------------------------------------------------
@@ -222,7 +277,7 @@ class GAConfig:
     elitism: int = 5
     early_stop_patience: int = 30
     l0_lambda: float = 0.05      # ↑ from 0.02: stronger parsimony pressure
-    min_cell_floor_abs: int = 20
+    min_cell_floor_abs: int = 5
     min_cell_floor_frac: float = 0.01    # ↓ from 0.05: allow finer-grained selections
     init_inclusion_prob: float = 0.5     # fallback when afi prior is disabled
     afi_prior_beta: float = 1.0          # 0 → no prior (uniform 0.5); 1 → P = afi/100 clipped
@@ -335,8 +390,8 @@ def run_ga(
     pop_size = cfg.population_size
 
     # Clamp the min-cell floor to n_cells. The configured floor can
-    # exceed the cropland-cell count for very small regions (e.g.
-    # Argentina/soybean/Corrientes has < min_cell_floor_abs=20 cells);
+    # exceed the cropland-cell count for very small regions (e.g. the
+    # "city" admin units with < min_cell_floor_abs cells);
     # without the clamp the seed-population repair tries to sample
     # ``need = min_cells - sum`` cells from a smaller "off" pool and
     # numpy raises "Cannot take a larger sample than population when
@@ -520,6 +575,35 @@ class CellOptimizer(base.BaseGeo):
         self.do_plot = self._get("plot", "True").strip().lower() in (
             "true", "1", "yes",
         )
+        # Annual masks (anti-overfitting): when True, run the GA n_years+1
+        # times per region. For each historical year Y, the GA trains on
+        # all years EXCEPT Y, producing mask_Y — used for year Y's EO
+        # extraction. Year Y's own yield never sees the cell selection,
+        # so the mask is genuinely held out and the overfitting failure
+        # mode where the GA picks cells that happen to fit Y is closed.
+        # Plus one pooled run on ALL years for current/forecast years
+        # (which have no yield to hold out). Default OFF — annual mode
+        # is roughly (n_years+1)× slower than the pooled-only default.
+        self.annual_mask = self._get("annual_mask", "False").strip().lower() in (
+            "true", "1", "yes",
+        )
+        # DOY-axis aggregation per variable. Defaults from
+        # _DOY_AGG_DEFAULTS (NDVI=auc, T/P=mean). Override per variable
+        # with ``{var}_doy_agg = max|mean|median|sum|auc|min``.
+        # ``auc`` is treated as ``sum`` over the configured DOY samples
+        # — i.e. seasonal integral assuming uniform cadence (the
+        # constant cadence factor cancels in OLS).
+        self.doy_agg: dict = {}
+        for var, default in _DOY_AGG_DEFAULTS.items():
+            raw = self._get(f"{var}_doy_agg", default).strip().lower()
+            if raw not in _DOY_AGG_VALID:
+                self.logger.warning(
+                    f"  [CELL_OPTIMIZER] {var}_doy_agg = {raw!r} is not "
+                    f"in {sorted(_DOY_AGG_VALID)} — falling back to "
+                    f"default {default!r}"
+                )
+                raw = default
+            self.doy_agg[var] = raw
 
     # ------------------------------------------------------------------
     # Paths
@@ -560,12 +644,44 @@ class CellOptimizer(base.BaseGeo):
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def regions_dir(self, country: str, crop: str, season: int) -> Path:
-        d = self.summary_dir(country, crop) / f"regions_s{season}"
+    def regions_dir(
+        self, country: str, crop: str, season: int, mode: str = "pooled",
+    ) -> Path:
+        """Per-region diagnostic dir. ``mode`` selects which fit variant:
+
+        * ``"pooled"`` — the all-years GA (in-sample fit; the
+          backwards-compatible default).
+        * ``"held_out"`` — only populated when ``annual_mask = True``.
+          Diagnostics computed from per-year leave-one-out masks
+          (out-of-sample by construction).
+
+        Both subdirs sit under the same ``regions_s{season}`` parent so
+        a side-by-side ``ls pooled held_out`` makes the two views easy
+        to diff.
+        """
+        d = self.summary_dir(country, crop) / f"regions_s{season}" / mode
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def cross_region_dir(self) -> Path:
+    def cross_region_dir(self, mode: str = "pooled") -> Path:
+        """Cross-region rollup dir. ``mode`` partitions the same way
+        ``regions_dir`` does — ``pooled/`` for the all-years GA stats,
+        ``held_out/`` for the per-year leave-one-out aggregates.
+
+        The master ``summary.csv`` (with BOTH pooled and held_out
+        columns side by side for easy inspection) sits at the parent
+        ``_cross_region`` dir, not under a mode subdir.
+        """
+        d = (
+            self.dir_output / "ml" / "analysis" / self.today_tag
+            / "cell_optimizer" / "_cross_region" / mode
+        )
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _cross_region_root(self) -> Path:
+        """Root of the cross-region tree — used for the master
+        summary.csv that carries both pooled + held_out columns."""
         d = (
             self.dir_output / "ml" / "analysis" / self.today_tag
             / "cell_optimizer" / "_cross_region"
@@ -590,10 +706,36 @@ class CellOptimizer(base.BaseGeo):
         Key match is by cell_id, which is the linear index into the
         region's read window — same ordering as
         ``geoprepare.extract_cells`` emits.
+
+        When ``annual_mask = True``, additional per-year files are
+        written alongside this one (see ``production_mask_path_for_year``)
+        and geoextract should prefer the year-specific file when the
+        extraction year matches.
         """
         return (
             self.dir_output / "cell_optimizer" / country / crop
             / f"{country}_{crop}_s{season}_optimized_mask.parquet"
+        )
+
+    def production_mask_path_for_year(
+        self, country: str, crop: str, season: int, year: int,
+    ) -> Path:
+        """Per-year leave-one-out production mask path. Same parent dir
+        as ``production_mask_path``, with a ``_y{year}`` suffix:
+
+            ${dir_output}/cell_optimizer/{country}/{crop}/
+                {country}_{crop}_s{season}_y{year}_optimized_mask.parquet
+
+        Only written when ``annual_mask = True``. Geoextract loaders
+        should try this path FIRST for a given (country, crop, season,
+        year) and fall back to the pooled ``production_mask_path`` only
+        when this file is missing (forecast/current years have no
+        leave-one-out file because the GA needs that year's yield to
+        produce one).
+        """
+        return (
+            self.dir_output / "cell_optimizer" / country / crop
+            / f"{country}_{crop}_s{season}_y{int(year)}_optimized_mask.parquet"
         )
 
     # ------------------------------------------------------------------
@@ -685,8 +827,15 @@ class CellOptimizer(base.BaseGeo):
             return None
 
         # Collapse DOY: per (cell_id, year) reduce each var with its
-        # configured agg (NDVI=max, others=mean). Build wide tensor.
-        agg_map = {v: _DOY_AGG[v] for v in var_cols}
+        # configured agg. NDVI defaults to AUC (sum over DOY); T and P
+        # default to mean. Per-variable overrides come from
+        # [CELL_OPTIMIZER] {var}_doy_agg in geocif.txt. ``auc`` maps to
+        # pandas ``sum`` — area-under-curve over evenly-spaced DOY
+        # samples is the sum up to a constant cadence factor that
+        # cancels in OLS and correlation.
+        def _pandas_agg(name: str) -> str:
+            return "sum" if name == "auc" else name
+        agg_map = {v: _pandas_agg(self.doy_agg.get(v, "mean")) for v in var_cols}
         per_cell_year = (
             df.groupby(["cell_id", "year"], sort=True, as_index=False)
               .agg(agg_map)
@@ -744,6 +893,19 @@ class CellOptimizer(base.BaseGeo):
     # Per-region runner
     # ------------------------------------------------------------------
 
+    def _build_production_rows(self, country, region, cell_meta, mask):
+        """Shape the per-cell included/excluded decisions into the
+        production-parquet row contract. Used once per GA run (pooled
+        or per-year-leave-out)."""
+        rows = cell_meta.copy()
+        rows["country"] = country
+        rows["region"] = region
+        rows["included"] = mask
+        return rows[[
+            "country", "region", "region_id", "cell_id",
+            "lat", "lon", "afi", "included",
+        ]]
+
     def process_region(
         self, country: str, crop: str, season: int, region: str,
     ):
@@ -774,52 +936,82 @@ class CellOptimizer(base.BaseGeo):
         # seed population is biased toward high-AFI cells (does NOT
         # enter the fitness function; only shifts where the GA starts).
         afi_vec = cell_meta["afi"].to_numpy(dtype=float)
+
+        # --- Pooled GA: trained on all years. Used for forecast/current
+        # years when no held-out year is available, and as the fallback
+        # mask when annual mode is off. Also drives the diagnostic plots
+        # + cross-region summary (the per-year masks would multiply
+        # plot+summary output by n_years and overwhelm the operator).
         result = run_ga(per_cell, y, self.ga, afi=afi_vec, logger=self.logger)
 
         self.logger.info(
-            f"  best fitness = {result.best_fitness:.4f}, "
-            f"best R^2 = {result.best_r2:.4f} (baseline R^2 = "
-            f"{result.baseline_r2:.4f}, lift = "
-            f"{(result.best_r2 - result.baseline_r2):+.4f}), "
-            f"selected {result.best_mask.sum()}/{n_cells} cells, "
-            f"ran {result.n_generations_run} generations"
+            f"  pooled R^2 (representative cells) = {result.best_r2:.4f}, "
+            f"R^2 (all cropland cells) = {result.baseline_r2:.4f}, "
+            f"Δ = {(result.best_r2 - result.baseline_r2):+.4f}; "
+            f"{result.best_mask.sum()}/{n_cells} cells selected"
         )
 
-        # Write date-stamped diagnostic outputs
-        out_dir = self.regions_dir(country, crop, season)
+        # Per-year (leave-one-out) masks — anti-overfitting opt-in. For
+        # each historical year Y, run the GA on data EXCLUDING Y so
+        # mask_Y never saw year Y's yield. Then mask_Y is applied to
+        # year Y's EO extraction downstream — out-of-sample by
+        # construction. The pooled mask above remains the fallback for
+        # current/forecast years (which have no yield to hold out).
+        production_by_year: dict = {
+            None: self._build_production_rows(
+                country, region, cell_meta, result.best_mask,
+            ),
+        }
+        results_by_year: dict = {}   # int year -> GAResult, used for held-out diagnostics
+        if self.annual_mask:
+            years_arr = np.asarray(years, dtype=int)
+            for held_out_year in years_arr:
+                keep_mask = years_arr != held_out_year
+                per_cell_train = per_cell[:, keep_mask, :]
+                y_train = y[keep_mask]
+                n_train_finite = int(np.isfinite(y_train).sum())
+                if n_train_finite < 5:
+                    self.logger.warning(
+                        f"  annual mask y={held_out_year}: only "
+                        f"{n_train_finite} finite-yield years in training "
+                        f"set; LOOCV R² needs >=5. Skipping this year."
+                    )
+                    continue
+                result_y = run_ga(
+                    per_cell_train, y_train, self.ga,
+                    afi=afi_vec, logger=None,   # silence per-year inner logs
+                )
+                self.logger.info(
+                    f"  annual y={int(held_out_year)}: R²="
+                    f"{result_y.best_r2:.3f} (baseline {result_y.baseline_r2:.3f}), "
+                    f"{int(result_y.best_mask.sum())}/{n_cells} cells"
+                )
+                production_by_year[int(held_out_year)] = self._build_production_rows(
+                    country, region, cell_meta, result_y.best_mask,
+                )
+                results_by_year[int(held_out_year)] = result_y
+        masks_by_year = {y: r.best_mask for y, r in results_by_year.items()}
+
+        # Diagnostic outputs — pooled GA in regions_s{season}/pooled/.
+        # The held-out variant lives in regions_s{season}/held_out/ and
+        # is populated below only when annual_mask is on.
+        out_dir_pooled = self.regions_dir(country, crop, season, mode="pooled")
         stem = f"{country}_{crop}_s{season}_{region}"
-        np.save(out_dir / f"{stem}_best_mask.npy", result.best_mask)
-        result.history.to_csv(out_dir / f"{stem}_history.csv", index=False)
+        np.save(out_dir_pooled / f"{stem}_best_mask.npy", result.best_mask)
+        result.history.to_csv(out_dir_pooled / f"{stem}_history.csv", index=False)
 
         if self.do_plot:
             self._plot_diagnostics(
                 result, per_cell, y, cell_meta, var_cols,
-                out_dir=out_dir, stem=stem,
+                out_dir=out_dir_pooled, stem=stem,
                 country=country, region=region,
                 years=years,
             )
 
-        # Per-cell rows for the production-mask parquet. One row per
-        # cell, with the GA's included/excluded decision plus the
-        # original cell metadata so geoextract can match on cell_id.
-        # region_id was populated by load_region from the parquet.
-        production_rows = cell_meta.copy()
-        production_rows["country"] = country
-        production_rows["region"] = region
-        production_rows["included"] = result.best_mask
-        # Order to match the documented contract.
-        production_rows = production_rows[[
-            "country", "region", "region_id", "cell_id",
-            "lat", "lon", "afi", "included",
-        ]]
-
-        # Per-variable Pearson r between yield and each EO variable's
-        # seasonal aggregate. Computed twice — once with all cells
-        # (baseline) and once with the GA's optimized mask — so the
-        # cross-region rollup can show how the optimizer impacts each
-        # variable's correlation independently. The multivariate
-        # baseline_r2 / optimized_r2 above don't separate the
-        # contributions per variable; these columns do.
+        # Per-variable Pearson r — pooled (yield vs aggregated EO using
+        # the pooled mask) AND, when annual_mask is on, held-out (each
+        # year's EO aggregated by mask_Y). Both flavours flow into the
+        # summary row so the cross-region rollup can split them.
         base_x = aggregate_over_mask(per_cell, np.ones(n_cells, dtype=bool))
         opt_x = aggregate_over_mask(per_cell, result.best_mask)
         per_var_r: dict = {}
@@ -833,7 +1025,122 @@ class CellOptimizer(base.BaseGeo):
                     r_val = float("nan")
                 per_var_r[f"{tag}_r_{vname}"] = r_val
 
-        # Per-region summary row (returned to caller for cross-region rollup)
+        # Held-out (per-year) diagnostics — only when annual_mask is on.
+        # x_held_out[i] = aggregate of year-i per-cell EO using mask_Y
+        # (the mask trained without year i's yield). loocv_r2 on
+        # (x_held_out, y) is then a truly out-of-sample R² — comparable
+        # to the pooled optimized_r2 above but without the leak.
+        held_out_summary: dict = {}
+        x_held_out = None
+        if self.annual_mask and masks_by_year:
+            x_held_out = aggregate_held_out(per_cell, years, masks_by_year)
+            held_out_r2 = loocv_r2_multivariate(x_held_out, y)
+            held_out_per_var: dict = {}
+            for vi, vname in enumerate(var_cols):
+                xv = x_held_out[:, vi]
+                m = np.isfinite(xv) & np.isfinite(y)
+                if m.sum() >= 3 and float(np.nanstd(xv[m])) > 0 and float(np.nanstd(y[m])) > 0:
+                    held_out_per_var[f"held_out_r_{vname}"] = float(
+                        np.corrcoef(xv[m], y[m])[0, 1]
+                    )
+                else:
+                    held_out_per_var[f"held_out_r_{vname}"] = float("nan")
+
+            self.logger.info(
+                f"  held-out (per-year masks) R^2 = "
+                f"{held_out_r2 if np.isfinite(held_out_r2) else float('nan'):.4f}; "
+                f"{len(masks_by_year)}/{len(years)} years contributed"
+            )
+
+            held_out_summary = {
+                "held_out_optimized_r2": (
+                    float(held_out_r2) if np.isfinite(held_out_r2)
+                    else float("nan")
+                ),
+                "held_out_lift": (
+                    float(held_out_r2 - result.baseline_r2)
+                    if np.isfinite(held_out_r2) else float("nan")
+                ),
+                "held_out_n_years_used": int(len(masks_by_year)),
+                **held_out_per_var,
+            }
+
+            # Save the per-year per-region artifacts mirroring the
+            # pooled ones, then call the same plot helpers with the
+            # held-out inputs.
+            out_dir_held = self.regions_dir(country, crop, season, mode="held_out")
+            region_id_for_plots = self._extract_region_id(cell_meta)
+            # Per-year mask matrix (n_years_done, n_cells) — preserves
+            # the inter-year variation that the frequency vector
+            # collapses.
+            masks_matrix = np.stack(list(masks_by_year.values()), axis=0)
+            np.save(
+                out_dir_held / f"{stem}_per_year_masks.npy",
+                masks_matrix,
+            )
+            # Selection frequency: fraction of leave-one-out years each
+            # cell was kept. Mirrors result.best_mask in shape but
+            # carries continuous information.
+            selection_frequency = masks_matrix.mean(axis=0)
+            np.save(
+                out_dir_held / f"{stem}_selection_frequency.npy",
+                selection_frequency,
+            )
+            # Concatenated GA convergence history with a held_out_year
+            # column — counterpart to the pooled _history.csv.
+            histories_concat = pd.concat(
+                [
+                    res.history.assign(held_out_year=int(y_label))
+                    for y_label, res in results_by_year.items()
+                ],
+                ignore_index=True,
+            )
+            histories_concat.to_csv(
+                out_dir_held / f"{stem}_history.csv", index=False,
+            )
+
+            if self.do_plot:
+                # 1. Mask map — same helper, continuous selection
+                # frequency instead of a 0/1 binary mask.
+                self._plot_mask_map(
+                    cell_meta=cell_meta,
+                    selection=selection_frequency,
+                    baseline_r2=result.baseline_r2,
+                    optimized_r2=(
+                        float(held_out_r2) if np.isfinite(held_out_r2)
+                        else result.best_r2
+                    ),
+                    out_dir=out_dir_held, stem=stem,
+                    country=country, region=region,
+                    region_id=region_id_for_plots,
+                    mode_label="held-out (per-year masks)",
+                    n_years=len(masks_by_year),
+                )
+                # 2. Fitness history — multi-curve overlay, one per year.
+                histories_for_plot = [
+                    (int(y_label), res.history)
+                    for y_label, res in results_by_year.items()
+                ]
+                self._plot_fitness_history(
+                    histories=histories_for_plot,
+                    baseline_r2=result.baseline_r2,
+                    out_dir=out_dir_held, stem=stem, region=region,
+                    mode_label="held-out (per-year masks)",
+                )
+                # 3. Cells comparison — same helper, x_held_out feeds the
+                # right column instead of the pooled opt_x.
+                self._plot_cells_comparison(
+                    base_x=base_x, opt_x=x_held_out, y=y,
+                    var_cols=var_cols, years=years,
+                    out_dir=out_dir_held, stem=stem,
+                    region=region,
+                    title_suffix="yield vs EO (held-out, per-year masks)",
+                )
+
+        # Per-region summary row (returned to caller for cross-region
+        # rollup). Pooled stats + held_out stats (NaN when annual_mask
+        # is off). Per-year stats would multiply rows by n_years;
+        # aggregate analysis is downstream.
         summary = {
             "country":         country,
             "crop":            crop,
@@ -846,9 +1153,11 @@ class CellOptimizer(base.BaseGeo):
             "optimized_r2":    float(result.best_r2),
             "lift":            float(result.best_r2 - result.baseline_r2),
             "n_gens_run":      int(result.n_generations_run),
+            "annual_mask":     bool(self.annual_mask),
             **per_var_r,
+            **held_out_summary,
         }
-        return {"summary": summary, "production_rows": production_rows}
+        return {"summary": summary, "production_rows_by_year": production_by_year}
 
     # ------------------------------------------------------------------
     # Diagnostic plots
@@ -861,10 +1170,15 @@ class CellOptimizer(base.BaseGeo):
         geopandas is unavailable, the boundary file is missing, or
         the country doesn't appear in the shapefile.
 
-        Caching is intra-process — joblib workers each load once. With
-        ~50 regions per country that's ~50 redundant loads avoided per
-        worker, but the first region's load still pays the ~100ms read
-        cost.
+        Delegates to ``geocif.utils.load_country_boundary_gdf``, which
+        reads the config-driven column mapping (``[adm_shapefile]``
+        section in geobase.txt with ``adm0_col = ADMIN0`` etc.) and
+        renames columns to the standard ``ADM0_NAME / ADM1_NAME /
+        ADM_ID`` set. That keeps the per-country filter and the
+        downstream highlight match working regardless of which
+        shapefile convention is in play.
+
+        Caching is intra-process — joblib workers each load once.
         """
         if not hasattr(self, "_boundary_cache"):
             self._boundary_cache = {}
@@ -872,7 +1186,7 @@ class CellOptimizer(base.BaseGeo):
             return self._boundary_cache[country]
 
         try:
-            import geopandas as gpd
+            import geopandas as gpd  # noqa: F401  — verify importable
         except ImportError:
             self.logger.warning(
                 "geopandas not installed — skipping locator-inset map "
@@ -906,7 +1220,8 @@ class CellOptimizer(base.BaseGeo):
             return None
 
         try:
-            gdf = gpd.read_file(fp)
+            from geocif.utils import load_country_boundary_gdf
+            gdf = load_country_boundary_gdf(self.parser, fp, country=country)
         except Exception as exc:  # noqa: BLE001
             self.logger.warning(
                 f"  failed to read boundary shapefile {fp}: {exc}"
@@ -914,12 +1229,7 @@ class CellOptimizer(base.BaseGeo):
             self._boundary_cache[country] = None
             return None
 
-        # Filter to the country. The shared global Level_1.shp carries
-        # admin units for every country; we only want one country's.
-        if "ADM0_NAME" in gdf.columns:
-            country_str = country.replace("_", " ").title()
-            gdf = gdf[gdf["ADM0_NAME"].str.lower() == country_str.lower()]
-        # Keep only polygon geometries.
+        # Keep only polygon geometries (drop stray points / lines).
         gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
         if gdf.empty:
             self.logger.warning(
@@ -1033,11 +1343,39 @@ class CellOptimizer(base.BaseGeo):
         except Exception as exc:  # noqa: BLE001
             self.logger.warning(f"  locator inset failed for {region}: {exc}")
 
-    def _plot_diagnostics(
-        self, result, per_cell, y, cell_meta, var_cols,
-        out_dir: Path, stem: str, country: str, region: str,
-        years=None,
+    @staticmethod
+    def _extract_region_id(cell_meta) -> object:
+        """First non-null region_id from cell_meta. Used by the inset
+        locator to prefer an ADM_ID match over name-matching — the
+        only reliable disambiguator when region names collide."""
+        if "region_id" in cell_meta.columns and not cell_meta.empty:
+            rid_val = cell_meta["region_id"].iloc[0]
+            if pd.notna(rid_val):
+                return rid_val
+        return None
+
+    def _plot_mask_map(
+        self, *, cell_meta, selection,
+        baseline_r2, optimized_r2,
+        out_dir, stem, country, region, region_id,
+        mode_label, n_years=None,
     ):
+        """Per-region cell-position scatter — color encodes AFI %,
+        marker size encodes ``selection`` (fraction of GA runs that
+        kept the cell). Same call signature works for both modes:
+
+        * Pooled (``selection`` ∈ {0, 1}): the two values collapse to
+          the original "in / out" view — small/faded for never, large/
+          vivid with black ring for always.
+        * Held-out (``selection`` ∈ [0, 1]): size and alpha grade
+          continuously with selection frequency, showing both *which*
+          cells were ever picked and *how often* across the leave-one-
+          out years.
+
+        ``mode_label`` lands in the title; ``n_years`` shows how many
+        leave-one-out runs the frequency was computed from (held-out
+        only — omit for pooled).
+        """
         try:
             import matplotlib
             matplotlib.use("Agg")
@@ -1046,89 +1384,167 @@ class CellOptimizer(base.BaseGeo):
             self.logger.warning(f"  matplotlib unavailable: {exc}")
             return
 
-        # Pull region_id from cell_meta (all rows for a region share the
-        # same region_id). Passed to _add_locator_inset so the inset
-        # prefers an ADM_ID match over name-matching — only reliable
-        # disambiguator when region names collide.
-        region_id = None
-        if "region_id" in cell_meta.columns and not cell_meta.empty:
-            rid_val = cell_meta["region_id"].iloc[0]
-            if pd.notna(rid_val):
-                region_id = rid_val
-
-        # 1. Mask map — lat/lon scatter, BOTH in and out cells coloured
-        # by AFI on the same viridis ramp so the eye can answer "did
-        # the GA disagree with the AFI cropmask?" at a glance.
-        #   * Out cells: faded (alpha=0.30), small, no edge — recedes
-        #     visually but AFI is still readable from the colour.
-        #   * In cells:  vivid (alpha=0.95), larger, black ring —
-        #     pops out as "what the GA kept".
-        # Shared vmin/vmax across both scatters so the colourbar maps
-        # cleanly to either population.
-        included = result.best_mask
-        afi_all = cell_meta["afi"].to_numpy(dtype=float)
-        afi_vmin = float(np.nanmin(afi_all)) if afi_all.size else 0.0
-        afi_vmax = float(np.nanmax(afi_all)) if afi_all.size else 100.0
+        sel = np.asarray(selection, dtype=float)
+        afi_pct = cell_meta["afi"].to_numpy(dtype=float) / 100.0
+        afi_vmin = float(np.nanmin(afi_pct)) if afi_pct.size else 0.0
+        afi_vmax = float(np.nanmax(afi_pct)) if afi_pct.size else 100.0
         if afi_vmax <= afi_vmin:
-            # Degenerate single-AFI-value region — give the colormap a
-            # finite range so it renders without warnings.
             afi_vmax = afi_vmin + 1.0
 
+        # Bin cells into never-selected vs ever-selected so the never
+        # population recedes visually but stays readable.
+        never = sel <= 0.0
+        ever = ~never
+
         fig, ax = plt.subplots(figsize=(7, 6))
-        ax.scatter(
-            cell_meta.loc[~included, "lon"], cell_meta.loc[~included, "lat"],
-            c=cell_meta.loc[~included, "afi"], s=12, cmap="viridis",
-            vmin=afi_vmin, vmax=afi_vmax, alpha=0.30,
-            label=f"out (n={(~included).sum()})", edgecolors="none",
-        )
-        sc_in = ax.scatter(
-            cell_meta.loc[included, "lon"], cell_meta.loc[included, "lat"],
-            c=cell_meta.loc[included, "afi"], s=28, cmap="viridis",
-            vmin=afi_vmin, vmax=afi_vmax, alpha=0.95,
-            label=f"in (n={included.sum()})", edgecolors="black", linewidths=0.4,
-        )
-        fig.colorbar(sc_in, ax=ax, fraction=0.04, pad=0.02,
-                     label="AFI (crop fraction %)")
+        # Never-selected: small + faded, AFI-coloured.
+        if never.any():
+            ax.scatter(
+                cell_meta.loc[never, "lon"], cell_meta.loc[never, "lat"],
+                c=afi_pct[never], s=12, cmap="viridis",
+                vmin=afi_vmin, vmax=afi_vmax, alpha=0.30,
+                label=f"other cropland (n={int(never.sum())})",
+                edgecolors="none",
+            )
+        # Ever-selected: size and alpha scale with selection level.
+        # For pooled (sel ∈ {0, 1}) this collapses to fixed (28, 0.95).
+        # For held-out (sel ∈ [0, 1]) cells picked more often render
+        # larger and more vivid.
+        sc_in = None
+        if ever.any():
+            sel_ever = sel[ever]
+            sizes = 14.0 + 14.0 * sel_ever          # 14 → 28 as sel goes 0 → 1
+            alphas = 0.55 + 0.40 * sel_ever         # 0.55 → 0.95
+            edge_widths = 0.20 + 0.20 * sel_ever    # 0.20 → 0.40
+            sc_in = ax.scatter(
+                cell_meta.loc[ever, "lon"], cell_meta.loc[ever, "lat"],
+                c=afi_pct[ever], s=sizes, cmap="viridis",
+                vmin=afi_vmin, vmax=afi_vmax,
+                alpha=alphas, edgecolors="black", linewidths=edge_widths,
+                label=f"representative (n={int(ever.sum())})",
+            )
+        cbar_handle = sc_in if sc_in is not None else None
+        if cbar_handle is not None:
+            fig.colorbar(
+                cbar_handle, ax=ax, fraction=0.04, pad=0.02,
+                label="AFI (crop fraction %)",
+            )
+
         ax.set_xlabel("longitude")
         ax.set_ylabel("latitude")
+        years_suffix = f" across {n_years} leave-one-out years" if n_years else ""
         ax.set_title(
-            f"{_display_region_name(region)} — selected cells\n"
-            f"R²: {result.baseline_r2:.3f} (all cells) → "
-            f"{result.best_r2:.3f} (optimized), lift = "
-            f"{(result.best_r2 - result.baseline_r2):+.3f}"
+            f"{_display_region_name(region)} — representative cells "
+            f"[{mode_label}]{years_suffix}\n"
+            f"R²: {baseline_r2:.3f} (all cropland cells) → "
+            f"{optimized_r2:.3f} (representative cells), "
+            f"Δ = {(optimized_r2 - baseline_r2):+.3f}"
         )
         ax.legend(loc="upper left", fontsize=8)
         ax.grid(True, alpha=0.3)
-        # Country-context inset — top-right of the axes, region in red.
-        self._add_locator_inset(ax, country=country, region=region,
-                                 region_id=region_id)
+        self._add_locator_inset(
+            ax, country=country, region=region, region_id=region_id,
+        )
         fig.tight_layout()
         fig.savefig(out_dir / f"{stem}_mask_map.png", dpi=130)
         plt.close(fig)
 
-        # 2. Fitness history. "best fitness" = R² minus the L0 size
-        # penalty (λ × |mask|/n_cells); "best R²" = the same mask's R²
-        # without the penalty applied. The gap between the two lines is
-        # the size penalty being paid by the GA's current best mask.
+    def _plot_fitness_history(
+        self, *, histories, baseline_r2, out_dir, stem, region,
+        mode_label,
+    ):
+        """GA convergence trace. ``histories`` is a list of (label_or_None,
+        DataFrame) pairs:
+
+        * Pooled mode: one (None, history) entry. Renders the classic
+          best_fit / mean_fit / best_r2 trio plus the baseline line.
+        * Held-out mode: one entry per leave-one-out year. Each year's
+          best_r2 curve is drawn faded, and a per-generation median
+          (across years) is overlaid in bold. Lets the operator spot
+          year-to-year convergence inconsistencies at a glance.
+
+        Both variants share the equation annotation + plain-English
+        caption — that text is the same regardless of mode.
+        """
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"  matplotlib unavailable: {exc}")
+            return
+        if not histories:
+            return
+
         fig, ax = plt.subplots(figsize=(8, 4.5))
-        h = result.history
-        ax.plot(h["generation"], h["best_fit"], color="#1f77b4",
-                linewidth=1.6, label="best fitness")
-        ax.plot(h["generation"], h["mean_fit"], color="#1f77b4",
-                linewidth=1.0, alpha=0.4, linestyle="--", label="mean fitness")
-        ax.plot(h["generation"], h["best_r2"], color="#d62728",
-                linewidth=1.4, label="best R²")
-        ax.axhline(result.baseline_r2, color="gray", linestyle=":",
-                   linewidth=1.0, label=f"baseline R² = {result.baseline_r2:.3f}")
+        is_multi = len(histories) > 1
+        if not is_multi:
+            # Pooled-style: full best_fit + mean_fit + best_r2 stack.
+            _, h = histories[0]
+            ax.plot(h["generation"], h["best_fit"], color="#1f77b4",
+                    linewidth=1.6, label="best fitness")
+            ax.plot(h["generation"], h["mean_fit"], color="#1f77b4",
+                    linewidth=1.0, alpha=0.4, linestyle="--",
+                    label="mean fitness")
+            ax.plot(h["generation"], h["best_r2"], color="#d62728",
+                    linewidth=1.4, label="best R²")
+        else:
+            # Held-out-style: faded best_r2 per year + bold median curve.
+            # `years_arr` indexes a viridis ramp so the eye can see if
+            # earlier vs later leave-out years converge differently.
+            year_labels = [label for label, _ in histories if label is not None]
+            cmap = plt.get_cmap("viridis")
+            if year_labels:
+                lo, hi = min(year_labels), max(year_labels)
+            else:
+                lo, hi = 0, len(histories) - 1
+            # Collect best_r2 across years on a common generation grid
+            # via outer-merge for the median curve. NaNs are tolerated
+            # by np.nanmedian.
+            all_r2 = []
+            for label, h in histories:
+                t = (label - lo) / max(1, (hi - lo)) if label is not None else 0.5
+                ax.plot(
+                    h["generation"], h["best_r2"],
+                    color=cmap(t), linewidth=0.9, alpha=0.40,
+                )
+                all_r2.append((h["generation"].to_numpy(), h["best_r2"].to_numpy()))
+            # Median curve: align on max-generation grid.
+            max_gen = max(int(g.max()) for g, _ in all_r2) if all_r2 else 0
+            stack = np.full((len(all_r2), max_gen + 1), np.nan)
+            for i, (g, r) in enumerate(all_r2):
+                g_int = g.astype(int)
+                # Last-known-value fill: each year's GA may early-stop,
+                # so propagate the final best_r2 forward across the
+                # remaining generations before taking the cross-year
+                # median. Otherwise NaNs would dominate.
+                last_val = np.nan
+                cur_r = np.full(max_gen + 1, np.nan)
+                lookup = dict(zip(g_int, r))
+                for gen in range(max_gen + 1):
+                    if gen in lookup:
+                        last_val = lookup[gen]
+                    cur_r[gen] = last_val
+                stack[i] = cur_r
+            median_curve = np.nanmedian(stack, axis=0)
+            ax.plot(
+                np.arange(max_gen + 1), median_curve,
+                color="black", linewidth=2.0,
+                label=f"median best R² across {len(histories)} years",
+            )
+
+        ax.axhline(
+            baseline_r2, color="gray", linestyle=":", linewidth=1.0,
+            label=f"baseline R² = {baseline_r2:.3f}",
+        )
         ax.set_xlabel("generation")
         ax.set_ylabel("fitness / R²")
-        ax.set_title(f"{_display_region_name(region)} — GA convergence")
+        ax.set_title(
+            f"{_display_region_name(region)} — GA convergence [{mode_label}]"
+        )
         ax.legend(loc="best", fontsize=8)
         ax.grid(True, alpha=0.3)
-        # Fitness equation annotation — shows the actual objective the
-        # GA optimizes so a reader can decode the blue-vs-red gap as
-        # the L0 size penalty being paid. Lower-right corner stays
-        # clear of the convergence curves which rise to the right.
+        # Fitness equation + plain-English caption — same regardless of mode.
         eqn = (
             f"fitness = R² − λ·(|mask|/n_cells)"
             f"     λ = {self.ga.l0_lambda:g}"
@@ -1141,17 +1557,12 @@ class CellOptimizer(base.BaseGeo):
                       facecolor="white", edgecolor="gray",
                       linewidth=0.5, alpha=0.9),
         )
-        # Plain-English caption at the bottom of the figure so a
-        # non-LLM reader doesn't have to decode the equation box to
-        # understand what fitness is. The split across two lines keeps
-        # the caption inside the 8-inch figure width at fontsize 8.
         caption = (
             "Fitness = how well a cell-mask predicts yield (R²), minus a "
             "small penalty for using too many cells (λ × fraction-of-"
             "cells-selected).\n"
             "The single number the GA tries to maximise."
         )
-        # Reserve bottom margin for the caption.
         fig.tight_layout(rect=[0, 0.12, 1, 1])
         fig.text(
             0.5, 0.02, caption,
@@ -1161,36 +1572,84 @@ class CellOptimizer(base.BaseGeo):
         fig.savefig(out_dir / f"{stem}_fitness_history.png", dpi=130)
         plt.close(fig)
 
-        # 3. Pre/post yield-vs-EO scatter, one row per var, two cols.
-        # Each dot is a year; the colour ramp (viridis) shows the year
-        # so trends across the time axis are readable on the same axes.
-        # NDVI is rescaled from byte-scale (≈50-250) to unit (0-1) to
-        # match the convention used elsewhere in geocif; variable
-        # labels are properly capitalised via _display_var_name.
-        # Figure dimensions: wider than tall per-row so the year colorbar
-        # has room to sit alongside the right panel without clipping its
-        # X-axis tick labels. Was (8, 2.6 × n_vars) — too squat at n=1
-        # and the colorbar crowded the rightmost ticks.
-        n_vars = len(var_cols)
-        fig, axes = plt.subplots(
-            n_vars, 2, figsize=(11, 3.5 * n_vars),
-            sharey=False, squeeze=False,
+    def _plot_diagnostics(
+        self, result, per_cell, y, cell_meta, var_cols,
+        out_dir: Path, stem: str, country: str, region: str,
+        years=None,
+    ):
+        """Pooled-mode per-region diagnostic plots. Three figures:
+        ``_mask_map.png`` (binary in/out), ``_fitness_history.png``
+        (GA convergence), ``_cells_comparison.png`` (yield-vs-EO
+        scatter). All three reuse the same helpers as the held-out
+        variant — see ``process_region`` for the held-out call site.
+        """
+        region_id = self._extract_region_id(cell_meta)
+        self._plot_mask_map(
+            cell_meta=cell_meta,
+            selection=result.best_mask.astype(float),
+            baseline_r2=result.baseline_r2, optimized_r2=result.best_r2,
+            out_dir=out_dir, stem=stem,
+            country=country, region=region, region_id=region_id,
+            mode_label="pooled",
+        )
+        self._plot_fitness_history(
+            histories=[(None, result.history)],
+            baseline_r2=result.baseline_r2,
+            out_dir=out_dir, stem=stem, region=region,
+            mode_label="pooled",
         )
         base_x = aggregate_over_mask(per_cell, np.ones(per_cell.shape[0], dtype=bool))
         opt_x = aggregate_over_mask(per_cell, result.best_mask)
+        self._plot_cells_comparison(
+            base_x=base_x, opt_x=opt_x, y=y, var_cols=var_cols,
+            years=years if years is not None
+                  else np.arange(per_cell.shape[1], dtype=int),
+            out_dir=out_dir, stem=stem, region=region,
+            title_suffix="yield vs EO: all cells vs representative cells",
+        )
+        self.logger.info(f"  wrote diagnostic plots to {out_dir}")
 
-        # Year array for colouring. When None (synthetic test), use a
-        # linear index so the colormap still works.
-        years_arr = (
-            np.asarray(years, dtype=int) if years is not None
-            else np.arange(per_cell.shape[1], dtype=int)
+    def _plot_cells_comparison(
+        self, *, base_x, opt_x, y, var_cols, years, out_dir, stem, region,
+        title_suffix,
+    ):
+        """Per-region yield-vs-EO scatter — one row per var, two cols
+        (all-cells baseline left, optimizer-selected right). Used by:
+
+        * Pooled diagnostic (``opt_x`` = pooled mask's aggregation).
+        * Held-out diagnostic (``opt_x`` = per-year mask aggregation
+          ``x_held_out``) when ``annual_mask = True``.
+
+        Dots = years; colour ramp = year (viridis). NDVI rescaled to
+        unit scale when present. Both call sites get identical layout
+        so visual comparison is direct.
+        """
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"  matplotlib unavailable: {exc}")
+            return
+
+        n_vars = len(var_cols)
+        # constrained_layout instead of tight_layout below — fig.colorbar
+        # with ax=<full subplot array> isn't compatible with tight_layout
+        # and emits a UserWarning per region every run. constrained
+        # layout handles the shared colorbar geometry natively.
+        fig, axes = plt.subplots(
+            n_vars, 2, figsize=(11, 3.5 * n_vars),
+            sharey=False, squeeze=False,
+            layout="constrained",
         )
 
-        last_sc = None  # last scatter handle for the shared colorbar
+        years_arr = np.asarray(years, dtype=int)
+        last_sc = None
         for vi, v in enumerate(var_cols):
             display_name = _display_var_name(v)
             for ci, (xv_raw, title) in enumerate(
-                [(base_x[:, vi], "all cells"), (opt_x[:, vi], "optimized")]
+                [(base_x[:, vi], "all cropland cells"),
+                 (opt_x[:, vi], "representative cells")]
             ):
                 ax = axes[vi][ci]
                 # Rescale NDVI byte-scale → unit so the X-axis matches
@@ -1221,33 +1680,24 @@ class CellOptimizer(base.BaseGeo):
                 ax.set_ylabel("yield (tn/ha)")
                 ax.grid(True, alpha=0.3)
 
-        # Single shared colorbar at the right edge showing the year
-        # mapping; integer year ticks so it reads as a calendar legend
-        # rather than a continuous variable.
         if last_sc is not None:
             cbar = fig.colorbar(
                 last_sc, ax=axes, fraction=0.025, pad=0.02, label="year",
             )
-            # Integer year ticks across the actual span.
             yr_min, yr_max = int(years_arr.min()), int(years_arr.max())
-            # Cap to ~8 ticks for readability on a 5-year span vs a 25-year span.
             n_ticks = min(8, max(2, yr_max - yr_min + 1))
             tick_positions = np.linspace(yr_min, yr_max, n_ticks).round().astype(int)
             cbar.set_ticks(tick_positions)
             cbar.set_ticklabels([str(t) for t in tick_positions])
 
         fig.suptitle(
-            f"{_display_region_name(region)} — pre/post comparison per variable",
+            f"{_display_region_name(region)} — {title_suffix}",
             fontsize=11,
         )
-        # tight_layout's rect leaves whitespace for the suptitle AND the
-        # colorbar; without rect=[..., 0.92, ...] the colorbar collides
-        # with the suptitle on tall figures.
-        fig.tight_layout(rect=[0, 0, 0.92, 0.96])
-        fig.savefig(out_dir / f"{stem}_pre_post.png", dpi=130)
+        # constrained_layout (set at subplots time) handles spacing —
+        # no manual tight_layout call needed.
+        fig.savefig(out_dir / f"{stem}_cells_comparison.png", dpi=130)
         plt.close(fig)
-
-        self.logger.info(f"  wrote diagnostic plots to {out_dir}")
 
     # ------------------------------------------------------------------
     # Cross-region rollup
@@ -1259,10 +1709,11 @@ class CellOptimizer(base.BaseGeo):
             return
 
         df = pd.DataFrame(summary_rows)
-        out_dir = self.cross_region_dir()
-        # Master CSV at the root for convenience (every region from
-        # every country × crop × season in one place).
-        master_csv = out_dir / "summary.csv"
+        # Master CSV at the cross-region root (NOT inside a mode subdir)
+        # — carries every column (pooled + held_out side by side) for
+        # one-stop inspection across every country / crop / season.
+        master_dir = self._cross_region_root()
+        master_csv = master_dir / "summary.csv"
         df.to_csv(master_csv, index=False)
         self.logger.info(f"  wrote {master_csv}")
 
@@ -1275,6 +1726,18 @@ class CellOptimizer(base.BaseGeo):
         except Exception as exc:  # noqa: BLE001
             self.logger.warning(f"  matplotlib unavailable: {exc}")
             return
+
+        # Build the list of (mode, lift_col, optimized_col, per_var_r_prefix)
+        # tuples to emit. Pooled is always emitted; held-out only when the
+        # column is actually populated (annual_mask had data in at least
+        # one region of this run).
+        modes_to_emit = [
+            ("pooled", "lift", "optimized_r2", "optimized_r_"),
+        ]
+        if "held_out_optimized_r2" in df.columns and df["held_out_optimized_r2"].notna().any():
+            modes_to_emit.append(
+                ("held_out", "held_out_lift", "held_out_optimized_r2", "held_out_r_"),
+            )
 
         # Split outputs by (country, crop, season). Lifts and R²s aren't
         # comparable across crops or countries (different yield series,
@@ -1296,17 +1759,10 @@ class CellOptimizer(base.BaseGeo):
             country = str(kv.get("country", "_unknown"))
             crop = str(kv.get("crop", "_unknown"))
             season = int(kv.get("season", 1))
-
-            sub_dir = out_dir / country / crop
-            sub_dir.mkdir(parents=True, exist_ok=True)
             stem = f"s{season}"
 
-            # Mean area per region for this combo — pulled via the
-            # canonical add_statistics dispatcher so the source (AMIS /
-            # HarvestStat / per-country override) is selected
-            # automatically. Used to size dots in the baseline-vs-
-            # optimized scatter; empty dict if anything fails, in which
-            # case the scatter falls back to uniform dot size.
+            # Mean area per region — pulled once per combo via the
+            # canonical add_statistics dispatcher; reused across modes.
             mean_areas = self._fetch_mean_areas(
                 country=country, crop=crop,
                 regions=list(grp["region"].astype(str).unique()),
@@ -1322,25 +1778,39 @@ class CellOptimizer(base.BaseGeo):
                     f"  {country}/{crop}/{stem}: mean_area_ha resolved "
                     f"for {n_with_area}/{len(grp)} regions"
                 )
-                # Rewrite the per-combo CSV with the new column.
-                sub_csv = sub_dir / f"summary_{stem}.csv"
-                grp.to_csv(sub_csv, index=False)
-            else:
-                # No area data — write CSV without the mean_area_ha column.
-                sub_csv = sub_dir / f"summary_{stem}.csv"
-                grp.to_csv(sub_csv, index=False)
 
-            if len(grp) < 2:
-                self.logger.info(
-                    f"  {country}/{crop}/{stem}: only {len(grp)} regions, "
-                    f"skipping cross-region plots"
+            for mode, lift_col, opt_col, per_var_r_prefix in modes_to_emit:
+                # For held_out, drop rows where the held-out columns are
+                # NaN (regions whose annual_mask runs produced no
+                # successful per-year masks). Avoids plotting a histogram
+                # over NaNs and gives a clean region count in the title.
+                if mode == "held_out":
+                    sub_grp = grp[grp[opt_col].notna()].copy()
+                else:
+                    sub_grp = grp.copy()
+
+                sub_dir = self.cross_region_dir(mode=mode) / country / crop
+                sub_dir.mkdir(parents=True, exist_ok=True)
+
+                sub_csv = sub_dir / f"summary_{stem}.csv"
+                sub_grp.to_csv(sub_csv, index=False)
+
+                if len(sub_grp) < 2:
+                    self.logger.info(
+                        f"  {country}/{crop}/{stem}/{mode}: only "
+                        f"{len(sub_grp)} regions, skipping plots"
+                    )
+                    continue
+
+                self._cross_region_plots(
+                    sub_grp, sub_dir, stem, country, crop, season, plt,
+                    lift_col=lift_col, opt_col=opt_col,
+                    per_var_r_prefix=per_var_r_prefix, mode=mode,
                 )
-                continue
-
-            self._cross_region_plots(grp, sub_dir, stem, country, crop, season, plt)
-            self.logger.info(
-                f"  cross-region plots → {sub_dir} ({len(grp)} regions)"
-            )
+                self.logger.info(
+                    f"  cross-region plots ({mode}) → {sub_dir} "
+                    f"({len(sub_grp)} regions)"
+                )
 
     def _current_year_or_default(self) -> int:
         """Best-effort current-year resolver for the mean-area lookup
@@ -1462,29 +1932,46 @@ class CellOptimizer(base.BaseGeo):
             out[str(region)] = float(vals.mean())
         return out
 
-    def _cross_region_plots(self, grp, sub_dir, stem, country, crop, season, plt):
-        """Render the two cross-region diagnostics for one
-        (country, crop, season) group: lift histogram + baseline-vs-
-        optimized scatter. Factored out so the layout for the two
-        figures is defined once instead of duplicated.
+    def _cross_region_plots(
+        self, grp, sub_dir, stem, country, crop, season, plt,
+        *, lift_col="lift", opt_col="optimized_r2",
+        per_var_r_prefix="optimized_r_", mode="pooled",
+    ):
+        """Render the cross-region diagnostics for one (country, crop,
+        season) group: R² improvement histogram + all-vs-representative
+        scatter + per-variable r impact.
+
+        ``lift_col`` / ``opt_col`` / ``per_var_r_prefix`` parametrize
+        the source columns so the same layout serves both the pooled
+        run (``lift``, ``optimized_r2``, ``optimized_r_<var>``) and the
+        held-out run (``held_out_lift``, ``held_out_optimized_r2``,
+        ``held_out_r_<var>``). ``mode`` only shapes title text — the
+        actual values come from ``grp[<col>]``.
         """
-        # 1. Lift histogram
+        mode_label = {"pooled": "pooled (in-sample)",
+                      "held_out": "held-out (per-year masks)"}.get(mode, mode)
+
+        # 1. R² improvement histogram (representative − all cropland cells)
         fig, ax = plt.subplots(figsize=(8, 4.5))
-        ax.hist(grp["lift"], bins=min(20, max(5, len(grp) // 2)),
+        ax.hist(grp[lift_col], bins=min(20, max(5, len(grp) // 2)),
                 color="#1f77b4", alpha=0.8, edgecolor="black")
         ax.axvline(0, color="black", linewidth=0.8)
-        ax.axvline(grp["lift"].mean(), color="red", linestyle="--",
-                   linewidth=1.2, label=f"mean lift = {grp['lift'].mean():+.3f}")
-        ax.set_xlabel("LOOCV R² lift (optimized − baseline)")
+        ax.axvline(grp[lift_col].mean(), color="red", linestyle="--",
+                   linewidth=1.2,
+                   label=f"mean Δ = {grp[lift_col].mean():+.3f}")
+        ax.set_xlabel(
+            "LOOCV R² improvement (representative cells − all cropland cells)"
+        )
         ax.set_ylabel("regions")
         ax.set_title(
             f"{country.title()} {crop.title()} s{season} — "
-            f"cell-optimizer lift across {len(grp)} regions"
+            f"R² improvement from representative cells [{mode_label}], "
+            f"{len(grp)} regions"
         )
         ax.legend(loc="best", fontsize=9)
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
-        fig.savefig(sub_dir / f"lift_distribution_{stem}.png", dpi=130)
+        fig.savefig(sub_dir / f"r2_improvement_{stem}.png", dpi=130)
         plt.close(fig)
 
         # 2. Baseline vs optimized R² scatter — one dot per region with
@@ -1531,42 +2018,47 @@ class CellOptimizer(base.BaseGeo):
             edge_widths = np.full(len(grp), 0.4, dtype=float)
 
         sc = ax.scatter(
-            grp["baseline_r2"], grp["optimized_r2"],
-            c=grp["lift"].to_numpy(), cmap="RdYlGn",
+            grp["baseline_r2"], grp[opt_col],
+            c=grp[lift_col].to_numpy(), cmap="RdYlGn",
             s=sizes, alpha=0.85, edgecolors="black", linewidths=edge_widths,
         )
-        lo = float(min(grp["baseline_r2"].min(), grp["optimized_r2"].min(), 0.0)) - 0.05
-        hi = float(max(grp["baseline_r2"].max(), grp["optimized_r2"].max(), 1.0)) + 0.05
+        lo = float(min(grp["baseline_r2"].min(), grp[opt_col].min(), 0.0)) - 0.05
+        hi = float(max(grp["baseline_r2"].max(), grp[opt_col].max(), 1.0)) + 0.05
         ax.plot([lo, hi], [lo, hi], color="gray", linestyle="--",
-                linewidth=1.0, alpha=0.7, label="y = x (no lift)")
-        # Label top-5 by lift so the biggest wins are named on the chart.
-        for _, row in grp.nlargest(min(5, len(grp)), "lift").iterrows():
+                linewidth=1.0, alpha=0.7,
+                label="y = x (no improvement)")
+        # Label top-5 by improvement so the biggest wins are named.
+        for _, row in grp.nlargest(min(5, len(grp)), lift_col).iterrows():
             ax.annotate(
                 str(row["region"]),
-                xy=(row["baseline_r2"], row["optimized_r2"]),
+                xy=(row["baseline_r2"], row[opt_col]),
                 xytext=(4, 4), textcoords="offset points",
                 fontsize=8, alpha=0.85,
             )
-        fig.colorbar(sc, ax=ax, fraction=0.04, pad=0.02, label="lift (Δ R²)")
+        fig.colorbar(
+            sc, ax=ax, fraction=0.04, pad=0.02,
+            label="Δ R² (representative − all cells)",
+        )
 
         # Title — note size encoding when active.
         if has_area and area_finite.any():
             size_hint = "; dot size ∝ mean area (ha, log)"
         else:
             size_hint = ""
-        ax.set_xlabel("baseline R² (all cells)")
-        ax.set_ylabel("optimized R² (GA-selected cells)")
+        ax.set_xlabel("R² with all cropland cells")
+        ax.set_ylabel("R² with representative cells")
         ax.set_title(
-            f"{country.title()} {crop.title()} s{season} — R² before vs "
-            f"after\n({len(grp)} regions; mean lift = "
-            f"{grp['lift'].mean():+.3f}{size_hint})"
+            f"{country.title()} {crop.title()} s{season} — "
+            f"R² with representative vs all cells [{mode_label}]\n"
+            f"({len(grp)} regions; mean Δ = "
+            f"{grp[lift_col].mean():+.3f}{size_hint})"
         )
         ax.set_xlim(lo, hi)
         ax.set_ylim(lo, hi)
         ax.set_aspect("equal")
 
         # Size legend showing 10th / 50th / 90th-percentile areas, when
-        # area is encoded. Lower-left corner stays clear of the lift
+        # area is encoded. Lower-left corner stays clear of the Δ R²
         # colorbar (right) and the y=x reference annotation (lower right).
         if has_area and area_finite.any():
             from matplotlib.lines import Line2D
@@ -1611,37 +2103,46 @@ class CellOptimizer(base.BaseGeo):
 
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
-        fig.savefig(sub_dir / f"baseline_vs_optimized_r2_{stem}.png", dpi=130)
+        fig.savefig(sub_dir / f"r2_comparison_{stem}.png", dpi=130)
         plt.close(fig)
 
-        # 3. Per-variable r before vs after — one row per variable
-        # present in summary.csv (NDVI / tmax / tmin / precip etc.).
-        # Each row: baseline Pearson r on the X-axis, optimized
-        # Pearson r on the Y, one dot per region, y=x reference line,
-        # colour by per-variable lift, top-3 regions labelled.
-        # Complements baseline_vs_optimized_r2.png (which is joint
-        # multivariate R²) by showing how the optimizer's mask impacts
-        # each variable's individual correlation with yield.
-        self._plot_r_per_variable(grp, sub_dir, stem, country, crop, season, plt)
+        # 3. Per-variable Pearson r — one row per variable present in
+        # summary.csv (NDVI / tmax / tmin / precip etc.). Each row:
+        # r with all cropland cells on the X-axis, r with representative
+        # cells on the Y, one dot per region, y=x reference line,
+        # colour by Δr, top-3 regions labelled. Complements
+        # r2_comparison.png (which is joint multivariate R²) by showing
+        # how the cell selection affects each variable's individual
+        # correlation with yield.
+        self._plot_r_per_variable(
+            grp, sub_dir, stem, country, crop, season, plt,
+            per_var_r_prefix=per_var_r_prefix, mode=mode,
+        )
 
-    def _plot_r_per_variable(self, grp, sub_dir, stem, country, crop, season, plt):
+    def _plot_r_per_variable(
+        self, grp, sub_dir, stem, country, crop, season, plt,
+        *, per_var_r_prefix="optimized_r_", mode="pooled",
+    ):
         """Per-variable r-impact across regions. Reads
-        ``baseline_r_<var>`` and ``optimized_r_<var>`` columns from the
-        summary DataFrame; silently skips when none are present
-        (older summaries pre-dating this feature, or single-var
-        parquets that only produce one pair).
+        ``baseline_r_<var>`` and ``{per_var_r_prefix}<var>`` columns
+        from the summary DataFrame; silently skips when none are
+        present (older summaries or single-var parquets that only
+        produce a baseline column).
         """
-        # Discover which variables have baseline/optimized r columns.
+        mode_label = {"pooled": "pooled (in-sample)",
+                      "held_out": "held-out (per-year masks)"}.get(mode, mode)
+
+        # Discover which variables have baseline + <prefix><var> columns.
         var_pairs = []
         for col in grp.columns:
             if col.startswith("baseline_r_"):
                 var = col[len("baseline_r_"):]
-                opt_col = f"optimized_r_{var}"
+                opt_col = f"{per_var_r_prefix}{var}"
                 if opt_col in grp.columns:
                     var_pairs.append((var, col, opt_col))
         if not var_pairs:
             self.logger.info(
-                f"  {country}/{crop}/{stem}: no per-variable r columns "
+                f"  {country}/{crop}/{stem}/{mode}: no per-variable r columns "
                 f"in summary — skipping r_per_variable plot"
             )
             return
@@ -1677,10 +2178,10 @@ class CellOptimizer(base.BaseGeo):
             bound = max(abs(lo), abs(hi))
             lo, hi = -bound, bound
             ax.plot([lo, hi], [lo, hi], color="gray", linestyle="--",
-                    linewidth=1.0, alpha=0.7, label="y = x (no impact)")
+                    linewidth=1.0, alpha=0.7, label="y = x")
             ax.axhline(0, color="black", linewidth=0.4, alpha=0.4)
             ax.axvline(0, color="black", linewidth=0.4, alpha=0.4)
-            # Label top-3 by |r_lift|.
+            # Label top-3 by |Δr|.
             for _, row in sub.reindex(
                 sub["r_lift"].abs().sort_values(ascending=False).index
             ).head(3).iterrows():
@@ -1692,11 +2193,15 @@ class CellOptimizer(base.BaseGeo):
                 )
             fig.colorbar(
                 sc, ax=ax, fraction=0.04, pad=0.02,
-                label=f"r lift (Δ r for {_display_var_name(var)})",
+                label=f"Δ r for {_display_var_name(var)}",
             )
             mean_lift = float(sub["r_lift"].mean())
-            ax.set_xlabel(f"baseline r — yield vs {_display_var_name(var)}")
-            ax.set_ylabel(f"optimized r — yield vs {_display_var_name(var)}")
+            ax.set_xlabel(
+                f"r — yield vs {_display_var_name(var)} (all cropland cells)"
+            )
+            ax.set_ylabel(
+                f"r — yield vs {_display_var_name(var)} (representative cells)"
+            )
             ax.set_title(
                 f"{_display_var_name(var)} — {len(sub)} regions; "
                 f"mean Δr = {mean_lift:+.3f}"
@@ -1709,7 +2214,8 @@ class CellOptimizer(base.BaseGeo):
 
         fig.suptitle(
             f"{country.title()} {crop.title()} s{season} — "
-            f"per-variable Pearson r impact across regions",
+            f"per-variable Pearson r: all cells vs representative cells "
+            f"[{mode_label}]",
             fontsize=12,
         )
         fig.tight_layout(rect=[0, 0, 1, 0.97])
@@ -1761,16 +2267,28 @@ class CellOptimizer(base.BaseGeo):
             f" (n_jobs={self.n_jobs})"
         )
 
+        # Progress bar driven by per-region completion. With n_jobs > 1
+        # the joblib workers write nothing to the parent stdout (their
+        # logger handles aren't picklable), so without this bar the
+        # operator only sees the startup banner until the run finishes.
+        # The postfix shows the most recently completed region.
+        from tqdm.auto import tqdm
+        pbar_desc = f"{country}/{crop}/s{season}"
+
         if self.n_jobs == 1:
             results = []
-            for region in regions:
-                try:
-                    results.append(self.process_region(country, crop, season, region))
-                except Exception as exc:  # noqa: BLE001
-                    self.logger.error(
-                        f"  process_region failed on {region}: {exc}"
-                    )
-                    results.append(None)
+            with tqdm(total=len(regions), desc=pbar_desc) as pbar:
+                for region in regions:
+                    try:
+                        r = self.process_region(country, crop, season, region)
+                    except Exception as exc:  # noqa: BLE001
+                        self.logger.error(
+                            f"  process_region failed on {region}: {exc}"
+                        )
+                        r = None
+                    pbar.set_postfix_str(f"last={region}")
+                    pbar.update(1)
+                    results.append(r)
         else:
             from joblib import Parallel, delayed
             # Workers re-instantiate CellOptimizer from the original
@@ -1778,49 +2296,142 @@ class CellOptimizer(base.BaseGeo):
             # picklable. Each worker reads its own region from the
             # parquet — the per-worker IO overhead is small compared
             # to the GA's runtime (~100s/region single-thread).
-            results = Parallel(n_jobs=self.n_jobs, backend="loky")(
-                delayed(_process_region_worker)(
-                    self._config_files, country, crop, season, region,
+            #
+            # ``return_as='generator_unordered'`` lets tqdm tick on
+            # each completed region instead of blocking until all of
+            # them finish. Requires joblib >= 1.3 (pinned via geocif
+            # deps).
+            try:
+                results_iter = Parallel(
+                    n_jobs=self.n_jobs, backend="loky",
+                    return_as="generator_unordered",
+                )(
+                    delayed(_process_region_worker)(
+                        self._config_files, country, crop, season, region,
+                    )
+                    for region in regions
                 )
-                for region in regions
-            )
+                # Workers return (region_name, payload) tuples — see
+                # _process_region_worker. The tuple lets the postfix
+                # name the region even when the payload is None
+                # (region skipped or worker error), which is the
+                # common case for the first few completions (tiny
+                # "city" regions with insufficient yield years).
+                results = []
+                with tqdm(total=len(regions), desc=pbar_desc) as pbar:
+                    for wrapped in results_iter:
+                        region_done, r = wrapped
+                        status = "skipped" if r is None else "done"
+                        pbar.set_postfix_str(f"{status}: {region_done}")
+                        pbar.update(1)
+                        results.append(r)
+            except TypeError:
+                # joblib < 1.3 doesn't support return_as — fall back
+                # to a blocking call with a single end-of-batch update.
+                # No per-region tick but the run still works. Strip
+                # the (region, payload) wrapper so downstream code
+                # sees the same shape as the n_jobs=1 path.
+                self.logger.warning(
+                    "  joblib < 1.3 detected — per-region progress bar "
+                    "disabled; upgrade joblib for live ticks"
+                )
+                wrapped_results = Parallel(n_jobs=self.n_jobs, backend="loky")(
+                    delayed(_process_region_worker)(
+                        self._config_files, country, crop, season, region,
+                    )
+                    for region in regions
+                )
+                results = [r for _, r in wrapped_results]
 
-        # Filter Nones (skipped regions) and split summary vs production rows.
-        summary_rows, production_frames = [], []
+        # Filter Nones (skipped regions). Each surviving result carries a
+        # ``production_rows_by_year`` dict keyed by year (None = pooled
+        # / forecast-year fallback, int = leave-one-out mask for that
+        # year). Bucket by year so each year's parquet sees every
+        # region's rows.
+        summary_rows = []
+        frames_by_year: dict = {}
         for r in results:
             if r is None:
                 continue
             summary_rows.append(r["summary"])
-            production_frames.append(r["production_rows"])
+            rows_by_year = r.get("production_rows_by_year")
+            if rows_by_year is None:
+                continue
+            for year_key, frame in rows_by_year.items():
+                frames_by_year.setdefault(year_key, []).append(frame)
 
-        if production_frames:
-            # Combine the per-region per-cell rows once; reused for the
-            # production parquet AND the national mask plot. Avoids
-            # concatenating twice.
-            combined_cells = pd.concat(production_frames, ignore_index=True)
+        if frames_by_year:
+            # Pooled (year_key=None) drives the production-mask default
+            # AND the pooled national-mask plot. Per-year frames feed
+            # the held-out national-mask via per-cell mean(included)
+            # frequency.
+            pooled_frames = frames_by_year.get(None, [])
+            combined_pooled = (
+                pd.concat(pooled_frames, ignore_index=True)
+                if pooled_frames else None
+            )
             if self.write_production_mask:
-                self._write_production_mask(
-                    country, crop, season, combined_cells,
-                )
-            if self.do_plot:
+                for year_key, frames in frames_by_year.items():
+                    combined = pd.concat(frames, ignore_index=True)
+                    self._write_production_mask(
+                        country, crop, season, combined, year=year_key,
+                    )
+            if self.do_plot and combined_pooled is not None:
                 self._plot_national_mask(
-                    country, crop, season, combined_cells,
+                    country, crop, season, combined_pooled,
+                    mode="pooled", selection_col="included",
                 )
+                # Held-out national mask — selection frequency per cell
+                # across leave-one-out years. Built from the per-year
+                # frames (those keyed by int years, not None).
+                per_year_frames = [
+                    df for k, frames in frames_by_year.items()
+                    if k is not None for df in frames
+                ]
+                if per_year_frames:
+                    combined_held = pd.concat(per_year_frames, ignore_index=True)
+                    # Per-cell selection frequency = mean(included)
+                    # across years for the same (country, region, cell_id).
+                    # Carry through the static metadata (lat, lon, afi)
+                    # via 'first' since they're invariant.
+                    freq_df = (
+                        combined_held
+                        .assign(included=combined_held["included"].astype(float))
+                        .groupby(
+                            ["country", "region", "region_id", "cell_id"],
+                            sort=False, as_index=False,
+                        )
+                        .agg(
+                            lat=("lat", "first"),
+                            lon=("lon", "first"),
+                            afi=("afi", "first"),
+                            frequency=("included", "mean"),
+                        )
+                    )
+                    self._plot_national_mask(
+                        country, crop, season, freq_df,
+                        mode="held_out", selection_col="frequency",
+                    )
 
         return summary_rows
 
     def _plot_national_mask(
         self, country: str, crop: str, season: int, df_cells,
+        mode: str = "pooled", selection_col: str = "included",
     ) -> None:
-        """One country-scale map showing every cell across every region
-        in this (country, crop, season) combo, coloured by AFI with the
-        in-vs-out distinction preserved via alpha and size. The same
-        visual conventions as the per-region ``_mask_map.png`` so the
-        eye can move between scales without re-calibrating.
+        """Country-scale map of every cell across every region for one
+        (country, crop, season) combo. ``selection_col`` is the float-
+        or-bool column carrying each cell's selection level:
 
-        Country boundary outline (dissolved) is overlaid for context
-        when geopandas + the shapefile are available; if not, the dots
-        still plot — the inset failure is silent.
+        * Pooled (``selection_col="included"``, bool): in/out binary —
+          two visual classes, mirroring the per-region ``_mask_map.png``.
+        * Held-out (``selection_col="frequency"``, float ∈ [0, 1]):
+          marker size and alpha grade with the leave-one-out selection
+          frequency. ``0`` = never selected, ``1`` = every year.
+
+        File goes under ``summary_dir(country, crop)/{mode}/``. Same
+        helper renders both views — the selection column is the only
+        thing that changes.
         """
         if df_cells is None or df_cells.empty:
             return
@@ -1831,16 +2442,26 @@ class CellOptimizer(base.BaseGeo):
         except Exception as exc:  # noqa: BLE001
             self.logger.warning(f"  matplotlib unavailable: {exc}")
             return
+        if selection_col not in df_cells.columns:
+            self.logger.warning(
+                f"  national mask ({mode}): selection column "
+                f"{selection_col!r} missing from df_cells; skipping"
+            )
+            return
 
-        afi_all = df_cells["afi"].to_numpy(dtype=float)
-        afi_vmin = float(np.nanmin(afi_all)) if afi_all.size else 0.0
-        afi_vmax = float(np.nanmax(afi_all)) if afi_all.size else 100.0
+        # AFI is percent × 100 in the parquet (geoprepare convention);
+        # divide for an honest 0..100 % colourbar.
+        afi_pct = df_cells["afi"].astype(float).to_numpy() / 100.0
+        afi_vmin = float(np.nanmin(afi_pct)) if afi_pct.size else 0.0
+        afi_vmax = float(np.nanmax(afi_pct)) if afi_pct.size else 100.0
         if afi_vmax <= afi_vmin:
             afi_vmax = afi_vmin + 1.0
 
-        included = df_cells["included"].astype(bool)
-        out_cells = df_cells[~included]
-        in_cells = df_cells[included]
+        sel = df_cells[selection_col].astype(float).to_numpy()
+        never_mask = sel <= 0.0
+        ever_mask = ~never_mask
+        df_never = df_cells[never_mask]
+        df_ever = df_cells[ever_mask]
 
         fig, ax = plt.subplots(figsize=(10, 10))
 
@@ -1856,78 +2477,101 @@ class CellOptimizer(base.BaseGeo):
             except Exception:
                 pass
 
-        # Out cells: small + faded, AFI-coloured.
-        if not out_cells.empty:
+        # Never-selected cells: small + faded.
+        if not df_never.empty:
             ax.scatter(
-                out_cells["lon"], out_cells["lat"],
-                c=out_cells["afi"], cmap="viridis",
+                df_never["lon"], df_never["lat"],
+                c=afi_pct[never_mask], cmap="viridis",
                 vmin=afi_vmin, vmax=afi_vmax,
                 s=4, alpha=0.25, edgecolors="none",
-                label=f"out (n={len(out_cells):,})",
+                label=f"other cropland (n={len(df_never):,})",
             )
-        # In cells: larger + vivid, with black ring so they pop against
-        # the faded out-population. The shared vmin/vmax keeps colours
-        # comparable between in and out populations.
+        # Ever-selected: size + alpha scale with selection level.
+        # Pooled (sel ∈ {0, 1}): collapses to (10, 0.95) — original
+        # binary view. Held-out: continuous from (5, 0.50) at sel=0+
+        # up to (12, 0.95) at sel=1.
         sc_in = None
-        if not in_cells.empty:
+        if not df_ever.empty:
+            sel_ever = sel[ever_mask]
+            sizes = 5.0 + 7.0 * sel_ever          # 5 → 12
+            alphas = 0.50 + 0.45 * sel_ever       # 0.50 → 0.95
             sc_in = ax.scatter(
-                in_cells["lon"], in_cells["lat"],
-                c=in_cells["afi"], cmap="viridis",
+                df_ever["lon"], df_ever["lat"],
+                c=afi_pct[ever_mask], cmap="viridis",
                 vmin=afi_vmin, vmax=afi_vmax,
-                s=10, alpha=0.95, edgecolors="black", linewidths=0.15,
-                label=f"in (n={len(in_cells):,})",
+                s=sizes, alpha=alphas,
+                edgecolors="black", linewidths=0.15,
+                label=f"representative (n={len(df_ever):,})",
             )
         if sc_in is not None:
             fig.colorbar(sc_in, ax=ax, fraction=0.04, pad=0.02,
                          label="AFI (crop fraction %)")
 
-        n_in = int(included.sum())
+        n_ever = int(ever_mask.sum())
         n_total = int(len(df_cells))
-        pct = (100.0 * n_in / n_total) if n_total else 0.0
+        pct_ever = (100.0 * n_ever / n_total) if n_total else 0.0
         country_display = country.replace("_", " ").title()
         crop_display = crop.replace("_", " ").title()
+        mode_suffix = {
+            "pooled": "",
+            "held_out": " [held-out, marker size = selection frequency]",
+        }.get(mode, "")
         ax.set_xlabel("longitude")
         ax.set_ylabel("latitude")
         ax.set_title(
             f"{country_display} {crop_display} s{season} — "
-            f"national selected cells\n"
-            f"{n_in:,}/{n_total:,} cells selected ({pct:.1f}%) "
+            f"representative cells{mode_suffix}\n"
+            f"{n_ever:,}/{n_total:,} cells ({pct_ever:.1f}%) "
             f"across {df_cells['region'].nunique()} regions"
         )
         ax.set_aspect("equal")
         ax.grid(True, alpha=0.3)
-        if not in_cells.empty or not out_cells.empty:
+        if n_ever or len(df_never):
             ax.legend(loc="best", fontsize=9)
         fig.tight_layout()
 
-        # File sits at country/crop scope (alongside the production
-        # parquet's sibling diagnostics), not under regions_s<season>/.
-        out_path = (
-            self.summary_dir(country, crop)
-            / f"{country}_{crop}_s{season}_national_mask.png"
-        )
+        # File sits at country/crop/{mode} scope so the pooled vs
+        # held-out separation is consistent with the per-region and
+        # cross-region diagnostics.
+        mode_dir = self.summary_dir(country, crop) / mode
+        mode_dir.mkdir(parents=True, exist_ok=True)
+        out_path = mode_dir / f"{country}_{crop}_s{season}_national_mask.png"
         fig.savefig(out_path, dpi=130)
         plt.close(fig)
         self.logger.info(
-            f"  wrote national mask map -> {out_path} "
-            f"({n_in:,}/{n_total:,} cells)"
+            f"  wrote {mode} national mask map -> {out_path} "
+            f"({n_ever:,}/{n_total:,} cells)"
         )
 
     def _write_production_mask(
         self, country: str, crop: str, season: int, df: pd.DataFrame,
+        *, year=None,
     ) -> None:
         """Write the per-cell included/excluded answer to a stable
         parquet path that geoextract reads to build its production
         crop mask. Atomic via tmp + rename so geoextract never sees a
         partial file.
+
+        When ``year`` is ``None`` the pooled mask is written to the
+        canonical path (``production_mask_path``). When ``year`` is an
+        int, the leave-one-out mask for that year is written to
+        ``production_mask_path_for_year(year)`` instead.
         """
         from geocif import __version__ as _geocif_version
 
         df = df.copy()
         df["optimizer_version"] = f"geocif-{_geocif_version}"
         df["optimized_at"] = ar.now().format("YYYY-MM-DD")
+        if year is None:
+            out_path = self.production_mask_path(country, crop, season)
+            label = "pooled"
+        else:
+            out_path = self.production_mask_path_for_year(
+                country, crop, season, int(year),
+            )
+            label = f"leave-one-out y={int(year)}"
+            df["leave_one_out_year"] = int(year)
 
-        out_path = self.production_mask_path(country, crop, season)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = out_path.with_suffix(".parquet.tmp")
         df.to_parquet(tmp_path, index=False)
@@ -1935,7 +2579,7 @@ class CellOptimizer(base.BaseGeo):
         n_inc = int(df["included"].sum())
         n_tot = len(df)
         self.logger.info(
-            f"  wrote production mask -> {out_path} "
+            f"  wrote {label} production mask -> {out_path} "
             f"({n_inc}/{n_tot} cells included, "
             f"{df['region'].nunique()} regions)"
         )
@@ -1963,13 +2607,16 @@ def _process_region_worker(
     path — BaseGeo's open logger handle isn't picklable, so we can't
     ship the parent's instance into the worker.
 
-    Returns the same dict shape as CellOptimizer.process_region:
-    ``{"summary": {...}, "production_rows": DataFrame}`` or ``None``
-    if the region was skipped.
+    Always returns a 2-tuple ``(region, payload)`` so the parent's
+    tqdm postfix can show *which* region just completed, even when the
+    payload is ``None`` (region skipped — e.g. insufficient yield
+    years — or the worker raised). Without this wrapper, the
+    generator-unordered iteration on the parent side has no way to
+    label a None result with its region.
     """
     try:
         opt = CellOptimizer(config_files)
-        return opt.process_region(country, crop, season, region)
+        return region, opt.process_region(country, crop, season, region)
     except Exception as exc:  # noqa: BLE001
         # The parent's logger isn't visible here; print so the user
         # sees something in the joblib worker stderr stream.
@@ -1980,10 +2627,94 @@ def _process_region_worker(
             f"{traceback.format_exc()}",
             flush=True,
         )
-        return None
+        return region, None
 
 
 def run(path_config_files):
-    """Entry point analogous to ``threshold_optimizer.run``."""
+    """Entry point analogous to ``threshold_optimizer.run``. Prints a
+    Rich-formatted startup banner summarising countries/crops/seasons,
+    the GA hyperparameters, and where outputs land, then dispatches
+    to ``CellOptimizer.main``.
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
     opt = CellOptimizer(path_config_files)
+
+    from geocif import __version__ as _geocif_version
+
+    # Crops + seasons: per-country lists from the config, deduped.
+    all_crops, all_seasons = set(), set()
+    for country in opt.countries:
+        if opt.parser.has_option(country, "crops"):
+            try:
+                all_crops.update(
+                    ast.literal_eval(opt.parser.get(country, "crops"))
+                )
+            except (ValueError, SyntaxError):
+                pass
+        if opt.parser.has_option(country, "seasons"):
+            try:
+                all_seasons.update(
+                    int(s) for s in ast.literal_eval(
+                        opt.parser.get(country, "seasons")
+                    )
+                )
+            except (ValueError, SyntaxError):
+                pass
+    if not all_seasons:
+        all_seasons = {1}
+    crops_str = ", ".join(sorted(all_crops)) if all_crops else "(none configured)"
+    seasons_str = ", ".join(str(s) for s in sorted(all_seasons))
+
+    # DOY agg display — show ndvi prominently (the typical primary
+    # variable) with the others on the same line.
+    doy_agg_str = ", ".join(
+        f"{v}={opt.doy_agg.get(v, '?')}" for v in ("ndvi", "tmax", "tmin", "precip")
+    )
+
+    cells_input_root = opt.dir_output / "cell_optimizer"
+    diag_output_root = (
+        opt.dir_output / "ml" / "analysis" / opt.today_tag / "cell_optimizer"
+    )
+
+    def _esc(s):
+        # Escape opening brackets so Rich doesn't eat them as markup.
+        return str(s).replace("[", r"\[")
+
+    console = Console()
+    table = Table(show_header=False, box=None, padding=(0, 1))
+    table.add_column(style="bold cyan", no_wrap=True)
+    table.add_column()
+    table.add_row("Version", f"geocif {_geocif_version}")
+    table.add_row(
+        "Usage",
+        r"from geocif import cell_optimizer; cell_optimizer.run(cfg)",
+    )
+    table.add_row("Countries", _esc(", ".join(opt.countries) or "(none)"))
+    table.add_row("Crops", _esc(crops_str))
+    table.add_row("Seasons", seasons_str)
+    table.add_row("annual_mask", str(opt.annual_mask))
+    table.add_row("DOY agg", doy_agg_str)
+    table.add_row(
+        "GA",
+        f"pop={opt.ga.population_size}, gens={opt.ga.n_generations}, "
+        f"λ={opt.ga.l0_lambda:g}, min_cells_floor="
+        f"max({opt.ga.min_cell_floor_abs}, "
+        f"{opt.ga.min_cell_floor_frac:.0%} of cells), "
+        f"early_stop={opt.ga.early_stop_patience}",
+    )
+    table.add_row("n_jobs", str(opt.n_jobs))
+    table.add_row("plot", str(opt.do_plot))
+    table.add_row("write_production_mask", str(opt.write_production_mask))
+    table.add_row("Cells input root", _esc(cells_input_root))
+    table.add_row("Diagnostic output", _esc(diag_output_root))
+    console.print(Panel(
+        table,
+        title="[bold bright_white]GeoCIF Cell Optimizer[/]",
+        border_style="bright_blue",
+        padding=(1, 2),
+    ))
+
     opt.main()

@@ -59,48 +59,106 @@ class UniverseSelectionModel(QuantConnect.Python.BasePythonWrapper[QuantConnect_
         ...
 
 
-class OptionUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
-    """Provides an implementation of IUniverseSelectionModel that subscribes to option chains"""
+class NullUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+    """Provides a null implementation of IUniverseSelectionModel"""
+
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates the universes for this algorithm.
+        Called at algorithm start.
+        
+        :returns: The universes defined by this model.
+        """
+        ...
+
+
+class ManualUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniverse):
+    """
+    Defines a universe as a set of manually set symbols. This differs from UserDefinedUniverse
+    in that these securities were not added via AddSecurity.
+    """
+
+    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, symbols: typing.List[QuantConnect.Symbol]) -> None:
+        """Creates a new instance of the ManualUniverse"""
+        ...
+
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+        """
+        Gets the subscription requests to be added for the specified security
+        
+        :param security: The security to get subscriptions for
+        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
+        :param maximum_end_time_utc: The max end time
+        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
+        :returns: All subscriptions required by this security.
+        """
+        ...
+
+
+class CompositeUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+    """
+    Provides an implementation of IUniverseSelectionModel that combines multiple universe
+    selection models into a single model.
+    """
 
     @overload
-    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Any) -> None:
+    def __init__(self, *universe_selection_models: typing.Union[QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel, typing.Iterable[QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel]]) -> None:
         """
-        Creates a new instance of OptionUniverseSelectionModel
+        Initializes a new instance of the CompositeUniverseSelectionModel class
         
-        :param refresh_interval: Time interval between universe refreshes
-        :param option_chain_symbol_selector: Selects symbols from the provided option chain
+        :param universe_selection_models: The individual universe selection models defining this composite model
         """
         ...
 
     @overload
-    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+    def __init__(self, *universe_selection_models: typing.Union[typing.Any, typing.Iterable[typing.Any]]) -> None:
         """
-        Creates a new instance of OptionUniverseSelectionModel
+        Initializes a new instance of the CompositeUniverseSelectionModel class
         
-        :param refresh_interval: Time interval between universe refreshes
-        :param option_chain_symbol_selector: Selects symbols from the provided option chain
-        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        :param universe_selection_models: The individual universe selection models defining this composite model
         """
         ...
 
     @overload
-    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]]) -> None:
+    def add_universe_selection(self, py_universe_selection_model: typing.Any) -> None:
         """
-        Creates a new instance of OptionUniverseSelectionModel
+        Adds a new IUniverseSelectionModel
         
-        :param refresh_interval: Time interval between universe refreshes
-        :param option_chain_symbol_selector: Selects symbols from the provided option chain
+        :param py_universe_selection_model: The universe selection model to add
         """
         ...
 
     @overload
-    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+    def add_universe_selection(self, universe_selection_model: QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel) -> None:
         """
-        Creates a new instance of OptionUniverseSelectionModel
+        Adds a new IUniverseSelectionModel
         
-        :param refresh_interval: Time interval between universe refreshes
-        :param option_chain_symbol_selector: Selects symbols from the provided option chain
-        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        :param universe_selection_model: The universe selection model to add
+        """
+        ...
+
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates the universes for this algorithm.
+        
+        :param algorithm: The algorithm instance to create universes for
+        :returns: The universes to be used by the algorithm.
+        """
+        ...
+
+    def get_next_refresh_time_utc(self) -> datetime.datetime:
+        """Gets the next time the framework should invoke the `CreateUniverses` method to refresh the set of universes."""
+        ...
+
+
+class UniverseSelectionModelPythonWrapper(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+    """Provides an implementation of IUniverseSelectionModel that wraps a PyObject object"""
+
+    def __init__(self, model: typing.Any) -> None:
+        """
+        Constructor for initialising the IUniverseSelectionModel class with wrapped PyObject object
+        
+        :param model: Model defining universes for the algorithm
         """
         ...
 
@@ -110,15 +168,6 @@ class OptionUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         
         :param algorithm: The algorithm instance to create universes for
         :returns: The universes to be used by the algorithm.
-        """
-        ...
-
-    def filter(self, filter: QuantConnect.Securities.OptionFilterUniverse) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Defines the option chain universe filter
-        
-        
-        This Class is protected.
         """
         ...
 
@@ -207,6 +256,83 @@ class CustomUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         ...
 
 
+class CustomUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniverse):
+    """Defines a universe as a set of dynamically set symbols."""
+
+    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, interval: datetime.timedelta, selector: typing.Callable[[datetime.datetime], typing.List[str]]) -> None:
+        """Creates a new instance of the CustomUniverse"""
+        ...
+
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+        """
+        Gets the subscription requests to be added for the specified security
+        
+        :param security: The security to get subscriptions for
+        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
+        :param maximum_end_time_utc: The max end time
+        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
+        :returns: All subscriptions required by this security.
+        """
+        ...
+
+
+class ManualUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+    """
+    Provides an implementation of IUniverseSelectionModel that simply
+    subscribes to the specified set of symbols
+    """
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the ManualUniverseSelectionModel class using the algorithm's
+        security initializer and universe settings
+        """
+        ...
+
+    @overload
+    def __init__(self, symbols: typing.List[QuantConnect.Symbol]) -> None:
+        """
+        Initializes a new instance of the ManualUniverseSelectionModel class using the algorithm's
+        security initializer and universe settings
+        
+        :param symbols: The symbols to subscribe to.
+        Should not send in symbols at QCAlgorithm.securities since those will be managed by the UserDefinedUniverse
+        """
+        ...
+
+    @overload
+    def __init__(self, *symbols: typing.Union[QuantConnect.Symbol, typing.Iterable[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the ManualUniverseSelectionModel class using the algorithm's
+        security initializer and universe settings
+        
+        :param symbols: The symbols to subscribe to
+        Should not send in symbols at QCAlgorithm.securities since those will be managed by the UserDefinedUniverse
+        """
+        ...
+
+    @overload
+    def __init__(self, symbols: typing.List[QuantConnect.Symbol], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        """
+        Initializes a new instance of the ManualUniverseSelectionModel class
+        
+        :param symbols: The symbols to subscribe to
+        Should not send in symbols at QCAlgorithm.securities since those will be managed by the UserDefinedUniverse
+        :param universe_settings: The settings used when adding symbols to the algorithm, specify null to use algorithm.UniverseSettings
+        """
+        ...
+
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates the universes for this algorithm.
+        Called at algorithm start.
+        
+        :returns: The universes defined by this model.
+        """
+        ...
+
+
 class InceptionDateUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.CustomUniverseSelectionModel):
     """
     Inception Date Universe that accepts a Dictionary of DateTime keyed by String that represent
@@ -238,62 +364,6 @@ class InceptionDateUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selec
         ...
 
 
-class LiquidETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
-    """Universe Selection Model that adds the following ETFs at their inception date"""
-
-    class Grouping(typing.List[QuantConnect.Symbol]):
-        """Represent a collection of ETF symbols that is grouped according to a given criteria"""
-
-        @property
-        def long(self) -> typing.List[QuantConnect.Symbol]:
-            """List of Symbols that follow the components direction"""
-            ...
-
-        @property
-        def inverse(self) -> typing.List[QuantConnect.Symbol]:
-            """List of Symbols that follow the components inverse direction"""
-            ...
-
-        def __init__(self, long_tickers: typing.List[str], inverse_tickers: typing.List[str]) -> None:
-            """
-            Creates a new instance of Grouping.
-            
-            :param long_tickers: List of tickers of ETFs that follows the components direction
-            :param inverse_tickers: List of tickers of ETFs that follows the components inverse direction
-            """
-            ...
-
-        def to_string(self) -> str:
-            """
-            Returns a string that represents the current object.
-            
-            :returns: A string that represents the current object.
-            """
-            ...
-
-    ENERGY: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
-    """Represents the Energy ETF Category which can be used to access the list of Long and Inverse symbols"""
-
-    METALS: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
-    """Represents the Metals ETF Category which can be used to access the list of Long and Inverse symbols"""
-
-    TECHNOLOGY: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
-    """Represents the Technology ETF Category which can be used to access the list of Long and Inverse symbols"""
-
-    TREASURIES: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
-    """Represents the Treasuries ETF Category which can be used to access the list of Long and Inverse symbols"""
-
-    VOLATILITY: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
-    """Represents the Volatility ETF Category which can be used to access the list of Long and Inverse symbols"""
-
-    SP_500_SECTORS: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
-    """Represents the SP500 Sectors ETF Category which can be used to access the list of Long and Inverse symbols"""
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the LiquidETFUniverse class"""
-        ...
-
-
 class USTreasuriesETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
     """
     Universe Selection Model that adds the following US Treasuries ETFs at their inception date
@@ -321,61 +391,6 @@ class USTreasuriesETFUniverse(QuantConnect.Algorithm.Framework.Selection.Incepti
 
     def __init__(self) -> None:
         """Initializes a new instance of the USTreasuriesETFUniverse class"""
-        ...
-
-
-class EnergyETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
-    """
-    Universe Selection Model that adds the following Energy ETFs at their inception date
-    1998-12-22   XLE    Energy Select Sector SPDR Fund
-    2000-06-16   IYE    iShares U.S. Energy ETF
-    2004-09-29   VDE    Vanguard Energy ETF
-    2006-04-10   USO    United States Oil Fund
-    2006-06-22   XES    SPDR S&P Oil & Gas Equipment & Services ETF
-    2006-06-22   XOP    SPDR S&P Oil & Gas Exploration & Production ETF
-    2007-04-18   UNG    United States Natural Gas Fund
-    2008-06-25   ICLN   iShares Global Clean Energy ETF
-    2008-11-06   ERX    Direxion Daily Energy Bull 3X Shares
-    2008-11-06   ERY    Direxion Daily Energy Bear 3x Shares
-    2008-11-25   SCO    ProShares UltraShort Bloomberg Crude Oil
-    2008-11-25   UCO    ProShares Ultra Bloomberg Crude Oil
-    2009-06-02   AMJ    JPMorgan Alerian MLP Index ETN
-    2010-06-02   BNO    United States Brent Oil Fund
-    2010-08-25   AMLP   Alerian MLP ETF
-    2011-12-21   OIH    VanEck Vectors Oil Services ETF
-    2012-02-08   DGAZ   VelocityShares 3x Inverse Natural Gas
-    2012-02-08   UGAZ   VelocityShares 3x Long Natural Gas
-    2012-02-15   TAN    Invesco Solar ETF
-    """
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the EnergyETFUniverse class"""
-        ...
-
-
-class TechnologyETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
-    """
-    Universe Selection Model that adds the following Technology ETFs at their inception date
-    1998-12-22   XLK    Technology Select Sector SPDR Fund
-    1999-03-10   QQQ    Invesco QQQ
-    2001-07-13   SOXX   iShares PHLX Semiconductor ETF
-    2001-07-13   IGV    iShares Expanded Tech-Software Sector ETF
-    2004-01-30   VGT    Vanguard Information Technology ETF
-    2006-04-25   QTEC   First Trust NASDAQ 100 Technology
-    2006-06-23   FDN    First Trust Dow Jones Internet Index
-    2007-05-10   FXL    First Trust Technology AlphaDEX Fund
-    2008-12-17   TECL   Direxion Daily Technology Bull 3X Shares
-    2008-12-17   TECS   Direxion Daily Technology Bear 3X Shares
-    2010-03-11   SOXL   Direxion Daily Semiconductor Bull 3x Shares
-    2010-03-11   SOXS   Direxion Daily Semiconductor Bear 3x Shares
-    2011-07-06   SKYY   First Trust ISE Cloud Computing Index Fund
-    2011-12-21   SMH    VanEck Vectors Semiconductor ETF
-    2013-08-01   KWEB   KraneShares CSI China Internet ETF
-    2013-10-24   FTEC   Fidelity MSCI Information Technology Index ETF
-    """
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the TechnologyETFUniverse class"""
         ...
 
 
@@ -456,26 +471,6 @@ class ETFConstituentsUniverseSelectionModel(QuantConnect.Algorithm.Framework.Sel
         ...
 
 
-class VolatilityETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
-    """
-    Universe Selection Model that adds the following Volatility ETFs at their inception date
-    2010-02-11   SQQQ   ProShares UltraPro ShortQQQ
-    2010-02-11   TQQQ   ProShares UltraProQQQ
-    2010-11-30   TVIX   VelocityShares Daily 2x VIX Short Term ETN
-    2011-01-04   VIXY   ProShares VIX Short-Term Futures ETF
-    2011-05-05   SPLV   Invesco S&P 500® Low Volatility ETF
-    2011-10-04   SVXY   ProShares Short VIX Short-Term Futures
-    2011-10-04   UVXY   ProShares Ultra VIX Short-Term Futures
-    2011-10-20   EEMV   iShares Edge MSCI Min Vol Emerging Markets ETF
-    2011-10-20   EFAV   iShares Edge MSCI Min Vol EAFE ETF
-    2011-10-20   USMV   iShares Edge MSCI Min Vol USA ETF
-    """
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the VolatilityETFUniverse class"""
-        ...
-
-
 class FutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
     """Provides an implementation of IUniverseSelectionModel that subscribes to future chains"""
 
@@ -544,28 +539,163 @@ class FutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         ...
 
 
-class FuturesUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FutureUniverseSelectionModel):
-    """Provides an implementation of IUniverseSelectionModel that subscribes to future chains"""
+class OpenInterestFutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FutureUniverseSelectionModel):
+    """
+    Selects contracts in a futures universe, sorted by open interest.  This allows the selection to identifiy current
+        active contract.
+    """
 
     @overload
-    def __init__(self, refresh_interval: datetime.timedelta, future_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]]) -> None:
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, future_chain_symbol_selector: typing.Any, chain_contracts_lookup_limit: typing.Optional[int] = 6, results_limit: typing.Optional[int] = 1) -> None:
         """
-        Creates a new instance of FutureUniverseSelectionModel
+        Creates a new instance of OpenInterestFutureUniverseSelectionModel
         
-        :param refresh_interval: Time interval between universe refreshes
+        :param algorithm: Algorithm
         :param future_chain_symbol_selector: Selects symbols from the provided future chain
+        :param chain_contracts_lookup_limit: Limit on how many contracts to query for open interest
+        :param results_limit: Limit on how many contracts will be part of the universe
         """
         ...
 
     @overload
-    def __init__(self, refresh_interval: datetime.timedelta, future_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, future_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], chain_contracts_lookup_limit: typing.Optional[int] = 6, results_limit: typing.Optional[int] = 1) -> None:
         """
-        Creates a new instance of FutureUniverseSelectionModel
+        Creates a new instance of OpenInterestFutureUniverseSelectionModel
         
-        :param refresh_interval: Time interval between universe refreshes
+        :param algorithm: Algorithm
         :param future_chain_symbol_selector: Selects symbols from the provided future chain
-        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        :param chain_contracts_lookup_limit: Limit on how many contracts to query for open interest
+        :param results_limit: Limit on how many contracts will be part of the universe
         """
+        ...
+
+    def filter(self, filter: QuantConnect.Securities.FutureFilterUniverse) -> QuantConnect.Securities.FutureFilterUniverse:
+        """
+        Defines the future chain universe filter
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def filter_by_open_interest(self, contracts: typing.Dict[QuantConnect.Symbol, QuantConnect.Securities.MarketHoursDatabase.Entry]) -> typing.Sequence[QuantConnect.Symbol]:
+        """
+        Filters a set of contracts based on open interest.
+        
+        :param contracts: Contracts to filter
+        :returns: Filtered set.
+        """
+        ...
+
+
+class EnergyETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
+    """
+    Universe Selection Model that adds the following Energy ETFs at their inception date
+    1998-12-22   XLE    Energy Select Sector SPDR Fund
+    2000-06-16   IYE    iShares U.S. Energy ETF
+    2004-09-29   VDE    Vanguard Energy ETF
+    2006-04-10   USO    United States Oil Fund
+    2006-06-22   XES    SPDR S&P Oil & Gas Equipment & Services ETF
+    2006-06-22   XOP    SPDR S&P Oil & Gas Exploration & Production ETF
+    2007-04-18   UNG    United States Natural Gas Fund
+    2008-06-25   ICLN   iShares Global Clean Energy ETF
+    2008-11-06   ERX    Direxion Daily Energy Bull 3X Shares
+    2008-11-06   ERY    Direxion Daily Energy Bear 3x Shares
+    2008-11-25   SCO    ProShares UltraShort Bloomberg Crude Oil
+    2008-11-25   UCO    ProShares Ultra Bloomberg Crude Oil
+    2009-06-02   AMJ    JPMorgan Alerian MLP Index ETN
+    2010-06-02   BNO    United States Brent Oil Fund
+    2010-08-25   AMLP   Alerian MLP ETF
+    2011-12-21   OIH    VanEck Vectors Oil Services ETF
+    2012-02-08   DGAZ   VelocityShares 3x Inverse Natural Gas
+    2012-02-08   UGAZ   VelocityShares 3x Long Natural Gas
+    2012-02-15   TAN    Invesco Solar ETF
+    """
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the EnergyETFUniverse class"""
+        ...
+
+
+class LiquidETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
+    """Universe Selection Model that adds the following ETFs at their inception date"""
+
+    class Grouping(typing.List[QuantConnect.Symbol]):
+        """Represent a collection of ETF symbols that is grouped according to a given criteria"""
+
+        @property
+        def long(self) -> typing.List[QuantConnect.Symbol]:
+            """List of Symbols that follow the components direction"""
+            ...
+
+        @property
+        def inverse(self) -> typing.List[QuantConnect.Symbol]:
+            """List of Symbols that follow the components inverse direction"""
+            ...
+
+        def __init__(self, long_tickers: typing.List[str], inverse_tickers: typing.List[str]) -> None:
+            """
+            Creates a new instance of Grouping.
+            
+            :param long_tickers: List of tickers of ETFs that follows the components direction
+            :param inverse_tickers: List of tickers of ETFs that follows the components inverse direction
+            """
+            ...
+
+        def to_string(self) -> str:
+            """
+            Returns a string that represents the current object.
+            
+            :returns: A string that represents the current object.
+            """
+            ...
+
+    ENERGY: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
+    """Represents the Energy ETF Category which can be used to access the list of Long and Inverse symbols"""
+
+    METALS: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
+    """Represents the Metals ETF Category which can be used to access the list of Long and Inverse symbols"""
+
+    TECHNOLOGY: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
+    """Represents the Technology ETF Category which can be used to access the list of Long and Inverse symbols"""
+
+    TREASURIES: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
+    """Represents the Treasuries ETF Category which can be used to access the list of Long and Inverse symbols"""
+
+    VOLATILITY: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
+    """Represents the Volatility ETF Category which can be used to access the list of Long and Inverse symbols"""
+
+    SP_500_SECTORS: QuantConnect.Algorithm.Framework.Selection.LiquidETFUniverse.Grouping = ...
+    """Represents the SP500 Sectors ETF Category which can be used to access the list of Long and Inverse symbols"""
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the LiquidETFUniverse class"""
+        ...
+
+
+class TechnologyETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
+    """
+    Universe Selection Model that adds the following Technology ETFs at their inception date
+    1998-12-22   XLK    Technology Select Sector SPDR Fund
+    1999-03-10   QQQ    Invesco QQQ
+    2001-07-13   SOXX   iShares PHLX Semiconductor ETF
+    2001-07-13   IGV    iShares Expanded Tech-Software Sector ETF
+    2004-01-30   VGT    Vanguard Information Technology ETF
+    2006-04-25   QTEC   First Trust NASDAQ 100 Technology
+    2006-06-23   FDN    First Trust Dow Jones Internet Index
+    2007-05-10   FXL    First Trust Technology AlphaDEX Fund
+    2008-12-17   TECL   Direxion Daily Technology Bull 3X Shares
+    2008-12-17   TECS   Direxion Daily Technology Bear 3X Shares
+    2010-03-11   SOXL   Direxion Daily Semiconductor Bull 3x Shares
+    2010-03-11   SOXS   Direxion Daily Semiconductor Bear 3x Shares
+    2011-07-06   SKYY   First Trust ISE Cloud Computing Index Fund
+    2011-12-21   SMH    VanEck Vectors Semiconductor ETF
+    2013-08-01   KWEB   KraneShares CSI China Internet ETF
+    2013-10-24   FTEC   Fidelity MSCI Information Technology Index ETF
+    """
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the TechnologyETFUniverse class"""
         ...
 
 
@@ -731,131 +861,163 @@ class FundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selecti
         warnings.warn("Fine and Coarse selection are merged, please use 'Select(QCAlgorithm, IEnumerable<Fundamental>)'", DeprecationWarning)
 
 
-class FineFundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FundamentalUniverseSelectionModel):
-    """Portfolio selection model that uses coarse/fine selectors. For US equities only."""
+class QC500UniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FundamentalUniverseSelectionModel):
+    """
+    Defines the QC500 universe as a universe selection model for framework algorithm
+    For details: https://github.com/QuantConnect/Lean/pull/1663
+    """
 
     @overload
-    def __init__(self, coarse_selector: typing.Any, fine_selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the FineFundamentalUniverseSelectionModel class
-        
-        :param coarse_selector: Selects symbols from the provided coarse data set
-        :param fine_selector: Selects symbols from the provided fine data set (this set has already been filtered according to the coarse selection)
-        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
-        """
+    def __init__(self) -> None:
+        """Initializes a new default instance of the QC500UniverseSelectionModel"""
         ...
 
     @overload
-    def __init__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
         """
-        Initializes a new instance of the FineFundamentalUniverseSelectionModel class
+        Initializes a new instance of the QC500UniverseSelectionModel
         
-        :param coarse_selector: Selects symbols from the provided coarse data set
-        :param fine_selector: Selects symbols from the provided fine data set (this set has already been filtered according to the coarse selection)
-        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        :param universe_settings: Universe settings defines what subscription properties will be applied to selected securities
         """
         ...
 
     def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
+        """
+        Performs coarse selection for the QC500 constituents.
+        The stocks must have fundamental data
+        The stock must have positive previous-day close price
+        The stock must have positive volume on the previous trading day
+        """
         ...
 
     def select_fine(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fine: typing.List[QuantConnect.Data.Fundamental.FineFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
-        ...
-
-
-class EmaCrossUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FundamentalUniverseSelectionModel):
-    """
-    Provides an implementation of FundamentalUniverseSelectionModel that subscribes
-    to symbols with the larger delta by percentage between the two exponential moving average
-    """
-
-    def __init__(self, fast_period: int = 100, slow_period: int = 300, universe_count: int = 500, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
         """
-        Initializes a new instance of the EmaCrossUniverseSelectionModel class
-        
-        :param fast_period: Fast EMA period
-        :param slow_period: Slow EMA period
-        :param universe_count: Maximum number of members of this universe selection
-        :param universe_settings: The settings used when adding symbols to the algorithm, specify null to use algorithm.UniverseSettings
-        """
-        ...
-
-    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
-        """
-        Defines the coarse fundamental selection function.
-        
-        :param algorithm: The algorithm instance
-        :param coarse: The coarse fundamental data used to perform filtering
-        :returns: An enumerable of symbols passing the filter.
+        Performs fine selection for the QC500 constituents
+        The company's headquarter must in the U.S.
+        The stock must be traded on either the NYSE or NASDAQ
+        At least half a year since its initial public offering
+        The stock's market cap must be greater than 500 million
         """
         ...
 
 
-class OpenInterestFutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FutureUniverseSelectionModel):
-    """
-    Selects contracts in a futures universe, sorted by open interest.  This allows the selection to identifiy current
-        active contract.
-    """
+class FuturesUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FutureUniverseSelectionModel):
+    """Provides an implementation of IUniverseSelectionModel that subscribes to future chains"""
 
     @overload
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, future_chain_symbol_selector: typing.Any, chain_contracts_lookup_limit: typing.Optional[int] = 6, results_limit: typing.Optional[int] = 1) -> None:
+    def __init__(self, refresh_interval: datetime.timedelta, future_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]]) -> None:
         """
-        Creates a new instance of OpenInterestFutureUniverseSelectionModel
+        Creates a new instance of FutureUniverseSelectionModel
         
-        :param algorithm: Algorithm
+        :param refresh_interval: Time interval between universe refreshes
         :param future_chain_symbol_selector: Selects symbols from the provided future chain
-        :param chain_contracts_lookup_limit: Limit on how many contracts to query for open interest
-        :param results_limit: Limit on how many contracts will be part of the universe
         """
         ...
 
     @overload
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, future_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], chain_contracts_lookup_limit: typing.Optional[int] = 6, results_limit: typing.Optional[int] = 1) -> None:
+    def __init__(self, refresh_interval: datetime.timedelta, future_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
         """
-        Creates a new instance of OpenInterestFutureUniverseSelectionModel
+        Creates a new instance of FutureUniverseSelectionModel
         
-        :param algorithm: Algorithm
+        :param refresh_interval: Time interval between universe refreshes
         :param future_chain_symbol_selector: Selects symbols from the provided future chain
-        :param chain_contracts_lookup_limit: Limit on how many contracts to query for open interest
-        :param results_limit: Limit on how many contracts will be part of the universe
+        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
         """
         ...
 
-    def filter(self, filter: QuantConnect.Securities.FutureFilterUniverse) -> QuantConnect.Securities.FutureFilterUniverse:
+
+class OptionUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+    """Provides an implementation of IUniverseSelectionModel that subscribes to option chains"""
+
+    @overload
+    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Any) -> None:
         """
-        Defines the future chain universe filter
+        Creates a new instance of OptionUniverseSelectionModel
+        
+        :param refresh_interval: Time interval between universe refreshes
+        :param option_chain_symbol_selector: Selects symbols from the provided option chain
+        """
+        ...
+
+    @overload
+    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        """
+        Creates a new instance of OptionUniverseSelectionModel
+        
+        :param refresh_interval: Time interval between universe refreshes
+        :param option_chain_symbol_selector: Selects symbols from the provided option chain
+        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        """
+        ...
+
+    @overload
+    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Creates a new instance of OptionUniverseSelectionModel
+        
+        :param refresh_interval: Time interval between universe refreshes
+        :param option_chain_symbol_selector: Selects symbols from the provided option chain
+        """
+        ...
+
+    @overload
+    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        """
+        Creates a new instance of OptionUniverseSelectionModel
+        
+        :param refresh_interval: Time interval between universe refreshes
+        :param option_chain_symbol_selector: Selects symbols from the provided option chain
+        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        """
+        ...
+
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates the universes for this algorithm. Called once after IAlgorithm.initialize
+        
+        :param algorithm: The algorithm instance to create universes for
+        :returns: The universes to be used by the algorithm.
+        """
+        ...
+
+    def filter(self, filter: QuantConnect.Securities.OptionFilterUniverse) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Defines the option chain universe filter
         
         
         This Class is protected.
         """
         ...
 
-    def filter_by_open_interest(self, contracts: typing.Dict[QuantConnect.Symbol, QuantConnect.Securities.MarketHoursDatabase.Entry]) -> typing.Sequence[QuantConnect.Symbol]:
-        """
-        Filters a set of contracts based on open interest.
-        
-        :param contracts: Contracts to filter
-        :returns: Filtered set.
-        """
+    def get_next_refresh_time_utc(self) -> datetime.datetime:
+        """Gets the next time the framework should invoke the `CreateUniverses` method to refresh the set of universes."""
         ...
 
 
-class SP500SectorsETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
-    """
-    Universe Selection Model that adds the following SP500 Sectors ETFs at their inception date
-    1998-12-22   XLB   Materials Select Sector SPDR ETF
-    1998-12-22   XLE   Energy Select Sector SPDR Fund
-    1998-12-22   XLF   Financial Select Sector SPDR Fund
-    1998-12-22   XLI   Industrial Select Sector SPDR Fund
-    1998-12-22   XLK   Technology Select Sector SPDR Fund
-    1998-12-22   XLP   Consumer Staples Select Sector SPDR Fund
-    1998-12-22   XLU   Utilities Select Sector SPDR Fund
-    1998-12-22   XLV   Health Care Select Sector SPDR Fund
-    1998-12-22   XLY   Consumer Discretionary Select Sector SPDR Fund
-    """
+class CoarseFundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FundamentalUniverseSelectionModel):
+    """Portfolio selection model that uses coarse selectors. For US equities only."""
 
-    def __init__(self) -> None:
-        """Initializes a new instance of the SP500SectorsETFUniverse class"""
+    @overload
+    def __init__(self, coarse_selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoarseFundamentalUniverseSelectionModel class
+        
+        :param coarse_selector: Selects symbols from the provided coarse data set
+        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        """
+        ...
+
+    @overload
+    def __init__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoarseFundamentalUniverseSelectionModel class
+        
+        :param coarse_selector: Selects symbols from the provided coarse data set
+        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        """
+        ...
+
+    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         ...
 
 
@@ -945,264 +1107,102 @@ class MetalsETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDate
         ...
 
 
-class CoarseFundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FundamentalUniverseSelectionModel):
-    """Portfolio selection model that uses coarse selectors. For US equities only."""
+class FineFundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FundamentalUniverseSelectionModel):
+    """Portfolio selection model that uses coarse/fine selectors. For US equities only."""
 
     @overload
-    def __init__(self, coarse_selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+    def __init__(self, coarse_selector: typing.Any, fine_selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
         """
-        Initializes a new instance of the CoarseFundamentalUniverseSelectionModel class
+        Initializes a new instance of the FineFundamentalUniverseSelectionModel class
         
         :param coarse_selector: Selects symbols from the provided coarse data set
+        :param fine_selector: Selects symbols from the provided fine data set (this set has already been filtered according to the coarse selection)
         :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
         """
         ...
 
     @overload
-    def __init__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+    def __init__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
         """
-        Initializes a new instance of the CoarseFundamentalUniverseSelectionModel class
+        Initializes a new instance of the FineFundamentalUniverseSelectionModel class
         
         :param coarse_selector: Selects symbols from the provided coarse data set
+        :param fine_selector: Selects symbols from the provided fine data set (this set has already been filtered according to the coarse selection)
         :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
         """
         ...
 
     def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
-        ...
-
-
-class QC500UniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FundamentalUniverseSelectionModel):
-    """
-    Defines the QC500 universe as a universe selection model for framework algorithm
-    For details: https://github.com/QuantConnect/Lean/pull/1663
-    """
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new default instance of the QC500UniverseSelectionModel"""
-        ...
-
-    @overload
-    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
-        """
-        Initializes a new instance of the QC500UniverseSelectionModel
-        
-        :param universe_settings: Universe settings defines what subscription properties will be applied to selected securities
-        """
-        ...
-
-    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
-        """
-        Performs coarse selection for the QC500 constituents.
-        The stocks must have fundamental data
-        The stock must have positive previous-day close price
-        The stock must have positive volume on the previous trading day
-        """
         ...
 
     def select_fine(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, fine: typing.List[QuantConnect.Data.Fundamental.FineFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
-        """
-        Performs fine selection for the QC500 constituents
-        The company's headquarter must in the U.S.
-        The stock must be traded on either the NYSE or NASDAQ
-        At least half a year since its initial public offering
-        The stock's market cap must be greater than 500 million
-        """
         ...
 
 
-class CustomUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniverse):
-    """Defines a universe as a set of dynamically set symbols."""
-
-    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, interval: datetime.timedelta, selector: typing.Callable[[datetime.datetime], typing.List[str]]) -> None:
-        """Creates a new instance of the CustomUniverse"""
-        ...
-
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
-        """
-        Gets the subscription requests to be added for the specified security
-        
-        :param security: The security to get subscriptions for
-        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
-        :param maximum_end_time_utc: The max end time
-        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
-        :returns: All subscriptions required by this security.
-        """
-        ...
-
-
-class CompositeUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+class SP500SectorsETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
     """
-    Provides an implementation of IUniverseSelectionModel that combines multiple universe
-    selection models into a single model.
+    Universe Selection Model that adds the following SP500 Sectors ETFs at their inception date
+    1998-12-22   XLB   Materials Select Sector SPDR ETF
+    1998-12-22   XLE   Energy Select Sector SPDR Fund
+    1998-12-22   XLF   Financial Select Sector SPDR Fund
+    1998-12-22   XLI   Industrial Select Sector SPDR Fund
+    1998-12-22   XLK   Technology Select Sector SPDR Fund
+    1998-12-22   XLP   Consumer Staples Select Sector SPDR Fund
+    1998-12-22   XLU   Utilities Select Sector SPDR Fund
+    1998-12-22   XLV   Health Care Select Sector SPDR Fund
+    1998-12-22   XLY   Consumer Discretionary Select Sector SPDR Fund
     """
 
-    @overload
-    def __init__(self, *universe_selection_models: typing.Union[QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel, typing.Iterable[QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel]]) -> None:
-        """
-        Initializes a new instance of the CompositeUniverseSelectionModel class
-        
-        :param universe_selection_models: The individual universe selection models defining this composite model
-        """
-        ...
-
-    @overload
-    def __init__(self, *universe_selection_models: typing.Union[typing.Any, typing.Iterable[typing.Any]]) -> None:
-        """
-        Initializes a new instance of the CompositeUniverseSelectionModel class
-        
-        :param universe_selection_models: The individual universe selection models defining this composite model
-        """
-        ...
-
-    @overload
-    def add_universe_selection(self, py_universe_selection_model: typing.Any) -> None:
-        """
-        Adds a new IUniverseSelectionModel
-        
-        :param py_universe_selection_model: The universe selection model to add
-        """
-        ...
-
-    @overload
-    def add_universe_selection(self, universe_selection_model: QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel) -> None:
-        """
-        Adds a new IUniverseSelectionModel
-        
-        :param universe_selection_model: The universe selection model to add
-        """
-        ...
-
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
-        """
-        Creates the universes for this algorithm.
-        
-        :param algorithm: The algorithm instance to create universes for
-        :returns: The universes to be used by the algorithm.
-        """
-        ...
-
-    def get_next_refresh_time_utc(self) -> datetime.datetime:
-        """Gets the next time the framework should invoke the `CreateUniverses` method to refresh the set of universes."""
-        ...
-
-
-class UniverseSelectionModelPythonWrapper(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
-    """Provides an implementation of IUniverseSelectionModel that wraps a PyObject object"""
-
-    def __init__(self, model: typing.Any) -> None:
-        """
-        Constructor for initialising the IUniverseSelectionModel class with wrapped PyObject object
-        
-        :param model: Model defining universes for the algorithm
-        """
-        ...
-
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
-        """
-        Creates the universes for this algorithm. Called once after IAlgorithm.initialize
-        
-        :param algorithm: The algorithm instance to create universes for
-        :returns: The universes to be used by the algorithm.
-        """
-        ...
-
-    def get_next_refresh_time_utc(self) -> datetime.datetime:
-        """Gets the next time the framework should invoke the `CreateUniverses` method to refresh the set of universes."""
-        ...
-
-
-class ManualUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniverse):
-    """
-    Defines a universe as a set of manually set symbols. This differs from UserDefinedUniverse
-    in that these securities were not added via AddSecurity.
-    """
-
-    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, symbols: typing.List[QuantConnect.Symbol]) -> None:
-        """Creates a new instance of the ManualUniverse"""
-        ...
-
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Sequence[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
-        """
-        Gets the subscription requests to be added for the specified security
-        
-        :param security: The security to get subscriptions for
-        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
-        :param maximum_end_time_utc: The max end time
-        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
-        :returns: All subscriptions required by this security.
-        """
-        ...
-
-
-class ManualUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
-    """
-    Provides an implementation of IUniverseSelectionModel that simply
-    subscribes to the specified set of symbols
-    """
-
-    @overload
     def __init__(self) -> None:
-        """
-        Initializes a new instance of the ManualUniverseSelectionModel class using the algorithm's
-        security initializer and universe settings
-        """
+        """Initializes a new instance of the SP500SectorsETFUniverse class"""
         ...
 
-    @overload
-    def __init__(self, symbols: typing.List[QuantConnect.Symbol]) -> None:
-        """
-        Initializes a new instance of the ManualUniverseSelectionModel class using the algorithm's
-        security initializer and universe settings
-        
-        :param symbols: The symbols to subscribe to.
-        Should not send in symbols at QCAlgorithm.securities since those will be managed by the UserDefinedUniverse
-        """
-        ...
 
-    @overload
-    def __init__(self, *symbols: typing.Union[QuantConnect.Symbol, typing.Iterable[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the ManualUniverseSelectionModel class using the algorithm's
-        security initializer and universe settings
-        
-        :param symbols: The symbols to subscribe to
-        Should not send in symbols at QCAlgorithm.securities since those will be managed by the UserDefinedUniverse
-        """
-        ...
+class EmaCrossUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FundamentalUniverseSelectionModel):
+    """
+    Provides an implementation of FundamentalUniverseSelectionModel that subscribes
+    to symbols with the larger delta by percentage between the two exponential moving average
+    """
 
-    @overload
-    def __init__(self, symbols: typing.List[QuantConnect.Symbol], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+    def __init__(self, fast_period: int = 100, slow_period: int = 300, universe_count: int = 500, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
         """
-        Initializes a new instance of the ManualUniverseSelectionModel class
+        Initializes a new instance of the EmaCrossUniverseSelectionModel class
         
-        :param symbols: The symbols to subscribe to
-        Should not send in symbols at QCAlgorithm.securities since those will be managed by the UserDefinedUniverse
+        :param fast_period: Fast EMA period
+        :param slow_period: Slow EMA period
+        :param universe_count: Maximum number of members of this universe selection
         :param universe_settings: The settings used when adding symbols to the algorithm, specify null to use algorithm.UniverseSettings
         """
         ...
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
+    def select_coarse(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, coarse: typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]) -> typing.Sequence[QuantConnect.Symbol]:
         """
-        Creates the universes for this algorithm.
-        Called at algorithm start.
+        Defines the coarse fundamental selection function.
         
-        :returns: The universes defined by this model.
+        :param algorithm: The algorithm instance
+        :param coarse: The coarse fundamental data used to perform filtering
+        :returns: An enumerable of symbols passing the filter.
         """
         ...
 
 
-class NullUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
-    """Provides a null implementation of IUniverseSelectionModel"""
+class VolatilityETFUniverse(QuantConnect.Algorithm.Framework.Selection.InceptionDateUniverseSelectionModel):
+    """
+    Universe Selection Model that adds the following Volatility ETFs at their inception date
+    2010-02-11   SQQQ   ProShares UltraPro ShortQQQ
+    2010-02-11   TQQQ   ProShares UltraProQQQ
+    2010-11-30   TVIX   VelocityShares Daily 2x VIX Short Term ETN
+    2011-01-04   VIXY   ProShares VIX Short-Term Futures ETF
+    2011-05-05   SPLV   Invesco S&P 500® Low Volatility ETF
+    2011-10-04   SVXY   ProShares Short VIX Short-Term Futures
+    2011-10-04   UVXY   ProShares Ultra VIX Short-Term Futures
+    2011-10-20   EEMV   iShares Edge MSCI Min Vol Emerging Markets ETF
+    2011-10-20   EFAV   iShares Edge MSCI Min Vol EAFE ETF
+    2011-10-20   USMV   iShares Edge MSCI Min Vol USA ETF
+    """
 
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
-        """
-        Creates the universes for this algorithm.
-        Called at algorithm start.
-        
-        :returns: The universes defined by this model.
-        """
+    def __init__(self) -> None:
+        """Initializes a new instance of the VolatilityETFUniverse class"""
         ...
 
 

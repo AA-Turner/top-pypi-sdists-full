@@ -35,7 +35,13 @@ from schemathesis.generation.meta import CoverageScenario, TestPhase
 from schemathesis.resources import PoolDraw, PoolPick
 from schemathesis.specs.openapi.checks import negative_data_rejection
 from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
-from schemathesis.specs.openapi.coverage._schema import CoverageContext, _negative_format, cover_schema_iter
+from schemathesis.specs.openapi.coverage._schema import (
+    CoverageContext,
+    HashSet,
+    _negative_format,
+    cover_schema_iter,
+    quote_path_parameter,
+)
 from schemathesis.transport.prepare import prepare_request
 from test.utils import assert_requests_call
 
@@ -1488,6 +1494,20 @@ def test_path_parameters_without_schema(ctx, cli, snapshot_cli):
     )
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("2 m above gnd", "2%20m%20above%20gnd"),
+        (".", "%2E"),
+        ("..", "%2E%2E"),
+        ("a+b", "a%2Bb"),
+    ],
+)
+def test_quote_path_parameter_space(value, expected):
+    # GH-4252: coverage-phase path values must percent-encode spaces, not form-encode them
+    assert quote_path_parameter(value) == expected
+
+
 def test_path_parameter_dots(ctx):
     schema = build_schema(
         ctx,
@@ -2369,6 +2389,22 @@ def test_negative_query_parameter(ctx, schema, expected, required):
     run_negative_test(operation, test, generate_duplicate_query_parameters=True)
 
     assert urls == expected
+
+
+@pytest.mark.parametrize("location", [ParameterLocation.QUERY, ParameterLocation.PATH])
+def test_negative_boolean_not_coercible_wire_value(ctx_factory, location):
+    # Lenient parsers coerce 0/1/true/false to booleans, so those wire values are not type violations for a boolean parameter
+    nctx = ctx_factory(location=location, generation_modes=[GenerationMode.NEGATIVE])
+    schema = {"type": "boolean", "default": False}
+    values = [
+        generated.value
+        for generated in cover_schema_iter(nctx, schema, HashSet())
+        if generated.scenario == CoverageScenario.INCORRECT_TYPE
+    ]
+
+    coercible = {"0", "1", "true", "false"}
+    rendered = {str(value).lower() for value in values}
+    assert not (rendered & coercible), f"Boolean-coercible negatives generated: {values}"
 
 
 def test_negative_data_rejection(ctx, cli, snapshot_cli):

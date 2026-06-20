@@ -63,12 +63,11 @@ impl PyResponseBytesIterator {
                     if let Some(parent) = &slf.parent_response {
                         if let Ok(mut parent_ref) = parent.try_borrow_mut(py) {
                             parent_ref.inner_state = InnerResponseState::StreamingClosed;
+                            parent_ref.is_stream_consumed = true;
                             parent_ref.is_closed = true;
                         }
                     }
-                    Err(pyo3::exceptions::PyStopIteration::new_err(format!(
-                        "Stream error: {e}"
-                    )))
+                    Err(ImpitPyError(ImpitError::from(e, None)).into())
                 }
                 None => {
                     slf.content_returned = true;
@@ -155,13 +154,12 @@ impl PyResponseAsyncBytesIterator {
                         Python::attach(|py| {
                             if let Ok(mut parent_ref) = parent.try_borrow_mut(py) {
                                 parent_ref.inner_state = InnerResponseState::StreamingClosed;
+                                parent_ref.is_stream_consumed = true;
                                 parent_ref.is_closed = true;
                             }
                         });
                     }
-                    Err(pyo3::exceptions::PyStopAsyncIteration::new_err(format!(
-                        "Stream error: {e}"
-                    )))
+                    Err(ImpitPyError(ImpitError::from(e, None)).into())
                 }
                 None => {
                     if let Some(parent) = parent_response {
@@ -541,7 +539,7 @@ impl ImpitPyResponse {
         let headers = HashMap::from_iter(val.headers().iter().map(|(k, v)| {
             (
                 k.as_str().to_string(),
-                v.to_str().unwrap_or_default().to_string(),
+                v.as_bytes().iter().map(|&b| b as char).collect::<String>(),
             )
         }));
 

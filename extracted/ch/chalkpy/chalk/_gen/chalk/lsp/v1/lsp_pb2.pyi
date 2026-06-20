@@ -12,6 +12,14 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class LogMessageSeverity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LOG_MESSAGE_SEVERITY_UNSPECIFIED: _ClassVar[LogMessageSeverity]
+    LOG_MESSAGE_SEVERITY_ERROR: _ClassVar[LogMessageSeverity]
+    LOG_MESSAGE_SEVERITY_WARNING: _ClassVar[LogMessageSeverity]
+    LOG_MESSAGE_SEVERITY_INFO: _ClassVar[LogMessageSeverity]
+    LOG_MESSAGE_SEVERITY_DEBUG: _ClassVar[LogMessageSeverity]
+
 class DiagnosticSeverity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     DIAGNOSTIC_SEVERITY_UNSPECIFIED: _ClassVar[DiagnosticSeverity]
@@ -20,6 +28,11 @@ class DiagnosticSeverity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DIAGNOSTIC_SEVERITY_INFORMATION: _ClassVar[DiagnosticSeverity]
     DIAGNOSTIC_SEVERITY_HINT: _ClassVar[DiagnosticSeverity]
 
+LOG_MESSAGE_SEVERITY_UNSPECIFIED: LogMessageSeverity
+LOG_MESSAGE_SEVERITY_ERROR: LogMessageSeverity
+LOG_MESSAGE_SEVERITY_WARNING: LogMessageSeverity
+LOG_MESSAGE_SEVERITY_INFO: LogMessageSeverity
+LOG_MESSAGE_SEVERITY_DEBUG: LogMessageSeverity
 DIAGNOSTIC_SEVERITY_UNSPECIFIED: DiagnosticSeverity
 DIAGNOSTIC_SEVERITY_ERROR: DiagnosticSeverity
 DIAGNOSTIC_SEVERITY_WARNING: DiagnosticSeverity
@@ -27,15 +40,33 @@ DIAGNOSTIC_SEVERITY_INFORMATION: DiagnosticSeverity
 DIAGNOSTIC_SEVERITY_HINT: DiagnosticSeverity
 
 class LSP(_message.Message):
-    __slots__ = ("diagnostics", "actions")
+    __slots__ = ("diagnostics", "actions", "logs")
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     ACTIONS_FIELD_NUMBER: _ClassVar[int]
+    LOGS_FIELD_NUMBER: _ClassVar[int]
     diagnostics: _containers.RepeatedCompositeFieldContainer[PublishDiagnosticsParams]
     actions: _containers.RepeatedCompositeFieldContainer[CodeAction]
+    logs: _containers.RepeatedCompositeFieldContainer[LogMessage]
     def __init__(
         self,
         diagnostics: _Optional[_Iterable[_Union[PublishDiagnosticsParams, _Mapping]]] = ...,
         actions: _Optional[_Iterable[_Union[CodeAction, _Mapping]]] = ...,
+        logs: _Optional[_Iterable[_Union[LogMessage, _Mapping]]] = ...,
+    ) -> None: ...
+
+class LogMessage(_message.Message):
+    __slots__ = ("severity", "message", "traceback")
+    SEVERITY_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    TRACEBACK_FIELD_NUMBER: _ClassVar[int]
+    severity: LogMessageSeverity
+    message: str
+    traceback: str
+    def __init__(
+        self,
+        severity: _Optional[_Union[LogMessageSeverity, str]] = ...,
+        message: _Optional[str] = ...,
+        traceback: _Optional[str] = ...,
     ) -> None: ...
 
 class PublishDiagnosticsParams(_message.Message):

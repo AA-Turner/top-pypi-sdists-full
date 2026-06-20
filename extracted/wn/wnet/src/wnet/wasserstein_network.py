@@ -19,51 +19,8 @@ from wnet.wnet_cpp import (
 )
 from wnet.distribution import Distribution
 from wnet.distances import DistanceMetric
+from wnet.scaling import FineGridScaler
 from wnet.visualization import show_graph
-
-
-def _auto_intensity_scale(base_distribution, target_distributions, p, max_distance):
-    """Pick an intensity scale that maps real intensities onto a fine integer
-    supply grid without overflowing the int64 cost accumulator.
-
-    Returns 1.0 (verbatim, bit-compatible with the legacy int backend) when the
-    intensities are already integer-valued, or when ``p != 1`` (scaling the
-    intensity and cost budgets jointly for p != 1 is future work).  Otherwise it
-    targets a total scaled flow of ~2**30 (a fine grid, modest magnitude),
-    clamped below an overflow ceiling and never below 1.
-    """
-    dists = [base_distribution] + list(target_distributions)
-    all_integer = all(
-        bool(np.all(d.intensities == np.round(d.intensities))) for d in dists
-    )
-    if p != 1.0 or all_integer:
-        return 1.0
-    total = float(sum(np.sum(np.abs(d.intensities)) for d in dists))
-    nonzero = [np.abs(d.intensities)[d.intensities != 0] for d in dists]
-    nonzero = [a for a in nonzero if a.size]
-    if not (total > 0.0) or not nonzero:
-        return 1.0
-    min_pos = float(min(float(a.min()) for a in nonzero))
-    # Conservative ground-distance bound: the L1 extent of the combined bounding
-    # box dominates the L2/Linf distance between any two points; cap by
-    # max_distance since arcs beyond it carry no flow. (p == 1 here, cost == d.)
-    gmin = np.min([d.positions.min(axis=1) for d in dists], axis=0)
-    gmax = np.max([d.positions.max(axis=1) for d in dists], axis=0)
-    span = float(np.sum(gmax - gmin))
-    cost_bound = max(min(span, float(max_distance)), 1.0)
-    # 2**60 leaves headroom below NetworkSimplex's 2**62 ART_COST ceiling.
-    overflow_cap = (2.0 ** 60) / (cost_bound * total)
-    target = (2.0 ** 30) / total
-    scale = max(1.0, min(target, overflow_cap))
-    if scale * min_pos < 1.0:
-        warnings.warn(
-            f"intensity auto-scale {scale:.3g} cannot represent the smallest "
-            f"nonzero intensity {min_pos:.3g} as >=1 supply unit (overflow cap "
-            f"{overflow_cap:.3g}); small peaks may be dropped. Normalize the "
-            f"intensities or pass an explicit intensity_scale.",
-            stacklevel=3,
-        )
-    return scale
 
 
 class WassersteinNetwork:
@@ -100,6 +57,7 @@ class WassersteinNetwork:
         solver=None,
         method: str = None,
         intensity_scale: Optional[float] = None,
+        round_max_distance: bool = True,
     ) -> None:
         if solver is None and method is None:
             solver = NetworkSimplex()
@@ -111,12 +69,12 @@ class WassersteinNetwork:
             solver = self._SOLVER_METHODS[method]()
         if max_distance is None or max_distance == float("inf"):
             max_distance = CWassersteinNetwork.max_value()
-        else:
-            # The C++ factory takes an integer distance threshold (matching arcs
-            # are kept when the ground distance <= max_dist; 1D chain components
-            # split on gaps exceeding it). Accept a float for convenience but
-            # coerce to int with an inclusive (round-up) rule so nothing within
-            # the stated cap is dropped, and warn when a fractional part is lost.
+        elif round_max_distance:
+            # Default: with p == 1 cost truncation the matching threshold is
+            # effectively integer, so round a fractional cap up (inclusive) and
+            # warn — preserving the legacy behaviour.  Callers that opt into
+            # cost scaling (real distances) pass round_max_distance=False and
+            # keep the real threshold.
             md_int = int(math.ceil(max_distance))
             if md_int != max_distance:
                 warnings.warn(
@@ -128,7 +86,9 @@ class WassersteinNetwork:
             max_distance = md_int
         p = float(p)
         if not (p >= 1.0) or not np.isfinite(p):
-            raise ValueError(f"Wasserstein order p must be a real number >= 1, got {p!r}.")
+            raise ValueError(
+                f"Wasserstein order p must be a real number >= 1, got {p!r}."
+            )
         self._distance = distance
         self._p = p
         vec_base = base_distribution.vecdist
@@ -163,14 +123,26 @@ class WassersteinNetwork:
         # overflowing the cost accumulator. An explicit value (e.g. 1.0) is used
         # verbatim. Must be set before build().
         if intensity_scale is None:
-            intensity_scale = _auto_intensity_scale(
-                base_distribution, target_distributions, p, max_distance
-            )
+            # Float-backend intensity scaling uses the FineGridScaler:
+            # no position pre-scale, intensities mapped onto a ~2**30 total-flow
+            # grid, capped by cost_bound**p so the network's own cost scale
+            # stays >= 1. Returns 1.0 for integer-valued data.
+            intensity_scale = FineGridScaler(
+                base_distribution,
+                list(target_distributions),
+                distance,
+                max_distance,
+                trash_costs=[],
+                p=p,
+            ).sf_intensity()
         self.wnet.set_intensity_scale(float(intensity_scale))
 
         self.add_simple_trash = self.wnet.add_simple_trash
         self.add_experimental_trash = self.wnet.add_experimental_trash
         self.add_theoretical_trash = self.wnet.add_theoretical_trash
+        # Opt-in p=1 cost scaling (lets a caller pass real distances instead of
+        # pre-scaling positions). Must be called before build().
+        self.set_cost_scaling = self.wnet.set_cost_scaling
 
         # Avoid capturing self in the lambda to prevent reference cycles that could lead to memory leaks.  The underlying C++ object should be freed when this wrapper is freed, but if we capture self in the lambda, the lambda's reference to self would keep it alive indefinitely.
         # Without this trick, the lambda would hold a reference to self, which holds a reference to the C++ object, which holds a reference back to the lambda, creating a cycle that prevents garbage collection.

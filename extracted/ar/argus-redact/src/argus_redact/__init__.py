@@ -7,7 +7,7 @@ from argus_redact._metadata import (
     PIPL_REFERENCES,
 )
 from argus_redact._types import PseudonymLLMResult, RedactReport
-from argus_redact.exceptions import SessionStateError
+from argus_redact.exceptions import LayerUnavailableError, SessionStateError
 from argus_redact.glue.redact import redact
 from argus_redact.glue.redact_pseudonym_llm import (
     PseudonymPollutionError,
@@ -18,7 +18,7 @@ from argus_redact.pure.replacer import SecurityWarning, is_strategy_reversible
 from argus_redact.pure.restore import check_restore_safety, restore, wipe_key
 from argus_redact.pure.risk import assess_risk
 
-__version__ = "0.7.7"
+__version__ = "0.7.9"
 __all__ = [
     # ─── Layer 1 — primitive (frozen at 1.0) ───
     "redact",
@@ -30,6 +30,7 @@ __all__ = [
     "max_pseudonym_length",
     "SecurityWarning",
     "SessionStateError",
+    "LayerUnavailableError",
     "PseudonymPollutionError",
     # ─── Layer 2 — compose (best-effort; also at argus_redact.compose.*) ───
     "redact_pseudonym_llm",

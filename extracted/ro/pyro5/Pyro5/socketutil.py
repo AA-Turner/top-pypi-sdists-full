@@ -79,7 +79,10 @@ def get_ip_address(hostname: str, workaround127: bool = False, version: int = No
             raise ValueError("unknown value for argument ipVersion.")
         ip = socket.getaddrinfo(hostname or socket.gethostname(), 80, family, socket.SOCK_STREAM, socket.SOL_TCP)[0][4][0]
         if workaround127 and (ip.startswith("127.") or ip == "0.0.0.0"):
-            return get_interface("4.2.2.2").ip
+            try:
+                return get_interface("4.2.2.2").ip
+            except OSError:
+                pass  # network unreachable, fall through to return loopback address
         return ipaddress.ip_address(ip)
 
     try:
@@ -154,9 +157,12 @@ def receive_data(sock: socket.socket, size: int) -> bytes:
                     data.extend(chunk)
                     msglen += len(chunk)
                 if len(data) != size:
-                    err = ConnectionClosedError("receiving: not enough data")
-                    err.partialData = data  # store the message that was received until now
-                    raise err
+                    try:
+                        err = ConnectionClosedError("receiving: not enough data")
+                        err.partialData = data  # store the message that was received until now
+                        raise err
+                    finally:
+                        del err
                 return data  # yay, complete
             except socket.timeout:
                 raise TimeoutError("receiving: timeout")

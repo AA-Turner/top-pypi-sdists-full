@@ -17,7 +17,6 @@ import contextlib
 from . import config, socketutil, errors
 
 log = logging.getLogger("Pyro5.threadpoolserver")
-_client_disconnect_lock = threading.Lock()
 
 
 class ClientConnectionJob(object):
@@ -46,7 +45,7 @@ class ClientConnectionJob(object):
                         break
                     except errors.TimeoutError as x:
                         # for timeout errors we're not really interested in detailed traceback info
-                        log.warning("error during handleRequest: %s" % x)
+                        log.warning("error during handleRequest: %s", x)
                         break
                     except Exception:
                         # other errors log a warning, break this loop and close the client connection
@@ -56,11 +55,10 @@ class ClientConnectionJob(object):
                         log.warning(msg)
                         break
             finally:
-                with _client_disconnect_lock:
-                    try:
-                        self.daemon._clientDisconnect(self.csock)
-                    except Exception as x:
-                        log.warning("Error in clientDisconnect: " + str(x))
+                try:
+                    self.daemon._clientDisconnect(self.csock)
+                except Exception as x:
+                    log.warning("Error in clientDisconnect: %s", x)
                 self.csock.close()
 
     def handleConnection(self):
@@ -77,7 +75,7 @@ class ClientConnectionJob(object):
         return False
 
     def denyConnection(self, reason):
-        log.warning("client connection was denied: " + reason)
+        log.warning("client connection was denied: %s", reason)
         # return failed handshake
         self.daemon._handshake(self.csock, denied_reason=reason)
         self.csock.close()
@@ -308,11 +306,11 @@ class Pool(object):
     def close(self):
         if not self.closed:
             log.debug("closing down")
+            self.closed = True
             for w in list(self.busy):
                 w.process(None)
             for w in list(self.idle):
                 w.process(None)
-            self.closed = True
             time.sleep(0.1)
             idle, self.idle = self.idle, set()
             busy, self.busy = self.busy, set()

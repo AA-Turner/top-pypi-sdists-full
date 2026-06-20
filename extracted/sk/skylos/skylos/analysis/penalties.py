@@ -2,6 +2,7 @@ import ast
 from typing import Any, Optional
 from skylos.constants import PENALTIES, get_non_library_dir_kind, is_test_path
 from skylos.config import is_whitelisted
+from skylos.deadcode.config_entrypoints import configured_entrypoint_reason
 from skylos.analysis.known_patterns import (
     HARD_ENTRYPOINTS,
     PYTEST_HOOKS,
@@ -199,6 +200,12 @@ _FUTURE_IMPORTS = {
     "generator_stop",
 }
 
+_NOQA_DEAD_CODE_CODES_BY_TYPE = {
+    "import": {"F401"},
+    "variable": {"F841"},
+    "constant": {"F841"},
+}
+
 
 def _suppress(def_obj, reason=None, code=None, folder_role=None):
     def_obj.confidence = 0
@@ -268,9 +275,42 @@ def _is_alembic_revision_path(filename: str) -> bool:
     return "/versions/" in normalized and normalized.endswith(".py")
 
 
+def _coerce_line_set(value, fallback) -> set[int]:
+    if value is None or isinstance(value, (str, bytes)):
+        return {fallback}
+    try:
+        return {int(line) for line in value}
+    except (TypeError, ValueError):
+        return {fallback}
+
+
 def _check_inline_ignore(def_obj, visitor):
-    if getattr(visitor, "ignore_lines", None) and def_obj.line in visitor.ignore_lines:
+    suppression_lines = _coerce_line_set(
+        getattr(def_obj, "suppression_lines", None),
+        def_obj.line,
+    )
+    ignore_lines = _coerce_line_set(getattr(visitor, "ignore_lines", None), -1)
+    if suppression_lines & ignore_lines:
         return _suppress(def_obj, "inline ignore comment")
+    noqa_codes_by_line = getattr(visitor, "noqa_codes_by_line", None) or {}
+    if not isinstance(noqa_codes_by_line, dict):
+        noqa_codes_by_line = {}
+    noqa_codes = None
+    for line in sorted(suppression_lines):
+        if line in noqa_codes_by_line:
+            noqa_codes = noqa_codes_by_line[line]
+            break
+    if noqa_codes is None:
+        return None
+    if not noqa_codes:
+        return _suppress(def_obj, "inline ignore comment", code="noqa")
+    matching_codes = _NOQA_DEAD_CODE_CODES_BY_TYPE.get(def_obj.type, set())
+    if noqa_codes & matching_codes:
+        return _suppress(
+            def_obj,
+            "inline ignore comment",
+            code="noqa:" + ",".join(sorted(noqa_codes & matching_codes)),
+        )
     return None
 
 
@@ -316,6 +356,13 @@ def _check_config_whitelist(def_obj, cfg):
         return _suppress(def_obj, reason)
     if conf_reduction > 0:
         return -conf_reduction
+    return None
+
+
+def _check_configured_entrypoint(def_obj, analyzer, cfg):
+    reason = configured_entrypoint_reason(def_obj, analyzer, cfg)
+    if reason:
+        return _suppress(def_obj, reason, code="configured_entrypoint")
     return None
 
 
@@ -1080,6 +1127,9 @@ def apply_penalties(
         return
     if isinstance(result, int):
         confidence += result
+
+    if _check_configured_entrypoint(def_obj, analyzer, cfg) is True:
+        return
 
     if _check_hard_entrypoint(def_obj) is True:
         return

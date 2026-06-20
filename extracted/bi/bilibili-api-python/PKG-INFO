@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bilibili-api-python
-Version: 17.4.1
+Version: 17.4.2
 Summary: The fork of module bilibili-api. 哔哩哔哩的各种 API 调用便捷整合（视频、动态、直播等），另外附加一些常用的功能。
 Author-email: Nemo2011 <yimoxia@outlook.com>
 Maintainer: MoyuScript, Nemo2011
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: beautifulsoup4
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 [![API 数量](https://img.shields.io/badge/API%20数量-400+-blue)][api.json]
 [![LICENSE](https://img.shields.io/badge/LICENSE-GPLv3+-red)][LICENSE]
-[![Python](https://img.shields.io/badge/python-3.9+-blue)](https://www.python.org)
+[![Python](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org)
 [![Stable Version](https://img.shields.io/pypi/v/bilibili-api-python?label=stable)][pypi]
 [![Pre-release Version](https://img.shields.io/github/v/release/Nemo2011/bilibili-api?label=pre-release&include_prereleases&sort=semver)][pypi-dev]
 [![STARS](https://img.shields.io/github/stars/nemo2011/bilibili-api?color=yellow&label=Github%20Stars)][stargazers]
@@ -66,7 +66,7 @@ Github 仓库：[https://github.com/nemo2011/bilibili-api](https://github.com/ne
 # 简介
 
 这是一个用 Python 写的调用 [Bilibili](https://www.bilibili.com) 各种 API 的库，
-范围涵盖视频、音频、直播、动态、专栏、用户、番剧等[[1]](#脚注)。
+范围涵盖视频、音频、直播、动态、专栏、用户、番剧等[^1]。
 
 ## 特色
 
@@ -74,8 +74,8 @@ Github 仓库：[https://github.com/nemo2011/bilibili-api](https://github.com/ne
 - 可使用代理，绕过 b 站风控策略。
 - 全面支持 BV 号（bvid），同时也兼容 AV 号（aid）。
 - 调用简便，函数命名易懂，代码注释详细。
-- 不仅仅是官方提供的 API！还附加：AV 号与 BV 号互转[[2]](#脚注)、连接直播弹幕 Websocket 服务器、视频弹幕反查、下载弹幕、字幕文件[[3]](#脚注)、专栏内容爬取、cookies 刷新等[[4]](#脚注)。
-- 支持采用各种手段避免触发反爬虫风控[[5]](#脚注)。
+- 不仅仅是官方提供的 API！还附加：AV 号与 BV 号互转[^2]、连接直播弹幕 Websocket 服务器、视频弹幕反查、下载弹幕、字幕文件[^3]、专栏内容爬取、cookies 刷新等[^4]。
+- 支持采用各种手段避免触发反爬虫风控[^5]。
 - **全部是异步操作**。
 - 默认支持 `aiohttp` / `httpx` / `curl_cffi`。
 
@@ -260,13 +260,11 @@ A: 请先 clone 本仓库一份，然后从 main 分支新建一个分支，在�
 
 A: 由于该模块比较特殊，是爬虫模块，如果 b 站的接口变更，可能会马上失效。因此请始终保证是最新版本。如果发现问题可以提 [Issues][issues-new]。
 
-# 脚注
-
-- \[1\] 这里只列出一部分，请以实际 API 为准。
-- \[2\] 代码来源：<https://www.zhihu.com/question/381784377/answer/1099438784> (WTFPL)
-- \[3\] 部分代码来源：<https://github.com/m13253/danmaku2ass> (GPLv3) <https://github.com/ewwink/python-srt2ass>
-- \[4\] 思路来源：<https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.html> (CC-BY-NC 4.0)
-- \[5\] 大量思路来源 <https://github.com/SocialSisterYi/bilibili-API-collect> 中相关讨论。
+[^1]: 这里只列出一部分，请以实际 API 为准。
+[^2]: 代码来源：<https://www.zhihu.com/question/381784377/answer/1099438784> (WTFPL)
+[^3]: 部分代码来源：<https://github.com/m13253/danmaku2ass> (GPLv3) <https://github.com/ewwink/python-srt2ass>
+[^4]: 思路来源：<https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.html> (CC-BY-NC 4.0)
+[^5]: 大量思路来源 <https://github.com/SocialSisterYi/bilibili-API-collect> 中相关讨论。
 
 [docs]: https://nemo2011.github.io/bilibili-api
 [docs-github]: https://github.com/nemo2011/bilibili-api/tree/main/docs

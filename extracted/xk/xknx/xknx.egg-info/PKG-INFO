@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xknx
-Version: 3.15.0
+Version: 3.16.0
 Summary: An Asynchronous Library for the KNX protocol. Documentation: https://xknx.io/
 Author-email: Julius Mittenzwei <julius@mittenzwei.com>, Matthias Alphart <farmio@alphart.net>, Marvin Wichmann <me@marvin-wichmann.de>
 License-Expression: MIT
@@ -87,4 +87,4 @@ asyncio.run(main())
 
 ## Attributions
 
-Many thanks to [Weinzierl Engineering GmbH](https://weinzierl.de) and [MDT technologies GmbH](https://www.mdt.de) for providing us each an IP Secure Router to support testing and development of xknx.
+Many thanks to [Enertex Bayern GmbH](https://enertex.de), [Weinzierl Engineering GmbH](https://weinzierl.de) and [MDT technologies GmbH](https://www.mdt.de) for providing us a device to support testing and development of xknx.

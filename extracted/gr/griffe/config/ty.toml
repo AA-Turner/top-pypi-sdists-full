@@ -1,6 +1,9 @@
 [src]
-exclude = ["tests/fixtures"]
+exclude = ["packages/*/tests/fixtures"]
 
 [terminal]
 error-on-warning = true
 output-format = "concise"
+
+[environment]
+root = [".", "packages/griffelib/src", "packages/griffecli/src"]

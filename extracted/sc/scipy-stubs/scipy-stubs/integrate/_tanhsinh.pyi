@@ -1,5 +1,6 @@
-from collections.abc import Callable
-from typing import Any, Concatenate, Final, Generic, Literal, TypeAlias, TypedDict, overload, type_check_only
+from _typeshed import Unused
+from collections.abc import Callable, Mapping
+from typing import Any, Concatenate, Final, Generic, Literal, TypedDict, overload, type_check_only
 from typing_extensions import TypeVar
 
 import numpy as np
@@ -10,25 +11,23 @@ from scipy._lib._util import _RichResult
 
 __all__ = ["nsum"]
 
-_ScalarT = TypeVar("_ScalarT", bound=np.generic)
-_InT = TypeVar("_InT")
-_ResultT = TypeVar("_ResultT")
+type _ArgsND = tuple[onp.ToScalar | onp.ToArrayND, ...]
+type _KwargsND = Mapping[str, onp.ToScalar | onp.ToArrayND]
+type _Callback[ResultT] = Callable[[ResultT], Unused]
+
+type _Integrand[InT, ScalarT: np.generic] = Callable[Concatenate[InT, ...], onp.ArrayND[ScalarT]]
+type _IntegrandReal = _Integrand[onp.ArrayND[np.float64], npc.floating]
+type _IntegrandComplex = _Integrand[onp.ArrayND[np.float64] | onp.ArrayND[np.complex128], npc.complexfloating]
+
 _ResultT_co = TypeVar("_ResultT_co", covariant=True)
 _SuccessT_co = TypeVar("_SuccessT_co", covariant=True)
 _StatusT_co = TypeVar("_StatusT_co", covariant=True)
 _MaxLevelT_co = TypeVar("_MaxLevelT_co", covariant=True)
 
-_ArgsND: TypeAlias = tuple[onp.ToScalar | onp.ToArrayND, ...]
-_Callback: TypeAlias = Callable[[_ResultT], object]  # return value is ignored
-
-_Integrand: TypeAlias = Callable[Concatenate[_InT, ...], onp.ArrayND[_ScalarT]]
-_IntegrandReal: TypeAlias = _Integrand[onp.ArrayND[np.float64], npc.floating]
-_IntegrandComplex: TypeAlias = _Integrand[onp.ArrayND[np.float64] | onp.ArrayND[np.complex128], npc.complexfloating]
-
 @type_check_only
 class _TanhSinhResult(
     _RichResult[_ResultT_co | _SuccessT_co | _StatusT_co | _MaxLevelT_co],
-    Generic[_ResultT_co, _SuccessT_co, _StatusT_co, _MaxLevelT_co],
+    Generic[_ResultT_co, _SuccessT_co, _StatusT_co, _MaxLevelT_co],  # noqa: UP046
 ):
     integral: _ResultT_co
     error: _ResultT_co
@@ -37,16 +36,16 @@ class _TanhSinhResult(
     nfev: _StatusT_co
     maxlevel: _MaxLevelT_co
 
-_TanhSinhResult0: TypeAlias = _TanhSinhResult[_ScalarT, np.bool_, np.int32, np.int64]
-_TanhSinhResultN: TypeAlias = _TanhSinhResult[
-    onp.ArrayND[_ScalarT],
-    onp.ArrayND[np.bool_],
+type _TanhSinhResult0[ScalarT: np.generic] = _TanhSinhResult[ScalarT, np.bool, np.int32, np.int64]
+type _TanhSinhResultN[ScalarT: np.generic] = _TanhSinhResult[
+    onp.ArrayND[ScalarT],
+    onp.ArrayND[np.bool],
     onp.ArrayND[np.int32],
     onp.ArrayND[np.int64],
 ]  # fmt: skip
-_TanhSinhResultN_: TypeAlias = _TanhSinhResult[
-    onp.ArrayND[_ScalarT] | Any,
-    onp.ArrayND[np.bool_] | Any,
+type _TanhSinhResultN_[ScalarT: np.generic] = _TanhSinhResult[
+    onp.ArrayND[ScalarT] | Any,
+    onp.ArrayND[np.bool] | Any,
     onp.ArrayND[np.int32] | Any,
     onp.ArrayND[np.int64] | Any,
 ]  # fmt: skip
@@ -57,18 +56,18 @@ class _Tolerances(TypedDict, total=False):
     atol: float
 
 @type_check_only
-class _NSumResult0(_RichResult[np.bool_ | np.int32 | np.float64]):
+class _NSumResult0(_RichResult[np.bool | np.int32 | np.float64]):
     sum: Final[np.float64]
     error: Final[np.float64]
-    success: Final[np.bool_]
+    success: Final[np.bool]
     status: Final[np.int32]
     nfev: Final[np.int32]
 
 @type_check_only
-class _NSumResultN(_RichResult[onp.ArrayND[np.bool_] | onp.ArrayND[np.int32] | onp.ArrayND[np.float64]]):
+class _NSumResultN(_RichResult[onp.ArrayND[np.bool] | onp.ArrayND[np.int32] | onp.ArrayND[np.float64]]):
     sum: Final[onp.ArrayND[np.float64]]
     error: Final[onp.ArrayND[np.float64]]
-    success: Final[onp.ArrayND[np.bool_]]
+    success: Final[onp.ArrayND[np.bool]]
     status: Final[onp.ArrayND[np.int32]]
     nfev: Final[onp.ArrayND[np.int32]]
 
@@ -82,6 +81,7 @@ def tanhsinh(
     b: onp.ToFloat,
     *,
     args: tuple[onp.ToScalar, ...] = (),
+    kwargs: Mapping[str, onp.ToScalar] | None = None,
     log: bool = False,
     maxlevel: int | None = None,
     minlevel: int | None = 2,
@@ -97,6 +97,7 @@ def tanhsinh(
     b: onp.ToFloatND,
     *,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxlevel: int | None = None,
     minlevel: int | None = 2,
@@ -112,6 +113,7 @@ def tanhsinh(
     b: onp.ToFloat | onp.ToFloatND,
     *,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxlevel: int | None = None,
     minlevel: int | None = 2,
@@ -127,6 +129,7 @@ def tanhsinh(
     b: onp.ToFloat | onp.ToFloatND,
     *,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxlevel: int | None = None,
     minlevel: int | None = 2,
@@ -142,6 +145,7 @@ def tanhsinh(
     b: onp.ToFloat,
     *,
     args: tuple[onp.ToScalar, ...] = (),
+    kwargs: Mapping[str, onp.ToScalar] | None = None,
     log: bool = False,
     maxlevel: int | None = None,
     minlevel: int | None = 2,
@@ -157,6 +161,7 @@ def tanhsinh(
     b: onp.ToFloatND,
     *,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxlevel: int | None = None,
     minlevel: int | None = 2,
@@ -172,6 +177,7 @@ def tanhsinh(
     b: onp.ToFloat | onp.ToFloatND,
     *,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxlevel: int | None = None,
     minlevel: int | None = 2,
@@ -187,6 +193,7 @@ def tanhsinh(
     b: onp.ToFloat | onp.ToFloatND,
     *,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxlevel: int | None = None,
     minlevel: int | None = 2,
@@ -205,6 +212,7 @@ def nsum(
     *,
     step: onp.ToFloat = 1,
     args: tuple[onp.ToScalar, ...] = (),
+    kwargs: Mapping[str, onp.ToScalar] | None = None,
     log: bool = False,
     maxterms: int = 0x10_00_00,
     tolerances: _Tolerances | None = None,
@@ -217,6 +225,7 @@ def nsum(
     *,
     step: onp.ToFloat | onp.ToFloatND = 1,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxterms: int = 0x10_00_00,
     tolerances: _Tolerances | None = None,
@@ -229,6 +238,7 @@ def nsum(
     *,
     step: onp.ToFloat | onp.ToFloatND = 1,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxterms: int = 0x10_00_00,
     tolerances: _Tolerances | None = None,
@@ -241,6 +251,7 @@ def nsum(
     *,
     step: onp.ToFloatND,
     args: _ArgsND = (),
+    kwargs: _KwargsND | None = None,
     log: bool = False,
     maxterms: int = 0x10_00_00,
     tolerances: _Tolerances | None = None,

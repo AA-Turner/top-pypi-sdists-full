@@ -27,7 +27,6 @@ from .. import (
     IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
     LoggerOptions as _LoggerOptions_eb0f6309,
     Project as _Project_57d89203,
-    ProjectType as _ProjectType_fd80c725,
     ProjenrcFile as _ProjenrcFile_50432c7e,
     ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
     RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
@@ -42,7 +41,6 @@ from ..github import (
     GitHubProject as _GitHubProject_c48bc7ea,
     GitHubProjectOptions as _GitHubProjectOptions_547f2d08,
     GithubCredentials as _GithubCredentials_ae257072,
-    MergifyOptions as _MergifyOptions_a6faaab3,
     StaleOptions as _StaleOptions_929db764,
 )
 from ..javascript import ProjenrcOptions as _ProjenrcOptions_179dd39f
@@ -2312,14 +2310,12 @@ class Pytest(
         project: "_Project_57d89203",
         *,
         max_failures: typing.Optional[jsii.Number] = None,
-        testdir: typing.Optional[builtins.str] = None,
         test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param project: -
         :param max_failures: (experimental) Stop the testing process after the first N failures.
-        :param testdir: (deprecated) Location of sample tests. Typically the same directory where project tests will be located. Default: "tests"
         :param test_match: (experimental) List of paths to test files or directories. Useful when all project tests are in a known location to speed up test collection and to avoid picking up undesired tests by accident. Leave empty to discover all test_*.py or *_test.py files, per Pytest default. The array will be concatenated and passed as a single argument to pytest. Default: []
         :param version: (experimental) Pytest version. Default: "7.4.3"
 
@@ -2329,23 +2325,10 @@ class Pytest(
             type_hints = typing.get_type_hints(_typecheckingstub__ce0d8c554f8b4609921caa32636cdf3f53ff29d779d94c8c46d6322903608390)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PytestOptions(
-            max_failures=max_failures,
-            testdir=testdir,
-            test_match=test_match,
-            version=version,
+            max_failures=max_failures, test_match=test_match, version=version
         )
 
         jsii.create(self.__class__, self, [project, options])
-
-    @builtins.property
-    @jsii.member(jsii_name="testdir")
-    def testdir(self) -> builtins.str:
-        '''
-        :deprecated: Use ``sampleTestdir`` on the project instead.
-
-        :stability: deprecated
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "testdir"))
 
     @builtins.property
     @jsii.member(jsii_name="testMatch")
@@ -2361,7 +2344,6 @@ class Pytest(
     jsii_struct_bases=[],
     name_mapping={
         "max_failures": "maxFailures",
-        "testdir": "testdir",
         "test_match": "testMatch",
         "version": "version",
     },
@@ -2371,13 +2353,11 @@ class PytestOptions:
         self,
         *,
         max_failures: typing.Optional[jsii.Number] = None,
-        testdir: typing.Optional[builtins.str] = None,
         test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param max_failures: (experimental) Stop the testing process after the first N failures.
-        :param testdir: (deprecated) Location of sample tests. Typically the same directory where project tests will be located. Default: "tests"
         :param test_match: (experimental) List of paths to test files or directories. Useful when all project tests are in a known location to speed up test collection and to avoid picking up undesired tests by accident. Leave empty to discover all test_*.py or *_test.py files, per Pytest default. The array will be concatenated and passed as a single argument to pytest. Default: []
         :param version: (experimental) Pytest version. Default: "7.4.3"
 
@@ -2386,14 +2366,11 @@ class PytestOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4be1ab17806d0a3326c1d1b9ba1180daed1458dcbff7d77f34e7381dd37165f7)
             check_type(argname="argument max_failures", value=max_failures, expected_type=type_hints["max_failures"])
-            check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
             check_type(argname="argument test_match", value=test_match, expected_type=type_hints["test_match"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if max_failures is not None:
             self._values["max_failures"] = max_failures
-        if testdir is not None:
-            self._values["testdir"] = testdir
         if test_match is not None:
             self._values["test_match"] = test_match
         if version is not None:
@@ -2407,21 +2384,6 @@ class PytestOptions:
         '''
         result = self._values.get("max_failures")
         return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def testdir(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) Location of sample tests.
-
-        Typically the same directory where project tests will be located.
-
-        :default: "tests"
-
-        :deprecated: Reference ``sampleTestdir`` on the project instead; to change the directory where tests are discovered from, use ``testMatch``.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("testdir")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def test_match(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2848,11 +2810,7 @@ class PythonProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2911,11 +2869,7 @@ class PythonProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -2976,11 +2930,7 @@ class PythonProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -3152,11 +3102,7 @@ class PythonProject(
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -3223,11 +3169,7 @@ class PythonProjectOptions(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3287,11 +3229,7 @@ class PythonProjectOptions(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -3346,8 +3284,6 @@ class PythonProjectOptions(
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -3389,11 +3325,7 @@ class PythonProjectOptions(
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -3476,16 +3408,8 @@ class PythonProjectOptions(
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -3793,45 +3717,6 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -3841,22 +3726,6 @@ class PythonProjectOptions(
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -6318,7 +6187,6 @@ def _typecheckingstub__ce0d8c554f8b4609921caa32636cdf3f53ff29d779d94c8c46d632290
     project: _Project_57d89203,
     *,
     max_failures: typing.Optional[jsii.Number] = None,
-    testdir: typing.Optional[builtins.str] = None,
     test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
     version: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6328,7 +6196,6 @@ def _typecheckingstub__ce0d8c554f8b4609921caa32636cdf3f53ff29d779d94c8c46d632290
 def _typecheckingstub__4be1ab17806d0a3326c1d1b9ba1180daed1458dcbff7d77f34e7381dd37165f7(
     *,
     max_failures: typing.Optional[jsii.Number] = None,
-    testdir: typing.Optional[builtins.str] = None,
     test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
     version: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6417,11 +6284,7 @@ def _typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,

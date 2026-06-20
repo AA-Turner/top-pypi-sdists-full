@@ -12,43 +12,17 @@ System_Runtime_InteropServices_Marshalling_PointerArrayMarshaller_T = typing.Typ
 System_Runtime_InteropServices_Marshalling_PointerArrayMarshaller_TUnmanagedElement = typing.TypeVar("System_Runtime_InteropServices_Marshalling_PointerArrayMarshaller_TUnmanagedElement")
 System_Runtime_InteropServices_Marshalling_ArrayMarshaller_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ArrayMarshaller_T")
 System_Runtime_InteropServices_Marshalling_ArrayMarshaller_TUnmanagedElement = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ArrayMarshaller_TUnmanagedElement")
+System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T")
 System_Runtime_InteropServices_Marshalling_SpanMarshaller_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_SpanMarshaller_T")
 System_Runtime_InteropServices_Marshalling_SpanMarshaller_TUnmanagedElement = typing.TypeVar("System_Runtime_InteropServices_Marshalling_SpanMarshaller_TUnmanagedElement")
-System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T")
 System_Runtime_InteropServices_Marshalling_ComVariant_Create_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ComVariant_Create_T")
 System_Runtime_InteropServices_Marshalling_ComVariant_CreateRaw_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ComVariant_CreateRaw_T")
 System_Runtime_InteropServices_Marshalling_ComVariant_As_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ComVariant_As_T")
 System_Runtime_InteropServices_Marshalling_ComVariant_GetRawDataRef_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ComVariant_GetRawDataRef_T")
 
 
-class Utf8StringMarshaller(System.Object):
+class ContiguousCollectionMarshallerAttribute(System.Attribute):
     """This class has no documentation."""
-
-    class ManagedToUnmanagedIn:
-        """This class has no documentation."""
-
-        BUFFER_SIZE: int
-
-        def free(self) -> None:
-            ...
-
-        def from_managed(self, managed: str, buffer: System.Span[int]) -> None:
-            ...
-
-        def to_unmanaged(self) -> typing.Any:
-            ...
-
-    @staticmethod
-    def convert_to_managed(unmanaged: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    def convert_to_unmanaged(managed: str) -> typing.Any:
-        ...
-
-    @staticmethod
-    def free(unmanaged: typing.Any) -> None:
-        ...
 
 
 class ReadOnlySpanMarshaller(typing.Generic[System_Runtime_InteropServices_Marshalling_ReadOnlySpanMarshaller_T, System_Runtime_InteropServices_Marshalling_ReadOnlySpanMarshaller_TUnmanagedElement], System.Object):
@@ -117,128 +91,6 @@ class ReadOnlySpanMarshaller(typing.Generic[System_Runtime_InteropServices_Marsh
             ...
 
 
-class MarshalMode(IntEnum):
-    """This class has no documentation."""
-
-    DEFAULT = 0
-
-    MANAGED_TO_UNMANAGED_IN = 1
-
-    MANAGED_TO_UNMANAGED_REF = 2
-
-    MANAGED_TO_UNMANAGED_OUT = 3
-
-    UNMANAGED_TO_MANAGED_IN = 4
-
-    UNMANAGED_TO_MANAGED_REF = 5
-
-    UNMANAGED_TO_MANAGED_OUT = 6
-
-    ELEMENT_IN = 7
-
-    ELEMENT_REF = 8
-
-    ELEMENT_OUT = 9
-
-
-class CustomMarshallerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    class GenericPlaceholder:
-        """This class has no documentation."""
-
-    @property
-    def managed_type(self) -> typing.Type:
-        ...
-
-    @property
-    def marshal_mode(self) -> System.Runtime.InteropServices.Marshalling.MarshalMode:
-        ...
-
-    @property
-    def marshaller_type(self) -> typing.Type:
-        ...
-
-    def __init__(self, managed_type: typing.Type, marshal_mode: System.Runtime.InteropServices.Marshalling.MarshalMode, marshaller_type: typing.Type) -> None:
-        ...
-
-
-class BStrStringMarshaller(System.Object):
-    """This class has no documentation."""
-
-    class ManagedToUnmanagedIn:
-        """This class has no documentation."""
-
-        BUFFER_SIZE: int
-
-        def free(self) -> None:
-            ...
-
-        def from_managed(self, managed: str, buffer: System.Span[int]) -> None:
-            ...
-
-        def to_unmanaged(self) -> typing.Any:
-            ...
-
-    @staticmethod
-    def convert_to_managed(unmanaged: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    def convert_to_unmanaged(managed: str) -> typing.Any:
-        ...
-
-    @staticmethod
-    def free(unmanaged: typing.Any) -> None:
-        ...
-
-
-class MarshalUsingAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def native_type(self) -> typing.Type:
-        ...
-
-    @property
-    def count_element_name(self) -> str:
-        ...
-
-    @count_element_name.setter
-    def count_element_name(self, value: str) -> None:
-        ...
-
-    @property
-    def constant_element_count(self) -> int:
-        ...
-
-    @constant_element_count.setter
-    def constant_element_count(self, value: int) -> None:
-        ...
-
-    @property
-    def element_indirection_depth(self) -> int:
-        ...
-
-    @element_indirection_depth.setter
-    def element_indirection_depth(self, value: int) -> None:
-        ...
-
-    RETURNS_COUNT_VALUE: str = "return-value"
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, native_type: typing.Type) -> None:
-        ...
-
-
-class ContiguousCollectionMarshallerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
 class PointerArrayMarshaller(typing.Generic[System_Runtime_InteropServices_Marshalling_PointerArrayMarshaller_T, System_Runtime_InteropServices_Marshalling_PointerArrayMarshaller_TUnmanagedElement], System.Object):
     """This class has no documentation."""
 
@@ -300,22 +152,8 @@ class PointerArrayMarshaller(typing.Generic[System_Runtime_InteropServices_Marsh
         ...
 
 
-class AnsiStringMarshaller(System.Object):
+class Utf16StringMarshaller(System.Object):
     """This class has no documentation."""
-
-    class ManagedToUnmanagedIn:
-        """This class has no documentation."""
-
-        BUFFER_SIZE: int
-
-        def free(self) -> None:
-            ...
-
-        def from_managed(self, managed: str, buffer: System.Span[int]) -> None:
-            ...
-
-        def to_unmanaged(self) -> typing.Any:
-            ...
 
     @staticmethod
     def convert_to_managed(unmanaged: typing.Any) -> str:
@@ -329,15 +167,8 @@ class AnsiStringMarshaller(System.Object):
     def free(unmanaged: typing.Any) -> None:
         ...
 
-
-class NativeMarshallingAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def native_type(self) -> typing.Type:
-        ...
-
-    def __init__(self, native_type: typing.Type) -> None:
+    @staticmethod
+    def get_pinnable_reference(str: str) -> typing.Any:
         ...
 
 
@@ -426,6 +257,52 @@ class ComVariant(System.IDisposable):
         ...
 
 
+class MarshalMode(IntEnum):
+    """This class has no documentation."""
+
+    DEFAULT = 0
+
+    MANAGED_TO_UNMANAGED_IN = 1
+
+    MANAGED_TO_UNMANAGED_REF = 2
+
+    MANAGED_TO_UNMANAGED_OUT = 3
+
+    UNMANAGED_TO_MANAGED_IN = 4
+
+    UNMANAGED_TO_MANAGED_REF = 5
+
+    UNMANAGED_TO_MANAGED_OUT = 6
+
+    ELEMENT_IN = 7
+
+    ELEMENT_REF = 8
+
+    ELEMENT_OUT = 9
+
+
+class CustomMarshallerAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    class GenericPlaceholder:
+        """This class has no documentation."""
+
+    @property
+    def managed_type(self) -> typing.Type:
+        ...
+
+    @property
+    def marshal_mode(self) -> System.Runtime.InteropServices.Marshalling.MarshalMode:
+        ...
+
+    @property
+    def marshaller_type(self) -> typing.Type:
+        ...
+
+    def __init__(self, managed_type: typing.Type, marshal_mode: System.Runtime.InteropServices.Marshalling.MarshalMode, marshaller_type: typing.Type) -> None:
+        ...
+
+
 class ArrayMarshaller(typing.Generic[System_Runtime_InteropServices_Marshalling_ArrayMarshaller_T, System_Runtime_InteropServices_Marshalling_ArrayMarshaller_TUnmanagedElement], System.Object):
     """This class has no documentation."""
 
@@ -487,8 +364,22 @@ class ArrayMarshaller(typing.Generic[System_Runtime_InteropServices_Marshalling_
         ...
 
 
-class Utf16StringMarshaller(System.Object):
+class Utf8StringMarshaller(System.Object):
     """This class has no documentation."""
+
+    class ManagedToUnmanagedIn:
+        """This class has no documentation."""
+
+        BUFFER_SIZE: int
+
+        def free(self) -> None:
+            ...
+
+        def from_managed(self, managed: str, buffer: System.Span[int]) -> None:
+            ...
+
+        def to_unmanaged(self) -> typing.Any:
+            ...
 
     @staticmethod
     def convert_to_managed(unmanaged: typing.Any) -> str:
@@ -502,9 +393,143 @@ class Utf16StringMarshaller(System.Object):
     def free(unmanaged: typing.Any) -> None:
         ...
 
-    @staticmethod
-    def get_pinnable_reference(str: str) -> typing.Any:
+
+class NativeMarshallingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def native_type(self) -> typing.Type:
         ...
+
+    def __init__(self, native_type: typing.Type) -> None:
+        ...
+
+
+class MarshalUsingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def native_type(self) -> typing.Type:
+        ...
+
+    @property
+    def count_element_name(self) -> str:
+        ...
+
+    @count_element_name.setter
+    def count_element_name(self, value: str) -> None:
+        ...
+
+    @property
+    def constant_element_count(self) -> int:
+        ...
+
+    @constant_element_count.setter
+    def constant_element_count(self, value: int) -> None:
+        ...
+
+    @property
+    def element_indirection_depth(self) -> int:
+        ...
+
+    @element_indirection_depth.setter
+    def element_indirection_depth(self, value: int) -> None:
+        ...
+
+    RETURNS_COUNT_VALUE: str = "return-value"
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, native_type: typing.Type) -> None:
+        ...
+
+
+class AnsiStringMarshaller(System.Object):
+    """This class has no documentation."""
+
+    class ManagedToUnmanagedIn:
+        """This class has no documentation."""
+
+        BUFFER_SIZE: int
+
+        def free(self) -> None:
+            ...
+
+        def from_managed(self, managed: str, buffer: System.Span[int]) -> None:
+            ...
+
+        def to_unmanaged(self) -> typing.Any:
+            ...
+
+    @staticmethod
+    def convert_to_managed(unmanaged: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    def convert_to_unmanaged(managed: str) -> typing.Any:
+        ...
+
+    @staticmethod
+    def free(unmanaged: typing.Any) -> None:
+        ...
+
+
+class SafeHandleMarshaller(typing.Generic[System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T], System.Object):
+    """This class has no documentation."""
+
+    class ManagedToUnmanagedIn:
+        """This class has no documentation."""
+
+        def free(self) -> None:
+            ...
+
+        def from_managed(self, handle: System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T) -> None:
+            ...
+
+        def to_unmanaged(self) -> System.IntPtr:
+            ...
+
+    class ManagedToUnmanagedRef:
+        """This class has no documentation."""
+
+        def __init__(self) -> None:
+            ...
+
+        def free(self) -> None:
+            ...
+
+        def from_managed(self, handle: System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T) -> None:
+            ...
+
+        def from_unmanaged(self, value: System.IntPtr) -> None:
+            ...
+
+        def on_invoked(self) -> None:
+            ...
+
+        def to_managed_finally(self) -> System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T:
+            ...
+
+        def to_unmanaged(self) -> System.IntPtr:
+            ...
+
+    class ManagedToUnmanagedOut:
+        """This class has no documentation."""
+
+        def __init__(self) -> None:
+            ...
+
+        def free(self) -> None:
+            ...
+
+        def from_unmanaged(self, value: System.IntPtr) -> None:
+            ...
+
+        def to_managed(self) -> System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T:
+            ...
 
 
 class SpanMarshaller(typing.Generic[System_Runtime_InteropServices_Marshalling_SpanMarshaller_T, System_Runtime_InteropServices_Marshalling_SpanMarshaller_TUnmanagedElement], System.Object):
@@ -568,58 +593,33 @@ class SpanMarshaller(typing.Generic[System_Runtime_InteropServices_Marshalling_S
         ...
 
 
-class SafeHandleMarshaller(typing.Generic[System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T], System.Object):
+class BStrStringMarshaller(System.Object):
     """This class has no documentation."""
 
     class ManagedToUnmanagedIn:
         """This class has no documentation."""
 
-        def free(self) -> None:
-            ...
-
-        def from_managed(self, handle: System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T) -> None:
-            ...
-
-        def to_unmanaged(self) -> System.IntPtr:
-            ...
-
-    class ManagedToUnmanagedRef:
-        """This class has no documentation."""
-
-        def __init__(self) -> None:
-            ...
+        BUFFER_SIZE: int
 
         def free(self) -> None:
             ...
 
-        def from_managed(self, handle: System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T) -> None:
+        def from_managed(self, managed: str, buffer: System.Span[int]) -> None:
             ...
 
-        def from_unmanaged(self, value: System.IntPtr) -> None:
+        def to_unmanaged(self) -> typing.Any:
             ...
 
-        def on_invoked(self) -> None:
-            ...
+    @staticmethod
+    def convert_to_managed(unmanaged: typing.Any) -> str:
+        ...
 
-        def to_managed_finally(self) -> System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T:
-            ...
+    @staticmethod
+    def convert_to_unmanaged(managed: str) -> typing.Any:
+        ...
 
-        def to_unmanaged(self) -> System.IntPtr:
-            ...
-
-    class ManagedToUnmanagedOut:
-        """This class has no documentation."""
-
-        def __init__(self) -> None:
-            ...
-
-        def free(self) -> None:
-            ...
-
-        def from_unmanaged(self, value: System.IntPtr) -> None:
-            ...
-
-        def to_managed(self) -> System_Runtime_InteropServices_Marshalling_SafeHandleMarshaller_T:
-            ...
+    @staticmethod
+    def free(unmanaged: typing.Any) -> None:
+        ...
 
 

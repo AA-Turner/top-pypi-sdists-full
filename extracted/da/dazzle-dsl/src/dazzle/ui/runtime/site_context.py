@@ -68,9 +68,20 @@ def _extract_footer_columns(footer: dict[str, Any]) -> list[SiteFooterColumn]:
     return columns
 
 
+def _brand_value(brand: dict[str, Any], key: str, default: str) -> str:
+    """Null-safe brand lookup (#1423).
+
+    `.get(key, default)` only uses the default for *absent* keys \u2014 a sitespec
+    that carries the key present-but-null (`company_legal_name: null`, injected
+    by normalization) returns that None, and a downstream `str.replace(..., None)`
+    500s the whole root page. `or` degrades null to the default.
+    """
+    return brand.get(key) or default
+
+
 def _build_copyright_text(footer: dict[str, Any], brand: dict[str, Any]) -> str:
     """Build copyright/disclaimer text with template variable substitution."""
-    product_name = brand.get("product_name", "My App")
+    product_name = _brand_value(brand, "product_name", "My App")
     text = (
         footer.get("disclaimer")
         or footer.get("copyright")
@@ -79,7 +90,7 @@ def _build_copyright_text(footer: dict[str, Any], brand: dict[str, Any]) -> str:
     text = text.replace("{{year}}", str(datetime.now(tz=UTC).year))
     text = text.replace(
         "{{company_legal_name}}",
-        brand.get("company_legal_name", product_name),
+        _brand_value(brand, "company_legal_name", product_name),
     )
     return text
 
@@ -127,7 +138,7 @@ def build_site_page_context(
         SitePageContext ready for template rendering.
     """
     brand = sitespec_data.get("brand", {})
-    product_name = brand.get("product_name", "My App")
+    product_name = _brand_value(brand, "product_name", "My App")  # null-safe (#1423)
     layout = sitespec_data.get("layout", {})
     nav = layout.get("nav", {})
     auth_config = layout.get("auth") or {}

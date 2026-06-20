@@ -106,6 +106,11 @@ class Prices(System.Object):
     """Prices class used by IFillModels"""
 
     @property
+    def time(self) -> datetime.datetime:
+        """Start time for these prices (when the bar opened)"""
+        ...
+
+    @property
     def end_time(self) -> datetime.datetime:
         """End time for these prices"""
         ...
@@ -145,20 +150,22 @@ class Prices(System.Object):
         ...
 
     @overload
-    def __init__(self, end_time: typing.Union[datetime.datetime, datetime.date], bar: QuantConnect.Data.Market.IBar) -> None:
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date], bar: QuantConnect.Data.Market.IBar) -> None:
         """
-        Create an instance of Prices class with a data bar and end time
+        Create an instance of Prices class with a data bar and start/end time
         
+        :param time: The start time for these prices (when the bar opened)
         :param end_time: The end time for these prices
         :param bar: Data bar to use for prices
         """
         ...
 
     @overload
-    def __init__(self, end_time: typing.Union[datetime.datetime, datetime.date], current: float, open: float, high: float, low: float, close: float) -> None:
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date], current: float, open: float, high: float, low: float, close: float) -> None:
         """
         Create a instance of the Prices class with specific values for all prices
         
+        :param time: The start time for these prices (when the bar opened)
         :param end_time: The end time for these prices
         :param current: Current price
         :param open: Open price
@@ -238,6 +245,22 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         
         :param parameters: A FillModelParameters object containing the security and order
         :returns: Order fill information detailing the average price and quantity filled.
+        """
+        ...
+
+    def get_market_fill_price(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, prices: QuantConnect.Orders.Fills.Prices) -> float:
+        """
+        Gets the fill price for a market order. A hour/daily market order that was resting before the current bar
+        opened - it predates the bar, e.g. it was placed after the previous close or while waiting for fresh data -
+        fills at the bar open (the price when trading resumed, like a MarketOnOpenOrder) instead of the
+        bar close. An order placed during the bar still fills at the current price.
+        
+        
+        This Class is protected.
+        
+        :param asset: Security being filled
+        :param order: Order being filled
+        :param prices: The prices for the bar being filled on
         """
         ...
 
@@ -334,6 +357,21 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
 
     def set_python_wrapper(self, python_wrapper: QuantConnect.Python.FillModelPythonWrapper) -> None:
         """Used to set the FillModelPythonWrapper instance if any"""
+        ...
+
+    def should_wait_for_fresh_data(self, asset: QuantConnect.Securities.Security) -> bool:
+        """
+        Determines whether a market order filling on stale data should wait for fresh data instead of filling
+        on the stale price. This is only done for coarse resolutions (hour/daily), where the stale bar is the
+        previous close and a fresh bar (the next close/open) is expected. For minute/second/tick subscriptions
+        the previous behavior is kept (fill on the stale price with a warning), since stale data there represents
+        a genuine gap rather than a bar still forming.
+        
+        
+        This Class is protected.
+        
+        :param asset: Security being filled
+        """
         ...
 
     def stop_limit_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.StopLimitOrder) -> QuantConnect.Orders.OrderEvent:

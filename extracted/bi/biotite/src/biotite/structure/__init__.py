@@ -64,7 +64,8 @@ atom_id    int          1,2,3, ...          Atom serial number
 b_factor   float        0.9, 12.3, ...      Temperature factor
 occupancy  float        .1, .3, .9, ...     Occupancy
 charge     int          -2,-1,0,1,2, ...    Electric charge of the atom
-sym_id     string       1,2,3, ...          Symmetry ID for assemblies/symmetry mates
+sym_id     int          0,1,2, ...          Symmetry ID for assemblies/symmetry mates
+entity_id  string       '1','2', ...        Entity ID grouping equivalent chains
 =========  ===========  =================   =========================================
 
 For each type, the attributes can be accessed directly.
@@ -94,6 +95,10 @@ Some functionalities require that the input structure has an associated
 If no :class:`BondList` is associated, the ``bonds`` attribute is
 ``None``.
 
+A unit cell or simulation box can be associated by setting the ``box`` attribute with a
+``(3, 3)``-shaped :class:`ndarray` for an :class:`AtomArray` or a
+``(m, 3, 3)``-shaped :class:`ndarray` for an :class:`AtomArrayStack`.
+
 Based on the implementation in *NumPy* arrays, this package furthermore
 contains a comprehensive set of functions for structure analysis,
 manipulation and visualization.
@@ -112,6 +117,7 @@ from .celllist import *
 from .chains import *
 from .charges import *
 from .compare import *
+from .connect import *
 from .density import *
 from .dotbracket import *
 from .error import *

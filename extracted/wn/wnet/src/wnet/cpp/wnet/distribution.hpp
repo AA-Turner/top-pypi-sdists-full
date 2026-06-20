@@ -1,7 +1,9 @@
 #ifndef WNET_DISTRIBUTION_HPP
 #define WNET_DISTRIBUTION_HPP
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -224,16 +226,19 @@ public:
     class CloserThanIter {
         const VectorDistribution<DIM, position_type, intensity_type>& distribution;
         const VectorDistribution<DIM, position_type, intensity_type>& other_distribution;
-        intensity_type max_dist;
+        // The matching threshold and the distances it compares are real ground
+        // distances (the metric returns double), independent of the intensity
+        // type — so both are double, not intensity_type.
+        double max_dist;
         size_t current_index;
         size_t other_current_index;
         size_t last_window_start_index;
-        intensity_type current_distance;
+        double current_distance;
     public:
         CloserThanIter(
             const VectorDistribution<DIM, position_type, intensity_type>& distribution_,
             const VectorDistribution<DIM, position_type, intensity_type>& other_distribution_,
-            intensity_type max_dist_
+            double max_dist_
         ) : distribution(distribution_),
             other_distribution(other_distribution_),
             max_dist(max_dist_),
@@ -278,7 +283,7 @@ public:
         std::pair<size_t, size_t> get_indices() const {
             return {distribution.sorted_indices[current_index], other_distribution.sorted_indices[other_current_index]};
         }
-        intensity_type get_distance() const {
+        double get_distance() const {
             return current_distance;
         }
     };
@@ -286,7 +291,7 @@ public:
     template<typename DistMetric>
     CloserThanIter<DistMetric> closer_than_iter(
         const VectorDistribution<DIM, position_type, intensity_type>& other_distribution,
-        intensity_type max_dist
+        double max_dist
     ) const {
         return CloserThanIter<DistMetric>(*this, other_distribution, max_dist);
     };
@@ -335,6 +340,130 @@ public:
             if (cumsum >= threshold) break;
         }
         return VectorDistribution(std::move(new_positions), std::move(new_intensities));
+    }
+
+    // Lexicographic (dimension-by-dimension) ordering of two points.
+    static bool point_less(const Point_t& a, const Point_t& b) {
+        for (size_t d = 0; d < DIM; ++d) {
+            if (a[d] < b[d]) return true;
+            if (a[d] > b[d]) return false;
+        }
+        return false;
+    }
+
+    // Build a distribution from the given (unordered) points/intensities,
+    // sorted lexicographically by position and with peaks sharing an identical
+    // position merged into one (their intensities summed). This is the wnet
+    // analogue of masserstein's sort_confs + merge_confs.
+    static VectorDistribution merge_identical(
+        std::vector<std::array<position_type, DIM>>&& pos,
+        std::vector<intensity_type>&& ints
+    ) {
+        std::vector<size_t> idx(pos.size());
+        std::iota(idx.begin(), idx.end(), 0);
+        std::sort(idx.begin(), idx.end(),
+            [&pos](size_t a, size_t b) { return point_less(pos[a], pos[b]); });
+        std::vector<std::array<position_type, DIM>> out_pos;
+        std::vector<intensity_type> out_ints;
+        out_pos.reserve(pos.size());
+        out_ints.reserve(pos.size());
+        for (size_t i : idx) {
+            if (!out_pos.empty() && out_pos.back() == pos[i]) {
+                out_ints.back() += ints[i];
+            } else {
+                out_pos.push_back(pos[i]);
+                out_ints.push_back(ints[i]);
+            }
+        }
+        return VectorDistribution(std::move(out_pos), std::move(out_ints));
+    }
+
+    // Returns a copy with peaks sorted lexicographically by position
+    // (dimension 0 first, then 1, ...). Mirrors masserstein's sort_confs,
+    // generalised to DIM dimensions. Peaks are not merged.
+    VectorDistribution sorted_by_positions() const {
+        std::vector<std::array<position_type, DIM>> pos(positions);
+        std::vector<intensity_type> ints(intensities_vector);
+        std::vector<size_t> idx(pos.size());
+        std::iota(idx.begin(), idx.end(), 0);
+        std::sort(idx.begin(), idx.end(),
+            [&pos](size_t a, size_t b) { return point_less(pos[a], pos[b]); });
+        std::vector<std::array<position_type, DIM>> new_positions;
+        std::vector<intensity_type> new_intensities;
+        new_positions.reserve(pos.size());
+        new_intensities.reserve(pos.size());
+        for (size_t i : idx) {
+            new_positions.push_back(pos[i]);
+            new_intensities.push_back(ints[i]);
+        }
+        return VectorDistribution(std::move(new_positions), std::move(new_intensities));
+    }
+
+    // Returns the sum of this distribution and `other`: the concatenation of
+    // their peaks, with peaks sharing an identical position merged (intensities
+    // summed) and the result sorted lexicographically. Mirrors masserstein's
+    // Spectrum.__add__.
+    VectorDistribution add(const VectorDistribution& other) const {
+        std::vector<std::array<position_type, DIM>> pos;
+        std::vector<intensity_type> ints;
+        pos.reserve(size() + other.size());
+        ints.reserve(size() + other.size());
+        pos.insert(pos.end(), positions.begin(), positions.end());
+        pos.insert(pos.end(), other.positions.begin(), other.positions.end());
+        ints.insert(ints.end(), intensities_vector.begin(), intensities_vector.end());
+        ints.insert(ints.end(), other.intensities_vector.begin(), other.intensities_vector.end());
+        return merge_identical(std::move(pos), std::move(ints));
+    }
+
+    // Returns a copy with each position coordinate rounded to the nearest
+    // multiple of `bin_width`, then peaks falling in the same bin merged
+    // (intensities summed) and the result sorted lexicographically. This is the
+    // wnet analogue of masserstein's coarse_bin, generalised to DIM dimensions
+    // and parameterised by bin width rather than decimal digits.
+    VectorDistribution binned(double bin_width) const {
+        if (bin_width <= 0.0)
+            throw std::invalid_argument("bin_width must be positive");
+        std::vector<std::array<position_type, DIM>> pos;
+        std::vector<intensity_type> ints(intensities_vector);
+        pos.reserve(size());
+        for (const auto& p : positions) {
+            std::array<position_type, DIM> binned_p;
+            for (size_t d = 0; d < DIM; ++d)
+                binned_p[d] = static_cast<position_type>(
+                    std::round(static_cast<double>(p[d]) / bin_width) * bin_width);
+            pos.push_back(binned_p);
+        }
+        return merge_identical(std::move(pos), std::move(ints));
+    }
+
+    // Weighted linear combination Sum_i weights[i] * dists[i]: concatenates
+    // every peak of every input (each intensity scaled by that input's
+    // weight), merges peaks sharing an identical position (intensities summed)
+    // and returns the result sorted lexicographically. The wnet analogue of
+    // masserstein's Spectrum.ScalarProduct, generalised to DIM dimensions.
+    // (For an integer intensity_type the weighted product truncates, as in
+    // `scaled`.)
+    static VectorDistribution linear_combination(
+        const std::vector<VectorDistribution>& dists,
+        const std::vector<double>& weights
+    ) {
+        if (dists.size() != weights.size())
+            throw std::invalid_argument(
+                "scalar_product: number of distributions must match number of weights");
+        size_t total = 0;
+        for (const auto& d : dists) total += d.size();
+        std::vector<std::array<position_type, DIM>> pos;
+        std::vector<intensity_type> ints;
+        pos.reserve(total);
+        ints.reserve(total);
+        for (size_t k = 0; k < dists.size(); ++k) {
+            const double w = weights[k];
+            const auto& d = dists[k];
+            pos.insert(pos.end(), d.positions.begin(), d.positions.end());
+            for (const auto& v : d.intensities_vector)
+                ints.push_back(static_cast<intensity_type>(static_cast<double>(v) * w));
+        }
+        return merge_identical(std::move(pos), std::move(ints));
     }
 
     static VectorDistribution CreateRandom(size_t no_points,

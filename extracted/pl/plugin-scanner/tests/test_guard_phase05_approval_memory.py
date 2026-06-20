@@ -1116,7 +1116,7 @@ def test_gr119_publisher_scope_rejects_blank_publisher_identity(tmp_path: Path) 
     request = _request("req-no-publisher", publisher="")
     store.add_approval_request(request, "2026-05-13T00:00:00+00:00")
 
-    with pytest.raises(ValueError, match="no publisher scope"):
+    with pytest.raises(ValueError, match="unsupported_request_scope"):
         apply_approval_resolution(
             store=store,
             request_id="req-no-publisher",
@@ -1150,6 +1150,7 @@ def test_gr124_resolution_events_can_wake_polling_harness_clients(tmp_path: Path
     assert events[0]["payload"]["request_id"] == "req-event"
     assert events[0]["payload"]["action"] == "allow"
     assert events[0]["payload"]["scope"] == "artifact"
+    assert events[0]["payload"]["persisted_rule"] is False
 
 
 def test_gr122_duplicate_resolution_returns_idempotent_already_resolved_result(tmp_path: Path) -> None:

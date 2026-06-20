@@ -8,19 +8,23 @@
 #
 #    Principal author:       Jérôme Kieffer (Jerome.Kieffer@ESRF.eu)
 #
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#  .
+#  The above copyright notice and this permission notice shall be included in
+#  all copies or substantial portions of the Software.
+#  .
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#  THE SOFTWARE.
 """
 
 Authors: Henning O. Sorensen & Erik Knudsen
@@ -40,6 +44,7 @@ import re
 import logging
 
 from .fabioimage import FabioImage
+from .fabioutils import ENDIANNESS
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +61,7 @@ _DATA_TYPES = {
     # Valid but unsupported
     "Other_type": None,
 }
-"""Mapping from Data_type content to numpy equicalent"""
+"""Mapping from Data_type content to numpy equivalent"""
 
 
 class DtrekImage(FabioImage):
@@ -134,15 +139,10 @@ class DtrekImage(FabioImage):
             data = None
         else:
             # Read the data into the array
-            data = numpy.frombuffer(binary, numpy_type).copy()
-            if self.swap_needed():
-                try:
-                    data.byteswap(inplace=True)
-                except TypeError:
-                    # Older numpy without inplace
-                    data = data.byteswap()
+            stype = self.get_stype(self._dtype, self._get_dtrek_byte_order())
+            data = numpy.frombuffer(binary, stype).astype(self._dtype)
             try:
-                data.shape = self._shape
+                data = data.reshape(self._shape)
             except ValueError:
                 raise IOError(
                     "Size spec in d*TREK header does not match "
@@ -169,7 +169,7 @@ class DtrekImage(FabioImage):
     def _readheader(self, infile):
         """Read a d*TREK header.
 
-        After the execusion of this function, the cursor on infile will point
+        After the execution of this function, the cursor on infile will point
         at the end of the header (at the start of the binary data block).
 
         :param FileObject infile: A file object pointing at the first character
@@ -238,18 +238,15 @@ class DtrekImage(FabioImage):
                 data = data.astype(new_dtype)
 
             byte_order = self._get_dtrek_byte_order(
-                default_little_endian=numpy.little_endian
-            )
-            little_endian = byte_order == "little_endian"
-            if little_endian != numpy.little_endian:
-                data = data.byteswap()
+                default=ENDIANNESS.LITTLE if numpy.little_endian else ENDIANNESS.BIG)
+            data = data.astype(self.get_stype(data.dtype, byte_order))
 
             # Patch header to match the data
             self.header["Data_type"] = dtrek_data_type
             self.header["DIM"] = str(len(data.shape))
             for i, size in enumerate(reversed(data.shape)):
                 self.header["SIZE%d" % (i + 1)] = str(size)
-            self.header["BYTE_ORDER"] = byte_order
+            self.header["BYTE_ORDER"] = "little_endian" if byte_order==ENDIANNESS.LITTLE else "big_endian"
         else:
             # No data
             self.header["Data_type"] = "long int"
@@ -294,39 +291,19 @@ class DtrekImage(FabioImage):
             if data is not None:
                 data.tofile(outf)
 
-    def _get_dtrek_byte_order(self, default_little_endian=None):
+    def _get_dtrek_byte_order(self, default=ENDIANNESS.LITTLE) -> ENDIANNESS:
         """Returns the byte order value in d*TREK format."""
-        if "BYTE_ORDER" not in self.header:
-            if default_little_endian is None:
-                logger.warning("No byte order specified, assuming little_endian")
-                little_endian = True
-            else:
-                little_endian = default_little_endian
-        else:
+        if "BYTE_ORDER" in self.header:
             byte_order = self.header["BYTE_ORDER"]
-            little_endian = "little" in byte_order
-            big_endian = "big" in byte_order
-            if not little_endian and not big_endian:
+            if "little" in byte_order:
+                return ENDIANNESS.LITTLE
+            elif "big" in byte_order:
+                return ENDIANNESS.BIG
+            else:
                 logger.warning(
-                    "Invalid BYTE_ORDER value. Found '%s', assuming little_endian",
-                    byte_order,
+                    "Invalid BYTE_ORDER value. Found '%s', assuming default: %s",
+                    byte_order, default
                 )
-                little_endian = True
-
-        if little_endian:
-            return "little_endian"
+                return default
         else:
-            return "big_endian"
-
-        return byte_order
-
-    def swap_needed(self, check=True):
-        """
-        Returns True if the header does not use the same endianness than the
-        system.
-
-        :rtype: bool
-        """
-        byte_order = self._get_dtrek_byte_order()
-        little_endian = byte_order == "little_endian"
-        return little_endian != numpy.little_endian
+            return default

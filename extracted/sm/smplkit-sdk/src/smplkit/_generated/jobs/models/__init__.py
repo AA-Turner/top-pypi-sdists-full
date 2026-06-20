@@ -8,6 +8,7 @@ from .job_environment import JobEnvironment
 from .job_environments import JobEnvironments
 from .job_http_configuration import JobHttpConfiguration
 from .job_http_configuration_method import JobHttpConfigurationMethod
+from .job_kind_type_0 import JobKindType0
 from .job_list_response import JobListResponse
 from .job_request import JobRequest
 from .job_resource import JobResource
@@ -40,6 +41,7 @@ __all__ = (
     "JobEnvironments",
     "JobHttpConfiguration",
     "JobHttpConfigurationMethod",
+    "JobKindType0",
     "JobListResponse",
     "JobRequest",
     "JobResource",

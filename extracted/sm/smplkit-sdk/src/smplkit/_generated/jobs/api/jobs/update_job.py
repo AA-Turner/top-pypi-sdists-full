@@ -70,11 +70,13 @@ def sync_detailed(
 
      Replace an existing job. Every writable field is overwritten.
 
-    Set enablement per environment via the `environments` map (a recurring
-    job), or by recreating a one-off job in the desired environment. Each
-    environment may carry its own cron `schedule` override. Editing an
-    environment's effective schedule recomputes its next fire time; an edit that
-    leaves an environment's schedule unchanged preserves its existing cadence.
+    The job's kind is re-derived from the new `schedule` (omit it for a manual
+    job). Set enablement per environment via the `environments` map (a recurring
+    or manual job), or by recreating a one-off job in the desired environment.
+    Each environment may carry its own cron `schedule` override (recurring jobs
+    only). Editing a recurring environment's effective schedule recomputes its
+    next fire time; an edit that leaves it unchanged preserves the existing
+    cadence.
 
     Args:
         job_id (str):
@@ -117,11 +119,13 @@ def sync(
 
      Replace an existing job. Every writable field is overwritten.
 
-    Set enablement per environment via the `environments` map (a recurring
-    job), or by recreating a one-off job in the desired environment. Each
-    environment may carry its own cron `schedule` override. Editing an
-    environment's effective schedule recomputes its next fire time; an edit that
-    leaves an environment's schedule unchanged preserves its existing cadence.
+    The job's kind is re-derived from the new `schedule` (omit it for a manual
+    job). Set enablement per environment via the `environments` map (a recurring
+    or manual job), or by recreating a one-off job in the desired environment.
+    Each environment may carry its own cron `schedule` override (recurring jobs
+    only). Editing a recurring environment's effective schedule recomputes its
+    next fire time; an edit that leaves it unchanged preserves the existing
+    cadence.
 
     Args:
         job_id (str):
@@ -159,11 +163,13 @@ async def asyncio_detailed(
 
      Replace an existing job. Every writable field is overwritten.
 
-    Set enablement per environment via the `environments` map (a recurring
-    job), or by recreating a one-off job in the desired environment. Each
-    environment may carry its own cron `schedule` override. Editing an
-    environment's effective schedule recomputes its next fire time; an edit that
-    leaves an environment's schedule unchanged preserves its existing cadence.
+    The job's kind is re-derived from the new `schedule` (omit it for a manual
+    job). Set enablement per environment via the `environments` map (a recurring
+    or manual job), or by recreating a one-off job in the desired environment.
+    Each environment may carry its own cron `schedule` override (recurring jobs
+    only). Editing a recurring environment's effective schedule recomputes its
+    next fire time; an edit that leaves it unchanged preserves the existing
+    cadence.
 
     Args:
         job_id (str):
@@ -204,11 +210,13 @@ async def asyncio(
 
      Replace an existing job. Every writable field is overwritten.
 
-    Set enablement per environment via the `environments` map (a recurring
-    job), or by recreating a one-off job in the desired environment. Each
-    environment may carry its own cron `schedule` override. Editing an
-    environment's effective schedule recomputes its next fire time; an edit that
-    leaves an environment's schedule unchanged preserves its existing cadence.
+    The job's kind is re-derived from the new `schedule` (omit it for a manual
+    job). Set enablement per environment via the `environments` map (a recurring
+    or manual job), or by recreating a one-off job in the desired environment.
+    Each environment may carry its own cron `schedule` override (recurring jobs
+    only). Editing a recurring environment's effective schedule recomputes its
+    next fire time; an edit that leaves it unchanged preserves the existing
+    cadence.
 
     Args:
         job_id (str):

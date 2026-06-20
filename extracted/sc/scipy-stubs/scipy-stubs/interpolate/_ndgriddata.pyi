@@ -1,12 +1,12 @@
 from _typeshed import Incomplete
-from typing import Any, Generic, Literal, TypeAlias, TypedDict, overload, type_check_only
-from typing_extensions import TypeVar, Unpack, override
+from typing import Any, Generic, Literal, TypedDict, Unpack, overload, override, type_check_only
+from typing_extensions import TypeVar
 
 import numpy as np
 import optype.numpy as onp
 
 from ._interpnd import CloughTocher2DInterpolator, LinearNDInterpolator, NDInterpolatorBase
-from scipy.spatial._ckdtree import cKDTree
+from scipy.spatial import KDTree
 
 __all__ = ["CloughTocher2DInterpolator", "LinearNDInterpolator", "NearestNDInterpolator", "griddata"]
 
@@ -14,8 +14,8 @@ __all__ = ["CloughTocher2DInterpolator", "LinearNDInterpolator", "NearestNDInter
 
 _CT_co = TypeVar("_CT_co", bound=np.float64 | np.complex128, default=np.float64, covariant=True)
 
-_Method: TypeAlias = Literal["nearest", "linear", "cubic"]
-_ToXi: TypeAlias = onp.ToFloat2D | tuple[onp.ToFloat1D | onp.ToFloat2D, ...]
+type _Method = Literal["nearest", "linear", "cubic"]
+type _ToXi = onp.ToFloat2D | tuple[onp.ToFloat1D | onp.ToFloat2D, ...]
 
 @type_check_only
 class _TreeOptions(TypedDict, total=False):
@@ -31,11 +31,12 @@ class _QueryOptions(TypedDict, total=False):
     p: onp.ToFloat
     distance_upper_bound: onp.ToFloat
     workers: int
+    simplex_tolerance: float
 
 ###
 
 class NearestNDInterpolator(NDInterpolatorBase[_CT_co], Generic[_CT_co]):
-    tree: cKDTree
+    tree: KDTree
 
     #
     @overload
@@ -81,6 +82,7 @@ def griddata(
     method: _Method = "linear",
     fill_value: onp.ToFloat = ...,  # np.nan
     rescale: bool = False,
+    simplex_tolerance: float = 1.0,
 ) -> onp.Array[onp.AtLeast1D[Any], np.float64]: ...
 @overload
 def griddata(
@@ -90,6 +92,7 @@ def griddata(
     method: _Method = "linear",
     fill_value: onp.ToComplex = ...,  # np.nan
     rescale: bool = False,
+    simplex_tolerance: float = 1.0,
 ) -> onp.Array[onp.AtLeast1D[Any], np.complex128]: ...
 @overload
 def griddata(
@@ -99,4 +102,5 @@ def griddata(
     method: _Method = "linear",
     fill_value: onp.ToComplex = ...,  # np.nan
     rescale: bool = False,
+    simplex_tolerance: float = 1.0,
 ) -> onp.Array[onp.AtLeast1D[Any], Incomplete]: ...

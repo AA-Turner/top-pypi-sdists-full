@@ -1,18 +1,27 @@
 import gc
 import threading
 import time
+from typing import Generator
 from unittest import mock
 
+import fakeredis
 import pytest
 import redis
 from redis.client import Pipeline
 
+import bec_lib.messages as bec_messages
 from bec_lib import messages
-from bec_lib.endpoints import EndpointInfo, MessageEndpoints, MessageOp
-from bec_lib.redis_connector import MessageObject, RedisConnector
+from bec_lib.endpoints import EndpointInfo, EndpointType, MessageEndpoints, MessageOp
+from bec_lib.messages import ProcedureExecutionMessage
+from bec_lib.redis_connector import (
+    IncompatibleMessageForEndpoint,
+    IncompatibleRedisOperation,
+    MessageObject,
+)
+from bec_lib.redis_connector.managed_redis_connection import ManagedRedisConnection
 from bec_lib.serialization import MsgpackSerialization
 
-from .test_redis_connector import TestMessage
+from .test_managed_redis_connection import TestMessage
 
 # pylint: disable=protected-access
 # pylint: disable=missing-function-docstring
@@ -23,6 +32,22 @@ from .test_redis_connector import TestMessage
 
 TestStreamEndpoint = EndpointInfo("test", TestMessage, MessageOp.STREAM)
 TestStreamEndpoint2 = EndpointInfo("test2", TestMessage, MessageOp.STREAM)
+
+
+def fake_redis_server(host, port, **kwargs):
+    redis = fakeredis.FakeRedis()
+    return redis
+
+
+@pytest.fixture
+def connected_connector():
+    ManagedRedisConnection.RETRY_ON_TIMEOUT = 0
+    connector = ManagedRedisConnection("localhost:1", redis_cls=fake_redis_server)
+    connector.flushall()
+    try:
+        yield connector
+    finally:
+        connector.shutdown()
 
 
 @pytest.mark.parametrize(
@@ -157,21 +182,21 @@ def test_redis_connector_unregister_cb_not_topic(connected_connector):
     connector.register(topics=topic2, cb=received_event1, start_thread=False)
 
     # normal behavior with two callbacks for the same topic
-    connector.send(topic1, TestMessage())
+    connector.send(topic1.endpoint, TestMessage())
     connector.poll_messages(timeout=1)
     assert received_event1.call_count == 1
     assert received_event2.call_count == 1
 
     # unregistering one callback for a topic should not remove the topic from the list
     connector.unregister(topic1, cb=received_event1)
-    connector.send(topic1, TestMessage())
+    connector.send(topic1.endpoint, TestMessage())
     connector.poll_messages(timeout=1)
     assert received_event1.call_count == 1
     assert received_event2.call_count == 2
 
     # unregistering the last callback for a topic should remove the topic from the list
     connector.unregister(topic1, cb=received_event2)
-    connector.send(topic1, TestMessage())
+    connector.send(topic1.endpoint, TestMessage())
     try:
         connector.poll_messages(timeout=1)
     except TimeoutError:
@@ -182,8 +207,8 @@ def test_redis_connector_unregister_cb_not_topic(connected_connector):
 
 def test_redis_connector_unregister_topic_keeps_others_alive(connected_connector):
     def send_msgs_and_poll(timeout=None):
-        connector.send(topic1, TestMessage())
-        connector.send(topic2, TestMessage())
+        connector.send(topic1.endpoint, TestMessage())
+        connector.send(topic2.endpoint, TestMessage())
         time.sleep(0.1)  # give some time for messages to be received
         connector.poll_messages(timeout=timeout)
 
@@ -350,23 +375,6 @@ def test_redis_connector_xrange(connected_connector):
     assert connector.xrange("test2", "-", "+") is None
 
 
-@pytest.mark.parametrize("endpoint", ["test", MessageEndpoints.processed_data("test")])
-def test_redis_connector_get_last(connected_connector, endpoint):
-    connector = connected_connector
-    connector.xadd(endpoint, {"data": 1})
-    connector.xadd(endpoint, {"data": 2})
-    connector.xadd(endpoint, {"data": 3})
-    assert connector.get_last(endpoint) == {"data": 3}
-    assert connector.get_last(endpoint) == {"data": 3}
-    assert connector.get_last("test2") is None
-    with pytest.raises(TypeError):
-        assert connector.get_last(5)
-    assert list(connector.get_last(endpoint, "data", count=3)) == [1, 2, 3]
-    assert list(connector.get_last(endpoint, count=4)) == [{"data": 1}, {"data": 2}, {"data": 3}]
-    assert connector.get_last(endpoint, count=0) is None
-    assert connector.get_last(endpoint, count=-1) is None
-
-
 @pytest.mark.timeout(5)
 def test_redis_connector_register_stream(connected_connector):
     connector = connected_connector
@@ -433,12 +441,12 @@ def test_redis_connector_register_stream_list(connected_connector, endpoint):
     cb_mock = mock.Mock(spec=[])  # spec is here to remove all attributes
     connector.register(endpoint, cb=cb_mock, start_thread=False, a=1)
     for ep in endpoint:
-        connector.xadd(ep, {"data": 1})
+        connector.xadd(ep.endpoint, {"data": 1})
         connector.poll_messages()
     assert mock.call({"data": 1}, a=1) in cb_mock.mock_calls
 
     for ep in endpoint:
-        connector.xadd(ep, {"data": 2})
+        connector.xadd(ep.endpoint, {"data": 2})
         connector.poll_messages()
     assert mock.call({"data": 2}, a=1) in cb_mock.mock_calls
     connector.unregister(endpoint)
@@ -486,7 +494,7 @@ def test_redis_connector_register_stream_newest_only(connected_connector):
     cb_mock = mock.Mock(spec=[], side_effect=lambda _: time.sleep(1))
 
     connector.register(endpoint, cb=cb_mock, newest_only=True)
-    connector.xadd(endpoint, {"data": 0})
+    connector.xadd(endpoint.endpoint, {"data": 0})
     # from here: cb_mock will be called from another thread when new stream item is pushed
     # cb_mock.call_count will be increased before sleep time (when call has just been done)
     while cb_mock.call_count == 0:
@@ -495,9 +503,9 @@ def test_redis_connector_register_stream_newest_only(connected_connector):
     cb_mock.reset_mock()
     # cb_mock is now sleeping...
     # Meanwhile data is published:
-    connector.xadd(endpoint, {"data": 1})
-    connector.xadd(endpoint, {"data": 2})
-    connector.xadd(endpoint, {"data": 3})
+    connector.xadd(endpoint.endpoint, {"data": 1})
+    connector.xadd(endpoint.endpoint, {"data": 2})
+    connector.xadd(endpoint.endpoint, {"data": 3})
     while cb_mock.call_count == 0:
         time.sleep(0.01)
     # cb_mock has been called for the second time ;
@@ -519,14 +527,14 @@ def test_redis_connector_register_stream_newest_only_multiple_endpoints_same_cb(
     connector.register(endpoint, cb=cb_mock, newest_only=True, a=1)
     time.sleep(0.1)
     for ep in endpoint:
-        connector.xadd(ep, {"data": 1})
+        connector.xadd(ep.endpoint, {"data": 1})
     while cb_mock.call_count < 2:
         time.sleep(0.1)
     assert mock.call({"data": 1}, a=1) in cb_mock.mock_calls
     cb_mock.reset_mock()
 
     for ep in endpoint:
-        connector.xadd(ep, {"data": 2})
+        connector.xadd(ep.endpoint, {"data": 2})
     while cb_mock.call_count < 2:
         time.sleep(0.1)
     assert mock.call({"data": 2}, a=1) in cb_mock.mock_calls
@@ -588,7 +596,7 @@ def test_redis_connector_message_alternated_pass(connected_connector):
     assert msg_received == [data_original]
 
 
-def test_lrem(connected_connector: RedisConnector):
+def test_lrem(connected_connector: ManagedRedisConnection):
     conn, ep = connected_connector, MessageEndpoints.procedure_execution
     msgs = [
         messages.ProcedureExecutionMessage(
@@ -597,47 +605,14 @@ def test_lrem(connected_connector: RedisConnector):
         for i, _id in enumerate(("a", "b", "c"))
     ]
     for msg in msgs:
-        conn.rpush(ep(msg.queue), msg)
-    assert len(conn.lrange(ep("primary"), 0, -1)) == 3
-    conn.lrem(ep(msgs[1].queue), 0, msgs[1])
-    list_contents = conn.lrange(ep("primary"), 0, -1)
+        conn.rpush(ep(msg.queue).endpoint, msg)
+    assert len(conn.lrange(ep("primary").endpoint, 0, -1)) == 3
+    conn.lrem(ep(msgs[1].queue).endpoint, 0, msgs[1])
+    list_contents = conn.lrange(ep("primary").endpoint, 0, -1)
     assert list_contents == [msgs[0], msgs[2]]
 
 
-def test_connector_publish_metrics(connected_connector):
-
-    start = time.time()
-    data = []
-    ep = MessageEndpoints.dynamic_metric("test")
-
-    def cb(msg):
-        nonlocal data
-        data.append(msg.value)
-
-    connected_connector.register(ep, cb=cb, start_thread=False)
-    connected_connector.publish_metrics(
-        "test",
-        {
-            "m1": 5,
-            "m2": 5.5,
-            "m3": {"value": "test", "possible_values": ["test", "prod"]},
-            "m4": True,
-        },
-    )
-    connected_connector.poll_messages(timeout=1)
-
-    stop = time.time()
-    res = data[0]
-    assert isinstance(res, messages.DynamicMetricMessage)
-    assert start <= res.timestamp <= stop
-    assert res.metrics["_m1"].value == 5
-    assert res.metrics["_m2"].value == 5.5
-    assert res.metrics["_m3"].value == "test"
-    assert set(res.metrics["_m3"].possible_values) == set(["prod", "test"])
-    assert res.metrics["_m4"].value is True
-
-
-def test_merging_streams_does_not_skip_messages(connected_connector: RedisConnector):
+def test_merging_streams_does_not_skip_messages(connected_connector: ManagedRedisConnection):
     connector = connected_connector
     cb_normal = mock.Mock(spec=[])  # spec is here to remove all attributes
     cb_from_start = mock.Mock(spec=[])  # spec is here to remove all attributes

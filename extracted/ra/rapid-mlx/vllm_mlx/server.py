@@ -207,6 +207,13 @@ _embedding_model_locked: str | None = None  # Set when --embedding-model is used
 _api_key: str | None = None
 _auth_warning_logged: bool = False
 
+# Per-request body size cap (DoS defense). 0 disables. Resolved from
+# CLI ``--max-request-bytes`` / ``RAPID_MLX_MAX_REQUEST_BYTES`` and
+# pushed into ``ServerConfig.max_request_bytes`` via ``_sync_config``;
+# the ASGI middleware (``middleware/body_size.py``) reads it per
+# request, so a test fixture mutating the config takes effect immediately.
+_max_request_bytes: int = 8 * 1024 * 1024
+
 # Reasoning parser (for models like Qwen3, DeepSeek-R1, MiniMax)
 _reasoning_parser = None  # ReasoningParser instance when enabled
 _reasoning_parser_name: str | None = None  # Parser name (e.g., "minimax")
@@ -374,12 +381,19 @@ async def lifespan(app: FastAPI):
 
     # Print the real "Ready:" banner now — only here is the port truly
     # accepting connections AND the engine warmed up. The CLI's earlier
-    # "Starting server …" line is replaced by this. If bind_host/bind_port
-    # weren't stashed (e.g. embedded usage where uvicorn is owned elsewhere),
-    # fall back silently.
+    # "Starting server …" line is replaced by this. If neither the
+    # host/port nor inherited-fd source of truth was stashed (e.g.
+    # embedded usage where uvicorn is owned elsewhere), fall back silently.
     if _cfg.bind_host and _cfg.bind_port:
         print(f"  Ready: http://{_cfg.bind_host}:{_cfg.bind_port}/v1")
         print(f"  Docs:  http://{_cfg.bind_host}:{_cfg.bind_port}/docs")
+        print()
+    elif _cfg.bind_listen_fd is not None:
+        # Socket-activation branch: the supervisor's ``getsockname`` is the
+        # source of truth for the bind address (we don't probe it). Print
+        # the fd shape so log readers can match it to the supervisor's
+        # ``LISTEN_FDS=1`` handoff record.
+        print(f"  Ready: inherited fd {_cfg.bind_listen_fd}")
         print()
 
     yield
@@ -437,6 +451,19 @@ from .routes.audio import install_audio_body_limit_middleware  # noqa: E402
 
 install_audio_body_limit_middleware(app)
 
+# SECURITY: blanket request-body size cap across all /v1/* routes.
+# Defends against the DoS pattern documented in rapid-desktop#273 / #463
+# where a 10–100 MB JSON body silently runs full prefill (~60–90 s on a
+# 27B alias) before the client times out. See middleware/body_size.py
+# for the design rationale, the path-scoping (skips
+# ``/v1/audio/transcriptions`` so the multipart-aware 25 MB cap upstream
+# is not trampled by the generic 8 MiB JSON cap), and the limit lookup
+# (ServerConfig.max_request_bytes, overridable via --max-request-bytes /
+# RAPID_MLX_MAX_REQUEST_BYTES).
+from .middleware.body_size import install_request_body_limit_middleware  # noqa: E402
+
+install_request_body_limit_middleware(app)
+
 # CORS configuration — configurable via --cors-origins CLI flag
 
 
@@ -489,6 +516,21 @@ async def _http_exception_handler(
         409: "conflict_error",
         429: "rate_limit_error",
     }
+
+    # Structured-detail escape hatch: route handlers may raise
+    # ``HTTPException(detail={"error": {...}})`` to emit a custom
+    # OpenAI-shaped envelope (e.g. ``code: "context_length_exceeded"``
+    # for the token-budget gate). When the detail already carries the
+    # full ``{"error": {...}}`` shape, pass it through unchanged so the
+    # ``code`` / ``param`` fields land in the response. Bare-string
+    # detail keeps the legacy wrapping below.
+    detail = exc.detail
+    if isinstance(detail, dict) and isinstance(detail.get("error"), dict):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=detail,
+            headers=getattr(exc, "headers", None),
+        )
 
     return JSONResponse(
         status_code=exc.status_code,
@@ -908,6 +950,7 @@ def _sync_config() -> None:
     cfg.embedding_engine = _embedding_engine
     cfg.embedding_model_locked = _embedding_model_locked
     cfg.api_key = _api_key
+    cfg.max_request_bytes = _max_request_bytes
     cfg.cloud_router = _cloud_router
     cfg.gc_control = _gc_control
     cfg.no_thinking = _no_thinking
@@ -976,11 +1019,13 @@ from .routes.embeddings import router as _embeddings_router
 from .routes.health import probe_router as _probe_router
 from .routes.health import router as _health_router
 from .routes.mcp_routes import router as _mcp_router
+from .routes.metrics import router as _metrics_router
 from .routes.models import router as _models_router
 from .routes.responses import router as _responses_router
 
 app.include_router(_probe_router)
 app.include_router(_health_router)
+app.include_router(_metrics_router)
 app.include_router(_models_router)
 app.include_router(_chat_router)
 app.include_router(_completions_router)

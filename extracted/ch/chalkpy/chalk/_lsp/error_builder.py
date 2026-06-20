@@ -38,10 +38,10 @@ from chalk.utils.string import oxford_comma_list
 if TYPE_CHECKING:
     import types
 
-    from chalk_rs import FeatureClassAST, ResolverAST
     from sqlglot.expressions import Select, Union
 
     from chalk.features import FeatureWrapper
+    from chalk_rs import FeatureClassAST, ResolverAST
 
 
 @dataclass

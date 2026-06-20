@@ -372,6 +372,8 @@ from .type_defs import (
     GetCurrentUserDataResponseTypeDef,
     GetEffectiveHoursOfOperationsRequestTypeDef,
     GetEffectiveHoursOfOperationsResponseTypeDef,
+    GetEvaluationFormValidationRequestTypeDef,
+    GetEvaluationFormValidationResponseTypeDef,
     GetFederationTokenRequestTypeDef,
     GetFederationTokenResponseTypeDef,
     GetFlowAssociationRequestTypeDef,
@@ -605,6 +607,8 @@ from .type_defs import (
     StartContactStreamingResponseTypeDef,
     StartEmailContactRequestTypeDef,
     StartEmailContactResponseTypeDef,
+    StartEvaluationFormValidationRequestTypeDef,
+    StartEvaluationFormValidationResponseTypeDef,
     StartOutboundChatContactRequestTypeDef,
     StartOutboundChatContactResponseTypeDef,
     StartOutboundEmailContactRequestTypeDef,
@@ -2464,6 +2468,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_effective_hours_of_operations)
         """
 
+    def get_evaluation_form_validation(
+        self, **kwargs: Unpack[GetEvaluationFormValidationRequestTypeDef]
+    ) -> GetEvaluationFormValidationResponseTypeDef:
+        """
+        Retrieves the status and results of a validation process started by <a
+        href="https://docs.aws.amazon.com/connect/latest/APIReference/API_StartEvaluationFormValidation.html">StartEvaluationFormValidation</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_evaluation_form_validation.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_evaluation_form_validation)
+        """
+
     def get_federation_token(
         self, **kwargs: Unpack[GetFederationTokenRequestTypeDef]
     ) -> GetFederationTokenResponseTypeDef:
@@ -3713,6 +3728,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_email_contact.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_email_contact)
+        """
+
+    def start_evaluation_form_validation(
+        self, **kwargs: Unpack[StartEvaluationFormValidationRequestTypeDef]
+    ) -> StartEvaluationFormValidationResponseTypeDef:
+        """
+        Starts an asynchronous validation process for an evaluation form version in the
+        specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_evaluation_form_validation.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_evaluation_form_validation)
         """
 
     def start_outbound_chat_contact(

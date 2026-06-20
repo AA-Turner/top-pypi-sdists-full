@@ -14,6 +14,10 @@ deploy path (which probes for a deterministic-named volume), the
 chalk-remote-call shim."""
 
 _MODEL_HANDLER_MARKER = "__chalk_model_handler__"
+_MODEL_HANDLER_ENTRYPOINT = "__chalk_handler_entrypoint__"
+"""Class attribute recording which method the deployed shim should call:
+``"predict"`` (preferred) or ``"handler"`` (legacy). Read by the static shim
+and by the image builder (to decide whether to provision ``chalkdf``)."""
 
 _T = TypeVar("_T", bound=type)
 
@@ -86,7 +90,22 @@ def model_handler(cls: _T) -> _T:
       instance before ``load_model()`` runs. Points at the mounted artifact
       volume.
 
-    The class **must** define ``handler(self, input) -> pa.RecordBatch``.
+    The class **must** define ``predict(self, df: chalkdf.DataFrame)`` (the
+    preferred entrypoint) or, for backwards compatibility, the legacy
+    ``handler(self, input: pa.RecordBatch) -> pa.RecordBatch``. If both are
+    defined, ``predict`` wins. From ``predict`` the return value may be any of:
+    ``pa.RecordBatch``, ``pa.Table``, ``chalkdf.DataFrame``,
+    ``pandas.DataFrame``, ``polars.DataFrame``, or ``numpy.ndarray`` (1D
+    becomes a single ``"prediction"`` column; 2D becomes ``col_0``, ``col_1``,
+    … columns).
+
+    The Arrow ↔ chalkdf conversion and the return-type coercion live in the
+    static shim (``chalk/ml/_chalk_handler_shim.py``) so the deployed runtime
+    owns the wire format; the decorated class stays pure user code with just a
+    ``predict`` (or legacy ``handler``) method. The shim only imports
+    ``chalkdf`` when the entrypoint is ``predict``, so legacy ``handler``
+    deployments take no chalkdf dependency.
+
     ``load_model`` is optional — if absent, chalkpy injects a default that
     deserializes ``self.model`` for the registered framework. Override
     ``load_model`` for custom setup (e.g., loading auxiliary files); call
@@ -95,14 +114,14 @@ def model_handler(cls: _T) -> _T:
 
     Example
     -------
-    >>> import pyarrow as pa
+    >>> import pandas as pd
     >>> from chalk.ml import model_handler
     >>>
     >>> @model_handler
     ... class RFModel:
-    ...     def handler(self, input: pa.RecordBatch) -> pa.RecordBatch:
-    ...         preds = self.model.predict(input.to_pandas())
-    ...         return pa.RecordBatch.from_arrays([pa.array(preds)], names=["prediction"])
+    ...     def predict(self, df):
+    ...         preds = self.model.predict(df.to_pandas())
+    ...         return pd.DataFrame({"prediction": preds})
     ...
     >>> client.register_model_version(
     ...     name="rf",
@@ -111,10 +130,20 @@ def model_handler(cls: _T) -> _T:
     """
     if not isinstance(cls, type):  # pyright: ignore[reportUnnecessaryIsInstance]
         raise TypeError(f"@model_handler must decorate a class, got {type(cls).__name__}.")
+    # `predict(self, df)` is the preferred entrypoint; `handler(self, input)` is
+    # still supported for backwards compatibility. Prefer `predict` when both
+    # exist. The chosen entrypoint is stamped on the class so the static shim
+    # and the image builder dispatch (and provision chalkdf) accordingly.
+    predict_attr = cls.__dict__.get("predict") or getattr(cls, "predict", None)
     handler_attr = cls.__dict__.get("handler") or getattr(cls, "handler", None)
-    if not callable(handler_attr):
+    if callable(predict_attr):
+        entrypoint = "predict"
+    elif callable(handler_attr):
+        entrypoint = "handler"
+    else:
         raise TypeError(
-            f"@model_handler class {cls.__name__!r} must define handler(self, input). Missing or not callable."
+            f"@model_handler class {cls.__name__!r} must define predict(self, df) "
+            + "(preferred) or the legacy handler(self, input). Neither is defined or callable."
         )
 
     annotations = dict(getattr(cls, "__annotations__", {}))
@@ -143,7 +172,7 @@ def model_handler(cls: _T) -> _T:
     # Inject __post_init__ that rebinds `self.files` from List[str] to
     # `Dict[str, Path]` at construction time — pointing at the user's local
     # paths — so local tests can do `instance.files["scaler.pkl"]` and
-    # `instance.handler(batch)` without any container plumbing. The shim
+    # `instance.predict(df)` without any container plumbing. The shim
     # overwrites these values in the container with paths under
     # /app/artifacts/. Wraps any existing user __post_init__.
     user_post_init: Optional[Callable[..., None]] = cls.__dict__.get("__post_init__")
@@ -151,6 +180,7 @@ def model_handler(cls: _T) -> _T:
 
     wrapped = dataclass(cls)
     setattr(wrapped, _MODEL_HANDLER_MARKER, True)
+    setattr(wrapped, _MODEL_HANDLER_ENTRYPOINT, entrypoint)
     return wrapped
 
 
@@ -175,3 +205,13 @@ def is_model_handler(obj: Any) -> bool:
     """True if `obj` is an instance (or class) wrapped with :func:`model_handler`."""
     target = obj if isinstance(obj, type) else type(obj)
     return getattr(target, _MODEL_HANDLER_MARKER, False) is True
+
+
+def model_handler_entrypoint(obj: Any) -> str:
+    """Return the deployed dispatch entrypoint for a decorated class/instance.
+
+    ``"predict"`` (preferred) or ``"handler"`` (legacy). Defaults to
+    ``"predict"`` for anything not stamped by :func:`model_handler`.
+    """
+    target = obj if isinstance(obj, type) else type(obj)
+    return getattr(target, _MODEL_HANDLER_ENTRYPOINT, "predict")

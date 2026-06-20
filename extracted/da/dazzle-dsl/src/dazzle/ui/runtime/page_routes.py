@@ -17,6 +17,7 @@ import inspect
 import json
 import logging
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -96,7 +97,12 @@ async def _resolve_auth_context(get_auth_context: Callable[..., Any] | None, req
     return result
 
 
-def _sync_fetch(url: str, cookies: dict[str, str] | None = None, timeout: int = 5) -> bytes:
+def _sync_fetch(
+    url: str,
+    cookies: dict[str, str] | None = None,
+    host: str | None = None,
+    timeout: int = 5,
+) -> bytes:
     """Synchronous HTTP GET — runs in a thread to avoid blocking the event loop."""
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in ("http", "https"):
@@ -104,18 +110,44 @@ def _sync_fetch(url: str, cookies: dict[str, str] | None = None, timeout: int = 
     req = urllib.request.Request(url)
     if cookies:
         req.add_header("Cookie", "; ".join(f"{k}={v}" for k, v in cookies.items()))
+    # #1421: this is a server-side self-call to the app's own REST API. The backend
+    # URL is often loopback (`127.0.0.1:$PORT` on Heroku/Railway — see
+    # `_resolve_backend_url`), which drops the tenant subdomain. Forward the original
+    # request's Host so `TenantResolutionMiddleware` re-resolves the SAME tenant on the
+    # internal hop instead of rejecting loopback as "Bad Host" (→ the detail page 404).
+    if host:
+        req.add_header("Host", host)
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosemgrep
         data: bytes = resp.read()
         return data
 
 
-async def _fetch_url(url: str, cookies: dict[str, str] | None = None) -> dict[str, Any]:
+async def _fetch_url(
+    url: str, cookies: dict[str, str] | None = None, host: str | None = None
+) -> dict[str, Any]:
     """Async-safe HTTP GET that returns parsed JSON.
 
     Uses asyncio.to_thread so the blocking urllib call doesn't stall
     the event loop — critical when the backend runs in the same process.
+    ``host`` forwards the original request's Host on this self-call (#1421).
     """
-    raw = await asyncio.to_thread(_sync_fetch, url, cookies)
+    try:
+        raw = await asyncio.to_thread(_sync_fetch, url, cookies, host)
+    except urllib.error.HTTPError as exc:
+        # #1422: this is a server-side self-call to the app's own REST API. Surface the
+        # upstream status DISTINCTLY — the callers below collapse the failure into a 404 /
+        # empty table, so without this a tenant/Host misroute on the internal hop reads as
+        # a generic "Failed to load". A 400/404 here under host tenancy usually means the
+        # internal hop lost the tenant Host (see #1421), not a genuinely missing row.
+        logger.warning(
+            "Internal page->REST self-fetch to %s returned HTTP %s%s — the page will "
+            "render not-found/empty. Under host tenancy a 400/404 here usually means the "
+            "internal hop lost the tenant Host (#1421/#1422), not a missing record.",
+            url,
+            exc.code,
+            f" (forwarded Host={host})" if host else " (no Host forwarded)",
+        )
+        raise
     result: dict[str, Any] = json.loads(raw)
     return result
 
@@ -152,11 +184,36 @@ def _resolve_backend_url(request: Any, fallback: str) -> str:
     return fallback
 
 
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _resolve_host_to_forward(effective_backend_url: str, original_host: str | None) -> str | None:
+    """The Host to forward on an internal self-fetch, or None (#1421).
+
+    Forward the original request's Host **only when the backend target is loopback**
+    (the Heroku/Railway `127.0.0.1:$PORT` shape — see `_resolve_backend_url`), so the
+    tenant re-resolves on the internal hop. For a `DAZZLE_BACKEND_URL` split-service
+    deployment the backend is an *external* host; overriding its `Host` would break that
+    backend's virtual-host routing — so don't. The same-origin `base_url` branch already
+    carries the correct host, so no forward is needed there either.
+    """
+    if original_host is None:
+        return None
+    try:
+        netloc = urllib.parse.urlparse(effective_backend_url).hostname or ""
+    except ValueError:
+        # Malformed backend URL — fail safe (don't forward), but surface it.
+        logger.debug("Could not parse backend URL %r for host-forward gate", effective_backend_url)
+        return None
+    return original_host if netloc in _LOOPBACK_HOSTS else None
+
+
 async def _fetch_json(
     backend_url: str,
     api_pattern: str | None,
     path_id: Any,
     cookies: dict[str, str] | None = None,
+    host: str | None = None,
 ) -> dict[str, Any]:
     """Fetch a single entity record from the backend API.
 
@@ -173,7 +230,7 @@ async def _fetch_json(
         return {"id": str(path_id), "error": "No API pattern"}
     url = f"{backend_url}{api_pattern.replace('{id}', str(path_id))}"
     try:
-        return await _fetch_url(url, cookies)
+        return await _fetch_url(url, cookies, host)
     except Exception:
         logger.warning("Failed to fetch entity data from %s", url, exc_info=True)
         return {"id": str(path_id), "error": "Failed to load"}
@@ -589,6 +646,9 @@ class _PageRequestContext:
     surface_name: str | None
     effective_backend_url: str
     cookies: dict[str, str] | None
+    # #1421: original request Host, forwarded on internal self-fetches so the tenant
+    # re-resolves on the loopback hop. None when the request carried no Host header.
+    host: str | None
     path_id: Any  # str | None
     ctx_overrides: dict[str, Any] = field(default_factory=dict)
 
@@ -680,6 +740,89 @@ def _resolve_nav_model(
     # Authenticated but no role matched a persona (e.g. admin/super_admin):
     # fall through to the legacy curated nav rather than the anon subset.
     return None
+
+
+@dataclass(frozen=True)
+class _ChromeAssets:
+    """The app-shell asset tuples `dispatch_render_page` needs, resolved from
+    `request.app.state` (#1392 item 2 — shared by page handlers + the route-override
+    response-contract chrome-wrap so an override's chrome === a page's chrome)."""
+
+    css_links: tuple[str, ...]
+    js_scripts: tuple[str, ...]
+    theme: str | None
+    font_preconnect: tuple[str, ...]
+    favicon: str
+
+
+def _resolve_chrome_assets(app_state: Any) -> _ChromeAssets:
+    """Resolve the chrome asset tuples from `app.state` (verbatim extraction of the
+    block previously inline in the page handlers)."""
+    return _ChromeAssets(
+        css_links=tuple(
+            getattr(app_state, "fragment_chrome_css_links", None)
+            or ("/static/dist/dazzle.min.css",)
+        ),
+        js_scripts=tuple(
+            getattr(app_state, "fragment_chrome_js_scripts", None)
+            or ("/static/dist/dazzle.min.js",)
+        ),
+        theme=getattr(app_state, "fragment_chrome_theme", None),
+        font_preconnect=tuple(getattr(app_state, "fragment_chrome_font_preconnect", None) or ()),
+        favicon=getattr(app_state, "fragment_chrome_favicon", "/static/assets/dazzle-favicon.svg"),
+    )
+
+
+async def build_app_page_context(
+    request: Any, *, deps: _PageRouterConfig | None = None, current_route: str
+) -> tuple[Any, _ChromeAssets]:
+    """Build a reusable app-shell `PageContext` + chrome assets for an arbitrary route
+    (#1392 item 2). Used by the route-override response-contract wrapper to chrome a
+    `# dazzle:returns fragment` handler with the same shell + assets a page gets.
+
+    Resolves auth/persona from the request (mirroring `_page_handler`), picks the
+    precomputed `NavModel` via `_resolve_nav_model`, and stamps `current_route`.
+    `nav_items`/`nav_groups` are left empty — the modern sidebar is driven by `nav_model`.
+
+    When `deps is None` (the route-override path, which has no page-router deps), the
+    appspec is read from `request.app.state.appspec` and `nav_model` is None — the
+    override renders in the app **shell frame** (topbar + chrome), the item-2 guarantee.
+    A fully persona-populated sidebar for overrides (needs the precomputed navs threaded
+    from `create_page_routes`) is a deliberate v1 follow-on.
+    """
+    from dazzle.render.context import PageContext
+
+    is_authenticated = False
+    user_roles: list[str] = []
+    get_auth_context = deps.get_auth_context if deps is not None else None
+    if get_auth_context is not None:
+        auth_ctx = await _resolve_auth_context(get_auth_context, request)
+        if auth_ctx and auth_ctx.is_authenticated:
+            is_authenticated = True
+            user_roles = list(getattr(auth_ctx.user, "roles", None) or [])
+
+    nav_model = (
+        _resolve_nav_model(deps, user_roles, authenticated=is_authenticated)
+        if deps is not None and get_auth_context is not None
+        else None
+    )
+    appspec = (
+        deps.appspec
+        if deps is not None
+        else getattr(getattr(getattr(request, "app", None), "state", None), "appspec", None)
+    )
+    _app_title = str(getattr(appspec, "app_title", None) or getattr(appspec, "name", None) or "App")
+    page_ctx = PageContext(
+        page_title=_app_title,
+        app_name=_app_title,
+        nav_items=[],
+        nav_groups=[],
+        current_route=current_route,
+        nav_model=nav_model,
+        user_roles=list(user_roles),
+        tenant_config=getattr(getattr(request, "state", None), "tenant_config", {}) or {},
+    )
+    return page_ctx, _resolve_chrome_assets(request.app.state)
 
 
 def _apply_anon_nav(prc: _PageRequestContext) -> None:
@@ -1139,6 +1282,7 @@ async def _handle_detail(prc: _PageRequestContext) -> None:
         prc.ctx.detail.api_endpoint or prc.ctx.detail.delete_url,
         prc.path_id,
         prc.cookies,
+        prc.host,
     )
     # Resolve FK dicts -> display strings so detail fields show names not UUIDs (#663)
     if req_detail.item and "error" not in req_detail.item:
@@ -1217,7 +1361,9 @@ async def _handle_detail(prc: _PageRequestContext) -> None:
     # Fetch related entity data for tabs (hub-and-spoke, #301)
     if req_detail.related_groups and prc.path_id:
 
-        async def _fetch_related_tab(tab: Any, _id: str, _backend: str, _ck: Any) -> None:
+        async def _fetch_related_tab(
+            tab: Any, _id: str, _backend: str, _ck: Any, _host: str | None
+        ) -> None:
             filter_params: dict[str, str] = {
                 f"filter[{tab.filter_field}]": _id,
                 "page": "1",
@@ -1229,7 +1375,7 @@ async def _handle_detail(prc: _PageRequestContext) -> None:
             params = urllib.parse.urlencode(filter_params)
             url = f"{_backend}{tab.api_endpoint}?{params}"
             try:
-                data = await _fetch_url(url, _ck)
+                data = await _fetch_url(url, _ck, _host)
                 tab.rows = data.get("items", [])
                 tab.total = data.get("total", len(tab.rows))
             except Exception:
@@ -1243,7 +1389,9 @@ async def _handle_detail(prc: _PageRequestContext) -> None:
         all_tabs = [tab for _group in req_detail.related_groups for tab in _group.tabs]
         await asyncio.gather(
             *[
-                _fetch_related_tab(tab, str(prc.path_id), prc.effective_backend_url, prc.cookies)
+                _fetch_related_tab(
+                    tab, str(prc.path_id), prc.effective_backend_url, prc.cookies, prc.host
+                )
                 for tab in all_tabs
             ]
         )
@@ -1257,7 +1405,7 @@ async def _handle_edit_form(prc: _PageRequestContext) -> None:
 
     # Fetch existing data using the *original* URL template
     form_data = await _fetch_json(
-        prc.effective_backend_url, prc.ctx.form.action_url, prc.path_id, prc.cookies
+        prc.effective_backend_url, prc.ctx.form.action_url, prc.path_id, prc.cookies, prc.host
     )
     if "error" not in form_data:
         req_form.initial_values = form_data
@@ -1382,7 +1530,7 @@ async def _handle_table(prc: _PageRequestContext) -> None:
         fetch_url = f"{prc.effective_backend_url}{req_table.api_endpoint}?{query_string}"
 
         try:
-            data = await _fetch_url(fetch_url, prc.cookies)
+            data = await _fetch_url(fetch_url, prc.cookies, prc.host)
             items = data.get("items", [])
             if items and isinstance(items[0], dict):
                 req_table.rows = items
@@ -1924,30 +2072,15 @@ def _render_response(prc: _PageRequestContext) -> Response:
         # downstream apps that already wire them — they're per-
         # deployment branding overrides, not a "use Jinja vs. typed"
         # toggle anymore.
-        app_state = prc.request.app.state
-        css_links = tuple(
-            getattr(app_state, "fragment_chrome_css_links", None)
-            or ("/static/dist/dazzle.min.css",)
-        )
-        js_scripts = tuple(
-            getattr(app_state, "fragment_chrome_js_scripts", None)
-            or ("/static/dist/dazzle.min.js",)
-        )
-        theme = getattr(app_state, "fragment_chrome_theme", None)
-        font_preconnect = tuple(getattr(app_state, "fragment_chrome_font_preconnect", None) or ())
-        favicon = getattr(
-            app_state,
-            "fragment_chrome_favicon",
-            "/static/assets/dazzle-favicon.svg",
-        )
+        _assets = _resolve_chrome_assets(prc.request.app.state)
         html = dispatch_render_page(
             render_ctx,
             rendered_inner,
-            css_links=css_links,
-            js_scripts=js_scripts,
-            theme=theme,
-            font_preconnect=font_preconnect,
-            favicon=favicon,
+            css_links=_assets.css_links,
+            js_scripts=_assets.js_scripts,
+            theme=_assets.theme,
+            font_preconnect=_assets.font_preconnect,
+            favicon=_assets.favicon,
         )
     response_headers: dict[str, str] = {}
     # hx-boost strips <head> from the response, so the browser's
@@ -1982,6 +2115,11 @@ async def _page_handler(
     effective_backend_url = _resolve_backend_url(request, deps.backend_url)
     cookies = dict(request.cookies) if request.cookies else None
     path_id = request.path_params.get("id")
+    # #1421: forward the original Host on internal self-fetches so a loopback backend
+    # URL (Heroku/Railway `127.0.0.1:$PORT`) still re-resolves the tenant — but ONLY for
+    # loopback targets (not an external DAZZLE_BACKEND_URL, whose vhost routing this would
+    # break; the review caught that regression).
+    host = _resolve_host_to_forward(effective_backend_url, request.headers.get("host"))
 
     prc = _PageRequestContext(
         deps=deps,
@@ -1991,6 +2129,7 @@ async def _page_handler(
         surface_name=surface_name,
         effective_backend_url=effective_backend_url,
         cookies=cookies,
+        host=host,
         path_id=path_id,
     )
 
@@ -2387,28 +2526,15 @@ async def _workspace_handler(
         user_roles=list(user_roles),
         tenant_config=getattr(getattr(request, "state", None), "tenant_config", {}) or {},
     )
-    app_state = request.app.state
-    css_links = tuple(
-        getattr(app_state, "fragment_chrome_css_links", None) or ("/static/dist/dazzle.min.css",)
-    )
-    js_scripts = tuple(
-        getattr(app_state, "fragment_chrome_js_scripts", None) or ("/static/dist/dazzle.min.js",)
-    )
-    theme = getattr(app_state, "fragment_chrome_theme", None)
-    font_preconnect = tuple(getattr(app_state, "fragment_chrome_font_preconnect", None) or ())
-    favicon = getattr(
-        app_state,
-        "fragment_chrome_favicon",
-        "/static/assets/dazzle-favicon.svg",
-    )
+    _assets = _resolve_chrome_assets(request.app.state)
     html = dispatch_render_page(
         page_ctx,
         workspace_inner,
-        css_links=css_links,
-        js_scripts=js_scripts,
-        theme=theme,
-        font_preconnect=font_preconnect,
-        favicon=favicon,
+        css_links=_assets.css_links,
+        js_scripts=_assets.js_scripts,
+        theme=_assets.theme,
+        font_preconnect=_assets.font_preconnect,
+        favicon=_assets.favicon,
     )
     return HTMLResponse(content=html)  # nosemgrep
 

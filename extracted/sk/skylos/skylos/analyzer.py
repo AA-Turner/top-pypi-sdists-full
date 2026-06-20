@@ -16,10 +16,7 @@ except ImportError:
 
 from skylos.visitors.base import Visitor
 
-from skylos.analysis.circular_deps import (
-    CircularDependencyRule,
-    _resolve_from_import_targets,
-)
+from skylos.analysis.circular_deps import _resolve_from_import_targets
 
 from skylos.constants import (
     AUTO_CALLED,
@@ -29,10 +26,7 @@ from skylos.constants import (
 
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.visitors.test_aware import TestAwareVisitor
-from skylos.visitors.languages.php import scan_php_file
-from skylos.visitors.languages.dart import scan_dart_file
-from skylos.visitors.languages.shell import SHELL_SOURCE_EXTS, scan_shell_file
-from skylos.visitors.languages.typescript import scan_typescript_file
+from skylos.visitors.languages.shell import SHELL_SOURCE_EXTS
 from skylos.visitors.languages.typescript.analysis import (
     build_ts_import_graph,
     demote_unconsumed_ts_exports,
@@ -40,18 +34,14 @@ from skylos.visitors.languages.typescript.analysis import (
     find_dead_ts_files,
     find_unused_ts_exports,
 )
-from skylos.visitors.languages.go import scan_go_file, clear_go_cache
-from skylos.visitors.languages.java import scan_java_file
-from skylos.visitors.languages.rust import scan_rust_file
-from skylos.visitors.languages.csharp import scan_csharp_file
-from skylos.visitors.languages.kotlin import scan_kotlin_file
+from skylos.visitors.languages.go import clear_go_cache
 
 from skylos.rules.secrets import scan_ctx as _secrets_scan_ctx
 
 from skylos.rules.danger.calls import DangerousCallsRule
 
 
-from skylos.config import get_all_ignore_lines, load_config
+from skylos.config import get_noqa_codes_by_line, get_skylos_ignore_lines, load_config
 from skylos.core.file_discovery import (
     discover_source_files,
     find_git_root,
@@ -60,53 +50,9 @@ from skylos.core.file_discovery import (
 
 from skylos.core.linter import LinterVisitor
 
-from skylos.rules.quality.complexity import ComplexityRule, CognitiveComplexityRule
-from skylos.rules.quality.nesting import NestingRule
-from skylos.rules.quality.structure import ArgCountRule, FunctionLengthRule
-from skylos.rules.quality.logic import (
-    MutableDefaultRule,
-    BareExceptRule,
-    DangerousComparisonRule,
-    DuplicateBranchRule,
-    TryBlockPatternsRule,
-    UnusedExceptVarRule,
-    ReturnConsistencyRule,
-    EmptyErrorHandlerRule,
-    MissingResourceCleanupRule,
-    DebugLeftoverRule,
-    SecurityTodoRule,
-    DisabledSecurityRule,
-    PhantomCallRule,
-    InsecureRandomRule,
-    HardcodedCredentialRule,
-    MockPlaceholderDataRule,
-    ErrorDisclosureRule,
-    BroadFilePermissionsRule,
-    PhantomDecoratorRule,
-    UnfinishedGenerationRule,
-    UndefinedConfigRule,
-    StaleMockRule,
-    DuplicateStringLiteralRule,
-    TooManyReturnsRule,
-    BooleanTrapRule,
-    BroadExceptionRule,
-    MissingNetworkTimeoutRule,
-    NoEffectStatementRule,
-)
-from skylos.rules.quality.practices import (
-    FrameworkPracticeRule,
-    TypeAnnotationPracticeRule,
-)
-from skylos.rules.quality._readability import OpaqueIdentifierRule
 from skylos.rules.quality.policy import analyze_repo_policy
 from skylos.rules.quality.phantom_refs import scan_repo_phantom_security_references
 from skylos.rules.vibe_dictionary import build_vibe_dictionary
-from skylos.rules.quality.performance import PerformanceRule
-from skylos.rules.quality.unreachable import UnreachableCodeRule
-from skylos.rules.quality.async_blocking import AsyncBlockingRule
-from skylos.rules.quality.class_size import GodClassRule, GodFileRule
-from skylos.rules.quality.coupling import CBORule
-from skylos.rules.quality.cohesion import LCOMRule
 from skylos.rules.quality.clones import (
     CloneConfig,
     GroupingMode,
@@ -115,11 +61,15 @@ from skylos.rules.quality.clones import (
     detect_pairs,
     group_pairs,
 )
-
 from skylos.analysis.penalties import apply_penalties
+from skylos.analysis.file_processing import (
+    collect_python_raw_imports,
+    scan_python_quality,
+    scan_non_python_file,
+    set_linter_node_types,
+)
 
 from skylos.scale.parallel_static import run_proc_file_parallel
-from skylos.rules.custom import load_custom_rules, load_community_rules
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -186,8 +136,6 @@ _CSHARP_SOURCE_EXTS = (".cs",)
 _KOTLIN_SOURCE_EXTS = (".kt", ".kts")
 _SHELL_SOURCE_EXTS = SHELL_SOURCE_EXTS
 _PYTHON_SOURCE_ROOT_NAMES = {"src", "lib", "python"}
-
-_TRY_NODE_TYPES = (ast.Try, getattr(ast, "TryStar", ast.Try))
 
 _HTML_PARSER_CALLBACKS = {
     "handle_starttag",
@@ -316,84 +264,6 @@ def _find_package_boundary_modules(
                     modules.add(target)
 
     return modules
-
-
-_LINTER_RULE_NODE_TYPES = {
-    ComplexityRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    CognitiveComplexityRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    NestingRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    AsyncBlockingRule: (
-        ast.Import,
-        ast.ImportFrom,
-        ast.AsyncFunctionDef,
-        ast.FunctionDef,
-        ast.Lambda,
-        ast.Call,
-    ),
-    ArgCountRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    FunctionLengthRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    MutableDefaultRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    BareExceptRule: (ast.ExceptHandler,),
-    DangerousComparisonRule: (ast.Compare,),
-    DuplicateBranchRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    TryBlockPatternsRule: (ast.Try,),
-    UnusedExceptVarRule: (ast.ExceptHandler,),
-    ReturnConsistencyRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    EmptyErrorHandlerRule: (ast.ExceptHandler, ast.With),
-    MissingResourceCleanupRule: (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef),
-    DebugLeftoverRule: (ast.Call,),
-    SecurityTodoRule: (ast.Module,),
-    DisabledSecurityRule: (ast.Call, ast.FunctionDef, ast.AsyncFunctionDef, ast.Assign),
-    PhantomCallRule: (ast.Module, ast.Call),
-    InsecureRandomRule: (ast.Assign,),
-    HardcodedCredentialRule: (ast.Assign, ast.FunctionDef, ast.AsyncFunctionDef),
-    ErrorDisclosureRule: (ast.ExceptHandler,),
-    BroadFilePermissionsRule: (ast.Call,),
-    UndefinedConfigRule: (ast.Module, ast.Call),
-    StaleMockRule: (ast.Module, ast.Call),
-    PhantomDecoratorRule: (
-        ast.Module,
-        ast.FunctionDef,
-        ast.AsyncFunctionDef,
-        ast.ClassDef,
-    ),
-    UnfinishedGenerationRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    DuplicateStringLiteralRule: (ast.Module,),
-    TooManyReturnsRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    BooleanTrapRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    BroadExceptionRule: (ast.ExceptHandler,),
-    MissingNetworkTimeoutRule: (ast.Call,),
-    NoEffectStatementRule: (ast.Expr,),
-    GodFileRule: (ast.Module,),
-    GodClassRule: (ast.ClassDef,),
-    CBORule: (ast.ClassDef,),
-    LCOMRule: (ast.ClassDef,),
-    UnreachableCodeRule: (
-        ast.Module,
-        ast.FunctionDef,
-        ast.AsyncFunctionDef,
-        ast.ClassDef,
-        ast.If,
-        ast.For,
-        ast.AsyncFor,
-        ast.While,
-        ast.With,
-        ast.AsyncWith,
-        *_TRY_NODE_TYPES,
-    ),
-    PerformanceRule: (ast.Call, ast.For),
-    TypeAnnotationPracticeRule: (ast.Module,),
-    FrameworkPracticeRule: (ast.Module,),
-    OpaqueIdentifierRule: (ast.Module,),
-    DangerousCallsRule: (ast.Module, ast.Import, ast.ImportFrom, ast.Assign, ast.Call),
-}
-
-
-def _set_linter_node_types(rules):
-    for rule in rules:
-        node_types = _LINTER_RULE_NODE_TYPES.get(type(rule))
-        if node_types:
-            rule.node_types = node_types
 
 
 def _is_secret_config_candidate(path: Path) -> bool:
@@ -1941,357 +1811,35 @@ class Skylos:
         pyproject_entrypoint_modules=None,
         config_file=None,
     ):
-        """Assemble the final result dict from analysis outputs."""
-        architecture_main_guard_modules = set(architecture_main_guard_modules or ())
-        pyproject_entrypoint_qnames = set(pyproject_entrypoint_qnames or ())
-        pyproject_entrypoint_modules = set(pyproject_entrypoint_modules or ())
+        from skylos.reporting.result_builder import build_analysis_result
 
-        evidence_root = getattr(self, "_project_root", None)
-        if evidence_root is None:
-            evidence_root = Path(path[0] if isinstance(path, (list, tuple)) else path)
-            if evidence_root.is_file():
-                evidence_root = evidence_root.parent
-        from skylos.deadcode.evidence import build_dead_code_evidence
-
-        dead_code_ledger = build_dead_code_evidence(
-            self.defs,
-            project_root=evidence_root,
+        return build_analysis_result(
+            self,
+            files,
+            thr,
+            exclude_folders,
+            enable_secrets,
+            enable_danger,
+            enable_quality,
+            enable_sca,
+            all_secrets,
+            all_dangers,
+            all_quality,
+            all_sca,
+            all_suppressed,
+            empty_files,
+            modmap,
+            all_raw_imports,
+            path,
+            unused_ts_exports=unused_ts_exports,
+            workspace_inventory=workspace_inventory,
+            architecture_abstractness=architecture_abstractness,
+            architecture_loc=architecture_loc,
+            architecture_main_guard_modules=architecture_main_guard_modules,
             pyproject_entrypoint_qnames=pyproject_entrypoint_qnames,
-        )
-        dead_code_evidence = dead_code_ledger.to_dict(evidence_root)
-        evidence_by_name = {
-            entry["qualified_name"]: entry
-            for entry in dead_code_evidence.get("symbols", [])
-        }
-
-        def attach_evidence(target: dict, definition) -> None:
-            entry = evidence_by_name.get(getattr(definition, "name", ""))
-            if not entry:
-                return
-            target["dead_code_classification"] = entry["classification"]
-            target["dead_code_evidence"] = list(entry.get("evidence") or [])
-
-        unused = []
-        dead_class_keys = {
-            key
-            for key, definition in self.defs.items()
-            if definition.type in ("class", "type")
-            and definition.references == 0
-            and not definition.is_exported
-            and definition.confidence > 0
-            and definition.confidence >= thr
-        }
-        class_key_by_name_file = {}
-        for key, definition in self.defs.items():
-            if definition.type in ("class", "type"):
-                class_key_by_name_file[
-                    (definition.name, str(Path(definition.filename).resolve()))
-                ] = key
-
-        for definition in self.defs.values():
-            if (
-                definition.references == 0
-                and not definition.is_exported
-                and definition.confidence > 0
-                and definition.confidence >= thr
-            ):
-                if definition.type == "method" and "." in definition.name:
-                    owner = definition.name.rsplit(".", 1)[0]
-                    owner_key = class_key_by_name_file.get(
-                        (owner, str(Path(definition.filename).resolve()))
-                    )
-                    if owner_key in dead_class_keys:
-                        continue
-                item = definition.to_dict()
-                attach_evidence(item, definition)
-                unused.append(item)
-
-        context_map = {}
-        for name, d in self.defs.items():
-            if d.type in ("class", "function", "method") and not name.startswith("_"):
-                loc = 1
-                node = getattr(d, "node", None)
-                if node is not None:
-                    start = getattr(node, "lineno", None)
-                    end = getattr(node, "end_lineno", None)
-                    if start is not None and end is not None:
-                        loc = max(1, end - start + 1)
-
-                is_dead = (
-                    d.references == 0
-                    and not d.is_exported
-                    and d.confidence > 0
-                    and d.confidence >= thr
-                )
-
-                context_entry = {
-                    "name": d.name,
-                    "file": str(d.filename),
-                    "line": d.line,
-                    "type": d.type,
-                    "loc": loc,
-                    "complexity": getattr(d, "complexity", 1),
-                    "calls": sorted(d.calls) if d.calls else [],
-                    "called_by": sorted(d.called_by) if d.called_by else [],
-                    "dead": is_dead,
-                }
-                attach_evidence(context_entry, d)
-                context_map[name] = context_entry
-
-        whitelisted = []
-        for d in self.defs.values():
-            reason = getattr(d, "skip_reason", None)
-            if reason:
-                entry = {
-                    "name": d.simple_name,
-                    "file": str(d.filename),
-                    "line": d.line,
-                    "reason": d.skip_reason,
-                    "category": "dead_code",
-                    "suppression_code": getattr(d, "suppression_code", None),
-                    "folder_role": getattr(d, "folder_role", None),
-                }
-                whitelisted.append(entry)
-                if reason == "inline ignore comment":
-                    all_suppressed.append(entry)
-
-        result = {
-            "definitions": context_map,
-            "unused_functions": [],
-            "unused_imports": [],
-            "unused_classes": [],
-            "unused_variables": [],
-            "unused_parameters": [],
-            "unused_files": [],
-            "whitelisted": whitelisted,
-            "suppressed": all_suppressed,
-            "dead_code_evidence": dead_code_evidence,
-            "analysis_summary": {
-                "total_files": len(files),
-                "excluded_folders": exclude_folders or [],
-                "languages": self._count_languages(files),
-                "dead_code_evidence": dead_code_ledger.summary(),
-            },
-        }
-
-        liveness_report = getattr(self, "_dead_code_liveness_report", None)
-        if liveness_report is not None:
-            result["analysis_summary"]["dead_code_liveness"] = liveness_report.to_dict()
-
-        grep_verify_report = getattr(self, "_grep_verify_report", None)
-        if grep_verify_report is not None:
-            result["analysis_summary"]["grep_verify"] = dict(grep_verify_report)
-
-        if workspace_inventory is not None:
-            project_root = (
-                self._project_root
-                if hasattr(self, "_project_root")
-                else Path(
-                    path[0] if isinstance(path, (list, tuple)) else path
-                ).resolve()
-            )
-            result["workspaces"] = workspace_inventory.to_dict(project_root)
-            result["analysis_summary"]["monorepo_detected"] = (
-                workspace_inventory.is_monorepo
-            )
-            result["analysis_summary"]["workspace_count"] = len(
-                workspace_inventory.packages
-            )
-            result["analysis_summary"]["workspace_total_packages"] = (
-                workspace_inventory.total_packages
-            )
-            result["analysis_summary"]["workspace_diagnostic_count"] = len(
-                workspace_inventory.diagnostics
-            )
-
-        if enable_secrets and all_secrets:
-            result["secrets"] = all_secrets
-            result["analysis_summary"]["secrets_count"] = len(all_secrets)
-
-        if enable_danger and all_dangers:
-            result["danger"] = all_dangers
-            result["analysis_summary"]["danger_count"] = len(all_dangers)
-
-        if enable_sca:
-            result["dependency_vulnerabilities"] = all_sca
-            result["analysis_summary"]["sca_count"] = len(all_sca)
-
-        if enable_quality and all_quality:
-            custom_hits = []
-            core_quality = []
-
-            for f in all_quality:
-                rid = str(f.get("rule_id", ""))
-                if rid.startswith("CUSTOM-"):
-                    custom_hits.append(f)
-                else:
-                    core_quality.append(f)
-
-            if core_quality:
-                from skylos.rules.quality.standards import enrich_finding
-
-                for f in core_quality:
-                    enrich_finding(f)
-                result["quality"] = core_quality
-                result["analysis_summary"]["quality_count"] = len(core_quality)
-
-            if custom_hits:
-                result["custom_rules"] = custom_hits
-                result["analysis_summary"]["custom_rules_count"] = len(custom_hits)
-
-        if empty_files:
-            result["unused_files"] = empty_files
-            result["analysis_summary"]["unused_files_count"] = len(empty_files)
-
-        if enable_danger and result.get("danger"):
-            from skylos.rules.compliance import enrich_findings_with_compliance
-
-            result["danger"] = enrich_findings_with_compliance(result["danger"])
-
-        for u in unused:
-            if u["type"] in ("function", "method"):
-                result["unused_functions"].append(u)
-            elif u["type"] == "import":
-                result["unused_imports"].append(u)
-            elif u["type"] in ("class", "type"):
-                result["unused_classes"].append(u)
-            elif u["type"] in ("variable", "constant"):
-                result["unused_variables"].append(u)
-            elif u["type"] == "parameter":
-                result["unused_parameters"].append(u)
-
-        if unused_ts_exports:
-            if "unused_exports" not in result:
-                result["unused_exports"] = []
-            result["unused_exports"].extend(unused_ts_exports)
-            result["analysis_summary"]["unused_exports_count"] = len(unused_ts_exports)
-
-        project_cfg = load_config(
-            path[0] if isinstance(path, (list, tuple)) else path,
+            pyproject_entrypoint_modules=pyproject_entrypoint_modules,
             config_file=config_file,
         )
-        if project_cfg.get("check_circular", True):
-            circular_rule = CircularDependencyRule()
-
-            for file in files:
-                if not str(file).endswith(".py"):
-                    continue
-                mod = modmap.get(file, "")
-                raw_imp = all_raw_imports.get(file, [])
-                circular_rule.add_file_imports(str(file), mod, raw_imp)
-
-            try:
-                circular_findings = circular_rule.analyze()
-                if circular_findings:
-                    result["circular_dependencies"] = circular_findings
-
-                if enable_quality:
-                    try:
-                        from skylos.analysis.architecture import (
-                            get_architecture_findings,
-                        )
-
-                        dep_graph = dict(
-                            circular_rule._analyzer.architecture_dependencies
-                        )
-                        mod_files = dict(circular_rule._analyzer.modules)
-                        entrypoint_modules = (
-                            pyproject_entrypoint_modules
-                            | architecture_main_guard_modules
-                        )
-                        entrypoint_modules = _expand_reexported_entrypoint_modules(
-                            pyproject_entrypoint_qnames,
-                            entrypoint_modules,
-                            all_raw_imports,
-                            modmap,
-                            mod_files,
-                        )
-                        package_boundary_modules = _find_package_boundary_modules(
-                            all_raw_imports,
-                            modmap,
-                            mod_files,
-                        )
-
-                        mod_trees = {}
-                        if not architecture_abstractness:
-                            for file in files:
-                                if not str(file).endswith(".py"):
-                                    continue
-                                mod = modmap.get(file, "")
-                                try:
-                                    src = Path(file).read_text(
-                                        encoding="utf-8", errors="ignore"
-                                    )
-                                    mod_trees[mod] = ast.parse(src)
-                                except (OSError, SyntaxError):
-                                    pass
-
-                        arch_findings, arch_summary = get_architecture_findings(
-                            dependency_graph=dep_graph,
-                            module_files=mod_files,
-                            module_trees=mod_trees,
-                            module_abstractness=architecture_abstractness,
-                            module_loc=architecture_loc,
-                            entrypoint_modules=entrypoint_modules,
-                            package_boundary_modules=package_boundary_modules,
-                            layer_policy=project_cfg.get("architecture"),
-                            iad_findings_advisory=not _architecture_iad_strict(
-                                project_cfg.get("architecture")
-                            ),
-                        )
-                        ignored_rules = set(project_cfg.get("ignore", []))
-                        if arch_findings:
-                            arch_findings = [
-                                f
-                                for f in arch_findings
-                                if f.get("rule_id") not in ignored_rules
-                            ]
-                        if arch_findings:
-                            all_quality.extend(arch_findings)
-                            from skylos.rules.quality.standards import enrich_finding
-
-                            for finding in arch_findings:
-                                enrich_finding(finding)
-                            result.setdefault("quality", []).extend(arch_findings)
-                            result["analysis_summary"]["quality_count"] = len(
-                                result.get("quality", []) or []
-                            )
-                        if arch_summary:
-                            result["architecture_metrics"] = arch_summary
-                    except Exception:
-                        if os.getenv("SKYLOS_DEBUG"):
-                            traceback.print_exc()
-
-            except Exception:
-                if os.getenv("SKYLOS_DEBUG"):
-                    traceback.print_exc()
-
-        try:
-            from skylos.reporting.grader import count_lines_of_code, compute_grade
-
-            total_loc = count_lines_of_code(files)
-            grade_categories = []
-            if enable_danger:
-                grade_categories.append("security")
-            if enable_quality:
-                grade_categories.append("quality")
-            grade_categories.append("dead_code")
-            if enable_sca:
-                grade_categories.append("dependencies")
-            if enable_secrets:
-                grade_categories.append("secrets")
-            result["analysis_summary"]["total_loc"] = total_loc
-            result["analysis_summary"]["grade_categories"] = grade_categories
-            result["grade"] = compute_grade(
-                result,
-                total_loc,
-                included_categories=grade_categories,
-            )
-        except Exception:
-            if os.getenv("SKYLOS_DEBUG"):
-                traceback.print_exc()
-
-        return result
 
     def analyze(
         self,
@@ -3528,145 +3076,23 @@ def proc_file(
 
     cfg = load_config(file, config_file=config_file)
 
-    if str(file).endswith(_TS_JS_SOURCE_EXTS):
-        out = scan_typescript_file(
-            file,
-            cfg,
-            enable_quality_rules=enable_quality_rules,
-            enable_danger_rules=enable_danger_rules,
-        )
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
-
-    if str(file).endswith(".go"):
-        out = scan_go_file(file, cfg)
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
-
-    if str(file).endswith(".java"):
-        out = scan_java_file(
-            file,
-            cfg,
-            enable_quality_rules=enable_quality_rules,
-            enable_danger_rules=enable_danger_rules,
-        )
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
-
-    if str(file).endswith(".php"):
-        out = scan_php_file(
-            file,
-            cfg,
-            enable_danger_rules=enable_danger_rules,
-        )
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
-
-    if str(file).endswith(".rs"):
-        out = scan_rust_file(
-            file,
-            cfg,
-            enable_danger_rules=enable_danger_rules,
-        )
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
-
-    if str(file).endswith(".dart"):
-        out = scan_dart_file(
-            file,
-            cfg,
-            enable_danger_rules=enable_danger_rules,
-        )
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
-
-    if str(file).endswith(".cs"):
-        out = scan_csharp_file(
-            file,
-            cfg,
-            enable_danger_rules=enable_danger_rules,
-        )
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
-
-    if str(file).endswith(_KOTLIN_SOURCE_EXTS):
-        out = scan_kotlin_file(
-            file,
-            cfg,
-            enable_danger_rules=enable_danger_rules,
-        )
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
-
-    if str(file).endswith(_SHELL_SOURCE_EXTS):
-        out = scan_shell_file(
-            file,
-            cfg,
-            enable_danger_rules=enable_danger_rules,
-        )
-        if isinstance(out, tuple) and len(out) < 13:
-            return (*out, *([None] * (13 - len(out))))
-        return out[:13]
+    non_python_out = scan_non_python_file(
+        file,
+        cfg,
+        enable_quality_rules=enable_quality_rules,
+        enable_danger_rules=enable_danger_rules,
+    )
+    if non_python_out is not None:
+        return non_python_out
 
     try:
         source = Path(file).read_text(encoding="utf-8")
-        ignore_lines = get_all_ignore_lines(source)
+        ignore_lines = get_skylos_ignore_lines(source)
+        noqa_codes_by_line = get_noqa_codes_by_line(source)
 
         tree = ast.parse(source)
 
-        raw_imports = []
-        is_init = Path(file).name == "__init__.py"
-        cur_pkg = (
-            mod
-            if is_init
-            else (mod.rsplit(".", 1)[0] if mod and "." in mod else (mod or ""))
-        )
-        for node in ast.iter_child_nodes(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    raw_imports.append(
-                        (
-                            alias.name,
-                            node.lineno,
-                            "import",
-                            [alias.asname or alias.name],
-                        )
-                    )
-            elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
-                names = [a.name for a in node.names if a.name != "*"]
-                raw_imports.append((node.module, node.lineno, "from_import", names))
-            elif isinstance(node, ast.ImportFrom) and node.level and node.level > 0:
-                if cur_pkg:
-                    parts = cur_pkg.split(".")
-                else:
-                    parts = []
-
-                up = node.level - 1
-                if up <= len(parts):
-                    base = ".".join(parts[: len(parts) - up])
-                    if node.module:
-                        if base:
-                            resolved = f"{base}.{node.module}"
-                        else:
-                            resolved = node.module
-                    else:
-                        resolved = base
-                    if resolved:
-                        names = []
-                        for a in node.names:
-                            if a.name != "*":
-                                names.append(a.name)
-                        raw_imports.append(
-                            (resolved, node.lineno, "from_import", names)
-                        )
+        raw_imports = collect_python_raw_imports(tree, file, mod)
 
         empty_file_finding = None
 
@@ -3702,176 +3128,11 @@ def proc_file(
         danger_findings = []
 
         if full_scan and enable_quality_rules:
-            vibe_dictionary = build_vibe_dictionary(cfg.get("vibe"))
-            q_rules = []
-            if "SKY-Q301" not in cfg["ignore"]:
-                q_rules.append(ComplexityRule(threshold=cfg["complexity"]))
-            if "SKY-Q306" not in cfg["ignore"]:
-                q_rules.append(CognitiveComplexityRule())
-            if "SKY-Q302" not in cfg["ignore"]:
-                q_rules.append(NestingRule(threshold=cfg["nesting"]))
-            if "SKY-Q401" not in cfg["ignore"]:
-                q_rules.append(AsyncBlockingRule())
-            if "SKY-C303" not in cfg["ignore"]:
-                q_rules.append(ArgCountRule(max_args=cfg["max_args"]))
-            if "SKY-C304" not in cfg["ignore"]:
-                q_rules.append(FunctionLengthRule(max_lines=cfg["max_lines"]))
-
-            if "SKY-L001" not in cfg["ignore"]:
-                q_rules.append(MutableDefaultRule())
-            if "SKY-L002" not in cfg["ignore"]:
-                q_rules.append(BareExceptRule())
-            if "SKY-L003" not in cfg["ignore"]:
-                q_rules.append(DangerousComparisonRule())
-            if "SKY-Q305" not in cfg["ignore"]:
-                q_rules.append(DuplicateBranchRule())
-            if "SKY-L004" not in cfg["ignore"]:
-                q_rules.append(TryBlockPatternsRule(max_lines=15))
-            if "SKY-L005" not in cfg["ignore"]:
-                q_rules.append(UnusedExceptVarRule())
-            if "SKY-L006" not in cfg["ignore"]:
-                q_rules.append(ReturnConsistencyRule())
-            if "SKY-L007" not in cfg["ignore"]:
-                q_rules.append(EmptyErrorHandlerRule())
-            if "SKY-L008" not in cfg["ignore"]:
-                q_rules.append(MissingResourceCleanupRule())
-            if "SKY-L009" not in cfg["ignore"]:
-                q_rules.append(DebugLeftoverRule())
-            if "SKY-L010" not in cfg["ignore"]:
-                q_rules.append(SecurityTodoRule())
-            if "SKY-L011" not in cfg["ignore"]:
-                q_rules.append(DisabledSecurityRule(vibe_dictionary=vibe_dictionary))
-            if "SKY-L012" not in cfg["ignore"]:
-                q_rules.append(PhantomCallRule(vibe_dictionary=vibe_dictionary))
-            if "SKY-L013" not in cfg["ignore"]:
-                q_rules.append(InsecureRandomRule(vibe_dictionary=vibe_dictionary))
-            if "SKY-L014" not in cfg["ignore"]:
-                q_rules.append(HardcodedCredentialRule(vibe_dictionary=vibe_dictionary))
-            if "SKY-L032" not in cfg["ignore"]:
-                q_rules.append(MockPlaceholderDataRule(vibe_dictionary=vibe_dictionary))
-            if "SKY-L017" not in cfg["ignore"]:
-                q_rules.append(ErrorDisclosureRule())
-            if "SKY-L020" not in cfg["ignore"]:
-                q_rules.append(
-                    BroadFilePermissionsRule(vibe_dictionary=vibe_dictionary)
-                )
-            if "SKY-L016" not in cfg["ignore"]:
-                q_rules.append(UndefinedConfigRule(vibe_dictionary=vibe_dictionary))
-            if "SKY-L024" not in cfg["ignore"]:
-                q_rules.append(StaleMockRule())
-            if "SKY-L023" not in cfg["ignore"]:
-                q_rules.append(PhantomDecoratorRule(vibe_dictionary=vibe_dictionary))
-            if "SKY-L026" not in cfg["ignore"]:
-                q_rules.append(UnfinishedGenerationRule())
-            if "SKY-L027" not in cfg["ignore"]:
-                q_rules.append(
-                    DuplicateStringLiteralRule(
-                        threshold=cfg.get("duplicate_strings", 3)
-                    )
-                )
-            if "SKY-L028" not in cfg["ignore"]:
-                q_rules.append(TooManyReturnsRule())
-            if "SKY-L029" not in cfg["ignore"]:
-                q_rules.append(BooleanTrapRule())
-            if "SKY-L030" not in cfg["ignore"]:
-                q_rules.append(BroadExceptionRule())
-            if "SKY-L031" not in cfg["ignore"]:
-                q_rules.append(
-                    MissingNetworkTimeoutRule(vibe_dictionary=vibe_dictionary)
-                )
-            if "SKY-L033" not in cfg["ignore"]:
-                q_rules.append(NoEffectStatementRule())
-            # SKY-D260 (prompt injection) is now handled by injection_scanner..
-            if "SKY-Q502" not in cfg["ignore"]:
-                q_rules.append(
-                    GodFileRule(
-                        max_lines=cfg.get("god_file_max_lines", 500),
-                        max_definitions=cfg.get("god_file_max_definitions", 40),
-                        max_top_level_definitions=cfg.get(
-                            "god_file_max_top_level_definitions",
-                            25,
-                        ),
-                    )
-                )
-            if "SKY-Q501" not in cfg["ignore"]:
-                q_rules.append(GodClassRule())
-            if "SKY-Q701" not in cfg["ignore"]:
-                q_rules.append(CBORule())
-            if "SKY-Q702" not in cfg["ignore"]:
-                q_rules.append(LCOMRule())
-            if "SKY-T101" not in cfg["ignore"] or "SKY-T102" not in cfg["ignore"]:
-                q_rules.append(TypeAnnotationPracticeRule())
-            if "SKY-F101" not in cfg["ignore"] or "SKY-F102" not in cfg["ignore"]:
-                q_rules.append(FrameworkPracticeRule())
-            if "SKY-Q806" not in cfg["ignore"]:
-                q_rules.append(OpaqueIdentifierRule())
-
-            if "SKY-U001" not in cfg["ignore"]:
-                q_rules.append(UnreachableCodeRule())
-
-            q_rules.append(PerformanceRule(ignore_list=cfg["ignore"]))
-
-            custom_rules = []
-            custom_rules_json = os.getenv("SKYLOS_CUSTOM_RULES")
-            if os.getenv("SKYLOS_DEBUG"):
-                logger.info(
-                    f"[DBG] {file}: SKYLOS_CUSTOM_RULES present={bool(custom_rules_json)} "
-                    f"size={len(custom_rules_json) if custom_rules_json else 0}"
-                )
-
-            if custom_rules_json:
-                try:
-                    custom_rules_data = json.loads(custom_rules_json)
-                    custom_rules = load_custom_rules(custom_rules_data)
-                    if os.getenv("SKYLOS_DEBUG"):
-                        logger.info(
-                            f"[DBG] {file}: load_custom_rules -> {len(custom_rules)} rules"
-                        )
-                        if custom_rules:
-                            logger.info(
-                                f"[DBG] {file}: custom rule ids = {[r.rule_id for r in custom_rules]}"
-                            )
-                    q_rules.extend(custom_rules)
-                except Exception as e:
-                    logger.error(f"[DBG] {file}: FAILED to load custom rules: {e}")
-                    if os.getenv("SKYLOS_DEBUG"):
-                        logger.error(traceback.format_exc())
-
-            try:
-                community_rules_data = load_community_rules()
-                if community_rules_data:
-                    community_rules = load_custom_rules(community_rules_data)
-                    if os.getenv("SKYLOS_DEBUG"):
-                        logger.info(
-                            f"[DBG] {file}: community rules -> {len(community_rules)} rules"
-                        )
-                    q_rules.extend(community_rules)
-            except Exception:
-                pass
-
-            _set_linter_node_types(q_rules)
-            linter_q = LinterVisitor(q_rules, str(file))
-            linter_q.context["source"] = source
-            linter_q.visit(tree)
-            quality_findings = [
-                f for f in linter_q.findings if f.get("rule_id") not in cfg["ignore"]
-            ]
-
-            if os.getenv("SKYLOS_DEBUG"):
-                custom_hits = [
-                    f
-                    for f in quality_findings
-                    if str(f.get("rule_id", "")).startswith("CUSTOM-")
-                ]
-                logger.info(
-                    f"[DBG] {file}: quality_findings={len(quality_findings)} custom_hits={len(custom_hits)}"
-                )
-                if custom_hits:
-                    logger.info(f"[DBG] {file}: first_custom_hit={custom_hits[0]}")
+            quality_findings = scan_python_quality(tree, source, file, cfg)
 
         if full_scan and enable_danger_rules:
             d_rules = [DangerousCallsRule()]
-            _set_linter_node_types(d_rules)
+            set_linter_node_types(d_rules)
             linter_d = LinterVisitor(d_rules, str(file))
             linter_d.visit(tree)
             danger_findings = linter_d.findings
@@ -3914,6 +3175,7 @@ def proc_file(
         tv = TestAwareVisitor(filename=file)
         tv.visit(tree)
         tv.ignore_lines = ignore_lines
+        tv.noqa_codes_by_line = noqa_codes_by_line
 
         fv = FrameworkAwareVisitor(filename=file)
         fv.visit(tree)

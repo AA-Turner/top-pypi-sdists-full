@@ -131,6 +131,7 @@ DEFAULT_E3_EQUIVARIANT_MODEL_CONFIG = {
     KEY._NORMALIZE_SPH: True,
     KEY.USE_FLASH_TP: False,
     KEY.CUEQUIVARIANCE_CONFIG: {},
+    KEY.USE_OEQ: False,
 }
 
 
@@ -178,6 +179,7 @@ MODEL_CONFIG_CONDITION = {
     KEY._NORMALIZE_SPH: bool,
     KEY.USE_FLASH_TP: bool,
     KEY.CUEQUIVARIANCE_CONFIG: dict,
+    KEY.USE_OEQ: bool,
 }
 
 
@@ -210,6 +212,9 @@ DEFAULT_DATA_CONFIG = {
     KEY.USE_MODAL_WISE_SCALE: False,
     KEY.SHIFT: 'per_atom_energy_mean',
     KEY.SCALE: 'force_rms',
+    KEY.REHEARSAL: False,
+    KEY.MEM_BATCH_SIZE: 0,
+    KEY.MEM_RATIO: 1,
     # KEY.DATA_SHUFFLE: True,
     # KEY.DATA_WEIGHT: False,
     # KEY.DATA_MODALITY: False,
@@ -231,6 +236,11 @@ DATA_CONFIG_CONDITION = {
     KEY.SCALE: lambda x: type(x) in [float, list] or x in IMPLEMENTED_SCALE,
     KEY.USE_MODAL_WISE_SHIFT: bool,
     KEY.USE_MODAL_WISE_SCALE: bool,
+    KEY.REHEARSAL: lambda x: isinstance(x, bool),
+    KEY.MEM_BATCH_SIZE: lambda x: isinstance(x, int) and not isinstance(x, bool),
+    KEY.MEM_RATIO: lambda x: isinstance(x, (int, float))
+    and not isinstance(x, bool)
+    and 0 < x <= 1,
     # KEY.DATA_SHUFFLE: bool,
     KEY.COMPUTE_STATISTICS: bool,
     # KEY.DATA_WEIGHT: bool,

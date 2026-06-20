@@ -20,6 +20,7 @@ class UnderscoreHttpRequest(UnderscoreFunction):
         *,
         allow_redirects: bool = False,
         timeout: dt.timedelta | float | None = None,
+        verify: bool | str = True,
     ):
         if isinstance(url, str) and not url.startswith(("http://", "https://")):
             raise ValueError(f"F.http_request(): URL must start with http:// or https://, got {url}")
@@ -33,8 +34,14 @@ class UnderscoreHttpRequest(UnderscoreFunction):
             raise ValueError(f"F.http_request(): Unknown HTTP method {method}, Supported: {_HTTP_METHOD_LIST}")
         if headers is not None and not isinstance(headers, (dict, Underscore)):
             raise TypeError(f"F.http_request(): headers must be a dict or Underscore, got {type(headers)}")
+        if not isinstance(verify, (bool, str)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError(f"F.http_request(): verify must be a bool or string path, got {type(verify)}")
+        if isinstance(verify, str) and verify == "":
+            raise ValueError("F.http_request(): verify path cannot be empty")
         if isinstance(timeout, dt.timedelta):
             timeout = timeout.total_seconds()
+        verify_peer = verify is not False
+        ca_info_path = verify if isinstance(verify, str) else None
         super().__init__(
             "http_request",
             url,
@@ -43,6 +50,8 @@ class UnderscoreHttpRequest(UnderscoreFunction):
             body,
             allow_redirects,
             int(timeout * 1000) if timeout is not None else None,
+            verify_peer,
+            ca_info_path,
         )
 
 
@@ -54,6 +63,7 @@ def http_request(
     *,
     allow_redirects: bool = True,
     timeout: dt.timedelta | float | None = None,
+    verify: bool | str = True,
 ):
     """
     Make an HTTP request. The return type of this function is a `HttpResponse`, and features that are the result of
@@ -85,6 +95,9 @@ def http_request(
         The timeout for the request, in seconds. If `None` or 0, no timeout will be set.
         Timeout's precision is limited to milliseconds.
         Defaults to None.
+    verify
+        Whether to verify the server's TLS certificate, or a path to a CA bundle to use for verification.
+        Relative paths are resolved from the applied source root at runtime. Defaults to True.
 
     Examples
     --------
@@ -103,6 +116,7 @@ def http_request(
     ...        body=_.json_data,
     ...        allow_redirects=True,
     ...        timeout=dt.timedelta(seconds=5),
+    ...        verify="certs/customer-ca-bundle.pem",
     ...    )
     ...    status_code: int = _.resp.status_code
     ...    resp_body: str = _.resp.body
@@ -115,6 +129,7 @@ def http_request(
         body=body,
         allow_redirects=allow_redirects,
         timeout=timeout,
+        verify=verify,
     )
 
 
@@ -125,6 +140,7 @@ def http_get(
     *,
     allow_redirects: bool = True,
     timeout: dt.timedelta | float | None = None,
+    verify: bool | str = True,
 ):
     """
     HTTP GET request. See `http_request` for more details.
@@ -136,6 +152,7 @@ def http_get(
         body=body,
         allow_redirects=allow_redirects,
         timeout=timeout,
+        verify=verify,
     )
 
 
@@ -146,6 +163,7 @@ def http_post(
     *,
     allow_redirects: bool = True,
     timeout: dt.timedelta | float | None = None,
+    verify: bool | str = True,
 ):
     """
     HTTP POST request. See `http_request` for more details.
@@ -157,6 +175,7 @@ def http_post(
         body=body,
         allow_redirects=allow_redirects,
         timeout=timeout,
+        verify=verify,
     )
 
 
@@ -167,6 +186,7 @@ def http_put(
     *,
     allow_redirects: bool = True,
     timeout: dt.timedelta | float | None = None,
+    verify: bool | str = True,
 ):
     """
     HTTP PUT request. See `http_request` for more details.
@@ -178,6 +198,7 @@ def http_put(
         body=body,
         allow_redirects=allow_redirects,
         timeout=timeout,
+        verify=verify,
     )
 
 
@@ -188,9 +209,10 @@ def http_delete(
     *,
     allow_redirects: bool = True,
     timeout: dt.timedelta | float | None = None,
+    verify: bool | str = True,
 ):
     """
-    HTTP PUT request. See `http_request` for more details.
+    HTTP DELETE request. See `http_request` for more details.
     """
     return http_request(
         url=url,
@@ -199,6 +221,7 @@ def http_delete(
         body=body,
         allow_redirects=allow_redirects,
         timeout=timeout,
+        verify=verify,
     )
 
 

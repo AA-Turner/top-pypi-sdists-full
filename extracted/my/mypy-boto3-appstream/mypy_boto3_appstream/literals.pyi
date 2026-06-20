@@ -85,6 +85,7 @@ __all__ = (
     "ThemeStylingType",
     "UsageReportExecutionErrorCodeType",
     "UsageReportScheduleType",
+    "UserControlModeType",
     "UserStackAssociationErrorCodeType",
     "VisibilityTypeType",
     "WaiterName",
@@ -101,7 +102,7 @@ ActionType = Literal[
     "FILE_UPLOAD",
     "PRINTING_TO_LOCAL_DEVICE",
 ]
-AgentActionType = Literal["COMPUTER_INPUT", "COMPUTER_VISION"]
+AgentActionType = Literal["COMPUTER_INPUT", "COMPUTER_VISION", "FORWARD_MCP_TOOLS"]
 AgentSoftwareVersionType = Literal["ALWAYS_LATEST", "CURRENT_LATEST"]
 AppBlockBuilderAttributeType = Literal[
     "ACCESS_ENDPOINTS", "IAM_ROLE_ARN", "VPC_CONFIGURATION_SECURITY_GROUP_IDS"
@@ -260,6 +261,7 @@ UsageReportExecutionErrorCodeType = Literal[
     "ACCESS_DENIED", "INTERNAL_SERVICE_ERROR", "RESOURCE_NOT_FOUND"
 ]
 UsageReportScheduleType = Literal["DAILY"]
+UserControlModeType = Literal["DISABLED", "VIEW_ONLY", "VIEW_STOP"]
 UserStackAssociationErrorCodeType = Literal[
     "DIRECTORY_NOT_FOUND", "INTERNAL_ERROR", "STACK_NOT_FOUND", "USER_NAME_NOT_FOUND"
 ]
@@ -617,6 +619,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

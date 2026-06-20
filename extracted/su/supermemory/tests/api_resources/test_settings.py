@@ -43,6 +43,12 @@ class TestSettings:
             onedrive_client_id="onedriveClientId",
             onedrive_client_secret="onedriveClientSecret",
             onedrive_custom_key_enabled=True,
+            profile_buckets=[
+                {
+                    "key": "key",
+                    "description": "description",
+                }
+            ],
             should_llm_filter=True,
         )
         assert_matches_type(SettingUpdateResponse, setting, path=["response"])
@@ -129,6 +135,12 @@ class TestAsyncSettings:
             onedrive_client_id="onedriveClientId",
             onedrive_client_secret="onedriveClientSecret",
             onedrive_custom_key_enabled=True,
+            profile_buckets=[
+                {
+                    "key": "key",
+                    "description": "description",
+                }
+            ],
             should_llm_filter=True,
         )
         assert_matches_type(SettingUpdateResponse, setting, path=["response"])

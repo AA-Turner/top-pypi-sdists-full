@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scverse-misc
-Version: 0.0.8
+Version: 0.0.9
 Summary: Miscellaneous utility code used by scverse packages
 Project-URL: Documentation, https://scverse-misc.readthedocs.io/
 Project-URL: Homepage, https://github.com/scverse/scverse-misc
@@ -42,13 +42,21 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.12
+Requires-Dist: anndata
 Requires-Dist: session-info2
 Requires-Dist: typing-extensions; python_version < '3.13'
+Provides-Extra: datasets
+Requires-Dist: pooch; extra == 'datasets'
+Requires-Dist: pyyaml; extra == 'datasets'
+Requires-Dist: tqdm; extra == 'datasets'
 Provides-Extra: settings
 Requires-Dist: pydantic-settings; extra == 'settings'
 Requires-Dist: python-dotenv; extra == 'settings'
+Provides-Extra: spatialdata
+Requires-Dist: spatialdata; extra == 'spatialdata'
 Provides-Extra: sphinx
 Requires-Dist: pydocstring-rs>=0.1.13; extra == 'sphinx'
+Requires-Dist: sphinx>=9; extra == 'sphinx'
 Description-Content-Type: text/markdown
 
 # scverse-misc
@@ -61,7 +69,7 @@ Description-Content-Type: text/markdown
 [badge-pypi]: https://img.shields.io/pypi/v/scverse-misc
 [badge-tests]: https://github.com/scverse/scverse-misc/actions/workflows/test.yaml/badge.svg
 [badge-codecov]: https://codecov.io/gh/scverse/scverse-misc/graph/badge.svg?token=EUH9BZZK7T
-[badge-docs]: https://img.shields.io/readthedocs/scverse-misc
+[badge-docs]: https://app.readthedocs.org/projects/scverse-misc/badge/
 
 Miscellaneous utility code used by scverse packages
 

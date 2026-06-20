@@ -25,6 +25,8 @@ class GetApprovalInfoResponse200:
         description (Union[Unset, Any]): description of the approval step
         approval_conditions (Union[Unset, GetApprovalInfoResponse200ApprovalConditions]):
         hide_cancel (Union[Unset, bool]): whether to hide the cancel button in the UI
+        view_token (Union[Unset, str]): Share-read-link token for the flow. An authenticated workspace member can append
+            it as a `view_token` query param on the run page to read a flow they don't otherwise have access to.
     """
 
     flow_id: str
@@ -35,6 +37,7 @@ class GetApprovalInfoResponse200:
     description: Union[Unset, Any] = UNSET
     approval_conditions: Union[Unset, "GetApprovalInfoResponse200ApprovalConditions"] = UNSET
     hide_cancel: Union[Unset, bool] = UNSET
+    view_token: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -54,6 +57,7 @@ class GetApprovalInfoResponse200:
             approval_conditions = self.approval_conditions.to_dict()
 
         hide_cancel = self.hide_cancel
+        view_token = self.view_token
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -73,6 +77,8 @@ class GetApprovalInfoResponse200:
             field_dict["approval_conditions"] = approval_conditions
         if hide_cancel is not UNSET:
             field_dict["hide_cancel"] = hide_cancel
+        if view_token is not UNSET:
+            field_dict["view_token"] = view_token
 
         return field_dict
 
@@ -110,6 +116,8 @@ class GetApprovalInfoResponse200:
 
         hide_cancel = d.pop("hide_cancel", UNSET)
 
+        view_token = d.pop("view_token", UNSET)
+
         get_approval_info_response_200 = cls(
             flow_id=flow_id,
             can_approve=can_approve,
@@ -119,6 +127,7 @@ class GetApprovalInfoResponse200:
             description=description,
             approval_conditions=approval_conditions,
             hide_cancel=hide_cancel,
+            view_token=view_token,
         )
 
         get_approval_info_response_200.additional_properties = d

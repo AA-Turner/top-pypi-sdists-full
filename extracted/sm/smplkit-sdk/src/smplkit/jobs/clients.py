@@ -1,7 +1,7 @@
 """Smpl Jobs SDK client (``client.jobs`` on SmplClient, or standalone ``JobsClient``).
 
-Smpl Jobs runs an HTTP call on a schedule and records what happened each
-time it fired. A single :class:`JobsClient` (and its async counterpart
+Smpl Jobs runs an HTTP call — on a schedule or on demand — and records what
+happened each time it fired. A single :class:`JobsClient` (and its async counterpart
 :class:`AsyncJobsClient`) exposes the full surface, reachable two ways:
 
 * ``client.jobs.*`` on :class:`smplkit.SmplClient`
@@ -19,6 +19,7 @@ import datetime
 import json
 import re
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
 
@@ -47,6 +48,8 @@ from smplkit._generated.jobs.models.job_request import JobRequest
 __all__ = [
     "HttpConfig",
     "JobEnvironment",
+    "JobKind",
+    "RunTrigger",
     "Job",
     "AsyncJob",
     "Run",
@@ -59,6 +62,35 @@ __all__ = [
 ]
 
 HttpHeader = tuple[str, str]
+
+
+class JobKind(str, Enum):
+    """How a job runs, derived from its schedule (read-only).
+
+    Attributes:
+        MANUAL: No schedule — never auto-fires; runs only when triggered.
+        ONE_OFF: A ``now`` or datetime schedule — runs a single time, then is
+            spent.
+        RECURRING: A cron schedule — fires on a repeating cadence.
+    """
+
+    MANUAL = "manual"
+    ONE_OFF = "one_off"
+    RECURRING = "recurring"
+
+
+class RunTrigger(str, Enum):
+    """What started a run (read-only).
+
+    Attributes:
+        MANUAL: A ``run``/``trigger`` call started it on demand.
+        RERUN: It repeats an earlier run.
+        SCHEDULE: The job's schedule fired.
+    """
+
+    MANUAL = "MANUAL"
+    RERUN = "RERUN"
+    SCHEDULE = "SCHEDULE"
 
 
 def _parse_dt(value: Any) -> Optional[datetime.datetime]:
@@ -200,12 +232,13 @@ class HttpConfig:
 class JobEnvironment:
     """Per-environment enablement, schedule, and configuration override for a job.
 
-    A recurring job fires in a given environment only when that environment has
-    an entry in :attr:`Job.environments` with ``enabled=True``; an environment
-    with no entry (or ``enabled=False``) does not fire there.
+    A job runs in a given environment only when that environment has an entry in
+    :attr:`Job.environments` with ``enabled=True`` (scheduled there for a
+    recurring job, triggerable there for a manual one); an environment with no
+    entry (or ``enabled=False``) is disabled there.
 
     Attributes:
-        enabled: Whether the job fires in this environment. Defaults to
+        enabled: Whether the job is enabled in this environment. Defaults to
             ``False``.
         schedule: Optional per-environment cron override that varies the cadence
             for this environment. ``None`` (the default) inherits the job's base
@@ -301,11 +334,11 @@ class _JobBase:
         *,
         id: str,
         name: str,
-        schedule: str,
+        schedule: Optional[str] = None,
         configuration: HttpConfig,
         description: Optional[str] = None,
         environments: Optional[dict[str, JobEnvironment]] = None,
-        recurring: Optional[bool] = None,
+        kind: Optional[JobKind] = None,
         type: str = "http",
         concurrency_policy: str = "ALLOW",
         created_at: Optional[datetime.datetime] = None,
@@ -321,8 +354,8 @@ class _JobBase:
         # schedule / configuration) to make the job fire in that environment.
         # Each entry also reports its read-only ``next_run_at``.
         self.environments: dict[str, JobEnvironment] = environments if environments is not None else {}
-        # Read-only: True for a recurring (cron) schedule, False for a one-off.
-        self.recurring = recurring
+        # Read-only server-derived kind (see :class:`JobKind`).
+        self.kind = kind
         self.type = type
         self.schedule = schedule
         self.configuration = configuration
@@ -333,7 +366,7 @@ class _JobBase:
         self.version = version
         # Creation-time only: the environment a one-off job is born in, sent as
         # the X-Smplkit-Environment header by ``_create``. Ignored for recurring
-        # jobs (whose environments come from the map).
+        # and manual jobs (whose environments come from the map).
         self._birth_environment: Optional[str] = None
 
     @property
@@ -345,6 +378,18 @@ class _JobBase:
         :meth:`set_enabled` (or the ``environments`` map).
         """
         return any(env.enabled for env in self.environments.values())
+
+    def is_recurring(self) -> bool:
+        """Whether this is a recurring (cron-scheduled) job."""
+        return self.kind == JobKind.RECURRING
+
+    def is_manual(self) -> bool:
+        """Whether this is a manual job — no schedule; runs only when triggered."""
+        return self.kind == JobKind.MANUAL
+
+    def is_one_off(self) -> bool:
+        """Whether this is a one-off job — a single ``now`` / datetime run."""
+        return self.kind == JobKind.ONE_OFF
 
     def _apply(self, other: "_JobBase") -> None:
         self.__dict__.update({k: v for k, v in other.__dict__.items() if not k.startswith("_client")})
@@ -432,14 +477,15 @@ def _job_base_from_resource(resource: dict[str, Any]) -> _JobBase:
     environments = {
         env_key: JobEnvironment._from_dict(env_raw or {}) for env_key, env_raw in (a.get("environments") or {}).items()
     }
+    raw_kind = a.get("kind")
     return _JobBase(
         id=resource["id"],
         name=a["name"],
         description=a.get("description"),
         environments=environments,
-        recurring=a.get("recurring"),
+        kind=JobKind(raw_kind) if raw_kind else None,
         type=a.get("type", "http"),
-        schedule=a["schedule"],
+        schedule=a.get("schedule"),
         configuration=HttpConfig.from_dict(a["configuration"]),
         concurrency_policy=a.get("concurrency_policy", "ALLOW"),
         created_at=_parse_dt(a.get("created_at")),
@@ -595,6 +641,7 @@ class _RunBase:
         self.job: str = attributes["job"]
         self.job_version: Optional[int] = attributes.get("job_version")
         self.environment: str = attributes["environment"]
+        # Raw trigger string; compare against the :class:`RunTrigger` constants.
         self.trigger: str = attributes["trigger"]
         self.rerun_of: Optional[str] = attributes.get("rerun_of")
         self.scheduled_for = _parse_dt(attributes.get("scheduled_for"))
@@ -707,10 +754,12 @@ def _run_list_kwargs(job: Optional[str], page_size: Optional[int], after: Option
     return kwargs
 
 
-def _list_jobs_kwargs(recurring, name, page_number, page_size) -> dict[str, Any]:
+def _list_jobs_kwargs(kind, scheduled, name, page_number, page_size) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
-    if recurring is not None:
-        kwargs["filterrecurring"] = recurring
+    if kind is not None:
+        kwargs["filterkind"] = kind.value
+    if scheduled is not None:
+        kwargs["filterscheduled"] = scheduled
     if name is not None:
         kwargs["filtername"] = name
     if page_number is not None:
@@ -947,48 +996,18 @@ class JobsClient:
         self._environment = environment
         self.runs = RunsClient(self._auth, environment=environment)
 
-    def new(
+    def _new_job(
         self,
         id: str,
         *,
         name: str,
-        schedule: str,
+        schedule: Optional[str],
         configuration: HttpConfig,
-        description: Optional[str] = None,
-        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
-        concurrency_policy: str = "ALLOW",
-        environment: Optional[str] = None,
+        description: Optional[str],
+        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
+        concurrency_policy: str,
+        environment: Optional[str],
     ) -> Job:
-        """Return an unsaved :class:`Job`. Call ``.save()`` to create it.
-
-        Args:
-            id: Caller-supplied unique identifier for the job. Unique within
-                the account and immutable; the service returns 409 if another
-                live job already uses this id.
-            name: Human-readable name for the job.
-            schedule: When the job runs. One of: a 5-field cron expression
-                evaluated in UTC (recurring), an ISO-8601 datetime (a one-off
-                run at that instant), or the literal ``"now"`` (run once, as
-                soon as possible). A datetime or ``"now"`` job disables itself
-                after it fires.
-            configuration: The HTTP request the job sends each time it fires.
-            description: Free-text description for the job. Defaults to none.
-            environments: Per-environment overrides for a recurring job, keyed
-                by environment key — each a :class:`JobEnvironment`, or a plain
-                dict ``{"enabled": bool}`` optionally with a ``"configuration"``
-                override (an :class:`HttpConfig` or its dict form). A recurring
-                job fires only in environments enabled here. Ignored for a
-                one-off job, which is born in ``environment`` (below).
-            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
-                (the default and only value today) permits a new run to start
-                while a previous one is still in flight.
-            environment: For a one-off job (``"now"`` / datetime schedule), the
-                environment it is born in. Defaults to the client's configured
-                environment. Ignored for a recurring job.
-
-        Returns:
-            An unsaved :class:`Job` bound to this client.
-        """
         job = Job(
             self,
             **_new_kwargs(
@@ -1004,10 +1023,145 @@ class JobsClient:
         job._birth_environment = environment if environment is not None else self._environment
         return job
 
+    def new_recurring_job(
+        self,
+        id: str,
+        *,
+        name: str,
+        schedule: str,
+        configuration: HttpConfig,
+        description: Optional[str] = None,
+        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
+        concurrency_policy: str = "ALLOW",
+    ) -> Job:
+        """Return an unsaved recurring :class:`Job`. Call ``.save()`` to create it.
+
+        Args:
+            id: Caller-supplied unique identifier for the job. Unique within
+                the account and immutable; the service returns 409 if another
+                live job already uses this id.
+            name: Human-readable name for the job.
+            schedule: The base cadence — a 5-field cron expression evaluated in
+                UTC (e.g. ``"0 2 * * *"``) — that every environment inherits
+                unless it sets its own override.
+            configuration: The HTTP request the job sends each time it fires.
+            description: Free-text description for the job. Defaults to none.
+            environments: Per-environment overrides keyed by environment key —
+                each a :class:`JobEnvironment`, or a plain dict
+                ``{"enabled": bool}`` optionally with ``"schedule"`` /
+                ``"configuration"`` overrides. The job is scheduled only in
+                environments enabled here.
+            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
+                (the default and only value today) permits a new run to start
+                while a previous one is still in flight.
+
+        Returns:
+            An unsaved recurring :class:`Job` bound to this client.
+        """
+        return self._new_job(
+            id,
+            name=name,
+            schedule=schedule,
+            configuration=configuration,
+            description=description,
+            environments=environments,
+            concurrency_policy=concurrency_policy,
+            environment=None,
+        )
+
+    def new_manual_job(
+        self,
+        id: str,
+        *,
+        name: str,
+        configuration: HttpConfig,
+        description: Optional[str] = None,
+        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
+        concurrency_policy: str = "ALLOW",
+    ) -> Job:
+        """Return an unsaved manual :class:`Job`. Call ``.save()`` to create it.
+
+        A manual job has no schedule — it never auto-fires and runs only when
+        triggered via :meth:`run` / :meth:`Job.trigger`.
+
+        Args:
+            id: Caller-supplied unique identifier for the job. Unique within
+                the account and immutable; the service returns 409 if another
+                live job already uses this id.
+            name: Human-readable name for the job.
+            configuration: The HTTP request the job sends each time it runs.
+            description: Free-text description for the job. Defaults to none.
+            environments: Per-environment overrides keyed by environment key —
+                each a :class:`JobEnvironment`, or a plain dict
+                ``{"enabled": bool}`` optionally with a ``"configuration"``
+                override. The job is triggerable only in environments enabled
+                here.
+            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
+                (the default and only value today) permits a new run to start
+                while a previous one is still in flight.
+
+        Returns:
+            An unsaved manual :class:`Job` bound to this client.
+        """
+        return self._new_job(
+            id,
+            name=name,
+            schedule=None,
+            configuration=configuration,
+            description=description,
+            environments=environments,
+            concurrency_policy=concurrency_policy,
+            environment=None,
+        )
+
+    def schedule(
+        self,
+        id: str,
+        *,
+        name: str,
+        schedule: datetime.datetime,
+        configuration: HttpConfig,
+        description: Optional[str] = None,
+        concurrency_policy: str = "ALLOW",
+        environment: Optional[str] = None,
+    ) -> Job:
+        """Return an unsaved one-off :class:`Job`. Call ``.save()`` to create it.
+
+        A one-off job runs a single time at ``schedule`` and is then spent.
+
+        Args:
+            id: Caller-supplied unique identifier for the job. Unique within
+                the account and immutable; the service returns 409 if another
+                live job already uses this id.
+            name: Human-readable name for the job.
+            schedule: The instant the single run fires, as a ``datetime``.
+            configuration: The HTTP request the job sends when it runs.
+            description: Free-text description for the job. Defaults to none.
+            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
+                (the default and only value today) permits a new run to start
+                while a previous one is still in flight.
+            environment: The environment the job is born in. Defaults to the
+                client's configured environment.
+
+        Returns:
+            An unsaved one-off :class:`Job` bound to this client.
+        """
+        return self._new_job(
+            id,
+            name=name,
+            schedule=schedule.isoformat(),
+            configuration=configuration,
+            description=description,
+            environments=None,
+            concurrency_policy=concurrency_policy,
+            environment=environment,
+        )
+
     def list(
         self,
         *,
-        recurring: Optional[bool] = None,
+        kind: Optional[JobKind] = None,
+        scheduled: Optional[bool] = None,
         name: Optional[str] = None,
         page_number: Optional[int] = None,
         page_size: Optional[int] = None,
@@ -1015,8 +1169,13 @@ class JobsClient:
         """List jobs in the account.
 
         Args:
-            recurring: Return only recurring (``True``) or one-off (``False``)
-                jobs. ``None`` lists both.
+            kind: Return only jobs of this :class:`JobKind`. ``None`` lists
+                recurring and manual jobs; one-off jobs are omitted unless you
+                pass :attr:`JobKind.ONE_OFF`.
+            scheduled: Return only jobs that have an upcoming fire in some
+                environment (``True``) or none (``False``) — the feed for an
+                upcoming-runs view, which includes one-offs. ``None`` does not
+                filter on scheduling.
             name: Return only jobs whose name contains this text
                 (case-insensitive). ``None`` lists all.
             page_number: 1-based page to return. ``None`` returns the first
@@ -1028,7 +1187,7 @@ class JobsClient:
             The jobs in this page, as a list of :class:`Job`.
         """
         resp = _gen_list_jobs.sync_detailed(
-            client=self._auth, **_list_jobs_kwargs(recurring, name, page_number, page_size)
+            client=self._auth, **_list_jobs_kwargs(kind, scheduled, name, page_number, page_size)
         )
         _check(resp)
         return [Job._from_resource(r, self) for r in _data(resp)]
@@ -1067,7 +1226,8 @@ class JobsClient:
             environment: Environment the manual run executes in. Defaults to the
                 client's configured environment; when the job is enabled in
                 exactly one environment that environment is used, and a
-                single-environment credential implies it.
+                single-environment credential implies it. The job must be
+                enabled in the chosen environment.
 
         Returns:
             The :class:`Run` that was started, with ``trigger`` set to
@@ -1162,48 +1322,18 @@ class AsyncJobsClient:
         self._environment = environment
         self.runs = AsyncRunsClient(self._auth, environment=environment)
 
-    def new(
+    def _new_job(
         self,
         id: str,
         *,
         name: str,
-        schedule: str,
+        schedule: Optional[str],
         configuration: HttpConfig,
-        description: Optional[str] = None,
-        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
-        concurrency_policy: str = "ALLOW",
-        environment: Optional[str] = None,
+        description: Optional[str],
+        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
+        concurrency_policy: str,
+        environment: Optional[str],
     ) -> AsyncJob:
-        """Return an unsaved :class:`AsyncJob`. ``await .save()`` to create it.
-
-        Args:
-            id: Caller-supplied unique identifier for the job. Unique within
-                the account and immutable; the service returns 409 if another
-                live job already uses this id.
-            name: Human-readable name for the job.
-            schedule: When the job runs. One of: a 5-field cron expression
-                evaluated in UTC (recurring), an ISO-8601 datetime (a one-off
-                run at that instant), or the literal ``"now"`` (run once, as
-                soon as possible). A datetime or ``"now"`` job disables itself
-                after it fires.
-            configuration: The HTTP request the job sends each time it fires.
-            description: Free-text description for the job. Defaults to none.
-            environments: Per-environment overrides for a recurring job, keyed
-                by environment key — each a :class:`JobEnvironment`, or a plain
-                dict ``{"enabled": bool}`` optionally with a ``"configuration"``
-                override (an :class:`HttpConfig` or its dict form). A recurring
-                job fires only in environments enabled here. Ignored for a
-                one-off job, which is born in ``environment`` (below).
-            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
-                (the default and only value today) permits a new run to start
-                while a previous one is still in flight.
-            environment: For a one-off job (``"now"`` / datetime schedule), the
-                environment it is born in. Defaults to the client's configured
-                environment. Ignored for a recurring job.
-
-        Returns:
-            An unsaved :class:`AsyncJob` bound to this client.
-        """
         job = AsyncJob(
             self,
             **_new_kwargs(
@@ -1219,10 +1349,145 @@ class AsyncJobsClient:
         job._birth_environment = environment if environment is not None else self._environment
         return job
 
+    def new_recurring_job(
+        self,
+        id: str,
+        *,
+        name: str,
+        schedule: str,
+        configuration: HttpConfig,
+        description: Optional[str] = None,
+        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
+        concurrency_policy: str = "ALLOW",
+    ) -> AsyncJob:
+        """Return an unsaved recurring :class:`AsyncJob`. ``await .save()`` to create it.
+
+        Args:
+            id: Caller-supplied unique identifier for the job. Unique within
+                the account and immutable; the service returns 409 if another
+                live job already uses this id.
+            name: Human-readable name for the job.
+            schedule: The base cadence — a 5-field cron expression evaluated in
+                UTC (e.g. ``"0 2 * * *"``) — that every environment inherits
+                unless it sets its own override.
+            configuration: The HTTP request the job sends each time it fires.
+            description: Free-text description for the job. Defaults to none.
+            environments: Per-environment overrides keyed by environment key —
+                each a :class:`JobEnvironment`, or a plain dict
+                ``{"enabled": bool}`` optionally with ``"schedule"`` /
+                ``"configuration"`` overrides. The job is scheduled only in
+                environments enabled here.
+            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
+                (the default and only value today) permits a new run to start
+                while a previous one is still in flight.
+
+        Returns:
+            An unsaved recurring :class:`AsyncJob` bound to this client.
+        """
+        return self._new_job(
+            id,
+            name=name,
+            schedule=schedule,
+            configuration=configuration,
+            description=description,
+            environments=environments,
+            concurrency_policy=concurrency_policy,
+            environment=None,
+        )
+
+    def new_manual_job(
+        self,
+        id: str,
+        *,
+        name: str,
+        configuration: HttpConfig,
+        description: Optional[str] = None,
+        environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
+        concurrency_policy: str = "ALLOW",
+    ) -> AsyncJob:
+        """Return an unsaved manual :class:`AsyncJob`. ``await .save()`` to create it.
+
+        A manual job has no schedule — it never auto-fires and runs only when
+        triggered via :meth:`run` / :meth:`AsyncJob.trigger`.
+
+        Args:
+            id: Caller-supplied unique identifier for the job. Unique within
+                the account and immutable; the service returns 409 if another
+                live job already uses this id.
+            name: Human-readable name for the job.
+            configuration: The HTTP request the job sends each time it runs.
+            description: Free-text description for the job. Defaults to none.
+            environments: Per-environment overrides keyed by environment key —
+                each a :class:`JobEnvironment`, or a plain dict
+                ``{"enabled": bool}`` optionally with a ``"configuration"``
+                override. The job is triggerable only in environments enabled
+                here.
+            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
+                (the default and only value today) permits a new run to start
+                while a previous one is still in flight.
+
+        Returns:
+            An unsaved manual :class:`AsyncJob` bound to this client.
+        """
+        return self._new_job(
+            id,
+            name=name,
+            schedule=None,
+            configuration=configuration,
+            description=description,
+            environments=environments,
+            concurrency_policy=concurrency_policy,
+            environment=None,
+        )
+
+    def schedule(
+        self,
+        id: str,
+        *,
+        name: str,
+        schedule: datetime.datetime,
+        configuration: HttpConfig,
+        description: Optional[str] = None,
+        concurrency_policy: str = "ALLOW",
+        environment: Optional[str] = None,
+    ) -> AsyncJob:
+        """Return an unsaved one-off :class:`AsyncJob`. ``await .save()`` to create it.
+
+        A one-off job runs a single time at ``schedule`` and is then spent.
+
+        Args:
+            id: Caller-supplied unique identifier for the job. Unique within
+                the account and immutable; the service returns 409 if another
+                live job already uses this id.
+            name: Human-readable name for the job.
+            schedule: The instant the single run fires, as a ``datetime``.
+            configuration: The HTTP request the job sends when it runs.
+            description: Free-text description for the job. Defaults to none.
+            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
+                (the default and only value today) permits a new run to start
+                while a previous one is still in flight.
+            environment: The environment the job is born in. Defaults to the
+                client's configured environment.
+
+        Returns:
+            An unsaved one-off :class:`AsyncJob` bound to this client.
+        """
+        return self._new_job(
+            id,
+            name=name,
+            schedule=schedule.isoformat(),
+            configuration=configuration,
+            description=description,
+            environments=None,
+            concurrency_policy=concurrency_policy,
+            environment=environment,
+        )
+
     async def list(
         self,
         *,
-        recurring: Optional[bool] = None,
+        kind: Optional[JobKind] = None,
+        scheduled: Optional[bool] = None,
         name: Optional[str] = None,
         page_number: Optional[int] = None,
         page_size: Optional[int] = None,
@@ -1230,8 +1495,13 @@ class AsyncJobsClient:
         """List jobs in the account.
 
         Args:
-            recurring: Return only recurring (``True``) or one-off (``False``)
-                jobs. ``None`` lists both.
+            kind: Return only jobs of this :class:`JobKind`. ``None`` lists
+                recurring and manual jobs; one-off jobs are omitted unless you
+                pass :attr:`JobKind.ONE_OFF`.
+            scheduled: Return only jobs that have an upcoming fire in some
+                environment (``True``) or none (``False``) — the feed for an
+                upcoming-runs view, which includes one-offs. ``None`` does not
+                filter on scheduling.
             name: Return only jobs whose name contains this text
                 (case-insensitive). ``None`` lists all.
             page_number: 1-based page to return. ``None`` returns the first
@@ -1243,7 +1513,7 @@ class AsyncJobsClient:
             The jobs in this page, as a list of :class:`AsyncJob`.
         """
         resp = await _gen_list_jobs.asyncio_detailed(
-            client=self._auth, **_list_jobs_kwargs(recurring, name, page_number, page_size)
+            client=self._auth, **_list_jobs_kwargs(kind, scheduled, name, page_number, page_size)
         )
         _check(resp)
         return [AsyncJob._from_resource(r, self) for r in _data(resp)]
@@ -1282,7 +1552,8 @@ class AsyncJobsClient:
             environment: Environment the manual run executes in. Defaults to the
                 client's configured environment; when the job is enabled in
                 exactly one environment that environment is used, and a
-                single-environment credential implies it.
+                single-environment credential implies it. The job must be
+                enabled in the chosen environment.
 
         Returns:
             The :class:`AsyncRun` that was started, with ``trigger`` set to

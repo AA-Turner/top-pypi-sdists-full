@@ -1,14 +1,18 @@
 """Async HTTP RPC Provider."""
 
+from __future__ import annotations
+
+import warnings
 from typing import Dict, Optional, Tuple, Type, overload
 
-import httpx
+import httpx2
 from solders.rpc.requests import Body
 from solders.rpc.responses import RPCResult
 
 from ...exceptions import SolanaRpcException, handle_async_exceptions
 from .async_base import AsyncBaseProvider
 from .core import (
+    DEFAULT_LIMITS,
     DEFAULT_TIMEOUT,
     T,
     _after_request_unparsed,
@@ -49,13 +53,19 @@ class AsyncHTTPProvider(AsyncBaseProvider, _HTTPProviderCore):
     ):
         """Init AsyncHTTPProvider."""
         super().__init__(endpoint, extra_headers)
-        self.session = httpx.AsyncClient(timeout=timeout, proxy=proxy)
+        if proxy is None:
+            self.session = httpx2.AsyncClient(
+                timeout=timeout,
+                limits=DEFAULT_LIMITS,
+            )
+        else:
+            self.session = httpx2.AsyncClient(timeout=timeout, proxy=proxy, limits=DEFAULT_LIMITS)
 
     def __str__(self) -> str:
         """String definition for HTTPProvider."""
         return f"Async HTTP RPC connection {self.endpoint_uri}"
 
-    @handle_async_exceptions(SolanaRpcException, httpx.HTTPError)
+    @handle_async_exceptions(SolanaRpcException, httpx2.HTTPError)
     async def make_request(self, body: Body, parser: Type[T]) -> T:
         """Make an async HTTP request to an http rpc endpoint."""
         raw = await self.make_request_unparsed(body)
@@ -64,13 +74,22 @@ class AsyncHTTPProvider(AsyncBaseProvider, _HTTPProviderCore):
     async def make_request_unparsed(self, body: Body) -> str:
         """Make an async HTTP request to an http rpc endpoint."""
         request_kwargs = self._before_request(body=body)
-        raw_response = await self.session.post(**request_kwargs)
+        try:
+            raw_response = await self.session.post(**request_kwargs)
+        except (httpx2.RemoteProtocolError, httpx2.ReadError):
+            # httpcore2 does not auto-retry stale keepalive connections (unlike httpcore 1.x).
+            # Also retry on ReadError (ECONNRESET) which occurs when the server forcibly
+            # closes the connection mid-response under load.
+            raw_response = await self.session.post(**request_kwargs)
         return _after_request_unparsed(raw_response)
 
     async def make_batch_request_unparsed(self, reqs: Tuple[Body, ...]) -> str:
-        """Make an async HTTP request to an http rpc endpoint."""
+        """Make an async HTTP batch request to an http rpc endpoint."""
         request_kwargs = self._before_batch_request(reqs)
-        raw_response = await self.session.post(**request_kwargs)
+        try:
+            raw_response = await self.session.post(**request_kwargs)
+        except (httpx2.RemoteProtocolError, httpx2.ReadError):
+            raw_response = await self.session.post(**request_kwargs)
         return _after_request_unparsed(raw_response)
 
     @overload
@@ -94,6 +113,11 @@ class AsyncHTTPProvider(AsyncBaseProvider, _HTTPProviderCore):
     async def make_batch_request(self, reqs: Tuple[Body, ...], parsers: _Tuples) -> Tuple[RPCResult, ...]:
         """Make an async HTTP batch request to an http rpc endpoint.
 
+        .. deprecated::
+            ``make_batch_request`` is deprecated and will be removed in a future release.
+            Use individual requests with ``asyncio.gather`` instead.
+            See https://github.com/michaelhly/solana-py/issues/645 for details.
+
         Args:
             reqs: A tuple of request objects from ``solders.rpc.requests``.
             parsers: A tuple of response classes from ``solders.rpc.responses``.
@@ -113,6 +137,13 @@ class AsyncHTTPProvider(AsyncBaseProvider, _HTTPProviderCore):
                 86753592,
             ))
         """
+        warnings.warn(
+            "make_batch_request is deprecated and will be removed in a future release. "
+            "Use individual requests with asyncio.gather instead. "
+            "See https://github.com/michaelhly/solana-py/issues/645 for details.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         raw = await self.make_batch_request_unparsed(reqs)
         return _parse_raw_batch(raw, parsers)
 

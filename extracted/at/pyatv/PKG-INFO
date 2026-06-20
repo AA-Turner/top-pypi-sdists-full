@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyatv
-Version: 0.17.0
+Version: 0.18.0
 Summary: A client library for Apple TV and AirPlay devices
 Author-email: Pierre Ståhl <pierre.staahl@gmail.com>
 License-Expression: MIT

@@ -25,18 +25,14 @@ class IIdentity(metaclass=abc.ABCMeta):
         ...
 
 
-class TokenImpersonationLevel(IntEnum):
+class PrincipalPolicy(IntEnum):
     """This class has no documentation."""
 
-    NONE = 0
+    UNAUTHENTICATED_PRINCIPAL = 0
 
-    ANONYMOUS = 1
+    NO_PRINCIPAL = 1
 
-    IDENTIFICATION = 2
-
-    IMPERSONATION = 3
-
-    DELEGATION = 4
+    WINDOWS_PRINCIPAL = 2
 
 
 class IPrincipal(metaclass=abc.ABCMeta):
@@ -51,13 +47,17 @@ class IPrincipal(metaclass=abc.ABCMeta):
         ...
 
 
-class PrincipalPolicy(IntEnum):
+class TokenImpersonationLevel(IntEnum):
     """This class has no documentation."""
 
-    UNAUTHENTICATED_PRINCIPAL = 0
+    NONE = 0
 
-    NO_PRINCIPAL = 1
+    ANONYMOUS = 1
 
-    WINDOWS_PRINCIPAL = 2
+    IDENTIFICATION = 2
+
+    IMPERSONATION = 3
+
+    DELEGATION = 4
 
 

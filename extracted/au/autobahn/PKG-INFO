@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autobahn
-Version: 26.6.1
+Version: 26.6.2
 Summary: WebSocket client & server library, WAMP real-time framework
 Project-URL: Homepage, https://autobahn.readthedocs.io/
 Project-URL: Source, https://github.com/crossbario/autobahn-python

@@ -22,7 +22,7 @@ const MAX_NUMERIC_COLLISION_SUFFIX: u32 = 10_000;
 /// Mirrors `_mask_value` (replacer.py:346–380).
 ///
 /// Email special-case: `local[0]` + at least 3 stars + `@domain`.
-/// Per-type defaults: phone(3,4), bank_card(6,4), credit_card(6,4), id_number(4,4).
+/// Per-type defaults: phone(3,4), bank_card(6,4), credit_card(6,4), id_number(0,4).
 /// If `visible_prefix` and `visible_suffix` are both 0 the per-type default applies.
 ///
 /// **Char-based**: all lengths are Unicode scalar values (`.chars().count()`),
@@ -35,8 +35,11 @@ pub fn mask_value(
 ) -> String {
     if entity_type == "email" {
         // Email: find '@', show first char of local + stars + @domain.
-        // Python guards `if at > 0` — an '@' at index 0 (or absent) returns the
-        // value unchanged. Match that exactly.
+        // Only apply the email-specific shape when a valid '@' (index > 0) is
+        // present. If there's no valid '@' the value isn't a real email (a
+        // mislabel reachable via `_pre_detected`, a custom pattern, or an
+        // NER/L3 mislabel) — fall through to the generic char-mask below
+        // instead of returning it verbatim, which would leak the value.
         if let Some(at) = value.find('@').filter(|&a| a > 0) {
             let local = &value[..at];
             let domain = &value[at..]; // includes the '@'
@@ -49,7 +52,7 @@ pub fn mask_value(
             let star_count = (local_chars.len().saturating_sub(1)).max(3);
             return format!("{}{}{}", visible, "*".repeat(star_count), domain);
         }
-        return value.to_string();
+        // No valid '@' → fall through to generic masking (`_ => (3, 4)` default).
     }
 
     // Per-type defaults for (prefix, suffix)
@@ -57,7 +60,7 @@ pub fn mask_value(
         "phone" => (3usize, 4usize),
         "bank_card" => (6, 4),
         "credit_card" => (6, 4),
-        "id_number" => (4, 4),
+        "id_number" => (0, 4),
         _ => (3, 4),
     };
 
@@ -244,11 +247,19 @@ mod tests {
 
     #[test]
     fn mask_value_id_number() {
-        // 18 chars: show first 4 + last 4
+        // 18 chars: suffix-only default (0, 4) — leading region code stays hidden.
         assert_eq!(
             mask_value("110101199003074610", "id_number", 0, 0),
-            "1101**********4610"
+            "**************4610"
         );
+    }
+
+    #[test]
+    fn id_number_default_hides_leading_region_code() {
+        // 18-digit Chinese ID; default mask must NOT reveal the leading region code.
+        let out = mask_value("110101199003078888", "id_number", 0, 0);
+        assert!(!out.starts_with("1101"), "must not reveal the region code");
+        assert!(out.ends_with("8888"));
     }
 
     #[test]
@@ -268,14 +279,23 @@ mod tests {
 
     #[test]
     fn mask_value_email_no_at() {
-        // No '@' → return as-is
-        assert_eq!(mask_value("notanemail", "email", 0, 0), "notanemail");
+        // No valid '@' → fall through to generic mask, not returned verbatim.
+        // "notanemail" (10 chars) > 3+4 → "not" + 3 stars + "mail".
+        assert_eq!(mask_value("notanemail", "email", 0, 0), "not***mail");
     }
 
     #[test]
-    fn mask_value_email_at_start_unchanged() {
-        // '@' at index 0 → Python's `if at > 0` guard returns value unchanged.
-        assert_eq!(mask_value("@b.com", "email", 0, 0), "@b.com");
+    fn mask_value_email_at_start_masked() {
+        // '@' at index 0 → not a valid email; falls through to generic mask.
+        // "@b.com" (6 chars) <= 3+4 → all stars.
+        assert_eq!(mask_value("@b.com", "email", 0, 0), "******");
+    }
+
+    #[test]
+    fn email_without_at_is_masked_not_verbatim() {
+        let out = mask_value("notanemail", "email", 0, 0);
+        assert_ne!(out, "notanemail");
+        assert!(out.contains('*'));
     }
 
     #[test]

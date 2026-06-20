@@ -1039,6 +1039,7 @@ class Resolver(_message.Message):
         "venv",
         "incremental_settings",
         "runtime_contract",
+        "handle_duplicate_outputs",
         "underscore_expr",
         "lazyframe_expr",
     )
@@ -1074,6 +1075,7 @@ class Resolver(_message.Message):
     VENV_FIELD_NUMBER: _ClassVar[int]
     INCREMENTAL_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     RUNTIME_CONTRACT_FIELD_NUMBER: _ClassVar[int]
+    HANDLE_DUPLICATE_OUTPUTS_FIELD_NUMBER: _ClassVar[int]
     UNDERSCORE_EXPR_FIELD_NUMBER: _ClassVar[int]
     LAZYFRAME_EXPR_FIELD_NUMBER: _ClassVar[int]
     fqn: str
@@ -1108,6 +1110,7 @@ class Resolver(_message.Message):
     venv: str
     incremental_settings: IncrementalSettings
     runtime_contract: str
+    handle_duplicate_outputs: str
     underscore_expr: _expression_pb2.LogicalExprNode
     lazyframe_expr: _expression_pb2.LogicalExprNode
     def __init__(
@@ -1144,6 +1147,7 @@ class Resolver(_message.Message):
         venv: _Optional[str] = ...,
         incremental_settings: _Optional[_Union[IncrementalSettings, _Mapping]] = ...,
         runtime_contract: _Optional[str] = ...,
+        handle_duplicate_outputs: _Optional[str] = ...,
         underscore_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         lazyframe_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
     ) -> None: ...

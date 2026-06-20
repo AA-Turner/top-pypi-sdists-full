@@ -6,14 +6,6 @@ import System
 import System.ComponentModel.DataAnnotations.Schema
 
 
-class ComplexTypeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class NotMappedAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
 class DatabaseGeneratedOption(IntEnum):
     """This class has no documentation."""
 
@@ -24,14 +16,22 @@ class DatabaseGeneratedOption(IntEnum):
     COMPUTED = 2
 
 
-class DatabaseGeneratedAttribute(System.Attribute):
+class TableAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def database_generated_option(self) -> System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption:
+    def name(self) -> str:
         ...
 
-    def __init__(self, database_generated_option: System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption) -> None:
+    @property
+    def schema(self) -> str:
+        ...
+
+    @schema.setter
+    def schema(self, value: str) -> None:
+        ...
+
+    def __init__(self, name: str) -> None:
         ...
 
 
@@ -89,22 +89,22 @@ class ForeignKeyAttribute(System.Attribute):
         ...
 
 
-class TableAttribute(System.Attribute):
+class ComplexTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class NotMappedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class DatabaseGeneratedAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def name(self) -> str:
+    def database_generated_option(self) -> System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption:
         ...
 
-    @property
-    def schema(self) -> str:
-        ...
-
-    @schema.setter
-    def schema(self, value: str) -> None:
-        ...
-
-    def __init__(self, name: str) -> None:
+    def __init__(self, database_generated_option: System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption) -> None:
         ...
 
 

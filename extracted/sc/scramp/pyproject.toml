@@ -4,25 +4,23 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scramp"
-authors = [{name = "The Contributors"}]
+authors = [{ name = "The Contributors" }]
 description = "An implementation of the SCRAM protocol."
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["SCRAM", "authentication", "SASL"]
-license = {text = "MIT No Attribution"}
+license = { text = "MIT No Attribution" }
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT No Attribution License (MIT-0)",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: Implementation",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Operating System :: OS Independent",
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT No Attribution License (MIT-0)",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: Implementation",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Operating System :: OS Independent",
 ]
-dependencies = [
-    "asn1crypto >= 1.5.1",
-]
+dependencies = ["asn1crypto >= 1.5.1"]
 dynamic = ["version"]
 
 [project.urls]
@@ -52,23 +50,52 @@ envlist = ["py"]
 description = "Run test under {base_python}"
 allowlist_externals = ["rm"]
 commands = [
-    ["black", "--check", "."],
-    ["flake8", "."],
-    ["validate-pyproject", "pyproject.toml"],
-    ["pytest", "-v", "-x", "-W error", "test"],
-    ["rm", "-rf", "dist"],
-    ["python", "-m", "build"],
-    ["twine", "check", "dist/*"],
+  [
+    "ruff",
+    "format",
+    "--check",
+    ".",
+  ],
+  [
+    "flake8",
+    ".",
+  ],
+  [
+    "validate-pyproject",
+    "pyproject.toml",
+  ],
+  [
+    "pytest",
+    "-v",
+    "-x",
+    "-W error",
+    "test",
+  ],
+  [
+    "rm",
+    "-rf",
+    "dist",
+  ],
+  [
+    "python",
+    "-m",
+    "build",
+  ],
+  [
+    "twine",
+    "check",
+    "dist/*",
+  ],
 ]
 deps = [
-    "pytest",
-    "pytest-mock",
-    "black",
-    "flake8",
-    "flake8-alphabetize",
-    "Flake8-pyproject",
-    "docutils",
-    "build",
-    "twine",
-    "validate-pyproject",
+  "pytest",
+  "pytest-mock",
+  "ruff",
+  "flake8",
+  "flake8-alphabetize",
+  "Flake8-pyproject",
+  "docutils",
+  "build",
+  "twine",
+  "validate-pyproject",
 ]

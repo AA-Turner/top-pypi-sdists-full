@@ -22,7 +22,7 @@ from ...constants import (
 from ...helpers.api import CommandError
 from ...helpers.auth import hash_password
 from ...helpers.network_interfaces import resolve_bind_host
-from ...helpers.secrets_state import PLACEHOLDER_WIFI_PASSWORD, PLACEHOLDER_WIFI_SSID
+from ...helpers.secrets_state import migrate_placeholder_wifi_secrets
 from ...models import ErrorCode
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ class DashboardSettings:
     password_hash: bytes = field(default_factory=bytes)
     using_password: bool = False
     on_ha_addon: bool = False
+    allow_public_port: bool = False
     log_level: str = "info"
     port: int = 6052
     host: str = "0.0.0.0"
@@ -99,6 +100,7 @@ class DashboardSettings:
     def parse_args(self, args: Any) -> None:
         """Parse CLI arguments into settings."""
         self.on_ha_addon = getattr(args, "ha_addon", False)
+        self.allow_public_port = getattr(args, "ha_addon_allow_public", False)
         # Env-var fallback uses ``ESPHOME_*`` rather than the legacy
         # dashboard's bare ``USERNAME`` / ``PASSWORD``: the bare names
         # collide with login-shell / Windows system vars (``$USERNAME``
@@ -116,34 +118,31 @@ class DashboardSettings:
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.absolute_config_dir = self.config_dir.resolve()
         # Ensure secrets.yaml exists (ESPHome fails if !secret references
-        # can't find it). Atomic write — a crash mid-write would leave the
-        # user with a half-bootstrap'd secrets file and the next startup
-        # would see ``not exists() == False`` on the partial and skip
-        # this branch, leaving them stuck. ``write_file`` stages in a
-        # sibling tempfile + ``shutil.move`` so the file is either fully
-        # there or not at all.
+        # can't find it, and the Secrets editor expects a real file).
+        # Atomic write — a crash mid-write would leave the user with a
+        # half-bootstrap'd secrets file and the next startup would see
+        # ``not exists() == False`` on the partial and skip this branch,
+        # leaving them stuck. ``write_file`` stages in a sibling tempfile +
+        # ``shutil.move`` so the file is either fully there or not at all.
         #
-        # Use non-empty placeholder strings rather than ``""``: ESPHome's
-        # ``wifi`` validator rejects an empty SSID with
-        # "SSID can't be empty.", so a fresh-install ``create_device``
-        # whose generated YAML uses ``!secret wifi_ssid`` would
-        # validation-fail before the device is even saved
-        # ("Failed to create device: SSID can't be empty."). The
-        # placeholders validate clean and clearly signal to the user
-        # that the values need to be replaced before flashing —
-        # ``OnboardingController`` reads the same constants from
-        # ``helpers.secrets_state`` to detect the unconfigured state
-        # and surface the setup wizard.
+        # No Wi-Fi placeholders are seeded: Wi-Fi credentials are collected
+        # per-device in the create wizard (which writes them here via
+        # ``config/set_wifi_credentials``), and generation is adaptive — a
+        # device created before any Wi-Fi secret exists gets a no-network
+        # stub rather than a broken ``!secret wifi_ssid``.
         secrets_path = self.config_dir / SECRETS_FILENAME
         if not secrets_path.exists():
             atomic_write_file(
                 secrets_path,
                 "# Secrets — referenced from device configs via !secret\n"
-                "# Replace these placeholders with your real Wi-Fi\n"
-                "# credentials before flashing or installing OTA.\n"
-                f'wifi_ssid: "{PLACEHOLDER_WIFI_SSID}"\n'
-                f'wifi_password: "{PLACEHOLDER_WIFI_PASSWORD}"\n',
+                "# Add Wi-Fi credentials here, or let the create-device\n"
+                "# wizard add them for you.\n",
             )
+        else:
+            # Existing install: drop any leftover seeded Wi-Fi placeholders so a
+            # no-ssid create doesn't emit a !secret pointing at the placeholder
+            # (compiles, never joins). No-op once the user has set real values.
+            migrate_placeholder_wifi_secrets(self.config_dir)
         self.log_level = getattr(args, "log_level", "info")
         self.port = getattr(args, "port", 6052)
         self.host = getattr(args, "host", "0.0.0.0")
@@ -261,13 +260,32 @@ class DashboardSettings:
         return bool(get_bool_env("ESPHOME_DASHBOARD_USE_MQTT"))
 
     @property
+    def front_door_open(self) -> bool:
+        """Operator disabled external auth (legacy leave_front_door_open env var)."""
+        return self.on_ha_addon and get_bool_env("DISABLE_HA_AUTHENTICATION")
+
+    @property
+    def serve_public_unauthenticated(self) -> bool:
+        """
+        Bind the public LAN port with no auth at all.
+
+        Requires both the front-door-open opt-in *and* the operator having
+        mapped port 6052 (``--ha-addon-allow-public``); legacy parity needed
+        both, and the add-on is host-network with no nginx, so the bind is the
+        LAN exposure.
+        """
+        return self.front_door_open and self.allow_public_port
+
+    @property
     def create_ingress_site(self) -> bool:
-        """Whether to bind the trusted HA Ingress TCP site alongside the public site."""
-        if not self.on_ha_addon:
-            return False
-        # DISABLE_HA_AUTHENTICATION lets operators force ingress users
-        # through the password-gated public port too.
-        return not get_bool_env("DISABLE_HA_AUTHENTICATION")
+        """
+        Whether the trusted HA Ingress site is the add-on's auth boundary.
+
+        True for every add-on shape except the deliberately wide-open one
+        (front door open + mapped port), where the public port carries no auth
+        and the unprotected-startup banner must fire.
+        """
+        return self.on_ha_addon and not self.serve_public_unauthenticated
 
     @property
     def ingress_bind_hosts(self) -> list[str]:

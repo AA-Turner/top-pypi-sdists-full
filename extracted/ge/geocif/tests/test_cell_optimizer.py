@@ -26,6 +26,7 @@ import pandas as pd
 
 from geocif.cell_optimizer import (
     GAConfig,
+    aggregate_held_out,
     aggregate_over_mask,
     fitness,
     init_prob_from_afi,
@@ -356,7 +357,7 @@ class TestTinyRegionDoesNotCrash(unittest.TestCase):
 
     def test_n_cells_below_min_cell_floor_abs(self):
         rng = np.random.default_rng(0)
-        n_cells = 12  # < default min_cell_floor_abs of 20
+        n_cells = 3   # < configured min_cell_floor_abs=20 below
         n_years = 20
         per_cell = rng.normal(size=(n_cells, n_years, 1))
         y = rng.normal(size=n_years)
@@ -452,6 +453,105 @@ class TestParquetReadIsRegionScoped(unittest.TestCase):
                 filters=[("region", "==", "region_does_not_exist")],
             )
             self.assertTrue(df_none.empty)
+
+
+class TestAggregateHeldOut(unittest.TestCase):
+    """Held-out aggregation applies year-Y's mask only to year Y's slice
+    of per_cell. Rows for years whose mask is missing stay NaN so
+    downstream R² / r computations skip them via the standard
+    finite-mask gate."""
+
+    def test_each_year_uses_its_own_mask(self):
+        # 3 cells × 4 years × 2 vars. mask_2020 picks cell 0; mask_2021
+        # picks cell 1; mask_2022 picks cells 0+2; mask_2023 missing.
+        per_cell = np.array([
+            [[10, 100], [11, 110], [12, 120], [13, 130]],   # cell 0
+            [[20, 200], [21, 210], [22, 220], [23, 230]],   # cell 1
+            [[30, 300], [31, 310], [32, 320], [33, 330]],   # cell 2
+        ], dtype=float)
+        years = np.array([2020, 2021, 2022, 2023])
+        masks_by_year = {
+            2020: np.array([True,  False, False]),
+            2021: np.array([False, True,  False]),
+            2022: np.array([True,  False, True]),
+            # 2023 deliberately missing
+        }
+
+        out = aggregate_held_out(per_cell, years, masks_by_year)
+
+        # 2020: cell 0 only -> [10, 100]
+        np.testing.assert_array_almost_equal(out[0], [10.0, 100.0])
+        # 2021: cell 1 only -> [21, 210]
+        np.testing.assert_array_almost_equal(out[1], [21.0, 210.0])
+        # 2022: mean of cells 0+2 -> [(32+32)/2, (320+320)/2]... wait
+        #       per_cell[0, 2, :] = [12, 120]; per_cell[2, 2, :] = [32, 320]
+        #       mean = [22, 220]
+        np.testing.assert_array_almost_equal(out[2], [22.0, 220.0])
+        # 2023: mask missing -> NaN
+        self.assertTrue(np.isnan(out[3]).all())
+
+    def test_missing_all_masks_returns_all_nan(self):
+        per_cell = np.ones((2, 3, 1), dtype=float)
+        years = np.array([2020, 2021, 2022])
+        out = aggregate_held_out(per_cell, years, masks_by_year={})
+        self.assertEqual(out.shape, (3, 1))
+        self.assertTrue(np.isnan(out).all())
+
+
+class TestDOYAggDefaults(unittest.TestCase):
+    """The per-variable DOY-axis aggregation defaults are part of the
+    public contract — flipping them silently would change every
+    downstream cell_optimizer run. Pin them here.
+    """
+
+    def test_ndvi_default_is_auc(self):
+        from geocif.cell_optimizer import _DOY_AGG_DEFAULTS
+        self.assertEqual(_DOY_AGG_DEFAULTS["ndvi"], "auc")
+
+    def test_t_and_p_defaults_are_mean(self):
+        from geocif.cell_optimizer import _DOY_AGG_DEFAULTS
+        self.assertEqual(_DOY_AGG_DEFAULTS["tmax"], "mean")
+        self.assertEqual(_DOY_AGG_DEFAULTS["tmin"], "mean")
+        self.assertEqual(_DOY_AGG_DEFAULTS["precip"], "mean")
+
+    def test_valid_agg_set_includes_auc_and_sum(self):
+        from geocif.cell_optimizer import _DOY_AGG_VALID
+        for name in ("auc", "sum", "max", "mean", "median", "min"):
+            self.assertIn(name, _DOY_AGG_VALID)
+
+
+class TestAnnualMaskPaths(unittest.TestCase):
+    """The annual-mask flag adds per-year leave-one-out parquets ALONGSIDE
+    the existing pooled parquet. This test pins the contract:
+      * pooled path stays the same (backwards-compatible)
+      * per-year path adds a ``_y{year}_`` suffix
+      * both paths sit in the same per-(country, crop) directory
+    """
+
+    def test_pooled_and_per_year_paths_share_parent_and_differ_only_by_suffix(self):
+        # We don't need a fully-instantiated CellOptimizer (BaseGeo config),
+        # we just need the path-builder semantics. Mock a tiny stand-in
+        # with the bare attributes the path methods touch.
+        from pathlib import Path
+        from geocif.cell_optimizer import CellOptimizer
+
+        class _Stub:
+            dir_output = Path("/fake/out")
+
+        # Bound-method invocation lets us reuse the production-path
+        # formulas without instantiating BaseGeo machinery.
+        pooled = CellOptimizer.production_mask_path(
+            _Stub(), "india", "maize", 1,
+        )
+        y2020 = CellOptimizer.production_mask_path_for_year(
+            _Stub(), "india", "maize", 1, 2020,
+        )
+
+        # Same parent dir.
+        self.assertEqual(pooled.parent, y2020.parent)
+        # Year-specific filename differs by the _y{year}_ infix.
+        self.assertEqual(pooled.name, "india_maize_s1_optimized_mask.parquet")
+        self.assertEqual(y2020.name, "india_maize_s1_y2020_optimized_mask.parquet")
 
 
 class TestProductionMaskParquetRoundTrip(unittest.TestCase):

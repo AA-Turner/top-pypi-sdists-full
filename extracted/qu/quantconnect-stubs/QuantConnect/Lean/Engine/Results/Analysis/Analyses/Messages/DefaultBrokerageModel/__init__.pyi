@@ -7,8 +7,8 @@ import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages
 import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.DefaultBrokerageModel
 
 
-class UnsupportedSecurityTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the security type is not supported."""
+class OrderUpdateNotSupportedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where the brokerage does not support updating orders."""
 
     @property
     def issue(self) -> str:
@@ -49,8 +49,53 @@ class InvalidOrderQuantityAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Ana
         ...
 
 
-class UnsupportedCrossZeroByOrderTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the order type does not support crossing zero (flipping position direction in a single order)."""
+class UnsupportedMarketOnOpenOrderTimeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """
+    Detects brokerage model rejections where a MarketOnOpen order was placed without the required
+    minimum time gap before the intended fill bar.
+    """
+
+    @property
+    def issue(self) -> str:
+        ...
+
+    @property
+    def weight(self) -> int:
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """This Property is protected."""
+        ...
+
+    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
+        """This Class is protected."""
+        ...
+
+
+class UnsupportedSecurityTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where the security type is not supported."""
+
+    @property
+    def issue(self) -> str:
+        ...
+
+    @property
+    def weight(self) -> int:
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """This Property is protected."""
+        ...
+
+    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
+        """This Class is protected."""
+        ...
+
+
+class UnsupportedMarketOnOpenOrdersForFutureAndFutureOptionsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where a MarketOnOpen order was placed for a Futures or Future Options contract."""
 
     @property
     def issue(self) -> str:
@@ -91,51 +136,6 @@ class InvalidOrderSizeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyse
         ...
 
 
-class UnsupportedMarketOnOpenOrderTimeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """
-    Detects brokerage model rejections where a MarketOnOpen order was placed without the required
-    minimum time gap before the intended fill bar.
-    """
-
-    @property
-    def issue(self) -> str:
-        ...
-
-    @property
-    def weight(self) -> int:
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """This Property is protected."""
-        ...
-
-    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This Class is protected."""
-        ...
-
-
-class OrderUpdateNotSupportedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the brokerage does not support updating orders."""
-
-    @property
-    def issue(self) -> str:
-        ...
-
-    @property
-    def weight(self) -> int:
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """This Property is protected."""
-        ...
-
-    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This Class is protected."""
-        ...
-
-
 class UnsupportedTimeInForceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
     """Detects brokerage model rejections where the order's time-in-force setting is not supported."""
 
@@ -157,8 +157,8 @@ class UnsupportedTimeInForceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.A
         ...
 
 
-class UnsupportedCrossZeroOrderUpdateAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where an order update would cause the position to cross zero."""
+class NoDataForSymbolAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where no data is available for the ordered security."""
 
     @property
     def issue(self) -> str:
@@ -178,8 +178,8 @@ class UnsupportedCrossZeroOrderUpdateAnalysis(QuantConnect.Lean.Engine.Results.A
         ...
 
 
-class UnsupportedMarketOnOpenOrdersForFutureAndFutureOptionsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where a MarketOnOpen order was placed for a Futures or Future Options contract."""
+class UnsupportedCrossZeroByOrderTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where the order type does not support crossing zero (flipping position direction in a single order)."""
 
     @property
     def issue(self) -> str:
@@ -241,8 +241,8 @@ class UnsupportedOrderTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Ana
         ...
 
 
-class NoDataForSymbolAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where no data is available for the ordered security."""
+class UnsupportedCrossZeroOrderUpdateAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where an order update would cause the position to cross zero."""
 
     @property
     def issue(self) -> str:

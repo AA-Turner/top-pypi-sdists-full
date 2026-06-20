@@ -633,11 +633,12 @@ from .blas import _FortranFunction
 
 __all__ = ["get_lapack_funcs"]
 
+HAS_LP64: Final[bool] = ...
 HAS_ILP64: Final[bool] = ...
 
 def get_lapack_funcs(
     names: Iterable[str] | str,
     arrays: Sequence[onp.ArrayND] = (),
     dtype: npt.DTypeLike | None = None,
-    ilp64: Literal["preferred"] | bool = False,
+    ilp64: Literal["preferred"] | bool = "preferred",
 ) -> list[_FortranFunction] | _FortranFunction: ...

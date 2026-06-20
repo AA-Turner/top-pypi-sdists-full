@@ -41,9 +41,11 @@ from amazon.opentelemetry.distro.aws_opentelemetry_configurator import (
     _export_unsampled_span_for_lambda,
     _fetch_logs_header,
     _init_logging,
+    _init_serviceevents,
     _is_application_signals_enabled,
     _is_application_signals_runtime_enabled,
     _is_defer_to_workers_enabled,
+    _is_serviceevents_enabled,
     _is_wsgi_master_process,
     _parse_config_string,
     is_enhanced_code_attributes,
@@ -127,7 +129,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # Explicitly shut down meter provider to avoid I/O errors on Python 3.9 with gevent
+        # Explicitly shut down meter provider to avoid I/O errors with gevent
         # This ensures ConsoleMetricExporter is properly closed before Python cleanup
         try:
             meter_provider = get_meter_provider()
@@ -332,6 +334,115 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         os.environ.setdefault("OTEL_AWS_APPLICATION_SIGNALS_RUNTIME_ENABLED", None)
         self.assertFalse(_is_application_signals_enabled())
 
+    def test_is_serviceevents_enabled_follows_app_signals_when_unset(self):
+        # Unset OTEL_AWS_SERVICE_EVENTS_ENABLED → follow OTEL_AWS_APPLICATION_SIGNALS_ENABLED
+        with patch.dict(
+            os.environ,
+            {"OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "true"},
+            clear=True,
+        ):
+            self.assertTrue(_is_serviceevents_enabled())
+
+        with patch.dict(
+            os.environ,
+            {"OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "false"},
+            clear=True,
+        ):
+            self.assertFalse(_is_serviceevents_enabled())
+
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(_is_serviceevents_enabled())
+
+    def test_is_serviceevents_enabled_explicit_override(self):
+        # Explicit true forces ServiceEvents on even when App Signals is off
+        with patch.dict(
+            os.environ,
+            {
+                "OTEL_AWS_SERVICE_EVENTS_ENABLED": "true",
+                "OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "false",
+            },
+            clear=True,
+        ):
+            self.assertTrue(_is_serviceevents_enabled())
+
+        # Explicit false forces ServiceEvents off even when App Signals is on
+        with patch.dict(
+            os.environ,
+            {
+                "OTEL_AWS_SERVICE_EVENTS_ENABLED": "false",
+                "OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "true",
+            },
+            clear=True,
+        ):
+            self.assertFalse(_is_serviceevents_enabled())
+
+    def test_is_serviceevents_enabled_disabled_on_lambda(self):
+        # Lambda always disables ServiceEvents, regardless of the other flags
+        with patch.dict(
+            os.environ,
+            {
+                "AWS_LAMBDA_FUNCTION_NAME": "my-fn",
+                "OTEL_AWS_SERVICE_EVENTS_ENABLED": "true",
+                "OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "true",
+            },
+            clear=True,
+        ):
+            self.assertFalse(_is_serviceevents_enabled())
+
+    @patch("amazon.opentelemetry.distro.serviceevents.get_serviceevents_instrumentation")
+    def test_init_serviceevents_backfills_endpoints_when_app_signals_enabled(self, mock_get_inst):
+        mock_get_inst.return_value = None  # short-circuit after the policy check
+
+        with patch.dict(
+            os.environ,
+            {
+                "OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "true",
+                "OTEL_AWS_OTLP_LOGS_ENDPOINT": "",
+                "OTEL_AWS_OTLP_METRICS_ENDPOINT": "",
+            },
+            clear=True,
+        ):
+            _init_serviceevents()
+
+        config = mock_get_inst.call_args[0][0]
+        self.assertEqual(config.logs_endpoint, "http://localhost:4316/v1/logs")
+        self.assertEqual(config.metrics_endpoint, "http://localhost:4316/v1/metrics")
+
+    @patch("amazon.opentelemetry.distro.serviceevents.get_serviceevents_instrumentation")
+    def test_init_serviceevents_refuses_force_enabled_without_endpoints(self, mock_get_inst):
+        # Force-enabled ServiceEvents with App Signals off and no endpoints → skip init
+        with patch.dict(
+            os.environ,
+            {
+                "OTEL_AWS_SERVICE_EVENTS_ENABLED": "true",
+                "OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "false",
+            },
+            clear=True,
+        ):
+            _init_serviceevents()
+
+        mock_get_inst.assert_not_called()
+
+    @patch("amazon.opentelemetry.distro.serviceevents.get_serviceevents_instrumentation")
+    def test_init_serviceevents_honors_explicit_endpoints_when_force_enabled(self, mock_get_inst):
+        mock_get_inst.return_value = None
+
+        with patch.dict(
+            os.environ,
+            {
+                "OTEL_AWS_SERVICE_EVENTS_ENABLED": "true",
+                "OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "false",
+                "OTEL_AWS_OTLP_LOGS_ENDPOINT": "http://custom:9999/v1/logs",
+                "OTEL_AWS_OTLP_METRICS_ENDPOINT": "http://custom:9999/v1/metrics",
+            },
+            clear=True,
+        ):
+            _init_serviceevents()
+
+        config = mock_get_inst.call_args[0][0]
+        self.assertEqual(config.logs_endpoint, "http://custom:9999/v1/logs")
+        self.assertEqual(config.metrics_endpoint, "http://custom:9999/v1/metrics")
+
     def test_customize_sampler(self):
         mock_sampler: Sampler = MagicMock()
         customized_sampler: Sampler = _customize_sampler(mock_sampler)
@@ -518,7 +629,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         processors = tracer_provider._active_span_processor._span_processors
         baggage_processors = [p for p in processors if p.__class__.__name__ == "BaggageSpanProcessor"]
         self.assertEqual(len(baggage_processors), 1)
-        predicate = baggage_processors[0]._baggage_key_predicate
+        predicate = lambda key: any(p(key) for p in baggage_processors[0]._predicates)  # noqa: E731
         self.assertTrue(predicate("session.id"))
         self.assertFalse(predicate("user.id"))
 
@@ -536,7 +647,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         processors = tracer_provider._active_span_processor._span_processors
         baggage_processors = [p for p in processors if p.__class__.__name__ == "BaggageSpanProcessor"]
         self.assertEqual(len(baggage_processors), 1)
-        predicate = baggage_processors[0]._baggage_key_predicate
+        predicate = lambda key: any(p(key) for p in baggage_processors[0]._predicates)  # noqa: E731
         self.assertTrue(predicate("user.id"))
         self.assertTrue(predicate("request.id"))
         self.assertTrue(predicate("session.id"))
@@ -556,7 +667,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         added = [c.args[0] for c in mock_tracer_provider.add_span_processor.call_args_list]
         baggage_processors = [p for p in added if p.__class__.__name__ == "BaggageSpanProcessor"]
         self.assertEqual(len(baggage_processors), 1)
-        predicate = baggage_processors[0]._baggage_key_predicate
+        predicate = lambda key: any(p(key) for p in baggage_processors[0]._predicates)  # noqa: E731
         self.assertFalse(predicate("any.key"))
 
         os.environ.pop("AGENT_OBSERVABILITY_ENABLED", None)
@@ -573,7 +684,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         processors = tracer_provider._active_span_processor._span_processors
         baggage_processors = [p for p in processors if p.__class__.__name__ == "BaggageSpanProcessor"]
         self.assertEqual(len(baggage_processors), 1)
-        self.assertTrue(baggage_processors[0]._baggage_key_predicate("session.id"))
+        self.assertTrue(any(p("session.id") for p in baggage_processors[0]._predicates))
 
         # With custom baggage keys, session.id should still be present alongside them
         os.environ["OTEL_BAGGAGE_SPAN_ATTRIBUTE_KEYS"] = "custom.key"
@@ -581,7 +692,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         _customize_span_processors(tracer_provider2, Resource.get_empty(), MagicMock())
         processors2 = tracer_provider2._active_span_processor._span_processors
         baggage_processors2 = [p for p in processors2 if p.__class__.__name__ == "BaggageSpanProcessor"]
-        predicate2 = baggage_processors2[0]._baggage_key_predicate
+        predicate2 = lambda key: any(p(key) for p in baggage_processors2[0]._predicates)  # noqa: E731
         self.assertTrue(predicate2("session.id"))
         self.assertTrue(predicate2("custom.key"))
 
@@ -1102,6 +1213,43 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         os.environ.pop("AGENT_OBSERVABILITY_ENABLED", None)
         os.environ.pop("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", None)
 
+        mock_tracer_provider.reset_mock()
+
+        os.environ["AGENT_OBSERVABILITY_ENABLED"] = "true"
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
+        _export_unsampled_span_for_agent_observability(mock_tracer_provider, Resource.get_empty())
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 1)
+        processor = mock_tracer_provider.add_span_processor.call_args_list[0].args[0]
+        self.assertIsInstance(processor, BatchUnsampledSpanProcessor)
+        self.assertEqual(processor.span_exporter._endpoint, "http://localhost:4318/v1/traces")
+
+        os.environ.pop("AGENT_OBSERVABILITY_ENABLED", None)
+        os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
+
+        mock_tracer_provider.reset_mock()
+
+        os.environ["AGENT_OBSERVABILITY_ENABLED"] = "true"
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://xray.us-west-2.amazonaws.com"
+        _export_unsampled_span_for_agent_observability(mock_tracer_provider, Resource.get_empty())
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 1)
+
+        os.environ.pop("AGENT_OBSERVABILITY_ENABLED", None)
+        os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
+
+        mock_tracer_provider.reset_mock()
+
+        os.environ["AGENT_OBSERVABILITY_ENABLED"] = "true"
+        os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "https://xray.us-east-1.amazonaws.com/v1/traces"
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
+        _export_unsampled_span_for_agent_observability(mock_tracer_provider, Resource.get_empty())
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 1)
+        processor = mock_tracer_provider.add_span_processor.call_args_list[0].args[0]
+        self.assertIsInstance(processor, BatchUnsampledSpanProcessor)
+
+        os.environ.pop("AGENT_OBSERVABILITY_ENABLED", None)
+        os.environ.pop("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", None)
+        os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
+
     # pylint: disable=no-self-use
     def test_export_unsampled_span_for_agent_observability_uses_aws_exporter(self):
         """Test that OTLPAwsSpanExporter is used for AWS endpoints"""
@@ -1304,7 +1452,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         _clear_logs_header_cache()
 
     @patch(
-        "amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled",
+        "amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled",
         return_value=False,
     )
     def test_customize_log_record_processor_without_agent_observability(self, _):
@@ -1319,7 +1467,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         self.assertIsInstance(added_processor, BatchLogRecordProcessor)
 
     @patch(
-        "amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled", return_value=True
+        "amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled", return_value=True
     )
     def test_customize_log_record_processor_with_agent_observability(self, _):
         """Test that AwsCloudWatchOtlpBatchLogRecordProcessor is used when agent observability is enabled"""
@@ -1333,7 +1481,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         self.assertIsInstance(added_processor, AwsCloudWatchOtlpBatchLogRecordProcessor)
 
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_logger_provider")
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_aws_session")
     def test_create_aws_otlp_exporter(self, mock_get_session, mock_is_agent_enabled, mock_get_logger_provider):
         # Test when botocore is not installed
@@ -1398,7 +1546,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         result = _create_aws_otlp_exporter("https://xray.us-east-1.amazonaws.com/v1/traces", "xray", "us-east-1")
         self.assertIsNone(result)
 
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_service_attribute")
     def test_customize_resource_without_agent_observability(self, mock_get_service_attribute, mock_is_agent_enabled):
         """Test _customize_resource when agent observability is disabled"""
@@ -1412,7 +1560,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         self.assertEqual(result.attributes[AWS_LOCAL_SERVICE], "test-service")
         self.assertNotIn(AWS_SERVICE_TYPE, result.attributes)
 
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_service_attribute")
     def test_customize_resource_with_agent_observability_default(
         self, mock_get_service_attribute, mock_is_agent_enabled
@@ -1428,7 +1576,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         self.assertEqual(result.attributes[AWS_LOCAL_SERVICE], "test-service")
         self.assertEqual(result.attributes[AWS_SERVICE_TYPE], "gen_ai_agent")
 
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_service_attribute")
     def test_customize_resource_with_existing_agent_type(self, mock_get_service_attribute, mock_is_agent_enabled):
         """Test _customize_resource when agent type already exists in resource"""

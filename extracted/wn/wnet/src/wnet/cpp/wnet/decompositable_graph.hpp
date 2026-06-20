@@ -11,6 +11,7 @@
 #include <deque>
 #include <queue>
 #include <variant>
+#include <type_traits>
 
 
 #define LEMON_ONLY_TEMPLATES
@@ -1035,7 +1036,14 @@ public:
                 if (pos == std::numeric_limits<size_t>::max()) continue;
                 auto arc = lemon_graph.arcFromId(ii);
                 VALUE_TYPE flow = _solver_flow(arc), cap = capacities_map[arc];
-                exp_trash_cost[pos] = e->get_cost();
+                // Use the SCALED cost (costs_map), not the raw get_cost(): the
+                // chain gap costs (topo.gap_cost) come from costs_map, so the
+                // trash costs must share those units.  With cost scaling on they
+                // differ by the cost scale; reading get_cost() here made the
+                // trash term negligible against the scaled matching costs and
+                // dropped the trash-reclaim from the residual marginal.
+                (void)e;
+                exp_trash_cost[pos] = costs_map[arc];
                 if (flow < cap) exp_trash_fwd[pos] = true;
                 if (flow > 0)   exp_trash_rev[pos] = true;
             } else if (const auto* t = std::get_if<TheoreticalTrashEdge>(&et)) {
@@ -1043,7 +1051,9 @@ public:
                 if (pos == std::numeric_limits<size_t>::max()) continue;
                 auto arc = lemon_graph.arcFromId(ii);
                 VALUE_TYPE flow = _solver_flow(arc), cap = capacities_map[arc];
-                theo_trash_cost[pos] = t->get_cost();
+                // Scaled cost (see EmpiricalTrashEdge branch above).
+                (void)t;
+                theo_trash_cost[pos] = costs_map[arc];
                 if (flow < cap) theo_trash_fwd[pos] = true;
                 if (flow > 0)   theo_trash_rev[pos] = true;
             }
@@ -1572,6 +1582,22 @@ class WassersteinNetwork {
     int64_t _scale = 1;
     double _max_real_cost = 0.0;
 
+    // Opt-in cost scaling (see set_cost_scaling): when requested, p == 1 costs
+    // are scaled+rounded like p != 1 instead of truncated.  _explicit_cost_scale
+    // <= 0 means auto (pick_cost_scale); > 0 is used verbatim.
+    bool _cost_scaling_requested = false;
+    int64_t _explicit_cost_scale = 0;
+
+    // Single source of truth for the quantize_cost "p_is_one" (truncate) flag.
+    // Costs are scaled+rounded whenever p != 1 OR the caller opted into cost
+    // scaling; only legacy p == 1 without cost scaling truncates.  Every
+    // quantize_cost() call site must use this, not a bare `_p_order == 1.0`,
+    // so the solver's cost map and any re-quantised (isolated-trash, position
+    // update) costs stay in the same units.
+    bool _costs_truncated() const {
+        return _p_order == 1.0 && !_cost_scaling_requested;
+    }
+
     // Intensity scaling: real (double) node intensities map to integer LEMON
     // supplies as round-toward-zero(real * _intensity_scale).  Set via
     // set_intensity_scale() before build(); propagated to every subgraph in
@@ -1606,7 +1632,41 @@ public:
     double intensity_scale_factor() const { return _intensity_scale; }
     // Must be called before build() to take effect (build() propagates it to
     // the subgraphs and folds it into the cost-scale overflow budget).
-    void set_intensity_scale(double s) { _intensity_scale = s; }
+    // The integer-intensity backend does no scaling at all: intensities are
+    // already exact integers, so the only legal scale is 1.
+    void set_intensity_scale(double s) {
+        if constexpr (std::is_integral_v<intensity_type>) {
+            if (s != 1.0)
+                throw std::invalid_argument(
+                    "Integer intensity backend does not support intensity scaling "
+                    "(set_intensity_scale requires 1; use the double-intensity backend).");
+            _intensity_scale = 1.0;
+        } else {
+            _intensity_scale = s;
+        }
+    }
+
+    // Opt into scaling the (real, possibly fractional) edge costs to integers,
+    // even at p == 1.  By default p == 1 truncates the cost (legacy, bit-exact)
+    // and only p != 1 scales; calling this makes the network quantize p == 1
+    // costs too (round(scale * real)), which lets a caller pass real distances
+    // instead of pre-scaling positions.  `scale <= 0` => auto (pick_cost_scale,
+    // coupled with the intensity scale against the int64 budget); `scale > 0`
+    // => use it verbatim.  Must be called before build().
+    //
+    // The integer-intensity backend works in exact integer costs and does no
+    // scaling at all, so this is rejected there.
+    void set_cost_scaling(int64_t scale = 0) {
+        if constexpr (std::is_integral_v<intensity_type>) {
+            (void)scale;
+            throw std::invalid_argument(
+                "Integer intensity backend does not support cost scaling "
+                "(it works in exact integer costs; use the double-intensity backend).");
+        } else {
+            _cost_scaling_requested = true;
+            _explicit_cost_scale = scale;
+        }
+    }
 
     WassersteinNetwork(const WassersteinNetwork&) = delete;
     WassersteinNetwork& operator=(const WassersteinNetwork&) = delete;
@@ -1818,10 +1878,17 @@ public:
         // summed total_cost — share the same units.  p == 1 keeps _scale == 1.
         // The integer flow the accumulator actually sees is the real flow times
         // the intensity scale, so size the cost-scale ceiling against that.
-        _scale = pick_cost_scale(_max_real_cost, total_flow * _intensity_scale, _p_order == 1.0);
-        const bool p_is_one = (_p_order == 1.0);
+        // Costs are scaled (round) whenever p != 1, OR when the caller opted in
+        // via set_cost_scaling() (which lets p == 1 carry real fractional costs
+        // instead of truncating).  Otherwise p == 1 keeps the legacy S == 1
+        // truncation.  `_truncate` drives both the scale choice and quantize_cost.
+        const bool _truncate = _costs_truncated();
+        if (_cost_scaling_requested && _explicit_cost_scale > 0)
+            _scale = _explicit_cost_scale;
+        else
+            _scale = pick_cost_scale(_max_real_cost, total_flow * _intensity_scale, _truncate);
         for (auto& flow_subgraph : flow_subgraphs) {
-            flow_subgraph->set_cost_scaling(_scale, p_is_one, _intensity_scale);
+            flow_subgraph->set_cost_scaling(_scale, _truncate, _intensity_scale);
             flow_subgraph->build(config);
         }
         built = true;
@@ -1829,10 +1896,10 @@ public:
 
     // Quantised (scaled) isolated trash costs, matching the subgraph cost map.
     VALUE_TYPE _isolated_exp_trash_cost_scaled() const {
-        return quantize_cost<VALUE_TYPE>(_isolated_exp_trash_cost, _scale, _p_order == 1.0);
+        return quantize_cost<VALUE_TYPE>(_isolated_exp_trash_cost, _scale, _costs_truncated());
     }
     VALUE_TYPE _isolated_theo_trash_cost_scaled() const {
-        return quantize_cost<VALUE_TYPE>(_isolated_theo_trash_cost, _scale, _p_order == 1.0);
+        return quantize_cost<VALUE_TYPE>(_isolated_theo_trash_cost, _scale, _costs_truncated());
     }
 
     void solve()
@@ -2102,7 +2169,7 @@ public:
                     const double real_cost = (_p_order == 1.0) ? d : std::pow(d, _p_order);
                     // Reuse the fixed build-time scale so the warm-restarted basis
                     // stays in the same cost units.
-                    new_costs[ii] = quantize_cost<VALUE_TYPE>(real_cost, _scale, _p_order == 1.0);
+                    new_costs[ii] = quantize_cost<VALUE_TYPE>(real_cost, _scale, _costs_truncated());
                 } else if (std::holds_alternative<ChainEdge>(edge.get_type())) {
                     auto get_pos_1d = [&](const FlowNode<intensity_type>& n) -> double {
                         const auto& nt = n.get_type();
@@ -2113,8 +2180,9 @@ public:
                         throw std::runtime_error("update_positions_and_solve(): chain edge connects non-peak node.");
                     };
                     const double gap = std::abs(get_pos_1d(edge.get_start_node()) - get_pos_1d(edge.get_end_node()));
-                    // Chain implies p == 1 (scale == 1): truncate, matching build.
-                    new_costs[ii] = quantize_cost<VALUE_TYPE>(gap, _scale, _p_order == 1.0);
+                    // Match the build-time quantisation (truncate only for legacy
+                    // p == 1 without cost scaling; scaled+rounded otherwise).
+                    new_costs[ii] = quantize_cost<VALUE_TYPE>(gap, _scale, _costs_truncated());
                 }
                 // All other edge types (SrcToEmpirical, TheoreticalToSink, trash, …)
                 // have position-independent costs; apply_new_costs ignores them (new_costs[ii] = 0).
@@ -2227,13 +2295,20 @@ public:
     static WassersteinNetwork<VALUE_TYPE, typename Distribution_t::intensity_type> create(
         const Distribution_t* empirical_spectrum,
         const std::vector<Distribution_t*>& theoretical_spectra,
-        VALUE_TYPE max_dist = std::numeric_limits<VALUE_TYPE>::max(),
+        double max_dist = std::numeric_limits<double>::max(),
         double p = 1.0
     )
     {
         if (!(std::isfinite(p) && p >= 1.0))
             throw std::invalid_argument("Wasserstein order p must be a finite number >= 1.");
         using intensity_type = typename Distribution_t::intensity_type;
+        // The integer-intensity backend is the bit-exact p == 1 legacy: it does
+        // no cost/intensity scaling, so fractional-cost orders are unsupported.
+        if constexpr (std::is_integral_v<intensity_type>)
+            if (p != 1.0)
+                throw std::invalid_argument(
+                    "Integer intensity backend supports only p == 1; use the "
+                    "double-intensity backend for p != 1.");
         double max_real_cost = 0.0;  // largest matching cost; sizes the build-time scale
         std::vector<FlowNode<intensity_type>> nodes;
         std::vector<FlowEdge<intensity_type>> edges;
@@ -2335,7 +2410,7 @@ public:
         const Distribution_t* empirical_spectrum,
         const std::vector<Distribution_t*>& theoretical_spectra,
         DistanceMetric distance_metric,
-        VALUE_TYPE max_dist = std::numeric_limits<VALUE_TYPE>::max(),
+        double max_dist = std::numeric_limits<double>::max(),
         double p = 1.0
     ) {
         if (distance_metric == DistanceMetric::L1) {
@@ -2365,7 +2440,7 @@ public:
         const VectorDistribution<1, double, intensity_type_>* empirical_spectrum,
         const std::vector<VectorDistribution<1, double, intensity_type_>*>& theoretical_spectra,
         DistanceMetric /* distance_metric */,
-        VALUE_TYPE max_dist = std::numeric_limits<VALUE_TYPE>::max(),
+        double max_dist = std::numeric_limits<double>::max(),
         double p = 1.0
     ) {
         // The chain factory's gap costs are additive along the line, which only

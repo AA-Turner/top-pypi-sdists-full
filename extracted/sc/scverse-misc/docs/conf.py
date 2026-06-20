@@ -13,8 +13,10 @@ from pathlib import Path
 
 from sphinxcontrib import katex
 
+
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE / "extensions"))
+sys.path.insert(0, str(HERE / "sphinx_ext_examples"))
 
 
 # -- Project information -----------------------------------------------------
@@ -55,10 +57,12 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
+    "scverse_misc.sphinx_ext",
     "sphinx.ext.napoleon",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.katex",
     "sphinx_autodoc_typehints",
+    "sphinx_codeautolink",
     "sphinx_design",
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinxext.opengraph",
@@ -101,6 +105,7 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
     "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
+    "pooch": ("https://www.fatiando.org/pooch/latest/", None),
     "pydantic": ("https://pydantic.dev/docs/validation/", None),
 }
 
@@ -134,5 +139,5 @@ katex_prerender = shutil.which(katex.NODEJS_BINARY) is not None
 nitpick_ignore: list[tuple[str, str]] = [
     # If building the documentation fails because of a missing link that is outside your control,
     # you can add an exception to this list.
-    #     ("py:class", "igraph.Graph"),
+    ("py:class", "scverse_misc._deprecated.CallableWithDeprecatedArg"),
 ]

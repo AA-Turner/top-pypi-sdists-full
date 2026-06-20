@@ -85,6 +85,23 @@ class ModelConfig:
     pflash_tier: str = "unknown"
 
 
+# DEPRECATED dispatch surface — see ``vllm_mlx/reasoning/think_detector.py``.
+#
+# The name-regex map below is the ONLY fall-back when a serve target lacks
+# an explicit alias entry in ``aliases.json``. Every entry in this map is
+# a per-model regex used to dispatch parser implementations; the user has
+# called this pattern out as the antipattern to avoid in PRs after #715
+# (which added the ``vibethinker`` + Qwen3 non-thinking entries).
+#
+# Migration target: aliases declare capability booleans
+# (``can_emit_think``, ``has_native_tool_format``, …) and the engine
+# picks parser implementations at runtime via ``ThinkDetector`` and the
+# tool-call format probe. Do NOT add new regex entries here — extend
+# ``aliases.json`` instead, which is the source of truth for any model
+# the project officially supports. Existing entries stay in place until
+# the migration completes (tracked separately so PRs stay tight on a
+# single issue).
+#
 # Model family patterns → optimal config.
 # Order matters: first match wins. More specific patterns go first.
 _MODEL_PATTERNS: list[tuple[re.Pattern, ModelConfig]] = [
@@ -134,6 +151,38 @@ _MODEL_PATTERNS: list[tuple[re.Pattern, ModelConfig]] = [
             supports_spec_decode=False,
         ),
     ),
+    # VibeThinker (Weibo AI reasoning derivative, base = Qwen2.5-Coder-3B).
+    # Pure-attention Qwen2 architecture; chat template does NOT inject
+    # ``<think>`` — the model emits ``<think>...</think>`` autonomously on
+    # every response. ``deepseek_r1`` parser handles that "model decides"
+    # contract (same as DeepSeek-R1 distill on Qwen base).
+    #
+    # 2026-06-17 VibeThinker live test (PR for #708 follow-up): although
+    # the upstream model card disowns tool calling, the inherited Qwen2
+    # vocab carries the ``<tool_call>`` / ``</tool_call>`` and
+    # ``<function=...>`` tokens AND the live test confirmed the 3B-8bit
+    # weights emit BOTH shapes when prompted with tools (Test 4 of the
+    # live-test report). Wire ``hermes`` parser so the bare
+    # ``<function=name>...</function>`` shape (which the OutputRouter
+    # token-fallback misses) lands in ``tool_calls`` instead of leaking
+    # as raw text into ``content``.
+    #
+    # Placed before the generic ``qwen`` regex would have been (there is
+    # none today) — this pattern is the only signal for full-HF-path
+    # serves of ``WeiboAI/VibeThinker-3B`` or
+    # ``mlx-community/VibeThinker-3B-*`` that miss the alias lookup.
+    (
+        re.compile(r"vibethinker", re.IGNORECASE),
+        ModelConfig(
+            tool_call_parser="hermes",
+            # ``vibethinker`` parser — DeepSeek-R1 variant with a 1024-char
+            # no-tag threshold for the preamble-before-``<think>`` shape
+            # (codex r2 P2 — keeps the base ``deepseek_r1`` threshold at 64
+            # for distilled-on-Qwen aliases that DO open with ``<think>``
+            # immediately).
+            reasoning_parser="vibethinker",
+        ),
+    ),
     # Qwen3-Coder-Next / Qwen3-Next — hybrid linear attention, BEFORE
     # the generic Qwen3-Coder regex (which would otherwise win and tag
     # this as pure-attention by mistake).
@@ -170,6 +219,28 @@ _MODEL_PATTERNS: list[tuple[re.Pattern, ModelConfig]] = [
     # Qwen3-Coder (older, pure-attention) — not Coder-Next
     (
         re.compile(r"qwen3[-_]?coder", re.IGNORECASE),
+        ModelConfig(
+            tool_call_parser="hermes",
+            reasoning_parser=None,
+        ),
+    ),
+    # Qwen3 non-thinking variants — these explicitly DO NOT emit
+    # ``<think>...</think>`` and the qwen3 reasoning parser's Case-4
+    # fallback ("no tags + ``enable_thinking=True`` → all output is
+    # reasoning", #575) duplicates the entire response into BOTH
+    # ``content`` and ``reasoning_content`` when the client passes
+    # ``enable_thinking=True``. The 2026-06-18 fuzz battery against PR
+    # #714 caught this on the Qwen3-VL-2B-Instruct and
+    # Qwen3-4B-Instruct-2507 4-bit MLX repacks.
+    #
+    # MUST come BEFORE the generic ``qwen3`` regex below. The Thinking
+    # sibling (Qwen3-4B-Thinking-2507) takes the family default since
+    # ``thinking`` won't match either of these.
+    (
+        re.compile(
+            r"qwen3[-_]?(?:vl[-_]?2b|4b[-_]?instruct)",
+            re.IGNORECASE,
+        ),
         ModelConfig(
             tool_call_parser="hermes",
             reasoning_parser=None,
@@ -241,6 +312,20 @@ _MODEL_PATTERNS: list[tuple[re.Pattern, ModelConfig]] = [
             reasoning_parser="gemma4",
         ),
     ),
+    # Gemma 3n — on-device multimodal (text+image+audio). The chat
+    # template does NOT define tool-call special tokens, and the 2026-
+    # 06-18 fuzz battery against PR #714 confirmed the model ignores
+    # tool prompts entirely (returns prose, not a parseable envelope).
+    # ``tool_call_parser=hermes`` advertised tool capability the model
+    # cannot honour. Match BEFORE the generic ``gemma`` regex so the
+    # 3n variants resolve to ``tool_call_parser=None``.
+    (
+        re.compile(r"gemma[-_]?3n", re.IGNORECASE),
+        ModelConfig(
+            tool_call_parser=None,
+            reasoning_parser=None,
+        ),
+    ),
     # Gemma 2/3 (hermes format)
     (
         re.compile(r"gemma", re.IGNORECASE),
@@ -257,6 +342,28 @@ _MODEL_PATTERNS: list[tuple[re.Pattern, ModelConfig]] = [
             reasoning_parser=None,
         ),
     ),
+    # Nanbeige 4.x (Nanbeige LLM Lab) — model_type=llama under the hood
+    # at the 3B preview, but the model is NOT a vanilla LLaMA-3 chat
+    # checkpoint: its chat template + tool format are upstream-Nanbeige,
+    # not Meta-Llama. Letting the bare HF path fall through to the
+    # generic ``llama`` regex below would mis-tag ``tool_call_parser=llama``
+    # and silently break tool calls. Pin to the safer ``hermes`` fallback.
+    # Smoke test (PR #715 batch): Nanbeige4.1-3B emits autonomous
+    # ``<think>...</think>`` blocks on every response — verified by a
+    # local ``rapid-mlx serve nanbeige4.1-3b-4bit`` + chat completion
+    # where the assistant content opened with ``<think>\n...`` despite
+    # no template-level injection. Use ``deepseek_r1`` reasoning parser
+    # (same "model decides" contract as VibeThinker / DeepSeek-R1
+    # distill on a Qwen base) so the block lands in
+    # ``reasoning_content`` instead of leaking into ``content``.
+    # MUST come BEFORE the ``llama`` regex below — first-match-wins.
+    (
+        re.compile(r"nanbeige", re.IGNORECASE),
+        ModelConfig(
+            tool_call_parser="hermes",
+            reasoning_parser="deepseek_r1",
+        ),
+    ),
     # Llama (Llama 3.x and earlier)
     # Note: Llama 4 Scout/Maverick (109B/400B params) deliberately NOT added —
     # too large to run on the typical Mac the project targets, so the
@@ -265,6 +372,40 @@ _MODEL_PATTERNS: list[tuple[re.Pattern, ModelConfig]] = [
         re.compile(r"llama", re.IGNORECASE),
         ModelConfig(
             tool_call_parser="llama",
+            reasoning_parser=None,
+        ),
+    ),
+    # Phi-4-mini-reasoning — Microsoft's math-tuned 3.8B reasoning
+    # variant of Phi-4-mini. The chat template does NOT inject any
+    # ``<think>`` tag (the only special tokens are ``<|user|>`` /
+    # ``<|assistant|>`` / ``<|end|>`` / ``<|tool_call|>`` — verified
+    # via tokenizer_config.json), but the model emits
+    # ``<think>...</think>`` autonomously on every response (smoke-
+    # verified: ``Say hi`` returned ``<think>\nOkay, I need to say hi
+    # in three words...`` as the assistant content with the deepseek_r1
+    # parser disabled). Use ``deepseek_r1`` — same "model decides"
+    # contract as VibeThinker / R1-distill / Nanbeige4.1 — so the block
+    # lands in ``reasoning_content`` instead of leaking into ``content``.
+    # MUST come BEFORE the generic ``phi[-_]?[34]`` regex below.
+    (
+        re.compile(r"phi[-_]?4[-_]?mini[-_]?reasoning", re.IGNORECASE),
+        ModelConfig(
+            tool_call_parser="hermes",
+            reasoning_parser="deepseek_r1",
+        ),
+    ),
+    # Phi-3.5-mini — the chat template only defines ``<|user|>`` /
+    # ``<|assistant|>`` / ``<|end|>`` (no ``<tool_call>`` special token);
+    # the 2026-06-18 fuzz battery against PR #714 confirmed the model
+    # ignores tool prompts. Pin ``tool_call_parser=None`` BEFORE the
+    # generic ``phi`` regex so the bare-HF-path serves don't advertise
+    # tool capability the model cannot honour. The Phi-4 family (which
+    # CAN tool-call) and Phi-4-mini-reasoning (handled above) are
+    # unaffected.
+    (
+        re.compile(r"phi[-_]?3\.?5", re.IGNORECASE),
+        ModelConfig(
+            tool_call_parser=None,
             reasoning_parser=None,
         ),
     ),

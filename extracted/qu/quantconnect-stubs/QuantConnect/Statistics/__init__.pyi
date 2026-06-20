@@ -26,6 +26,56 @@ class TradeDirection(IntEnum):
     """Short direction (1)"""
 
 
+class FillGroupingMethod(IntEnum):
+    """The method used to group order fills into trades"""
+
+    FILL_TO_FILL = 0
+    """A Trade is defined by a fill that establishes or increases a position and an offsetting fill that reduces the position size (0)"""
+
+    FLAT_TO_FLAT = 1
+    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position which may increase or decrease in quantity, and back to a flat position (1)"""
+
+    FLAT_TO_REDUCED = 2
+    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position and an offsetting fill that reduces the position size (2)"""
+
+
+class FillMatchingMethod(IntEnum):
+    """The method used to match offsetting order fills"""
+
+    FIFO = 0
+    """First In First Out fill matching method (0)"""
+
+    LIFO = 1
+    """Last In Last Out fill matching method (1)"""
+
+
+class DrawdownMetrics(System.Object):
+    """
+    Represents the result of a drawdown analysis, including the maximum drawdown percentage
+    and the maximum recovery time in days.
+    """
+
+    @property
+    def drawdown(self) -> float:
+        """Gets the maximum drawdown as a positive percentage."""
+        ...
+
+    @property
+    def drawdown_recovery(self) -> int:
+        """Gets the maximum recovery time in days from peak to full recovery."""
+        ...
+
+    def __init__(self, drawdown: float, recovery_time: int) -> None:
+        """
+        Initializes a new instance of the DrawdownMetrics class
+        with the specified maximum drawdown and recovery time.
+        
+        :param drawdown: The maximum drawdown as a positive percentage.
+        :param recovery_time: The maximum number of days it took to recover from a drawdown.
+        """
+        ...
+
+
 class Trade(System.Object):
     """Represents a closed trade"""
 
@@ -959,146 +1009,6 @@ class IStatisticsService(metaclass=abc.ABCMeta):
         ...
 
 
-class StatisticsBuilder(System.Object):
-    """The StatisticsBuilder class creates summary and rolling statistics from trades, equity and benchmark points"""
-
-    @staticmethod
-    def create_benchmark_differences(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]], from_date: typing.Union[datetime.datetime, datetime.date], to_date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
-        """
-        Yields pairs of date and percentage change for the period
-        
-        :param points: The values to calculate percentage change for
-        :param from_date: Starting date (inclusive)
-        :param to_date: Ending date (inclusive)
-        :returns: Pairs of date and percentage change.
-        """
-        ...
-
-    @staticmethod
-    def generate(trades: typing.List[QuantConnect.Statistics.Trade], profit_loss: System.Collections.Generic.SortedDictionary[datetime.datetime, float], points_equity: typing.List[QuantConnect.ISeriesPoint], points_performance: typing.List[QuantConnect.ISeriesPoint], points_benchmark: typing.List[QuantConnect.ISeriesPoint], points_portfolio_turnover: typing.List[QuantConnect.ISeriesPoint], starting_capital: float, total_fees: float, total_orders: int, estimated_strategy_capacity: QuantConnect.CapacityEstimate, account_currency_symbol: str, transactions: QuantConnect.Securities.SecurityTransactionManager, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel, trading_days_per_year: int) -> QuantConnect.Statistics.StatisticsResults:
-        """
-        Generates the statistics and returns the results
-        
-        :param trades: The list of closed trades
-        :param profit_loss: Trade record of profits and losses
-        :param points_equity: The list of daily equity values
-        :param points_performance: The list of algorithm performance values
-        :param points_benchmark: The list of benchmark values
-        :param points_portfolio_turnover: The list of portfolio turnover daily samples
-        :param starting_capital: The algorithm starting capital
-        :param total_fees: The total fees
-        :param total_orders: The total number of transactions
-        :param estimated_strategy_capacity: The estimated capacity of this strategy
-        :param account_currency_symbol: The account currency symbol
-        :param transactions: The transaction manager to get number of winning and losing transactions
-        :param risk_free_interest_rate_model: The risk free interest rate model to use
-        :param trading_days_per_year: The number of trading days per year
-        :returns: Returns a StatisticsResults object.
-        """
-        ...
-
-    @staticmethod
-    def preprocess_performance_values(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
-        """
-        Skips the first two entries from the given points and divides each entry by 100
-        
-        :param points: The values to divide by 100
-        :returns: Pairs of date and performance value divided by 100.
-        """
-        ...
-
-
-class FillGroupingMethod(IntEnum):
-    """The method used to group order fills into trades"""
-
-    FILL_TO_FILL = 0
-    """A Trade is defined by a fill that establishes or increases a position and an offsetting fill that reduces the position size (0)"""
-
-    FLAT_TO_FLAT = 1
-    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position which may increase or decrease in quantity, and back to a flat position (1)"""
-
-    FLAT_TO_REDUCED = 2
-    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position and an offsetting fill that reduces the position size (2)"""
-
-
-class FillMatchingMethod(IntEnum):
-    """The method used to match offsetting order fills"""
-
-    FIFO = 0
-    """First In First Out fill matching method (0)"""
-
-    LIFO = 1
-    """Last In Last Out fill matching method (1)"""
-
-
-class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
-    """The TradeBuilder class generates trades from executions and market price updates"""
-
-    @property
-    def closed_trades(self) -> typing.List[QuantConnect.Statistics.Trade]:
-        """The list of closed trades"""
-        ...
-
-    def __init__(self, grouping_method: QuantConnect.Statistics.FillGroupingMethod, matching_method: QuantConnect.Statistics.FillMatchingMethod) -> None:
-        """Initializes a new instance of the TradeBuilder class"""
-        ...
-
-    def apply_split(self, split: QuantConnect.Data.Market.Split, live_mode: bool, data_normalization_mode: QuantConnect.DataNormalizationMode) -> None:
-        """
-        Applies a split to the trade builder
-        
-        :param split: The split to be applied
-        :param live_mode: True if live mode, false for backtest
-        :param data_normalization_mode: The DataNormalizationMode for this security
-        """
-        ...
-
-    def has_open_position(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Returns true if there is an open position for the symbol
-        
-        :param symbol: The symbol
-        :returns: true if there is an open position for the symbol.
-        """
-        ...
-
-    def process_fill(self, fill: QuantConnect.Orders.OrderEvent, security_conversion_rate: float, fee_in_account_currency: float, multiplier: float = 1.0) -> None:
-        """
-        Processes a new fill, eventually creating new trades
-        
-        :param fill: The new fill order event
-        :param security_conversion_rate: The current security market conversion rate into the account currency
-        :param fee_in_account_currency: The current order fee in the account currency
-        :param multiplier: The contract multiplier
-        """
-        ...
-
-    def set_live_mode(self, live: bool) -> None:
-        """
-        Sets the live mode flag
-        
-        :param live: The live mode flag
-        """
-        ...
-
-    def set_market_price(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], price: float) -> None:
-        """
-        Sets the current market price for the symbol
-        
-        :param symbol: 
-        :param price: 
-        """
-        ...
-
-    def set_security_manager(self, securities: QuantConnect.Securities.SecurityManager) -> None:
-        """
-        Sets the security manager instance
-        
-        :param securities: The security manager
-        """
-        ...
-
-
 class PerformanceMetrics(System.Object):
     """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
 
@@ -1187,29 +1097,119 @@ class PerformanceMetrics(System.Object):
     """The recovery time of the maximum drawdown."""
 
 
-class DrawdownMetrics(System.Object):
-    """
-    Represents the result of a drawdown analysis, including the maximum drawdown percentage
-    and the maximum recovery time in days.
-    """
+class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
+    """The TradeBuilder class generates trades from executions and market price updates"""
 
     @property
-    def drawdown(self) -> float:
-        """Gets the maximum drawdown as a positive percentage."""
+    def closed_trades(self) -> typing.List[QuantConnect.Statistics.Trade]:
+        """The list of closed trades"""
         ...
 
-    @property
-    def drawdown_recovery(self) -> int:
-        """Gets the maximum recovery time in days from peak to full recovery."""
+    def __init__(self, grouping_method: QuantConnect.Statistics.FillGroupingMethod, matching_method: QuantConnect.Statistics.FillMatchingMethod) -> None:
+        """Initializes a new instance of the TradeBuilder class"""
         ...
 
-    def __init__(self, drawdown: float, recovery_time: int) -> None:
+    def apply_split(self, split: QuantConnect.Data.Market.Split, live_mode: bool, data_normalization_mode: QuantConnect.DataNormalizationMode) -> None:
         """
-        Initializes a new instance of the DrawdownMetrics class
-        with the specified maximum drawdown and recovery time.
+        Applies a split to the trade builder
         
-        :param drawdown: The maximum drawdown as a positive percentage.
-        :param recovery_time: The maximum number of days it took to recover from a drawdown.
+        :param split: The split to be applied
+        :param live_mode: True if live mode, false for backtest
+        :param data_normalization_mode: The DataNormalizationMode for this security
+        """
+        ...
+
+    def has_open_position(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Returns true if there is an open position for the symbol
+        
+        :param symbol: The symbol
+        :returns: true if there is an open position for the symbol.
+        """
+        ...
+
+    def process_fill(self, fill: QuantConnect.Orders.OrderEvent, security_conversion_rate: float, fee_in_account_currency: float, multiplier: float = 1.0) -> None:
+        """
+        Processes a new fill, eventually creating new trades
+        
+        :param fill: The new fill order event
+        :param security_conversion_rate: The current security market conversion rate into the account currency
+        :param fee_in_account_currency: The current order fee in the account currency
+        :param multiplier: The contract multiplier
+        """
+        ...
+
+    def set_live_mode(self, live: bool) -> None:
+        """
+        Sets the live mode flag
+        
+        :param live: The live mode flag
+        """
+        ...
+
+    def set_market_price(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], price: float) -> None:
+        """
+        Sets the current market price for the symbol
+        
+        :param symbol: 
+        :param price: 
+        """
+        ...
+
+    def set_security_manager(self, securities: QuantConnect.Securities.SecurityManager) -> None:
+        """
+        Sets the security manager instance
+        
+        :param securities: The security manager
+        """
+        ...
+
+
+class StatisticsBuilder(System.Object):
+    """The StatisticsBuilder class creates summary and rolling statistics from trades, equity and benchmark points"""
+
+    @staticmethod
+    def create_benchmark_differences(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]], from_date: typing.Union[datetime.datetime, datetime.date], to_date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
+        """
+        Yields pairs of date and percentage change for the period
+        
+        :param points: The values to calculate percentage change for
+        :param from_date: Starting date (inclusive)
+        :param to_date: Ending date (inclusive)
+        :returns: Pairs of date and percentage change.
+        """
+        ...
+
+    @staticmethod
+    def generate(trades: typing.List[QuantConnect.Statistics.Trade], profit_loss: System.Collections.Generic.SortedDictionary[datetime.datetime, float], points_equity: typing.List[QuantConnect.ISeriesPoint], points_performance: typing.List[QuantConnect.ISeriesPoint], points_benchmark: typing.List[QuantConnect.ISeriesPoint], points_portfolio_turnover: typing.List[QuantConnect.ISeriesPoint], starting_capital: float, total_fees: float, total_orders: int, estimated_strategy_capacity: QuantConnect.CapacityEstimate, account_currency_symbol: str, transactions: QuantConnect.Securities.SecurityTransactionManager, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel, trading_days_per_year: int) -> QuantConnect.Statistics.StatisticsResults:
+        """
+        Generates the statistics and returns the results
+        
+        :param trades: The list of closed trades
+        :param profit_loss: Trade record of profits and losses
+        :param points_equity: The list of daily equity values
+        :param points_performance: The list of algorithm performance values
+        :param points_benchmark: The list of benchmark values
+        :param points_portfolio_turnover: The list of portfolio turnover daily samples
+        :param starting_capital: The algorithm starting capital
+        :param total_fees: The total fees
+        :param total_orders: The total number of transactions
+        :param estimated_strategy_capacity: The estimated capacity of this strategy
+        :param account_currency_symbol: The account currency symbol
+        :param transactions: The transaction manager to get number of winning and losing transactions
+        :param risk_free_interest_rate_model: The risk free interest rate model to use
+        :param trading_days_per_year: The number of trading days per year
+        :returns: Returns a StatisticsResults object.
+        """
+        ...
+
+    @staticmethod
+    def preprocess_performance_values(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
+        """
+        Skips the first two entries from the given points and divides each entry by 100
+        
+        :param points: The values to divide by 100
+        :returns: Pairs of date and performance value divided by 100.
         """
         ...
 

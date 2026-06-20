@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: piccolo_admin
-Version: 1.13.0
+Version: 1.14.0
 Summary: A powerful and modern admin interface / CMS, powered by Piccolo and ASGI.
 Home-page: https://github.com/piccolo-orm/piccolo_admin
 Author: Daniel Townsend
@@ -21,7 +21,7 @@ Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: piccolo>=1.7.0
-Requires-Dist: piccolo_api>=1.5.2
+Requires-Dist: piccolo_api>=1.10.0
 Requires-Dist: uvicorn
 Requires-Dist: aiofiles>=0.5.0
 Requires-Dist: Hypercorn

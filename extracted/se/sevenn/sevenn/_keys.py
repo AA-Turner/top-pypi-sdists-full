@@ -65,6 +65,7 @@ PRED_FORCE: Final[str] = 'inferred_force'
 SCALED_FORCE: Final[str] = 'scaled_force'
 
 PRED_STRESS: Final[str] = 'inferred_stress'
+PRED_ATOMIC_VIRIAL: Final[str] = 'inferred_atomic_virial'
 SCALED_STRESS: Final[str] = 'scaled_stress'
 
 # very general data property for AtomGraphData
@@ -102,6 +103,10 @@ LOAD_DATASET = 'load_dataset_path'  # not used in v2
 LOAD_TRAINSET = 'load_trainset_path'
 LOAD_VALIDSET = 'load_validset_path'
 LOAD_TESTSET = 'load_testset_path'
+LOAD_MEMORY_PATH = 'load_memory_path'  # reEWC rehearsal memory set
+REHEARSAL = 'rehearsal'
+MEM_BATCH_SIZE = 'mem_batch_size'
+MEM_RATIO = 'mem_ratio'
 FORMAT_OUTPUTS = 'format_outputs_for_ase'
 COMPUTE_STATISTICS = 'compute_statistics'
 DATASET_TYPE = 'dataset_type'
@@ -134,6 +139,9 @@ USE_STATISTIC_VALUES_OF_CHECKPOINT = 'use_statistic_values_of_checkpoint'
 USE_STATISTIC_VALUES_FOR_CP_MODAL_ONLY = (
     'use_statistic_values_for_cp_modal_only'
 )
+OPT_PARAMS = 'opt_params'  # reEWC: reference (optimal) params pickle
+FISHER = 'fisher_information'  # reEWC: precomputed Fisher information pickle
+EWC_LAMBDA = 'ewc_lambda'  # reEWC: EWC penalty weight
 
 CSV_LOG = 'csv_log'
 
@@ -222,6 +230,7 @@ TRAIN_AVG_NUM_NEIGH = 'train_avg_num_neigh'  # deprecated
 
 USE_FLASH_TP = 'use_flash_tp'
 CUEQUIVARIANCE_CONFIG = 'cuequivariance_config'
+USE_OEQ = 'use_oeq'
 
 _NORMALIZE_SPH = '_normalize_sph'
 OPTIMIZE_BY_REDUCE = 'optimize_by_reduce'

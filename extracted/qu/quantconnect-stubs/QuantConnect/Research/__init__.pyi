@@ -21,12 +21,12 @@ QuantConnect_Research_QuantBook_PerformSelection_T1 = typing.TypeVar("QuantConne
 QuantConnect_Research_QuantBook_PerformSelection_T2 = typing.TypeVar("QuantConnect_Research_QuantBook_PerformSelection_T2")
 
 
-class FutureHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
-    """Class to manage information from History Request of Futures"""
+class OptionHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
+    """Class to manage information from History Request of Options"""
 
     def __init__(self, data: typing.List[QuantConnect.Data.Slice]) -> None:
         """
-        Create a new instance of FutureHistory.
+        Create a new instance of OptionHistory.
         
         :param data: 
         """
@@ -42,7 +42,11 @@ class FutureHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
         warnings.warn("Please use the 'DataFrame' property", DeprecationWarning)
 
     def get_expiry_dates(self) -> typing.Any:
-        """Gets all expity dates in the future history"""
+        """Gets all expiry dates in the option history"""
+        ...
+
+    def get_strikes(self) -> typing.Any:
+        """Gets all strikes in the option history"""
         ...
 
 
@@ -117,12 +121,12 @@ class _QuantBook_PerformSelection:
         ...
 
 
-class OptionHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
-    """Class to manage information from History Request of Options"""
+class FutureHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
+    """Class to manage information from History Request of Futures"""
 
     def __init__(self, data: typing.List[QuantConnect.Data.Slice]) -> None:
         """
-        Create a new instance of OptionHistory.
+        Create a new instance of FutureHistory.
         
         :param data: 
         """
@@ -138,11 +142,7 @@ class OptionHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
         warnings.warn("Please use the 'DataFrame' property", DeprecationWarning)
 
     def get_expiry_dates(self) -> typing.Any:
-        """Gets all expiry dates in the option history"""
-        ...
-
-    def get_strikes(self) -> typing.Any:
-        """Gets all strikes in the option history"""
+        """Gets all expity dates in the future history"""
         ...
 
 

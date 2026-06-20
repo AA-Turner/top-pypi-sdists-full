@@ -47,7 +47,7 @@ Usage::
         ListTriggersPaginator,
         ListUsageProfilesPaginator,
         ListWorkflowsPaginator,
-        SearchPaginator,
+        SearchAssetsPaginator,
     )
 
     session = Session()
@@ -88,7 +88,7 @@ Usage::
     list_triggers_paginator: ListTriggersPaginator = client.get_paginator("list_triggers")
     list_usage_profiles_paginator: ListUsageProfilesPaginator = client.get_paginator("list_usage_profiles")
     list_workflows_paginator: ListWorkflowsPaginator = client.get_paginator("list_workflows")
-    search_paginator: SearchPaginator = client.get_paginator("search")
+    search_assets_paginator: SearchAssetsPaginator = client.get_paginator("search_assets")
     ```
 """
 
@@ -170,8 +170,8 @@ from .type_defs import (
     ListUsageProfilesResponseTypeDef,
     ListWorkflowsRequestPaginateTypeDef,
     ListWorkflowsResponseTypeDef,
-    SearchInputPaginateTypeDef,
-    SearchOutputTypeDef,
+    SearchAssetsInputPaginateTypeDef,
+    SearchAssetsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -215,7 +215,7 @@ __all__ = (
     "ListTriggersPaginator",
     "ListUsageProfilesPaginator",
     "ListWorkflowsPaginator",
-    "SearchPaginator",
+    "SearchAssetsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -853,19 +853,19 @@ class ListWorkflowsPaginator(_ListWorkflowsPaginatorBase):
         """
 
 if TYPE_CHECKING:
-    _SearchPaginatorBase = Paginator[SearchOutputTypeDef]
+    _SearchAssetsPaginatorBase = Paginator[SearchAssetsOutputTypeDef]
 else:
-    _SearchPaginatorBase = Paginator  # type: ignore[assignment]
+    _SearchAssetsPaginatorBase = Paginator  # type: ignore[assignment]
 
-class SearchPaginator(_SearchPaginatorBase):
+class SearchAssetsPaginator(_SearchAssetsPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/Search.html#Glue.Paginator.Search)
-    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#searchpaginator)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/SearchAssets.html#Glue.Paginator.SearchAssets)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#searchassetspaginator)
     """
     def paginate(  # type: ignore[override]
-        self, **kwargs: Unpack[SearchInputPaginateTypeDef]
-    ) -> PageIterator[SearchOutputTypeDef]:
+        self, **kwargs: Unpack[SearchAssetsInputPaginateTypeDef]
+    ) -> PageIterator[SearchAssetsOutputTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/Search.html#Glue.Paginator.Search.paginate)
-        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#searchpaginator)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/SearchAssets.html#Glue.Paginator.SearchAssets.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#searchassetspaginator)
         """

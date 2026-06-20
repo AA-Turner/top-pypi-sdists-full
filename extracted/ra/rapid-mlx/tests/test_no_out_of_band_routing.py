@@ -158,6 +158,12 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         # bearer key in argv (visible to ``ps`` for any local user).
         # Pure auth-config knob; routing decisions never read it.
         "RAPID_MLX_API_KEY",
+        # Server-side: fallback for ``--max-request-bytes`` (DoS defense,
+        # rapid-desktop#273 / #463). Enforces the ASGI-layer body cap in
+        # ``vllm_mlx/middleware/body_size.py``. Pure wire-level size gate
+        # — never selects a model, parser, or routing tier; it only
+        # decides whether a request body is admitted at all.
+        "RAPID_MLX_MAX_REQUEST_BYTES",
         # Path to the MCP server config file (formerly VLLM_MLX_MCP_CONFIG).
         # Plumbs ``--mcp-config`` from the CLI to the FastAPI lifespan and is
         # consumed only by ``vllm_mlx/mcp/config.py`` to discover MCP tool
@@ -188,6 +194,16 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         # bearer-token holder could write arbitrary files. Pure filesystem
         # sandbox knob; never consulted by the engine or scheduler.
         "RAPID_MLX_CACHE_EXPORT_DIR",
+        # G12 release-gauntlet random-coverage gate
+        # (``scripts/release_check_m3_random.py``) sets this to a single
+        # harness name (or comma-separated subset) when running a scoped
+        # sweep against a booted server. ``tier_runner._resolve_harness_
+        # profiles_filter`` consumes it to whittle the harness loop down
+        # to just the picked names. Test/CI knob — never consulted by the
+        # engine, scheduler, or any routing layer. ``vllm_mlx.cli``
+        # refuses ``--submit`` while it's set so a scoped sweep can't
+        # silently produce a schema-incomplete community-bench payload.
+        "RAPID_MLX_HARNESS_PROFILES_FILTER",
     }
 )
 

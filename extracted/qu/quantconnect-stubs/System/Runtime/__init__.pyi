@@ -36,44 +36,6 @@ class JitInfo(System.Object):
         ...
 
 
-class AssemblyTargetedPatchBandAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def targeted_patch_band(self) -> str:
-        ...
-
-    def __init__(self, targeted_patch_band: str) -> None:
-        ...
-
-
-class TargetedPatchingOptOutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def reason(self) -> str:
-        ...
-
-    def __init__(self, reason: str) -> None:
-        ...
-
-
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
 class ProfileOptimization(System.Object):
     """This class has no documentation."""
 
@@ -116,6 +78,44 @@ class GCSettings(System.Object):
     large_object_heap_compaction_mode: System.Runtime.GCLargeObjectHeapCompactionMode
 
     IS_SERVER_GC: bool
+
+
+class AssemblyTargetedPatchBandAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def targeted_patch_band(self) -> str:
+        ...
+
+    def __init__(self, targeted_patch_band: str) -> None:
+        ...
+
+
+class TargetedPatchingOptOutAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def reason(self) -> str:
+        ...
+
+    def __init__(self, reason: str) -> None:
+        ...
+
+
+class AmbiguousImplementationException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
 
 
 class ControlledExecution(System.Object):

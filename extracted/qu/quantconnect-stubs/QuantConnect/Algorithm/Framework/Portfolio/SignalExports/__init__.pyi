@@ -144,6 +144,57 @@ class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExpor
         ...
 
 
+class VBaseSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
+    """
+    Exports signals of desired positions to vBase stamping API using JSON and HTTPS.
+    Accepts signals in quantity(number of shares) i.e symbol:"SPY", quant:40
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        The name of this signal export
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def __init__(self, api_key: str, collection_name: str, store_stamped_file: bool = True, idempotent: bool = False) -> None:
+        """
+        Initializes a new instance of the VBaseSignalExport class.
+        
+        :param api_key: The API key for vBase authentication.
+        :param collection_name: The target collection name.
+        :param store_stamped_file: Whether to store the stamped file (default true).
+        :param idempotent: A boolean indicating whether to make the request idempotent.
+        If the request is idempotent, only the first stamp for a given portfolio will be made.
+        If the request is not idempotent, a new stamp will be made for each request.
+        """
+        ...
+
+    def build_csv(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> str:
+        """
+        Builds a CSV (sym,wt) for the given targets
+        
+        
+        This Class is protected.
+        
+        :param parameters: Signal export parameters
+        :returns: Resulting CSV string.
+        """
+        ...
+
+    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
+        """
+        Converts targets to CSV and posts them to vBase stamping endpoint
+        
+        :param parameters: Signal export parameters (targets + algorithm)
+        :returns: True if request succeeded.
+        """
+        ...
+
+
 class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
     """
     Exports signals of the desired positions to CrunchDAO API.
@@ -320,57 +371,6 @@ class SignalExportManager(System.Object):
         
         :returns: True if the target list could be obtained from the algorithm's Portfolio and they
         were successfully sent to the signal export providers.
-        """
-        ...
-
-
-class VBaseSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
-    """
-    Exports signals of desired positions to vBase stamping API using JSON and HTTPS.
-    Accepts signals in quantity(number of shares) i.e symbol:"SPY", quant:40
-    """
-
-    @property
-    def name(self) -> str:
-        """
-        The name of this signal export
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def __init__(self, api_key: str, collection_name: str, store_stamped_file: bool = True, idempotent: bool = False) -> None:
-        """
-        Initializes a new instance of the VBaseSignalExport class.
-        
-        :param api_key: The API key for vBase authentication.
-        :param collection_name: The target collection name.
-        :param store_stamped_file: Whether to store the stamped file (default true).
-        :param idempotent: A boolean indicating whether to make the request idempotent.
-        If the request is idempotent, only the first stamp for a given portfolio will be made.
-        If the request is not idempotent, a new stamp will be made for each request.
-        """
-        ...
-
-    def build_csv(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> str:
-        """
-        Builds a CSV (sym,wt) for the given targets
-        
-        
-        This Class is protected.
-        
-        :param parameters: Signal export parameters
-        :returns: Resulting CSV string.
-        """
-        ...
-
-    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
-        """
-        Converts targets to CSV and posts them to vBase stamping endpoint
-        
-        :param parameters: Signal export parameters (targets + algorithm)
-        :returns: True if request succeeded.
         """
         ...
 

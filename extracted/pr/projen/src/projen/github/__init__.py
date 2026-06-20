@@ -28,7 +28,6 @@ from .. import (
     LoggerOptions as _LoggerOptions_eb0f6309,
     Project as _Project_57d89203,
     ProjectOptions as _ProjectOptions_0d5b93c6,
-    ProjectType as _ProjectType_fd80c725,
     ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
     RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
     SampleReadmeProps as _SampleReadmeProps_3518b03b,
@@ -3424,7 +3423,6 @@ class GitHub(
         mergify: typing.Optional[builtins.bool] = None,
         mergify_options: typing.Optional[typing.Union["MergifyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_credentials: typing.Optional["GithubCredentials"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         pull_request_backport: typing.Optional[builtins.bool] = None,
         pull_request_backport_options: typing.Optional[typing.Union["PullRequestBackportOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pull_request_lint: typing.Optional[builtins.bool] = None,
@@ -3442,7 +3440,6 @@ class GitHub(
         :param mergify: (experimental) Whether mergify should be enabled on this repository or not. Default: true
         :param mergify_options: (experimental) Options for Mergify. Default: - default options
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param pull_request_backport: (experimental) Add a workflow that allows backport of PRs to other branches using labels. When opening a new PR add a backport label to it, and the PR will be backported to the target branches once the PR is merged. Should not be used together with mergify. Default: false
         :param pull_request_backport_options: (experimental) Options for configuring pull request backport. Default: - see defaults in ``PullRequestBackportOptions``
         :param pull_request_lint: (experimental) Add a workflow that performs basic checks for pull requests, like validating that PRs follow Conventional Commits. Default: true
@@ -3464,7 +3461,6 @@ class GitHub(
             mergify=mergify,
             mergify_options=mergify_options,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             pull_request_backport=pull_request_backport,
             pull_request_backport_options=pull_request_backport_options,
             pull_request_lint=pull_request_lint,
@@ -3733,7 +3729,6 @@ class GitHubActionsProvider(
         "mergify": "mergify",
         "mergify_options": "mergifyOptions",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "pull_request_backport": "pullRequestBackport",
         "pull_request_backport_options": "pullRequestBackportOptions",
         "pull_request_lint": "pullRequestLint",
@@ -3754,7 +3749,6 @@ class GitHubOptions:
         mergify: typing.Optional[builtins.bool] = None,
         mergify_options: typing.Optional[typing.Union["MergifyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_credentials: typing.Optional["GithubCredentials"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         pull_request_backport: typing.Optional[builtins.bool] = None,
         pull_request_backport_options: typing.Optional[typing.Union["PullRequestBackportOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pull_request_lint: typing.Optional[builtins.bool] = None,
@@ -3771,7 +3765,6 @@ class GitHubOptions:
         :param mergify: (experimental) Whether mergify should be enabled on this repository or not. Default: true
         :param mergify_options: (experimental) Options for Mergify. Default: - default options
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param pull_request_backport: (experimental) Add a workflow that allows backport of PRs to other branches using labels. When opening a new PR add a backport label to it, and the PR will be backported to the target branches once the PR is merged. Should not be used together with mergify. Default: false
         :param pull_request_backport_options: (experimental) Options for configuring pull request backport. Default: - see defaults in ``PullRequestBackportOptions``
         :param pull_request_lint: (experimental) Add a workflow that performs basic checks for pull requests, like validating that PRs follow Conventional Commits. Default: true
@@ -3801,7 +3794,6 @@ class GitHubOptions:
             check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
             check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument pull_request_backport", value=pull_request_backport, expected_type=type_hints["pull_request_backport"])
             check_type(argname="argument pull_request_backport_options", value=pull_request_backport_options, expected_type=type_hints["pull_request_backport_options"])
             check_type(argname="argument pull_request_lint", value=pull_request_lint, expected_type=type_hints["pull_request_lint"])
@@ -3826,8 +3818,6 @@ class GitHubOptions:
             self._values["mergify_options"] = mergify_options
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if pull_request_backport is not None:
             self._values["pull_request_backport"] = pull_request_backport
         if pull_request_backport_options is not None:
@@ -3947,22 +3937,6 @@ class GitHubOptions:
         return typing.cast(typing.Optional["GithubCredentials"], result)
 
     @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: - use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def pull_request_backport(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Add a workflow that allows backport of PRs to other branches using labels.
 
@@ -4067,11 +4041,7 @@ class GitHubProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["MergifyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["GithubCredentials"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4099,11 +4069,7 @@ class GitHubProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -4133,11 +4099,7 @@ class GitHubProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -4176,14 +4138,6 @@ class GitHubProject(
             type_hints = typing.get_type_hints(_typecheckingstub__3d5a31d0302f973c0cd7ab51b14219e96872615cf2769150b28c23b8bb3a09fc)
             check_type(argname="argument glob", value=glob, expected_type=type_hints["glob"])
         return typing.cast(None, jsii.invoke(self, "annotateGenerated", [glob]))
-
-    @builtins.property
-    @jsii.member(jsii_name="projectType")
-    def project_type(self) -> "_ProjectType_fd80c725":
-        '''
-        :stability: deprecated
-        '''
-        return typing.cast("_ProjectType_fd80c725", jsii.get(self, "projectType"))
 
     @builtins.property
     @jsii.member(jsii_name="autoApprove")
@@ -4264,11 +4218,7 @@ class GitHubProject(
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -4300,11 +4250,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["MergifyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["GithubCredentials"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4333,11 +4279,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -4361,8 +4303,6 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
             auto_merge_options = AutoMergeOptions(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = GitHubOptions(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = MergifyOptions(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -4390,11 +4330,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -4442,16 +4378,8 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -4705,45 +4633,6 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["MergifyOptions"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["MergifyOptions"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["GithubCredentials"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -4753,22 +4642,6 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["GithubCredentials"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -6248,7 +6121,6 @@ class Mergify(
         *,
         commit_message_template: builtins.str,
         name: builtins.str,
-        conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         merge_method: typing.Optional[builtins.str] = None,
         queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -6257,7 +6129,6 @@ class Mergify(
         '''
         :param commit_message_template: (experimental) Template to use as the commit message when using the merge or squash merge method.
         :param name: (experimental) The name of the queue.
-        :param conditions: (deprecated) The list of conditions that needs to match to queue the pull request.
         :param merge_conditions: (experimental) The list of conditions to match to get the queued pull request merged. This automatically includes the queueConditions. In case of speculative merge pull request, the merge conditions are evaluated against the temporary pull request instead of the original one.
         :param merge_method: (experimental) Merge method to use. Possible values are ``merge``, ``squash``, ``rebase`` or ``fast-forward``. ``fast-forward`` is not supported on queues with ``speculative_checks`` > 1, ``batch_size`` > 1, or with ``allow_inplace_checks`` set to false. Default: "merge"
         :param queue_conditions: (experimental) The list of conditions that needs to match to queue the pull request.
@@ -6268,7 +6139,6 @@ class Mergify(
         queue = MergifyQueue(
             commit_message_template=commit_message_template,
             name=name,
-            conditions=conditions,
             merge_conditions=merge_conditions,
             merge_method=merge_method,
             queue_conditions=queue_conditions,
@@ -6429,7 +6299,6 @@ class MergifyOptions:
     name_mapping={
         "commit_message_template": "commitMessageTemplate",
         "name": "name",
-        "conditions": "conditions",
         "merge_conditions": "mergeConditions",
         "merge_method": "mergeMethod",
         "queue_conditions": "queueConditions",
@@ -6442,7 +6311,6 @@ class MergifyQueue:
         *,
         commit_message_template: builtins.str,
         name: builtins.str,
-        conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         merge_method: typing.Optional[builtins.str] = None,
         queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -6451,7 +6319,6 @@ class MergifyQueue:
         '''
         :param commit_message_template: (experimental) Template to use as the commit message when using the merge or squash merge method.
         :param name: (experimental) The name of the queue.
-        :param conditions: (deprecated) The list of conditions that needs to match to queue the pull request.
         :param merge_conditions: (experimental) The list of conditions to match to get the queued pull request merged. This automatically includes the queueConditions. In case of speculative merge pull request, the merge conditions are evaluated against the temporary pull request instead of the original one.
         :param merge_method: (experimental) Merge method to use. Possible values are ``merge``, ``squash``, ``rebase`` or ``fast-forward``. ``fast-forward`` is not supported on queues with ``speculative_checks`` > 1, ``batch_size`` > 1, or with ``allow_inplace_checks`` set to false. Default: "merge"
         :param queue_conditions: (experimental) The list of conditions that needs to match to queue the pull request.
@@ -6463,7 +6330,6 @@ class MergifyQueue:
             type_hints = typing.get_type_hints(_typecheckingstub__0471efd0a49bc64e556512e765a1df23d4a975f26cb6de765579b4173907f467)
             check_type(argname="argument commit_message_template", value=commit_message_template, expected_type=type_hints["commit_message_template"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument merge_conditions", value=merge_conditions, expected_type=type_hints["merge_conditions"])
             check_type(argname="argument merge_method", value=merge_method, expected_type=type_hints["merge_method"])
             check_type(argname="argument queue_conditions", value=queue_conditions, expected_type=type_hints["queue_conditions"])
@@ -6472,8 +6338,6 @@ class MergifyQueue:
             "commit_message_template": commit_message_template,
             "name": name,
         }
-        if conditions is not None:
-            self._values["conditions"] = conditions
         if merge_conditions is not None:
             self._values["merge_conditions"] = merge_conditions
         if merge_method is not None:
@@ -6502,20 +6366,6 @@ class MergifyQueue:
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def conditions(
-        self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "MergifyConditionalOperator"]]]:
-        '''(deprecated) The list of conditions that needs to match to queue the pull request.
-
-        :deprecated: use ``queueConditions`` instead
-
-        :see: https://docs.mergify.com/configuration/file-format/#queue-rules
-        :stability: deprecated
-        '''
-        result = self._values.get("conditions")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "MergifyConditionalOperator"]]], result)
 
     @builtins.property
     def merge_conditions(
@@ -10020,29 +9870,6 @@ class WorkflowActions(
 
         return typing.cast(typing.List["_JobStep_c3287c05"], jsii.sinvoke(cls, "createPullRequest", [options]))
 
-    @jsii.member(jsii_name="setupGitIdentity")
-    @builtins.classmethod
-    def setup_git_identity(
-        cls,
-        *,
-        email: builtins.str,
-        name: builtins.str,
-    ) -> typing.List["_JobStep_c3287c05"]:
-        '''(deprecated) Configures the git identity (user name and email).
-
-        :param email: (experimental) The email address of the git user.
-        :param name: (experimental) The name of the user.
-
-        :return: Job steps
-
-        :deprecated: use ``WorkflowSteps.setupGitIdentity`` instead
-
-        :stability: deprecated
-        '''
-        id = GitIdentity(email=email, name=name)
-
-        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.sinvoke(cls, "setupGitIdentity", [id]))
-
     @jsii.member(jsii_name="uploadGitPatch")
     @builtins.classmethod
     def upload_git_patch(
@@ -10857,7 +10684,6 @@ def _typecheckingstub__65db11e8703472c7fa4e013294c649e43b7f8634b29ca11be71b46d8c
     mergify: typing.Optional[builtins.bool] = None,
     mergify_options: typing.Optional[typing.Union[MergifyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     projen_credentials: typing.Optional[GithubCredentials] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     pull_request_backport: typing.Optional[builtins.bool] = None,
     pull_request_backport_options: typing.Optional[typing.Union[PullRequestBackportOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     pull_request_lint: typing.Optional[builtins.bool] = None,
@@ -10915,7 +10741,6 @@ def _typecheckingstub__c22e66f011c96f13a6f4e5b07bb676bf98b477678e968ee61f79ee107
     mergify: typing.Optional[builtins.bool] = None,
     mergify_options: typing.Optional[typing.Union[MergifyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     projen_credentials: typing.Optional[GithubCredentials] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     pull_request_backport: typing.Optional[builtins.bool] = None,
     pull_request_backport_options: typing.Optional[typing.Union[PullRequestBackportOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     pull_request_lint: typing.Optional[builtins.bool] = None,
@@ -10954,11 +10779,7 @@ def _typecheckingstub__e987504475149e2e7d9b25ee3320e9bdd8afa45a0da64af7b3a153489
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[GitHubOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[MergifyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[GithubCredentials] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[StaleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -11219,7 +11040,6 @@ def _typecheckingstub__0471efd0a49bc64e556512e765a1df23d4a975f26cb6de765579b4173
     *,
     commit_message_template: builtins.str,
     name: builtins.str,
-    conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
     merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
     merge_method: typing.Optional[builtins.str] = None,
     queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,

@@ -62,7 +62,7 @@ extern "C"{
     /**
     * Kernel: fill_kernel__SELL
     * Purpose: Fill SELL-C-sigma format from dense matrix block
-    * Used for: SELL-C-sigma sparse matrix construction
+    * Used for: SELL-C-sigma sparse matrix construction using block streaming
     */
     __global__ void fill_kernel__SELL(
         const float* __restrict__ dense,
@@ -79,12 +79,15 @@ extern "C"{
     ) {
         int r_local = blockIdx.x * blockDim.x + threadIdx.x;
         if (r_local >= rows_in_block) return;
+        
         int r_global = rows_global_offset + r_local;
         int slice_id = r_global / slice_height;
         int row_in_slice = r_global % slice_height;
         
         const float* row = dense + (long long)r_local * cols;
         float maxv = 0.0f;
+        
+        // Find max absolute value in the row to compute local threshold
         for (int c = 0; c < cols; ++c) {
             float v = fabsf(row[c]);
             if (v > maxv) maxv = v;
@@ -96,6 +99,7 @@ extern "C"{
         long long out_base = base + (long long)row_in_slice;
         
         int k = 0;
+        // Populate non-zero values above the threshold
         for (int c = 0; c < cols; ++c) {
             float v = row[c];
             if (fabsf(v) > cut) {
@@ -105,6 +109,8 @@ extern "C"{
                 ++k;
             }
         }
+        
+        // Explicitly pad the remaining elements in the slice with zeros
         for (; k < len; ++k) {
             long long pos = out_base + (long long)k * slice_height;
             values_out[pos] = 0.0f;

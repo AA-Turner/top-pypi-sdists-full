@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
 if TYPE_CHECKING:
     from ..models.get_suspended_job_flow_response_200_approvers_item import GetSuspendedJobFlowResponse200ApproversItem
     from ..models.get_suspended_job_flow_response_200_job_type_0 import GetSuspendedJobFlowResponse200JobType0
@@ -18,10 +20,13 @@ class GetSuspendedJobFlowResponse200:
     Attributes:
         job (Union['GetSuspendedJobFlowResponse200JobType0', 'GetSuspendedJobFlowResponse200JobType1']):
         approvers (List['GetSuspendedJobFlowResponse200ApproversItem']):
+        view_token (Union[Unset, str]): Share-read-link token for the parent flow. An authenticated workspace member can
+            append it as a `view_token` query param on the run page to read a flow they don't otherwise have access to.
     """
 
     job: Union["GetSuspendedJobFlowResponse200JobType0", "GetSuspendedJobFlowResponse200JobType1"]
     approvers: List["GetSuspendedJobFlowResponse200ApproversItem"]
+    view_token: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -41,6 +46,8 @@ class GetSuspendedJobFlowResponse200:
 
             approvers.append(approvers_item)
 
+        view_token = self.view_token
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -49,6 +56,8 @@ class GetSuspendedJobFlowResponse200:
                 "approvers": approvers,
             }
         )
+        if view_token is not UNSET:
+            field_dict["view_token"] = view_token
 
         return field_dict
 
@@ -88,9 +97,12 @@ class GetSuspendedJobFlowResponse200:
 
             approvers.append(approvers_item)
 
+        view_token = d.pop("view_token", UNSET)
+
         get_suspended_job_flow_response_200 = cls(
             job=job,
             approvers=approvers,
+            view_token=view_token,
         )
 
         get_suspended_job_flow_response_200.additional_properties = d

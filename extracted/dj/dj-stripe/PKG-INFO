@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dj-stripe
-Version: 2.10.3
+Version: 2.10.4
 Summary: Django + Stripe made easy
 License: MIT
 License-File: LICENSE
@@ -26,7 +26,7 @@ Provides-Extra: postgres
 Requires-Dist: django (>=5.0)
 Requires-Dist: mysqlclient (>=1.4.0) ; extra == "mysql"
 Requires-Dist: psycopg (>=3.2.3,<4.0.0) ; extra == "postgres"
-Requires-Dist: stripe (>=11.3.0)
+Requires-Dist: stripe (>=11.3.0,<16)
 Project-URL: Documentation, https://dj-stripe.dev/dj-stripe/
 Project-URL: Funding, https://github.com/sponsors/dj-stripe
 Project-URL: Homepage, https://dj-stripe.dev

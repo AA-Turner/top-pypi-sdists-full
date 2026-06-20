@@ -14,37 +14,45 @@ from scramp.utils import b64dec
 
 
 @pytest.mark.parametrize(
-    "msg,validations,error_msg",
+    "msg,att_sets,error_msg",
     [
         [
             "",
-            ["abc"],
+            [{"a", "b", "c"}],
             "Malformed trial message. Attributes must be separated by a ',' and each "
             "attribute must start with a letter followed by a '=': other-error",
         ],
         [
             "c=jk,d=kln",
-            ["abc"],
-            "Malformed trial message. Expected the attribute list to be 'abc' but "
-            "found 'cd': other-error",
+            [{"a", "b", "c"}],
+            "Malformed trial message. Expected the attribute set to be one of "
+            "[{a, b, c}] but found {c, d}: other-error",
+        ],
+        [
+            "c=jk,c=kln",
+            [{"c"}],
+            "Duplicate attributes not allowed in message. The duplicated attribute "
+            "is c. : other-error",
         ],
     ],
 )
-def test_parse_message_fail(msg, validations, error_msg):
-    with pytest.raises(ScramException, match=error_msg):
-        _parse_message(msg, "trial", *validations)
+def test_parse_message_fail(msg, att_sets, error_msg):
+    with pytest.raises(ScramException) as exc_info:
+        _parse_message(msg, "trial", *att_sets)
+
+    assert str(exc_info.value) == error_msg
 
 
 @pytest.mark.parametrize(
-    "msg,validations,result",
+    "msg,att_sets,result",
     [
-        ["c=jk,d=kln", ["cd"], {"c": "jk", "d": "kln"}],
-        ["c=jk,d=kln", ["abc", "cd"], {"c": "jk", "d": "kln"}],
-        ["c=", ["c"], {"c": ""}],
+        ["c=jk,d=kln", [{"c", "d"}], {"c": "jk", "d": "kln"}],
+        ["c=jk,d=kln", [{"a", "b", "c"}, {"c", "d"}], {"c": "jk", "d": "kln"}],
+        ["c=", [{"c"}], {"c": ""}],
     ],
 )
-def test_parse_message_succeed(msg, validations, result):
-    assert _parse_message(msg, "trial", *validations) == result
+def test_parse_message_succeed(msg, att_sets, result):
+    assert _parse_message(msg, "trial", *att_sets) == result
 
 
 EXCHANGE_SCRAM_SHA_256 = {
@@ -221,6 +229,39 @@ params = [
     },
     EXCHANGE_SCRAM_SHA_256,
     EXCHANGE_SCRAM_SHA_256_PLUS,
+    # Standard SCRAM_SHA_1 with username that needs escaping
+    {
+        "username": "u=se,r",
+        "password": "pencil",
+        "c_mechanisms": ["SCRAM-SHA-1"],
+        "s_mechanism": "SCRAM-SHA-1",
+        "cfirst": "n,,n=u=3Dse=2Cr,r=fyko+d2lbbFgONRv9qkxdawL",
+        "cfirst_bare": "n=u=3Dse=2Cr,r=fyko+d2lbbFgONRv9qkxdawL",
+        "sfirst": "r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,"
+        "s=QSXCR+Q6sek8bf92,i=4096",
+        "cfinal": "c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,"
+        "p=vqBTKFd8G1j1sueD4sUotSjIYfs=",
+        "cfinal_without_proof": "c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j",
+        "sfinal": "v=ySs7A8qkVwzSKc4pAqR/R4+/50g=",
+        "c_nonce": "fyko+d2lbbFgONRv9qkxdawL",
+        "s_nonce": "3rfcNHYJY1ZVvWVs7j",
+        "nonce": "fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j",
+        "auth_message": b"n=u=3Dse=2Cr,r=fyko+d2lbbFgONRv9qkxdawL,"
+        b"r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,"
+        b"s=QSXCR+Q6sek8bf92,i=4096,c=biws,"
+        b"r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j",
+        "salt": "QSXCR+Q6sek8bf92",
+        "iterations": 4096,
+        "server_signature": "ySs7A8qkVwzSKc4pAqR/R4+/50g=",
+        "hf": hashlib.sha1,
+        "stored_key": "6dlGYMOdZcOPutkcNY8U2g7vK9Y=",
+        "server_key": "D+CSWLOshSulAsxiupA+qs2/fTE=",
+        "c_use_binding": False,
+        "s_init_use_binding": False,
+        "s_use_binding": False,
+        "c_channel_binding": None,
+        "s_channel_binding": None,
+    },
 ]
 
 
@@ -380,7 +421,7 @@ def test_server(x):
 def test_check_stage():
     with pytest.raises(
         ScramException,
-        match="The next method to be called is get_server_first, not this " "method.",
+        match="The next method to be called is get_server_first, not this method.",
     ):
         core._check_stage(
             core.ServerStage,

@@ -197,14 +197,22 @@ class TestConnectedAccounts:
     @parametrize
     def test_method_delete(self, client: Composio) -> None:
         connected_account = client.connected_accounts.delete(
-            "ca_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
+        )
+        assert_matches_type(ConnectedAccountDeleteResponse, connected_account, path=["response"])
+
+    @parametrize
+    def test_method_delete_with_all_params(self, client: Composio) -> None:
+        connected_account = client.connected_accounts.delete(
+            nanoid="ca_1a2b3c4d5e6f",
+            revoke_on_delete=True,
         )
         assert_matches_type(ConnectedAccountDeleteResponse, connected_account, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: Composio) -> None:
         response = client.connected_accounts.with_raw_response.delete(
-            "ca_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -215,7 +223,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_streaming_response_delete(self, client: Composio) -> None:
         with client.connected_accounts.with_streaming_response.delete(
-            "ca_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -229,7 +237,7 @@ class TestConnectedAccounts:
     def test_path_params_delete(self, client: Composio) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `nanoid` but received ''"):
             client.connected_accounts.with_raw_response.delete(
-                "",
+                nanoid="",
             )
 
     @parametrize
@@ -249,48 +257,30 @@ class TestConnectedAccounts:
                     "auth_scheme": "BEARER_TOKEN",
                     "val": {
                         "token": "new_access_token",
-                        "account_id": "account_id",
-                        "account_url": "account_url",
                         "api_key": "api_key",
-                        "api_url": "api_url",
+                        "api_key_prefix": "api_key_prefix",
                         "application_id": "application_id",
-                        "base_url": "base_url",
                         "basic_encoded": "basic_encoded",
                         "bearer_token": "bearer_token",
-                        "borneo_dashboard_url": "borneo_dashboard_url",
-                        "companydomain": "COMPANYDOMAIN",
                         "credentials_json": "credentials_json",
-                        "dc": "dc",
-                        "domain": "domain",
-                        "extension": "extension",
-                        "form_api_base_url": "form_api_base_url",
                         "generic_api_key": "generic_api_key",
+                        "generic_id": "generic_id",
+                        "generic_secret": "generic_secret",
+                        "generic_token": "generic_token",
                         "installation_id": "installation_id",
-                        "instance_endpoint": "instanceEndpoint",
-                        "instance_name": "instanceName",
                         "password": "password",
                         "private_key": "private_key",
-                        "proxy_password": "proxy_password",
-                        "proxy_username": "proxy_username",
-                        "region": "region",
-                        "server_location": "server_location",
-                        "shop": "shop",
-                        "site_name": "site_name",
-                        "subdomain": "subdomain",
+                        "user_agent": "user_agent",
                         "username": "username",
-                        "version": "version",
-                        "your_server": "your_server",
-                        "your_domain": "your-domain",
                     },
                 }
             },
             experimental={
-                "account_type": "PRIVATE",
                 "acl_config_for_shared": {
                     "allow_all_users": True,
                     "allowed_user_ids": ["x"],
                     "not_allowed_user_ids": ["x"],
-                },
+                }
             },
         )
         assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
@@ -594,14 +584,22 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_method_delete(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.delete(
-            "ca_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
+        )
+        assert_matches_type(ConnectedAccountDeleteResponse, connected_account, path=["response"])
+
+    @parametrize
+    async def test_method_delete_with_all_params(self, async_client: AsyncComposio) -> None:
+        connected_account = await async_client.connected_accounts.delete(
+            nanoid="ca_1a2b3c4d5e6f",
+            revoke_on_delete=True,
         )
         assert_matches_type(ConnectedAccountDeleteResponse, connected_account, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncComposio) -> None:
         response = await async_client.connected_accounts.with_raw_response.delete(
-            "ca_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -612,7 +610,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncComposio) -> None:
         async with async_client.connected_accounts.with_streaming_response.delete(
-            "ca_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -626,7 +624,7 @@ class TestAsyncConnectedAccounts:
     async def test_path_params_delete(self, async_client: AsyncComposio) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `nanoid` but received ''"):
             await async_client.connected_accounts.with_raw_response.delete(
-                "",
+                nanoid="",
             )
 
     @parametrize
@@ -646,48 +644,30 @@ class TestAsyncConnectedAccounts:
                     "auth_scheme": "BEARER_TOKEN",
                     "val": {
                         "token": "new_access_token",
-                        "account_id": "account_id",
-                        "account_url": "account_url",
                         "api_key": "api_key",
-                        "api_url": "api_url",
+                        "api_key_prefix": "api_key_prefix",
                         "application_id": "application_id",
-                        "base_url": "base_url",
                         "basic_encoded": "basic_encoded",
                         "bearer_token": "bearer_token",
-                        "borneo_dashboard_url": "borneo_dashboard_url",
-                        "companydomain": "COMPANYDOMAIN",
                         "credentials_json": "credentials_json",
-                        "dc": "dc",
-                        "domain": "domain",
-                        "extension": "extension",
-                        "form_api_base_url": "form_api_base_url",
                         "generic_api_key": "generic_api_key",
+                        "generic_id": "generic_id",
+                        "generic_secret": "generic_secret",
+                        "generic_token": "generic_token",
                         "installation_id": "installation_id",
-                        "instance_endpoint": "instanceEndpoint",
-                        "instance_name": "instanceName",
                         "password": "password",
                         "private_key": "private_key",
-                        "proxy_password": "proxy_password",
-                        "proxy_username": "proxy_username",
-                        "region": "region",
-                        "server_location": "server_location",
-                        "shop": "shop",
-                        "site_name": "site_name",
-                        "subdomain": "subdomain",
+                        "user_agent": "user_agent",
                         "username": "username",
-                        "version": "version",
-                        "your_server": "your_server",
-                        "your_domain": "your-domain",
                     },
                 }
             },
             experimental={
-                "account_type": "PRIVATE",
                 "acl_config_for_shared": {
                     "allow_all_users": True,
                     "allowed_user_ids": ["x"],
                     "not_allowed_user_ids": ["x"],
-                },
+                }
             },
         )
         assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])

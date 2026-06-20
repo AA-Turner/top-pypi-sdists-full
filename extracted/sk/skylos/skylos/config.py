@@ -1,6 +1,7 @@
 import copy
 import fnmatch
 import os
+import re
 from pathlib import Path
 
 CONFIG_FILE_ENV_VAR = "SKYLOS_CONFIG_FILE"
@@ -41,6 +42,9 @@ DEFAULTS = {
         "decorators": [],
         "bases": [],
         "keep_docstring": True,
+    },
+    "dead_code": {
+        "entrypoints": [],
     },
     "templates": {
         "security": None,
@@ -360,6 +364,7 @@ def _merge_user_config(base_cfg: dict, user_cfg: dict | None) -> dict:
             "vibe",
             "architecture",
             "contribution",
+            "dead_code",
         ) and isinstance(value, dict):
             merged_section = {}
             current_section = final_cfg.get(key)
@@ -422,6 +427,7 @@ def _sanitize_config(cfg: dict) -> dict:
     )
     safe["masking"] = _sanitize_masking_section(safe.get("masking"))
     safe["templates"] = _sanitize_templates_section(safe.get("templates"))
+    safe["dead_code"] = _sanitize_dead_code_section(safe.get("dead_code"))
     safe["contribution"] = _sanitize_contribution_section(safe.get("contribution"))
     safe["vibe"] = _sanitize_vibe_section(safe.get("vibe"))
     safe["architecture"] = _sanitize_architecture_section(safe.get("architecture"))
@@ -534,6 +540,85 @@ def _sanitize_templates_section(value):
         candidate = raw.get(key)
         if candidate is None or isinstance(candidate, str):
             safe[key] = candidate
+    return safe
+
+
+def _sanitize_dead_code_section(value):
+    if isinstance(value, dict):
+        raw = value
+    else:
+        raw = {}
+    return {
+        "entrypoints": _safe_dead_code_entrypoints(raw.get("entrypoints")),
+    }
+
+
+def _safe_string_or_list(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, str)]
+    return None
+
+
+def _safe_dead_code_rule_dict(value):
+    if not isinstance(value, dict):
+        return None
+
+    safe = {}
+    for key in (
+        "type",
+        "name",
+        "full_name",
+        "module",
+        "path",
+        "decorator",
+        "decorators",
+        "base_class",
+        "base_classes",
+        "reason",
+    ):
+        item = _safe_string_or_list(value.get(key))
+        if item is not None:
+            safe[key] = item
+
+    parent = value.get("parent")
+    if not isinstance(parent, dict):
+        parent = value.get("parent_class")
+    if isinstance(parent, dict):
+        safe_parent = {}
+        for key in ("name", "full_name", "module", "path", "base_class", "base_classes"):
+            item = _safe_string_or_list(parent.get(key))
+            if item is not None:
+                safe_parent[key] = item
+        if safe_parent:
+            safe["parent"] = safe_parent
+
+    if not any(
+        key in safe
+        for key in (
+            "name",
+            "full_name",
+            "decorator",
+            "decorators",
+            "base_class",
+            "base_classes",
+            "parent",
+        )
+    ):
+        return None
+
+    return safe
+
+
+def _safe_dead_code_entrypoints(value):
+    if not isinstance(value, list):
+        return []
+    safe = []
+    for item in value:
+        rule = _safe_dead_code_rule_dict(item)
+        if rule:
+            safe.append(rule)
     return safe
 
 
@@ -672,7 +757,29 @@ def get_expired_whitelists(cfg) -> list[tuple[str, str, str]]:
     return expired
 
 
-def get_all_ignore_lines(source) -> set[int]:
+_NOQA_RE = re.compile(r"#\s*noqa\b(?::\s*([^#]+))?", re.IGNORECASE)
+
+
+def get_noqa_codes_by_line(source) -> dict[int, set[str]]:
+    codes_by_line: dict[int, set[str]] = {}
+    for i, line in enumerate(source.splitlines(), start=1):
+        match = _NOQA_RE.search(line)
+        if not match:
+            continue
+        raw_codes = match.group(1)
+        if raw_codes is None:
+            codes_by_line[i] = set()
+            continue
+        codes = {
+            code.upper()
+            for code in re.findall(r"\b[A-Z]+\d+\b", raw_codes, re.IGNORECASE)
+        }
+        if codes:
+            codes_by_line[i] = codes
+    return codes_by_line
+
+
+def _collect_ignore_lines(source, *, include_code_specific_noqa: bool) -> set[int]:
     ignore_lines = set()
     in_ignore_block = False
 
@@ -705,16 +812,32 @@ def get_all_ignore_lines(source) -> set[int]:
                 "#skylos:ignore",
                 "# noqa: skylos",
                 "pragma: no skylos",
-                "# noqa",
-                "#noqa",
             ]
         ):
             ignore_lines.add(i)
             stripped = line.strip()
             if stripped.startswith("@"):
                 ignore_lines.add(i + 1)
+            continue
+
+        match = _NOQA_RE.search(line)
+        if not match:
+            continue
+        if include_code_specific_noqa or match.group(1) is None:
+            ignore_lines.add(i)
+            stripped = line.strip()
+            if stripped.startswith("@"):
+                ignore_lines.add(i + 1)
 
     return ignore_lines
+
+
+def get_all_ignore_lines(source) -> set[int]:
+    return _collect_ignore_lines(source, include_code_specific_noqa=True)
+
+
+def get_skylos_ignore_lines(source) -> set[int]:
+    return _collect_ignore_lines(source, include_code_specific_noqa=False)
 
 
 def suggest_pattern(name) -> str | None:

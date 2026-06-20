@@ -425,11 +425,16 @@ async function extractZip(archivePath: string, destDir: string): Promise<void> {
   if (process.platform === "win32") {
     // PowerShell 5.1's Expand-Archive uses .NET FileStream which can conflict
     // with recently-closed Node.js file handles. Use ZipFile API directly.
+    // Pass paths via env vars (not interpolated into the script) so a quote or
+    // other special char in the path can't break out and be parsed as code.
     execFileSync("powershell", [
       "-NoProfile", "-Command",
       `Add-Type -AssemblyName System.IO.Compression.FileSystem; ` +
-      `[System.IO.Compression.ZipFile]::ExtractToDirectory('${archivePath}', '${destDir}')`,
-    ], { timeout: 120_000 });
+      `[System.IO.Compression.ZipFile]::ExtractToDirectory($env:CB_ARCHIVE, $env:CB_DEST)`,
+    ], {
+      timeout: 120_000,
+      env: { ...process.env, CB_ARCHIVE: archivePath, CB_DEST: destDir },
+    });
   } else {
     execFileSync("unzip", ["-o", archivePath, "-d", destDir], { timeout: 120_000 });
   }

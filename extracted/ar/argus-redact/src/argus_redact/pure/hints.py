@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 from argus_redact._types import Hint, PatternMatch
 from argus_redact.lang.br import hints as _br_hints
 from argus_redact.lang.de import hints as _de_hints
@@ -50,17 +48,19 @@ _COMMAND_PATTERNS = _collect("COMMAND_PATTERNS")
 _DEFAULT_PERSON_THRESHOLD = 0.8
 
 
-# Ablation hook (research-only). Set ARGUS_ABLATION_HINTS to control which
-# hint types `produce_hints()` emits. Unset / "all" = default behavior.
-# "off" = emit nothing. Comma-separated names = emit only listed types.
-# Recognized: pii_density, text_intent, self_reference_tier, near_miss_format.
-def _ablation_enabled_hints() -> set[str] | None:
-    raw = os.environ.get("ARGUS_ABLATION_HINTS")
-    if raw is None or raw == "all":
-        return None
-    if raw == "off":
-        return set()
-    return {h.strip() for h in raw.split(",") if h.strip()}
+# Ablation hook (research-only). The ARGUS_ABLATION_HINTS env read is resolved
+# in the glue layer (glue/redact._ablation_enabled_hints); this pure helper takes
+# the already-resolved enabled-set so the pure layer stays environment-unaware.
+# Recognized hint types: pii_density, text_intent, self_reference_tier,
+# near_miss_format.
+def _apply_ablation(hints: list[Hint], enabled: set[str] | None) -> list[Hint]:
+    """Filter Rust-produced hints by the ablation enabled-set (resolved in glue).
+
+    None → keep all; empty set → drop all; otherwise keep only listed hint types.
+    """
+    if enabled is None:
+        return list(hints)
+    return [h for h in hints if h.type in enabled]
 
 
 # ══════════════════════════════════════════════════════════════
@@ -89,13 +89,21 @@ def produce_hints(
     *,
     near_misses: list[PatternMatch] | None = None,
 ) -> list[Hint]:
-    """Produce hints from L1 detection results.
+    """Parity-test-only oracle — no production caller.
 
-    Returns hints that downstream layers (L1b person names, L2 NER,
-    L3 LLM, tier filter) can consume.
+    Production hint generation is performed by the Rust ``_core.produce_hints_l1``
+    inside the glue layer (``glue/redact.py``). This pure-Python implementation
+    exists solely so tests can compare its output against the Rust implementation
+    to verify bit-level parity across all four hint types (``pii_density``,
+    ``near_miss_format``, ``self_reference_tier``, ``text_intent``).
+
+    Do not call this from any production code path.
     """
     hints: list[Hint] = []
-    enabled = _ablation_enabled_hints()
+    # This oracle emits the full hint set unconditionally. Ablation
+    # (ARGUS_ABLATION_HINTS) is applied downstream in the glue layer via
+    # _apply_ablation, keeping the env read out of pure/.
+    enabled: set[str] | None = None
 
     def _emit(htype: str, **fields: object) -> None:
         if enabled is None or htype in enabled:

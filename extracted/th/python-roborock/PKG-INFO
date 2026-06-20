@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-roborock
-Version: 5.15.0
+Version: 5.15.1
 Summary: A package to control Roborock vacuums.
 Project-URL: Repository, https://github.com/python-roborock/python-roborock
 Project-URL: Documentation, https://python-roborock.readthedocs.io/
@@ -17,8 +17,6 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: <4,>=3.11
 Requires-Dist: aiohttp<4,>=3.8.2
 Requires-Dist: aiomqtt<3,>=2.5.0
-Requires-Dist: click-shell~=2.1
-Requires-Dist: click>=8
 Requires-Dist: construct<3,>=2.10.57
 Requires-Dist: paho-mqtt<3.0.0,>=1.6.1
 Requires-Dist: protobuf<8,>=6.31.1
@@ -26,6 +24,11 @@ Requires-Dist: pycryptodomex~=3.18; sys_platform == 'darwin'
 Requires-Dist: pycryptodome~=3.18
 Requires-Dist: pyrate-limiter<5,>=4.0.0
 Requires-Dist: vacuum-map-parser-roborock
+Provides-Extra: cli
+Requires-Dist: click-shell~=2.1; extra == 'cli'
+Requires-Dist: click>=8; extra == 'cli'
+Requires-Dist: pyshark<0.7,>=0.6; extra == 'cli'
+Requires-Dist: pyyaml>=6.0.3; extra == 'cli'
 Description-Content-Type: text/markdown
 
 # Roborock
@@ -49,6 +52,11 @@ Roborock library for online and offline control of your vacuums.
 Install this via pip (or your favourite package manager):
 
 `pip install python-roborock`
+
+To use the `roborock` command line tool, install the `cli` extra, which pulls in
+its additional dependencies (click, pyyaml, pyshark):
+
+`pip install python-roborock[cli]`
 
 ## Example Usage
 

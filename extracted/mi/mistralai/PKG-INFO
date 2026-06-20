@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.4.12
+Version: 2.4.13
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -801,6 +801,8 @@ print(res.choices[0].message.content)
 
 * [list_deployments](https://github.com/mistralai/client-python/blob/main/docs/sdks/deployments/README.md#list_deployments) - List Deployments
 * [get_deployment](https://github.com/mistralai/client-python/blob/main/docs/sdks/deployments/README.md#get_deployment) - Get Deployment
+* [get_deployment_logs](https://github.com/mistralai/client-python/blob/main/docs/sdks/deployments/README.md#get_deployment_logs) - Get Deployment Logs
+* [stream_deployment_logs](https://github.com/mistralai/client-python/blob/main/docs/sdks/deployments/README.md#stream_deployment_logs) - Stream Deployment Logs
 
 #### [Workflows.Events](https://github.com/mistralai/client-python/blob/main/docs/sdks/workflowsevents/README.md)
 
@@ -1057,8 +1059,8 @@ with Mistral(
 
 
 **Inherit from [`MistralError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/mistralerror.py)**:
-* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 140 of 223 methods.*
-* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 223 methods.*
+* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 142 of 225 methods.*
+* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 225 methods.*
 * [`ResponseValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

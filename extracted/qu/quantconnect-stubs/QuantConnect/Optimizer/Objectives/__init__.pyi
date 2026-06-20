@@ -11,6 +11,67 @@ QuantConnect_Optimizer_Objectives__EventContainer_Callable = typing.TypeVar("Qua
 QuantConnect_Optimizer_Objectives__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Optimizer_Objectives__EventContainer_ReturnType")
 
 
+class Extremum(System.Object):
+    """
+    Define the way to compare current real-values and the new one (candidates).
+    It's encapsulated in different abstraction to allow configure the direction of optimization, i.e. max or min.
+    """
+
+    def __init__(self, comparer: typing.Callable[[float, float], bool]) -> None:
+        """
+        Create an instance of Extremum to compare values.
+        
+        :param comparer: The way old and new values should be compared
+        """
+        ...
+
+    def better(self, current: float, candidate: float) -> bool:
+        """
+        Compares two values; identifies whether condition is met or not.
+        
+        :param current: Left operand
+        :param candidate: Right operand
+        :returns: Returns the result of comparer with this arguments.
+        """
+        ...
+
+
+class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Optimizer.Objectives.Extremum, str]):
+    """Class for converting string values to Maximization or Minimization strategy objects"""
+
+    @property
+    def populate_properties(self) -> bool:
+        """
+        Don't populate any property
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @overload
+    def convert(self, value: QuantConnect.Optimizer.Objectives.Extremum) -> str:
+        """
+        Converts a Extremum object into a string
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def convert(self, value: str) -> QuantConnect.Optimizer.Objectives.Extremum:
+        """
+        Converts a string into its corresponding Extremum object
+        
+        
+        This Class is protected.
+        
+        :param value: 
+        """
+        ...
+
+
 class Objective(System.Object, metaclass=abc.ABCMeta):
     """Base class for optimization Objectives.Target and Constraint"""
 
@@ -61,83 +122,6 @@ class Objective(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class Extremum(System.Object):
-    """
-    Define the way to compare current real-values and the new one (candidates).
-    It's encapsulated in different abstraction to allow configure the direction of optimization, i.e. max or min.
-    """
-
-    def __init__(self, comparer: typing.Callable[[float, float], bool]) -> None:
-        """
-        Create an instance of Extremum to compare values.
-        
-        :param comparer: The way old and new values should be compared
-        """
-        ...
-
-    def better(self, current: float, candidate: float) -> bool:
-        """
-        Compares two values; identifies whether condition is met or not.
-        
-        :param current: Left operand
-        :param candidate: Right operand
-        :returns: Returns the result of comparer with this arguments.
-        """
-        ...
-
-
-class Maximization(QuantConnect.Optimizer.Objectives.Extremum):
-    """Defines standard maximization strategy, i.e. right operand is greater than left"""
-
-    def __init__(self) -> None:
-        """Creates an instance of Maximization"""
-        ...
-
-
-class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Optimizer.Objectives.Extremum, str]):
-    """Class for converting string values to Maximization or Minimization strategy objects"""
-
-    @property
-    def populate_properties(self) -> bool:
-        """
-        Don't populate any property
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @overload
-    def convert(self, value: QuantConnect.Optimizer.Objectives.Extremum) -> str:
-        """
-        Converts a Extremum object into a string
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    @overload
-    def convert(self, value: str) -> QuantConnect.Optimizer.Objectives.Extremum:
-        """
-        Converts a string into its corresponding Extremum object
-        
-        
-        This Class is protected.
-        
-        :param value: 
-        """
-        ...
-
-
-class Minimization(QuantConnect.Optimizer.Objectives.Extremum):
-    """Defines standard minimization strategy, i.e. right operand is less than left"""
-
-    def __init__(self) -> None:
-        """Creates an instance of Minimization"""
-        ...
-
-
 class Constraint(QuantConnect.Optimizer.Objectives.Objective):
     """
     A backtest optimization constraint.
@@ -169,6 +153,22 @@ class Constraint(QuantConnect.Optimizer.Objectives.Objective):
 
     def to_string(self) -> str:
         """Pretty representation of a constraint"""
+        ...
+
+
+class Minimization(QuantConnect.Optimizer.Objectives.Extremum):
+    """Defines standard minimization strategy, i.e. right operand is less than left"""
+
+    def __init__(self) -> None:
+        """Creates an instance of Minimization"""
+        ...
+
+
+class Maximization(QuantConnect.Optimizer.Objectives.Extremum):
+    """Defines standard maximization strategy, i.e. right operand is greater than left"""
+
+    def __init__(self) -> None:
+        """Creates an instance of Maximization"""
         ...
 
 

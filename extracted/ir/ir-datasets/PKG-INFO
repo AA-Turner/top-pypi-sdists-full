@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ir_datasets
-Version: 0.6.0
+Version: 0.6.1
 Summary: provides a common interface to many IR ad-hoc ranking benchmarks, training datasets, etc.
 Author-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
 Maintainer-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
@@ -17,7 +17,7 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: lxml<6.0.0,>=4.5.2
+Requires-Dist: lxml>=4.5.2
 Requires-Dist: numpy>=1.18.1
 Requires-Dist: pyyaml>=5.3.1
 Requires-Dist: requests>=2.22.0

@@ -47,7 +47,7 @@ Usage::
         ListTriggersPaginator,
         ListUsageProfilesPaginator,
         ListWorkflowsPaginator,
-        SearchPaginator,
+        SearchAssetsPaginator,
     )
 
     session = Session()
@@ -88,7 +88,7 @@ Usage::
     list_triggers_paginator: ListTriggersPaginator = client.get_paginator("list_triggers")
     list_usage_profiles_paginator: ListUsageProfilesPaginator = client.get_paginator("list_usage_profiles")
     list_workflows_paginator: ListWorkflowsPaginator = client.get_paginator("list_workflows")
-    search_paginator: SearchPaginator = client.get_paginator("search")
+    search_assets_paginator: SearchAssetsPaginator = client.get_paginator("search_assets")
     ```
 """
 
@@ -129,7 +129,7 @@ from .paginator import (
     ListTriggersPaginator,
     ListUsageProfilesPaginator,
     ListWorkflowsPaginator,
-    SearchPaginator,
+    SearchAssetsPaginator,
 )
 
 Client = GlueClient
@@ -172,5 +172,5 @@ __all__ = (
     "ListTriggersPaginator",
     "ListUsageProfilesPaginator",
     "ListWorkflowsPaginator",
-    "SearchPaginator",
+    "SearchAssetsPaginator",
 )

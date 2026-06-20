@@ -3106,3 +3106,345 @@ class TestChannelHeaderStrip:
             f"channel header not stripped on trailing-finish path: {combined!r}"
         )
         assert "Yes." in combined
+
+
+class TestGeneratorClosedOnEveryExit:
+    """Issue #698 regression: ``_run_generator`` MUST call
+    ``gen.close()`` on every exit path. Python's ``for`` statement
+    does NOT close a generator on early ``break`` or ``return`` — it
+    leaves the generator's frame (and all mlx-vlm tensors rooted to
+    it) waiting for cyclic GC. One ``max_tokens=1024`` request was
+    enough to keep ~10-15 GB of MLX denoising state rooted across
+    the persistent worker thread, sending subsequent short requests
+    into swap-thrash and 100× latency cliffs.
+
+    The fix wraps the for-loop in ``try/finally`` with an explicit
+    ``gen.close()``. These tests pin all three exit paths:
+
+      * ``finish_reason`` triggers the in-loop ``return``
+      * ``cancel_event`` triggers the in-loop ``break``
+      * generator exhausts naturally (no finish_reason) → falls
+        through to the trailing-finish-chunk path
+
+    All three MUST call ``close()`` exactly once.
+    """
+
+    def _drive(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        yields: list[FakeGenerationResult],
+        *,
+        cancel_before_run: bool = False,
+        cancel_at_yield: int | None = None,
+    ) -> dict[str, Any]:
+        """Boot the engine, drive ``_run_generator`` against tracking
+        yields, return the close-count state dict.
+
+        ``__next__`` must live on the class (not the instance) — the
+        for-loop iterator protocol uses CPython type-slot lookup, so
+        an instance attribute named ``__next__`` is silently ignored.
+        We thread ``cancel_event`` + ``cancel_at_yield`` into the
+        TrackingGen class itself so the cancel-arm fires from the
+        class-level method.
+        """
+        import queue as _queue
+        import threading as _threading
+
+        _install_mlx_vlm_mock(monkeypatch, stream_yields=yields)
+        diffusion_mod = sys.modules["mlx_vlm.generate.diffusion"]
+        state: dict[str, Any] = {"close_calls": 0, "yielded": 0}
+        cancel_event = _threading.Event()
+        if cancel_before_run:
+            cancel_event.set()
+
+        class _TrackingGen:
+            """Class-defined ``__iter__``/``__next__``/``close`` so the
+            iterator protocol picks them up via type slots."""
+
+            def __init__(self, items: list[FakeGenerationResult]) -> None:
+                self._items = iter(items)
+
+            def __iter__(self) -> _TrackingGen:
+                return self
+
+            def __next__(self) -> FakeGenerationResult:
+                item = next(self._items)
+                state["yielded"] += 1
+                # Flip the cancel event AFTER counting this yield —
+                # _run_generator's per-iteration cancel check fires
+                # at the TOP of the next iteration, so the break
+                # exits before consuming any further yields.
+                if cancel_at_yield is not None and state["yielded"] >= cancel_at_yield:
+                    cancel_event.set()
+                return item
+
+            def close(self) -> None:
+                state["close_calls"] += 1
+
+        def _factory(*_a: Any, **_k: Any) -> _TrackingGen:
+            return _TrackingGen(list(yields))
+
+        diffusion_mod.stream_diffusion_generate = _factory  # type: ignore[attr-defined]
+
+        from vllm_mlx.runtime.diffusion_lane import (
+            DiffusionEngine,
+            DiffusionGenerationConfig,
+        )
+
+        engine = DiffusionEngine(model_name="x/y")
+        engine._load_blocking()
+
+        thread_q: _queue.Queue[Any] = _queue.Queue()
+        engine._run_generator(
+            "prompt",
+            16,
+            DiffusionGenerationConfig(),
+            thread_q,
+            cancel_event,
+        )
+        return state
+
+    def test_close_called_on_finish_reason_return(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit via in-loop ``return`` when ``finish_reason`` is set."""
+        yields = [
+            FakeGenerationResult(text="hello", diffusion_block_complete=True),
+            FakeGenerationResult(text=" world", finish_reason="stop"),
+        ]
+        state = self._drive(monkeypatch, yields)
+        assert state["close_calls"] == 1, (
+            f"generator close() called {state['close_calls']}× on finish_reason "
+            f"path; expected exactly 1"
+        )
+
+    def test_close_called_when_generator_exhausts_naturally(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit via the for-loop's natural end (no finish_reason in
+        any chunk → falls through to the trailing-finish-chunk path
+        AFTER the try/finally."""
+        yields = [
+            FakeGenerationResult(text="alpha", diffusion_block_complete=True),
+            FakeGenerationResult(text="beta", diffusion_block_complete=True),
+        ]
+        state = self._drive(monkeypatch, yields)
+        assert state["close_calls"] == 1, (
+            f"generator close() called {state['close_calls']}× on natural "
+            f"exhaustion; expected exactly 1"
+        )
+
+    def test_close_called_on_cancel_break(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit via in-loop ``break`` when ``cancel_event`` flips mid-stream."""
+        yields = [
+            FakeGenerationResult(text="a", diffusion_block_complete=True),
+            FakeGenerationResult(text="b", diffusion_block_complete=True),
+            FakeGenerationResult(text="c", diffusion_block_complete=True),
+            FakeGenerationResult(text="d", finish_reason="stop"),
+        ]
+        state = self._drive(monkeypatch, yields, cancel_at_yield=2)
+        assert state["close_calls"] == 1, (
+            f"generator close() called {state['close_calls']}× on cancel "
+            f"break path; expected exactly 1"
+        )
+        # And the cancel must have actually short-circuited — we did
+        # not consume all 4 yields.
+        assert state["yielded"] < len(yields), (
+            f"cancel did not stop consumption: yielded={state['yielded']} "
+            f"of {len(yields)} (regression: cancel arm broken)"
+        )
+
+    def test_close_not_called_when_pre_cancel_short_circuits(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When the top-of-function cancel-check fires, the generator
+        is NEVER created, so there is nothing to close. The fix must
+        not introduce a phantom ``close()`` on a generator that
+        wasn't allocated."""
+        yields = [FakeGenerationResult(text="x", finish_reason="stop")]
+        state = self._drive(monkeypatch, yields, cancel_before_run=True)
+        assert state["close_calls"] == 0, (
+            f"generator close() called {state['close_calls']}× even though "
+            f"pre-cancel should skip generator allocation entirely"
+        )
+        assert state["yielded"] == 0, (
+            "generator yielded items despite pre-cancel — _run_generator "
+            "did NOT short-circuit before stream_diffusion_generate"
+        )
+
+
+class TestEosTokenIdAliasingWorkaround:
+    """Issue #698 root cause (RCA round 3).
+
+    mlx-vlm 0.6.x ``StoppingCriteria.__init__`` stores the
+    ``eos_token_ids`` list BY REFERENCE (utils.py:1890). The same
+    underlying list is also referenced by
+    ``model.config.generation_config["eos_token_id"]``. Then
+    ``stream_diffusion_generate`` line 615 calls
+    ``add_eos_token_ids(generation_config["eos_token_id"])`` which
+    EXTENDS ``self.eos_token_ids`` with the items of the SAME list —
+    so the list doubles on every request. After 22 requests:
+    3 → 6 → 12 → 24 → 48 → … → 12 581 376 ints (~3 GB heap).
+
+    rapid-mlx works around this defensively in
+    ``_break_mlx_vlm_eos_token_id_aliasing`` (called from
+    ``_worker_loop`` right after ``load()``): both lists are
+    shallow-copied so they are no longer the same object. Subsequent
+    ``add_eos_token_ids`` calls still extend, but they extend a
+    private list with the (small, fixed-size) generation_config
+    list — linear growth at ~3 ints/request, harmless.
+
+    These tests pin the workaround. Without them, a future refactor
+    of the loader path could silently re-introduce the aliasing and
+    we'd ship the regression.
+    """
+
+    def _wire_aliased_eos_tokens(
+        self, monkeypatch: pytest.MonkeyPatch, shared_eos: list[int]
+    ) -> Any:
+        """Install the mlx-vlm mocks but with the alias chain wired
+        the same way mlx-vlm itself wires it (one list reachable from
+        both ``stopping_criteria.eos_token_ids`` and
+        ``model.config.generation_config["eos_token_id"]``).
+
+        Returns the engine ready to load (caller invokes ``_load_blocking``)
+        plus the shared list reference for post-load identity checks.
+        """
+        _install_mlx_vlm_mock(monkeypatch)
+
+        # Patch the mocked ``load`` so it returns a model/processor
+        # pair that exhibits the upstream aliasing bug. Without this,
+        # the test couldn't catch a regression in the workaround
+        # because the default fakes never aliased the lists.
+        mlx_vlm_utils = sys.modules["mlx_vlm.utils"]
+
+        class _FakeStoppingCriteria:
+            def __init__(self, ids: list[int]) -> None:
+                self.eos_token_ids = ids  # alias on purpose
+
+        class _AliasingTokenizer:
+            def __init__(self, ids: list[int]) -> None:
+                self.eos_token_ids = ids
+                self.stopping_criteria = _FakeStoppingCriteria(ids)
+
+            def encode(self, text: str) -> list[int]:
+                return [ord(c) % 256 for c in text]
+
+            def apply_chat_template(self, *_a: Any, **_k: Any) -> str:
+                return "templated"
+
+        class _AliasingProcessor:
+            def __init__(self, ids: list[int]) -> None:
+                self.tokenizer = _AliasingTokenizer(ids)
+
+        class _AliasingConfig:
+            def __init__(self, ids: list[int]) -> None:
+                self.generation_config = {"eos_token_id": ids}
+                self.canvas_length = 256
+                self.eos_token_id = ids
+
+        class _AliasingModel:
+            def __init__(self, ids: list[int]) -> None:
+                self.config = _AliasingConfig(ids)
+
+        def _aliasing_load(_hf_path: str) -> tuple[Any, Any]:
+            return _AliasingModel(shared_eos), _AliasingProcessor(shared_eos)
+
+        mlx_vlm_utils.load = _aliasing_load  # type: ignore[attr-defined]
+        return _aliasing_load
+
+    def test_load_breaks_eos_token_ids_aliasing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """After load, ``stopping_criteria.eos_token_ids`` MUST be a
+        different list object from
+        ``model.config.generation_config["eos_token_id"]``. If they
+        are the same object, the upstream mlx-vlm bug doubles the
+        list on every request (issue #698)."""
+        shared_eos = [1, 106, 50]
+        self._wire_aliased_eos_tokens(monkeypatch, shared_eos)
+
+        from vllm_mlx.runtime.diffusion_lane import DiffusionEngine
+
+        engine = DiffusionEngine(model_name="x/y")
+        engine._load_blocking()
+
+        sc_eos = engine._processor.tokenizer.stopping_criteria.eos_token_ids
+        gen_cfg_eos = engine._model.config.generation_config["eos_token_id"]
+
+        assert sc_eos is not gen_cfg_eos, (
+            "engine load did NOT break the aliasing between "
+            "stopping_criteria.eos_token_ids and "
+            "generation_config['eos_token_id']; mlx-vlm's "
+            "add_eos_token_ids will double the list per request "
+            "(issue #698 regression)"
+        )
+        assert sc_eos is not shared_eos, (
+            "stopping_criteria.eos_token_ids is STILL the originally-"
+            "passed list; workaround did not copy"
+        )
+        assert gen_cfg_eos is not shared_eos, (
+            "generation_config['eos_token_id'] is STILL the originally-"
+            "passed list; workaround did not copy"
+        )
+        # Content must be preserved — we don't want the copy to drop
+        # legitimately-configured EOS tokens.
+        assert sc_eos == shared_eos == gen_cfg_eos == [1, 106, 50], (
+            f"copy mutated content: sc={sc_eos} gen_cfg={gen_cfg_eos} "
+            f"shared={shared_eos}"
+        )
+
+    def test_simulated_add_eos_does_not_double_after_load(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """After the workaround breaks the alias, repeated calls
+        that mimic ``stream_diffusion_generate``'s line 615
+        (``add_eos_token_ids(generation_config['eos_token_id'])``)
+        must produce LINEAR growth (3 ints/call), not exponential.
+
+        Without the workaround the same pattern doubles
+        (3 → 6 → 12 → 24 → 48). With it: 3 → 6 → 9 → 12 → 15 (linear).
+        """
+        shared_eos = [1, 106, 50]
+        self._wire_aliased_eos_tokens(monkeypatch, shared_eos)
+
+        from vllm_mlx.runtime.diffusion_lane import DiffusionEngine
+
+        engine = DiffusionEngine(model_name="x/y")
+        engine._load_blocking()
+
+        sc = engine._processor.tokenizer.stopping_criteria
+        gen_cfg_eos = engine._model.config.generation_config["eos_token_id"]
+
+        # Simulate mlx-vlm's actual extend pattern from
+        # stream_diffusion_generate line 615.
+        for _ in range(5):
+            sc.eos_token_ids.extend(gen_cfg_eos)
+
+        assert len(sc.eos_token_ids) == 3 + 5 * 3, (
+            f"len(sc.eos_token_ids)={len(sc.eos_token_ids)} after 5 simulated "
+            f"extend calls; expected linear growth to {3 + 5 * 3}. "
+            f"Exponential growth here means the aliasing workaround "
+            f"regressed (issue #698)."
+        )
+
+    def test_workaround_no_op_on_int_eos_token_id(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Some checkpoints store ``eos_token_id`` as a plain int
+        (not a list). The workaround must skip those without crashing
+        — there's nothing to copy and no alias to break."""
+        _install_mlx_vlm_mock(monkeypatch)
+        # Default fakes already use ``eos_token_id = 7`` (an int)
+        # so the existing happy path covers this case. Just confirm
+        # that load succeeds and the engine becomes ready.
+        from vllm_mlx.runtime.diffusion_lane import DiffusionEngine
+
+        engine = DiffusionEngine(model_name="x/y")
+        engine._load_blocking()
+        assert engine._loaded, (
+            "engine failed to load when generation_config has a scalar "
+            "eos_token_id; the workaround must tolerate non-list cases"
+        )

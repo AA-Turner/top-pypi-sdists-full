@@ -169,8 +169,8 @@ __all__ = (
     "SchemaDiffTypeType",
     "SchemaStatusType",
     "SchemaVersionStatusType",
+    "SearchAssetsPaginatorName",
     "SearchFilterOperatorType",
-    "SearchPaginatorName",
     "SearchSortOrderType",
     "SeparatorType",
     "ServiceName",
@@ -642,10 +642,10 @@ ScheduleTypeType = Literal["AUTO", "CRON"]
 SchemaDiffTypeType = Literal["SYNTAX_DIFF"]
 SchemaStatusType = Literal["AVAILABLE", "DELETING", "PENDING"]
 SchemaVersionStatusType = Literal["AVAILABLE", "DELETING", "FAILURE", "PENDING"]
+SearchAssetsPaginatorName = Literal["search_assets"]
 SearchFilterOperatorType = Literal[
     "equals", "greaterThan", "greaterThanOrEquals", "lessThan", "lessThanOrEquals", "notExists"
 ]
-SearchPaginatorName = Literal["search"]
 SearchSortOrderType = Literal["ASCENDING", "DESCENDING"]
 SeparatorType = Literal["comma", "ctrla", "pipe", "semicolon", "tab"]
 SessionStatusType = Literal["FAILED", "PROVISIONING", "READY", "STOPPED", "STOPPING", "TIMEOUT"]
@@ -1162,7 +1162,7 @@ PaginatorName = Literal[
     "list_triggers",
     "list_usage_profiles",
     "list_workflows",
-    "search",
+    "search_assets",
 ]
 RegionName = Literal[
     "af-south-1",

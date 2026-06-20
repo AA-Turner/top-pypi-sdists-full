@@ -7,23 +7,23 @@ import System.Runtime.InteropServices
 import System.Runtime.InteropServices.Java
 
 
-class ComponentCrossReference:
+class StronglyConnectedComponent:
     """This class has no documentation."""
 
     @property
-    def source_group_index(self) -> System.UIntPtr:
+    def count(self) -> System.UIntPtr:
         ...
 
-    @source_group_index.setter
-    def source_group_index(self, value: System.UIntPtr) -> None:
+    @count.setter
+    def count(self, value: System.UIntPtr) -> None:
         ...
 
     @property
-    def destination_group_index(self) -> System.UIntPtr:
+    def contexts(self) -> typing.Any:
         ...
 
-    @destination_group_index.setter
-    def destination_group_index(self, value: System.UIntPtr) -> None:
+    @contexts.setter
+    def contexts(self, value: typing.Any) -> None:
         ...
 
 
@@ -44,6 +44,26 @@ class JavaMarshal(System.Object):
 
     @staticmethod
     def initialize(mark_cross_references: typing.Any) -> None:
+        ...
+
+
+class ComponentCrossReference:
+    """This class has no documentation."""
+
+    @property
+    def source_group_index(self) -> System.UIntPtr:
+        ...
+
+    @source_group_index.setter
+    def source_group_index(self, value: System.UIntPtr) -> None:
+        ...
+
+    @property
+    def destination_group_index(self) -> System.UIntPtr:
+        ...
+
+    @destination_group_index.setter
+    def destination_group_index(self, value: System.UIntPtr) -> None:
         ...
 
 
@@ -80,26 +100,6 @@ class MarkCrossReferencesArgs:
 
     @cross_references.setter
     def cross_references(self, value: typing.Any) -> None:
-        ...
-
-
-class StronglyConnectedComponent:
-    """This class has no documentation."""
-
-    @property
-    def count(self) -> System.UIntPtr:
-        ...
-
-    @count.setter
-    def count(self, value: System.UIntPtr) -> None:
-        ...
-
-    @property
-    def contexts(self) -> typing.Any:
-        ...
-
-    @contexts.setter
-    def contexts(self, value: typing.Any) -> None:
         ...
 
 

@@ -55,7 +55,10 @@ ResponseType = TypeVar("ResponseType")
 
 
 @final
-class AuthenticatedChalkClientInterceptor(grpc.UnaryUnaryClientInterceptor):
+class AuthenticatedChalkClientInterceptor(
+    grpc.UnaryUnaryClientInterceptor,
+    grpc.UnaryStreamClientInterceptor,
+):
     """
     This GRPC Client Interceptor, adds an auth token and default
     Chalk headers to a grpc channel.
@@ -76,29 +79,40 @@ class AuthenticatedChalkClientInterceptor(grpc.UnaryUnaryClientInterceptor):
         if environment_id is not None:
             self._constant_headers.append((CHALK_ENV_ID_HEADER_LOWERCASE, environment_id))
 
+    def _with_auth(self, client_call_details: grpc.ClientCallDetails) -> _ClientCallDetails:
+        headers: dict[str, str | bytes] = dict(self._constant_headers)
+        headers["authorization"] = f"Bearer {self._refresher.get_token().access_token}"
+        if client_call_details.metadata:
+            headers.update(client_call_details.metadata)
+        return _ClientCallDetails(
+            method=client_call_details.method,
+            timeout=client_call_details.timeout,
+            metadata=tuple(headers.items()),
+            credentials=client_call_details.credentials,
+        )
+
     def intercept_unary_unary(
         self,
         continuation: Callable[[grpc.ClientCallDetails, RequestType], grpc.CallFuture[ResponseType]],
         client_call_details: grpc.ClientCallDetails,
         request: RequestType,
     ) -> grpc.CallFuture[ResponseType]:
-        headers: dict[str, str | bytes] = dict(self._constant_headers)
-        headers["authorization"] = f"Bearer {self._refresher.get_token().access_token}"
-        if client_call_details.metadata:
-            headers.update(client_call_details.metadata)
-        return continuation(
-            _ClientCallDetails(
-                method=client_call_details.method,
-                timeout=client_call_details.timeout,
-                metadata=tuple(headers.items()),
-                credentials=client_call_details.credentials,
-            ),
-            request,
-        )
+        return continuation(self._with_auth(client_call_details), request)
+
+    def intercept_unary_stream(
+        self,
+        continuation: Callable[[grpc.ClientCallDetails, RequestType], grpc.CallIterator[ResponseType]],
+        client_call_details: grpc.ClientCallDetails,
+        request: RequestType,
+    ) -> grpc.CallIterator[ResponseType]:
+        return continuation(self._with_auth(client_call_details), request)
 
 
 @final
-class UnauthenticatedChalkClientInterceptor(grpc.UnaryUnaryClientInterceptor):
+class UnauthenticatedChalkClientInterceptor(
+    grpc.UnaryUnaryClientInterceptor,
+    grpc.UnaryStreamClientInterceptor,
+):
     """
     This GRPC Client Interceptor, adds an auth token and default
     Chalk headers to a grpc channel.
@@ -114,24 +128,32 @@ class UnauthenticatedChalkClientInterceptor(grpc.UnaryUnaryClientInterceptor):
             *additional_headers,
         )
 
+    def _with_headers(self, client_call_details: grpc.ClientCallDetails) -> _ClientCallDetails:
+        headers_dict: dict[str, str | bytes] = dict(self._headers)
+        if client_call_details.metadata is not None:
+            headers_dict.update(client_call_details.metadata)
+        return _ClientCallDetails(
+            method=client_call_details.method,
+            timeout=client_call_details.timeout,
+            metadata=tuple(headers_dict.items()),
+            credentials=client_call_details.credentials,
+        )
+
     def intercept_unary_unary(
         self,
         continuation: Callable[[grpc.ClientCallDetails, RequestType], grpc.CallFuture[ResponseType]],
         client_call_details: grpc.ClientCallDetails,
         request: RequestType,
     ) -> grpc.CallFuture[ResponseType]:
-        headers_dict: dict[str, str | bytes] = dict(self._headers)
-        if client_call_details.metadata is not None:
-            headers_dict.update(client_call_details.metadata)
-        return continuation(
-            _ClientCallDetails(
-                method=client_call_details.method,
-                timeout=client_call_details.timeout,
-                metadata=tuple(headers_dict.items()),
-                credentials=client_call_details.credentials,
-            ),
-            request,
-        )
+        return continuation(self._with_headers(client_call_details), request)
+
+    def intercept_unary_stream(
+        self,
+        continuation: Callable[[grpc.ClientCallDetails, RequestType], grpc.CallIterator[ResponseType]],
+        client_call_details: grpc.ClientCallDetails,
+        request: RequestType,
+    ) -> grpc.CallIterator[ResponseType]:
+        return continuation(self._with_headers(client_call_details), request)
 
 
 @final
@@ -168,7 +190,10 @@ class AsyncTokenRefresher:
 
 
 @final
-class AsyncAuthenticatedChalkClientInterceptor(grpc.aio.UnaryUnaryClientInterceptor):
+class AsyncAuthenticatedChalkClientInterceptor(
+    grpc.aio.UnaryUnaryClientInterceptor,
+    grpc.aio.UnaryStreamClientInterceptor,
+):
     """Async gRPC client interceptor that adds auth token and Chalk headers."""
 
     def __init__(
@@ -186,31 +211,47 @@ class AsyncAuthenticatedChalkClientInterceptor(grpc.aio.UnaryUnaryClientIntercep
         if environment_id is not None:
             self._constant_headers.append((CHALK_ENV_ID_HEADER_LOWERCASE, environment_id))
 
+    async def _with_auth(self, client_call_details: grpc.aio.ClientCallDetails) -> grpc.aio.ClientCallDetails:
+        token = await self._refresher.get_token()
+        headers: dict[str, str | bytes] = dict(self._constant_headers)
+        headers["authorization"] = f"Bearer {token.access_token}"
+        if client_call_details.metadata:
+            headers.update(client_call_details.metadata)
+        return grpc.aio.ClientCallDetails(
+            method=client_call_details.method,
+            timeout=client_call_details.timeout,
+            metadata=tuple(headers.items()),  # pyright: ignore[reportArgumentType]
+            credentials=client_call_details.credentials,
+            wait_for_ready=getattr(client_call_details, "wait_for_ready", None),
+        )
+
     async def intercept_unary_unary(
         self,
         continuation: Callable[[grpc.aio.ClientCallDetails, RequestType], Awaitable[ResponseType]],
         client_call_details: grpc.aio.ClientCallDetails,
         request: RequestType,
     ):
-        token = await self._refresher.get_token()
-        headers: dict[str, str | bytes] = dict(self._constant_headers)
-        headers["authorization"] = f"Bearer {token.access_token}"
-        if client_call_details.metadata:
-            headers.update(client_call_details.metadata)
+        return await continuation(await self._with_auth(client_call_details), request)
+
+    async def intercept_unary_stream(
+        self,
+        continuation: Callable[
+            [grpc.aio.ClientCallDetails, RequestType], grpc.aio.UnaryStreamCall[RequestType, ResponseType]
+        ],
+        client_call_details: grpc.aio.ClientCallDetails,
+        request: RequestType,
+    ) -> grpc.aio.UnaryStreamCall[RequestType, ResponseType]:
+        # grpc.aio's real continuation is a coroutine returning the stream call; await it.
         return await continuation(
-            grpc.aio.ClientCallDetails(
-                method=client_call_details.method,
-                timeout=client_call_details.timeout,
-                metadata=tuple(headers.items()),  # pyright: ignore[reportArgumentType]
-                credentials=client_call_details.credentials,
-                wait_for_ready=getattr(client_call_details, "wait_for_ready", None),
-            ),
-            request,
-        )
+            await self._with_auth(client_call_details), request
+        )  # pyright: ignore[reportGeneralTypeIssues]
 
 
 @final
-class AsyncUnauthenticatedChalkClientInterceptor(grpc.aio.UnaryUnaryClientInterceptor):
+class AsyncUnauthenticatedChalkClientInterceptor(
+    grpc.aio.UnaryUnaryClientInterceptor,
+    grpc.aio.UnaryStreamClientInterceptor,
+):
     """Async gRPC client interceptor that adds static Chalk headers (no auth)."""
 
     def __init__(
@@ -223,22 +264,35 @@ class AsyncUnauthenticatedChalkClientInterceptor(grpc.aio.UnaryUnaryClientInterc
             *additional_headers,
         )
 
+    def _with_headers(self, client_call_details: grpc.aio.ClientCallDetails) -> grpc.aio.ClientCallDetails:
+        headers_dict: dict[str, str | bytes] = dict(self._headers)
+        if client_call_details.metadata is not None:
+            headers_dict.update(client_call_details.metadata)
+        return grpc.aio.ClientCallDetails(
+            method=client_call_details.method,
+            timeout=client_call_details.timeout,
+            metadata=tuple(headers_dict.items()),  # pyright: ignore[reportArgumentType]
+            credentials=client_call_details.credentials,
+            wait_for_ready=getattr(client_call_details, "wait_for_ready", None),
+        )
+
     async def intercept_unary_unary(
         self,
         continuation: Callable[[grpc.aio.ClientCallDetails, RequestType], Awaitable[ResponseType]],
         client_call_details: grpc.aio.ClientCallDetails,
         request: RequestType,
     ):
-        headers_dict: dict[str, str | bytes] = dict(self._headers)
-        if client_call_details.metadata is not None:
-            headers_dict.update(client_call_details.metadata)
+        return await continuation(self._with_headers(client_call_details), request)
+
+    async def intercept_unary_stream(
+        self,
+        continuation: Callable[
+            [grpc.aio.ClientCallDetails, RequestType], grpc.aio.UnaryStreamCall[RequestType, ResponseType]
+        ],
+        client_call_details: grpc.aio.ClientCallDetails,
+        request: RequestType,
+    ) -> grpc.aio.UnaryStreamCall[RequestType, ResponseType]:
+        # grpc.aio's real continuation is a coroutine returning the stream call; await it.
         return await continuation(
-            grpc.aio.ClientCallDetails(
-                method=client_call_details.method,
-                timeout=client_call_details.timeout,
-                metadata=tuple(headers_dict.items()),  # pyright: ignore[reportArgumentType]
-                credentials=client_call_details.credentials,
-                wait_for_ready=getattr(client_call_details, "wait_for_ready", None),
-            ),
-            request,
-        )
+            self._with_headers(client_call_details), request
+        )  # pyright: ignore[reportGeneralTypeIssues]

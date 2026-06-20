@@ -8,19 +8,23 @@
 #
 #    Principal author:       Jérôme Kieffer (Jerome.Kieffer@ESRF.eu)
 #
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 """
 # Unit tests
 
@@ -129,7 +133,7 @@ class TestMar345(unittest.TestCase):
             name = vals[0]
             obj = mar345image()
             obj.read(os.path.join(os.path.dirname(self.mar345), name))
-            obj.swap_needed = not (obj.swap_needed)
+            # obj.byteorder = ">" if obj.byteorder == "<" else "<"
             obj.write(os.path.join(UtilsTest.tempdir, name))
             other = mar345image()
             other.read(os.path.join(UtilsTest.tempdir, name))
@@ -181,7 +185,7 @@ class TestMar345(unittest.TestCase):
         a = mar345_IO.calc_nb_bits(numpy.arange(50).astype("int32"), 0, 50)
         self.assertEqual(a, 350, 50 * 7)
 
-        img.shape = shape
+        img = img.reshape(shape)
         cmp_ccp4 = mar345_IO.compress_pck(img, use_CCP4=True)
         cmp_fab = mar345_IO.compress_pck(img, use_CCP4=False)
         delta = abs(len(cmp_fab) - len(cmp_ccp4))

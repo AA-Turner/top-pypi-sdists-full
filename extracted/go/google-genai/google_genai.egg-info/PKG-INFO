@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 2.8.0
+Version: 2.9.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
@@ -22,7 +22,7 @@ License-File: LICENSE
 Requires-Dist: anyio<5.0.0,>=4.8.0
 Requires-Dist: google-auth[requests]<3.0.0,>=2.48.1
 Requires-Dist: httpx<1.0.0,>=0.28.1
-Requires-Dist: pydantic<3.0.0,>=2.9.0
+Requires-Dist: pydantic<3.0.0,>=2.12.5
 Requires-Dist: requests<3.0.0,>=2.28.1
 Requires-Dist: tenacity<9.2.0,>=8.2.3
 Requires-Dist: websockets<17.0,>=13.0.0
@@ -34,6 +34,10 @@ Requires-Dist: aiohttp<4.0.0,>=3.10.11; extra == "aiohttp"
 Provides-Extra: local-tokenizer
 Requires-Dist: sentencepiece>=0.2.0; extra == "local-tokenizer"
 Requires-Dist: protobuf; extra == "local-tokenizer"
+Requires-Dist: pillow; extra == "local-tokenizer"
+Requires-Dist: torch; extra == "local-tokenizer"
+Requires-Dist: torchvision; extra == "local-tokenizer"
+Requires-Dist: transformers; extra == "local-tokenizer"
 Provides-Extra: pyopenssl
 Requires-Dist: pyopenssl; extra == "pyopenssl"
 Dynamic: license-file
@@ -46,14 +50,20 @@ Dynamic: license-file
 
 --------
 **Documentation:** https://googleapis.github.io/python-genai/
-
 -----
 
 Google Gen AI Python SDK provides an interface for developers to integrate
-Google's generative models into their Python applications. It supports the
-[Gemini Developer API](https://ai.google.dev/gemini-api/docs) and
+Google's generative models into their Python applications. It supports
+the [Gemini Developer API](https://ai.google.dev/gemini-api/docs) and
 [Gemini Enterprise Agent Platform](https://docs.cloud.google.com/gemini-enterprise-agent-platform)
 APIs.
+
+> [!WARNING]
+> **Upcoming Breaking Change to Automatic Function Calling (AFC):**
+> We will introduce a breaking change to the Automatic Function Calling (AFC)
+> feature in the next major version. Specifically, users will not be able to
+> invoke AFC from direct calls to `Models.generate_content` or its stream and
+> async variants. Instead, users should invoke AFC from `chats` modules.
 
 ## Agent Skills
 
@@ -1525,9 +1535,7 @@ response = client.models.generate_content(
 print(response.text)
 ```
 
-## Interactions (Preview)
-
-> **Warning:** The Interactions API is in **Beta**. This is a preview of an experimental feature. Features and schemas are subject to **breaking changes**.
+## Interactions
 
 The Interactions API is a unified interface for interacting with Gemini models and agents. It simplifies state management, tool orchestration, and long-running tasks.
 

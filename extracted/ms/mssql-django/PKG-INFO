@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mssql-django
-Version: 1.7.2
+Version: 1.7.3
 Summary: Django backend for Microsoft SQL Server
 Home-page: https://github.com/microsoft/mssql-django
 Author: Microsoft

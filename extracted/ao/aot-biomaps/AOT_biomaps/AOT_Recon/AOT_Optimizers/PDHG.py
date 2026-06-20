@@ -218,7 +218,7 @@ def PDHG(
     # Configuration de la barre de progression
     algo_name = f"SPDHG (Chambolle-Pock) ({num_subsets} subsets)" if num_subsets > 1 else "PDHG (Chambolle-Pock)"
     prec_str = "Diagonal Preconditioner" if preconditioner_type != PreconditionerType.NONE else "No Preconditioner"
-    description = f"AOT-BioMaps --- {algo_name} --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
+    description = f"AOT-BioMaps --- {algo_name} --- ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:

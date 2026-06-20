@@ -1197,15 +1197,15 @@ __all__ = (
     "SchemaVersionErrorItemTypeDef",
     "SchemaVersionListItemTypeDef",
     "SchemaVersionNumberTypeDef",
+    "SearchAssetsInputPaginateTypeDef",
+    "SearchAssetsInputTypeDef",
+    "SearchAssetsOutputTypeDef",
     "SearchAttributeFilterTypeDef",
     "SearchFilterClausePaginatorTypeDef",
     "SearchFilterClauseTypeDef",
     "SearchFilterValueTypeDef",
-    "SearchInputPaginateTypeDef",
-    "SearchInputTypeDef",
     "SearchMapFilterTypeDef",
     "SearchMapFilterValueTypeDef",
-    "SearchOutputTypeDef",
     "SearchResultItemTypeDef",
     "SearchSortTypeDef",
     "SearchTablesRequestTypeDef",
@@ -1485,7 +1485,7 @@ class AssetTypeItemTypeDef(TypedDict):
     Name: NotRequired[str]
 
 class AssociateGlossaryTermsRequestTypeDef(TypedDict):
-    Identifier: str
+    AssetIdentifier: str
     GlossaryTermIdentifiers: Sequence[str]
     ClientToken: NotRequired[str]
 
@@ -2587,8 +2587,10 @@ class DeleteAssetTypeRequestTypeDef(TypedDict):
     Identifier: str
 
 class DeleteAttachmentRequestTypeDef(TypedDict):
-    Identifier: str
+    AssetIdentifier: str
     AttachmentName: str
+    IterableFormName: NotRequired[str]
+    ItemIdentifier: NotRequired[str]
 
 class DeleteBlueprintRequestTypeDef(TypedDict):
     Name: str
@@ -2784,7 +2786,7 @@ class DirectSchemaChangePolicyTypeDef(TypedDict):
     Database: NotRequired[str]
 
 class DisassociateGlossaryTermsRequestTypeDef(TypedDict):
-    Identifier: str
+    AssetIdentifier: str
     GlossaryTermIdentifiers: Sequence[str]
     ClientToken: NotRequired[str]
 
@@ -3768,16 +3770,9 @@ class S3DirectSourceAdditionalOptionsTypeDef(TypedDict):
     EnableSamplePath: NotRequired[bool]
     SamplePath: NotRequired[str]
 
-class SearchFilterValueTypeDef(TypedDict):
-    StringValue: NotRequired[str]
-    LongValue: NotRequired[int]
-
 class SearchSortTypeDef(TypedDict):
     Attribute: str
     Order: NotRequired[SearchSortOrderType]
-
-class SearchMapFilterValueTypeDef(TypedDict):
-    StringValue: NotRequired[str]
 
 class SearchResultItemTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -3785,6 +3780,13 @@ class SearchResultItemTypeDef(TypedDict):
     AssetDescription: NotRequired[str]
     UpdatedAt: NotRequired[datetime]
     AssetTypeId: NotRequired[str]
+
+class SearchFilterValueTypeDef(TypedDict):
+    StringValue: NotRequired[str]
+    LongValue: NotRequired[int]
+
+class SearchMapFilterValueTypeDef(TypedDict):
+    StringValue: NotRequired[str]
 
 class SortCriterionTypeDef(TypedDict):
     FieldName: NotRequired[str]
@@ -4290,7 +4292,7 @@ class PutAssetTypeRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
 
 class AssociateGlossaryTermsResponseTypeDef(TypedDict):
-    Identifier: str
+    AssetIdentifier: str
     GlossaryTerms: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -4420,7 +4422,7 @@ class CreateWorkflowResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteAttachmentResponseTypeDef(TypedDict):
-    Identifier: str
+    AssetIdentifier: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteBlueprintResponseTypeDef(TypedDict):
@@ -4464,7 +4466,7 @@ class DeleteWorkflowResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DisassociateGlossaryTermsResponseTypeDef(TypedDict):
-    Identifier: str
+    AssetIdentifier: str
     GlossaryTerms: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -4650,7 +4652,7 @@ class PutAssetTypeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutAttachmentResponseTypeDef(TypedDict):
-    AssetId: str
+    AssetIdentifier: str
     IterableFormName: str
     ItemIdentifier: str
     AttachmentName: str
@@ -6268,6 +6270,11 @@ class UserDefinedFunctionTypeDef(TypedDict):
     ResourceUris: NotRequired[list[ResourceUriTypeDef]]
     CatalogId: NotRequired[str]
 
+class SearchAssetsOutputTypeDef(TypedDict):
+    Items: list[SearchResultItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class SearchAttributeFilterTypeDef(TypedDict):
     Attribute: str
     Operator: SearchFilterOperatorType
@@ -6277,11 +6284,6 @@ class SearchMapFilterTypeDef(TypedDict):
     Attribute: str
     Key: str
     Value: SearchMapFilterValueTypeDef
-
-class SearchOutputTypeDef(TypedDict):
-    Items: list[SearchResultItemTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
 
 class SearchTablesRequestTypeDef(TypedDict):
     CatalogId: NotRequired[str]
@@ -8308,13 +8310,13 @@ class TestConnectionInputTypeDef(TypedDict):
 
 RecipeStepUnionTypeDef = Union[RecipeStepTypeDef, RecipeStepOutputTypeDef]
 
-class SearchInputPaginateTypeDef(TypedDict):
+class SearchAssetsInputPaginateTypeDef(TypedDict):
     SearchText: NotRequired[str]
     Sort: NotRequired[SearchSortTypeDef]
     FilterClause: NotRequired[SearchFilterClausePaginatorTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-class SearchInputTypeDef(TypedDict):
+class SearchAssetsInputTypeDef(TypedDict):
     SearchText: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]

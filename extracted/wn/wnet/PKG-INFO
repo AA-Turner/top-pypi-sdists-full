@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wnet
-Version: 1.0.0
+Version: 1.1.1
 Summary: Tools for calculation of Wasserstein metric between distributions based on Network Flow algorithm
 Keywords: Wasserstein,Optimal Transport,Network Flow,Earth Mover's Distance
 Author-Email: =?utf-8?q?Micha=C5=82_Startek?= <michal.startek@mimuw.edu.pl>

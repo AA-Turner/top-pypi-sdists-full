@@ -44,9 +44,9 @@ from bty.web import (
     _releases,
     _settings_store,
     _sysconfig,
+    _table_state,
 )
 from bty.web._auth import SESSION_AUTHED_KEY
-from bty.web._events_log import KNOWN_ACTORS, KNOWN_EVENT_KINDS, KNOWN_SUBJECT_KINDS
 from bty.web._models import (
     BOOT_MODES,
     DEFAULT_BOOT_MODE,
@@ -102,6 +102,18 @@ def register_ui_routes(
         ctx.setdefault("nav_active", nav_active)
         ctx.setdefault("flash", None)
         ctx.setdefault("flash_kind", None)
+        # Globals consumed by the shared table-pagination macros.
+        # Setting these on every render keeps the call sites in the
+        # individual page handlers from having to remember to pass
+        # them.
+        ctx.setdefault("build_query_string", _table_state.build_query_string)
+        ctx.setdefault("per_page_choices", _table_state.PER_PAGE_CHOICES)
+        # Cap of the embedded "Last N Events" card. Single source of
+        # truth in ``_events_log.RECENT_EVENTS_LIMIT``; reaching the
+        # value from the template lets the card title and the SQL
+        # ``limit=`` stay in lockstep (change the constant -> both
+        # update).
+        ctx.setdefault("recent_events_limit", _events_log.RECENT_EVENTS_LIMIT)
         template = jinja.get_template(name)
         return HTMLResponse(template.render(**ctx))
 
@@ -224,7 +236,7 @@ def register_ui_routes(
             # styling matches the per-machine and per-image cards;
             # the dashboard renders at request time only (no SSE
             # update) so a reload is the refresh gesture.
-            recent_events = _events_log.list_events(conn, limit=10)
+            recent_events = _events_log.list_events(conn, limit=_events_log.RECENT_EVENTS_LIMIT)
         # Health Monitoring: the conditions that must hold for PXE +
         # flash to work, plus an error-events tripwire. One glance at
         # "is this server ready to do its job", each row deep-
@@ -317,8 +329,8 @@ def register_ui_routes(
                     else f"{error_event_count} unacknowledged failure(s); "
                     "review and acknowledge to clear."
                 ),
-                "href": "/ui/events?failed=1",
-                "fix_href": "/ui/events?failed=1",
+                "href": "/ui/events?q=failed",
+                "fix_href": "/ui/events?q=failed",
                 "fix_label": "Review errors",
             },
             {
@@ -358,6 +370,20 @@ def register_ui_routes(
             **counts,
         )
 
+    # Sortable column allowlist for ``/ui/machines``: maps the URL
+    # ``?sort=<key>`` value to the SQL ORDER BY expression. ``mac``
+    # rides every expression as the stable tie-breaker so the
+    # paginated view is deterministic when two rows share the
+    # primary sort key (very common for ``boot_mode``).
+    _MACHINES_SORT_COLUMNS = {
+        "mac": "mac",
+        "bty_image_ref": "bty_image_ref, mac",
+        "boot_mode": "boot_mode, mac",
+        "hostname": "hostname, mac",
+        "last_seen_at": "last_seen_at, mac",
+        "last_flashed_at": "last_flashed_at, mac",
+    }
+
     @app.get(
         "/ui/machines",
         response_class=HTMLResponse,
@@ -375,26 +401,59 @@ def register_ui_routes(
         # symmetric "operator-bound" view. Anything else (no
         # filter, empty value, an unrecognised value) shows the
         # full list and surfaces no active-filter banner.
+        clauses: list[str] = []
+        params: list[object] = []
         if filter == "discovered":
-            sql = "SELECT * FROM machines WHERE bty_image_ref IS NULL ORDER BY mac"
+            clauses.append("bty_image_ref IS NULL")
             active_filter: str | None = filter
         elif filter == "assigned":
-            sql = "SELECT * FROM machines WHERE bty_image_ref IS NOT NULL ORDER BY mac"
+            clauses.append("bty_image_ref IS NOT NULL")
             active_filter = filter
         else:
-            sql = "SELECT * FROM machines ORDER BY mac"
             active_filter = None
+        # ``?q=<text>`` is a free-text contains-match across the
+        # MAC, hostname, bty_image_ref, and last-seen IP. SQLite's
+        # LIKE is case-insensitive for ASCII (the only characters
+        # those columns hold). Parameterised so the query keeps
+        # the SQL-injection guard the rest of the route relies on.
+        q_raw = request.query_params.get("q") or ""
+        q_norm = q_raw.strip()
+        if q_norm:
+            clauses.append(
+                "(LOWER(mac) LIKE ? OR LOWER(IFNULL(hostname, '')) LIKE ? "
+                "OR LOWER(IFNULL(bty_image_ref, '')) LIKE ? "
+                "OR LOWER(IFNULL(last_seen_ip, '')) LIKE ?)"
+            )
+            like = f"%{q_norm.lower()}%"
+            params.extend([like, like, like, like])
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         # Sub-nav: ``?section=list`` (default) is the live table,
         # ``?section=add`` is the form for staging a machine before
         # it PXE-boots. Unrecognised sections fall back to list.
         section = request.query_params.get("section") or "list"
         if section not in ("list",):
             section = "list"
+        # Sortable column allowlist. The value strings go straight
+        # into ORDER BY; ``mac`` rides along as the stable tie-
+        # breaker on every column so paginated views are
+        # deterministic when two rows share the primary sort key.
+        sort = _table_state.parse_sort(
+            request.query_params,
+            allowed=_MACHINES_SORT_COLUMNS,
+            default_column="mac",
+        )
         with _db.open_db(state_path) as conn:
-            rows = conn.execute(sql).fetchall()
+            total = conn.execute(f"SELECT COUNT(*) FROM machines {where_sql}", params).fetchone()[0]
+            page_state = _table_state.parse_pagination(request.query_params, total=int(total))
+            rows = conn.execute(
+                f"SELECT * FROM machines {where_sql} ORDER BY {sort.order_by_sql} LIMIT ? OFFSET ?",
+                (*params, page_state.limit, page_state.offset),
+            ).fetchall()
             # Recent machine activity (discoveries, flashes, inventory
             # posts) for the page's "Activity" table.
-            machine_events = _events_log.list_events(conn, subject_kind="machine", limit=10)
+            machine_events = _events_log.list_events(
+                conn, subject_kind="machine", limit=_events_log.RECENT_EVENTS_LIMIT
+            )
         machines = [_row_to_dict(r) for r in rows]
         # v0.32.4: ``?deleted=<mac>`` / ``?missing=<mac>`` carried over
         # from ``POST /ui/machines/{mac}/delete`` so the operator gets a
@@ -402,13 +461,47 @@ def register_ui_routes(
         # silent redirect.
         flash_deleted = request.query_params.get("deleted")
         flash_missing = request.query_params.get("missing")
+        # Query params that must survive a click on a column header or
+        # a page-nav link: the active filter, the free-text search,
+        # and the operator's per-page choice. ``sort`` + ``dir`` +
+        # ``page`` are managed by the macros themselves.
+        preserved = {
+            "filter": active_filter or "",
+            "q": q_norm,
+            "per_page": (
+                str(page_state.per_page)
+                if page_state.per_page != _table_state.DEFAULT_PER_PAGE
+                else ""
+            ),
+            "sort": sort.column,
+            "dir": sort.direction,
+        }
+        # The /events/machines SSE stream pushes the FULL un-sorted /
+        # un-paginated tbody. Plumbing the operator's sort + page into
+        # the long-lived connection isn't worth the complexity, so the
+        # SSE wiring runs only on the default view (no filter, no
+        # search, default sort, page 1, default per_page). Anything
+        # else makes the page static until the operator reloads.
+        sse_eligible = (
+            not active_filter
+            and not q_norm
+            and sort.column == "mac"
+            and sort.direction == "asc"
+            and page_state.page == 1
+            and page_state.per_page == _table_state.DEFAULT_PER_PAGE
+        )
         return render(
             "ui/machines.html",
             request,
             machines=machines,
             active_filter=active_filter,
+            q=q_norm,
             section=section,
             machine_events=machine_events,
+            sort=sort,
+            page=page_state,
+            preserved=preserved,
+            sse_eligible=sse_eligible,
             flash_deleted=flash_deleted,
             flash_missing=flash_missing,
         )
@@ -452,7 +545,7 @@ def register_ui_routes(
                 conn,
                 subject_kind="machine",
                 subject_id=normalised,
-                limit=20,
+                limit=10,
             )
         return render(
             "ui/machine_detail.html",
@@ -676,6 +769,34 @@ def register_ui_routes(
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+    # Sortable column allowlist for ``/ui/images``. Values are keys
+    # into the in-memory sort helper below (NOT raw SQL): the page
+    # builds the row list in Python from the unified-image helper,
+    # so sorting is a list ``sorted()`` rather than ``ORDER BY``.
+    _IMAGES_SORT_KEYS = ("name", "sha256", "format", "arch", "ref")
+
+    def _images_sort_key(column: str) -> Callable[[object], tuple[bool, str]]:
+        """Return a ``key=`` callable for sorting ``UnifiedImage`` records
+        by one of the allowlisted columns. Pulls the first ``name``
+        from the tuple (the human label shown in the cell) and
+        case-folds for stable alphabetic sort; ``None``-valued
+        fields sort last regardless of direction so unknown values
+        cluster together."""
+
+        def _key(img: object) -> tuple[bool, str]:
+            # Read attributes off the dataclass; treat None as a high
+            # sentinel so missing values pile at the end of an ASC sort.
+            if column == "name":
+                names = getattr(img, "names", ())
+                primary = names[0] if names else ""
+                return (False, primary.casefold())
+            value = getattr(img, column, None)
+            if value is None:
+                return (True, "")
+            return (False, str(value).casefold())
+
+        return _key
+
     def _render_images_page(request: Request) -> HTMLResponse:
         """Build the context for ``/ui/images`` and render the template.
 
@@ -693,17 +814,68 @@ def register_ui_routes(
         flash = request.query_params.get("error")
         catalog_manifest_path = str(_config.cfg().catalog_file)
         with _db.open_db(state_path) as conn:
-            catalog_repo = _settings_store.resolve_catalog_repo(conn)
-            catalog_tag = _settings_store.resolve_catalog_tag(conn)
-            image_events = _events_log.list_events(conn, subject_kind="catalog", limit=15)
+            catalog_url = _settings_store.resolve_catalog_url(conn)
+            image_events = _events_log.list_events(
+                conn, subject_kind="catalog", limit=_events_log.RECENT_EVENTS_LIMIT
+            )
+
+        # ``?q=<text>`` is a substring filter across the name, format,
+        # arch, and ref so an operator typing "freebsd" sees only the
+        # freebsd-named images. Case-insensitive; trimmed; empty
+        # silently disables.
+        q_raw = request.query_params.get("q") or ""
+        q_norm = q_raw.strip()
+        if q_norm:
+            needle = q_norm.casefold()
+
+            def _matches(img: object) -> bool:
+                fields = (
+                    " ".join(getattr(img, "names", ()) or ()),
+                    getattr(img, "format", None) or "",
+                    getattr(img, "arch", None) or "",
+                    getattr(img, "ref", None) or "",
+                    getattr(img, "sha256", None) or "",
+                )
+                return needle in " ".join(fields).casefold()
+
+            unified = [u for u in unified if _matches(u)]
+
+        # Sort + paginate the (already filtered) in-memory list. The
+        # catalog rarely exceeds ~30 rows today, so a Python sort +
+        # slice is cheap; the operator still gets bookmarkable URL
+        # state and consistent table chrome with the other pages.
+        sort = _table_state.parse_sort(
+            request.query_params,
+            allowed={k: k for k in _IMAGES_SORT_KEYS},
+            default_column="name",
+        )
+        sorted_unified = sorted(
+            unified,
+            key=_images_sort_key(sort.column),
+            reverse=sort.direction == "desc",
+        )
+        page_state = _table_state.parse_pagination(request.query_params, total=len(sorted_unified))
+        preserved = {
+            "sort": sort.column,
+            "dir": sort.direction,
+            "q": q_norm,
+            "per_page": (
+                str(page_state.per_page)
+                if page_state.per_page != _table_state.DEFAULT_PER_PAGE
+                else ""
+            ),
+        }
         return render(
             "ui/images.html",
             request,
-            unified=unified,
+            unified=sorted_unified[page_state.offset : page_state.offset + page_state.limit],
             image_events=image_events,
             manifest_path=catalog_manifest_path,
-            catalog_repo=catalog_repo,
-            catalog_tag=catalog_tag,
+            catalog_url=catalog_url,
+            q=q_norm,
+            sort=sort,
+            page=page_state,
+            preserved=preserved,
             flash=flash,
             flash_kind="danger" if flash else None,
         )
@@ -739,7 +911,9 @@ def register_ui_routes(
             backup_cadence = _settings_store.resolve_backup_cadence(conn)
             backup_retention = _settings_store.resolve_backup_retention(conn)
             backup_last_run_at = _settings_store.get_backup_last_run_at(conn)
-            backup_events = _events_log.list_events(conn, subject_kind="backup", limit=15)
+            backup_events = _events_log.list_events(
+                conn, subject_kind="backup", limit=_events_log.RECENT_EVENTS_LIMIT
+            )
         backups_on_disk = _backup.list_backups_on_disk(backups_root)
         return render(
             "ui/backups.html",
@@ -1167,7 +1341,9 @@ def register_ui_routes(
             netboot_repo = _settings_store.resolve_netboot_repo(conn)
             netboot_tag = _settings_store.resolve_netboot_tag(conn)
             # Recent netboot activity for the page's "Activity" table.
-            boot_events = _events_log.list_events(conn, subject_kind="netboot", limit=10)
+            boot_events = _events_log.list_events(
+                conn, subject_kind="netboot", limit=_events_log.RECENT_EVENTS_LIMIT
+            )
         return render(
             "ui/netboot.html",
             request,
@@ -1215,81 +1391,42 @@ def register_ui_routes(
         include_in_schema=False,
         dependencies=[Depends(require_ui_auth)],
     )
-    def ui_events(
-        request: Request,
-        kind: str | None = None,
-        subject_kind: str | None = None,
-        subject_id: str | None = None,
-        actor: str | None = None,
-        source_ip: str | None = None,
-        failed: str | None = None,
-        before_id: int | None = None,
-    ) -> HTMLResponse:
+    def ui_events(request: Request) -> HTMLResponse:
         """Event log page.
 
-        Cursor pagination: each page shows ``_PAGE_SIZE`` rows;
-        the "Older" link carries ``before_id`` = the smallest id
-        on the current page so the next page picks up where this
-        one ended. New events arriving while the operator pages
-        through don't disturb the cursor (they get id values
-        higher than the cursor and would only appear on page 1).
-
-        Empty filter values come in as empty strings from the form;
-        normalise them to ``None`` so the SQL builder skips the
-        clause.
+        Single ``?q=<text>`` substring search across the columns
+        an operator typically pivots on (kind, subject_kind,
+        subject_id, actor, source_ip, summary), plus the same
+        ``?page=`` + ``?per_page=`` offset pagination as
+        /ui/machines and /ui/images. The earlier multi-dropdown
+        filter form was retired in v0.57: the single search input
+        is the same shape across all three event-style pages and
+        every previously-dropdown selector (kind, actor, subject)
+        is reachable by typing a substring.
         """
-        page_size = 50
-        kind_norm = kind or None
-        subject_kind_norm = subject_kind or None
-        subject_id_norm = subject_id or None
-        actor_norm = actor or None
-        source_ip_norm = source_ip or None
-        # ``?failed=1`` is the cross-kind "show me all failures"
-        # toggle. Anything truthy enables it; absent / empty
-        # leaves it off.
-        failed_only = bool(failed)
+        q_raw = request.query_params.get("q") or ""
+        q_norm = q_raw.strip()
         with _db.open_db(state_path) as conn:
-            events = _events_log.list_events(
-                conn,
-                kind=kind_norm,
-                subject_kind=subject_kind_norm,
-                subject_id=subject_id_norm,
-                actor=actor_norm,
-                source_ip=source_ip_norm,
-                failed_only=failed_only,
-                before_id=before_id,
-                limit=page_size,
+            total = _events_log.count_events(conn, q=q_norm)
+            page_state = _table_state.parse_pagination(request.query_params, total=total)
+            events = _events_log.search_events(
+                conn, q=q_norm, offset=page_state.offset, limit=page_state.limit
             )
-        # The "Older" link is meaningful only if we got a full
-        # page of results; if we got fewer, there's nothing
-        # older to fetch.
-        older_url: str | None = None
-        if len(events) == page_size:
-            params = {
-                "kind": kind_norm or "",
-                "subject_kind": subject_kind_norm or "",
-                "subject_id": subject_id_norm or "",
-                "actor": actor_norm or "",
-                "source_ip": source_ip_norm or "",
-                "failed": "1" if failed_only else "",
-                "before_id": str(events[-1].id),
-            }
-            non_empty = {k: v for k, v in params.items() if v}
-            older_url = "/ui/events?" + urllib.parse.urlencode(non_empty)
+        preserved = {
+            "q": q_norm,
+            "per_page": (
+                str(page_state.per_page)
+                if page_state.per_page != _table_state.DEFAULT_PER_PAGE
+                else ""
+            ),
+        }
         return render(
             "ui/events.html",
             request,
             events=events,
-            kind=kind_norm,
-            subject_kind=subject_kind_norm,
-            subject_id=subject_id_norm,
-            actor=actor_norm,
-            source_ip=source_ip_norm,
-            failed_only=failed_only,
-            known_kinds=KNOWN_EVENT_KINDS,
-            known_subject_kinds=KNOWN_SUBJECT_KINDS,
-            known_actors=KNOWN_ACTORS,
-            older_url=older_url,
+            q=q_norm,
+            page=page_state,
+            preserved=preserved,
         )
 
     @app.post(
@@ -1391,28 +1528,21 @@ def register_ui_routes(
         catalog_file = str(cfg.catalog_file)
         with _db.open_db(state_path) as conn:
             netboot_repo = _settings_store.resolve_netboot_repo(conn)
-            catalog_repo = _settings_store.resolve_catalog_repo(conn)
-            catalog_url = _settings_store.resolve_catalog_url(conn)
-            catalog_tag = _settings_store.resolve_catalog_tag(conn)
             netboot_tag = _settings_store.resolve_netboot_tag(conn)
+            catalog_url = _settings_store.resolve_catalog_url(conn)
             netboot_repo_override = _settings_store.get(conn, _settings_store.KEY_NETBOOT_REPO)
-            catalog_repo_override = _settings_store.get(conn, _settings_store.KEY_CATALOG_REPO)
-            catalog_tag_override = _settings_store.get(conn, _settings_store.KEY_CATALOG_TAG)
             netboot_tag_override = _settings_store.get(conn, _settings_store.KEY_NETBOOT_TAG)
+            catalog_url_override = _settings_store.get(conn, _settings_store.KEY_CATALOG_URL)
         upstream = {
             "netboot_repo": netboot_repo,
             "netboot_repo_override": netboot_repo_override,
             "netboot_repo_default": _settings_store.default_netboot_repo(),
-            "catalog_repo": catalog_repo,
-            "catalog_repo_override": catalog_repo_override,
-            "catalog_repo_default": _settings_store.default_catalog_repo(),
-            "catalog_tag": catalog_tag,
-            "catalog_tag_override": catalog_tag_override,
-            "catalog_tag_default": _settings_store.DEFAULT_TAG,
-            "catalog_url": catalog_url,  # derived view (catalog_repo + catalog_tag)
             "netboot_tag": netboot_tag,
             "netboot_tag_override": netboot_tag_override,
             "netboot_tag_default": _settings_store.DEFAULT_TAG,
+            "catalog_url": catalog_url,
+            "catalog_url_override": catalog_url_override,
+            "catalog_url_default": _settings_store.DEFAULT_CATALOG_URL,
         }
         config_groups = [
             {
@@ -1515,18 +1645,6 @@ def register_ui_routes(
                         "(unset; bty-web streams from origin)",
                         section="withcache",
                         key="url",
-                    ),
-                ],
-            },
-            {
-                "title": "Background workers",
-                "icon": "cpu",
-                "rows": [
-                    _config_row(
-                        "Release-fetch user agent",
-                        _releases.DEFAULT_USER_AGENT,
-                        None,
-                        "bty-web release-fetcher",
                     ),
                 ],
             },
@@ -1769,33 +1887,30 @@ def register_ui_routes(
     def ui_settings_upstream(
         request: Request,
         netboot_repo: Annotated[str, Form()] = "",
-        catalog_repo: Annotated[str, Form()] = "",
-        catalog_tag: Annotated[str, Form()] = "",
         netboot_tag: Annotated[str, Form()] = "",
+        catalog_url: Annotated[str, Form()] = "",
     ) -> RedirectResponse:
-        """Save (or clear) the four editable upstream overrides:
-        netboot repo, catalog repo, catalog tag, netboot tag. An empty
-        field clears that override, reverting to the built-in default.
-        All four take effect on the next fetch without a restart,
-        since the fetch sites resolve from this store at request time.
+        """Save (or clear) the three editable upstream overrides:
+        netboot repo, netboot release tag, and the catalog URL. An
+        empty field clears that override, reverting to the built-in
+        default. All three take effect on the next fetch without a
+        restart, since the fetch sites resolve from this store at
+        request time.
         """
         nr = netboot_repo.strip()
-        cr = catalog_repo.strip()
-        ct = catalog_tag.strip()
         nt = netboot_tag.strip()
+        cu = catalog_url.strip()
         with _db.open_db(state_path) as conn:
             # Snapshot the previous explicit overrides (None = was on
             # default) BEFORE the writes so the audit event can carry
             # both before + after.
             old_nr = _settings_store.get(conn, _settings_store.KEY_NETBOOT_REPO)
-            old_cr = _settings_store.get(conn, _settings_store.KEY_CATALOG_REPO)
-            old_ct = _settings_store.get(conn, _settings_store.KEY_CATALOG_TAG)
             old_nt = _settings_store.get(conn, _settings_store.KEY_NETBOOT_TAG)
+            old_cu = _settings_store.get(conn, _settings_store.KEY_CATALOG_URL)
             for value, key in (
                 (nr, _settings_store.KEY_NETBOOT_REPO),
-                (cr, _settings_store.KEY_CATALOG_REPO),
-                (ct, _settings_store.KEY_CATALOG_TAG),
                 (nt, _settings_store.KEY_NETBOOT_TAG),
+                (cu, _settings_store.KEY_CATALOG_URL),
             ):
                 if value:
                     _settings_store.set_value(conn, key, value)
@@ -1806,9 +1921,8 @@ def register_ui_routes(
                 kind="settings.upstream.updated",
                 summary=(
                     f"upstream sources set: netboot_repo={nr or '(default)'}, "
-                    f"catalog_repo={cr or '(default)'}, "
-                    f"catalog_tag={ct or '(default)'}, "
-                    f"netboot_tag={nt or '(default)'}"
+                    f"netboot_tag={nt or '(default)'}, "
+                    f"catalog_url={cu or '(default)'}"
                 ),
                 subject_kind="settings",
                 subject_id="upstream",
@@ -1816,9 +1930,8 @@ def register_ui_routes(
                 source_ip=_client_ip(request),
                 details={
                     "netboot_repo": {"old": old_nr, "new": nr or None},
-                    "catalog_repo": {"old": old_cr, "new": cr or None},
-                    "catalog_tag": {"old": old_ct, "new": ct or None},
                     "netboot_tag": {"old": old_nt, "new": nt or None},
+                    "catalog_url": {"old": old_cu, "new": cu or None},
                 },
             )
             conn.commit()

@@ -39,6 +39,8 @@ from .type_defs import (
     AssociatePackageResponseTypeDef,
     AssociatePackagesRequestTypeDef,
     AssociatePackagesResponseTypeDef,
+    AttachDataSourceRequestTypeDef,
+    AttachDataSourceResponseTypeDef,
     AuthorizeVpcEndpointAccessRequestTypeDef,
     AuthorizeVpcEndpointAccessResponseTypeDef,
     CancelDomainConfigChangeRequestTypeDef,
@@ -75,6 +77,8 @@ from .type_defs import (
     DeleteVpcEndpointResponseTypeDef,
     DeregisterCapabilityRequestTypeDef,
     DeregisterCapabilityResponseTypeDef,
+    DescribeDataSourceAttachmentRequestTypeDef,
+    DescribeDataSourceAttachmentResponseTypeDef,
     DescribeDomainAutoTunesRequestTypeDef,
     DescribeDomainAutoTunesResponseTypeDef,
     DescribeDomainChangeProgressRequestTypeDef,
@@ -107,6 +111,8 @@ from .type_defs import (
     DescribeReservedInstancesResponseTypeDef,
     DescribeVpcEndpointsRequestTypeDef,
     DescribeVpcEndpointsResponseTypeDef,
+    DetachDataSourceRequestTypeDef,
+    DetachDataSourceResponseTypeDef,
     DissociatePackageRequestTypeDef,
     DissociatePackageResponseTypeDef,
     DissociatePackagesRequestTypeDef,
@@ -135,6 +141,8 @@ from .type_defs import (
     GetUpgradeStatusResponseTypeDef,
     ListApplicationsRequestTypeDef,
     ListApplicationsResponseTypeDef,
+    ListDataSourceAttachmentsRequestTypeDef,
+    ListDataSourceAttachmentsResponseTypeDef,
     ListDataSourcesRequestTypeDef,
     ListDataSourcesResponseTypeDef,
     ListDirectQueryDataSourcesRequestTypeDef,
@@ -324,6 +332,16 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/associate_packages.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#associate_packages)
+        """
+
+    def attach_data_source(
+        self, **kwargs: Unpack[AttachDataSourceRequestTypeDef]
+    ) -> AttachDataSourceResponseTypeDef:
+        """
+        Attaches a data source to an OpenSearch application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/attach_data_source.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#attach_data_source)
         """
 
     def authorize_vpc_endpoint_access(
@@ -523,6 +541,17 @@ class OpenSearchServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#deregister_capability)
         """
 
+    def describe_data_source_attachment(
+        self, **kwargs: Unpack[DescribeDataSourceAttachmentRequestTypeDef]
+    ) -> DescribeDataSourceAttachmentResponseTypeDef:
+        """
+        Returns the current status and details of a specific data source attachment for
+        an OpenSearch application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/describe_data_source_attachment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#describe_data_source_attachment)
+        """
+
     def describe_domain(
         self, **kwargs: Unpack[DescribeDomainRequestTypeDef]
     ) -> DescribeDomainResponseTypeDef:
@@ -697,6 +726,16 @@ class OpenSearchServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#describe_vpc_endpoints)
         """
 
+    def detach_data_source(
+        self, **kwargs: Unpack[DetachDataSourceRequestTypeDef]
+    ) -> DetachDataSourceResponseTypeDef:
+        """
+        Removes a data source from an OpenSearch application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/detach_data_source.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#detach_data_source)
+        """
+
     def dissociate_package(
         self, **kwargs: Unpack[DissociatePackageRequestTypeDef]
     ) -> DissociatePackageResponseTypeDef:
@@ -839,6 +878,18 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_applications.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#list_applications)
+        """
+
+    def list_data_source_attachments(
+        self, **kwargs: Unpack[ListDataSourceAttachmentsRequestTypeDef]
+    ) -> ListDataSourceAttachmentsResponseTypeDef:
+        """
+        Returns a paginated list of all data source attachments for an OpenSearch
+        application, including attachments in all states (<code>PENDING</code>,
+        <code>ATTACHED</code>, and <code>FAILED</code>).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_data_source_attachments.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#list_data_source_attachments)
         """
 
     def list_data_sources(

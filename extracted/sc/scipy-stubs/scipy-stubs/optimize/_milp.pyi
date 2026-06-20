@@ -1,6 +1,5 @@
 from collections.abc import Sequence
-from typing import Literal, LiteralString, TypeAlias, TypedDict, type_check_only
-from typing_extensions import TypeAliasType
+from typing import Literal, LiteralString, TypedDict, type_check_only
 
 import numpy as np
 import optype.numpy as onp
@@ -12,18 +11,16 @@ from scipy.sparse._base import _spbase
 
 ###
 
-_Max3: TypeAlias = Literal[0, 1, 2, 3]
-_Max4: TypeAlias = Literal[_Max3, 4]
+type _Max3 = Literal[0, 1, 2, 3]
+type _Max4 = Literal[_Max3, 4]
 
-_Float: TypeAlias = float | np.float64
-_ToFloat2D: TypeAlias = onp.ToFloat2D | _spbase[np.bool_ | npc.integer | np.float32 | np.float64 | npc.floating80]
-# The `TypeAliasType` helps make error messages less unreadable
-_ToLinearConstraint = TypeAliasType(
-    "_ToLinearConstraint",
+type _Float = float | np.float64
+type _ToFloat2D = onp.ToFloat2D | _spbase[np.bool | npc.integer | np.float32 | np.float64 | npc.floating80]
+type _ToLinearConstraint = (
     LinearConstraint
     | tuple[_ToFloat2D]
     | tuple[_ToFloat2D, onp.ToFloat | onp.ToFloat1D]
-    | tuple[_ToFloat2D, onp.ToFloat | onp.ToFloat1D, onp.ToFloat | onp.ToFloat1D],
+    | tuple[_ToFloat2D, onp.ToFloat | onp.ToFloat1D, onp.ToFloat | onp.ToFloat1D]
 )
 
 @type_check_only

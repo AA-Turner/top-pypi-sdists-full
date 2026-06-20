@@ -1,0 +1,69 @@
+# Conda environment, that includes all packages that are necessary for
+# the complete Biotite development process.
+
+name: biotite-dev
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python =3.12
+  # Package building
+  - cython >=3.0
+  - pip >=10.0
+  - rust >=1.95
+  - setuptools
+  - setuptools_scm
+  - setuptools-rust
+  - wheel >=0.30
+  # Biotite dependencies
+  - biotraj >=1.0,<2.0
+  - msgpack-python >=0.5.6
+  - networkx >=2.0
+  - numpy >=2.2
+  - packaging >=24.0
+  - requests >=2.12
+  # Testing
+  - pytest >=7.0
+  - pytest-codspeed >=2.0
+  - beartype
+  # Code style, keep in sync with the versions in pyproject.toml
+  - ruff =0.9.7
+  - numpydoc =1.8.0
+  - pyright =1.1.409
+  - taplo =0.9.3
+  # Interfaced software in biotite.application (can also be installed separately)
+  - vina
+  - clustalo
+  - dssp =4
+  - libcifpp  # Makes sure that the used version of libcifpp contains this fix: https://github.com/bioconda/bioconda-recipes/pull/57869
+  - mafft
+  - muscle =3
+  - sra-tools =3
+  - tantan
+  - viennarna >=2.5.0
+  # Interfaced packages in biotite.interface (can also be installed separately)
+  - pymol-open-source >=2
+  - ffmpeg  # Required for video rendering in PyMOL
+  - imagemagick  # Required for video rendering in PyMOL
+  - openmm >=8
+  # Documentation building
+  - pydata-sphinx-theme =0.15
+  - matplotlib >=3.3
+  - ipython <8.29  # jupyter-sphinx is not compatible with the newest IPython versions
+  - jupyter-sphinx >=0.5.3
+  - sphinx >=7.0
+  - sphinxcontrib-bibtex >=2.3
+  - sphinx-copybutton >=0.5
+  - sphinx-design >=0.5
+  - sphinx-gallery =0.18.0
+  - sphinx-notfound-page >=1.0
+  # Extra packages used in example gallery
+  - pandas >=1.5.2
+  - pydot >=1.4
+  - scikit-learn >=0.18
+  - scipy >=1.8.0
+  - pip:
+    # Conda provides no recent version of RDKit (required for biotite.interface)
+    - rdkit >=2024.09.1

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: firecrawl-py
-Version: 4.30.1
+Version: 4.30.2
 Summary: Python SDK for Firecrawl API
 Home-page: https://github.com/firecrawl/firecrawl
 Author: Mendable.ai
@@ -112,6 +112,15 @@ Use the `product` format on product pages to deterministically pull structured p
 ```python
 doc = firecrawl.scrape('https://firecrawl.dev', formats=['product'])
 print(doc.product)
+```
+
+### Menu extraction
+
+Use the `menu` format on menu pages to deterministically pull structured menu data (merchant, sections, items, prices, availability). It is the deterministic counterpart to the LLM-based `json` format.
+
+```python
+doc = firecrawl.scrape('https://example.com/restaurant/menu', formats=['menu'])
+print(doc.menu)
 ```
 
 ### Parsing uploaded files

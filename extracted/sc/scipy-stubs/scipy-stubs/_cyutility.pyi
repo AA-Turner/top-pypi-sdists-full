@@ -1,9 +1,12 @@
-import sys
 from _typeshed import Incomplete
 from builtins import memoryview as py_memoryview
 from types import EllipsisType
-from typing import Any, Final, Literal, Never, Self, SupportsIndex, TypeAlias, TypedDict, type_check_only
+from typing import Any, Final, Literal, Never, Self, SupportsIndex, TypedDict, type_check_only
 from typing_extensions import CapsuleType, ReadOnly
+
+###
+
+type _ToIndex = SupportsIndex | tuple[SupportsIndex, ...] | EllipsisType
 
 @type_check_only
 class CApiDict(TypedDict):
@@ -51,8 +54,6 @@ class CApiDict(TypedDict):
     __pyx_unpickle_Enum__set_state: ReadOnly[CapsuleType]
     format_from_typeinfo: ReadOnly[CapsuleType]
 
-_ToIndex: TypeAlias = SupportsIndex | tuple[SupportsIndex, ...] | EllipsisType
-
 ###
 
 __pyx_capi__: Final[CApiDict] = ...  # undocumented
@@ -99,7 +100,6 @@ class array:  # undocumented
     def __setitem__(self, index: _ToIndex, value: Incomplete, /) -> None: ...
     def __delitem__(self, index: _ToIndex, /) -> None: ...
     def __setstate__(self, state: Never, /) -> None: ...  # will raise `TypeError`
-    if sys.version_info >= (3, 12):
-        def __buffer__(self, flags: int, /) -> py_memoryview: ...
+    def __buffer__(self, flags: int, /) -> py_memoryview: ...
     def count(self, /, value: Incomplete) -> int: ...
     def index(self, /, value: Incomplete, start: SupportsIndex = 0, stop: SupportsIndex | None = None) -> int: ...

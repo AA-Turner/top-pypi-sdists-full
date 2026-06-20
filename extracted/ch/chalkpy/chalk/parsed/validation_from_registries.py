@@ -23,11 +23,10 @@ from chalk._lsp.error_builder import LSPErrorBuilder
 from chalk.parsed.ast_context import get_project_ast_context
 
 if TYPE_CHECKING:
-    from chalk_rs import AstProjectIndex
-
     from chalk.features.feature_field import Feature
     from chalk.features.feature_set import Features
     from chalk.features.resolver import ResolverRegistry
+    from chalk_rs import AstProjectIndex
 
 
 def validate_all_from_registries(

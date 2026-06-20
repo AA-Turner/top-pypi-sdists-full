@@ -18,8 +18,8 @@ class Usage:
         period (str): The usage period this report covers, as `YYYY-MM` (UTC).
         runs_used (int): Runs metered so far this period.
         runs_included (int): Runs included in the plan this period (`-1` means unlimited).
-        active_jobs (int): Number of recurring (scheduled) jobs.
-        active_jobs_limit (int): Maximum recurring jobs the plan allows (`-1` means unlimited).
+        active_jobs (int): Number of permanent jobs (recurring and manual) counted against the plan's job limit.
+        active_jobs_limit (int): Maximum permanent jobs the plan allows (`-1` means unlimited).
     """
 
     period: str

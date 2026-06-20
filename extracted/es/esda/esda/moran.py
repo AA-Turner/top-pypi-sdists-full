@@ -21,6 +21,7 @@ from scipy import sparse
 from .crand import _prepare_univariate
 from .crand import crand as _crand_plus
 from .crand import njit as _njit
+from .significance import calculate_significance
 from .smoothing import assuncao_rate
 from .tabular import _bivariate_handler, _univariate_handler
 
@@ -143,41 +144,39 @@ class Moran:
     -----
     Technical details and derivations can be found in :cite:`cliff81`.
 
-
     Examples
     --------
-    >>> import libpysal
+    >>> import libpysal, numpy
     >>> w = libpysal.io.open(libpysal.examples.get_path("stl.gal")).read()
     >>> f = libpysal.io.open(libpysal.examples.get_path("stl_hom.txt"))
-    >>> y = np.array(f.by_col['HR8893'])
-    >>> from esda.moran import Moran
+    >>> y = numpy.array(f.by_col['HR8893'])
+    >>> from esda import Moran
     >>> mi = Moran(y,  w)
     >>> round(mi.I, 3)
-    0.244
+    np.float64(0.244)
     >>> mi.EI
     -0.012987012987012988
-    >>> mi.p_norm
-    0.00027147862770937614
+    >>> round(mi.p_norm, 6)
+    np.float64(0.000271)
 
     SIDS example replicating OpenGeoda
 
     >>> w = libpysal.io.open(libpysal.examples.get_path("sids2.gal")).read()
     >>> f = libpysal.io.open(libpysal.examples.get_path("sids2.dbf"))
-    >>> SIDR = np.array(f.by_col("SIDR74"))
+    >>> SIDR = numpy.array(f.by_col("SIDR74"))
     >>> mi = Moran(SIDR,  w)
     >>> round(mi.I, 3)
-    0.248
+    np.float64(0.248)
     >>> mi.p_norm
-    0.0001158330781489969
+    np.float64(0.00011583307814905095)
 
     One-tailed
 
     >>> mi_1 = Moran(SIDR,  w, two_tailed=False)
     >>> round(mi_1.I, 3)
-    0.248
+    np.float64(0.248)
     >>> round(mi_1.p_norm, 4)
-    0.0001
-
+    np.float64(0.0001)
     """  # noqa: E501
 
     def __init__(
@@ -189,7 +188,7 @@ class Moran:
         self.w = w
         self.permutations = permutations
         self.__moments()
-        self.I = self.__calc(self.z)  # noqa: E741
+        self.I = self.__calc(self.z)
         self.z_norm = (self.I - self.EI) / self.seI_norm
         self.z_rand = (self.I - self.EI) / self.seI_rand
 
@@ -311,8 +310,14 @@ class Moran:
         If inplace, None, and operation is conducted on dataframe
         in memory. Otherwise, returns a copy of the dataframe with
         the relevant columns attached.
-
         """
+
+        msg = (
+            "The `.by_col()` methods are deprecated and will be "
+            "removed in a future version of `esda`."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
+
         return _univariate_handler(
             df,
             cols,
@@ -330,6 +335,9 @@ class Moran:
         ax=None,
         scatter_kwds=None,
         fitline_kwds=None,
+        losh_scaling_factor: bool | int | float = False,
+        losh_inference=None,
+        a=2,
     ):
         """
         Plot a Moran scatterplot with optional coloring for significant points.
@@ -342,18 +350,33 @@ class Moran:
             Additional keyword arguments for scatter plot, by default None.
         fitline_kwds : dict, optional
             Additional keyword arguments for fit line, by default None.
+        losh_scaling_factor : bool | int | float, by default False
+            Scale the observations by LOSH. When set to a number, it is treated as
+            the multiplicative factor applied to ``exp(LOSH.Hi)`` when
+            converting LOSH values into marker areas.
+        losh_inference : str, optional
+            Inference method for :class:`~esda.losh.LOSH`. See
+            :class:`~esda.losh.LOSH` for supported options. Applies only if
+            ``losh_scaling_factor`` is not ``False``.
+        a : int or float, default=2
+            Residual exponent passed to :meth:`esda.losh.LOSH.fit`. The
+            default corresponds to a variance-based LOSH measure. Applies only if
+            ``losh_scaling_factor`` is not ``False``.
 
         Returns
         -------
         matplotlib.axes.Axes
             Axes object with the Moran scatterplot.
         """
+        losh = _get_losh_scaling(self, losh_scaling_factor, losh_inference, a)
+
         return _scatterplot(
             self,
             crit_value=None,
             ax=ax,
             scatter_kwds=scatter_kwds,
             fitline_kwds=fitline_kwds,
+            losh=losh,
         )
 
     def plot_simulation(self, ax=None, legend=False, fitline_kwds=None, **kwargs):
@@ -383,22 +406,22 @@ class Moran:
 
         Examples
         --------
-        >>> import libpysal
+        >>> import libpysal, numpy
         >>> w = libpysal.io.open(libpysal.examples.get_path("stl.gal")).read()
         >>> f = libpysal.io.open(libpysal.examples.get_path("stl_hom.txt"))
-        >>> y = np.array(f.by_col['HR8893'])
-        >>> from esda.moran import Moran
+        >>> y = numpy.array(f.by_col['HR8893'])
+        >>> from esda import Moran
         >>> mi = Moran(y,  w)
 
         Default plot:
 
-        >>> mi.plot_simulation()
+        >>> mi.plot_simulation()  # doctest: +SKIP
 
         Customized styling that turns the distribution into a pink line and line
         indicating I to a black line:
 
-        >>> mi.plot_simulation(fitline_kwds={"color": "k"}, color="pink", shade=False)
-        """
+        >>> mi.plot_simulation(fitline_kwds={"color": "k"}, color="pink", shade=False)  # doctest: +SKIP
+        """  # noqa: E501
         return _simulation_plot(
             self,
             ax=ax,
@@ -409,7 +432,7 @@ class Moran:
         )
 
 
-class Moran_BV:  # noqa: N801
+class Moran_BV:
     """
     Bivariate Moran's I
 
@@ -472,25 +495,23 @@ class Moran_BV:  # noqa: N801
 
     Notes
     -----
-
     Inference is only based on permutations as analytical results are not too
     reliable.
 
     Examples
     --------
-    >>> import libpysal
-    >>> import numpy as np
+    >>> import libpysal, numpy
 
     Set random number generator seed so we can replicate the example
 
-    >>> np.random.seed(10)
+    >>> numpy.random.seed(10)
 
     Open the sudden infant death dbf file and read in rates for 74 and 79
     converting each to a numpy array
 
     >>> f = libpysal.io.open(libpysal.examples.get_path("sids2.dbf"))
-    >>> SIDR74 = np.array(f.by_col['SIDR74'])
-    >>> SIDR79 = np.array(f.by_col['SIDR79'])
+    >>> SIDR74 = numpy.array(f.by_col['SIDR74'])
+    >>> SIDR79 = numpy.array(f.by_col['SIDR79'])
 
     Read a GAL file and construct our spatial weights object
 
@@ -498,20 +519,18 @@ class Moran_BV:  # noqa: N801
 
     Create an instance of Moran_BV
 
-    >>> from esda.moran import Moran_BV
+    >>> from esda import Moran_BV
     >>> mbi = Moran_BV(SIDR79,  SIDR74,  w)
 
     What is the bivariate Moran's I value
 
     >>> round(mbi.I, 3)
-    0.156
+    np.float64(0.156)
 
     Based on 999 permutations, what is the p-value of our statistic
 
     >>> round(mbi.p_z_sim, 3)
-    0.001
-
-
+    np.float64(0.001)
     """  # noqa: E501
 
     def __init__(self, x, y, w, transformation="r", permutations=PERMUTATIONS):
@@ -527,7 +546,7 @@ class Moran_BV:  # noqa: N801
         self.den = n - 1.0  # zx'zx = zy'zy = n-1
         w = _transform(w, transformation)
         self.w = w
-        self.I = self.__calc(zy)  # noqa: E741
+        self.I = self.__calc(zy)
         if permutations:
             nrp = np.random.permutation
             sim = [self.__calc(nrp(zy)) for i in range(permutations)]
@@ -607,8 +626,14 @@ class Moran_BV:  # noqa: N801
         If inplace, None, and operation is conducted on dataframe
         in memory. Otherwise, returns a copy of the dataframe with
         the relevant columns attached.
-
         """
+
+        msg = (
+            "The `.by_col()` methods are deprecated and will be "
+            "removed in a future version of `esda`."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
+
         return _bivariate_handler(
             df,
             x,
@@ -689,7 +714,7 @@ class Moran_BV:  # noqa: N801
         )
 
 
-def Moran_BV_matrix(variables, w, permutations=0, varnames=None):  # noqa: N802
+def Moran_BV_matrix(variables, w, permutations=0, varnames=None):
     """
     Bivariate Moran Matrix
 
@@ -717,7 +742,6 @@ def Moran_BV_matrix(variables, w, permutations=0, varnames=None):  # noqa: N802
 
     Examples
     --------
-
     open dbf
 
     >>> import libpysal
@@ -734,16 +758,15 @@ def Moran_BV_matrix(variables, w, permutations=0, varnames=None):  # noqa: N802
 
     create an instance of Moran_BV_matrix
 
-    >>> from esda.moran import Moran_BV_matrix
-    >>> res = Moran_BV_matrix(vars,  w,  varnames = varnames)
+    >>> from esda import Moran_BV_matrix
+    >>> res = Moran_BV_matrix(vars, w, varnames=varnames)
 
     check values
 
-    >>> round(res[(0,  1)].I,7)
-    0.1936261
-    >>> round(res[(3,  0)].I,7)
-    0.3770138
-
+    >>> round(res[(0, 1)].I, 7)
+    np.float64(0.1936261)
+    >>> round(res[(3, 0)].I, 7)
+    np.float64(0.3770138)
     """
     try:
         # check if pandas is installed
@@ -766,7 +789,7 @@ def Moran_BV_matrix(variables, w, permutations=0, varnames=None):  # noqa: N802
     return results
 
 
-def _Moran_BV_Matrix_array(variables, w, permutations=0, varnames=None):  # noqa: N802
+def _Moran_BV_Matrix_array(variables, w, permutations=0, varnames=None):
     """
     Base calculation for MORAN_BV_Matrix
     """
@@ -897,7 +920,7 @@ def plot_moran_facet(
     return axarr
 
 
-class Moran_Rate(Moran):  # noqa: N801
+class Moran_Rate(Moran):
     """
     Adjusted Moran's I Global Autocorrelation Statistic for Rate
     Variables :cite:`Assuncao1999`
@@ -992,12 +1015,12 @@ class Moran_Rate(Moran):  # noqa: N801
 
     Examples
     --------
-    >>> import libpysal
+    >>> import libpysal, numpy
     >>> w = libpysal.io.open(libpysal.examples.get_path("sids2.gal")).read()
     >>> f = libpysal.io.open(libpysal.examples.get_path("sids2.dbf"))
-    >>> e = np.array(f.by_col('SID79'))
-    >>> b = np.array(f.by_col('BIR79'))
-    >>> from esda.moran import Moran_Rate
+    >>> e = numpy.array(f.by_col('SID79'))
+    >>> b = numpy.array(f.by_col('BIR79'))
+    >>> from esda import Moran_Rate
     >>> mi = Moran_Rate(e, b,  w, two_tailed=False)
     >>> "%6.4f" % mi.I
     '0.1662'
@@ -1080,6 +1103,7 @@ class Moran_Rate(Moran):  # noqa: N801
         the relevant columns attached.
 
         """
+
         if not inplace:
             new = df.copy()
             cls.by_col(
@@ -1094,6 +1118,13 @@ class Moran_Rate(Moran):  # noqa: N801
                 **stat_kws,
             )
             return new
+
+        msg = (
+            "The `.by_col()` methods are deprecated and will be "
+            "removed in a future version of `esda`."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
+
         if isinstance(events, str):
             events = [events]
         if isinstance(populations, str):
@@ -1141,9 +1172,8 @@ class Moran_Rate(Moran):  # noqa: N801
 # -----------------------------------------------------------------------------#
 
 
-class Moran_Local:  # noqa: N801
+class Moran_Local:
     """Local Moran Statistics.
-
 
     Parameters
     ----------
@@ -1185,7 +1215,6 @@ class Moran_Local:  # noqa: N801
 
     Attributes
     ----------
-
     y : array
         original variable
     w : W | Graph
@@ -1259,35 +1288,47 @@ class Moran_Local:  # noqa: N801
         Seed to ensure reproducibility of conditional randomizations.
         Must be set here, and not outside of the function, since numba does
         not correctly interpret external seeds nor numpy.random.RandomState instances.
+    alternative : None | str = None
+        The alternative hypothesis for conditional randomization.
+        See ``crand.crand()`` for complete description.
 
     Notes
     -----
-
     For technical details see :cite:`Anselin95`.
-
 
     Examples
     --------
-    >>> import libpysal
-    >>> import numpy as np
-    >>> np.random.seed(10)
+    >>> import libpysal, numpy
+    >>> numpy.random.seed(10)
     >>> w = libpysal.io.open(libpysal.examples.get_path("desmith.gal")).read()
     >>> f = libpysal.io.open(libpysal.examples.get_path("desmith.txt"))
     >>> y = np.array(f.by_col['z'])
-    >>> from esda.moran import Moran_Local
-    >>> lm = Moran_Local(y, w, transformation = "r", permutations = 99)
+    >>> from esda import Moran_Local
+    >>> lm = Moran_Local(
+    ...     y,
+    ...     w,
+    ...     transformation="r",
+    ...     permutations=99,
+    ...     seed=12345,
+    ...     alternative="two-sided",
+    ... )
     >>> lm.q
     array([4, 4, 4, 2, 3, 3, 1, 4, 3, 3])
     >>> lm.p_z_sim[0]
-    0.24669152541631179
-    >>> lm = Moran_Local(y, w, transformation = "r", permutations = 99, \
-                            geoda_quads=True)
+    np.float64(0.24226691753791402)
+    >>> lm = Moran_Local(
+    ...     y,
+    ...     w,
+    ...     transformation="r",
+    ...     permutations=99,
+    ...     geoda_quads=True,
+    ...     seed=12345,
+    ...     alternative="two-sided",
+    ... )
     >>> lm.q
     array([4, 4, 4, 3, 2, 2, 1, 4, 2, 2])
-
-    Note random components result is slightly different values across
-    architectures so the results have been removed from doctests and will be
-    moved into unittests that are conditional on architectures.
+    >>> lm.p_z_sim[0]
+    np.float64(0.24226691753791402)
     """  # noqa: E501
 
     def __init__(
@@ -1300,7 +1341,8 @@ class Moran_Local:  # noqa: N801
         n_jobs=1,
         keep_simulations=True,
         seed=None,
-        island_weight=0,  # noqa: ARG002
+        island_weight=0,  # noqa: ARG002 - Unused method argument: `island_weight`
+        alternative=None,
     ):
         y = np.asarray(y).flatten()
         self.y = y
@@ -1328,6 +1370,7 @@ class Moran_Local:  # noqa: N801
         self.__quads()
         self.__moments()
         if permutations:
+            effective_alternative = "directed" if alternative is None else alternative
             self.p_sim, self.rlisas = _crand_plus(
                 z,
                 w,
@@ -1337,15 +1380,16 @@ class Moran_Local:  # noqa: N801
                 n_jobs=n_jobs,
                 stat_func=_moran_local_crand,
                 seed=seed,
+                alternative=alternative,
             )
             self.sim = np.transpose(self.rlisas)
             if keep_simulations:
                 sim = np.transpose(self.rlisas)
-                above = sim >= self.Is
-                larger = above.sum(0)
-                low_extreme = (self.permutations - larger) < larger
-                larger[low_extreme] = self.permutations - larger[low_extreme]
-                self.p_sim = (larger + 1.0) / (permutations + 1.0)
+                self.p_sim = calculate_significance(
+                    self.Is,
+                    self.rlisas,
+                    alternative=effective_alternative,
+                )
                 self.sim = sim
                 self.EI_sim = self.sim.mean(axis=0)
                 self.seI_sim = self.sim.std(axis=0)
@@ -1464,8 +1508,14 @@ class Moran_Local:  # noqa: N801
         If inplace, None, and operation is conducted on dataframe
         in memory. Otherwise, returns a copy of the dataframe with
         the relevant columns attached.
-
         """
+
+        msg = (
+            "The `.by_col()` methods are deprecated and will be "
+            "removed in a future version of `esda`."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
+
         return _univariate_handler(
             df,
             cols,
@@ -1542,6 +1592,9 @@ class Moran_Local:  # noqa: N801
         ax=None,
         scatter_kwds=None,
         fitline_kwds=None,
+        losh_scaling_factor: bool | int | float = False,
+        losh_inference=None,
+        a=2,
     ):
         """
         Plot a Moran scatterplot with optional coloring for significant points.
@@ -1556,18 +1609,33 @@ class Moran_Local:  # noqa: N801
             Additional keyword arguments for scatter plot, by default None.
         fitline_kwds : dict, optional
             Additional keyword arguments for fit line, by default None.
+        losh_scaling_factor : bool | int | float, by default False
+            Scale the observations by LOSH. When set to a number, it is treated as
+            the multiplicative factor applied to ``exp(LOSH.Hi)`` when
+            converting LOSH values into marker areas.
+        losh_inference : str, optional
+            Inference method for :class:`~esda.losh.LOSH`. See
+            :class:`~esda.losh.LOSH` for supported options. Applies only if
+            ``losh_scaling_factor`` is not ``False``.
+        a : int or float, default=2
+            Residual exponent passed to :meth:`esda.losh.LOSH.fit`. The
+            default corresponds to a variance-based LOSH measure. Applies only if
+            ``losh_scaling_factor`` is not ``False``.
 
         Returns
         -------
         matplotlib.axes.Axes
             Axes object with the Moran scatterplot.
         """
+        losh = _get_losh_scaling(self, losh_scaling_factor, losh_inference, a)
+
         return _scatterplot(
             self,
             crit_value=crit_value,
             ax=ax,
             scatter_kwds=scatter_kwds,
             fitline_kwds=fitline_kwds,
+            losh=losh,
         )
 
     def plot_combination(
@@ -1586,6 +1654,9 @@ class Moran_Local:  # noqa: N801
         scatter_kwds=None,
         fitline_kwds=None,
         legend_kwds=None,
+        losh_scaling_factor: bool | int | float = False,
+        losh_inference=None,
+        a=2,
     ):
         """
         Produce three-plot visualisation of Moran Scatteprlot, LISA cluster
@@ -1627,6 +1698,18 @@ class Moran_Local:  # noqa: N801
         legend_kwds : dict
             Keyword arguments passed to geopandas.GeodataFrame.plot ``legend_kwds``
             allowing repositioning of the legend in LISA cluster plot and choropleth.
+        losh_scaling_factor : bool | int | float, by default False
+            Scale the scatterplot observations by LOSH. When set to a number, it
+            is treated as the multiplicative factor applied to ``exp(LOSH.Hi)``
+            when converting LOSH values into marker areas.
+        losh_inference : str, optional
+            Inference method for :class:`~esda.losh.LOSH`. See
+            :class:`~esda.losh.LOSH` for supported options. Applies only if
+            ``losh_scaling_factor`` is not ``False``.
+        a : int or float, default=2
+            Residual exponent passed to :meth:`esda.losh.LOSH.fit`. The
+            default corresponds to a variance-based LOSH measure. Applies only if
+            ``losh_scaling_factor`` is not ``False``.
 
         Returns
         -------
@@ -1648,12 +1731,14 @@ class Moran_Local:  # noqa: N801
             scatter_kwds=scatter_kwds,
             fitline_kwds=fitline_kwds,
             legend_kwds=legend_kwds,
+            losh_scaling_factor=losh_scaling_factor,
+            losh_inference=losh_inference,
+            a=a,
         )
 
 
-class Moran_Local_BV:  # noqa: N801
+class Moran_Local_BV:
     """Bivariate Local Moran Statistics.
-
 
     Parameters
     ----------
@@ -1693,10 +1778,12 @@ class Moran_Local_BV:  # noqa: N801
         value to use as a weight for the "fake" neighbor for every island.
         If numpy.nan, will propagate to the final local statistic depending
         on the `stat_func`. If 0, then the lag is always zero for islands.
+    alternative : None | str = None
+        The alternative hypothesis for conditional randomization.
+        See ``crand.crand()`` for complete description.
 
     Attributes
     ----------
-
     zx : array
         original x variable standardized by mean and std
     zy : array
@@ -1739,26 +1826,40 @@ class Moran_Local_BV:  # noqa: N801
 
     Examples
     --------
-    >>> import libpysal
-    >>> import numpy as np
-    >>> np.random.seed(10)
+    >>> import libpysal, numpy
+    >>> numpy.random.seed(10)
     >>> w = libpysal.io.open(libpysal.examples.get_path("sids2.gal")).read()
     >>> f = libpysal.io.open(libpysal.examples.get_path("sids2.dbf"))
-    >>> x = np.array(f.by_col['SIDR79'])
-    >>> y = np.array(f.by_col['SIDR74'])
-    >>> from esda.moran import Moran_Local_BV
-    >>> lm =Moran_Local_BV(x, y, w, transformation = "r", \
-                               permutations = 99)
+    >>> x = numpy.array(f.by_col['SIDR79'])
+    >>> y = numpy.array(f.by_col['SIDR74'])
+    >>> from esda import Moran_Local_BV
+    >>> lm = Moran_Local_BV(
+    ...     x,
+    ...     y,
+    ...     w,
+    ...     transformation="r",
+    ...     permutations=99,
+    ...     seed=12345,
+    ...     alternative="two-sided",
+    ... )
     >>> lm.q[:10]
     array([3, 4, 3, 4, 2, 1, 4, 4, 2, 4])
-    >>> lm = Moran_Local_BV(x, y, w, transformation = "r", \
-                               permutations = 99, geoda_quads=True)
+    >>> round(lm.p_z_sim[0], 6)
+    np.float64(0.091648)
+    >>> lm = Moran_Local_BV(
+    ...     x,
+    ...     y,
+    ...     w,
+    ...     transformation="r",
+    ...     permutations=99,
+    ...     geoda_quads=True,
+    ...     seed=12345,
+    ...     alternative="two-sided",
+    ... )
     >>> lm.q[:10]
     array([2, 4, 2, 4, 3, 1, 4, 4, 3, 4])
-
-    Note random components result is slightly different values across
-    architectures so the results have been removed from doctests and will be
-    moved into unittests that are conditional on architectures.
+    >>> round(lm.p_z_sim[0], 6)
+    np.float64(0.091648)
     """  # noqa: E501
 
     def __init__(
@@ -1772,7 +1873,8 @@ class Moran_Local_BV:  # noqa: N801
         n_jobs=1,
         keep_simulations=True,
         seed=None,
-        island_weight=0,  # noqa: ARG002
+        island_weight=0,  # noqa: ARG002 - Unused method argument: `island_weight`
+        alternative=None,
     ):
         x = np.asarray(x).flatten()
         y = np.asarray(y).flatten()
@@ -1806,6 +1908,7 @@ class Moran_Local_BV:  # noqa: N801
         self.quads = quads
         self.__quads()
         if permutations:
+            effective_alternative = "directed" if alternative is None else alternative
             self.p_sim, self.rlisas = _crand_plus(
                 np.column_stack((zx, zy)),
                 w,
@@ -1815,15 +1918,16 @@ class Moran_Local_BV:  # noqa: N801
                 n_jobs=n_jobs,
                 stat_func=_moran_local_bv_crand,
                 seed=seed,
+                alternative=alternative,
             )
             self.sim = np.transpose(self.rlisas)
             if keep_simulations:
                 sim = np.transpose(self.rlisas)
-                above = sim >= self.Is
-                larger = above.sum(0)
-                low_extreme = (self.permutations - larger) < larger
-                larger[low_extreme] = self.permutations - larger[low_extreme]
-                self.p_sim = (larger + 1.0) / (permutations + 1.0)
+                self.p_sim = calculate_significance(
+                    self.Is,
+                    self.rlisas,
+                    alternative=effective_alternative,
+                )
                 self.sim = sim
                 self.EI_sim = sim.mean(axis=0)
                 self.seI_sim = sim.std(axis=0)
@@ -1903,8 +2007,14 @@ class Moran_Local_BV:  # noqa: N801
         If inplace, None, and operation is conducted on dataframe
         in memory. Otherwise, returns a copy of the dataframe with
         the relevant columns attached.
-
         """
+
+        msg = (
+            "The `.by_col()` methods are deprecated and will be "
+            "removed in a future version of `esda`."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
+
         return _bivariate_handler(
             df,
             x,
@@ -2092,7 +2202,7 @@ class Moran_Local_BV:  # noqa: N801
         )
 
 
-class Moran_Local_Rate(Moran_Local):  # noqa: N801
+class Moran_Local_Rate(Moran_Local):
     """
     Adjusted Local Moran Statistics for Rate Variables :cite:`Assuncao1999`.
 
@@ -2136,6 +2246,9 @@ class Moran_Local_Rate(Moran_Local):  # noqa: N801
         value to use as a weight for the "fake" neighbor for every island.
         If numpy.nan, will propagate to the final local statistic depending
         on the `stat_func`. If 0, then the lag is always zero for islands.
+    alternative : None | str = None
+        The alternative hypothesis for conditional randomization.
+        See ``crand.crand()`` for complete description.
 
     Attributes
     ----------
@@ -2193,19 +2306,33 @@ class Moran_Local_Rate(Moran_Local):  # noqa: N801
     >>> e = np.array(f.by_col('SID79'))
     >>> b = np.array(f.by_col('BIR79'))
     >>> from esda.moran import Moran_Local_Rate
-    >>> lm = Moran_Local_Rate(e, b, w, transformation="r", permutations=99)
+    >>> lm = Moran_Local_Rate(
+    ...     e,
+    ...     b,
+    ...     w,
+    ...     transformation="r",
+    ...     permutations=99,
+    ...     seed=12345,
+    ...     alternative="two-sided",
+    ... )
     >>> lm.q[:10]
     array([2, 4, 3, 1, 2, 1, 1, 4, 2, 4])
+    >>> lm.p_z_sim[0]
+    np.float64(0.48921877308350953)
     >>> lm = Moran_Local_Rate(
-    ...     e, b, w, transformation = "r", permutations=99, geoda_quads=True
-    )
+    ...     e,
+    ...     b,
+    ...     w,
+    ...     transformation="r",
+    ...     permutations=99,
+    ...     seed=12345,
+    ...     alternative="two-sided",
+    ...     geoda_quads=True,
+    ... )
     >>> lm.q[:10]
     array([3, 4, 2, 1, 3, 1, 1, 4, 3, 4])
-
-    Note random components result is slightly different values across
-    architectures so the results have been removed from doctests and will be
-    moved into unittests that are conditional on architectures
-
+    >>> lm.p_z_sim[0]
+    np.float64(0.48921877308350953)
     """  # noqa: E501
 
     def __init__(
@@ -2220,7 +2347,8 @@ class Moran_Local_Rate(Moran_Local):  # noqa: N801
         n_jobs=1,
         keep_simulations=True,
         seed=None,
-        island_weight=0,  # noqa: ARG002
+        island_weight=0,  # noqa: ARG002 - Unused method argument: `island_weight`
+        alternative=None,
     ):
         e = np.asarray(e).flatten()
         b = np.asarray(b).flatten()
@@ -2235,6 +2363,7 @@ class Moran_Local_Rate(Moran_Local):  # noqa: N801
             n_jobs=n_jobs,
             keep_simulations=keep_simulations,
             seed=seed,
+            alternative=alternative,
         )
 
     @classmethod
@@ -2288,7 +2417,6 @@ class Moran_Local_Rate(Moran_Local):  # noqa: N801
         If inplace, None, and operation is conducted on dataframe
         in memory. Otherwise, returns a copy of the dataframe with
         the relevant columns attached.
-
         """
         if not inplace:
             new = df.copy()
@@ -2304,6 +2432,13 @@ class Moran_Local_Rate(Moran_Local):  # noqa: N801
                 **stat_kws,
             )
             return new
+
+        msg = (
+            "The `.by_col()` methods are deprecated and will be "
+            "removed in a future version of `esda`."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
+
         if isinstance(events, str):
             events = [events]
         if isinstance(populations, str):
@@ -2415,6 +2550,16 @@ def _get_cluster_labels(moran_local, crit_value):
     return gdf["Moran Cluster"].values
 
 
+def _get_losh_scaling(moran, losh_scaling_factor=False, losh_inference=None, a=2):
+    if not losh_scaling_factor:
+        return False
+
+    from .losh import LOSH
+
+    losh = LOSH(moran.w, inference=losh_inference).fit(moran.y, a=a)
+    return np.exp(losh.Hi) * losh_scaling_factor
+
+
 def _scatterplot(
     moran,
     crit_value=0.05,
@@ -2422,6 +2567,7 @@ def _scatterplot(
     ax=None,
     scatter_kwds=None,
     fitline_kwds=None,
+    losh=False,
 ):
     """Generates a Moran Local or Global Scatterplot.
 
@@ -2437,6 +2583,8 @@ def _scatterplot(
         Additional keyword arguments to pass to the scatter plot.
     fitline_kwds : dict, optional
         Additional keyword arguments to pass to the fit line plot.
+    losh : np.array
+        Array of values (typically LOSH) to be used to scale the marker area.
 
     Returns
     -------
@@ -2464,6 +2612,7 @@ def _scatterplot(
 
     if crit_value is not None:
         labels = _get_cluster_labels(moran, crit_value)
+        sig_mask = labels == "Insignificant"
         # TODO: allow customization of colors in here and in plot and explore
         # TODO: in a way to keep them easily synced
         colors5_mpl = {
@@ -2473,7 +2622,7 @@ def _scatterplot(
             "High-Low": "#fdae61",
             "Insignificant": "lightgrey",
         }
-        colors5 = [colors5_mpl[i] for i in labels]  # for mpl
+        colors5 = np.array([colors5_mpl[i] for i in labels])  # for mpl
 
     # define customization
     scatter_kwds.setdefault("alpha", 0.6)
@@ -2495,6 +2644,12 @@ def _scatterplot(
         ax.set_xlabel("Attribute")
         ax.set_ylabel("Spatial Lag")
 
+    if losh is not False and "s" in scatter_kwds:
+        raise ValueError(
+            "Cannot specify `s` while using LOSH scaling. Remove `s` "
+            "from scatter_kwds or set losh=False."
+        )
+
     fit = stats.linregress(
         x,
         lag,
@@ -2504,13 +2659,31 @@ def _scatterplot(
     ax.axhline(0, alpha=0.5, color="k", linestyle="--")
     if crit_value is not None:
         fitline_kwds.setdefault("color", "k")
-        scatter_kwds.setdefault("c", colors5)
+
         ax.plot(x, fit.intercept + fit.slope * x, **fitline_kwds)
-        ax.scatter(x, lag, **scatter_kwds)
+
+        # insignificant
+        if losh is not False:
+            scatter_kwds["s"] = losh[sig_mask]
+        ax.scatter(
+            x[sig_mask],
+            lag[sig_mask],
+            zorder=0,
+            c=colors5_mpl["Insignificant"],
+            **scatter_kwds,
+        )
+        # significant
+        if losh is not False:
+            scatter_kwds["s"] = losh[~sig_mask]
+        ax.scatter(
+            x[~sig_mask], lag[~sig_mask], c=colors5[~sig_mask], zorder=1, **scatter_kwds
+        )
     else:
         scatter_kwds.setdefault("color", "#bababa")
         fitline_kwds.setdefault("color", "#d6604d")
         ax.plot(x, fit.intercept + fit.slope * x, **fitline_kwds)
+        if losh is not False:
+            scatter_kwds["s"] = losh
         ax.scatter(x, lag, **scatter_kwds)
 
     ax.set_aspect("equal")
@@ -2577,6 +2750,9 @@ def _plot_combination(
     scatter_kwds=None,
     fitline_kwds=None,
     legend_kwds=None,
+    losh_scaling_factor: bool | int | float = False,
+    losh_inference=None,
+    a=2,
 ):
     """
     Produce three-plot visualisation of Moran Scatteprlot, LISA cluster
@@ -2621,6 +2797,18 @@ def _plot_combination(
     legend_kwds : dict
         Keyword arguments passed to geopandas.GeodataFrame.plot ``legend_kwds`` allowing
         repositioning of the legend in LISA cluster plot and choropleth.
+    losh_scaling_factor : bool | int | float, by default False
+        Scale the scatterplot observations by LOSH. When set to a number, it is
+        treated as the multiplicative factor applied to ``exp(LOSH.Hi)`` when
+        converting LOSH values into marker areas.
+    losh_inference : str, optional
+        Inference method for :class:`~esda.losh.LOSH`. See
+        :class:`~esda.losh.LOSH` for supported options. Applies only if
+        ``losh_scaling_factor`` is not ``False``.
+    a : int or float, default=2
+        Residual exponent passed to :meth:`esda.losh.LOSH.fit`. The default
+        corresponds to a variance-based LOSH measure. Applies only if
+        ``losh_scaling_factor`` is not ``False``.
 
     Returns
     -------
@@ -2639,12 +2827,19 @@ def _plot_combination(
         1, 3, figsize=figsize, subplot_kw={"aspect": "equal", "adjustable": "datalim"}
     )
     # Moran Scatterplot
-    moran_loc.plot_scatter(
-        crit_value=crit_value,
-        ax=axs[0],
-        scatter_kwds=scatter_kwds,
-        fitline_kwds=fitline_kwds,
-    )
+    plot_scatter_kwargs = {
+        "crit_value": crit_value,
+        "ax": axs[0],
+        "scatter_kwds": scatter_kwds,
+        "fitline_kwds": fitline_kwds,
+    }
+    if losh_scaling_factor:
+        plot_scatter_kwargs.update(
+            losh_scaling_factor=losh_scaling_factor,
+            losh_inference=losh_inference,
+            a=a,
+        )
+    moran_loc.plot_scatter(**plot_scatter_kwargs)
 
     # Lisa cluster map
     moran_loc.plot(

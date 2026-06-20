@@ -10,6 +10,7 @@ import contextlib
 import ipaddress
 import socket
 import random
+import platform
 import serpent
 from typing import Union, Optional
 from . import config, errors, socketutil, serializers
@@ -152,7 +153,13 @@ class _ExceptionWrapper(object):
         self.exception = exception
 
     def raiseIt(self):
-        raise self.exception
+        try:
+            err = self.exception.__class__(*self.exception.args)
+            if hasattr(self.exception, '_pyroTraceback'):
+                err._pyroTraceback = self.exception._pyroTraceback
+            raise err
+        finally:
+            del err
 
     def __serialized_dict__(self):
         """serialized form as a dictionary"""
@@ -215,11 +222,15 @@ def locate_ns(host: Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address] = "
             else:
                 # Some systems have 127.0.1.1 in the hosts file assigned to the hostname,
                 # so try this too (only if it's actually used as a valid ip address)
-                try:
-                    socket.gethostbyaddr("127.0.1.1")
-                    hosts = [config.NS_HOST] if config.NS_HOST == "127.0.1.1" else [config.NS_HOST, "127.0.1.1"]
-                except socket.error:
+                # Skip this check on Windows to avoid slow DNS lookup timeout (5+ seconds)
+                if platform.system() == "Windows":
                     hosts = [config.NS_HOST]
+                else:
+                    try:
+                        socket.gethostbyaddr("127.0.1.1")
+                        hosts = [config.NS_HOST] if config.NS_HOST == "127.0.1.1" else [config.NS_HOST, "127.0.1.1"]
+                    except socket.error:
+                        hosts = [config.NS_HOST]
             for host in hosts:
                 uristring = "PYRO:%s@%s:%d" % (NAMESERVER_NAME, host, port or config.NS_PORT)
                 log.debug("locating the NS: %s", uristring)
@@ -236,27 +247,28 @@ def locate_ns(host: Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address] = "
                 port = config.NS_BCPORT
             log.debug("broadcast locate")
             sock = socketutil.create_bc_socket(reuseaddr=config.SOCK_REUSE, timeout=0.7)
-            for _ in range(3):
-                try:
-                    for bcaddr in config.BROADCAST_ADDRS:
-                        try:
-                            sock.sendto(b"GET_NSURI", 0, (bcaddr, port))
-                        except socket.error as x:
-                            err = getattr(x, "errno", x.args[0])
-                            # handle some errno's that some platforms like to throw:
-                            if err not in socketutil.ERRNO_EADDRNOTAVAIL and err not in socketutil.ERRNO_EADDRINUSE:
-                                raise
-                    data, _ = sock.recvfrom(100)
-                    sock.close()
-                    text = data.decode("iso-8859-1")
-                    log.debug("located NS: %s", text)
-                    proxy = client.Proxy(text)
-                    return proxy
-                except socket.timeout:
-                    continue
-            with contextlib.suppress(OSError, socket.error):
-                sock.shutdown(socket.SHUT_RDWR)
-            sock.close()
+            try:
+                for _ in range(3):
+                    try:
+                        for bcaddr in config.BROADCAST_ADDRS:
+                            try:
+                                sock.sendto(b"GET_NSURI", 0, (bcaddr, port))
+                            except socket.error as x:
+                                err = getattr(x, "errno", x.args[0])
+                                # handle some errno's that some platforms like to throw:
+                                if err not in socketutil.ERRNO_EADDRNOTAVAIL and err not in socketutil.ERRNO_EADDRINUSE:
+                                    raise
+                        data, _ = sock.recvfrom(100)
+                        text = data.decode("iso-8859-1")
+                        log.debug("located NS: %s", text)
+                        proxy = client.Proxy(text)
+                        return proxy
+                    except socket.timeout:
+                        continue
+            finally:
+                with contextlib.suppress(OSError, socket.error):
+                    sock.shutdown(socket.SHUT_RDWR)
+                sock.close()
             log.debug("broadcast locate failed, try direct connection on NS_HOST")
         else:
             log.debug("skipping broadcast lookup")

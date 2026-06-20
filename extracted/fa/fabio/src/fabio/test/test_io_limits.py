@@ -82,6 +82,7 @@ class TestTiff(_CommonIOLimitTest):
     HEADERSIZE = 196
 
 
+
 def suite():
     loadTests = unittest.defaultTestLoader.loadTestsFromTestCase
     testsuite = unittest.TestSuite()

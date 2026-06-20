@@ -1354,6 +1354,7 @@ class ToProtoConverter:
                 else None
             ),
             runtime_contract=r.runtime_contract,
+            handle_duplicate_outputs=r.handle_duplicate_outputs,
             underscore_expr=postprocessing_underscore_expr,
         )
 

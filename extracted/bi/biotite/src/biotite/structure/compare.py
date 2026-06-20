@@ -13,16 +13,31 @@ __all__ = ["rmsd", "rmspd", "rmsf", "average", "lddt"]
 
 import collections.abc
 import warnings
+from collections.abc import Callable, Sequence
+from typing import Literal, overload
 import numpy as np
-from biotite.structure.atoms import AtomArray, AtomArrayStack, coord
-from biotite.structure.celllist import CellList
+from biotite.rust.structure import CellList
+from biotite.structure.atoms import AtomArray, AtomArrayStack, Coord, MultiCoord, coord
 from biotite.structure.chains import get_chain_count, get_chain_positions
 from biotite.structure.geometry import index_distance
 from biotite.structure.residues import get_residue_count, get_residue_positions
 from biotite.structure.util import vector_dot
+from biotite.typing import C2, XYZ, K, M, N, NDArray1, NDArray2, NDArray3
 
 
-def rmsd(reference, subject):
+@overload
+def rmsd(reference: Coord[N], subject: Coord[N]) -> np.floating: ...
+
+
+@overload
+def rmsd(
+    reference: Coord[N], subject: MultiCoord[M, N]
+) -> NDArray1[M, np.floating]: ...
+
+
+def rmsd(
+    reference: Coord[N], subject: Coord[N] | MultiCoord[M, N]
+) -> np.floating | NDArray1[M, np.floating]:
     r"""
     Calculate the RMSD between two structures.
 
@@ -77,7 +92,36 @@ def rmsd(reference, subject):
     return np.sqrt(np.mean(_sq_euclidian(reference, subject), axis=-1))
 
 
-def rmspd(reference, subject, periodic=False, box=None):
+@overload
+def rmspd(
+    reference: Coord[N],
+    subject: Coord[N],
+    periodic: bool = False,
+    box: (
+        NDArray2[XYZ, XYZ, np.floating] | NDArray3[M, XYZ, XYZ, np.floating] | None
+    ) = None,
+) -> np.floating: ...
+
+
+@overload
+def rmspd(
+    reference: Coord[N],
+    subject: MultiCoord[M, N],
+    periodic: bool = False,
+    box: (
+        NDArray2[XYZ, XYZ, np.floating] | NDArray3[M, XYZ, XYZ, np.floating] | None
+    ) = None,
+) -> NDArray1[M, np.floating]: ...
+
+
+def rmspd(
+    reference: Coord[N],
+    subject: Coord[N] | MultiCoord[M, N],
+    periodic: bool = False,
+    box: (
+        NDArray2[XYZ, XYZ, np.floating] | NDArray3[M, XYZ, XYZ, np.floating] | None
+    ) = None,
+) -> np.floating | NDArray1[M, np.floating]:
     r"""
     Calculate the RMSD of atom pair distances for given structures
     relative to those found in a reference structure.
@@ -130,8 +174,10 @@ def rmspd(reference, subject, periodic=False, box=None):
     --------
     rmsd : The *root mean square fluctuation*.
     """
-    # Compute index pairs in reference structure -> pair_ij for j < i
-    reflen = reference.array_length()
+    reference = coord(reference)
+    subject = coord(subject)
+    # Compute index pairs in reference structure -> pair_ij for j < i.
+    reflen = reference.shape[-2]
     index_i = np.repeat(np.arange(reflen), reflen)
     index_j = np.tile(np.arange(reflen), reflen)
     pairs = np.stack([index_i, index_j]).T
@@ -142,7 +188,10 @@ def rmspd(reference, subject, periodic=False, box=None):
     return rmspd
 
 
-def rmsf(reference, subject):
+def rmsf(
+    reference: Coord[N],
+    subject: MultiCoord[M, N],
+) -> NDArray1[N, np.floating]:
     r"""
     Calculate the RMSF between two structures.
 
@@ -201,7 +250,19 @@ def rmsf(reference, subject):
     return np.sqrt(np.mean(_sq_euclidian(reference, subject), axis=-2))
 
 
-def average(atoms):
+@overload
+def average(atoms: AtomArrayStack[M, N]) -> AtomArray[N]: ...
+
+
+@overload
+def average(
+    atoms: NDArray3[M, N, XYZ, np.floating],
+) -> NDArray2[N, XYZ, np.floating]: ...
+
+
+def average(
+    atoms: MultiCoord[M, N],
+) -> Coord[N]:
     """
     Calculate an average structure.
 
@@ -243,18 +304,22 @@ def average(atoms):
 
 
 def lddt(
-    reference,
-    subject,
-    aggregation="all",
-    atom_mask=None,
-    partner_mask=None,
-    inclusion_radius=15,
-    distance_bins=(0.5, 1.0, 2.0, 4.0),
-    exclude_same_residue=True,
-    exclude_same_chain=False,
-    filter_function=None,
-    symmetric=False,
-):
+    reference: AtomArray[N],
+    subject: Coord[N] | MultiCoord[M, N],
+    aggregation: (
+        Literal["all", "chain", "residue", "atom"] | NDArray1[N, np.integer]
+    ) = "all",
+    atom_mask: NDArray1[N, np.bool_] | None = None,
+    partner_mask: NDArray1[N, np.bool_] | None = None,
+    inclusion_radius: float = 15,
+    distance_bins: Sequence[float] = (0.5, 1.0, 2.0, 4.0),
+    exclude_same_residue: bool = True,
+    exclude_same_chain: bool = False,
+    filter_function: (
+        Callable[[NDArray2[K, C2, np.integer]], NDArray1[K, np.bool_]] | None
+    ) = None,
+    symmetric: bool = False,
+) -> np.floating | NDArray1[int, np.floating] | NDArray2[int, int, np.floating]:
     """
     Calculate the *local Distance Difference Test* (lDDT) score of a structure with
     respect to its reference.
@@ -441,9 +506,8 @@ def lddt(
     reference_distances = index_distance(reference_coord, contacts)
     subject_distances = index_distance(subject_coord, contacts)
     deviations = np.abs(subject_distances - reference_distances)
-    distance_bins = np.asarray(distance_bins)
     fraction_preserved_bins = np.count_nonzero(
-        deviations[..., np.newaxis] <= distance_bins[np.newaxis, :], axis=-1
+        deviations[..., np.newaxis] <= np.asarray(distance_bins)[np.newaxis, :], axis=-1
     ) / len(distance_bins)
 
     # Aggregate the fractions over the desired level
@@ -482,7 +546,10 @@ def lddt(
             raise ValueError(f"Invalid aggregation level '{aggregation}'")
 
 
-def _sq_euclidian(reference, subject):
+def _sq_euclidian(
+    reference: Coord[N],
+    subject: Coord[N] | MultiCoord[M, N],
+) -> NDArray1[N, np.floating] | NDArray2[M, N, np.floating]:
     """
     Calculate squared euclidian distance between atoms in two
     structures.
@@ -511,49 +578,20 @@ def _sq_euclidian(reference, subject):
             "Expected an AtomArray or an ndarray with shape (n,3) as reference"
         )
     dif = subject_coord - reference_coord
-    return vector_dot(dif, dif)
-
-
-def _to_sparse_indices(all_contacts):
-    """
-    Create tuples of contact indices from the :meth:`CellList.get_atoms()` return value.
-
-    In other words, they would mark the non-zero elements in a dense contact matrix.
-
-    Parameters
-    ----------
-    all_contacts : ndarray, dtype=int, shape=(m,n)
-        The contact indices as returned by :meth:`CellList.get_atoms()`.
-        Padded with -1, in the second dimension.
-        Dimension *m* marks the query atoms, dimension *n* marks the contact atoms.
-
-    Returns
-    -------
-    combined_indices : ndarray, dtype=int, shape=(l,2)
-        The contact indices.
-        Each column contains the query and contact atom index.
-    """
-    # Find rows where a query atom has at least one contact
-    non_empty_indices = np.where(np.any(all_contacts != -1, axis=1))[0]
-    # Take those rows and flatten them
-    contact_indices = all_contacts[non_empty_indices].flatten()
-    # For each row the corresponding query atom is the same
-    # Hence in the flattened form the query atom index is simply repeated
-    query_indices = np.repeat(non_empty_indices, all_contacts.shape[1])
-    combined_indices = np.stack([query_indices, contact_indices], axis=1)
-    # Remove the padding values
-    return combined_indices[contact_indices != -1]
+    return vector_dot(dif, dif)  # pyright: ignore[reportReturnType]
 
 
 def _find_contacts(
-    atoms=None,
-    atom_mask=None,
-    partner_mask=None,
-    inclusion_radius=15,
-    exclude_same_residue=False,
-    exclude_same_chain=True,
-    filter_function=None,
-):
+    atoms: AtomArray[N],
+    atom_mask: NDArray1[N, np.bool_] | None = None,
+    partner_mask: NDArray1[N, np.bool_] | None = None,
+    inclusion_radius: float | int = 15,
+    exclude_same_residue: bool = False,
+    exclude_same_chain: bool = True,
+    filter_function: (
+        Callable[[NDArray2[K, C2, np.integer]], NDArray1[K, np.bool_]] | None
+    ) = None,
+) -> NDArray2[K, C2, np.integer]:
     """
     Find contacts between the atoms in the given structure.
 
@@ -600,20 +638,16 @@ def _find_contacts(
     cell_list = CellList(coords, inclusion_radius, selection=selection)
     # Pairs of indices for atoms within the inclusion radius
     if atom_mask is None:
-        all_contacts = cell_list.get_atoms(coords, inclusion_radius)
-    else:
-        filtered_contacts = cell_list.get_atoms(coords[atom_mask], inclusion_radius)
-        # Map the contacts for the masked atoms to the original coordinates
-        # Rows that were filtered out by the mask are fully padded with -1
-        # consistent with the padding of `get_atoms()`
-        all_contacts = np.full(
-            (coords.shape[0], filtered_contacts.shape[-1]),
-            -1,
-            dtype=filtered_contacts.dtype,
+        contacts = cell_list.get_atoms(
+            coords, inclusion_radius, result_format=CellList.Result.PAIRS
         )
-        all_contacts[atom_mask] = filtered_contacts
-    # Convert into pairs of indices
-    contacts = _to_sparse_indices(all_contacts)
+    else:
+        contacts = cell_list.get_atoms(
+            coords[atom_mask], inclusion_radius, result_format=CellList.Result.PAIRS
+        )
+        # Map indices from masked indices back to original indices
+        mapping = np.nonzero(atom_mask)[0]
+        contacts[:, 0] = mapping[contacts[:, 0]]
 
     if exclude_same_chain:
         # Do the same for the chain level
@@ -642,7 +676,11 @@ def _find_contacts(
     return contacts
 
 
-def _average_over_indices(values, bins, n_bins=None):
+def _average_over_indices(
+    values: np.ndarray,
+    bins: NDArray1[int, np.integer],
+    n_bins: int | None = None,
+) -> np.ndarray:
     """
     For each unique index in `bins`, average the corresponding values in `values`.
 

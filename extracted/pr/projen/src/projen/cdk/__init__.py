@@ -24,7 +24,6 @@ from .. import (
     IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
     LoggerOptions as _LoggerOptions_eb0f6309,
     Project as _Project_57d89203,
-    ProjectType as _ProjectType_fd80c725,
     ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
     ReleasableCommits as _ReleasableCommits_d481ce10,
     RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
@@ -38,14 +37,10 @@ from ..github import (
     GitHubOptions as _GitHubOptions_21553699,
     GitIdentity as _GitIdentity_6effc3de,
     GithubCredentials as _GithubCredentials_ae257072,
-    MergifyOptions as _MergifyOptions_a6faaab3,
     StaleOptions as _StaleOptions_929db764,
 )
 from ..github.workflows import (
-    JobStep as _JobStep_c3287c05,
-    Step as _Step_da34ecb4,
-    Tools as _Tools_75b93a2a,
-    Triggers as _Triggers_e9ae7617,
+    JobStep as _JobStep_c3287c05, Step as _Step_da34ecb4, Tools as _Tools_75b93a2a
 )
 from ..javascript import (
     AuditOptions as _AuditOptions_429c62df,
@@ -816,7 +811,6 @@ class JsiiBuildOptions:
         :default: "~5.9.0"
 
         :stability: experimental
-        :pjnew: "~5.9.0"
         '''
         result = self._values.get("jsii_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1926,15 +1920,14 @@ class JsiiProject(
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
         publish_to_go: typing.Optional[typing.Union["JsiiGoTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_maven: typing.Optional[typing.Union["JsiiJavaTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_nuget: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_pypi: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
+        validate_tsconfig: typing.Optional["ValidateTsconfig"] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
         docgen: typing.Optional[builtins.bool] = None,
@@ -1953,7 +1946,6 @@ class JsiiProject(
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
         ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1962,13 +1954,13 @@ class JsiiProject(
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -1976,8 +1968,6 @@ class JsiiProject(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -1991,7 +1981,6 @@ class JsiiProject(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -2004,11 +1993,7 @@ class JsiiProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2040,7 +2025,6 @@ class JsiiProject(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -2052,7 +2036,6 @@ class JsiiProject(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -2068,10 +2051,8 @@ class JsiiProject(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2103,15 +2084,14 @@ class JsiiProject(
         :param compat_ignore: (experimental) Name of the ignore file for API compatibility tests. Default: ".compatignore"
         :param compress_assembly: (experimental) Emit a compressed version of the assembly. Default: false
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
-        :param dotnet: 
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
         :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
-        :param python: 
         :param rootdir: Default: "."
+        :param validate_tsconfig: (experimental) Level of tsconfig validation jsii should perform on the user-provided tsconfig. Only relevant when the project synthesizes its own tsconfig (i.e. ``disableTsconfig`` is not set on the TypeScriptProject). Default: ValidateTsconfig.STRICT
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
         :param disable_tsconfig_dev: (experimental) Do not generate a ``tsconfig.dev.json`` file. Default: false
         :param docgen: (experimental) Docgen by Typedoc. Default: false
@@ -2130,7 +2110,6 @@ class JsiiProject(
         :param tsconfig_dev_file: (experimental) The name of the development tsconfig.json file. Default: "tsconfig.dev.json"
         :param ts_jest_options: (experimental) Options for ts-jest.
         :param typescript_version: (experimental) TypeScript version to use. NOTE: Typescript is not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~1.2.3``). Default: "latest"
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -2139,13 +2118,13 @@ class JsiiProject(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -2153,8 +2132,6 @@ class JsiiProject(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -2168,7 +2145,6 @@ class JsiiProject(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -2181,11 +2157,7 @@ class JsiiProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -2217,7 +2189,6 @@ class JsiiProject(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -2229,7 +2200,6 @@ class JsiiProject(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -2245,10 +2215,8 @@ class JsiiProject(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -2282,15 +2250,14 @@ class JsiiProject(
             compat_ignore=compat_ignore,
             compress_assembly=compress_assembly,
             docgen_file_path=docgen_file_path,
-            dotnet=dotnet,
             exclude_typescript=exclude_typescript,
             jsii_version=jsii_version,
             publish_to_go=publish_to_go,
             publish_to_maven=publish_to_maven,
             publish_to_nuget=publish_to_nuget,
             publish_to_pypi=publish_to_pypi,
-            python=python,
             rootdir=rootdir,
+            validate_tsconfig=validate_tsconfig,
             disable_tsconfig=disable_tsconfig,
             disable_tsconfig_dev=disable_tsconfig_dev,
             docgen=docgen,
@@ -2309,7 +2276,6 @@ class JsiiProject(
             tsconfig_dev_file=tsconfig_dev_file,
             ts_jest_options=ts_jest_options,
             typescript_version=typescript_version,
-            default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             audit_deps=audit_deps,
             audit_deps_options=audit_deps_options,
@@ -2318,13 +2284,13 @@ class JsiiProject(
             biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
-            build_workflow_triggers=build_workflow_triggers,
             bundler_options=bundler_options,
             check_licenses=check_licenses,
             code_cov=code_cov,
             code_cov_token_secret=code_cov_token_secret,
             copyright_owner=copyright_owner,
             copyright_period=copyright_period,
+            default_release_branch=default_release_branch,
             dependabot=dependabot,
             dependabot_options=dependabot_options,
             deps_upgrade=deps_upgrade,
@@ -2332,8 +2298,6 @@ class JsiiProject(
             gitignore=gitignore,
             jest=jest,
             jest_options=jest_options,
-            mutable_build=mutable_build,
-            npmignore=npmignore,
             npmignore_enabled=npmignore_enabled,
             npm_ignore_options=npm_ignore_options,
             package=package,
@@ -2347,7 +2311,6 @@ class JsiiProject(
             pull_request_template_contents=pull_request_template_contents,
             release=release,
             release_to_npm=release_to_npm,
-            release_workflow=release_workflow,
             workflow_bootstrap_steps=workflow_bootstrap_steps,
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
@@ -2360,11 +2323,7 @@ class JsiiProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -2396,7 +2355,6 @@ class JsiiProject(
             min_node_version=min_node_version,
             npm_access=npm_access,
             npm_provenance=npm_provenance,
-            npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
@@ -2408,7 +2366,6 @@ class JsiiProject(
             repository=repository,
             repository_directory=repository_directory,
             scoped_packages_options=scoped_packages_options,
-            scripts=scripts,
             stability=stability,
             yarn_berry_options=yarn_berry_options,
             bump_package=bump_package,
@@ -2424,10 +2381,8 @@ class JsiiProject(
             releasable_commits=releasable_commits,
             release_branches=release_branches,
             release_environment=release_environment,
-            release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
-            release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
             release_workflow_env=release_workflow_env,
@@ -2480,11 +2435,7 @@ class JsiiProject(
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -2516,7 +2467,6 @@ class JsiiProject(
         "min_node_version": "minNodeVersion",
         "npm_access": "npmAccess",
         "npm_provenance": "npmProvenance",
-        "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
@@ -2528,7 +2478,6 @@ class JsiiProject(
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
         "scoped_packages_options": "scopedPackagesOptions",
-        "scripts": "scripts",
         "stability": "stability",
         "yarn_berry_options": "yarnBerryOptions",
         "bump_package": "bumpPackage",
@@ -2544,10 +2493,8 @@ class JsiiProject(
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -2557,7 +2504,6 @@ class JsiiProject(
         "workflow_container_image": "workflowContainerImage",
         "workflow_runs_on": "workflowRunsOn",
         "workflow_runs_on_group": "workflowRunsOnGroup",
-        "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "audit_deps": "auditDeps",
         "audit_deps_options": "auditDepsOptions",
@@ -2566,13 +2512,13 @@ class JsiiProject(
         "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
-        "build_workflow_triggers": "buildWorkflowTriggers",
         "bundler_options": "bundlerOptions",
         "check_licenses": "checkLicenses",
         "code_cov": "codeCov",
         "code_cov_token_secret": "codeCovTokenSecret",
         "copyright_owner": "copyrightOwner",
         "copyright_period": "copyrightPeriod",
+        "default_release_branch": "defaultReleaseBranch",
         "dependabot": "dependabot",
         "dependabot_options": "dependabotOptions",
         "deps_upgrade": "depsUpgrade",
@@ -2580,8 +2526,6 @@ class JsiiProject(
         "gitignore": "gitignore",
         "jest": "jest",
         "jest_options": "jestOptions",
-        "mutable_build": "mutableBuild",
-        "npmignore": "npmignore",
         "npmignore_enabled": "npmignoreEnabled",
         "npm_ignore_options": "npmIgnoreOptions",
         "package": "package",
@@ -2595,7 +2539,6 @@ class JsiiProject(
         "pull_request_template_contents": "pullRequestTemplateContents",
         "release": "release",
         "release_to_npm": "releaseToNpm",
-        "release_workflow": "releaseWorkflow",
         "workflow_bootstrap_steps": "workflowBootstrapSteps",
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
@@ -2625,15 +2568,14 @@ class JsiiProject(
         "compat_ignore": "compatIgnore",
         "compress_assembly": "compressAssembly",
         "docgen_file_path": "docgenFilePath",
-        "dotnet": "dotnet",
         "exclude_typescript": "excludeTypescript",
         "jsii_version": "jsiiVersion",
         "publish_to_go": "publishToGo",
         "publish_to_maven": "publishToMaven",
         "publish_to_nuget": "publishToNuget",
         "publish_to_pypi": "publishToPypi",
-        "python": "python",
         "rootdir": "rootdir",
+        "validate_tsconfig": "validateTsconfig",
     },
 )
 class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
@@ -2661,11 +2603,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2697,7 +2635,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -2709,7 +2646,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -2725,10 +2661,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2738,7 +2672,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2747,13 +2680,13 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -2761,8 +2694,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -2776,7 +2707,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -2806,15 +2736,14 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
         publish_to_go: typing.Optional[typing.Union["JsiiGoTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_maven: typing.Optional[typing.Union["JsiiJavaTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_nuget: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_pypi: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
+        validate_tsconfig: typing.Optional["ValidateTsconfig"] = None,
     ) -> None:
         '''
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
@@ -2838,11 +2767,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -2874,7 +2799,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -2886,7 +2810,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -2902,10 +2825,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -2915,7 +2836,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
         :param workflow_runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -2924,13 +2844,13 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -2938,8 +2858,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -2953,7 +2871,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -2983,15 +2900,14 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param compat_ignore: (experimental) Name of the ignore file for API compatibility tests. Default: ".compatignore"
         :param compress_assembly: (experimental) Emit a compressed version of the assembly. Default: false
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
-        :param dotnet: 
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
         :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
-        :param python: 
         :param rootdir: Default: "."
+        :param validate_tsconfig: (experimental) Level of tsconfig validation jsii should perform on the user-provided tsconfig. Only relevant when the project synthesizes its own tsconfig (i.e. ``disableTsconfig`` is not set on the TypeScriptProject). Default: ValidateTsconfig.STRICT
 
         :stability: experimental
         '''
@@ -3011,8 +2927,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -3033,8 +2947,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
-        if isinstance(build_workflow_triggers, dict):
-            build_workflow_triggers = _Triggers_e9ae7617(**build_workflow_triggers)
         if isinstance(bundler_options, dict):
             bundler_options = _BundlerOptions_d60b85ed(**bundler_options)
         if isinstance(check_licenses, dict):
@@ -3063,8 +2975,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             tsconfig_dev = _TypescriptConfigOptions_8c5492cd(**tsconfig_dev)
         if isinstance(ts_jest_options, dict):
             ts_jest_options = _TsJestOptions_3c0597c1(**ts_jest_options)
-        if isinstance(dotnet, dict):
-            dotnet = JsiiDotNetTarget(**dotnet)
         if isinstance(publish_to_go, dict):
             publish_to_go = JsiiGoTarget(**publish_to_go)
         if isinstance(publish_to_maven, dict):
@@ -3073,8 +2983,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             publish_to_nuget = JsiiDotNetTarget(**publish_to_nuget)
         if isinstance(publish_to_pypi, dict):
             publish_to_pypi = JsiiPythonTarget(**publish_to_pypi)
-        if isinstance(python, dict):
-            python = JsiiPythonTarget(**python)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2bc0e25ce)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3098,11 +3006,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -3134,7 +3038,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument min_node_version", value=min_node_version, expected_type=type_hints["min_node_version"])
             check_type(argname="argument npm_access", value=npm_access, expected_type=type_hints["npm_access"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
@@ -3146,7 +3049,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
             check_type(argname="argument scoped_packages_options", value=scoped_packages_options, expected_type=type_hints["scoped_packages_options"])
-            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
             check_type(argname="argument yarn_berry_options", value=yarn_berry_options, expected_type=type_hints["yarn_berry_options"])
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
@@ -3162,10 +3064,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -3175,7 +3075,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument workflow_container_image", value=workflow_container_image, expected_type=type_hints["workflow_container_image"])
             check_type(argname="argument workflow_runs_on", value=workflow_runs_on, expected_type=type_hints["workflow_runs_on"])
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
-            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
             check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
@@ -3184,13 +3083,13 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
-            check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
             check_type(argname="argument bundler_options", value=bundler_options, expected_type=type_hints["bundler_options"])
             check_type(argname="argument check_licenses", value=check_licenses, expected_type=type_hints["check_licenses"])
             check_type(argname="argument code_cov", value=code_cov, expected_type=type_hints["code_cov"])
             check_type(argname="argument code_cov_token_secret", value=code_cov_token_secret, expected_type=type_hints["code_cov_token_secret"])
             check_type(argname="argument copyright_owner", value=copyright_owner, expected_type=type_hints["copyright_owner"])
             check_type(argname="argument copyright_period", value=copyright_period, expected_type=type_hints["copyright_period"])
+            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument dependabot", value=dependabot, expected_type=type_hints["dependabot"])
             check_type(argname="argument dependabot_options", value=dependabot_options, expected_type=type_hints["dependabot_options"])
             check_type(argname="argument deps_upgrade", value=deps_upgrade, expected_type=type_hints["deps_upgrade"])
@@ -3198,8 +3097,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument gitignore", value=gitignore, expected_type=type_hints["gitignore"])
             check_type(argname="argument jest", value=jest, expected_type=type_hints["jest"])
             check_type(argname="argument jest_options", value=jest_options, expected_type=type_hints["jest_options"])
-            check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
-            check_type(argname="argument npmignore", value=npmignore, expected_type=type_hints["npmignore"])
             check_type(argname="argument npmignore_enabled", value=npmignore_enabled, expected_type=type_hints["npmignore_enabled"])
             check_type(argname="argument npm_ignore_options", value=npm_ignore_options, expected_type=type_hints["npm_ignore_options"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -3213,7 +3110,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument pull_request_template_contents", value=pull_request_template_contents, expected_type=type_hints["pull_request_template_contents"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
             check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
-            check_type(argname="argument release_workflow", value=release_workflow, expected_type=type_hints["release_workflow"])
             check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
@@ -3243,18 +3139,16 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument compat_ignore", value=compat_ignore, expected_type=type_hints["compat_ignore"])
             check_type(argname="argument compress_assembly", value=compress_assembly, expected_type=type_hints["compress_assembly"])
             check_type(argname="argument docgen_file_path", value=docgen_file_path, expected_type=type_hints["docgen_file_path"])
-            check_type(argname="argument dotnet", value=dotnet, expected_type=type_hints["dotnet"])
             check_type(argname="argument exclude_typescript", value=exclude_typescript, expected_type=type_hints["exclude_typescript"])
             check_type(argname="argument jsii_version", value=jsii_version, expected_type=type_hints["jsii_version"])
             check_type(argname="argument publish_to_go", value=publish_to_go, expected_type=type_hints["publish_to_go"])
             check_type(argname="argument publish_to_maven", value=publish_to_maven, expected_type=type_hints["publish_to_maven"])
             check_type(argname="argument publish_to_nuget", value=publish_to_nuget, expected_type=type_hints["publish_to_nuget"])
             check_type(argname="argument publish_to_pypi", value=publish_to_pypi, expected_type=type_hints["publish_to_pypi"])
-            check_type(argname="argument python", value=python, expected_type=type_hints["python"])
             check_type(argname="argument rootdir", value=rootdir, expected_type=type_hints["rootdir"])
+            check_type(argname="argument validate_tsconfig", value=validate_tsconfig, expected_type=type_hints["validate_tsconfig"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "default_release_branch": default_release_branch,
             "author": author,
             "author_address": author_address,
             "repository_url": repository_url,
@@ -3299,16 +3193,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -3371,8 +3257,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["npm_access"] = npm_access
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
-        if npm_registry is not None:
-            self._values["npm_registry"] = npm_registry
         if npm_registry_url is not None:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
@@ -3395,8 +3279,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["repository_directory"] = repository_directory
         if scoped_packages_options is not None:
             self._values["scoped_packages_options"] = scoped_packages_options
-        if scripts is not None:
-            self._values["scripts"] = scripts
         if stability is not None:
             self._values["stability"] = stability
         if yarn_berry_options is not None:
@@ -3427,14 +3309,10 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -3469,8 +3347,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
             self._values["build_workflow_options"] = build_workflow_options
-        if build_workflow_triggers is not None:
-            self._values["build_workflow_triggers"] = build_workflow_triggers
         if bundler_options is not None:
             self._values["bundler_options"] = bundler_options
         if check_licenses is not None:
@@ -3483,6 +3359,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["copyright_owner"] = copyright_owner
         if copyright_period is not None:
             self._values["copyright_period"] = copyright_period
+        if default_release_branch is not None:
+            self._values["default_release_branch"] = default_release_branch
         if dependabot is not None:
             self._values["dependabot"] = dependabot
         if dependabot_options is not None:
@@ -3497,10 +3375,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["jest"] = jest
         if jest_options is not None:
             self._values["jest_options"] = jest_options
-        if mutable_build is not None:
-            self._values["mutable_build"] = mutable_build
-        if npmignore is not None:
-            self._values["npmignore"] = npmignore
         if npmignore_enabled is not None:
             self._values["npmignore_enabled"] = npmignore_enabled
         if npm_ignore_options is not None:
@@ -3527,8 +3401,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["release"] = release
         if release_to_npm is not None:
             self._values["release_to_npm"] = release_to_npm
-        if release_workflow is not None:
-            self._values["release_workflow"] = release_workflow
         if workflow_bootstrap_steps is not None:
             self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
         if workflow_git_identity is not None:
@@ -3581,8 +3453,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["compress_assembly"] = compress_assembly
         if docgen_file_path is not None:
             self._values["docgen_file_path"] = docgen_file_path
-        if dotnet is not None:
-            self._values["dotnet"] = dotnet
         if exclude_typescript is not None:
             self._values["exclude_typescript"] = exclude_typescript
         if jsii_version is not None:
@@ -3595,10 +3465,10 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["publish_to_nuget"] = publish_to_nuget
         if publish_to_pypi is not None:
             self._values["publish_to_pypi"] = publish_to_pypi
-        if python is not None:
-            self._values["python"] = python
         if rootdir is not None:
             self._values["rootdir"] = rootdir
+        if validate_tsconfig is not None:
+            self._values["validate_tsconfig"] = validate_tsconfig
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -3844,45 +3714,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -3892,22 +3723,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -4331,19 +4146,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_registry(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The host name of the npm registry to publish to.
-
-        Cannot be set together with ``npmRegistryUrl``.
-
-        :deprecated: use ``npmRegistryUrl`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npm_registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
@@ -4481,23 +4283,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         '''
         result = self._values.get("scoped_packages_options")
         return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
-
-    @builtins.property
-    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(deprecated) npm scripts to include.
-
-        If a script has the same name as a standard script,
-        the standard script will be overwritten.
-        Also adds the script as a task.
-
-        :default: {}
-
-        :deprecated: use ``project.addTask()`` or ``package.setScript()``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("scripts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def stability(self) -> typing.Optional[builtins.str]:
@@ -4716,19 +4501,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -4750,19 +4522,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -4878,18 +4637,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def default_release_branch(self) -> builtins.str:
-        '''(experimental) The name of the main release branch.
-
-        :default: "main"
-
-        :stability: experimental
-        '''
-        result = self._values.get("default_release_branch")
-        assert result is not None, "Required property 'default_release_branch' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
         '''(experimental) A directory which will contain build artifacts.
 
@@ -4984,19 +4731,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
-        '''(deprecated) Build workflow triggers.
-
-        :default: "{ pullRequest: {}, workflowDispatch: {} }"
-
-        :deprecated: - Use ``buildWorkflowOptions.workflowTriggers``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
-
-    @builtins.property
     def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
@@ -5060,6 +4794,18 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :stability: experimental
         '''
         result = self._values.get("copyright_period")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_release_branch(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the main release branch.
+
+        :default: "main"
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("default_release_branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -5142,36 +4888,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         '''
         result = self._values.get("jest_options")
         return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
-
-    @builtins.property
-    def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically update files modified during builds to pull-request branches.
-
-        This means
-        that any files synthesized by projen or e.g. test snapshots will always be up-to-date
-        before a PR is merged.
-
-        Implies that PR builds do not have anti-tamper checks.
-
-        :default: true
-
-        :deprecated: - Use ``buildWorkflowOptions.mutableBuild``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mutable_build")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def npmignore(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Additional entries to .npmignore.
-
-        :deprecated: - use ``project.addPackageIgnore``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npmignore")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def npmignore_enabled(self) -> typing.Optional[builtins.bool]:
@@ -5314,19 +5030,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :stability: experimental
         '''
         result = self._values.get("release_to_npm")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def release_workflow(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) DEPRECATED: renamed to ``release``.
-
-        :default: - true if not a subproject
-
-        :deprecated: see ``release``.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_workflow")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -5664,16 +5367,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def dotnet(self) -> typing.Optional["JsiiDotNetTarget"]:
-        '''
-        :deprecated: use ``publishToNuget``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("dotnet")
-        return typing.cast(typing.Optional["JsiiDotNetTarget"], result)
-
-    @builtins.property
     def exclude_typescript(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Accepts a list of glob patterns.
 
@@ -5702,7 +5395,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :default: "~5.9.0"
 
         :stability: experimental
-        :pjnew: "~5.9.0"
+        :pjnew: "~6.0.0"
         '''
         result = self._values.get("jsii_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5752,16 +5445,6 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional["JsiiPythonTarget"], result)
 
     @builtins.property
-    def python(self) -> typing.Optional["JsiiPythonTarget"]:
-        '''
-        :deprecated: use ``publishToPyPi``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("python")
-        return typing.cast(typing.Optional["JsiiPythonTarget"], result)
-
-    @builtins.property
     def rootdir(self) -> typing.Optional[builtins.str]:
         '''
         :default: "."
@@ -5770,6 +5453,21 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         '''
         result = self._values.get("rootdir")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def validate_tsconfig(self) -> typing.Optional["ValidateTsconfig"]:
+        '''(experimental) Level of tsconfig validation jsii should perform on the user-provided tsconfig.
+
+        Only relevant when the project synthesizes its own tsconfig
+        (i.e. ``disableTsconfig`` is not set on the TypeScriptProject).
+
+        :default: ValidateTsconfig.STRICT
+
+        :see: https://aws.github.io/jsii/user-guides/lib-author/configuration/#validatetsconfig
+        :stability: experimental
+        '''
+        result = self._values.get("validate_tsconfig")
+        return typing.cast(typing.Optional["ValidateTsconfig"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6105,15 +5803,14 @@ class ConstructLibrary(
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
         publish_to_go: typing.Optional[typing.Union["JsiiGoTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_maven: typing.Optional[typing.Union["JsiiJavaTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_nuget: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_pypi: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
+        validate_tsconfig: typing.Optional["ValidateTsconfig"] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
         docgen: typing.Optional[builtins.bool] = None,
@@ -6132,7 +5829,6 @@ class ConstructLibrary(
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
         ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6141,13 +5837,13 @@ class ConstructLibrary(
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -6155,8 +5851,6 @@ class ConstructLibrary(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -6170,7 +5864,6 @@ class ConstructLibrary(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -6183,11 +5876,7 @@ class ConstructLibrary(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6219,7 +5908,6 @@ class ConstructLibrary(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -6231,7 +5919,6 @@ class ConstructLibrary(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -6247,10 +5934,8 @@ class ConstructLibrary(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -6283,15 +5968,14 @@ class ConstructLibrary(
         :param compat_ignore: (experimental) Name of the ignore file for API compatibility tests. Default: ".compatignore"
         :param compress_assembly: (experimental) Emit a compressed version of the assembly. Default: false
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
-        :param dotnet: 
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
         :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
-        :param python: 
         :param rootdir: Default: "."
+        :param validate_tsconfig: (experimental) Level of tsconfig validation jsii should perform on the user-provided tsconfig. Only relevant when the project synthesizes its own tsconfig (i.e. ``disableTsconfig`` is not set on the TypeScriptProject). Default: ValidateTsconfig.STRICT
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
         :param disable_tsconfig_dev: (experimental) Do not generate a ``tsconfig.dev.json`` file. Default: false
         :param docgen: (experimental) Docgen by Typedoc. Default: false
@@ -6310,7 +5994,6 @@ class ConstructLibrary(
         :param tsconfig_dev_file: (experimental) The name of the development tsconfig.json file. Default: "tsconfig.dev.json"
         :param ts_jest_options: (experimental) Options for ts-jest.
         :param typescript_version: (experimental) TypeScript version to use. NOTE: Typescript is not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~1.2.3``). Default: "latest"
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -6319,13 +6002,13 @@ class ConstructLibrary(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -6333,8 +6016,6 @@ class ConstructLibrary(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -6348,7 +6029,6 @@ class ConstructLibrary(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -6361,11 +6041,7 @@ class ConstructLibrary(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -6397,7 +6073,6 @@ class ConstructLibrary(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -6409,7 +6084,6 @@ class ConstructLibrary(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -6425,10 +6099,8 @@ class ConstructLibrary(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -6463,15 +6135,14 @@ class ConstructLibrary(
             compat_ignore=compat_ignore,
             compress_assembly=compress_assembly,
             docgen_file_path=docgen_file_path,
-            dotnet=dotnet,
             exclude_typescript=exclude_typescript,
             jsii_version=jsii_version,
             publish_to_go=publish_to_go,
             publish_to_maven=publish_to_maven,
             publish_to_nuget=publish_to_nuget,
             publish_to_pypi=publish_to_pypi,
-            python=python,
             rootdir=rootdir,
+            validate_tsconfig=validate_tsconfig,
             disable_tsconfig=disable_tsconfig,
             disable_tsconfig_dev=disable_tsconfig_dev,
             docgen=docgen,
@@ -6490,7 +6161,6 @@ class ConstructLibrary(
             tsconfig_dev_file=tsconfig_dev_file,
             ts_jest_options=ts_jest_options,
             typescript_version=typescript_version,
-            default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             audit_deps=audit_deps,
             audit_deps_options=audit_deps_options,
@@ -6499,13 +6169,13 @@ class ConstructLibrary(
             biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
-            build_workflow_triggers=build_workflow_triggers,
             bundler_options=bundler_options,
             check_licenses=check_licenses,
             code_cov=code_cov,
             code_cov_token_secret=code_cov_token_secret,
             copyright_owner=copyright_owner,
             copyright_period=copyright_period,
+            default_release_branch=default_release_branch,
             dependabot=dependabot,
             dependabot_options=dependabot_options,
             deps_upgrade=deps_upgrade,
@@ -6513,8 +6183,6 @@ class ConstructLibrary(
             gitignore=gitignore,
             jest=jest,
             jest_options=jest_options,
-            mutable_build=mutable_build,
-            npmignore=npmignore,
             npmignore_enabled=npmignore_enabled,
             npm_ignore_options=npm_ignore_options,
             package=package,
@@ -6528,7 +6196,6 @@ class ConstructLibrary(
             pull_request_template_contents=pull_request_template_contents,
             release=release,
             release_to_npm=release_to_npm,
-            release_workflow=release_workflow,
             workflow_bootstrap_steps=workflow_bootstrap_steps,
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
@@ -6541,11 +6208,7 @@ class ConstructLibrary(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -6577,7 +6240,6 @@ class ConstructLibrary(
             min_node_version=min_node_version,
             npm_access=npm_access,
             npm_provenance=npm_provenance,
-            npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
@@ -6589,7 +6251,6 @@ class ConstructLibrary(
             repository=repository,
             repository_directory=repository_directory,
             scoped_packages_options=scoped_packages_options,
-            scripts=scripts,
             stability=stability,
             yarn_berry_options=yarn_berry_options,
             bump_package=bump_package,
@@ -6605,10 +6266,8 @@ class ConstructLibrary(
             releasable_commits=releasable_commits,
             release_branches=release_branches,
             release_environment=release_environment,
-            release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
-            release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
             release_workflow_env=release_workflow_env,
@@ -6668,11 +6327,7 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -6704,7 +6359,6 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "min_node_version": "minNodeVersion",
         "npm_access": "npmAccess",
         "npm_provenance": "npmProvenance",
-        "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
@@ -6716,7 +6370,6 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
         "scoped_packages_options": "scopedPackagesOptions",
-        "scripts": "scripts",
         "stability": "stability",
         "yarn_berry_options": "yarnBerryOptions",
         "bump_package": "bumpPackage",
@@ -6732,10 +6385,8 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -6745,7 +6396,6 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "workflow_container_image": "workflowContainerImage",
         "workflow_runs_on": "workflowRunsOn",
         "workflow_runs_on_group": "workflowRunsOnGroup",
-        "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "audit_deps": "auditDeps",
         "audit_deps_options": "auditDepsOptions",
@@ -6754,13 +6404,13 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
-        "build_workflow_triggers": "buildWorkflowTriggers",
         "bundler_options": "bundlerOptions",
         "check_licenses": "checkLicenses",
         "code_cov": "codeCov",
         "code_cov_token_secret": "codeCovTokenSecret",
         "copyright_owner": "copyrightOwner",
         "copyright_period": "copyrightPeriod",
+        "default_release_branch": "defaultReleaseBranch",
         "dependabot": "dependabot",
         "dependabot_options": "dependabotOptions",
         "deps_upgrade": "depsUpgrade",
@@ -6768,8 +6418,6 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "gitignore": "gitignore",
         "jest": "jest",
         "jest_options": "jestOptions",
-        "mutable_build": "mutableBuild",
-        "npmignore": "npmignore",
         "npmignore_enabled": "npmignoreEnabled",
         "npm_ignore_options": "npmIgnoreOptions",
         "package": "package",
@@ -6783,7 +6431,6 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "pull_request_template_contents": "pullRequestTemplateContents",
         "release": "release",
         "release_to_npm": "releaseToNpm",
-        "release_workflow": "releaseWorkflow",
         "workflow_bootstrap_steps": "workflowBootstrapSteps",
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
@@ -6813,15 +6460,14 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "compat_ignore": "compatIgnore",
         "compress_assembly": "compressAssembly",
         "docgen_file_path": "docgenFilePath",
-        "dotnet": "dotnet",
         "exclude_typescript": "excludeTypescript",
         "jsii_version": "jsiiVersion",
         "publish_to_go": "publishToGo",
         "publish_to_maven": "publishToMaven",
         "publish_to_nuget": "publishToNuget",
         "publish_to_pypi": "publishToPypi",
-        "python": "python",
         "rootdir": "rootdir",
+        "validate_tsconfig": "validateTsconfig",
         "catalog": "catalog",
     },
 )
@@ -6850,11 +6496,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6886,7 +6528,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -6898,7 +6539,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -6914,10 +6554,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -6927,7 +6565,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6936,13 +6573,13 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -6950,8 +6587,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -6965,7 +6600,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -6995,15 +6629,14 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
         publish_to_go: typing.Optional[typing.Union["JsiiGoTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_maven: typing.Optional[typing.Union["JsiiJavaTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_nuget: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_to_pypi: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
+        validate_tsconfig: typing.Optional["ValidateTsconfig"] = None,
         catalog: typing.Optional[typing.Union["Catalog", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -7028,11 +6661,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -7064,7 +6693,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -7076,7 +6704,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -7092,10 +6719,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -7105,7 +6730,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
         :param workflow_runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -7114,13 +6738,13 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -7128,8 +6752,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -7143,7 +6765,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -7173,15 +6794,14 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param compat_ignore: (experimental) Name of the ignore file for API compatibility tests. Default: ".compatignore"
         :param compress_assembly: (experimental) Emit a compressed version of the assembly. Default: false
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
-        :param dotnet: 
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
         :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
-        :param python: 
         :param rootdir: Default: "."
+        :param validate_tsconfig: (experimental) Level of tsconfig validation jsii should perform on the user-provided tsconfig. Only relevant when the project synthesizes its own tsconfig (i.e. ``disableTsconfig`` is not set on the TypeScriptProject). Default: ValidateTsconfig.STRICT
         :param catalog: (experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:. https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION The catalog will also post a tweet to https://twitter.com/awscdkio with the package name, description and the above link. You can disable these tweets through ``{ announce: false }``. You can also add a Twitter handle through ``{ twitter: 'xx' }`` which will be mentioned in the tweet. Default: - new version will be announced
 
         :stability: experimental
@@ -7202,8 +6822,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -7224,8 +6842,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
-        if isinstance(build_workflow_triggers, dict):
-            build_workflow_triggers = _Triggers_e9ae7617(**build_workflow_triggers)
         if isinstance(bundler_options, dict):
             bundler_options = _BundlerOptions_d60b85ed(**bundler_options)
         if isinstance(check_licenses, dict):
@@ -7254,8 +6870,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             tsconfig_dev = _TypescriptConfigOptions_8c5492cd(**tsconfig_dev)
         if isinstance(ts_jest_options, dict):
             ts_jest_options = _TsJestOptions_3c0597c1(**ts_jest_options)
-        if isinstance(dotnet, dict):
-            dotnet = JsiiDotNetTarget(**dotnet)
         if isinstance(publish_to_go, dict):
             publish_to_go = JsiiGoTarget(**publish_to_go)
         if isinstance(publish_to_maven, dict):
@@ -7264,8 +6878,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             publish_to_nuget = JsiiDotNetTarget(**publish_to_nuget)
         if isinstance(publish_to_pypi, dict):
             publish_to_pypi = JsiiPythonTarget(**publish_to_pypi)
-        if isinstance(python, dict):
-            python = JsiiPythonTarget(**python)
         if isinstance(catalog, dict):
             catalog = Catalog(**catalog)
         if __debug__:
@@ -7291,11 +6903,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -7327,7 +6935,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument min_node_version", value=min_node_version, expected_type=type_hints["min_node_version"])
             check_type(argname="argument npm_access", value=npm_access, expected_type=type_hints["npm_access"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
@@ -7339,7 +6946,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
             check_type(argname="argument scoped_packages_options", value=scoped_packages_options, expected_type=type_hints["scoped_packages_options"])
-            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
             check_type(argname="argument yarn_berry_options", value=yarn_berry_options, expected_type=type_hints["yarn_berry_options"])
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
@@ -7355,10 +6961,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -7368,7 +6972,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument workflow_container_image", value=workflow_container_image, expected_type=type_hints["workflow_container_image"])
             check_type(argname="argument workflow_runs_on", value=workflow_runs_on, expected_type=type_hints["workflow_runs_on"])
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
-            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
             check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
@@ -7377,13 +6980,13 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
-            check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
             check_type(argname="argument bundler_options", value=bundler_options, expected_type=type_hints["bundler_options"])
             check_type(argname="argument check_licenses", value=check_licenses, expected_type=type_hints["check_licenses"])
             check_type(argname="argument code_cov", value=code_cov, expected_type=type_hints["code_cov"])
             check_type(argname="argument code_cov_token_secret", value=code_cov_token_secret, expected_type=type_hints["code_cov_token_secret"])
             check_type(argname="argument copyright_owner", value=copyright_owner, expected_type=type_hints["copyright_owner"])
             check_type(argname="argument copyright_period", value=copyright_period, expected_type=type_hints["copyright_period"])
+            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument dependabot", value=dependabot, expected_type=type_hints["dependabot"])
             check_type(argname="argument dependabot_options", value=dependabot_options, expected_type=type_hints["dependabot_options"])
             check_type(argname="argument deps_upgrade", value=deps_upgrade, expected_type=type_hints["deps_upgrade"])
@@ -7391,8 +6994,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument gitignore", value=gitignore, expected_type=type_hints["gitignore"])
             check_type(argname="argument jest", value=jest, expected_type=type_hints["jest"])
             check_type(argname="argument jest_options", value=jest_options, expected_type=type_hints["jest_options"])
-            check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
-            check_type(argname="argument npmignore", value=npmignore, expected_type=type_hints["npmignore"])
             check_type(argname="argument npmignore_enabled", value=npmignore_enabled, expected_type=type_hints["npmignore_enabled"])
             check_type(argname="argument npm_ignore_options", value=npm_ignore_options, expected_type=type_hints["npm_ignore_options"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -7406,7 +7007,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument pull_request_template_contents", value=pull_request_template_contents, expected_type=type_hints["pull_request_template_contents"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
             check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
-            check_type(argname="argument release_workflow", value=release_workflow, expected_type=type_hints["release_workflow"])
             check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
@@ -7436,19 +7036,17 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument compat_ignore", value=compat_ignore, expected_type=type_hints["compat_ignore"])
             check_type(argname="argument compress_assembly", value=compress_assembly, expected_type=type_hints["compress_assembly"])
             check_type(argname="argument docgen_file_path", value=docgen_file_path, expected_type=type_hints["docgen_file_path"])
-            check_type(argname="argument dotnet", value=dotnet, expected_type=type_hints["dotnet"])
             check_type(argname="argument exclude_typescript", value=exclude_typescript, expected_type=type_hints["exclude_typescript"])
             check_type(argname="argument jsii_version", value=jsii_version, expected_type=type_hints["jsii_version"])
             check_type(argname="argument publish_to_go", value=publish_to_go, expected_type=type_hints["publish_to_go"])
             check_type(argname="argument publish_to_maven", value=publish_to_maven, expected_type=type_hints["publish_to_maven"])
             check_type(argname="argument publish_to_nuget", value=publish_to_nuget, expected_type=type_hints["publish_to_nuget"])
             check_type(argname="argument publish_to_pypi", value=publish_to_pypi, expected_type=type_hints["publish_to_pypi"])
-            check_type(argname="argument python", value=python, expected_type=type_hints["python"])
             check_type(argname="argument rootdir", value=rootdir, expected_type=type_hints["rootdir"])
+            check_type(argname="argument validate_tsconfig", value=validate_tsconfig, expected_type=type_hints["validate_tsconfig"])
             check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "default_release_branch": default_release_branch,
             "author": author,
             "author_address": author_address,
             "repository_url": repository_url,
@@ -7493,16 +7091,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -7565,8 +7155,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["npm_access"] = npm_access
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
-        if npm_registry is not None:
-            self._values["npm_registry"] = npm_registry
         if npm_registry_url is not None:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
@@ -7589,8 +7177,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["repository_directory"] = repository_directory
         if scoped_packages_options is not None:
             self._values["scoped_packages_options"] = scoped_packages_options
-        if scripts is not None:
-            self._values["scripts"] = scripts
         if stability is not None:
             self._values["stability"] = stability
         if yarn_berry_options is not None:
@@ -7621,14 +7207,10 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -7663,8 +7245,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
             self._values["build_workflow_options"] = build_workflow_options
-        if build_workflow_triggers is not None:
-            self._values["build_workflow_triggers"] = build_workflow_triggers
         if bundler_options is not None:
             self._values["bundler_options"] = bundler_options
         if check_licenses is not None:
@@ -7677,6 +7257,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["copyright_owner"] = copyright_owner
         if copyright_period is not None:
             self._values["copyright_period"] = copyright_period
+        if default_release_branch is not None:
+            self._values["default_release_branch"] = default_release_branch
         if dependabot is not None:
             self._values["dependabot"] = dependabot
         if dependabot_options is not None:
@@ -7691,10 +7273,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["jest"] = jest
         if jest_options is not None:
             self._values["jest_options"] = jest_options
-        if mutable_build is not None:
-            self._values["mutable_build"] = mutable_build
-        if npmignore is not None:
-            self._values["npmignore"] = npmignore
         if npmignore_enabled is not None:
             self._values["npmignore_enabled"] = npmignore_enabled
         if npm_ignore_options is not None:
@@ -7721,8 +7299,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["release"] = release
         if release_to_npm is not None:
             self._values["release_to_npm"] = release_to_npm
-        if release_workflow is not None:
-            self._values["release_workflow"] = release_workflow
         if workflow_bootstrap_steps is not None:
             self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
         if workflow_git_identity is not None:
@@ -7775,8 +7351,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["compress_assembly"] = compress_assembly
         if docgen_file_path is not None:
             self._values["docgen_file_path"] = docgen_file_path
-        if dotnet is not None:
-            self._values["dotnet"] = dotnet
         if exclude_typescript is not None:
             self._values["exclude_typescript"] = exclude_typescript
         if jsii_version is not None:
@@ -7789,10 +7363,10 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["publish_to_nuget"] = publish_to_nuget
         if publish_to_pypi is not None:
             self._values["publish_to_pypi"] = publish_to_pypi
-        if python is not None:
-            self._values["python"] = python
         if rootdir is not None:
             self._values["rootdir"] = rootdir
+        if validate_tsconfig is not None:
+            self._values["validate_tsconfig"] = validate_tsconfig
         if catalog is not None:
             self._values["catalog"] = catalog
 
@@ -8040,45 +7614,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -8088,22 +7623,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -8527,19 +8046,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_registry(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The host name of the npm registry to publish to.
-
-        Cannot be set together with ``npmRegistryUrl``.
-
-        :deprecated: use ``npmRegistryUrl`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npm_registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
@@ -8677,23 +8183,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         '''
         result = self._values.get("scoped_packages_options")
         return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
-
-    @builtins.property
-    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(deprecated) npm scripts to include.
-
-        If a script has the same name as a standard script,
-        the standard script will be overwritten.
-        Also adds the script as a task.
-
-        :default: {}
-
-        :deprecated: use ``project.addTask()`` or ``package.setScript()``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("scripts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def stability(self) -> typing.Optional[builtins.str]:
@@ -8912,19 +8401,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -8946,19 +8422,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -9074,18 +8537,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def default_release_branch(self) -> builtins.str:
-        '''(experimental) The name of the main release branch.
-
-        :default: "main"
-
-        :stability: experimental
-        '''
-        result = self._values.get("default_release_branch")
-        assert result is not None, "Required property 'default_release_branch' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
         '''(experimental) A directory which will contain build artifacts.
 
@@ -9180,19 +8631,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
-        '''(deprecated) Build workflow triggers.
-
-        :default: "{ pullRequest: {}, workflowDispatch: {} }"
-
-        :deprecated: - Use ``buildWorkflowOptions.workflowTriggers``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
-
-    @builtins.property
     def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
@@ -9256,6 +8694,18 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("copyright_period")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_release_branch(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the main release branch.
+
+        :default: "main"
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("default_release_branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -9338,36 +8788,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         '''
         result = self._values.get("jest_options")
         return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
-
-    @builtins.property
-    def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically update files modified during builds to pull-request branches.
-
-        This means
-        that any files synthesized by projen or e.g. test snapshots will always be up-to-date
-        before a PR is merged.
-
-        Implies that PR builds do not have anti-tamper checks.
-
-        :default: true
-
-        :deprecated: - Use ``buildWorkflowOptions.mutableBuild``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mutable_build")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def npmignore(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Additional entries to .npmignore.
-
-        :deprecated: - use ``project.addPackageIgnore``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npmignore")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def npmignore_enabled(self) -> typing.Optional[builtins.bool]:
@@ -9510,19 +8930,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("release_to_npm")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def release_workflow(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) DEPRECATED: renamed to ``release``.
-
-        :default: - true if not a subproject
-
-        :deprecated: see ``release``.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_workflow")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -9860,16 +9267,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def dotnet(self) -> typing.Optional["JsiiDotNetTarget"]:
-        '''
-        :deprecated: use ``publishToNuget``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("dotnet")
-        return typing.cast(typing.Optional["JsiiDotNetTarget"], result)
-
-    @builtins.property
     def exclude_typescript(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Accepts a list of glob patterns.
 
@@ -9898,7 +9295,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :default: "~5.9.0"
 
         :stability: experimental
-        :pjnew: "~5.9.0"
+        :pjnew: "~6.0.0"
         '''
         result = self._values.get("jsii_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9948,16 +9345,6 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional["JsiiPythonTarget"], result)
 
     @builtins.property
-    def python(self) -> typing.Optional["JsiiPythonTarget"]:
-        '''
-        :deprecated: use ``publishToPyPi``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("python")
-        return typing.cast(typing.Optional["JsiiPythonTarget"], result)
-
-    @builtins.property
     def rootdir(self) -> typing.Optional[builtins.str]:
         '''
         :default: "."
@@ -9966,6 +9353,21 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         '''
         result = self._values.get("rootdir")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def validate_tsconfig(self) -> typing.Optional["ValidateTsconfig"]:
+        '''(experimental) Level of tsconfig validation jsii should perform on the user-provided tsconfig.
+
+        Only relevant when the project synthesizes its own tsconfig
+        (i.e. ``disableTsconfig`` is not set on the TypeScriptProject).
+
+        :default: ValidateTsconfig.STRICT
+
+        :see: https://aws.github.io/jsii/user-guides/lib-author/configuration/#validatetsconfig
+        :stability: experimental
+        '''
+        result = self._values.get("validate_tsconfig")
+        return typing.cast(typing.Optional["ValidateTsconfig"], result)
 
     @builtins.property
     def catalog(self) -> typing.Optional["Catalog"]:
@@ -10228,11 +9630,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10264,7 +9662,6 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[_NpmAccess_134fa228] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -10276,7 +9673,6 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
     bump_package: typing.Optional[builtins.str] = None,
@@ -10292,10 +9688,8 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -10305,7 +9699,6 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     workflow_container_image: typing.Optional[builtins.str] = None,
     workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-    default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     audit_deps: typing.Optional[builtins.bool] = None,
     audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10314,13 +9707,13 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-    build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
     check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
     code_cov: typing.Optional[builtins.bool] = None,
     code_cov_token_secret: typing.Optional[builtins.str] = None,
     copyright_owner: typing.Optional[builtins.str] = None,
     copyright_period: typing.Optional[builtins.str] = None,
+    default_release_branch: typing.Optional[builtins.str] = None,
     dependabot: typing.Optional[builtins.bool] = None,
     dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
     deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -10328,8 +9721,6 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest: typing.Optional[builtins.bool] = None,
     jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
-    mutable_build: typing.Optional[builtins.bool] = None,
-    npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     npmignore_enabled: typing.Optional[builtins.bool] = None,
     npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
     package: typing.Optional[builtins.bool] = None,
@@ -10343,7 +9734,6 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
     release: typing.Optional[builtins.bool] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
-    release_workflow: typing.Optional[builtins.bool] = None,
     workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
@@ -10373,15 +9763,14 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     compat_ignore: typing.Optional[builtins.str] = None,
     compress_assembly: typing.Optional[builtins.bool] = None,
     docgen_file_path: typing.Optional[builtins.str] = None,
-    dotnet: typing.Optional[typing.Union[JsiiDotNetTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
     jsii_version: typing.Optional[builtins.str] = None,
     publish_to_go: typing.Optional[typing.Union[JsiiGoTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     publish_to_maven: typing.Optional[typing.Union[JsiiJavaTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     publish_to_nuget: typing.Optional[typing.Union[JsiiDotNetTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     publish_to_pypi: typing.Optional[typing.Union[JsiiPythonTarget, typing.Dict[builtins.str, typing.Any]]] = None,
-    python: typing.Optional[typing.Union[JsiiPythonTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     rootdir: typing.Optional[builtins.str] = None,
+    validate_tsconfig: typing.Optional[ValidateTsconfig] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10427,11 +9816,7 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10463,7 +9848,6 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[_NpmAccess_134fa228] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -10475,7 +9859,6 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
     bump_package: typing.Optional[builtins.str] = None,
@@ -10491,10 +9874,8 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -10504,7 +9885,6 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     workflow_container_image: typing.Optional[builtins.str] = None,
     workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-    default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     audit_deps: typing.Optional[builtins.bool] = None,
     audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10513,13 +9893,13 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-    build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
     check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
     code_cov: typing.Optional[builtins.bool] = None,
     code_cov_token_secret: typing.Optional[builtins.str] = None,
     copyright_owner: typing.Optional[builtins.str] = None,
     copyright_period: typing.Optional[builtins.str] = None,
+    default_release_branch: typing.Optional[builtins.str] = None,
     dependabot: typing.Optional[builtins.bool] = None,
     dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
     deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -10527,8 +9907,6 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest: typing.Optional[builtins.bool] = None,
     jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
-    mutable_build: typing.Optional[builtins.bool] = None,
-    npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     npmignore_enabled: typing.Optional[builtins.bool] = None,
     npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
     package: typing.Optional[builtins.bool] = None,
@@ -10542,7 +9920,6 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
     release: typing.Optional[builtins.bool] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
-    release_workflow: typing.Optional[builtins.bool] = None,
     workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
@@ -10572,15 +9949,14 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     compat_ignore: typing.Optional[builtins.str] = None,
     compress_assembly: typing.Optional[builtins.bool] = None,
     docgen_file_path: typing.Optional[builtins.str] = None,
-    dotnet: typing.Optional[typing.Union[JsiiDotNetTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
     jsii_version: typing.Optional[builtins.str] = None,
     publish_to_go: typing.Optional[typing.Union[JsiiGoTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     publish_to_maven: typing.Optional[typing.Union[JsiiJavaTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     publish_to_nuget: typing.Optional[typing.Union[JsiiDotNetTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     publish_to_pypi: typing.Optional[typing.Union[JsiiPythonTarget, typing.Dict[builtins.str, typing.Any]]] = None,
-    python: typing.Optional[typing.Union[JsiiPythonTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     rootdir: typing.Optional[builtins.str] = None,
+    validate_tsconfig: typing.Optional[ValidateTsconfig] = None,
     catalog: typing.Optional[typing.Union[Catalog, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -231,9 +231,12 @@ class StreamMessage:
     message: bytes
     """The raw message."""
 
-    parsed: Optional[Features] = None
+    parsed: Optional[Union[Features, list[Features]]] = None
     """The expected feature output after parsing. Used by `check_stream_parsing` only.
-    Pass a feature class instance, e.g. ``User(id='u1', name='Alice')``."""
+    Pass a feature class instance, e.g. ``User(id='u1', name='Alice')``. For a
+    parser that fans a single message out into multiple rows (a list-returning
+    parse expression), pass a list of instances — one per expected output row, in
+    emission order. ``None`` skips value checks for the message."""
 
     timestamp: Optional[datetime] = None
     """The feature time to stamp on uploaded features. Used by `check_stream_scenario` only."""
@@ -348,11 +351,14 @@ def _replace_root_underscores_recursive(expr: Underscore, root_replacement: Unde
 def _parse_stream_messages(
     resolver: StreamResolver,
     messages: list[bytes],
-) -> list[dict[Feature, Any]]:
+) -> list[list[dict[Feature, Any]]]:
     """Parse raw stream-message bytes through `resolver`'s parser locally via chalkdf.
 
-    Returns one feature dict per input message. Features whose expression depends on
-    ``_.chalk_now``, and feature-time features, are omitted (they're filled in server-side).
+    Returns one group of feature dicts per input message. A scalar parse yields
+    exactly one row per message; a list-returning (fan-out) parse yields one row
+    per emitted element, and a message the parser filters out yields zero rows.
+    Features whose expression depends on ``_.chalk_now``, and feature-time
+    features, are omitted (they're filled in server-side).
 
     Raises
     ------
@@ -384,6 +390,26 @@ def _parse_stream_messages(
         else:
             os.environ["LIBCHALK_LOG_LEVEL"] = old_log_level
 
+    feature_order = list(resolver.feature_expressions.keys())
+    skipped_features: set[Any] = {
+        feat for feat, expr in resolver.feature_expressions.items() if _uses_chalk_now(expr) or feat.is_feature_time
+    }
+    feature_projections: dict[str, Any] = {
+        feat.name: expr for feat, expr in resolver.feature_expressions.items() if feat not in skipped_features
+    }
+    for k, v in feature_projections.items():
+        feature_projections[k] = _replace_root_underscores(v, _.message)
+
+    def _project_rows(struct_col: Any) -> list[dict[Feature, Any]]:
+        """Project the feature expressions over a one-struct-per-row column,
+        returning one feature dict per row."""
+        expression_result = DF({"message": struct_col}).project(feature_projections).run()
+        result_arrow = _to_arrow(expression_result)
+        return [
+            {feat: result_arrow.column(feat.name)[i].as_py() for feat in feature_order if feat not in skipped_features}
+            for i in range(result_arrow.num_rows)
+        ]
+
     if resolver.parse is None:
         message_type = resolver.message
         if message_type is None:
@@ -398,45 +424,52 @@ def _parse_stream_messages(
             .column("__parsed__")
             .combine_chunks()
         )
-    elif resolver.parse.parse_expression is not None:
-        message_type = resolver.message
-        if message_type is None:
-            raise ValueError(f"Stream resolver '{resolver.fqn}' has no message type.")
-        parse_df = DF({"message": pa.array(messages, type=pa.large_binary())})
-        rebound_parse = copy.deepcopy(resolver.parse.parse_expression)
-        rebound_parse = _replace_root_underscores(rebound_parse, _.message)
-        rebound_parse = rebound_parse.cast(message_type)
-        struct_col = (
-            parse_df.with_columns({"__parsed__": rebound_parse}).run().to_arrow().column("__parsed__").combine_chunks()
-        )
-    else:
+        # JSON deserialization is always one struct per message.
+        return [[row] for row in _project_rows(struct_col)]
+
+    if resolver.parse.parse_expression is None:
         raise ValueError(
             f"Stream resolver '{resolver.fqn}' has a parse function with no parse_expression; "
             + "local parsing of arbitrary parse callables is not supported."
         )
 
-    feature_order = list(resolver.feature_expressions.keys())
-    skipped_features: set[Any] = {
-        feat for feat, expr in resolver.feature_expressions.items() if _uses_chalk_now(expr) or feat.is_feature_time
-    }
-    feature_projections: dict[str, Any] = {
-        feat.name: expr for feat, expr in resolver.feature_expressions.items() if feat not in skipped_features
-    }
-    for k, v in feature_projections.items():
-        feature_projections[k] = _replace_root_underscores(v, _.message)
-    expression_result = DF({"message": struct_col}).project(feature_projections).run()
+    message_type = resolver.message
+    if message_type is None:
+        raise ValueError(f"Stream resolver '{resolver.fqn}' has no message type.")
+    parse_df = DF({"message": pa.array(messages, type=pa.large_binary())})
+    rebound_parse = copy.deepcopy(resolver.parse.parse_expression)
+    rebound_parse = _replace_root_underscores(rebound_parse, _.message)
+    # Run the parser uncast first so we can tell a scalar struct (one row per
+    # message) apart from a list (the parser fans each message out into many rows).
+    raw_col = (
+        parse_df.with_columns({"__parsed__": rebound_parse}).run().to_arrow().column("__parsed__").combine_chunks()
+    )
 
-    result_arrow = _to_arrow(expression_result)
+    if pa.types.is_list(raw_col.type) or pa.types.is_large_list(raw_col.type):
+        import pyarrow.compute as pc
 
-    rows: list[dict[Feature, Any]] = []
-    for i in range(len(messages)):
-        row: dict[Feature, Any] = {}
-        for feat in feature_order:
-            if feat in skipped_features:
-                continue
-            row[feat] = result_arrow.column(feat.name)[i].as_py()
-        rows.append(row)
-    return rows
+        # Fan-out: explode the list into one row per emitted element, then regroup
+        # rows under their source message via the list parent indices. A message
+        # the parser filters out (null/empty list) contributes zero rows.
+        flat = pc.list_flatten(raw_col)  # pyright: ignore[reportAttributeAccessIssue]
+        parent_indices = pc.list_parent_indices(raw_col).to_pylist()  # pyright: ignore[reportAttributeAccessIssue]
+        rows = _project_rows(flat)
+        groups: list[list[dict[Feature, Any]]] = [[] for _ in range(len(messages))]
+        for row, msg_index in zip(rows, parent_indices):
+            groups[msg_index].append(row)
+        return groups
+
+    # Scalar: cast the (already-materialized) struct column to the message type,
+    # then project — exactly one row per message.
+    struct_col = (
+        DF({"message": raw_col})
+        .with_columns({"__parsed__": _.message.cast(message_type)})
+        .run()
+        .to_arrow()
+        .column("__parsed__")
+        .combine_chunks()
+    )
+    return [[row] for row in _project_rows(struct_col)]
 
 
 def check_stream_parsing(
@@ -497,69 +530,87 @@ def check_stream_parsing(
             + "check_stream_parsing only works with resolvers created via make_stream_resolver."
         )
 
-    parsed_rows = _parse_stream_messages(resolver, [a.message for a in assertions])
+    parsed_groups = _parse_stream_messages(resolver, [a.message for a in assertions])
 
     feature_order = list(resolver.feature_expressions.keys())
-    skipped_features: set[Any] = {
-        feat for feat, expr in resolver.feature_expressions.items() if _uses_chalk_now(expr) or feat.is_feature_time
-    }
 
-    computed_by_feature: dict[Any, list[Any]] = {
-        feat: ([row.get(feat) for row in parsed_rows] if feat not in skipped_features else [None] * len(assertions))
-        for feat in feature_order
-    }
-
-    expected_by_feature: dict[Any, list[Any]] = {feat: [] for feat in feature_order}
-    for assertion in assertions:
-        if assertion.parsed is None:
-            for feat in feature_order:
-                expected_by_feature[feat].append(None)
-        else:
+    def _expected_rows(parsed: Any) -> list[dict[Feature, Any]]:
+        """Normalize a `StreamMessage.parsed` value to a list of {feature: value}
+        dicts — one per expected output row. A single instance becomes one row."""
+        instances = parsed if isinstance(parsed, (list, tuple)) else [parsed]
+        rows: list[dict[Feature, Any]] = []
+        for instance in instances:
             # features_to_columnar strips the namespace, yielding {field_name: [value]}.
-            col = features_to_columnar([assertion.parsed])
-            for feat in feature_order:
-                expected_by_feature[feat].append(col.get(feat.name, [None])[0])
+            col = features_to_columnar([instance])
+            rows.append({feat: col.get(feat.name, [None])[0] for feat in feature_order})
+        return rows
 
-    row_mismatch_features: list[list[str]] = []
-    for i in range(len(assertions)):
-        row_issues = [
-            feat.name
-            for feat in feature_order
-            if expected_by_feature[feat][i] is not None
-            and not _values_match(
-                expected_by_feature[feat][i], computed_by_feature[feat][i], float_rel_tolerance, float_abs_tolerance
-            )
-        ]
-        row_mismatch_features.append(row_issues)
+    # One comparison entry per displayed output row: (label, expected, computed, issues).
+    # `expected`/`computed` are {feature: value} dicts or None (row present on only one side).
+    comparisons: list[tuple[str, Optional[dict], Optional[dict], list[str]]] = []
+    mismatch_messages: list[int] = []
 
-    mismatch_rows = [i for i, issues in enumerate(row_mismatch_features) if issues]
+    for i, assertion in enumerate(assertions):
+        computed_rows = parsed_groups[i]
 
-    if show_table or mismatch_rows:
+        # parsed=None means "skip value checks for this message" (matches regardless
+        # of what the resolver computes), preserving the scalar single-row behavior.
+        if assertion.parsed is None:
+            computed = computed_rows[0] if computed_rows else None
+            comparisons.append((str(i), None, computed, []))
+            continue
+
+        expected_rows = _expected_rows(assertion.parsed)
+        n = max(len(expected_rows), len(computed_rows))
+        message_has_issue = len(expected_rows) != len(computed_rows)
+        for j in range(n):
+            expected = expected_rows[j] if j < len(expected_rows) else None
+            computed = computed_rows[j] if j < len(computed_rows) else None
+            if expected is None:
+                issues = ["unexpected row"]
+            elif computed is None:
+                issues = ["missing row"]
+            else:
+                # A feature whose expected value is None is treated as "don't care".
+                issues = [
+                    feat.name
+                    for feat in feature_order
+                    if expected[feat] is not None
+                    and not _values_match(expected[feat], computed.get(feat), float_rel_tolerance, float_abs_tolerance)
+                ]
+            if issues:
+                message_has_issue = True
+            label = str(i) if n == 1 else f"{i}.{j}"
+            comparisons.append((label, expected, computed, issues))
+
+        if message_has_issue:
+            mismatch_messages.append(i)
+
+    if show_table or mismatch_messages:
         console = Console()
         result_table = Table(title=f"Stream Parsing Check: {resolver.fqn}", title_justify="left")
-        result_table.add_column("Row", max_width=5)
+        result_table.add_column("Row", max_width=6)
         for feat in feature_order:
             result_table.add_column(f"Expected\n{feat.name}", max_width=30)
             result_table.add_column(f"Computed\n{feat.name}", max_width=30)
         result_table.add_column("Status", max_width=10)
 
-        for i in range(len(assertions)):
-            issues = row_mismatch_features[i]
+        for label, expected, computed, issues in comparisons:
             status = Color.render("Match", Color.G) if not issues else Color.render("Mismatch", Color.R)
-            row_data: list[str | Text] = [str(i)]
+            row_data: list[str | Text] = [label]
             for feat in feature_order:
-                row_data.append(str(expected_by_feature[feat][i]))
-                row_data.append(str(computed_by_feature[feat][i]))
+                row_data.append("—" if expected is None else str(expected[feat]))
+                row_data.append("—" if computed is None else str(computed.get(feat)))
             row_data.append(status)
             result_table.add_row(*row_data)
 
         print()
         console.print(result_table)
 
-    if mismatch_rows:
+    if mismatch_messages:
         fail_msg = (
             f"Stream parsing check failed for '{resolver.fqn}': "
-            + f"{len(mismatch_rows)} of {len(assertions)} messages had mismatches (rows: {mismatch_rows})"
+            + f"{len(mismatch_messages)} of {len(assertions)} messages had mismatches (messages: {mismatch_messages})"
         )
         pytest.fail(fail_msg, pytrace=False)
 

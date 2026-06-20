@@ -347,12 +347,34 @@ class Laminar:
                 env_metadata = json.loads(env_metadata_str)
             except Exception:
                 pass
+        # In debug mode, LMNR_DEBUG_RUN_NOTES_FILE / LMNR_DEBUG_RUN_NOTES carry
+        # the pre-run note as raw markdown — a formatting-friendly alternative to
+        # stringifying it into the LMNR_TRACE_METADATA JSON. When set, it
+        # overrides the `rollout.note` key on top of the parsed metadata (file
+        # path wins over inline; see resolve_debug_run_note).
+        from lmnr.sdk.debug.config import ROLLOUT_NOTE_KEY, resolve_debug_run_note
+
+        debug_run_note = resolve_debug_run_note()
+        if debug_run_note is not None:
+            env_metadata[ROLLOUT_NOTE_KEY] = debug_run_note
         cls.__global_metadata = {**env_metadata, **(metadata or {})}
 
         if not os.getenv("OTEL_ATTRIBUTE_COUNT_LIMIT"):
             # each message is at least 2 attributes: role and content,
             # but the default attribute limit is 128, so raise it
             os.environ["OTEL_ATTRIBUTE_COUNT_LIMIT"] = "10000"
+
+        # A debug run wants spans to land in the UI instantly so the agent can
+        # iterate against fresh results — batching would hold them back by up to
+        # the schedule delay. Force the SimpleSpanProcessor on any LMNR_DEBUG run
+        # (the env-origin gate; a downstream context-armed run inherits the
+        # upstream session but configures its own transport). Mirrors the
+        # LMNR_DEBUG truthy gate used by _init_debug_runtime / the TS SDK.
+        from lmnr.sdk.debug.config import _is_truthy
+
+        disable_batch_resolved = disable_batch or _is_truthy(
+            os.environ.get("LMNR_DEBUG")
+        )
 
         TracerManager.init(
             base_url=url,
@@ -363,7 +385,7 @@ class Laminar:
             block_instruments=(
                 set(disabled_instruments) if disabled_instruments is not None else None
             ),
-            disable_batch=disable_batch,
+            disable_batch=disable_batch_resolved,
             max_export_batch_size=max_export_batch_size,
             timeout_seconds=export_timeout_seconds,
             set_global_tracer_provider=set_global_tracer_provider,
@@ -507,7 +529,8 @@ class Laminar:
             # initialize(). This is the same LMNR_DEBUG gate build_debug_config()
             # applies first; checking it directly avoids a redundant config build
             # here (which would mint a throwaway session uuid and re-read the
-            # last-run file) that init_debug_runtime() then discards and rebuilds.
+            # debug-session file) that init_debug_runtime() then discards and
+            # rebuilds.
             if not _is_truthy(os.environ.get("LMNR_DEBUG")):
                 return
 
@@ -1345,6 +1368,97 @@ class Laminar:
                     span.end()
 
     @classmethod
+    @contextmanager
+    def use_span_context(
+        cls,
+        parent_span_context: LaminarSpanContext | dict | str,
+    ) -> Generator[None, None, None]:
+        """Activate a remote `LaminarSpanContext` as the parent for spans created
+        inside this block, WITHOUT creating a span of its own.
+
+        Everything started inside the `with` block — `@observe` spans, auto-
+        instrumented LLM spans, etc. — parents off the provided context, so it
+        nests under the upstream trace. This is the span-less counterpart to
+        ``start_span(parent_span_context=...)``: use it when you want the caller's
+        own spans to inherit the remote trace but don't want an extra wrapper span
+        in between (e.g. a Temporal activity with `create_activity_span=False`).
+
+        Like the span funnels, this also arms the downstream debug runtime from a
+        nested ``debug`` block in the context and registers the parent path info
+        so child span paths are correct.
+        """
+        if not cls.is_initialized():
+            yield
+            return
+
+        parsed = _parse_parent_span_context(parent_span_context, cls.__logger)
+
+        # Arm the debug runtime from a propagated debug block (first-wins,
+        # idempotent), so a debug run flows through even when no span is created.
+        cls._arm_debug_runtime_from_context(parsed["debug"])
+
+        if parsed["otel_span_context"] is None:
+            yield
+            return
+
+        # Re-read the isolated context AFTER arming so the merge below picks up a
+        # freshly-stamped `rollout.session_id`, then set the remote parent on it.
+        ctx = trace.set_span_in_context(
+            trace.NonRecordingSpan(parsed["otel_span_context"]),
+            get_current_context(),
+        )
+
+        # Merge association props the same way `start_span` does
+        # (global < context < parent) instead of overwriting. A plain
+        # `set_association_prop_context(metadata=parent_metadata)` would
+        # `set_value` over `CONTEXT_METADATA_KEY` wholesale and drop the global /
+        # ambient metadata — most importantly the just-armed `rollout.session_id`.
+        ctx_user_id = get_value(CONTEXT_USER_ID_KEY, ctx)
+        ctx_session_id = get_value(CONTEXT_SESSION_ID_KEY, ctx)
+        ctx_metadata = get_value(CONTEXT_METADATA_KEY, ctx)
+
+        merged_metadata = {
+            **(cls.__global_metadata or {}),
+            **(ctx_metadata or {}),
+            **(parsed["metadata"] or {}),
+        }
+        final_user_id = (
+            parsed["user_id"] if parsed["user_id"] is not None else ctx_user_id
+        )
+        final_session_id = (
+            parsed["session_id"]
+            if parsed["session_id"] is not None
+            else ctx_session_id
+        )
+
+        ctx = set_association_prop_context(
+            trace_type=parsed["trace_type"],
+            user_id=final_user_id,
+            session_id=final_session_id,
+            metadata=merged_metadata or None,
+            context=ctx,
+            attach=False,
+        )
+
+        # Register the parent path so child spans build correct dotted paths,
+        # mirroring the LMNR_SPAN_CONTEXT env-init path.
+        processor = TracerWrapper.instance._span_processor
+        if isinstance(processor, LaminarSpanProcessor):
+            processor.set_parent_path_info(
+                parsed["otel_span_context"].span_id,
+                parsed["path"],
+                parsed["span_ids_path"],
+            )
+
+        ctx_token = context_api.attach(ctx)
+        isolated_context_token = attach_context(ctx)
+        try:
+            yield
+        finally:
+            detach_context(isolated_context_token)
+            context_api.detach(ctx_token)
+
+    @classmethod
     def start_active_span(
         cls,
         name: str,
@@ -1615,6 +1729,91 @@ class Laminar:
             return LaminarSpan(span)
 
     @classmethod
+    def connect_to_langfuse(cls) -> bool:
+        """Bridge the Langfuse Python SDK into Laminar so spans emitted by
+        ``@observe``, ``langfuse.openai``, ``langfuse.langchain``, etc. are
+        dual-exported to Laminar in addition to Langfuse.
+
+        The Langfuse bridge is opt-in: it is NOT installed merely because
+        ``langfuse`` is present. Install it either by passing an explicit
+        ``instruments`` set containing ``Instruments.LANGFUSE`` to
+        ``Laminar.initialize``, or by calling this method after initialization
+        (e.g. when initialization happens in code you don't control).
+
+        Returns:
+            bool: True if the bridge was installed, False otherwise
+            (e.g. Laminar not initialized, ``langfuse < 3.0`` or not
+            importable).
+        """
+        # `cls.__logger` is only set by `_initialize_logger()` during
+        # `initialize()`, so we cannot rely on it here — this method is
+        # reachable before initialization. Fall back to a module-level
+        # logger instead.
+        logger = logging.getLogger(__name__)
+        if not cls.is_initialized():
+            logger.warning(
+                "Laminar is not initialized. Call Laminar.initialize() first."
+            )
+            return False
+        from lmnr.opentelemetry_lib.tracing.instruments import (
+            _langfuse_installed,
+        )
+
+        # `_langfuse_installed` gates on both presence AND version >= 3.0 —
+        # the bridge is OTel-native and does nothing useful on langfuse 2.x.
+        # Going through `instrument()` on 2.x would install a useless
+        # translator, flip `_installed=True`, and permanently block a later
+        # valid install.
+        if not _langfuse_installed():
+            logger.warning(
+                "`langfuse >= 3.0` is required for the Laminar/Langfuse "
+                "bridge. Install it with `pip install 'langfuse>=3.0'`."
+            )
+            return False
+        from lmnr.opentelemetry_lib.opentelemetry.instrumentation.langfuse import (
+            LangfuseInstrumentor,
+            langfuse_sdk_importable,
+        )
+
+        # `_langfuse_installed()` only reads install metadata; it never imports
+        # the SDK. On Python 3.14 langfuse's pydantic-v1 models fail to build,
+        # so the package is "present" but `import
+        # langfuse._client.resource_manager` raises. The bridge's
+        # resource-manager attach/patch path swallows that and silently no-ops,
+        # which would leave the bridge `_installed=True` but inert — SDK spans
+        # would never reach Laminar. Refuse to report success in that case.
+        if not langfuse_sdk_importable():
+            logger.warning(
+                "`langfuse` is installed but cannot be imported in this "
+                "interpreter (a known pydantic v1 incompatibility on Python "
+                "3.14). The Laminar/Langfuse bridge would be inert, so it was "
+                "not installed."
+            )
+            return False
+
+        wrapper = TracerWrapper.instance
+        if wrapper._tracer_provider is None:
+            return False
+        # `LangfuseInstrumentor.instrument()` re-raises after rollback if the
+        # attach-to-existing / resource-manager-patch phase fails (e.g.
+        # `RuntimeError` from concurrent modification of
+        # `LangfuseResourceManager._instances`). This public helper is
+        # documented to return `bool`, so swallow the exception and surface
+        # the failure as False — `uninstrument()` has already cleaned up
+        # partial state by the time we get here.
+        try:
+            LangfuseInstrumentor().instrument(
+                lmnr_tracer_provider=wrapper._tracer_provider,
+                lmnr_span_processor=wrapper._span_processor,
+            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning(
+                "Failed to install Laminar/Langfuse bridge: %s", exc
+            )
+            return False
+        return LangfuseInstrumentor._installed
+
+    @classmethod
     def flush(cls) -> bool:
         """Flush the internal tracer.
 
@@ -1645,10 +1844,10 @@ class Laminar:
     @classmethod
     def shutdown(cls):
         if cls.is_initialized():
-            # Emit the debug run pointer before shutting down tracing so flows
+            # Emit the debug-session record before shutting down tracing so flows
             # that shut down without terminating the process still get
-            # LMNR_DEBUG_RUN + .lmnr/last-run.json. Idempotent — the atexit hook
-            # is a fallback.
+            # LMNR_DEBUG_RUN + .lmnr/debug-session.json. Idempotent — the atexit
+            # hook is a fallback.
             from lmnr.sdk.debug import get_runtime, reset_debug_runtime
 
             runtime = get_runtime()

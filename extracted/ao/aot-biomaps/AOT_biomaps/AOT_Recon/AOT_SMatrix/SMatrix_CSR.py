@@ -87,7 +87,7 @@ class SMatrix_CSR(SMatrix):
         fill_csr_kernel = self.sparse_mod.get_function('fill_kernel__CSR')
         block_size = 256
 
-        for b in trange(0, num_rows, br, desc='Building CSR (1-Pass GPU)'):
+        for b in trange(0, num_rows, br, desc='Filling CSR (GPU)'):
             current_rows = min(br, num_rows - b)
             
             # Extract dense block from CPU experiment

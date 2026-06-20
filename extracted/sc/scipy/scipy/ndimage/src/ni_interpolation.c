@@ -295,12 +295,19 @@ NI_GeometricTransform(PyArrayObject *input, int (*map)(npy_intp*, double*,
 
     /* offsets used at the borders: */
     edge_offsets = malloc(irank * sizeof(npy_intp*));
-    data_offsets = malloc(irank * sizeof(npy_intp*));
-    if (NPY_UNLIKELY(!edge_offsets || !data_offsets)) {
+    if (NPY_UNLIKELY(!edge_offsets)) {
         NPY_END_THREADS;
         PyErr_NoMemory();
         goto exit;
     }
+    data_offsets = malloc(irank * sizeof(npy_intp*));
+    if (NPY_UNLIKELY(!data_offsets)) {
+        NPY_END_THREADS;
+        PyErr_NoMemory();
+        goto exit;
+    }
+    for(jj = 0; jj < irank; jj++)
+        data_offsets[jj] = NULL;
 
     if (mode == NI_EXTEND_GRID_CONSTANT) {
         // boolean indicating if the current point in the filter footprint is
@@ -323,8 +330,6 @@ NI_GeometricTransform(PyArrayObject *input, int (*map)(npy_intp*, double*,
         }
     }
 
-    for(jj = 0; jj < irank; jj++)
-        data_offsets[jj] = NULL;
     for(jj = 0; jj < irank; jj++) {
         data_offsets[jj] = malloc((order + 1) * sizeof(npy_intp));
         if (NPY_UNLIKELY(!data_offsets[jj])) {
@@ -432,7 +437,7 @@ NI_GeometricTransform(PyArrayObject *input, int (*map)(npy_intp*, double*,
                 icoor[hh] = tmp;
             }
         } else if (coordinates) {
-            /* mapping is from an coordinates array: */
+            /* mapping is from a coordinates array: */
             char *p = pc;
             switch (PyArray_TYPE(coordinates)) {
                 CASE_MAP_COORDINATES(NPY_BOOL, npy_bool,
@@ -722,19 +727,25 @@ int NI_ZoomShift(PyArrayObject *input, PyArrayObject* zoom_ar,
     }
     /* store offsets, along each axis: */
     offsets = malloc(rank * sizeof(npy_intp*));
-    /* store spline coefficients, along each axis: */
-    splvals = malloc(rank * sizeof(double**));
-    /* store offsets at all edges: */
-
-    if (NPY_UNLIKELY(!offsets || !splvals)) {
+    if (NPY_UNLIKELY(!offsets)) {
         NPY_END_THREADS;
         PyErr_NoMemory();
         goto exit;
     }
-    for(jj = 0; jj < rank; jj++) {
+    for(jj = 0; jj < rank; jj++)
         offsets[jj] = NULL;
-        splvals[jj] = NULL;
+
+    /* store spline coefficients, along each axis: */
+    splvals = malloc(rank * sizeof(double**));
+    if (NPY_UNLIKELY(!splvals)) {
+        NPY_END_THREADS;
+        PyErr_NoMemory();
+        goto exit;
     }
+    for(jj = 0; jj < rank; jj++)
+        splvals[jj] = NULL;
+
+    /* store offsets at all edges: */
     for(jj = 0; jj < rank; jj++) {
         offsets[jj] = malloc(odimensions[jj] * sizeof(npy_intp));
         splvals[jj] = malloc(odimensions[jj] * sizeof(double*));

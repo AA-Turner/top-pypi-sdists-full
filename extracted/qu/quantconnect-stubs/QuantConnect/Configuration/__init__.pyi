@@ -10,15 +10,6 @@ QuantConnect_Configuration_Config_GetValue_T = typing.TypeVar("QuantConnect_Conf
 QuantConnect_Configuration_Config_TryGetValue_T = typing.TypeVar("QuantConnect_Configuration_Config_TryGetValue_T")
 
 
-class OptimizerArgumentParser(System.Object):
-    """Command Line arguments parser for Lean Optimizer"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args"""
-        ...
-
-
 class ToolboxArgumentParser(System.Object):
     """Command Line arguments parser for Toolbox configuration"""
 
@@ -53,6 +44,15 @@ class CommandLineOption(System.Object):
 
     def __init__(self, name: str, type: typing.Any, description: str = ...) -> None:
         """Command line option constructor"""
+        ...
+
+
+class LeanArgumentParser(System.Object):
+    """Command Line arguments parser for Lean configuration"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Argument parser constructor"""
         ...
 
 
@@ -250,6 +250,15 @@ class Config(System.Object):
         ...
 
 
+class OptimizerArgumentParser(System.Object):
+    """Command Line arguments parser for Lean Optimizer"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args"""
+        ...
+
+
 class ApplicationParser(System.Object):
     """Command Line application parser"""
 
@@ -290,15 +299,6 @@ class ReportArgumentParser(System.Object):
     @staticmethod
     def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
         """Parse and construct the args."""
-        ...
-
-
-class LeanArgumentParser(System.Object):
-    """Command Line arguments parser for Lean configuration"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Argument parser constructor"""
         ...
 
 

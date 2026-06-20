@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Dict, Union, Mapping
+from typing import TYPE_CHECKING, Any, Dict, List, Union, Mapping
 from typing_extensions import Self, Literal, override
 
 import httpx
@@ -334,7 +334,9 @@ class Supermemory(SyncAPIClient):
         self,
         *,
         container_tag: str,
+        buckets: SequenceNotStr[str] | Omit = omit,
         filters: client_profile_params.Filters | Omit = omit,
+        include: List[Literal["static", "dynamic", "buckets"]] | Omit = omit,
         q: str | Omit = omit,
         threshold: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -351,8 +353,14 @@ class Supermemory(SyncAPIClient):
           container_tag: Tag to filter the profile by. This can be an ID for your user, a project ID, or
               any other identifier you wish to use to filter memories.
 
+          buckets: Specific bucket keys to return. Omit to return all configured buckets. Only
+              relevant when "buckets" is included.
+
           filters: Optional metadata filters to apply to profile results and search results.
               Supports complex AND/OR queries with multiple conditions.
+
+          include: Profile sections to return. Omit to return all sections. Pass a subset to reduce
+              payload — e.g. ["buckets"] skips static and dynamic entirely.
 
           q: Optional search query to include search results in the response
 
@@ -372,7 +380,9 @@ class Supermemory(SyncAPIClient):
             body=maybe_transform(
                 {
                     "container_tag": container_tag,
+                    "buckets": buckets,
                     "filters": filters,
+                    "include": include,
                     "q": q,
                     "threshold": threshold,
                 },
@@ -681,7 +691,9 @@ class AsyncSupermemory(AsyncAPIClient):
         self,
         *,
         container_tag: str,
+        buckets: SequenceNotStr[str] | Omit = omit,
         filters: client_profile_params.Filters | Omit = omit,
+        include: List[Literal["static", "dynamic", "buckets"]] | Omit = omit,
         q: str | Omit = omit,
         threshold: float | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -698,8 +710,14 @@ class AsyncSupermemory(AsyncAPIClient):
           container_tag: Tag to filter the profile by. This can be an ID for your user, a project ID, or
               any other identifier you wish to use to filter memories.
 
+          buckets: Specific bucket keys to return. Omit to return all configured buckets. Only
+              relevant when "buckets" is included.
+
           filters: Optional metadata filters to apply to profile results and search results.
               Supports complex AND/OR queries with multiple conditions.
+
+          include: Profile sections to return. Omit to return all sections. Pass a subset to reduce
+              payload — e.g. ["buckets"] skips static and dynamic entirely.
 
           q: Optional search query to include search results in the response
 
@@ -719,7 +737,9 @@ class AsyncSupermemory(AsyncAPIClient):
             body=await async_maybe_transform(
                 {
                     "container_tag": container_tag,
+                    "buckets": buckets,
                     "filters": filters,
+                    "include": include,
                     "q": q,
                     "threshold": threshold,
                 },

@@ -602,6 +602,346 @@ def test_deepseek_v4_flash_family_wires_deepseek_r1_reasoning_parser() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "alias",
+    ["vibethinker-1.5b-4bit", "vibethinker-3b-8bit"],
+)
+def test_vibethinker_family_wires_deepseek_r1_reasoning_parser(alias: str) -> None:
+    """VibeThinker (Weibo AI; 1.5B base = Qwen2.5-Math-1.5B, 3B base =
+    Qwen2.5-Coder-3B) is a reasoning family whose chat template does
+    NOT inject ``<think>`` — the model emits ``<think>...</think>``
+    blocks autonomously on every response. Without ``reasoning_parser``
+    set, those blocks leak into ``choices[0].message.content`` as plain
+    text and break clients that expect ``reasoning_content`` to carry
+    the chain-of-thought.
+
+    Pin the wiring so a future PR can't silently revert it to ``null``
+    for either size. Also pins ``tool_call_parser="hermes"`` — the
+    inherited Qwen2 vocab carries ``<tool_call>`` / ``</tool_call>``
+    tokens and the 2026-06-17 VibeThinker-3B-8bit live test confirmed
+    the model emits BOTH ``<tool_call>{"name": ...}</tool_call>`` and
+    bare ``<function=name>...</function>`` wire shapes for tool calls.
+    With ``tool_call_parser=null`` the OutputRouter's token-level
+    fallback caught the ``<tool_call>`` shape "by accident" but the
+    bare ``<function>`` shape leaked into ``content`` as raw text.
+    Hermes parser handles both shapes natively (see
+    ``HermesToolParser.TOOL_CALL_PATTERN`` and
+    ``BARE_FUNCTION_PATTERN``).
+    Verified format sources:
+    https://huggingface.co/mlx-community/VibeThinker-3B-8bit
+    https://huggingface.co/mlx-community/VibeThinker-1.5B-mlx-4bit
+    """
+    profiles = list_profiles()
+    assert alias in profiles, f"{alias} missing from aliases.json"
+    assert profiles[alias].reasoning_parser == "vibethinker", (
+        f"{alias}: reasoning_parser must be 'vibethinker' — a DeepSeek-R1 "
+        f"variant with NO_TAG_CONTENT_THRESHOLD=1024 (vs base 64) to handle "
+        f"the documented preamble-before-`<think>` shape (codex r2 P2). "
+        f"Got {profiles[alias].reasoning_parser!r}."
+    )
+    assert profiles[alias].tool_call_parser == "hermes", (
+        f"{alias}: tool_call_parser must be 'hermes' — VibeThinker is "
+        f"Qwen2-derived and emits both <tool_call>{{...}}</tool_call> and "
+        f"bare <function=name>...</function> shapes. The 2026-06-17 live "
+        f"test confirmed the bare-function shape leaks into content "
+        f"without the hermes parser. "
+        f"Got {profiles[alias].tool_call_parser!r}."
+    )
+    # Reasoning-model sampling guidance: temperature=1.0, top_p=0.95
+    # (paper-recommended; greedy temperature=0 produces garbage on
+    # reasoning models that depend on diverse beam exploration).
+    sampling = dict(profiles[alias].recommended_sampling or ())
+    assert sampling.get("temperature") == 1.0, (
+        f"{alias}: recommended_sampling.temperature must be 1.0 per the "
+        f"VibeThinker paper. Got {sampling.get('temperature')!r}."
+    )
+    assert sampling.get("top_p") == 0.95, (
+        f"{alias}: recommended_sampling.top_p must be 0.95 per the "
+        f"VibeThinker paper. Got {sampling.get('top_p')!r}."
+    )
+
+
+def test_qwen3_4b_thinking_2507_wires_qwen3_reasoning_parser() -> None:
+    """The Qwen3-4B-Thinking-2507 variant emits ``<think>...</think>``
+    blocks autonomously on every response; it MUST carry the
+    ``qwen3`` reasoning parser so the trace lands in
+    ``reasoning_content`` instead of leaking into ``content``.
+
+    Pinned separately from the non-thinking siblings (Instruct-2507
+    + VL-2B) because the non-thinking variants must NOT carry the
+    parser — see the docstring on
+    ``test_qwen3_small_non_thinking_variants_have_no_reasoning_parser``
+    for the fuzz-evidence rationale (PR #715 bundle).
+    """
+    profiles = list_profiles()
+    alias = "qwen3-4b-thinking-2507-4bit"
+    assert alias in profiles, f"{alias} missing from aliases.json"
+    assert profiles[alias].tool_call_parser == "hermes", (
+        f"{alias}: tool_call_parser must be 'hermes' (Qwen3 family default). "
+        f"Got {profiles[alias].tool_call_parser!r}."
+    )
+    assert profiles[alias].reasoning_parser == "qwen3", (
+        f"{alias}: reasoning_parser must be 'qwen3' — the Thinking-2507 "
+        f"variant emits `<think>` blocks autonomously. "
+        f"Got {profiles[alias].reasoning_parser!r}."
+    )
+    assert profiles[alias].is_hybrid is False, (
+        f"{alias}: Qwen3-4B is pure-attention, not hybrid."
+    )
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        "qwen3-4b-instruct-2507-4bit",
+        "qwen3-vl-2b-4bit",
+    ],
+)
+def test_qwen3_small_non_thinking_variants_have_no_reasoning_parser(
+    alias: str,
+) -> None:
+    """The Qwen3-4B-Instruct-2507 and Qwen3-VL-2B-Instruct aliases are
+    NON-thinking variants — their model cards explicitly state no
+    ``<think>`` emission and the 2026-06-18 fuzz battery against PR
+    #714 confirmed the symptom: with ``reasoning_parser=qwen3`` wired
+    AND the client passing ``enable_thinking=True`` (or the parser's
+    Case-4 fallback firing on a no-tag output) the entire response
+    is duplicated into BOTH ``content`` AND ``reasoning_content``,
+    leaving a confusing assistant turn for the caller.
+
+    The qwen3 parser's Case-4 "no tags AND enable_thinking=True →
+    everything is reasoning" path is the load-bearing addition for
+    #575 — it's correct for actual thinking models but a footgun for
+    non-thinking variants that never produce ``<think>`` regardless
+    of the kwarg. Setting ``reasoning_parser=null`` short-circuits
+    the whole reasoning path so output flows directly to ``content``
+    as the non-thinking variants intend.
+
+    Pinning here so a future PR can't silently re-wire the qwen3
+    parser on the strength of "but the family default is qwen3" — the
+    Thinking-2507 sibling keeps the family parser (see
+    ``test_qwen3_4b_thinking_2507_wires_qwen3_reasoning_parser``).
+    """
+    profiles = list_profiles()
+    assert alias in profiles, f"{alias} missing from aliases.json"
+    assert profiles[alias].tool_call_parser == "hermes", (
+        f"{alias}: tool_call_parser stays 'hermes' (the model can emit "
+        f"hermes-style tool calls via the Qwen3 vocab; only the reasoning "
+        f"parser is being cleared). Got {profiles[alias].tool_call_parser!r}."
+    )
+    assert profiles[alias].reasoning_parser is None, (
+        f"{alias}: reasoning_parser must be None — this is a NON-thinking "
+        f"Qwen3 variant and the qwen3 parser's Case-4 fallback duplicates "
+        f"the whole output into both content + reasoning_content when the "
+        f"client passes enable_thinking=True. See PR #715 bundle (fuzz "
+        f"finding A). Got {profiles[alias].reasoning_parser!r}."
+    )
+    assert profiles[alias].is_hybrid is False, (
+        f"{alias}: Qwen3 (2B / 4B / VL) is pure-attention, not hybrid. "
+        f"Mis-tagging as hybrid disables spec-decode for no reason."
+    )
+
+
+def test_granite4_h_micro_inherits_family_hybrid_gates() -> None:
+    """``granite4-h-micro-4bit`` is a 3B variant of IBM's hybrid
+    Mamba2+Transformer family. It MUST carry the same hybrid +
+    no-spec-decode + no-reasoning-parser wiring as the existing
+    ``granite4-tiny-4bit`` entry — Granite 4 does not emit
+    ``<think>...</think>`` (model_auto_config has the matching
+    comment on the family regex), and the hybrid Mamba2 state breaks
+    spec-decode drafters.
+    """
+    profiles = list_profiles()
+    micro = profiles["granite4-h-micro-4bit"]
+    tiny = profiles["granite4-tiny-4bit"]
+    assert micro.tool_call_parser == tiny.tool_call_parser == "hermes", (
+        "granite4-h-micro-4bit must match granite4-tiny-4bit on "
+        "tool_call_parser; the family shares the same template."
+    )
+    assert micro.reasoning_parser is None and tiny.reasoning_parser is None, (
+        "Granite 4 does NOT emit `<think>` blocks; setting a reasoning "
+        "parser would route all output into reasoning_content."
+    )
+    assert micro.is_hybrid and tiny.is_hybrid, (
+        "Granite 4 is hybrid Mamba2+Transformer — is_hybrid must be True."
+    )
+    assert not micro.supports_spec_decode, (
+        "granite4-h-micro-4bit: hybrid arch + supports_spec_decode=True "
+        "is a forbidden combination (see test_hybrid_disables_spec_decode)."
+    )
+
+
+def test_nanbeige_4_1_3b_uses_hermes_not_llama_tool_parser() -> None:
+    """``nanbeige4.1-3b-4bit`` has ``model_type=llama`` in its config but
+    is NOT a Meta-LLaMA-3 chat checkpoint — chat template + tool format
+    are upstream-Nanbeige. The matching ``nanbeige`` regex in
+    ``model_auto_config.py`` must win over the generic ``llama`` regex
+    so HF-path serves don't pick up ``tool_call_parser=llama`` (which
+    would silently fail to parse the Nanbeige tool-call envelope).
+
+    Pin here so a regex re-ordering can't quietly demote the entry to
+    the LLaMA tool parser.
+    """
+    profile = list_profiles()["nanbeige4.1-3b-4bit"]
+    assert profile.tool_call_parser == "hermes", (
+        f"nanbeige4.1-3b-4bit: tool_call_parser must be 'hermes' (Nanbeige "
+        f"is not vanilla LLaMA-3 despite model_type=llama). "
+        f"Got {profile.tool_call_parser!r}."
+    )
+    # The 3B preview emits autonomous ``<think>...</think>`` blocks on
+    # every response (verified by a local smoke test during the batch
+    # landing). With ``reasoning_parser=null`` the raw block leaks into
+    # ``choices[0].message.content`` and clients lose ``reasoning_content``.
+    # ``deepseek_r1`` handles the "model decides" contract — same as
+    # VibeThinker / R1-distill on a non-DeepSeek base.
+    assert profile.reasoning_parser == "deepseek_r1", (
+        f"nanbeige4.1-3b-4bit: reasoning_parser must be 'deepseek_r1' — "
+        f"the model emits `<think>` blocks autonomously. Got "
+        f"{profile.reasoning_parser!r}."
+    )
+
+
+def test_phi_4_mini_reasoning_wires_deepseek_r1_reasoning_parser() -> None:
+    """``phi-4-mini-reasoning-4bit`` is Microsoft's math-tuned reasoning
+    variant of Phi-4-mini. The chat template does NOT inject a
+    ``<think>`` tag (the only special tokens are ``<|user|>`` /
+    ``<|assistant|>`` / ``<|end|>`` / ``<|tool_call|>``), but the model
+    emits ``<think>...</think>`` autonomously on every response —
+    smoke-verified during this PR with ``reasoning_parser=null``:
+    a ``Say hi in three words.`` prompt returned ``<think>\\nOkay,
+    so the user wants me to say...`` as the raw ``content`` of the
+    assistant message, leaking the chain-of-thought to clients.
+
+    Pin ``reasoning_parser=deepseek_r1`` so the block lands in
+    ``reasoning_content`` instead. This matches the same "model decides"
+    contract used by VibeThinker, R1-distill, and Nanbeige4.1 — none of
+    those templates inject a ``<think>`` open tag either, and they all
+    rely on the deepseek_r1 parser's "stay-in-reasoning-until-we-see-
+    </think>" state machine.
+
+    Verified format source: smoke test on the 4-bit lmstudio-community
+    repack; tokenizer special tokens enumerated from
+    ``microsoft/Phi-4-mini-reasoning/tokenizer_config.json``.
+    """
+    profiles = list_profiles()
+    alias = "phi-4-mini-reasoning-4bit"
+    assert alias in profiles, f"{alias} missing from aliases.json"
+    assert profiles[alias].reasoning_parser == "deepseek_r1", (
+        f"{alias}: reasoning_parser must be 'deepseek_r1' — Phi-4-mini-"
+        f"reasoning emits `<think>` blocks autonomously (smoke-verified). "
+        f"Got {profiles[alias].reasoning_parser!r}."
+    )
+    assert profiles[alias].tool_call_parser == "hermes", (
+        f"{alias}: tool_call_parser must be 'hermes' (Phi family default)."
+    )
+
+
+def test_gemma_3n_multimodal_aliases_share_family_sampling() -> None:
+    """Gemma 3n E2B / E4B are Google's on-device multimodal family
+    (text + image + audio share the same model). They MUST inherit the
+    Gemma 3 sampling defaults (temperature=1.0, top_p=0.95, top_k=64
+    per Google's chat-tuned guidance) — upstream
+    ``generation_config.json`` ships an empty stub, so dropping the
+    curated values would fall through to global defaults that are
+    wrong for the family.
+
+    Audio path is recognised by ``multimodal_processor.py`` (model_type
+    ``gemma3n``); these aliases ship with the text+image surface and
+    audio rides the same lane when an audio attachment is present.
+    """
+    for alias in ("gemma-3n-e2b-4bit", "gemma-3n-e4b-4bit"):
+        profile = list_profiles()[alias]
+        sampling = dict(profile.recommended_sampling or ())
+        assert sampling.get("temperature") == 1.0, (
+            f"{alias}: temperature must be 1.0 per Google's Gemma chat "
+            f"sampling guidance. Got {sampling.get('temperature')!r}."
+        )
+        assert sampling.get("top_p") == 0.95, (
+            f"{alias}: top_p must be 0.95. Got {sampling.get('top_p')!r}."
+        )
+        assert sampling.get("top_k") == 64, (
+            f"{alias}: top_k must be 64. Got {sampling.get('top_k')!r}."
+        )
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        "phi-3.5-mini-4bit",
+        "gemma-3n-e2b-4bit",
+        "gemma-3n-e4b-4bit",
+    ],
+)
+def test_no_tool_call_support_aliases_have_null_tool_call_parser(
+    alias: str,
+) -> None:
+    """Models whose chat templates can't emit hermes-style tool grammar
+    must carry ``tool_call_parser=null`` so the route doesn't
+    advertise tools the model can't fulfil.
+
+    The 2026-06-18 fuzz battery against PR #714 sent tool-call prompts
+    to each ≤5B alias and recorded whether the model emitted a parseable
+    ``<tool_call>...</tool_call>`` envelope:
+
+    * ``phi-3.5-mini-4bit`` (Microsoft Phi-3.5) — chat template only
+      defines ``<|user|>`` / ``<|assistant|>`` / ``<|end|>``; no
+      ``<tool_call>`` special tokens. Tool-call attempts get ignored.
+    * ``gemma-3n-e2b-4bit`` / ``gemma-3n-e4b-4bit`` (Google Gemma 3n
+      multimodal) — chat template injects no tool-call markers; model
+      replies with plain prose when asked to use a tool.
+
+    With ``tool_call_parser=hermes`` (the prior wiring carried over
+    from the family-default seed) the route still SCANS for hermes
+    markup and returns ``tool_calls=[]`` + raw text in ``content`` —
+    not a crash, but it advertises ``tools`` capability in the
+    OpenAI surface that the model can't honour, which clients
+    consuming the ``/v1/models`` capability discovery treat as a
+    bug. Setting ``tool_call_parser=null`` is the honest signal.
+
+    ``phi-4-mini-reasoning-4bit`` is deliberately NOT in this list —
+    Phi-4-mini-reasoning CAN emit tool calls (the parser works), it
+    just spends most of its 256-token default budget on thinking
+    first. Users bump ``max_tokens=1024+`` for tool use; the alias
+    config stays at ``tool_call_parser=hermes``.
+
+    Pinned here so a future PR can't silently re-wire ``hermes``
+    on the strength of "but the family default is hermes" — the
+    family default is correct for the chat-format families that
+    ship tool tokens, and wrong for these three that don't.
+    """
+    profiles = list_profiles()
+    assert alias in profiles, f"{alias} missing from aliases.json"
+    assert profiles[alias].tool_call_parser is None, (
+        f"{alias}: tool_call_parser must be None — the model's chat "
+        f"template can't emit hermes-style tool grammar (PR #715 fuzz "
+        f"finding D). Got {profiles[alias].tool_call_parser!r}."
+    )
+
+
+def test_phi_4_mini_reasoning_keeps_hermes_tool_call_parser() -> None:
+    """Counter-pin to ``test_no_tool_call_support_aliases_have_null_tool_call_parser``:
+    ``phi-4-mini-reasoning-4bit`` MUST stay at ``tool_call_parser=hermes``.
+
+    The Phi-4-mini-reasoning variant CAN emit tool calls (the hermes
+    parser successfully extracts them when the model gets enough
+    decode budget) — it just spends most of its 256-token default
+    budget on its autonomous ``<think>...</think>`` block before
+    producing the tool call. Users need ``max_tokens=1024+`` for
+    reliable tool use; the parser wiring itself is correct.
+
+    Pinned separately so a "let's clean up tool_call_parser on
+    phi family" sweep can't silently flip this entry to ``null``
+    on the strength of pattern-matching to phi-3.5.
+    """
+    profile = list_profiles()["phi-4-mini-reasoning-4bit"]
+    assert profile.tool_call_parser == "hermes", (
+        f"phi-4-mini-reasoning-4bit: tool_call_parser must stay 'hermes' — "
+        f"the model CAN tool-call (parser works), it just needs more "
+        f"max_tokens for the thinking block. See PR #715 bundle. "
+        f"Got {profile.tool_call_parser!r}."
+    )
+
+
 def test_aliases_with_known_broken_hf_paths_stay_fixed() -> None:
     """Pin replacement paths for aliases that previously pointed at HF
     repos that no longer exist (or never existed).
@@ -685,6 +1025,14 @@ _CURATED_RECOMMENDED_SAMPLING: dict[str, dict[str, float]] = {
     "gemma3-1b-qat-4bit": {"temperature": 1.0, "top_p": 0.95, "top_k": 64.0},
     "gemma3-4b-qat-4bit": {"temperature": 1.0, "top_p": 0.95, "top_k": 64.0},
     "gemma3-27b-qat-4bit": {"temperature": 1.0, "top_p": 0.95, "top_k": 64.0},
+    # Gemma 3n family (E2B / E4B) — on-device multimodal (text + image +
+    # audio). Same chat-tuning recipe as Gemma 3, so Google's sampling
+    # guidance applies unchanged. ``google/gemma-3n-E{2,4}B-it`` ship a
+    # near-empty ``generation_config.json`` (the upstream HF page 401s
+    # for the raw config under WebFetch; the MLX repacks under
+    # ``mlx-community`` / ``lmstudio-community`` preserve the stub).
+    "gemma-3n-e2b-4bit": {"temperature": 1.0, "top_p": 0.95, "top_k": 64.0},
+    "gemma-3n-e4b-4bit": {"temperature": 1.0, "top_p": 0.95, "top_k": 64.0},
     # Gemma 4 — official Google sampling guidance hasn't been
     # published yet at the time of writing; we extrapolate from the
     # Gemma 3 family card. Revisit when an official Gemma 4 doc lands.

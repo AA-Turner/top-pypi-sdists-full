@@ -42,9 +42,7 @@ if TYPE_CHECKING:
         logs,
         files,
         tools,
-        project,
         toolkits,
-        migration,
         tool_router,
         auth_configs,
         triggers_types,
@@ -58,10 +56,8 @@ if TYPE_CHECKING:
     from .resources.mcp.mcp import McpResource, AsyncMcpResource
     from .resources.toolkits import ToolkitsResource, AsyncToolkitsResource
     from .resources.logs.logs import LogsResource, AsyncLogsResource
-    from .resources.migration import MigrationResource, AsyncMigrationResource
     from .resources.auth_configs import AuthConfigsResource, AsyncAuthConfigsResource
     from .resources.triggers_types import TriggersTypesResource, AsyncTriggersTypesResource
-    from .resources.project.project import ProjectResource, AsyncProjectResource
     from .resources.connected_accounts import ConnectedAccountsResource, AsyncConnectedAccountsResource
     from .resources.tool_router.tool_router import ToolRouterResource, AsyncToolRouterResource
     from .resources.trigger_instances.trigger_instances import TriggerInstancesResource, AsyncTriggerInstancesResource
@@ -233,23 +229,10 @@ class Composio(SyncAPIClient):
         return FilesResource(self)
 
     @cached_property
-    def migration(self) -> MigrationResource:
-        """Endpoints to help with migration from v1 to v3"""
-        from .resources.migration import MigrationResource
-
-        return MigrationResource(self)
-
-    @cached_property
     def cli(self) -> CliResource:
         from .resources.cli import CliResource
 
         return CliResource(self)
-
-    @cached_property
-    def project(self) -> ProjectResource:
-        from .resources.project import ProjectResource
-
-        return ProjectResource(self)
 
     @cached_property
     def logs(self) -> LogsResource:
@@ -259,7 +242,6 @@ class Composio(SyncAPIClient):
 
     @cached_property
     def tool_router(self) -> ToolRouterResource:
-        """(Labs) Tool router endpoints"""
         from .resources.tool_router import ToolRouterResource
 
         return ToolRouterResource(self)
@@ -529,23 +511,10 @@ class AsyncComposio(AsyncAPIClient):
         return AsyncFilesResource(self)
 
     @cached_property
-    def migration(self) -> AsyncMigrationResource:
-        """Endpoints to help with migration from v1 to v3"""
-        from .resources.migration import AsyncMigrationResource
-
-        return AsyncMigrationResource(self)
-
-    @cached_property
     def cli(self) -> AsyncCliResource:
         from .resources.cli import AsyncCliResource
 
         return AsyncCliResource(self)
-
-    @cached_property
-    def project(self) -> AsyncProjectResource:
-        from .resources.project import AsyncProjectResource
-
-        return AsyncProjectResource(self)
 
     @cached_property
     def logs(self) -> AsyncLogsResource:
@@ -555,7 +524,6 @@ class AsyncComposio(AsyncAPIClient):
 
     @cached_property
     def tool_router(self) -> AsyncToolRouterResource:
-        """(Labs) Tool router endpoints"""
         from .resources.tool_router import AsyncToolRouterResource
 
         return AsyncToolRouterResource(self)
@@ -747,23 +715,10 @@ class ComposioWithRawResponse:
         return FilesResourceWithRawResponse(self._client.files)
 
     @cached_property
-    def migration(self) -> migration.MigrationResourceWithRawResponse:
-        """Endpoints to help with migration from v1 to v3"""
-        from .resources.migration import MigrationResourceWithRawResponse
-
-        return MigrationResourceWithRawResponse(self._client.migration)
-
-    @cached_property
     def cli(self) -> cli.CliResourceWithRawResponse:
         from .resources.cli import CliResourceWithRawResponse
 
         return CliResourceWithRawResponse(self._client.cli)
-
-    @cached_property
-    def project(self) -> project.ProjectResourceWithRawResponse:
-        from .resources.project import ProjectResourceWithRawResponse
-
-        return ProjectResourceWithRawResponse(self._client.project)
 
     @cached_property
     def logs(self) -> logs.LogsResourceWithRawResponse:
@@ -773,7 +728,6 @@ class ComposioWithRawResponse:
 
     @cached_property
     def tool_router(self) -> tool_router.ToolRouterResourceWithRawResponse:
-        """(Labs) Tool router endpoints"""
         from .resources.tool_router import ToolRouterResourceWithRawResponse
 
         return ToolRouterResourceWithRawResponse(self._client.tool_router)
@@ -849,23 +803,10 @@ class AsyncComposioWithRawResponse:
         return AsyncFilesResourceWithRawResponse(self._client.files)
 
     @cached_property
-    def migration(self) -> migration.AsyncMigrationResourceWithRawResponse:
-        """Endpoints to help with migration from v1 to v3"""
-        from .resources.migration import AsyncMigrationResourceWithRawResponse
-
-        return AsyncMigrationResourceWithRawResponse(self._client.migration)
-
-    @cached_property
     def cli(self) -> cli.AsyncCliResourceWithRawResponse:
         from .resources.cli import AsyncCliResourceWithRawResponse
 
         return AsyncCliResourceWithRawResponse(self._client.cli)
-
-    @cached_property
-    def project(self) -> project.AsyncProjectResourceWithRawResponse:
-        from .resources.project import AsyncProjectResourceWithRawResponse
-
-        return AsyncProjectResourceWithRawResponse(self._client.project)
 
     @cached_property
     def logs(self) -> logs.AsyncLogsResourceWithRawResponse:
@@ -875,7 +816,6 @@ class AsyncComposioWithRawResponse:
 
     @cached_property
     def tool_router(self) -> tool_router.AsyncToolRouterResourceWithRawResponse:
-        """(Labs) Tool router endpoints"""
         from .resources.tool_router import AsyncToolRouterResourceWithRawResponse
 
         return AsyncToolRouterResourceWithRawResponse(self._client.tool_router)
@@ -951,23 +891,10 @@ class ComposioWithStreamedResponse:
         return FilesResourceWithStreamingResponse(self._client.files)
 
     @cached_property
-    def migration(self) -> migration.MigrationResourceWithStreamingResponse:
-        """Endpoints to help with migration from v1 to v3"""
-        from .resources.migration import MigrationResourceWithStreamingResponse
-
-        return MigrationResourceWithStreamingResponse(self._client.migration)
-
-    @cached_property
     def cli(self) -> cli.CliResourceWithStreamingResponse:
         from .resources.cli import CliResourceWithStreamingResponse
 
         return CliResourceWithStreamingResponse(self._client.cli)
-
-    @cached_property
-    def project(self) -> project.ProjectResourceWithStreamingResponse:
-        from .resources.project import ProjectResourceWithStreamingResponse
-
-        return ProjectResourceWithStreamingResponse(self._client.project)
 
     @cached_property
     def logs(self) -> logs.LogsResourceWithStreamingResponse:
@@ -977,7 +904,6 @@ class ComposioWithStreamedResponse:
 
     @cached_property
     def tool_router(self) -> tool_router.ToolRouterResourceWithStreamingResponse:
-        """(Labs) Tool router endpoints"""
         from .resources.tool_router import ToolRouterResourceWithStreamingResponse
 
         return ToolRouterResourceWithStreamingResponse(self._client.tool_router)
@@ -1053,23 +979,10 @@ class AsyncComposioWithStreamedResponse:
         return AsyncFilesResourceWithStreamingResponse(self._client.files)
 
     @cached_property
-    def migration(self) -> migration.AsyncMigrationResourceWithStreamingResponse:
-        """Endpoints to help with migration from v1 to v3"""
-        from .resources.migration import AsyncMigrationResourceWithStreamingResponse
-
-        return AsyncMigrationResourceWithStreamingResponse(self._client.migration)
-
-    @cached_property
     def cli(self) -> cli.AsyncCliResourceWithStreamingResponse:
         from .resources.cli import AsyncCliResourceWithStreamingResponse
 
         return AsyncCliResourceWithStreamingResponse(self._client.cli)
-
-    @cached_property
-    def project(self) -> project.AsyncProjectResourceWithStreamingResponse:
-        from .resources.project import AsyncProjectResourceWithStreamingResponse
-
-        return AsyncProjectResourceWithStreamingResponse(self._client.project)
 
     @cached_property
     def logs(self) -> logs.AsyncLogsResourceWithStreamingResponse:
@@ -1079,7 +992,6 @@ class AsyncComposioWithStreamedResponse:
 
     @cached_property
     def tool_router(self) -> tool_router.AsyncToolRouterResourceWithStreamingResponse:
-        """(Labs) Tool router endpoints"""
         from .resources.tool_router import AsyncToolRouterResourceWithStreamingResponse
 
         return AsyncToolRouterResourceWithStreamingResponse(self._client.tool_router)

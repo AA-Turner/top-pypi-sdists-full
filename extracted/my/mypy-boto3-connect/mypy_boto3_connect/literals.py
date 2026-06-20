@@ -42,6 +42,8 @@ __all__ = (
     "ComparisonType",
     "ConfigurableNotificationPriorityType",
     "ConnectServiceName",
+    "ContactEvaluationAttributeComparisonTypeType",
+    "ContactEvaluationAttributeKeyType",
     "ContactFlowModuleStateType",
     "ContactFlowModuleStatusType",
     "ContactFlowStateType",
@@ -80,6 +82,8 @@ __all__ = (
     "EvaluationFormScoringModeType",
     "EvaluationFormScoringStatusType",
     "EvaluationFormSingleSelectQuestionDisplayModeType",
+    "EvaluationFormValidationFindingSeverityType",
+    "EvaluationFormValidationStatusType",
     "EvaluationFormVersionStatusType",
     "EvaluationQuestionAnswerAnalysisTypeType",
     "EvaluationReviewNotificationRecipientTypeType",
@@ -194,6 +198,7 @@ __all__ = (
     "ParticipantTimerActionType",
     "ParticipantTimerTypeType",
     "ParticipantTypeType",
+    "PerformanceCategoryNameType",
     "PhoneNumberCountryCodeType",
     "PhoneNumberTypeType",
     "PhoneNumberWorkflowStatusType",
@@ -323,6 +328,8 @@ ChannelType = Literal["CHAT", "EMAIL", "TASK", "VOICE"]
 ChatEventTypeType = Literal["DISCONNECT", "EVENT", "MESSAGE"]
 ComparisonType = Literal["LT"]
 ConfigurableNotificationPriorityType = Literal["HIGH", "LOW"]
+ContactEvaluationAttributeComparisonTypeType = Literal["EXACT"]
+ContactEvaluationAttributeKeyType = Literal["ContactAgentId"]
 ContactFlowModuleStateType = Literal["ACTIVE", "ARCHIVED"]
 ContactFlowModuleStatusType = Literal["PUBLISHED", "SAVED"]
 ContactFlowStateType = Literal["ACTIVE", "ARCHIVED"]
@@ -428,9 +435,11 @@ EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal["CONTACT_LENS_DAT
 EvaluationFormQuestionTypeType = Literal[
     "DATETIME", "MULTISELECT", "NUMERIC", "SINGLESELECT", "TEXT"
 ]
-EvaluationFormScoringModeType = Literal["QUESTION_ONLY", "SECTION_ONLY"]
+EvaluationFormScoringModeType = Literal["POINTS_BASED", "QUESTION_ONLY", "SECTION_ONLY"]
 EvaluationFormScoringStatusType = Literal["DISABLED", "ENABLED"]
 EvaluationFormSingleSelectQuestionDisplayModeType = Literal["DROPDOWN", "RADIO"]
+EvaluationFormValidationFindingSeverityType = Literal["ERROR", "WARNING"]
+EvaluationFormValidationStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 EvaluationFormVersionStatusType = Literal["ACTIVE", "DRAFT"]
 EvaluationQuestionAnswerAnalysisTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
 EvaluationReviewNotificationRecipientTypeType = Literal["USER_ID"]
@@ -717,6 +726,7 @@ ParticipantStateType = Literal["CONNECTED", "DISCONNECTED", "INITIAL", "MISSED"]
 ParticipantTimerActionType = Literal["Unset"]
 ParticipantTimerTypeType = Literal["DISCONNECT_NONCUSTOMER", "IDLE"]
 ParticipantTypeType = Literal["AGENT", "ALL", "CUSTOMER", "MANAGER", "THIRDPARTY"]
+PerformanceCategoryNameType = Literal["EXCEEDS_EXPECTATIONS", "NEEDS_IMPROVEMENT"]
 PhoneNumberCountryCodeType = Literal[
     "AD",
     "AE",

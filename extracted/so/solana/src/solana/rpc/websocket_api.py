@@ -1,7 +1,11 @@
 """This module contains code for interacting with the RPC Websocket endpoint."""
 
+from __future__ import annotations
+
 import itertools
-from typing import Any, Dict, List, Optional, Sequence, Union, cast
+from contextlib import asynccontextmanager
+from collections.abc import Sequence
+from typing import Any, AsyncIterator, Dict, List, Optional, Union, cast
 
 from solders.account_decoder import UiDataSliceConfig
 from solders.pubkey import Pubkey
@@ -44,12 +48,16 @@ from solders.rpc.responses import SubscriptionError as SoldersSubscriptionError
 from solders.rpc.responses import SubscriptionResult, parse_websocket_message
 from solders.signature import Signature
 from solders.transaction_status import TransactionDetails
-from websockets.legacy.client import WebSocketClientProtocol
-from websockets.legacy.client import connect as ws_connect
+from websockets.asyncio.client import ClientConnection
+from websockets.asyncio.client import connect as ws_connect
 
 from solana.rpc import types
 from solana.rpc.commitment import Commitment
-from solana.rpc.core import _ACCOUNT_ENCODING_TO_SOLDERS, _COMMITMENT_TO_SOLDERS, _TX_ENCODING_TO_SOLDERS
+from solana.rpc.core import (
+    _ACCOUNT_ENCODING_TO_SOLDERS,
+    _COMMITMENT_TO_SOLDERS,
+    _TX_ENCODING_TO_SOLDERS,
+)
 
 
 class SubscriptionError(Exception):
@@ -69,11 +77,11 @@ class SubscriptionError(Exception):
         super().__init__(f"{self.type.__name__}: {self.msg}\n Caused by subscription: {subscription}")
 
 
-class SolanaWsClientProtocol(WebSocketClientProtocol):
-    """Subclass of `websockets.WebSocketClientProtocol` tailored for Solana RPC websockets."""
+class SolanaWsClientProtocol(ClientConnection):
+    """Subclass of `websockets.asyncio.client.ClientConnection` tailored for Solana RPC websockets."""
 
     def __init__(self, *args, **kwargs):
-        """Init. Args and kwargs are passed to `websockets.WebSocketClientProtocol`."""
+        """Init. Args and kwargs are passed to `websockets.asyncio.client.ClientConnection`."""
         super().__init__(*args, **kwargs)
         self.subscriptions: Dict[int, Body] = {}
         self.sent_subscriptions: Dict[int, Body] = {}
@@ -84,7 +92,7 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """Increment self.request_counter and return the latest id."""
         return next(self.request_counter) + 1
 
-    async def send_data(self, message: Union[Body, List[Body]]) -> None:
+    async def send_request(self, message: Union[Body, List[Body]]) -> None:
         """Send a subscribe/unsubscribe request or list of requests.
 
         Basically `.send` from `websockets` with extra parsing.
@@ -99,7 +107,7 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         else:
             to_send = message.to_json()
             self.sent_subscriptions[message.id] = message
-        await super().send(to_send)  # type: ignore
+        await self.send(to_send)
 
     async def recv(  # type: ignore
         self,
@@ -116,7 +124,7 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         pubkey: Pubkey,
         commitment: Optional[Commitment] = None,
         encoding: Optional[str] = None,
-    ) -> None:
+    ) -> int:
         """Subscribe to an account to receive notifications when the lamports or data change.
 
         Args:
@@ -133,7 +141,8 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
             else RpcAccountInfoConfig(encoding=encoding_to_use, commitment=commitment_to_use)
         )
         req = AccountSubscribe(pubkey, config, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def account_unsubscribe(
         self,
@@ -146,14 +155,14 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = AccountUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
     async def logs_subscribe(
         self,
         filter_: Union[RpcTransactionLogsFilter, RpcTransactionLogsFilterMentions] = RpcTransactionLogsFilter.All,
         commitment: Optional[Commitment] = None,
-    ) -> None:
+    ) -> int:
         """Subscribe to transaction logging.
 
         Args:
@@ -164,7 +173,8 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         commitment_to_use = None if commitment is None else _COMMITMENT_TO_SOLDERS[commitment]
         config = RpcTransactionLogsConfig(commitment_to_use)
         req = LogsSubscribe(filter_, config, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def logs_unsubscribe(
         self,
@@ -177,7 +187,7 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = LogsUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
     async def block_subscribe(
@@ -188,7 +198,7 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         transaction_details: Union[TransactionDetails, None] = None,
         show_rewards: Optional[bool] = None,
         max_supported_transaction_version: Optional[int] = None,
-    ) -> None:
+    ) -> int:
         """Subscribe to blocks.
 
         Args:
@@ -210,7 +220,8 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
             max_supported_transaction_version=max_supported_transaction_version,
         )
         req = BlockSubscribe(filter_, config, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def block_unsubscribe(
         self,
@@ -223,7 +234,7 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = BlockUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
     async def program_subscribe(  # pylint: disable=too-many-arguments
@@ -233,7 +244,7 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         encoding: Optional[str] = None,
         data_slice: Optional[types.DataSliceOpts] = None,
         filters: Optional[Sequence[Union[int, types.MemcmpOpts]]] = None,
-    ) -> None:
+    ) -> int:
         """Receive notifications when the lamports or data for a given account owned by the program changes.
 
         Args:
@@ -264,7 +275,8 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
             )
             config = RpcProgramAccountsConfig(account_config, filters_to_use)
         req = ProgramSubscribe(program_id, config, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def program_unsubscribe(
         self,
@@ -277,14 +289,14 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = ProgramUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
     async def signature_subscribe(
         self,
         signature: Signature,
         commitment: Optional[Commitment] = None,
-    ) -> None:
+    ) -> int:
         """Subscribe to a transaction signature to receive notification when the transaction is confirmed.
 
         Args:
@@ -295,7 +307,8 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         commitment_to_use = None if commitment is None else _COMMITMENT_TO_SOLDERS[commitment]
         config = None if commitment_to_use is None else RpcSignatureSubscribeConfig(commitment=commitment_to_use)
         req = SignatureSubscribe(signature, config, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def signature_unsubscribe(
         self,
@@ -308,14 +321,15 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = SignatureUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
-    async def slot_subscribe(self) -> None:
+    async def slot_subscribe(self) -> int:
         """Subscribe to receive notification anytime a slot is processed by the validator."""
         req_id = self.increment_counter_and_get_id()
         req = SlotSubscribe(req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def slot_unsubscribe(
         self,
@@ -328,14 +342,15 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = SlotUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
-    async def slots_updates_subscribe(self) -> None:
+    async def slots_updates_subscribe(self) -> int:
         """Subscribe to receive a notification from the validator on a variety of updates on every slot."""
         req_id = self.increment_counter_and_get_id()
         req = SlotsUpdatesSubscribe(req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def slots_updates_unsubscribe(
         self,
@@ -348,14 +363,15 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = SlotsUpdatesUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
-    async def root_subscribe(self) -> None:
+    async def root_subscribe(self) -> int:
         """Subscribe to receive notification anytime a new root is set by the validator."""
         req_id = self.increment_counter_and_get_id()
         req = RootSubscribe(req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def root_unsubscribe(
         self,
@@ -368,14 +384,15 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = RootUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
-    async def vote_subscribe(self) -> None:
+    async def vote_subscribe(self) -> int:
         """Subscribe to receive notification anytime a new vote is observed in gossip."""
         req_id = self.increment_counter_and_get_id()
         req = VoteSubscribe(req_id)
-        await self.send_data(req)
+        await self.send_request(req)
+        return req_id
 
     async def vote_unsubscribe(
         self,
@@ -388,7 +405,7 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         """
         req_id = self.increment_counter_and_get_id()
         req = VoteUnsubscribe(subscription, req_id)
-        await self.send_data(req)
+        await self.send_request(req)
         del self.subscriptions[subscription]
 
     def _process_rpc_response(self, raw: str) -> List[Union[Notification, SubscriptionResult]]:
@@ -403,21 +420,14 @@ class SolanaWsClientProtocol(WebSocketClientProtocol):
         return cast(List[Union[Notification, SubscriptionResult]], parsed)
 
 
-class connect(ws_connect):  # pylint: disable=invalid-name,too-few-public-methods
-    """Solana RPC websocket connector."""
+@asynccontextmanager
+async def connect(uri: str = "ws://localhost:8900", **kwargs: Any) -> AsyncIterator[SolanaWsClientProtocol]:
+    """Solana RPC websocket connector.
 
-    def __init__(self, uri: str = "ws://localhost:8900", **kwargs: Any) -> None:
-        """Init. Kwargs are passed to `websockets.connect`.
-
-        Args:
-            uri: The websocket endpoint.
-            **kwargs: Keyword arguments for ``websockets.legacy.client.connect``
-        """
-        # Ensure that create_protocol explicitly creates a SolanaWsClientProtocol
-        kwargs.setdefault("create_protocol", SolanaWsClientProtocol)
-        super().__init__(uri, **kwargs)
-
-    async def __aenter__(self) -> SolanaWsClientProtocol:
-        """Overrides to specify the type of protocol explicitly."""
-        protocol = await super().__aenter__()
-        return cast(SolanaWsClientProtocol, protocol)
+    Args:
+        uri: The websocket endpoint.
+        **kwargs: Keyword arguments for ``websockets.asyncio.client.connect``.
+    """
+    kwargs.setdefault("create_connection", SolanaWsClientProtocol)
+    async with ws_connect(uri, **kwargs) as connection:
+        yield cast(SolanaWsClientProtocol, connection)

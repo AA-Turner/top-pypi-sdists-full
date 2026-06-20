@@ -1,2 +1,0 @@
-import"./rolldown-runtime-DIIn1E2Q.js";import{O as e,W as t}from"./vendor-vue-core-CUejHCPo.js";var n=Symbol(`OverlayAppendTo`);function useTransformCompatOverlayProps(r={}){let i=t(n,void 0);return e(()=>({appendTo:i??`self`,...r}))}export{useTransformCompatOverlayProps as n,n as t};
-//# sourceMappingURL=useTransformCompatOverlayProps-EGHogJYr.js.map

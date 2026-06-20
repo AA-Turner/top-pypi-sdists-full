@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: sevenn
-Version: 0.12.1
+Version: 0.13.0
 Summary: Scalable EquiVariance Enabled Neural Network
 Author: Jaesun Kim, Gijin Kim, Hyungmin An
 Author-email: Yutack Park <parkyutack@snu.ac.kr>, Haekwan Jeon <haekwan98@snu.ac.kr>
 License: MIT License
         
-        Copyright (c) 2022 Janosh Riebesell
+        Copyright (c) 2024 Yutack Park
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -52,14 +52,23 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov>=5; extra == "test"
 Requires-Dist: ipython; extra == "test"
 Provides-Extra: torchsim
-Requires-Dist: torch-sim-atomistic>=0.5.2; python_version >= "3.12" and extra == "torchsim"
+Requires-Dist: torch-sim-atomistic>=0.6.0; python_version >= "3.12" and extra == "torchsim"
 Provides-Extra: cueq12
-Requires-Dist: cuequivariance>=0.6.0; python_version >= "3.10" and extra == "cueq12"
-Requires-Dist: cuequivariance-torch>=0.6.0; python_version >= "3.10" and extra == "cueq12"
-Requires-Dist: cuequivariance-ops-torch-cu12; python_version >= "3.10" and extra == "cueq12"
-Provides-Extra: mliap
-Requires-Dist: cython==3.0.11; extra == "mliap"
-Requires-Dist: cupy-cuda12x; extra == "mliap"
+Requires-Dist: cuequivariance<0.10.0,>=0.6.0; python_version >= "3.10" and extra == "cueq12"
+Requires-Dist: cuequivariance-torch<0.10.0,>=0.6.0; python_version >= "3.10" and extra == "cueq12"
+Requires-Dist: cuequivariance-ops-torch-cu12<0.10.0,>=0.6.0; python_version >= "3.10" and extra == "cueq12"
+Provides-Extra: cueq13
+Requires-Dist: cuequivariance<0.10.0,>=0.7.0; python_version >= "3.10" and extra == "cueq13"
+Requires-Dist: cuequivariance-torch<0.10.0,>=0.7.0; python_version >= "3.10" and extra == "cueq13"
+Requires-Dist: cuequivariance-ops-torch-cu13<0.10.0,>=0.7.0; python_version >= "3.10" and extra == "cueq13"
+Provides-Extra: oeq
+Requires-Dist: openequivariance; extra == "oeq"
+Provides-Extra: mliap12
+Requires-Dist: cython==3.0.11; extra == "mliap12"
+Requires-Dist: cupy-cuda12x; extra == "mliap12"
+Provides-Extra: mliap13
+Requires-Dist: cython==3.0.11; extra == "mliap13"
+Requires-Dist: cupy-cuda13x; extra == "mliap13"
 Dynamic: license-file
 
 
@@ -79,6 +88,7 @@ Full documentation, including **installation**, **usage**, and **pretrained mode
  - GPU-parallelized molecular dynamics with LAMMPS
  - CUDA-accelerated D3 (van der Waals) dispersion
  - Multi-fidelity training for combining multiple databases with different calculation settings
+ - Fine-tuning with forgetting prevention (experience replay + Elastic Weight Consolidation) for continual learning
  - [Tensor product accelerators](https://sevennet.readthedocs.io/en/latest/user_guide/accelerator.html)
 
 
@@ -127,9 +137,24 @@ If you utilize the pretrained model SevenNet-Omni or multi-task training strateg
 ```bib
 @article{kim_optimizing_2025,
 	title = {Optimizing Cross-Domain Transfer for Universal Machine Learning Interatomic Potentials},
-	doi = {10.48550/arxiv.2510.11241},
-	journal = {arXiv},
+	volume = {17},
+	doi = {10.1038/s41467-026-70195-8},
+	number = {3432},
+	journal = {Nat. Commun.},
 	author = {Kim, Jaesun and You, Jinmu and Park, Yutack and Lim, Yunsung and Kang, Yujin and Kim, Jisu and Jeon, Haekwan and Ju, Suyeon and Hong, Deokgi and Lee, Seung Yul and Choi, Saerom and Kim, Yongdeok and Lee, Jae W and Han, Seungwu},
-	year = {2025},
+	year = {2026},
+}
+```
+
+If you utilize the reEWC forgetting-aware fine-tuning strategy for continual learning of pretrained universal machine-learning interatomic potentials, please cite the following paper:
+```bib
+@article{kim_efficient_2026,
+	title = {An Efficient Forgetting-Aware Fine-Tuning Framework for Pretrained Universal Machine-Learning Interatomic Potentials},
+	volume = {12},
+	doi = {10.1038/s41524-025-01895-w},
+	number = {26},
+	journal = {npj Comput. Mater.},
+	author = {Kim, Jisu and Lee, Jiho and Oh, Sangmin and Park, Yutack and Hwang, Seungwoo and Han, Seungwu and Kang, Sungwoo and Kang, Youngho},
+	year = {2026},
 }
 ```

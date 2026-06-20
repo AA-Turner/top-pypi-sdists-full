@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Iterable, Iterator, Sequence
-from typing import Literal as L, Protocol, SupportsIndex, TypeVar, overload, type_check_only
+from typing import Final, Literal as L, Protocol, SupportsIndex, TypeVar, overload, type_check_only
 
 import numpy as np
 import numpy.typing as npt
@@ -198,6 +198,9 @@ class _FortranFunction(Protocol):
 
 ###
 
+HAS_LP64: Final[bool] = ...
+HAS_ILP64: Final[bool] = ...
+
 # see `scipy.linalg.blas._type_conv`
 def find_best_blas_type(
     arrays: Sequence[onp.ArrayND] = (), dtype: npt.DTypeLike | None = None
@@ -211,19 +214,19 @@ def find_best_blas_type(
 #
 @overload
 def get_blas_funcs(
-    names: str, arrays: Sequence[onp.ArrayND] = (), dtype: npt.DTypeLike | None = None, ilp64: L["preferred"] | bool = False
+    names: str, arrays: Sequence[onp.ArrayND] = (), dtype: npt.DTypeLike | None = None, ilp64: L["preferred"] = "preferred"
 ) -> _FortranFunction: ...
 @overload
 def get_blas_funcs(
     names: _SequenceNotStr[str],
     arrays: Sequence[onp.ArrayND] = (),
     dtype: npt.DTypeLike | None = None,
-    ilp64: L["preferred"] | bool = False,
+    ilp64: L["preferred"] = "preferred",
 ) -> list[_FortranFunction]: ...
 @overload
 def get_blas_funcs(
     names: Iterable[str],
     arrays: Sequence[onp.ArrayND] = (),
     dtype: npt.DTypeLike | None = None,
-    ilp64: L["preferred"] | bool = False,
+    ilp64: L["preferred"] | bool = "preferred",
 ) -> list[_FortranFunction] | _FortranFunction: ...

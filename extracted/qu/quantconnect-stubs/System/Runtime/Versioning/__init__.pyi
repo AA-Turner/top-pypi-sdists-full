@@ -49,6 +49,26 @@ class ResourceScope(IntEnum):
     ASSEMBLY = ...
 
 
+class ResourceConsumptionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def resource_scope(self) -> System.Runtime.Versioning.ResourceScope:
+        ...
+
+    @property
+    def consumption_scope(self) -> System.Runtime.Versioning.ResourceScope:
+        ...
+
+    @overload
+    def __init__(self, resource_scope: System.Runtime.Versioning.ResourceScope) -> None:
+        ...
+
+    @overload
+    def __init__(self, resource_scope: System.Runtime.Versioning.ResourceScope, consumption_scope: System.Runtime.Versioning.ResourceScope) -> None:
+        ...
+
+
 class VersioningHelper(System.Object):
     """This class has no documentation."""
 
@@ -82,23 +102,14 @@ class TargetFrameworkAttribute(System.Attribute):
         ...
 
 
-class ResourceConsumptionAttribute(System.Attribute):
+class ResourceExposureAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def resource_scope(self) -> System.Runtime.Versioning.ResourceScope:
+    def resource_exposure_level(self) -> System.Runtime.Versioning.ResourceScope:
         ...
 
-    @property
-    def consumption_scope(self) -> System.Runtime.Versioning.ResourceScope:
-        ...
-
-    @overload
-    def __init__(self, resource_scope: System.Runtime.Versioning.ResourceScope) -> None:
-        ...
-
-    @overload
-    def __init__(self, resource_scope: System.Runtime.Versioning.ResourceScope, consumption_scope: System.Runtime.Versioning.ResourceScope) -> None:
+    def __init__(self, exposure_level: System.Runtime.Versioning.ResourceScope) -> None:
         ...
 
 
@@ -151,17 +162,6 @@ class FrameworkName(System.Object, System.IEquatable[System_Runtime_Versioning_F
         ...
 
     def to_string(self) -> str:
-        ...
-
-
-class ResourceExposureAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def resource_exposure_level(self) -> System.Runtime.Versioning.ResourceScope:
-        ...
-
-    def __init__(self, exposure_level: System.Runtime.Versioning.ResourceScope) -> None:
         ...
 
 

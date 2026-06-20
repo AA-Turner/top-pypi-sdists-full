@@ -12,6 +12,8 @@ JSON-LD.
 .. moduleauthor:: Tim McNamara <tim.mcnamara@okfn.org>
 .. moduleauthor:: Olaf Conradi <olaf@conradi.org>
 .. moduleauthor:: Gregg Kellogg <gregg@greggkellogg.net>
+.. moduleauthor:: Miel Vander Sande <miel.vandersande@meemoo.be>
+.. moduleauthor:: Anatoly Scherbakov
 """
 
 import copy
@@ -79,6 +81,9 @@ RDF_NIL = RDF + 'nil'
 RDF_TYPE = RDF + 'type'
 RDF_LANGSTRING = RDF + 'langString'
 RDF_JSON_LITERAL = RDF + 'JSON'
+RDF_VALUE = RDF + 'value'
+RDF_LANGUAGE = RDF + 'language'
+RDF_DIRECTION = RDF + 'direction'
 
 # BCP47
 REGEX_BCP47 = r'^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$'
@@ -126,9 +131,6 @@ LINK_HEADER_REL = JSON_LD_NS + 'context'
 
 # Default base IRI if none is provided through input or options
 DEFAULT_BASE_IRI = 'http://example.org/base/'
-
-# Restraints
-MAX_CONTEXT_URLS = 10
 
 # resolved context cache
 # TODO: consider basing max on context size rather than number
@@ -318,6 +320,8 @@ def from_rdf(input_, options=None):
       [useRdfType] True to use rdf:type, False to use @type (default: False).
       [useNativeTypes] True to convert XSD types into native types
         (boolean, integer, double), False not to (default: True).
+      [rdfDirection] Either 'i18n-datatype' or 'compound-literal'
+        is supported. (default: None)
 
     :return: the JSON-LD output.
     """
@@ -1003,7 +1007,8 @@ class JsonLdProcessor:
             (default: False).
           [useNativeTypes] True to convert XSD types into native types
             (boolean, integer, double), False not to (default: False).
-          [rdfDirection] Only 'i18n-datatype' is supported. (default: None)
+          [rdfDirection] Either 'i18n-datatype' or 'compound-literal'
+            is supported. (default: None)
 
         :return: the JSON-LD output.
         """
@@ -1054,7 +1059,7 @@ class JsonLdProcessor:
             to produce only standard RDF (default: false).
           [documentLoader(url, options)] the document loader
             (default: _default_document_loader).
-          [rdfDirection] Only 'i18n-datatype' supported
+          [rdfDirection] Either 'i18n-datatype' or 'compound-literal'
             (default: None).
 
         :return: the resulting RDF dataset (or a serialization of it).
@@ -1277,7 +1282,11 @@ class JsonLdProcessor:
 
         :return: all of the values for a subject's property as an array.
         """
-        return JsonLdProcessor.arrayify(subject.get(property) or [])
+        return (
+            JsonLdProcessor.arrayify(subject.get(property))
+            if property in subject
+            else []
+        )
 
     @staticmethod
     def remove_property(subject, property):
@@ -1496,7 +1505,8 @@ class JsonLdProcessor:
         # recursively compact object
         if _is_object(element):
             if (
-                options['link']
+                isinstance(options['link'], dict)
+                and options['link']
                 and '@id' in element
                 and element['@id'] in options['link']
             ):
@@ -1511,7 +1521,11 @@ class JsonLdProcessor:
                 rval = self._compact_value(
                     active_ctx, active_property, element, options
                 )
-                if options['link'] and _is_subject_reference(element):
+                if (
+                    isinstance(options['link'], dict)
+                    and options['link']
+                    and _is_subject_reference(element)
+                ):
                     # store linked element
                     options['link'].setdefault(element['@id'], []).append(
                         {'expanded': element, 'compacted': rval}
@@ -1556,7 +1570,11 @@ class JsonLdProcessor:
                     override_protected=True,
                 )
 
-            if options['link'] and '@id' in element:
+            if (
+                isinstance(options['link'], dict)
+                and options['link']
+                and '@id' in element
+            ):
                 # store linked element
                 options['link'].setdefault(element['@id'], []).append(
                     {'expanded': element, 'compacted': rval}
@@ -1893,10 +1911,10 @@ class JsonLdProcessor:
                             )
                             if not index_key:
                                 index_key = '@index'
-                            container_key = self._compact_iri(
-                                active_ctx, index_key, vocab=True
-                            )
                             if index_key == '@index':
+                                container_key = self._compact_iri(
+                                    active_ctx, index_key, vocab=True
+                                )
                                 key = expanded_item.get('@index')
                                 if (
                                     _is_object(compacted_item)
@@ -1904,10 +1922,27 @@ class JsonLdProcessor:
                                 ):
                                     del compacted_item[container_key]
                             else:
+                                # Expand a term or compact IRI index mapping before re-compacting it.
+                                expanded_index_key = self._expand_iri(
+                                    active_ctx, index_key, vocab=True
+                                )
+                                # Term selection for the index property can depend on its value.
+                                index_value = JsonLdProcessor.arrayify(
+                                    expanded_item.get(expanded_index_key, [])
+                                )
+                                # Index maps use the first value as the map key.
+                                index_value = index_value[0] if index_value else None
+                                # Re-compact with the value so terms like predicate beat rdf:predicate.
+                                container_key = self._compact_iri(
+                                    active_ctx,
+                                    expanded_index_key,
+                                    index_value,
+                                    vocab=True,
+                                )
                                 indexes = []
                                 if _is_object(compacted_item):
                                     indexes = JsonLdProcessor.arrayify(
-                                        compacted_item.get(index_key, [])
+                                        compacted_item.get(container_key, [])
                                     )
                                 if not indexes or not _is_string(indexes[0]):
                                     key = None
@@ -1919,20 +1954,28 @@ class JsonLdProcessor:
                                         and len(indexes) == 0
                                         and _is_object(compacted_item)
                                     ):
-                                        del compacted_item[index_key]
+                                        del compacted_item[container_key]
                                     elif len(indexes) == 1:
-                                        compacted_item[index_key] = indexes[0]
+                                        compacted_item[container_key] = indexes[0]
                                     else:
-                                        compacted_item[index_key] = indexes
+                                        compacted_item[container_key] = indexes
                         elif '@id' in container:
                             id_key = self._compact_iri(
                                 active_ctx, '@id', base=options.get('base', '')
                             )
                             key = compacted_item.pop(id_key, None)
                         elif '@type' in container:
+                            # Compact a type-map item an object or scalar (for
+                            # example when a node reference is coerced to @id.
                             type_key = self._compact_iri(active_ctx, '@type')
-                            types = JsonLdProcessor.arrayify(
-                                compacted_item.pop(type_key, [])
+                            # Only object items can carry an embedded @type,
+                            # so only call .pop() on object to avoid AttributeError.
+                            types = (
+                                JsonLdProcessor.arrayify(
+                                    compacted_item.pop(type_key, [])
+                                )
+                                if _is_object(compacted_item)
+                                else []
                             )
                             key = types.pop(0) if types else None
                             if types:
@@ -1943,7 +1986,8 @@ class JsonLdProcessor:
                             # if compactedItem contains a single entry
                             # whose key maps to @id, recompact without @type
                             if (
-                                len(compacted_item.keys()) == 1
+                                _is_object(compacted_item)
+                                and len(compacted_item.keys()) == 1
                                 and '@id' in expanded_item
                             ):
                                 compacted_item = self._compact(
@@ -2112,35 +2156,10 @@ class JsonLdProcessor:
                 active_ctx, property_scoped_ctx, options, override_protected=True
             )
 
-        # recursively expand object
-        # if element has a context, process it
-        if '@context' in element:
-            active_ctx = self._process_context(active_ctx, element['@context'], options)
-
-        # set the type-scoped context to the context on input, for use later
-        type_scoped_ctx = active_ctx
-
-        # Remember the first key found expanding to @type
-        type_key = None
-
-        # look for scoped context on @type
-        for key, _value in sorted(element.items()):
-            expanded_property = self._expand_iri(active_ctx, key, vocab=True)
-            if expanded_property == '@type':
-                if not type_key:
-                    type_key = key
-                # set scoped contexts from @type
-                types = [
-                    t for t in JsonLdProcessor.arrayify(element[key]) if _is_string(t)
-                ]
-                for type_ in sorted(types):
-                    ctx = JsonLdProcessor.get_context_value(
-                        type_scoped_ctx, type_, '@context'
-                    )
-                    if ctx is not None and ctx is not False:
-                        active_ctx = self._process_context(
-                            active_ctx, ctx, options, propagate=False
-                        )
+        # prepare type-scoped contexts when nested
+        active_ctx, type_key, type_scoped_ctx = self._prepare_nested_context(
+            active_ctx, element, options
+        )
 
         # process each key and value in element, ignoring @nest content
         rval = {}
@@ -2593,11 +2612,6 @@ class JsonLdProcessor:
 
                 continue
 
-            # nested keys
-            if expanded_property == '@nest':
-                nests.append(key)
-                continue
-
             # use potential scoped context for key
             term_ctx = active_ctx
             ctx = JsonLdProcessor.get_context_value(active_ctx, key, '@context')
@@ -2605,6 +2619,11 @@ class JsonLdProcessor:
                 term_ctx = self._process_context(
                     active_ctx, ctx, options, propagate=True, override_protected=True
                 )
+
+            # for nested keys, add scoped context with key
+            if expanded_property == '@nest':
+                nests.append((key, term_ctx))
+                continue
 
             container = JsonLdProcessor.arrayify(
                 JsonLdProcessor.get_context_value(active_ctx, key, '@container')
@@ -2748,10 +2767,24 @@ class JsonLdProcessor:
                     code='invalid value object value',
                 )
 
-        # expand each nested key
-        for key in nests:
+        # Nested values merge into the current node, but their term and type
+        # scoped contexts must still be prepared as if expanding a node object.
+        for key, term_ctx in nests:
             for nv in JsonLdProcessor.arrayify(element[key]):
-                if not _is_object(nv) or [
+                if not _is_object(nv):
+                    raise JsonLdError(
+                        'Invalid JSON-LD syntax; nested value must be a node object.',
+                        'jsonld.SyntaxError',
+                        {'value': nv},
+                        code='invalid @nest value',
+                    )
+
+                # prepare type-scoped contexts when nested
+                active_ctx, type_key, type_scoped_ctx = self._prepare_nested_context(
+                    term_ctx, nv, options
+                )
+
+                if [
                     k
                     for k, v in nv.items()
                     if self._expand_iri(active_ctx, k, vocab=True) == '@value'
@@ -2762,6 +2795,7 @@ class JsonLdProcessor:
                         {'value': nv},
                         code='invalid @nest value',
                     )
+
                 self._expand_object(
                     active_ctx,
                     active_property,
@@ -2773,6 +2807,51 @@ class JsonLdProcessor:
                     type_key=type_key,
                     type_scoped_ctx=type_scoped_ctx,
                 )
+
+    def _prepare_nested_context(self, active_ctx, element, options):
+        """
+        Prepare local and type-scoped contexts for a nested node object.
+
+        `@nest` is semantically transparent in JSON-LD 1.1, so nested properties
+        are merged into the parent node. Context processing is not transparent:
+        a scoped context on the nest term must be active while discovering any
+        @type entries and applying the type-scoped contexts they reference.
+        """
+        # Recursively expand object: process context if element has one
+        # Local contexts on the nested node apply before looking for @type,
+        # just like they do for an ordinary node object.
+        if '@context' in element:
+            active_ctx = self._process_context(active_ctx, element['@context'], options)
+
+        # Set the type-scoped context to the context on input, for use later
+        type_scoped_ctx = active_ctx
+
+        # Remember the first key found expanding to @type
+        type_key = None
+
+        # Type terms are looked up against the context that was active before
+        # applying any type-scoped contexts discovered below.
+        for key, value in sorted(element.items()):
+            # The @type entry itself may be aliased by the nest term's scoped
+            # context, so use the nested active context to identify it.
+            if self._expand_iri(active_ctx, key, vocab=True) != '@type':
+                continue
+
+            type_key = type_key or key
+            # set scoped contexts from @type
+            types = [t for t in JsonLdProcessor.arrayify(value) if _is_string(t)]
+            for type_ in sorted(types):
+                ctx = JsonLdProcessor.get_context_value(
+                    type_scoped_ctx, type_, '@context'
+                )
+                if ctx is not None and ctx is not False:
+                    # Type-scoped contexts affect expansion of this nested node,
+                    # but must not leak into sibling properties or parent nodes.
+                    active_ctx = self._process_context(
+                        active_ctx, ctx, options, propagate=False
+                    )
+
+        return active_ctx, type_key, type_scoped_ctx
 
     def _flatten(self, input):
         """
@@ -2917,8 +2996,14 @@ class JsonLdProcessor:
                             'value': value,
                         }
 
-        # convert linked lists to @list arrays
         for _name, graph_object in graph_map.items():
+            # Convert compound-literal blank nodes before list conversion, so
+            # list items can also contain directional value objects.
+            if options['rdfDirection'] == 'compound-literal':
+                self._rdf_direction_to_compound_literal(graph_object)
+
+            # convert linked lists to @list arrays
+
             # no @lists to be converted, continue
             if RDF_NIL not in graph_object:
                 continue
@@ -2996,6 +3081,130 @@ class JsonLdProcessor:
                 result.append(node)
 
         return result
+
+    def _rdf_direction_to_compound_literal(self, graph_object):
+        """
+        Replace RDF compound-literal blank nodes with JSON-LD value objects.
+
+        The RDF encoding uses a blank node with rdf:value, rdf:direction,
+        and optionally rdf:language. The JSON-LD form stores those fields
+        directly on the referencing value object, so this updates the graph
+        object in place just like the RDF list conversion below does.
+        """
+        # Decode candidate blank nodes up front. Ordinary nodes return None;
+        # malformed compound literals raise before any graph mutation happens.
+        compound_literals = {}
+        for id_, node in graph_object.items():
+            value = self._compound_literal_to_value(id_, node)
+            if value is not None:
+                compound_literals[id_] = value
+
+        if not compound_literals:
+            return
+
+        # Track where each compound literal is referenced. Only the first two
+        # locations matter: one reference can be inlined, two means shared.
+        references = {}
+        for node in graph_object.values():
+            for key, values in node.items():
+                if key == '@id' or not _is_array(values):
+                    continue
+                for index, item in enumerate(values):
+                    if not _is_subject_reference(item):
+                        continue
+                    ref_id = item['@id']
+                    if ref_id not in compound_literals:
+                        continue
+                    locations = references.setdefault(ref_id, [])
+                    if len(locations) < 2:
+                        locations.append((values, index))
+
+        # Rewrite only unshared compound literals. Shared blank nodes carry
+        # graph identity, so their references must remain as @id references.
+        for id_, value in compound_literals.items():
+            locations = references.get(id_, [])
+            if len(locations) != 1:
+                continue
+            values, index = locations[0]
+            values[index] = value
+            # The encoding blank node is no longer a graph subject once its
+            # only reference has been rewritten.
+            del graph_object[id_]
+
+    def _compound_literal_to_value(self, id_, node):
+        """
+        Return a JSON-LD value object if node has the compound-literal shape.
+
+        A valid compound literal is a blank node with only @id, rdf:value,
+        rdf:direction, and optionally rdf:language. Each RDF property must
+        have exactly one JSON-LD value-object entry.
+        """
+        allowed_keys = {RDF_VALUE, RDF_LANGUAGE, RDF_DIRECTION, '@id'}
+
+        # Anything with extra properties is an ordinary node, not the special
+        # compound-literal encoding.
+        if (
+            not id_.startswith('_:')
+            or set(node.keys()) - allowed_keys
+            or RDF_VALUE not in node
+            or RDF_DIRECTION not in node
+        ):
+            return None
+
+        if not self._is_single_rdf_value(node, RDF_VALUE):
+            raise JsonLdError(
+                'Invalid JSON-LD syntax; rdf:value must be a single value.',
+                'jsonld.SyntaxError',
+                code='invalid value object',
+            )
+
+        if not self._is_single_rdf_value(node, RDF_DIRECTION):
+            raise JsonLdError(
+                'Invalid JSON-LD syntax; rdf:direction must be a single value.',
+                'jsonld.InvalidBaseDirection',
+                code='invalid base direction',
+            )
+
+        # Start from rdf:value so datatype/native literal handling already
+        # done by _rdf_to_object is preserved.
+        value = node[RDF_VALUE][0].copy()
+        direction = node[RDF_DIRECTION][0].get('@value')
+        if direction not in ['ltr', 'rtl']:
+            raise JsonLdError(
+                'Invalid JSON-LD syntax; @direction must be "ltr" or "rtl".',
+                'jsonld.InvalidBaseDirection',
+                code='invalid base direction',
+            )
+
+        if RDF_LANGUAGE in node:
+            if not self._is_single_rdf_value(node, RDF_LANGUAGE):
+                raise JsonLdError(
+                    'Invalid JSON-LD syntax; rdf:language must be a single value.',
+                    'jsonld.InvalidLanguageTaggedString',
+                    code='invalid language-tagged string',
+                )
+            language = node[RDF_LANGUAGE][0].get('@value')
+            if not _is_string(language) or not re.match(REGEX_BCP47, language):
+                raise JsonLdError(
+                    'Invalid JSON-LD syntax; rdf:language must be a valid BCP47 language.',
+                    'jsonld.InvalidLanguageTaggedString',
+                    code='invalid language-tagged string',
+                )
+            value['@language'] = language
+
+        value['@direction'] = direction
+        return value
+
+    def _is_single_rdf_value(self, node, key):
+        """
+        Return True when a node property has exactly one JSON-LD value object.
+        """
+        return (
+            key in node
+            and _is_array(node[key])
+            and len(node[key]) == 1
+            and _is_value(node[key][0])
+        )
 
     def _process_context(
         self,
@@ -3362,6 +3571,18 @@ class JsonLdProcessor:
                                 code='invalid scoped context',
                             ) from cause
 
+            # Regenerate _uuid after all term definitions are created.
+            # During the loop above, scoped contexts in term definitions are
+            # pre-validated via _process_context(rval, ...), which caches the
+            # processed result keyed by rval['_uuid']. At that point rval has
+            # only a partial set of mappings (terms processed so far). When
+            # the returned context is later used during expansion and its
+            # scoped contexts are processed, the same _uuid would produce a
+            # stale cache hit with incomplete mappings. Assigning a fresh
+            # _uuid ensures expansion-time lookups miss the pre-validation
+            # cache and process scoped contexts against the complete context.
+            rval['_uuid'] = str(uuid.uuid1())
+
             # cache processed result (only Python >= 3.6)
             # and give the context a unique identifier
             rval = freeze(rval)
@@ -3710,8 +3931,7 @@ class JsonLdProcessor:
         :param item: the JSON-LD value or node object.
         :param issuer: the IdentifierIssuer for issuing blank node identifiers.
         :param triples: the array of triples to append list entries to.
-        :param rdf_direction: for creating datatyped literals.
-        :param rdf_direction: for creating datatyped literals.
+        :param rdf_direction: for creating directional literals.
 
         :return: the RDF literal or RDF resource.
         """
@@ -3753,6 +3973,44 @@ class JsonLdProcessor:
             elif _is_integer(value):
                 object['value'] = str(value)
                 object['datatype'] = datatype or XSD_INTEGER
+            elif rdf_direction == 'compound-literal' and '@direction' in item:
+                object['type'] = 'blank node'
+                object['value'] = issuer.get_id()
+                subject = {'type': 'blank node', 'value': object['value']}
+                triples.append(
+                    {
+                        'subject': subject,
+                        'predicate': {'type': 'IRI', 'value': RDF_VALUE},
+                        'object': {
+                            'type': 'literal',
+                            'value': value,
+                            'datatype': XSD_STRING,
+                        },
+                    }
+                )
+                triples.append(
+                    {
+                        'subject': subject,
+                        'predicate': {'type': 'IRI', 'value': RDF_DIRECTION},
+                        'object': {
+                            'type': 'literal',
+                            'value': item['@direction'],
+                            'datatype': XSD_STRING,
+                        },
+                    }
+                )
+                if '@language' in item:
+                    triples.append(
+                        {
+                            'subject': subject,
+                            'predicate': {'type': 'IRI', 'value': RDF_LANGUAGE},
+                            'object': {
+                                'type': 'literal',
+                                'value': item['@language'],
+                                'datatype': XSD_STRING,
+                            },
+                        }
+                    )
             elif rdf_direction == 'i18n-datatype' and '@direction' in item:
                 datatype = 'https://www.w3.org/ns/i18n#{}_{}'.format(
                     item.get('@language', ''), item['@direction']
@@ -4453,10 +4711,10 @@ class JsonLdProcessor:
                     )
         if '@type' in frame[0]:
             for type_ in JsonLdProcessor.arrayify(frame[0]['@type']):
-                # @id must be wildcard or IRI
-                if not (_is_object(type_) or _is_absolute_iri(type_)) or (
-                    _is_string(type_) and type_.startswith('_:')
-                ):
+                # @type must be wildcard, @json, or IRI
+                if not (
+                    _is_object(type_) or type_ == '@json' or _is_absolute_iri(type_)
+                ) or (_is_string(type_) and type_.startswith('_:')):
                     raise JsonLdError(
                         'Invalid JSON-LD syntax; invalid @type in frame.',
                         'jsonld.SyntaxError',
@@ -5675,8 +5933,10 @@ class JsonLdProcessor:
 
         # scoped contexts
         if '@context' in value:
-            # record as falss, if None
-            mapping['@context'] = value['@context'] if value['@context'] else False
+            # record as false, if None
+            mapping['@context'] = (
+                False if value['@context'] is None else value['@context']
+            )
 
         if '@language' in value and '@type' not in value:
             language = value['@language']
@@ -5842,8 +6102,8 @@ class JsonLdProcessor:
 
         # resolve against base
         rval = value
-        # if there is a base in the active context, use that
-        if '@base' in active_ctx:
+        # if a base was passed and the active context has a base, use that
+        if base is not None and '@base' in active_ctx:
             # the None case preserves rval as potentially relative
             if active_ctx['@base'] is not None:
                 resolved_base = (

@@ -6,7 +6,17 @@ from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
 
-__all__ = ["SettingGetResponse"]
+__all__ = ["SettingGetResponse", "ProfileBucket"]
+
+
+class ProfileBucket(BaseModel):
+    """Definition of a single profile bucket"""
+
+    key: str
+    """Stable slug for the bucket, stored on each memory"""
+
+    description: Optional[str] = None
+    """What belongs in this bucket — used to guide the ingestion classifier."""
 
 
 class SettingGetResponse(BaseModel):
@@ -45,5 +55,8 @@ class SettingGetResponse(BaseModel):
     onedrive_client_secret: Optional[str] = FieldInfo(alias="onedriveClientSecret", default=None)
 
     onedrive_custom_key_enabled: Optional[bool] = FieldInfo(alias="onedriveCustomKeyEnabled", default=None)
+
+    profile_buckets: Optional[List[ProfileBucket]] = FieldInfo(alias="profileBuckets", default=None)
+    """Profile bucket definitions"""
 
     should_llm_filter: Optional[bool] = FieldInfo(alias="shouldLLMFilter", default=None)

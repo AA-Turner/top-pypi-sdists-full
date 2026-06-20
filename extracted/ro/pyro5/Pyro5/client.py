@@ -88,7 +88,7 @@ class Proxy(object):
     def __del__(self):
         if hasattr(self, "_pyroConnection"):
             try:
-                self._pyroRelease()
+                self._pyroConnection.close()
             except Exception:
                 pass
 
@@ -272,7 +272,10 @@ class Proxy(object):
                         raise errors.ProtocolError("result of call is an iterator, but the server is not configured to allow streaming")
                     return _StreamResultIterator(streamId, self)
                 if msg.flags & protocol.FLAGS_EXCEPTION:
-                    raise data  # if you see this in your traceback, you should probably inspect the remote traceback as well
+                    try:
+                        raise data  # if you see this in your traceback, you should probably inspect the remote traceback as well
+                    finally:
+                        del data
                 else:
                     return data
         except (errors.CommunicationError, KeyboardInterrupt):
@@ -296,7 +299,8 @@ class Proxy(object):
         Connects this proxy to the remote Pyro daemon. Does connection handshake.
         Returns true if a new connection was made, false if an existing one was already present.
         """
-        def connect_and_handshake(conn):
+        def connect_and_handshake():
+            conn = None
             try:
                 if self._pyroConnection is not None:
                     return False  # already connected
@@ -312,7 +316,11 @@ class Proxy(object):
                                                 timeout=self.__pyroTimeout,
                                                 nodelay=config.SOCK_NODELAY,
                                                 sslContext=sslContext)
-                conn = socketutil.SocketConnection(sock, uri.object)
+                try:
+                    conn = socketutil.SocketConnection(sock, uri.object)
+                except Exception:
+                    sock.close()
+                    raise
                 # Do handshake.
                 serializer = serializers.serializers[self._pyroSerializer or config.SERIALIZER]
                 data = {"handshake": self._pyroHandshake, "object": uri.object}
@@ -366,14 +374,13 @@ class Proxy(object):
             return False  # already connected
         uri = core.resolve(self._pyroUri)
         # socket connection (normal or Unix domain socket)
-        conn = None
         log.debug("connecting to %s", uri)
         connect_location = uri.sockname or (uri.host, uri.port)
         if connected_socket:
             self._pyroConnection = socketutil.SocketConnection(connected_socket, uri.object, True)
             self._pyroLocalSocket = connected_socket.getsockname()
         else:
-            connect_and_handshake(conn)
+            connect_and_handshake()
         # obtain metadata if this feature is enabled, and the metadata is not known yet
         if not self._pyroMethods and not self._pyroAttrs:
             self._pyroGetMetadata(uri.object)

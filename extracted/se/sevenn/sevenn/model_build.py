@@ -246,6 +246,7 @@ def patch_cue(layers: OrderedDict, config: Dict[str, Any]) -> OrderedDict:
         )
         return layers
 
+    # TODO: merge into cue_ava func
     if not cue_helper.is_cue_cuda_available_model(config):
         return layers
 
@@ -326,10 +327,35 @@ def patch_flash_tp(layers: OrderedDict, config: Dict[str, Any]) -> OrderedDict:
     return layers
 
 
+def patch_oeq(layers: OrderedDict, config: Dict[str, Any]) -> OrderedDict:
+    import sevenn.nn.oeq_helper as oeq_helper
+
+    if not config.get(KEY.USE_OEQ, False):
+        return layers
+
+    if not oeq_helper.is_oeq_available():
+        warnings.warn(
+            (
+                'OpenEquivariance (oeq) is requested, but the package is not '
+                'installed or GPU not available. Fallback to e3nn.'
+            )
+        )
+        return layers
+
+    updates = {}
+    for k, module in layers.items():
+        if isinstance(module, IrrepsConvolution):
+            updates[k] = oeq_helper.patch_convolution(module)
+
+    layers.update(updates)
+    return layers
+
+
 def patch_modules(layers: OrderedDict, config: Dict[str, Any]) -> OrderedDict:
     layers = patch_modality(layers, config)
     layers = patch_cue(layers, config)
     layers = patch_flash_tp(layers, config)
+    layers = patch_oeq(layers, config)
     return layers
 
 

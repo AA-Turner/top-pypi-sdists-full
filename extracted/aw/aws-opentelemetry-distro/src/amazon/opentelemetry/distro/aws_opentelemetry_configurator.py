@@ -7,17 +7,17 @@
 import logging
 import os
 import re
+from importlib.metadata import version
 from logging import Logger, getLogger
 from pathlib import Path
 from typing import ClassVar, Dict, List, NamedTuple, Optional, Type, Union
 
 import yaml
-from importlib_metadata import version
 from typing_extensions import override
 
 from amazon.opentelemetry.distro._aws_attribute_keys import AWS_LOCAL_SERVICE, AWS_SERVICE_TYPE
 from amazon.opentelemetry.distro._aws_resource_attribute_configurator import get_service_attribute
-from amazon.opentelemetry.distro._utils import get_aws_session, is_agentic_observability_enabled
+from amazon.opentelemetry.distro._utils import get_aws_session, is_agent_observability_enabled
 from amazon.opentelemetry.distro.always_record_sampler import AlwaysRecordSampler
 from amazon.opentelemetry.distro.attribute_propagating_span_processor_builder import (
     AttributePropagatingSpanProcessorBuilder,
@@ -64,6 +64,7 @@ from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, ConsoleLogRecordExporter, LogRecordExporter
 from opentelemetry.sdk.environment_variables import (
     _OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED,
+    OTEL_EXPORTER_OTLP_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_PROTOCOL,
     OTEL_EXPORTER_OTLP_PROTOCOL,
     OTEL_TRACES_SAMPLER_ARG,
@@ -205,7 +206,7 @@ def _initialize_components():
             AwsEksResourceDetector(),
             AwsEcsResourceDetector(),
         ]
-        if not (_is_lambda_environment() or is_agentic_observability_enabled())
+        if not (_is_lambda_environment() or is_agent_observability_enabled())
         else []
     )
 
@@ -225,6 +226,78 @@ def _initialize_components():
     logging_enabled = os.getenv(_OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED, "false")
     if logging_enabled.strip().lower() == "true":
         _init_logging(log_exporters, resource)
+
+    # Initialize ServiceEvents instrumentation
+    _init_serviceevents(resource)
+
+
+def _init_serviceevents(resource=None):
+    """Initialize ServiceEvents instrumentation if enabled.
+
+    Args:
+        resource: OTel Resource object from AWS detectors (EC2/ECS/EKS).
+                  Used to extract platform attributes for serviceevents telemetry.
+    """
+    try:
+        if not _is_serviceevents_enabled():
+            return
+
+        # Lazy imports: defer the serviceevents package (and its optional deps) until enabled,
+        # and avoid an import cycle with this configurator module.
+        # pylint: disable=import-outside-toplevel
+        from amazon.opentelemetry.distro.serviceevents import ServiceEventsConfig, get_serviceevents_instrumentation
+        from amazon.opentelemetry.distro.serviceevents.models.resource_attributes import (
+            ResourceAttributes as ServiceEventsResourceAttributes,
+        )
+
+        # Extract resource attributes from OTel Resource
+        resource_attributes = (
+            ServiceEventsResourceAttributes.from_otel_resource(resource)
+            if resource
+            else ServiceEventsResourceAttributes()
+        )
+
+        # Build configuration from environment variables with resource attributes.
+        # `config.enabled` mirrors OTEL_AWS_SERVICE_EVENTS_ENABLED directly; the outer
+        # bundling gate above has already decided ServiceEvents should run, so flip
+        # the inner flag on regardless of whether the env var was set.
+        config = ServiceEventsConfig.from_env(resource_attributes=resource_attributes)
+        config.enabled = True
+
+        # Endpoint policy:
+        # - App Signals enabled: empty/null endpoints default to the 4316 App Signals receiver.
+        # - App Signals disabled + ServiceEvents force-enabled: endpoints are required; refuse to init.
+        as_enabled = _is_application_signals_enabled()
+        if not (config.logs_endpoint or "").strip() or not (config.metrics_endpoint or "").strip():
+            if as_enabled:
+                if not (config.logs_endpoint or "").strip():
+                    config.logs_endpoint = "http://localhost:4316/v1/logs"
+                if not (config.metrics_endpoint or "").strip():
+                    config.metrics_endpoint = "http://localhost:4316/v1/metrics"
+            else:
+                _logger.error(
+                    "ServiceEvents force-enabled (OTEL_AWS_SERVICE_EVENTS_ENABLED=true) without "
+                    "Application Signals, but OTEL_AWS_OTLP_LOGS_ENDPOINT / "
+                    "OTEL_AWS_OTLP_METRICS_ENDPOINT are unset or empty. Both are "
+                    "required in this mode. Skipping ServiceEvents initialization."
+                )
+                return
+
+        # Get or create singleton instrumentation instance
+        # If already initialized (e.g., by manual init), this will return existing instance
+        instrumentation = get_serviceevents_instrumentation(config)
+        if instrumentation is None:
+            _logger.warning("Failed to get ServiceEvents instrumentation instance")
+            return
+
+        # Initialize if not already initialized
+        instrumentation.initialize()
+
+        _logger.info("ServiceEvents instrumentation initialized")
+
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # Don't fail the whole instrumentation if ServiceEvents fails
+        _logger.error("Failed to initialize ServiceEvents: %s", exc, exc_info=True)
 
 
 def _init_logging(
@@ -327,15 +400,24 @@ def _export_unsampled_span_for_lambda(trace_provider: TracerProvider, resource: 
 
 
 def _export_unsampled_span_for_agent_observability(trace_provider: TracerProvider, resource: Resource = None):
-    if not is_agentic_observability_enabled():
+    if not is_agent_observability_enabled():
         return
 
     traces_endpoint = os.environ.get(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
-    if traces_endpoint and _is_aws_otlp_endpoint(traces_endpoint, XRAY_SERVICE):
+    if not traces_endpoint:
+        base_endpoint = os.environ.get(OTEL_EXPORTER_OTLP_ENDPOINT)
+        if base_endpoint:
+            traces_endpoint = base_endpoint.rstrip("/") + "/v1/traces"
+    if not traces_endpoint:
+        return
+
+    if _is_aws_otlp_endpoint(traces_endpoint, XRAY_SERVICE):
         endpoint, region = _extract_endpoint_and_region_from_otlp_endpoint(traces_endpoint)
         span_exporter = _create_aws_otlp_exporter(endpoint=endpoint, service=XRAY_SERVICE, region=region)
+    else:
+        span_exporter = OTLPSpanExporter(endpoint=traces_endpoint)
 
-        trace_provider.add_span_processor(BatchUnsampledSpanProcessor(span_exporter=span_exporter))
+    trace_provider.add_span_processor(BatchUnsampledSpanProcessor(span_exporter=span_exporter))
 
 
 def _is_defer_to_workers_enabled():
@@ -468,7 +550,7 @@ def _customize_log_record_processor(logger_provider: LoggerProvider, log_exporte
     if not log_exporter:
         return
 
-    if is_agentic_observability_enabled():
+    if is_agent_observability_enabled():
         # pylint: disable=import-outside-toplevel
         from amazon.opentelemetry.distro.exporter.otlp.aws.logs._aws_cw_otlp_batch_log_record_processor import (
             AwsCloudWatchOtlpBatchLogRecordProcessor,
@@ -527,7 +609,7 @@ def _customize_span_processors(provider: TracerProvider, resource: Resource, sam
     # AI applications typically have low throughput traffic patterns and require
     # comprehensive monitoring to catch subtle failure modes like hallucinations
     # and quality degradation that sampling could miss.
-    if is_agentic_observability_enabled():
+    if is_agent_observability_enabled():
         _export_unsampled_span_for_agent_observability(provider, resource)
         provider.add_span_processor(GenAiNestedClientSpanProcessor())
         baggage_keys.add("session.id")
@@ -635,7 +717,24 @@ def _customize_resource(resource: Resource) -> Resource:
 
     custom_attributes = {AWS_LOCAL_SERVICE: service_name}
 
-    if is_agentic_observability_enabled():
+    # Add CI/CD and VCS attributes only if they have real values
+    git_repo_url = os.environ.get("OTEL_AWS_SERVICE_EVENTS_GIT_REPO_URL", "")
+    if git_repo_url:
+        custom_attributes["vcs.repository.url.full"] = git_repo_url
+
+    git_commit_sha = os.environ.get("OTEL_AWS_SERVICE_EVENTS_GIT_COMMIT_SHA", "")
+    if git_commit_sha:
+        custom_attributes["vcs.ref.head.revision"] = git_commit_sha
+
+    deployment_url = os.environ.get("OTEL_AWS_SERVICE_EVENTS_DEPLOYMENT_URL", "")
+    if deployment_url:
+        custom_attributes["cicd.pipeline.run.url.full"] = deployment_url
+
+    deployment_timestamp = os.environ.get("OTEL_AWS_SERVICE_EVENTS_DEPLOYMENT_TIMESTAMP", "")
+    if deployment_timestamp:
+        custom_attributes["cicd.pipeline.run.timestamp"] = deployment_timestamp
+
+    if is_agent_observability_enabled():
         # Add aws.service.type if it doesn't exist in the resource
         if resource and resource.attributes.get(AWS_SERVICE_TYPE) is None:
             # Set a default agent type for AI agent observability
@@ -651,6 +750,18 @@ def _is_application_signals_enabled():
         ).lower()
         == "true"
     )
+
+
+def _is_serviceevents_enabled():
+    # ServiceEvents is bundled with Application Signals: on by default when App Signals is on,
+    # off by default when it isn't, and always off on Lambda regardless. An explicit
+    # OTEL_AWS_SERVICE_EVENTS_ENABLED value (true/false) overrides the bundling.
+    if _is_lambda_environment():
+        return False
+    explicit = os.environ.get("OTEL_AWS_SERVICE_EVENTS_ENABLED")
+    if explicit is not None and explicit.strip() != "":
+        return explicit.strip().lower() == "true"
+    return _is_application_signals_enabled()
 
 
 def _is_application_signals_runtime_enabled():
@@ -921,7 +1032,7 @@ def _create_aws_otlp_exporter(endpoint: str, service: str, region: str):
         from amazon.opentelemetry.distro.exporter.otlp.aws.traces.otlp_aws_span_exporter import OTLPAwsSpanExporter
 
         if service == XRAY_SERVICE:
-            if is_agentic_observability_enabled():
+            if is_agent_observability_enabled():
                 # Span exporter needs an instance of logger provider in ai agent
                 # observability case because we need to split input/output prompts
                 # from span attributes and send them to the logs pipeline per

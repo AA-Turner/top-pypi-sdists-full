@@ -9,17 +9,6 @@ import System.IO
 import System.Runtime.InteropServices
 
 
-class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def is_invalid(self) -> bool:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
 class SafeHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -35,10 +24,6 @@ class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
     """This class has no documentation."""
 
     @property
-    def type(self) -> System.IO.FileHandleType:
-        ...
-
-    @property
     def is_async(self) -> bool:
         ...
 
@@ -46,17 +31,16 @@ class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
     def is_invalid(self) -> bool:
         ...
 
-    @overload
-    def __init__(self, preexisting_handle: System.IntPtr, owns_handle: bool) -> None:
+    @property
+    def type(self) -> System.IO.FileHandleType:
         ...
 
     @overload
     def __init__(self) -> None:
         ...
 
-    @staticmethod
     @overload
-    def create_anonymous_pipe(read_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], write_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], async_read: bool = False, async_write: bool = False) -> typing.Tuple[None, Microsoft.Win32.SafeHandles.SafeFileHandle, Microsoft.Win32.SafeHandles.SafeFileHandle]:
+    def __init__(self, preexisting_handle: System.IntPtr, owns_handle: bool) -> None:
         ...
 
     @staticmethod
@@ -64,7 +48,23 @@ class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
     def create_anonymous_pipe(read_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], write_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], async_read: bool, async_write: bool) -> typing.Tuple[None, Microsoft.Win32.SafeHandles.SafeFileHandle, Microsoft.Win32.SafeHandles.SafeFileHandle]:
         ...
 
+    @staticmethod
+    @overload
+    def create_anonymous_pipe(read_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], write_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], async_read: bool = False, async_write: bool = False) -> typing.Tuple[None, Microsoft.Win32.SafeHandles.SafeFileHandle, Microsoft.Win32.SafeHandles.SafeFileHandle]:
+        ...
+
     def release_handle(self) -> bool:
+        ...
+
+
+class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def is_invalid(self) -> bool:
+        ...
+
+    def __init__(self) -> None:
         ...
 
 
@@ -76,6 +76,17 @@ class CriticalHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.Criti
         ...
 
     def __init__(self) -> None:
+        ...
+
+
+class SafeHandleMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def is_invalid(self) -> bool:
+        ...
+
+    def __init__(self, owns_handle: bool) -> None:
         ...
 
 
@@ -91,17 +102,6 @@ class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
         ...
 
     def release_handle(self) -> bool:
-        ...
-
-
-class SafeHandleMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def is_invalid(self) -> bool:
-        ...
-
-    def __init__(self, owns_handle: bool) -> None:
         ...
 
 

@@ -871,7 +871,20 @@ def build_chalk_model_handler_image(
     if chalkpy_spec is not None:
         deps.append(chalkpy_spec)
     deps.extend(dependencies)
-    img = Image.debian_slim().pip_install(deps)
+
+    # The preferred `predict(self, df)` path hands user code a
+    # `chalkdf.DataFrame`, so the runtime needs chalkdf — and chalkdf requires
+    # Python `<3.13`, so pin 3.12 (chalkcompute's default is 3.13+, which makes
+    # chalkdf unresolvable at build). The legacy `handler(self, input)` path
+    # takes no chalkdf dependency and keeps the unpinned default interpreter.
+    from chalk.ml.model_handler import model_handler_entrypoint
+
+    if model_handler_entrypoint(handler_instance) == "predict":
+        if not any(d.strip().lower().split("==")[0].split(">")[0].split("<")[0] == "chalkdf" for d in deps):
+            deps.append("chalkdf")
+        img = Image.debian_slim("3.12").pip_install(deps)
+    else:
+        img = Image.debian_slim().pip_install(deps)
 
     code_tmp_paths: List[str] = []
     try:

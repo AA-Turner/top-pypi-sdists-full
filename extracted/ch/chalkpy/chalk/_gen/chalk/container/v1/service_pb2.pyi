@@ -16,12 +16,21 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class ComputeClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    COMPUTE_CLASS_UNSPECIFIED: _ClassVar[ComputeClass]
+    COMPUTE_CLASS_K8S: _ClassVar[ComputeClass]
+    COMPUTE_CLASS_HOST: _ClassVar[ComputeClass]
+
 class KernelPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     KERNEL_POLICY_UNSPECIFIED: _ClassVar[KernelPolicy]
     KERNEL_POLICY_RESTRICTED: _ClassVar[KernelPolicy]
     KERNEL_POLICY_OPEN: _ClassVar[KernelPolicy]
 
+COMPUTE_CLASS_UNSPECIFIED: ComputeClass
+COMPUTE_CLASS_K8S: ComputeClass
+COMPUTE_CLASS_HOST: ComputeClass
 KERNEL_POLICY_UNSPECIFIED: KernelPolicy
 KERNEL_POLICY_RESTRICTED: KernelPolicy
 KERNEL_POLICY_OPEN: KernelPolicy
@@ -101,6 +110,7 @@ class ChalkContainerSpec(_message.Message):
         "secret_refs",
         "security_policy",
         "network_policy",
+        "compute_class",
     )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -134,6 +144,7 @@ class ChalkContainerSpec(_message.Message):
     SECRET_REFS_FIELD_NUMBER: _ClassVar[int]
     SECURITY_POLICY_FIELD_NUMBER: _ClassVar[int]
     NETWORK_POLICY_FIELD_NUMBER: _ClassVar[int]
+    COMPUTE_CLASS_FIELD_NUMBER: _ClassVar[int]
     name: str
     image: str
     entrypoint: _containers.RepeatedScalarFieldContainer[str]
@@ -150,6 +161,7 @@ class ChalkContainerSpec(_message.Message):
     secret_refs: _containers.RepeatedCompositeFieldContainer[SecretRef]
     security_policy: ContainerSecurityPolicy
     network_policy: NetworkPolicy
+    compute_class: ComputeClass
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -168,6 +180,7 @@ class ChalkContainerSpec(_message.Message):
         secret_refs: _Optional[_Iterable[_Union[SecretRef, _Mapping]]] = ...,
         security_policy: _Optional[_Union[ContainerSecurityPolicy, _Mapping]] = ...,
         network_policy: _Optional[_Union[NetworkPolicy, _Mapping]] = ...,
+        compute_class: _Optional[_Union[ComputeClass, str]] = ...,
     ) -> None: ...
 
 class ContainerSecurityPolicy(_message.Message):

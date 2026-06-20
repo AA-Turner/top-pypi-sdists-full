@@ -49,16 +49,343 @@ import pandas
 
 QuantConnect_Algorithm__EventContainer_Callable = typing.TypeVar("QuantConnect_Algorithm__EventContainer_Callable")
 QuantConnect_Algorithm__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Algorithm__EventContainer_ReturnType")
-QuantConnect_Algorithm_QCAlgorithm_AddData_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddData_T")
-QuantConnect_Algorithm_QCAlgorithm_AddCommand_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddCommand_T")
-QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T")
-QuantConnect_Algorithm_QCAlgorithm_History_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_History_T")
-QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T")
 QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T")
 QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T")
 QuantConnect_Algorithm_QCAlgorithm_Consolidate_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_Consolidate_T")
 QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T")
+QuantConnect_Algorithm_QCAlgorithm_AddData_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddData_T")
+QuantConnect_Algorithm_QCAlgorithm_AddCommand_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddCommand_T")
 QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T")
+QuantConnect_Algorithm_QCAlgorithm_History_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_History_T")
+QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T")
+QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T")
+
+
+class ConstituentUniverseDefinitions(System.Object):
+    """
+    Provides helpers for defining constituent universes based on the Morningstar
+    asset classification AssetClassification https://www.morningstar.com/
+    """
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+        """
+        Initializes a new instance of the ConstituentUniverseDefinitions class
+        
+        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
+        """
+        ...
+
+    def aerospace_and_defense(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar AerospaceAndDefense industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def aggressive_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies whose revenues and earnings have both been growing significantly faster than
+        the general economy.
+        """
+        ...
+
+    def agriculture(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Agriculture industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def asset_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar AssetManagement industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def banks(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Banks industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def beverages_alcoholic(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar BeveragesAlcoholic industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def beverages_non_alcoholic(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar BeveragesNonAlcoholic industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def biotechnology(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Biotechnology industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def building_materials(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar BuildingMaterials industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def business_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar BusinessServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def capital_markets(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar CapitalMarkets industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def chemicals(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Chemicals industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def classic_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that are growing respectably faster than the general economy, and often pay a
+        steady dividend. They tend to be mature and solidly profitable businesses.
+        """
+        ...
+
+    def conglomerates(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Conglomerates industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def construction(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Construction industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def consumer_packaged_goods(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar ConsumerPackagedGoods industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def credit_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar CreditServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def cyclicals(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies in the cyclicals and durables sectors, except those in the three types below.
+        The profits of cyclicals tend to rise and fall with the general economy.
+        """
+        ...
+
+    def distressed(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that have had consistently declining cash flows and earnings over the past
+        three years, and/or very high debt.
+        """
+        ...
+
+    def diversified_financial_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar DiversifiedFinancialServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def drug_manufacturers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar DrugManufacturers industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def education(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Education industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def farm_and_heavy_construction_machinery(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar FarmAndHeavyConstructionMachinery industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def fixtures_and_appliances(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar FixturesAndAppliances industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def forest_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar ForestProducts industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def hard_asset(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that deal in assets such as oil, metals, and real estate, which tend to do
+        well in inflationary environments.
+        """
+        ...
+
+    def hardware(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Hardware industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def healthcare_plans(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar HealthcarePlans industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def healthcare_providers_and_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar HealthcareProvidersAndServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def high_yield(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that have dividend yields at least twice the average for large-cap stocks.
+        They tend to be mature, slow-growing companies.
+        """
+        ...
+
+    def homebuilding_and_construction(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar HomebuildingAndConstruction industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def industrial_distribution(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar IndustrialDistribution industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def industrial_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar IndustrialProducts industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def insurance(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Insurance industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def interactive_media(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar InteractiveMedia industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def large_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def large_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def large_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def manufacturing_apparel_and_accessories(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar ManufacturingApparelAndAccessories industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def media_diversified(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MediaDiversified industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def medical_devices_and_instruments(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MedicalDevicesAndInstruments industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def medical_diagnostics_and_research(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MedicalDiagnosticsAndResearch industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def medical_distribution(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MedicalDistribution industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def metals_and_mining(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MetalsAndMining industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def mid_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def mid_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def mid_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def oil_and_gas(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar OilAndGas industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def other_energy_sources(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar OtherEnergySources industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def packaging_and_containers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar PackagingAndContainers industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def personal_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar PersonalServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def real_estate(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar RealEstate industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def rei_ts(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar REITs industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def restaurants(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Restaurants industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def retail_cyclical(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar RetailCyclical industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def retail_defensive(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar RetailDefensive industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def semiconductors(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Semiconductors industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def slow_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that have shown slow revenue and earnings growth (typically less than the rate
+        of GDP growth) over at least three years.
+        """
+        ...
+
+    def small_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def small_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def small_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def software(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Software industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def speculative_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that have shown strong revenue growth but slower or spotty earnings growth.
+        Very small or young companies also tend to fall into this class.
+        """
+        ...
+
+    def steel(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Steel industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def telecommunication_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar TelecommunicationServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def tobacco_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar TobaccoProducts industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def transportation(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Transportation industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def travel_and_leisure(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar TravelAndLeisure industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def utilities_independent_power_producers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar UtilitiesIndependentPowerProducers industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def utilities_regulated(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar UtilitiesRegulated industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def vehicles_and_parts(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar VehiclesAndParts industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def waste_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar WasteManagement industry group MorningstarIndustryGroupCode"""
+        ...
 
 
 class CandlestickPatterns(System.Object):
@@ -812,33 +1139,6 @@ class CandlestickPatterns(System.Object):
         ...
 
 
-class DollarVolumeUniverseDefinitions(System.Object):
-    """Provides helpers for defining universes based on the daily dollar volume"""
-
-    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
-        """
-        Initializes a new instance of the DollarVolumeUniverseDefinitions class
-        
-        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
-        """
-        ...
-
-    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new coarse Universe that contains the top count of stocks
-        by daily dollar volume
-        
-        
-        This method is deprecated. Use method `Universe.Top(...)` instead
-        
-        :param count: The number of stock to select
-        :param universe_settings: The settings for stocks added by this universe.
-        Defaults to QCAlgorithm.universe_settings
-        :returns: A new coarse universe for the top count of stocks by dollar volume.
-        """
-        warnings.warn("This method is deprecated. Use method `Universe.Top(...)` instead", DeprecationWarning)
-
-
 class UniverseDefinitions(System.Object):
     """Provides helpers for defining universes in algorithms"""
 
@@ -1099,1241 +1399,6 @@ class UniverseDefinitions(System.Object):
         Defaults to QCAlgorithm.universe_settings
         :returns: A new coarse universe for the top count of stocks by dollar volume.
         """
-        ...
-
-
-class _Typed_QCAlgorithm_AddData(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddData_T]):
-    """"""
-
-    @overload
-    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
-        
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
-        
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
-        
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
-        
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source including symbol properties and exchange hours,
-        all other vars are not required and will use defaults.
-        
-        :param ticker: Key/Ticker for data
-        :param properties: The properties of this new custom data
-        :param exchange_hours: The Exchange hours of this symbol
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-
-class _QCAlgorithm_AddData:
-    """"""
-
-    @overload
-    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
-        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
-        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
-        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
-        Use this method when adding custom data with a ticker from the past, such as "AOL"
-        before it became "TWX", or if you need to filter using custom data and place trades on the
-        Symbol associated with the custom data.
-        
-        :param type: Data source type
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
-        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
-        Use this method when adding custom data with a ticker from the past, such as "AOL"
-        before it became "TWX", or if you need to filter using custom data and place trades on the
-        Symbol associated with the custom data.
-        
-        :param type: Data source type
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source including symbol properties and exchange hours,
-        all other vars are not required and will use defaults.
-        This overload reflects the C# equivalent for custom properties and market hours
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param properties: The properties of this new custom data
-        :param exchange_hours: The Exchange hours of this symbol
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddData_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddData[QuantConnect_Algorithm_QCAlgorithm_AddData_T]:
-        ...
-
-
-class _Typed_QCAlgorithm_AddCommand(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]):
-    """"""
-
-    @overload
-    def __call__(self) -> None:
-        """Register a command type to be used"""
-        ...
-
-
-class _QCAlgorithm_AddCommand:
-    """"""
-
-    @overload
-    def __call__(self, type: typing.Type) -> None:
-        """
-        Register a command type to be used
-        
-        :param type: The command type
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddCommand[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]:
-        ...
-
-
-class _Typed_QCAlgorithm_AddUniverse(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]):
-    """"""
-
-    @overload
-    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param name: A unique name for this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param name: A unique name for this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, and Market.USA
-        
-        :param name: A unique name for this universe
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, and Market.USA
-        
-        :param name: A unique name for this universe
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Market.USA and UniverseSettings
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Market.USA and UniverseSettings
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, and Market.USA
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, and Market.USA
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property.
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property.
-        
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]] = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-
-class _QCAlgorithm_AddUniverse:
-    """"""
-
-    @overload
-    def __call__(self, py_object: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param py_object: Defines an initial coarse selection
-        """
-        ...
-
-    @overload
-    def __call__(self, py_object: typing.Any, pyfine: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param py_object: Defines an initial coarse selection or a universe
-        :param pyfine: Defines a more detailed selection with access to more data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
-        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
-        
-        :param name: A unique name for this universe
-        :param resolution: The resolution this universe should be triggered on
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
-        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
-        
-        :param name: A unique name for this universe
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new user defined universe that will fire on the requested resolution during market hours.
-        
-        :param security_type: The security type of the universe
-        :param name: A unique name for this universe
-        :param resolution: The resolution this universe should be triggered on
-        :param market: The market of the universe
-        :param universe_settings: The subscription settings used for securities added from this universe
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, name: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Market.USA and UniverseSettings
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, and Market.USA
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, and Market.USA
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property.
-        
-        :param t: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param t: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, data_type: typing.Type, security_type: typing.Optional[QuantConnect.SecurityType] = None, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, py_selector: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param data_type: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param py_selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Adds the universe to the algorithm
-        
-        :param universe: The universe to be added
-        """
-        ...
-
-    @overload
-    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param selector: Defines an initial fundamental selection
-        """
-        ...
-
-    @overload
-    def __call__(self, date_rule: QuantConnect.Scheduling.IDateRule, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
-        will be executed based on the provided IDateRule in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param date_rule: Date rule that will be used to set the Data.UniverseSelection.UniverseSettings.Schedule
-        :param selector: Defines an initial fundamental selection
-        """
-        ...
-
-    @overload
-    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param universe: The universe to be filtered with fine fundamental selection
-        :param fine_selector: Defines a more detailed selection with access to more data
-        """
-        ...
-
-    @overload
-    def __call__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        
-        This method is obsolete, please use AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector) instead
-        
-        :param coarse_selector: Defines an initial coarse selection
-        :param fine_selector: Defines a more detailed selection with access to more data
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddUniverse[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]:
-        ...
-
-
-class _Typed_QCAlgorithm_History(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_History_T]):
-    """"""
-
-    @overload
-    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect_Algorithm_QCAlgorithm_History_T]:
-        """
-        Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
-        
-        :param symbol: The symbol to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect_Algorithm_QCAlgorithm_History_T]:
-        """
-        Gets the historical data for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param symbol: The symbol to retrieve historical data for
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect_Algorithm_QCAlgorithm_History_T]:
-        """
-        Gets the historical data for the specified symbol between the specified dates. The symbol must exist in the Securities collection.
-        
-        :param symbol: The symbol to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
-        """
-        Gets the historical data for all symbols of the requested type over the requested span.
-        The symbol's configured values for resolution and fill forward behavior will be used
-        The symbols must exist in the Securities collection.
-        
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
-        """
-        Gets the historical data for the specified symbols over the requested span.
-        The symbols must exist in the Securities collection.
-        
-        :param symbols: The symbols to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbols: typing.List[QuantConnect.Symbol], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
-        """
-        Gets the historical data for the specified symbols. The exact number of bars will be returned for
-        each symbol. This may result in some data start earlier/later than others due to when various
-        exchanges are open. The symbols must exist in the Securities collection.
-        
-        :param symbols: The symbols to retrieve historical data for
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
-        """
-        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-        
-        :param symbols: The symbols to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-
-class _QCAlgorithm_History:
-    """"""
-
-    @overload
-    def __call__(self, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param tickers: The symbols to retrieve historical data for
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: A python dictionary with pandas DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbols over the requested span.
-        The symbols must exist in the Securities collection.
-        
-        :param tickers: The symbols to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: A python dictionary with pandas DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-        
-        :param tickers: The symbols to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: A python dictionary with a pandas DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-        
-        :param type: The data type of the symbols
-        :param tickers: The symbols to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: pandas.DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbols. The exact number of bars will be returned for
-        each symbol. This may result in some data start earlier/later than others due to when various
-        exchanges are open. The symbols must exist in the Securities collection.
-        
-        :param type: The data type of the symbols
-        :param tickers: The symbols to retrieve historical data for
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: pandas.DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbols over the requested span.
-        The symbols must exist in the Securities collection.
-        
-        :param type: The data type of the symbols
-        :param tickers: The symbols to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: pandas.DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-        
-        :param type: The data type of the symbols
-        :param symbol: The symbol to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: pandas.DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbols. The exact number of bars will be returned for
-        each symbol. This may result in some data start earlier/later than others due to when various
-        exchanges are open. The symbols must exist in the Securities collection.
-        
-        :param type: The data type of the symbols
-        :param symbol: The symbol to retrieve historical data for
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: pandas.DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-        """
-        Gets the historical data for the specified symbols over the requested span.
-        The symbols must exist in the Securities collection.
-        
-        :param type: The data type of the symbols
-        :param symbol: The symbol to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :param flatten: Whether to flatten the resulting data frame.
-        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: pandas.DataFrame containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
-        """
-        Gets the historical data for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param symbol: The symbol to retrieve historical data for
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
-        """
-        Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
-        
-        :param symbol: The symbol to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
-        """
-        Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
-        
-        :param symbol: The symbol to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
-        """
-        Get the history for all configured securities over the requested span.
-        This will use the resolution and other subscription settings for each security.
-        The symbols must exist in the Securities collection.
-        
-        :param span: The span over which to request data. This is a calendar span, so take into consideration weekends and such
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing data over the most recent span for all configured securities.
-        """
-        ...
-
-    @overload
-    def __call__(self, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
-        """
-        Get the history for all configured securities over the requested span.
-        This will use the resolution and other subscription settings for each security.
-        The symbols must exist in the Securities collection.
-        
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing data over the most recent span for all configured securities.
-        """
-        ...
-
-    @overload
-    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
-        """
-        Get the history for all configured securities over the requested span.
-        This will use the resolution and other subscription settings for each security.
-        The symbols must exist in the Securities collection.
-        
-        :param universe: The universe to fetch the data for
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing data over the most recent span for all configured securities.
-        """
-        ...
-
-    @overload
-    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
-        """
-        Gets the historical data for all symbols of the requested type over the requested span.
-        The symbol's configured values for resolution and fill forward behavior will be used
-        The symbols must exist in the Securities collection.
-        
-        :param universe: The universe to fetch the data for
-        :param span: The span over which to request data. This is a calendar span, so take into consideration weekends and such
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
-        """
-        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-        
-        :param universe: The universe to fetch the data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
-        """
-        Gets the historical data for the specified symbols over the requested span.
-        The symbol's configured values for resolution and fill forward behavior will be used
-        The symbols must exist in the Securities collection.
-        
-        :param symbols: The symbols to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbols: typing.List[QuantConnect.Symbol], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
-        """
-        Gets the historical data for the specified symbols. The exact number of bars will be returned for
-        each symbol. This may result in some data start earlier/later than others due to when various
-        exchanges are open. The symbols must exist in the Securities collection.
-        
-        :param symbols: The symbols to retrieve historical data for
-        :param periods: The number of bars to request
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
-        """
-        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-        
-        :param symbols: The symbols to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month.
-        For example, 0 will use the front month, 1 will use the back month contract
-        :returns: An enumerable of slice containing the requested historical data.
-        """
-        ...
-
-    @overload
-    def __call__(self, request: QuantConnect.Data.HistoryRequest) -> typing.Sequence[QuantConnect.Data.Slice]:
-        """
-        Executes the specified history request
-        
-        :param request: the history request to execute
-        :returns: An enumerable of slice satisfying the specified history request.
-        """
-        ...
-
-    @overload
-    def __call__(self, requests: typing.List[QuantConnect.Data.HistoryRequest]) -> typing.Sequence[QuantConnect.Data.Slice]:
-        """
-        Executes the specified history requests
-        
-        :param requests: the history requests to execute
-        :returns: An enumerable of slice satisfying the specified history request.
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_History_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_History[QuantConnect_Algorithm_QCAlgorithm_History_T]:
-        ...
-
-
-class _Typed_QCAlgorithm_GetDataTypedHistory(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]):
-    """"""
-
-    @overload
-    def __call__(self, requests: typing.List[QuantConnect.Data.HistoryRequest]) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]]:
-        """
-        Centralized logic to get data typed history for a given list of requests.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class _QCAlgorithm_GetDataTypedHistory:
-    """"""
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_GetDataTypedHistory[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]:
         ...
 
 
@@ -3042,6 +2107,224 @@ class _QCAlgorithm_IndicatorHistory:
         ...
 
 
+class _Typed_QCAlgorithm_AddData(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddData_T]):
+    """"""
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source including symbol properties and exchange hours,
+        all other vars are not required and will use defaults.
+        
+        :param ticker: Key/Ticker for data
+        :param properties: The properties of this new custom data
+        :param exchange_hours: The Exchange hours of this symbol
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+
+class _QCAlgorithm_AddData:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
+        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
+        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
+        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
+        Use this method when adding custom data with a ticker from the past, such as "AOL"
+        before it became "TWX", or if you need to filter using custom data and place trades on the
+        Symbol associated with the custom data.
+        
+        :param type: Data source type
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
+        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
+        Use this method when adding custom data with a ticker from the past, such as "AOL"
+        before it became "TWX", or if you need to filter using custom data and place trades on the
+        Symbol associated with the custom data.
+        
+        :param type: Data source type
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source including symbol properties and exchange hours,
+        all other vars are not required and will use defaults.
+        This overload reflects the C# equivalent for custom properties and market hours
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param properties: The properties of this new custom data
+        :param exchange_hours: The Exchange hours of this symbol
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddData_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddData[QuantConnect_Algorithm_QCAlgorithm_AddData_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_AddCommand(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> None:
+        """Register a command type to be used"""
+        ...
+
+
+class _QCAlgorithm_AddCommand:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type) -> None:
+        """
+        Register a command type to be used
+        
+        :param type: The command type
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddCommand[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]:
+        ...
+
+
 class _Typed_QCAlgorithm_GetDataFrame(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]):
     """"""
 
@@ -3073,17 +2356,1039 @@ class _QCAlgorithm_GetDataFrame:
         ...
 
 
+class _Typed_QCAlgorithm_History(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_History_T]):
+    """"""
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect_Algorithm_QCAlgorithm_History_T]:
+        """
+        Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
+        
+        :param symbol: The symbol to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect_Algorithm_QCAlgorithm_History_T]:
+        """
+        Gets the historical data for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param symbol: The symbol to retrieve historical data for
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect_Algorithm_QCAlgorithm_History_T]:
+        """
+        Gets the historical data for the specified symbol between the specified dates. The symbol must exist in the Securities collection.
+        
+        :param symbol: The symbol to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
+        """
+        Gets the historical data for all symbols of the requested type over the requested span.
+        The symbol's configured values for resolution and fill forward behavior will be used
+        The symbols must exist in the Securities collection.
+        
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
+        """
+        Gets the historical data for the specified symbols over the requested span.
+        The symbols must exist in the Securities collection.
+        
+        :param symbols: The symbols to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
+        """
+        Gets the historical data for the specified symbols. The exact number of bars will be returned for
+        each symbol. This may result in some data start earlier/later than others due to when various
+        exchanges are open. The symbols must exist in the Securities collection.
+        
+        :param symbols: The symbols to retrieve historical data for
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
+        """
+        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
+        
+        :param symbols: The symbols to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+
+class _QCAlgorithm_History:
+    """"""
+
+    @overload
+    def __call__(self, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param tickers: The symbols to retrieve historical data for
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: A python dictionary with pandas DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbols over the requested span.
+        The symbols must exist in the Securities collection.
+        
+        :param tickers: The symbols to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: A python dictionary with pandas DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
+        
+        :param tickers: The symbols to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: A python dictionary with a pandas DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
+        
+        :param type: The data type of the symbols
+        :param tickers: The symbols to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: pandas.DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbols. The exact number of bars will be returned for
+        each symbol. This may result in some data start earlier/later than others due to when various
+        exchanges are open. The symbols must exist in the Securities collection.
+        
+        :param type: The data type of the symbols
+        :param tickers: The symbols to retrieve historical data for
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: pandas.DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, tickers: typing.Union[QuantConnect.Symbol, str, typing.List[QuantConnect.Symbol], typing.List[str], QuantConnect.Data.UniverseSelection.Universe, typing.Type], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbols over the requested span.
+        The symbols must exist in the Securities collection.
+        
+        :param type: The data type of the symbols
+        :param tickers: The symbols to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: pandas.DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
+        
+        :param type: The data type of the symbols
+        :param symbol: The symbol to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: pandas.DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbols. The exact number of bars will be returned for
+        each symbol. This may result in some data start earlier/later than others due to when various
+        exchanges are open. The symbols must exist in the Securities collection.
+        
+        :param type: The data type of the symbols
+        :param symbol: The symbol to retrieve historical data for
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: pandas.DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Gets the historical data for the specified symbols over the requested span.
+        The symbols must exist in the Securities collection.
+        
+        :param type: The data type of the symbols
+        :param symbol: The symbol to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :param flatten: Whether to flatten the resulting data frame.
+        e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: pandas.DataFrame containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
+        """
+        Gets the historical data for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param symbol: The symbol to retrieve historical data for
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
+        """
+        Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
+        
+        :param symbol: The symbol to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
+        """
+        Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
+        
+        :param symbol: The symbol to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
+        """
+        Get the history for all configured securities over the requested span.
+        This will use the resolution and other subscription settings for each security.
+        The symbols must exist in the Securities collection.
+        
+        :param span: The span over which to request data. This is a calendar span, so take into consideration weekends and such
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing data over the most recent span for all configured securities.
+        """
+        ...
+
+    @overload
+    def __call__(self, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
+        """
+        Get the history for all configured securities over the requested span.
+        This will use the resolution and other subscription settings for each security.
+        The symbols must exist in the Securities collection.
+        
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing data over the most recent span for all configured securities.
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
+        """
+        Get the history for all configured securities over the requested span.
+        This will use the resolution and other subscription settings for each security.
+        The symbols must exist in the Securities collection.
+        
+        :param universe: The universe to fetch the data for
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing data over the most recent span for all configured securities.
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
+        """
+        Gets the historical data for all symbols of the requested type over the requested span.
+        The symbol's configured values for resolution and fill forward behavior will be used
+        The symbols must exist in the Securities collection.
+        
+        :param universe: The universe to fetch the data for
+        :param span: The span over which to request data. This is a calendar span, so take into consideration weekends and such
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
+        """
+        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
+        
+        :param universe: The universe to fetch the data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
+        """
+        Gets the historical data for the specified symbols over the requested span.
+        The symbol's configured values for resolution and fill forward behavior will be used
+        The symbols must exist in the Securities collection.
+        
+        :param symbols: The symbols to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
+        """
+        Gets the historical data for the specified symbols. The exact number of bars will be returned for
+        each symbol. This may result in some data start earlier/later than others due to when various
+        exchanges are open. The symbols must exist in the Securities collection.
+        
+        :param symbols: The symbols to retrieve historical data for
+        :param periods: The number of bars to request
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Sequence[QuantConnect.Data.Slice]:
+        """
+        Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
+        
+        :param symbols: The symbols to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 will use the front month, 1 will use the back month contract
+        :returns: An enumerable of slice containing the requested historical data.
+        """
+        ...
+
+    @overload
+    def __call__(self, request: QuantConnect.Data.HistoryRequest) -> typing.Sequence[QuantConnect.Data.Slice]:
+        """
+        Executes the specified history request
+        
+        :param request: the history request to execute
+        :returns: An enumerable of slice satisfying the specified history request.
+        """
+        ...
+
+    @overload
+    def __call__(self, requests: typing.List[QuantConnect.Data.HistoryRequest]) -> typing.Sequence[QuantConnect.Data.Slice]:
+        """
+        Executes the specified history requests
+        
+        :param requests: the history requests to execute
+        :returns: An enumerable of slice satisfying the specified history request.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_History_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_History[QuantConnect_Algorithm_QCAlgorithm_History_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_GetDataTypedHistory(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]):
+    """"""
+
+    @overload
+    def __call__(self, requests: typing.List[QuantConnect.Data.HistoryRequest]) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]]:
+        """
+        Centralized logic to get data typed history for a given list of requests.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class _QCAlgorithm_GetDataTypedHistory:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_GetDataTypedHistory[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_AddUniverse(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]):
+    """"""
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]] = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+
+class _QCAlgorithm_AddUniverse:
+    """"""
+
+    @overload
+    def __call__(self, py_object: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param py_object: Defines an initial coarse selection
+        """
+        ...
+
+    @overload
+    def __call__(self, py_object: typing.Any, pyfine: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param py_object: Defines an initial coarse selection or a universe
+        :param pyfine: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
+        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
+        
+        :param name: A unique name for this universe
+        :param resolution: The resolution this universe should be triggered on
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
+        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
+        
+        :param name: A unique name for this universe
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new user defined universe that will fire on the requested resolution during market hours.
+        
+        :param security_type: The security type of the universe
+        :param name: A unique name for this universe
+        :param resolution: The resolution this universe should be triggered on
+        :param market: The market of the universe
+        :param universe_settings: The subscription settings used for securities added from this universe
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param t: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param t: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, data_type: typing.Type, security_type: typing.Optional[QuantConnect.SecurityType] = None, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, py_selector: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param data_type: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param py_selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Adds the universe to the algorithm
+        
+        :param universe: The universe to be added
+        """
+        ...
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param selector: Defines an initial fundamental selection
+        """
+        ...
+
+    @overload
+    def __call__(self, date_rule: QuantConnect.Scheduling.IDateRule, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
+        will be executed based on the provided IDateRule in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param date_rule: Date rule that will be used to set the Data.UniverseSelection.UniverseSettings.Schedule
+        :param selector: Defines an initial fundamental selection
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param universe: The universe to be filtered with fine fundamental selection
+        :param fine_selector: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    @overload
+    def __call__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        
+        This method is obsolete, please use AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector) instead
+        
+        :param coarse_selector: Defines an initial coarse selection
+        :param fine_selector: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddUniverse[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]:
+        ...
+
+
 class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm):
     """This class has no documentation."""
 
     @property
-    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
-        """Transaction Manager - Process transaction fills and order management."""
-        ...
+    def enable_automatic_indicator_warm_up(self) -> bool:
+        """
+        Gets whether or not WarmUpIndicator is allowed to warm up indicators
+        
+        
+        Please use Settings.AutomaticIndicatorWarmUp
+        """
+        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
 
-    @transactions.setter
-    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
-        ...
+    @enable_automatic_indicator_warm_up.setter
+    def enable_automatic_indicator_warm_up(self, value: bool) -> None:
+        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
 
     MAX_NAME_AND_TAGS_LENGTH: int = 200
     """
@@ -3459,21 +3764,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def universe_manager(self) -> QuantConnect.Securities.UniverseManager:
-        """Gets universe manager which holds universes keyed by their symbol"""
-        ...
-
-    @property
-    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
-        """Gets the universe settings to be used when adding securities via universe selection"""
-        ...
-
-    @property
-    def universe(self) -> QuantConnect.Algorithm.UniverseDefinitions:
-        """Gets a helper that provides pre-defined universe definitions, such as top dollar volume"""
-        ...
-
-    @property
     def debug_mode(self) -> bool:
         """
         Enables additional logging of framework models including:
@@ -3536,6 +3826,25 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
+    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
+        """Transaction Manager - Process transaction fills and order management."""
+        ...
+
+    @transactions.setter
+    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
+        ...
+
+    @property
+    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
+        """Access to the runtime statistics property. User provided statistics."""
+        ...
+
+    @property
+    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
+        """PandasConverter for this Algorithm"""
+        ...
+
+    @property
     def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
         """Gets or sets the history provider for the algorithm"""
         ...
@@ -3550,47 +3859,18 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
-        """Access to the runtime statistics property. User provided statistics."""
+    def universe_manager(self) -> QuantConnect.Securities.UniverseManager:
+        """Gets universe manager which holds universes keyed by their symbol"""
         ...
 
     @property
-    def enable_automatic_indicator_warm_up(self) -> bool:
-        """
-        Gets whether or not WarmUpIndicator is allowed to warm up indicators
-        
-        
-        Please use Settings.AutomaticIndicatorWarmUp
-        """
-        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
-
-    @enable_automatic_indicator_warm_up.setter
-    def enable_automatic_indicator_warm_up(self, value: bool) -> None:
-        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
-
-    @property
-    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
-        """PandasConverter for this Algorithm"""
+    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
+        """Gets the universe settings to be used when adding securities via universe selection"""
         ...
 
     @property
-    def add_data(self) -> QuantConnect.Algorithm._QCAlgorithm_AddData:
-        ...
-
-    @property
-    def add_command(self) -> QuantConnect.Algorithm._QCAlgorithm_AddCommand:
-        ...
-
-    @property
-    def add_universe(self) -> QuantConnect.Algorithm._QCAlgorithm_AddUniverse:
-        ...
-
-    @property
-    def history(self) -> QuantConnect.Algorithm._QCAlgorithm_History:
-        ...
-
-    @property
-    def get_data_typed_history(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataTypedHistory:
+    def universe(self) -> QuantConnect.Algorithm.UniverseDefinitions:
+        """Gets a helper that provides pre-defined universe definitions, such as top dollar volume"""
         ...
 
     @property
@@ -3610,7 +3890,27 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
+    def add_data(self) -> QuantConnect.Algorithm._QCAlgorithm_AddData:
+        ...
+
+    @property
+    def add_command(self) -> QuantConnect.Algorithm._QCAlgorithm_AddCommand:
+        ...
+
+    @property
     def get_data_frame(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataFrame:
+        ...
+
+    @property
+    def history(self) -> QuantConnect.Algorithm._QCAlgorithm_History:
+        ...
+
+    @property
+    def get_data_typed_history(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataTypedHistory:
+        ...
+
+    @property
+    def add_universe(self) -> QuantConnect.Algorithm._QCAlgorithm_AddUniverse:
         ...
 
     def __init__(self) -> None:
@@ -8523,331 +8823,31 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
 
-class ConstituentUniverseDefinitions(System.Object):
-    """
-    Provides helpers for defining constituent universes based on the Morningstar
-    asset classification AssetClassification https://www.morningstar.com/
-    """
+class DollarVolumeUniverseDefinitions(System.Object):
+    """Provides helpers for defining universes based on the daily dollar volume"""
 
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
         """
-        Initializes a new instance of the ConstituentUniverseDefinitions class
+        Initializes a new instance of the DollarVolumeUniverseDefinitions class
         
         :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
         """
         ...
 
-    def aerospace_and_defense(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar AerospaceAndDefense industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def aggressive_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Universe which selects companies whose revenues and earnings have both been growing significantly faster than
-        the general economy.
+        Creates a new coarse Universe that contains the top count of stocks
+        by daily dollar volume
+        
+        
+        This method is deprecated. Use method `Universe.Top(...)` instead
+        
+        :param count: The number of stock to select
+        :param universe_settings: The settings for stocks added by this universe.
+        Defaults to QCAlgorithm.universe_settings
+        :returns: A new coarse universe for the top count of stocks by dollar volume.
         """
-        ...
-
-    def agriculture(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Agriculture industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def asset_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar AssetManagement industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def banks(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Banks industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def beverages_alcoholic(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar BeveragesAlcoholic industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def beverages_non_alcoholic(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar BeveragesNonAlcoholic industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def biotechnology(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Biotechnology industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def building_materials(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar BuildingMaterials industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def business_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar BusinessServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def capital_markets(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar CapitalMarkets industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def chemicals(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Chemicals industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def classic_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that are growing respectably faster than the general economy, and often pay a
-        steady dividend. They tend to be mature and solidly profitable businesses.
-        """
-        ...
-
-    def conglomerates(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Conglomerates industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def construction(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Construction industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def consumer_packaged_goods(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar ConsumerPackagedGoods industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def credit_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar CreditServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def cyclicals(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies in the cyclicals and durables sectors, except those in the three types below.
-        The profits of cyclicals tend to rise and fall with the general economy.
-        """
-        ...
-
-    def distressed(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that have had consistently declining cash flows and earnings over the past
-        three years, and/or very high debt.
-        """
-        ...
-
-    def diversified_financial_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar DiversifiedFinancialServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def drug_manufacturers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar DrugManufacturers industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def education(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Education industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def farm_and_heavy_construction_machinery(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar FarmAndHeavyConstructionMachinery industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def fixtures_and_appliances(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar FixturesAndAppliances industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def forest_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar ForestProducts industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def hard_asset(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that deal in assets such as oil, metals, and real estate, which tend to do
-        well in inflationary environments.
-        """
-        ...
-
-    def hardware(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Hardware industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def healthcare_plans(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar HealthcarePlans industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def healthcare_providers_and_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar HealthcareProvidersAndServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def high_yield(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that have dividend yields at least twice the average for large-cap stocks.
-        They tend to be mature, slow-growing companies.
-        """
-        ...
-
-    def homebuilding_and_construction(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar HomebuildingAndConstruction industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def industrial_distribution(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar IndustrialDistribution industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def industrial_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar IndustrialProducts industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def insurance(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Insurance industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def interactive_media(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar InteractiveMedia industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def large_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def large_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def large_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def manufacturing_apparel_and_accessories(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar ManufacturingApparelAndAccessories industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def media_diversified(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MediaDiversified industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def medical_devices_and_instruments(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MedicalDevicesAndInstruments industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def medical_diagnostics_and_research(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MedicalDiagnosticsAndResearch industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def medical_distribution(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MedicalDistribution industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def metals_and_mining(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MetalsAndMining industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def mid_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def mid_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def mid_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def oil_and_gas(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar OilAndGas industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def other_energy_sources(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar OtherEnergySources industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def packaging_and_containers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar PackagingAndContainers industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def personal_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar PersonalServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def real_estate(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar RealEstate industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def rei_ts(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar REITs industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def restaurants(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Restaurants industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def retail_cyclical(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar RetailCyclical industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def retail_defensive(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar RetailDefensive industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def semiconductors(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Semiconductors industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def slow_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that have shown slow revenue and earnings growth (typically less than the rate
-        of GDP growth) over at least three years.
-        """
-        ...
-
-    def small_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def small_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def small_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def software(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Software industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def speculative_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that have shown strong revenue growth but slower or spotty earnings growth.
-        Very small or young companies also tend to fall into this class.
-        """
-        ...
-
-    def steel(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Steel industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def telecommunication_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar TelecommunicationServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def tobacco_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar TobaccoProducts industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def transportation(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Transportation industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def travel_and_leisure(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar TravelAndLeisure industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def utilities_independent_power_producers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar UtilitiesIndependentPowerProducers industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def utilities_regulated(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar UtilitiesRegulated industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def vehicles_and_parts(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar VehiclesAndParts industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def waste_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar WasteManagement industry group MorningstarIndustryGroupCode"""
-        ...
+        warnings.warn("This method is deprecated. Use method `Universe.Top(...)` instead", DeprecationWarning)
 
 
 class _EventContainer(typing.Generic[QuantConnect_Algorithm__EventContainer_Callable, QuantConnect_Algorithm__EventContainer_ReturnType]):

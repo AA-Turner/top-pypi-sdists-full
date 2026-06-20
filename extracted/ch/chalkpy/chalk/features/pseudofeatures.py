@@ -11,6 +11,7 @@ __all__ = [
     "OBSERVED_AT_FEATURE",
     "REPLACED_OBSERVED_AT_FEATURE",
     "Distance",
+    "Index",
     "PSEUDOFEATURES",
     "FQN_OR_NAME_TO_PSEUDOFEATURE",
     "FQN_TO_PSEUDOFEATURE",
@@ -85,10 +86,22 @@ Distance = Feature(
     is_pseudofeature=True,
 )
 
+Index = Feature(
+    name="index",
+    namespace=PSEUDONAMESPACE,
+    typ=int,
+    max_staleness=None,
+    etl_offline_to_online=False,
+    primary=False,
+    is_feature_time=False,
+    is_pseudofeature=True,
+)
+
 PSEUDOFEATURES: List[Feature] = [
     CHALK_TS_FEATURE,
     DUMMY_FEATURE,
     Distance,
+    Index,
     ID_FEATURE,
     Now,
     OBSERVED_AT_FEATURE,

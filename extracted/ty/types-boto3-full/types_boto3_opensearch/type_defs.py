@@ -32,6 +32,7 @@ from .literals import (
     CapabilityStatusType,
     ConfigChangeStatusType,
     ConnectionModeType,
+    DataSourceAttachmentStatusType,
     DataSourceStatusType,
     DeploymentStatusType,
     DeploymentStrategyType,
@@ -120,6 +121,8 @@ __all__ = (
     "AssociatePackageResponseTypeDef",
     "AssociatePackagesRequestTypeDef",
     "AssociatePackagesResponseTypeDef",
+    "AttachDataSourceRequestTypeDef",
+    "AttachDataSourceResponseTypeDef",
     "AuthorizeVpcEndpointAccessRequestTypeDef",
     "AuthorizeVpcEndpointAccessResponseTypeDef",
     "AuthorizedPrincipalTypeDef",
@@ -174,6 +177,7 @@ __all__ = (
     "CreateVpcEndpointRequestTypeDef",
     "CreateVpcEndpointResponseTypeDef",
     "CrossClusterSearchConnectionPropertiesTypeDef",
+    "DataSourceAttachmentSummaryTypeDef",
     "DataSourceDetailsTypeDef",
     "DataSourceTypeDef",
     "DataSourceTypeTypeDef",
@@ -197,6 +201,8 @@ __all__ = (
     "DeploymentStrategyOptionsTypeDef",
     "DeregisterCapabilityRequestTypeDef",
     "DeregisterCapabilityResponseTypeDef",
+    "DescribeDataSourceAttachmentRequestTypeDef",
+    "DescribeDataSourceAttachmentResponseTypeDef",
     "DescribeDomainAutoTunesRequestTypeDef",
     "DescribeDomainAutoTunesResponseTypeDef",
     "DescribeDomainChangeProgressRequestTypeDef",
@@ -230,6 +236,8 @@ __all__ = (
     "DescribeReservedInstancesResponseTypeDef",
     "DescribeVpcEndpointsRequestTypeDef",
     "DescribeVpcEndpointsResponseTypeDef",
+    "DetachDataSourceRequestTypeDef",
+    "DetachDataSourceResponseTypeDef",
     "DirectQueryDataSourceTypeDef",
     "DirectQueryDataSourceTypeTypeDef",
     "DissociatePackageRequestTypeDef",
@@ -301,6 +309,8 @@ __all__ = (
     "ListApplicationsRequestPaginateTypeDef",
     "ListApplicationsRequestTypeDef",
     "ListApplicationsResponseTypeDef",
+    "ListDataSourceAttachmentsRequestTypeDef",
+    "ListDataSourceAttachmentsResponseTypeDef",
     "ListDataSourcesRequestTypeDef",
     "ListDataSourcesResponseTypeDef",
     "ListDirectQueryDataSourcesRequestTypeDef",
@@ -429,6 +439,7 @@ __all__ = (
     "VpcEndpointSummaryTypeDef",
     "VpcEndpointTypeDef",
     "WindowStartTimeTypeDef",
+    "WorkspaceConfigurationInputTypeDef",
     "ZoneAwarenessConfigTypeDef",
 )
 
@@ -537,6 +548,11 @@ ApplicationSummaryTypeDef = TypedDict(
         "lastUpdatedAt": NotRequired[datetime],
     },
 )
+
+
+class WorkspaceConfigurationInputTypeDef(TypedDict):
+    name: str
+    workspaceType: str
 
 
 class ServiceOptionsOutputTypeDef(TypedDict):
@@ -784,6 +800,12 @@ class PackageVendingOptionsTypeDef(TypedDict):
     VendingEnabled: bool
 
 
+class DataSourceAttachmentSummaryTypeDef(TypedDict):
+    attachmentId: NotRequired[str]
+    dataSourceArn: NotRequired[str]
+    status: NotRequired[DataSourceAttachmentStatusType]
+
+
 class S3GlueDataCatalogTypeDef(TypedDict):
     RoleArn: NotRequired[str]
 
@@ -840,6 +862,15 @@ class VpcEndpointSummaryTypeDef(TypedDict):
 class DeregisterCapabilityRequestTypeDef(TypedDict):
     applicationId: str
     capabilityName: str
+
+
+DescribeDataSourceAttachmentRequestTypeDef = TypedDict(
+    "DescribeDataSourceAttachmentRequestTypeDef",
+    {
+        "id": str,
+        "dataSourceArn": str,
+    },
+)
 
 
 class DescribeDomainAutoTunesRequestTypeDef(TypedDict):
@@ -948,6 +979,15 @@ class VpcEndpointErrorTypeDef(TypedDict):
     VpcEndpointId: NotRequired[str]
     ErrorCode: NotRequired[VpcEndpointErrorCodeType]
     ErrorMessage: NotRequired[str]
+
+
+DetachDataSourceRequestTypeDef = TypedDict(
+    "DetachDataSourceRequestTypeDef",
+    {
+        "id": str,
+        "dataSourceArn": str,
+    },
+)
 
 
 class PrometheusDirectQueryDataSourceTypeDef(TypedDict):
@@ -1128,6 +1168,16 @@ class ListApplicationsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     statuses: NotRequired[Sequence[ApplicationStatusType]]
     maxResults: NotRequired[int]
+
+
+ListDataSourceAttachmentsRequestTypeDef = TypedDict(
+    "ListDataSourceAttachmentsRequestTypeDef",
+    {
+        "id": str,
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
 
 
 class ListDataSourcesRequestTypeDef(TypedDict):
@@ -1385,6 +1435,19 @@ class AddDirectQueryDataSourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+AttachDataSourceResponseTypeDef = TypedDict(
+    "AttachDataSourceResponseTypeDef",
+    {
+        "attachmentId": str,
+        "id": str,
+        "arn": str,
+        "dataSourceArn": str,
+        "status": DataSourceAttachmentStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
 class CreateIndexResponseTypeDef(TypedDict):
     Status: IndexStatusType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1403,6 +1466,28 @@ class DeleteIndexResponseTypeDef(TypedDict):
 class DeregisterCapabilityResponseTypeDef(TypedDict):
     status: CapabilityStatusType
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+DescribeDataSourceAttachmentResponseTypeDef = TypedDict(
+    "DescribeDataSourceAttachmentResponseTypeDef",
+    {
+        "attachmentId": str,
+        "id": str,
+        "arn": str,
+        "dataSourceArn": str,
+        "status": DataSourceAttachmentStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DetachDataSourceResponseTypeDef = TypedDict(
+    "DetachDataSourceResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "dataSourceArn": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -1494,6 +1579,18 @@ class ListApplicationsResponseTypeDef(TypedDict):
     ApplicationSummaries: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+AttachDataSourceRequestTypeDef = TypedDict(
+    "AttachDataSourceRequestTypeDef",
+    {
+        "id": str,
+        "dataSourceArn": str,
+        "workspaceId": NotRequired[str],
+        "workspaceConfiguration": NotRequired[WorkspaceConfigurationInputTypeDef],
+        "clientToken": NotRequired[str],
+    },
+)
 
 
 class AuthorizedPrincipalTypeDef(TypedDict):
@@ -1747,6 +1844,12 @@ class CreatePackageRequestTypeDef(TypedDict):
     EngineVersion: NotRequired[str]
     PackageVendingOptions: NotRequired[PackageVendingOptionsTypeDef]
     PackageEncryptionOptions: NotRequired[PackageEncryptionOptionsTypeDef]
+
+
+class ListDataSourceAttachmentsResponseTypeDef(TypedDict):
+    attachments: list[DataSourceAttachmentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class DataSourceTypeTypeDef(TypedDict):

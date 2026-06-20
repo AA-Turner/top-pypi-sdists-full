@@ -14,151 +14,6 @@ import System
 import System.Collections.Generic
 
 
-class Future(QuantConnect.Securities.Security, QuantConnect.Securities.IContinuousSecurity):
-    """Futures Security Object Implementation for Futures Assets"""
-
-    @property
-    def is_tradable(self) -> bool:
-        """Gets or sets whether or not this security should be considered tradable"""
-        ...
-
-    @is_tradable.setter
-    def is_tradable(self, value: bool) -> None:
-        ...
-
-    DEFAULT_SETTLEMENT_DAYS: int = 1
-    """The default number of days required to settle a futures sale"""
-
-    DEFAULT_SETTLEMENT_TIME: datetime.timedelta = ...
-    """The default time of day for settlement"""
-
-    @property
-    def is_future_chain(self) -> bool:
-        """Returns true if this is the future chain security, false if it is a specific future contract"""
-        ...
-
-    @property
-    def is_future_contract(self) -> bool:
-        """Returns true if this is a specific future contract security, false if it is the future chain security"""
-        ...
-
-    @property
-    def expiry(self) -> datetime.datetime:
-        """Gets the expiration date"""
-        ...
-
-    @property
-    def settlement_type(self) -> QuantConnect.SettlementType:
-        """Specifies if futures contract has physical or cash settlement on settlement"""
-        ...
-
-    @settlement_type.setter
-    def settlement_type(self, value: QuantConnect.SettlementType) -> None:
-        ...
-
-    @property
-    def mapped(self) -> QuantConnect.Symbol:
-        """Gets or sets the currently mapped symbol for the security"""
-        ...
-
-    @mapped.setter
-    def mapped(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def contract_filter(self) -> QuantConnect.Securities.IDerivativeSecurityFilter[QuantConnect.Data.UniverseSelection.FutureUniverse]:
-        """Gets or sets the contract filter"""
-        ...
-
-    @contract_filter.setter
-    def contract_filter(self, value: QuantConnect.Securities.IDerivativeSecurityFilter[QuantConnect.Data.UniverseSelection.FutureUniverse]) -> None:
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
-        """
-        Constructor for the Future security
-        
-        :param symbol: The subscription security symbol
-        :param exchange_hours: Defines the hours this exchange is open
-        :param quote_currency: The cash object that represent the quote currency
-        :param symbol_properties: The symbol properties for this security
-        :param currency_converter: Currency converter used to convert CashAmount
-            instances into units of the account currency
-        :param registered_types: Provides all data types registered in the algorithm
-        :param security_cache: Cache to store security information
-        """
-        ...
-
-    @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, config: QuantConnect.Data.SubscriptionDataConfig, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider) -> None:
-        """
-        Constructor for the Future security
-        
-        :param exchange_hours: Defines the hours this exchange is open
-        :param quote_currency: The cash object that represent the quote currency
-        :param config: The subscription configuration for this security
-        :param symbol_properties: The symbol properties for this security
-        :param currency_converter: Currency converter used to convert CashAmount
-        instances into units of the account currency
-        :param registered_types: Provides all data types registered in the algorithm
-        """
-        ...
-
-    @overload
-    def set_filter(self, universe_func: typing.Any) -> None:
-        """
-        Sets the contract_filter to a new universe selection function
-        
-        :param universe_func: new universe selection function
-        """
-        ...
-
-    @overload
-    def set_filter(self, min_expiry: datetime.timedelta, max_expiry: datetime.timedelta) -> None:
-        """
-        Sets the contract_filter to a new instance of the filter
-        using the specified expiration range values
-        
-        :param min_expiry: The minimum time until expiry to include, for example, TimeSpan.FromDays(10)
-        would exclude contracts expiring in less than 10 days
-        :param max_expiry: The maximum time until expiry to include, for example, TimeSpan.FromDays(10)
-        would exclude contracts expiring in more than 10 days
-        """
-        ...
-
-    @overload
-    def set_filter(self, min_expiry_days: int, max_expiry_days: int) -> None:
-        """
-        Sets the contract_filter to a new instance of the filter
-        using the specified expiration range values
-        
-        :param min_expiry_days: The minimum time, expressed in days, until expiry to include, for example, 10
-        would exclude contracts expiring in less than 10 days
-        :param max_expiry_days: The maximum time, expressed in days, until expiry to include, for example, 10
-        would exclude contracts expiring in more than 10 days
-        """
-        ...
-
-    @overload
-    def set_filter(self, universe_func: typing.Callable[[QuantConnect.Securities.FutureFilterUniverse], QuantConnect.Securities.FutureFilterUniverse]) -> None:
-        """
-        Sets the contract_filter to a new universe selection function
-        
-        :param universe_func: new universe selection function
-        """
-        ...
-
-    def set_local_time_keeper(self, local_time_keeper: QuantConnect.LocalTimeKeeper) -> None:
-        """
-        Sets the LocalTimeKeeper to be used for this Security.
-        This is the source of this instance's time.
-        
-        :param local_time_keeper: The source of this Security's time.
-        """
-        ...
-
-
 class FuturesExpiryUtilityFunctions(System.Object):
     """Class to implement common functions used in FuturesExpiryFunctions"""
 
@@ -357,24 +212,6 @@ class FuturesExpiryUtilityFunctions(System.Object):
         ...
 
 
-class FutureExchange(QuantConnect.Securities.SecurityExchange):
-    """Future exchange class - information and helper tools for future exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, 252."""
-        ...
-
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the FutureExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
 class FutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
     """Represents a simple margin model for margin futures. Margin file contains Initial and Maintenance margins"""
 
@@ -467,27 +304,23 @@ class FutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         ...
 
 
-class FutureCache(QuantConnect.Securities.SecurityCache):
-    """Future specific caching support"""
+class FuturesListings(System.Object):
+    """
+    Helpers for getting the futures contracts that are trading on a given date.
+    This is a substitute for the BacktestingFutureChainProvider, but
+    does not outright replace it because of missing entries. This will resolve
+    the listed contracts without having any data in place. We follow the listing rules
+    set forth by the exchange to get the Symbols that are listed at a given date.
+    """
 
-    @property
-    def settlement_price(self) -> float:
-        """The current settlement price"""
-        ...
-
-    @settlement_price.setter
-    def settlement_price(self, value: float) -> None:
-        ...
-
-    def process_data_point(self, data: QuantConnect.Data.BaseData, cache_by_type: bool) -> None:
+    @staticmethod
+    def listed_contracts(future_ticker: str, time: typing.Union[datetime.datetime, datetime.date]) -> typing.List[QuantConnect.Symbol]:
         """
-        Will consume the given data point updating the cache state and it's properties
+        Gets the listed futures contracts on a given date
         
-        
-        This Class is protected.
-        
-        :param data: The data point to process
-        :param cache_by_type: True if this data point should be cached by type
+        :param future_ticker: Ticker of the future contract
+        :param time: Contracts to look up that are listed at that time
+        :returns: The currently trading contracts on the exchange.
         """
         ...
 
@@ -505,6 +338,99 @@ class FuturesExpiryFunctions(System.Object):
     @staticmethod
     def futures_expiry_function(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Callable[[datetime.datetime], datetime.datetime]:
         """Method to retrieve the Function for a specific future symbol"""
+        ...
+
+
+class FutureSymbol(System.Object):
+    """Static class contains common utility methods specific to symbols representing the future contracts"""
+
+    @staticmethod
+    def is_standard(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Determine if a given Futures contract is a standard contract.
+        
+        :param symbol: Future symbol
+        :returns: True if symbol expiration matches standard expiration.
+        """
+        ...
+
+    @staticmethod
+    def is_weekly(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Returns true if the future contract is a weekly contract
+        
+        :param symbol: Future symbol
+        :returns: True if symbol is non-standard contract.
+        """
+        ...
+
+
+class EmptyFutureChainProvider(System.Object, QuantConnect.Interfaces.IFutureChainProvider):
+    """An implementation of IFutureChainProvider that always returns an empty list of contracts"""
+
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
+        """
+        Gets the list of future contracts for a given underlying symbol
+        
+        :param symbol: The underlying symbol
+        :param date: The date for which to request the future chain (only used in backtesting)
+        :returns: The list of future contracts.
+        """
+        ...
+
+
+class FutureSettlementModel(QuantConnect.Securities.ImmediateSettlementModel):
+    """Settlement model which can handle daily profit and loss settlement"""
+
+    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
+        """
+        Applies unsettledContractsTodaysProfit settlement rules
+        
+        :param apply_funds_parameters: The funds application parameters
+        """
+        ...
+
+    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
+        """
+        Scan for pending settlements
+        
+        :param settlement_parameters: The settlement parameters
+        """
+        ...
+
+    def set_local_date_time_frontier(self, new_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Set the current datetime in terms of the exchange's local time zone
+        
+        :param new_local_time: Current local time
+        """
+        ...
+
+
+class FutureHolding(QuantConnect.Securities.SecurityHolding):
+    """Future holdings implementation of the base securities class"""
+
+    @property
+    def settled_profit(self) -> float:
+        """The cash settled profit for the current open position"""
+        ...
+
+    @settled_profit.setter
+    def settled_profit(self, value: float) -> None:
+        ...
+
+    @property
+    def unsettled_profit(self) -> float:
+        """Unsettled profit for the current open position settled_profit"""
+        ...
+
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Future Holding Class constructor
+        
+        :param security: The future security being held
+        :param currency_converter: A currency converter instance
+        """
         ...
 
 
@@ -547,116 +473,190 @@ class MarginRequirementsEntry(System.Object):
         ...
 
 
-class FutureSettlementModel(QuantConnect.Securities.ImmediateSettlementModel):
-    """Settlement model which can handle daily profit and loss settlement"""
-
-    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
-        """
-        Applies unsettledContractsTodaysProfit settlement rules
-        
-        :param apply_funds_parameters: The funds application parameters
-        """
-        ...
-
-    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
-        """
-        Scan for pending settlements
-        
-        :param settlement_parameters: The settlement parameters
-        """
-        ...
-
-    def set_local_date_time_frontier(self, new_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Set the current datetime in terms of the exchange's local time zone
-        
-        :param new_local_time: Current local time
-        """
-        ...
-
-
-class EmptyFutureChainProvider(System.Object, QuantConnect.Interfaces.IFutureChainProvider):
-    """An implementation of IFutureChainProvider that always returns an empty list of contracts"""
-
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
-        """
-        Gets the list of future contracts for a given underlying symbol
-        
-        :param symbol: The underlying symbol
-        :param date: The date for which to request the future chain (only used in backtesting)
-        :returns: The list of future contracts.
-        """
-        ...
-
-
-class FutureSymbol(System.Object):
-    """Static class contains common utility methods specific to symbols representing the future contracts"""
-
-    @staticmethod
-    def is_standard(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Determine if a given Futures contract is a standard contract.
-        
-        :param symbol: Future symbol
-        :returns: True if symbol expiration matches standard expiration.
-        """
-        ...
-
-    @staticmethod
-    def is_weekly(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Returns true if the future contract is a weekly contract
-        
-        :param symbol: Future symbol
-        :returns: True if symbol is non-standard contract.
-        """
-        ...
-
-
-class FuturesListings(System.Object):
-    """
-    Helpers for getting the futures contracts that are trading on a given date.
-    This is a substitute for the BacktestingFutureChainProvider, but
-    does not outright replace it because of missing entries. This will resolve
-    the listed contracts without having any data in place. We follow the listing rules
-    set forth by the exchange to get the Symbols that are listed at a given date.
-    """
-
-    @staticmethod
-    def listed_contracts(future_ticker: str, time: typing.Union[datetime.datetime, datetime.date]) -> typing.List[QuantConnect.Symbol]:
-        """
-        Gets the listed futures contracts on a given date
-        
-        :param future_ticker: Ticker of the future contract
-        :param time: Contracts to look up that are listed at that time
-        :returns: The currently trading contracts on the exchange.
-        """
-        ...
-
-
-class FutureHolding(QuantConnect.Securities.SecurityHolding):
-    """Future holdings implementation of the base securities class"""
+class FutureCache(QuantConnect.Securities.SecurityCache):
+    """Future specific caching support"""
 
     @property
-    def settled_profit(self) -> float:
-        """The cash settled profit for the current open position"""
+    def settlement_price(self) -> float:
+        """The current settlement price"""
         ...
 
-    @settled_profit.setter
-    def settled_profit(self, value: float) -> None:
+    @settlement_price.setter
+    def settlement_price(self, value: float) -> None:
+        ...
+
+    def process_data_point(self, data: QuantConnect.Data.BaseData, cache_by_type: bool) -> None:
+        """
+        Will consume the given data point updating the cache state and it's properties
+        
+        
+        This Class is protected.
+        
+        :param data: The data point to process
+        :param cache_by_type: True if this data point should be cached by type
+        """
+        ...
+
+
+class FutureExchange(QuantConnect.Securities.SecurityExchange):
+    """Future exchange class - information and helper tools for future exchange properties"""
+
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, 252."""
+        ...
+
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the FutureExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
+class Future(QuantConnect.Securities.Security, QuantConnect.Securities.IContinuousSecurity):
+    """Futures Security Object Implementation for Futures Assets"""
+
+    @property
+    def is_tradable(self) -> bool:
+        """Gets or sets whether or not this security should be considered tradable"""
+        ...
+
+    @is_tradable.setter
+    def is_tradable(self, value: bool) -> None:
+        ...
+
+    DEFAULT_SETTLEMENT_DAYS: int = 1
+    """The default number of days required to settle a futures sale"""
+
+    DEFAULT_SETTLEMENT_TIME: datetime.timedelta = ...
+    """The default time of day for settlement"""
+
+    @property
+    def is_future_chain(self) -> bool:
+        """Returns true if this is the future chain security, false if it is a specific future contract"""
         ...
 
     @property
-    def unsettled_profit(self) -> float:
-        """Unsettled profit for the current open position settled_profit"""
+    def is_future_contract(self) -> bool:
+        """Returns true if this is a specific future contract security, false if it is the future chain security"""
         ...
 
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+    @property
+    def expiry(self) -> datetime.datetime:
+        """Gets the expiration date"""
+        ...
+
+    @property
+    def settlement_type(self) -> QuantConnect.SettlementType:
+        """Specifies if futures contract has physical or cash settlement on settlement"""
+        ...
+
+    @settlement_type.setter
+    def settlement_type(self, value: QuantConnect.SettlementType) -> None:
+        ...
+
+    @property
+    def mapped(self) -> QuantConnect.Symbol:
+        """Gets or sets the currently mapped symbol for the security"""
+        ...
+
+    @mapped.setter
+    def mapped(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+    @property
+    def contract_filter(self) -> QuantConnect.Securities.IDerivativeSecurityFilter[QuantConnect.Data.UniverseSelection.FutureUniverse]:
+        """Gets or sets the contract filter"""
+        ...
+
+    @contract_filter.setter
+    def contract_filter(self, value: QuantConnect.Securities.IDerivativeSecurityFilter[QuantConnect.Data.UniverseSelection.FutureUniverse]) -> None:
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
         """
-        Future Holding Class constructor
+        Constructor for the Future security
         
-        :param security: The future security being held
-        :param currency_converter: A currency converter instance
+        :param symbol: The subscription security symbol
+        :param exchange_hours: Defines the hours this exchange is open
+        :param quote_currency: The cash object that represent the quote currency
+        :param symbol_properties: The symbol properties for this security
+        :param currency_converter: Currency converter used to convert CashAmount
+            instances into units of the account currency
+        :param registered_types: Provides all data types registered in the algorithm
+        :param security_cache: Cache to store security information
+        """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, config: QuantConnect.Data.SubscriptionDataConfig, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider) -> None:
+        """
+        Constructor for the Future security
+        
+        :param exchange_hours: Defines the hours this exchange is open
+        :param quote_currency: The cash object that represent the quote currency
+        :param config: The subscription configuration for this security
+        :param symbol_properties: The symbol properties for this security
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
+        :param registered_types: Provides all data types registered in the algorithm
+        """
+        ...
+
+    @overload
+    def set_filter(self, universe_func: typing.Any) -> None:
+        """
+        Sets the contract_filter to a new universe selection function
+        
+        :param universe_func: new universe selection function
+        """
+        ...
+
+    @overload
+    def set_filter(self, min_expiry: datetime.timedelta, max_expiry: datetime.timedelta) -> None:
+        """
+        Sets the contract_filter to a new instance of the filter
+        using the specified expiration range values
+        
+        :param min_expiry: The minimum time until expiry to include, for example, TimeSpan.FromDays(10)
+        would exclude contracts expiring in less than 10 days
+        :param max_expiry: The maximum time until expiry to include, for example, TimeSpan.FromDays(10)
+        would exclude contracts expiring in more than 10 days
+        """
+        ...
+
+    @overload
+    def set_filter(self, min_expiry_days: int, max_expiry_days: int) -> None:
+        """
+        Sets the contract_filter to a new instance of the filter
+        using the specified expiration range values
+        
+        :param min_expiry_days: The minimum time, expressed in days, until expiry to include, for example, 10
+        would exclude contracts expiring in less than 10 days
+        :param max_expiry_days: The maximum time, expressed in days, until expiry to include, for example, 10
+        would exclude contracts expiring in more than 10 days
+        """
+        ...
+
+    @overload
+    def set_filter(self, universe_func: typing.Callable[[QuantConnect.Securities.FutureFilterUniverse], QuantConnect.Securities.FutureFilterUniverse]) -> None:
+        """
+        Sets the contract_filter to a new universe selection function
+        
+        :param universe_func: new universe selection function
+        """
+        ...
+
+    def set_local_time_keeper(self, local_time_keeper: QuantConnect.LocalTimeKeeper) -> None:
+        """
+        Sets the LocalTimeKeeper to be used for this Security.
+        This is the source of this instance's time.
+        
+        :param local_time_keeper: The source of this Security's time.
         """
         ...
 

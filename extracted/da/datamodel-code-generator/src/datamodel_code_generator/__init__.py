@@ -32,6 +32,7 @@ from datamodel_code_generator.enums import (
     DEFAULT_SHARED_MODULE_NAME,
     MAX_VERSION,
     MIN_VERSION,
+    AliasGenerator,
     AllExportsCollisionStrategy,
     AllExportsScope,
     AllOfClassHierarchy,
@@ -93,6 +94,48 @@ GeneratedModules: TypeAlias = dict[tuple[str, ...], str]
 Maps module path tuples (e.g., ("models", "user.py")) to generated code strings.
 Returned by generate() when output=None and multiple modules are generated.
 """
+
+
+def _apply_generate_config_preset(config: GenerateConfig) -> GenerateConfig:
+    """Return a generate config with preset defaults applied."""
+    preset_name = config.preset
+    if preset_name is None:
+        return config
+
+    from datamodel_code_generator.preset import (  # noqa: PLC0415
+        PresetConfigValue,
+        PresetContext,
+        PresetError,
+        resolve_preset_config_updates,
+    )
+
+    try:
+        preset_config = resolve_preset_config_updates(
+            preset_name,
+            context=PresetContext(
+                input_file_type=config.input_file_type,
+                output_model_type=config.output_model_type,
+                target_python_version=config.target_python_version,
+            ),
+            use_annotated=config.use_annotated,
+            explicit_fields=config.model_fields_set,
+        )
+    except PresetError as e:
+        raise Error(str(e)) from e
+
+    if preset_config.target_python_version is not None:
+        config = config.model_copy(update={"target_python_version": preset_config.target_python_version})
+
+    updates: dict[str, PresetConfigValue] = {}
+    for item in preset_config.items:
+        updates[item.field_name] = item.applied_value
+
+    if updates:
+        config = config.model_copy(update=updates)
+    if preset_config.force_field_constraints:
+        return config.model_copy(update={"field_constraints": True})
+    return config
+
 
 DEFAULT_BASE_CLASS: str = "pydantic.BaseModel"
 _IGNORED_TEXT_PREFIX_CHARS: frozenset[str] = frozenset({"\ufeff", " ", "\t", "\r", "\n"})
@@ -489,6 +532,15 @@ def _validate_output_datetime_class(
     if output_model_type in {DataModelType.DataclassesDataclass, DataModelType.TypingTypedDict}:
         msg = f'`--output-datetime-class` only allows "datetime" for `--output-model-type` {output_model_type.value}'
         raise Error(msg)
+
+
+def _validate_alias_generator(output_model_type: DataModelType, alias_generator: AliasGenerator | None) -> None:
+    if alias_generator is None:
+        return
+    if output_model_type is DataModelType.PydanticV2BaseModel:
+        return
+    msg = "`--alias-generator` is only supported for `--output-model-type pydantic_v2.BaseModel`"
+    raise Error(msg)
 
 
 class InvalidFileFormatError(Error):
@@ -1181,8 +1233,10 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
 
         _rebuild_generate_config()
         config = GenerateConfig.model_validate(options)
+    config = _apply_generate_config_preset(config)
 
     _validate_output_datetime_class(config.output_model_type, config.output_datetime_class)
+    _validate_alias_generator(config.output_model_type, config.alias_generator)
 
     # Variables that may be modified during processing
     input_filename = config.input_filename
@@ -1454,6 +1508,7 @@ __all__ = [
     "DEFAULT_SHARED_MODULE_NAME",
     "MAX_VERSION",
     "MIN_VERSION",
+    "AliasGenerator",
     "AllExportsCollisionStrategy",
     "AllExportsScope",
     "AllOfClassHierarchy",

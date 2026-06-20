@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.28.0
+Version: 1.28.1
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -15,14 +15,14 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
-Requires-Python: <3.15,>=3.9.2
+Requires-Python: <3.15,>=3.10
 Requires-Dist: click>=7.1
 Requires-Dist: fsspec>=2022.4.0
 Requires-Dist: gitpython>=3.1.29
@@ -113,17 +113,17 @@ Requires-Dist: pyarrow>=21.0.0; extra == 'hf'
 Provides-Extra: http
 Requires-Dist: aiohttp>3.9.0; extra == 'http'
 Provides-Extra: hub
-Requires-Dist: dlthub-client<0.29,>=0.27.7; (python_version >= '3.10') and extra == 'hub'
-Requires-Dist: dlthub<0.29,>=0.27.0; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlthub-client<0.29,>=0.27.7; extra == 'hub'
+Requires-Dist: dlthub<0.29,>=0.27.0; extra == 'hub'
 Provides-Extra: lance
 Requires-Dist: duckdb>=1.4.3; extra == 'lance'
-Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'lance'
-Requires-Dist: lancedb>=0.33.0; (python_version >= '3.10') and extra == 'lance'
+Requires-Dist: ibis-framework>=12.0.0; extra == 'lance'
+Requires-Dist: lancedb>=0.33.0; extra == 'lance'
 Requires-Dist: pyarrow>=16.0.0; extra == 'lance'
-Requires-Dist: pylance<8,>=6.0.1; (python_version >= '3.10') and extra == 'lance'
+Requires-Dist: pylance<8,>=6.0.1; extra == 'lance'
 Provides-Extra: lancedb
 Requires-Dist: duckdb>=1.4.3; extra == 'lancedb'
-Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'lancedb'
+Requires-Dist: ibis-framework>=12.0.0; extra == 'lancedb'
 Requires-Dist: lancedb>=0.22.0; extra == 'lancedb'
 Requires-Dist: pyarrow>=16.0.0; extra == 'lancedb'
 Provides-Extra: motherduck
@@ -147,7 +147,8 @@ Requires-Dist: pyiceberg-core>=0.6.0; extra == 'pyiceberg'
 Requires-Dist: pyiceberg>=0.9.1; extra == 'pyiceberg'
 Requires-Dist: sqlalchemy>=1.4; extra == 'pyiceberg'
 Provides-Extra: qdrant
-Requires-Dist: qdrant-client[fastembed]>=1.8; extra == 'qdrant'
+Requires-Dist: qdrant-client>=1.8; (python_version > '3.13') and extra == 'qdrant'
+Requires-Dist: qdrant-client[fastembed]>=1.8; (python_version <= '3.13') and extra == 'qdrant'
 Provides-Extra: redshift
 Requires-Dist: psycopg2-binary>=2.9.1; extra == 'redshift'
 Provides-Extra: s3
@@ -157,6 +158,7 @@ Provides-Extra: sftp
 Requires-Dist: paramiko<5,>=3.3.0; extra == 'sftp'
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python>=3.5.0; extra == 'snowflake'
+Requires-Dist: snowflake-connector-python>=4.4.0; (python_version >= '3.14') and extra == 'snowflake'
 Provides-Extra: sql-database
 Requires-Dist: sqlalchemy>=1.4; extra == 'sql-database'
 Provides-Extra: sqlalchemy
@@ -203,7 +205,7 @@ Be it a Google Colab notebook, AWS Lambda function, an Airflow DAG, your local l
 
 ## Installation
 
-dlt supports Python 3.9 through Python 3.14. Note that some optional extras are not yet available for Python 3.14, so support for this version is considered experimental.
+dlt supports Python 3.10 through Python 3.14. Note that some optional extras are not yet available for Python 3.14, so support for this version is considered experimental.
 
 ```sh
 pip install dlt

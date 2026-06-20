@@ -19,7 +19,10 @@ from .commands_parser_helpers import *
 def _configure_guard_policy_parsers(
     guard_subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    policies_parser = guard_subparsers.add_parser("policies", help="List or clear stored Guard policy decisions")
+    policies_parser = guard_subparsers.add_parser(
+        "policies",
+        help="List or clear remembered rules and synced Cloud policy rows",
+    )
     policies_parser.add_argument(
         "policies_command",
         nargs="?",
@@ -67,7 +70,7 @@ def _configure_guard_policy_parsers(
         "trust_command",
         nargs="?",
         default="status",
-        choices=("status", "doctor", "test", "setup", "reset"),
+        choices=("status", "doctor", "test", "setup", "reset", "explain"),
     )
     trust_parser.add_argument(
         "--backend",
@@ -79,6 +82,11 @@ def _configure_guard_policy_parsers(
         "--no-ui",
         action="store_true",
         help="Run only bounded no-user-interaction checks.",
+    )
+    trust_parser.add_argument(
+        "--rule",
+        type=int,
+        help="Explain one remembered rule or Cloud policy row by decision ID.",
     )
     _add_guard_common_args(trust_parser)
     trust_parser.add_argument("--json", action="store_true")

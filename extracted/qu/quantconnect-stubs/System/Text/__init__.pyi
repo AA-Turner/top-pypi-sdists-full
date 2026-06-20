@@ -19,168 +19,6 @@ System_Text_StringBuilder_AppendFormat_TArg2 = typing.TypeVar("System_Text_Strin
 System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T = typing.TypeVar("System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T")
 
 
-class Ascii(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    def from_utf_16(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    def to_utf_16(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def trim(value: System.ReadOnlySpan[int]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(value: System.ReadOnlySpan[int]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(value: System.ReadOnlySpan[int]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-
 class EncoderFallbackBuffer(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -223,6 +61,63 @@ class EncoderFallback(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class EncoderReplacementFallback(System.Text.EncoderFallback):
+    """This class has no documentation."""
+
+    @property
+    def default_string(self) -> str:
+        ...
+
+    @property
+    def max_char_count(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, replacement: str) -> None:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class EncoderReplacementFallbackBuffer(System.Text.EncoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def __init__(self, fallback: System.Text.EncoderReplacementFallback) -> None:
+        ...
+
+    @overload
+    def fallback(self, char_unknown: str, index: int) -> bool:
+        ...
+
+    @overload
+    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
 class DecoderFallbackBuffer(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -258,18 +153,6 @@ class DecoderFallback(System.Object, metaclass=abc.ABCMeta):
 
     def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
         ...
-
-
-class NormalizationForm(IntEnum):
-    """This class has no documentation."""
-
-    FORM_C = 1
-
-    FORM_D = 2
-
-    FORM_KC = 5
-
-    FORM_KD = 6
 
 
 class Decoder(System.Object, metaclass=abc.ABCMeta):
@@ -338,6 +221,72 @@ class Decoder(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class EncodingInfo(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def code_page(self) -> int:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def display_name(self) -> str:
+        ...
+
+    def __init__(self, provider: System.Text.EncodingProvider, code_page: int, name: str, display_name: str) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_encoding(self) -> System.Text.Encoding:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class EncodingProvider(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def get_encoding(self, name: str) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, codepage: int) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, name: str, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, codepage: int, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
+        ...
+
+    def get_encodings(self) -> System.Collections.Generic.IEnumerable[System.Text.EncodingInfo]:
+        ...
+
+
+class NormalizationForm(IntEnum):
+    """This class has no documentation."""
+
+    FORM_C = 1
+
+    FORM_D = 2
+
+    FORM_KC = 5
+
+    FORM_KD = 6
+
+
 class Encoder(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -393,34 +342,6 @@ class Encoder(System.Object, metaclass=abc.ABCMeta):
         ...
 
     def reset(self) -> None:
-        ...
-
-
-class EncodingInfo(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def code_page(self) -> int:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def display_name(self) -> str:
-        ...
-
-    def __init__(self, provider: System.Text.EncodingProvider, code_page: int, name: str, display_name: str) -> None:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_encoding(self) -> System.Text.Encoding:
-        ...
-
-    def get_hash_code(self) -> int:
         ...
 
 
@@ -712,109 +633,31 @@ class Encoding(System.Object, System.ICloneable):
         ...
 
 
-class UTF8Encoding(System.Text.Encoding):
+class SpanRuneEnumerator(System.Collections.Generic.IEnumerator[System.Text.Rune]):
     """This class has no documentation."""
 
     @property
-    def preamble(self) -> System.ReadOnlySpan[int]:
+    def current(self) -> System.Text.Rune:
         ...
 
-    @overload
-    def __init__(self) -> None:
+    def get_enumerator(self) -> System.Text.SpanRuneEnumerator:
         ...
 
-    @overload
-    def __init__(self, encoder_should_emit_utf_8_identifier: bool) -> None:
+    def move_next(self) -> bool:
         ...
 
-    @overload
-    def __init__(self, encoder_should_emit_utf_8_identifier: bool, throw_on_invalid_bytes: bool) -> None:
+
+class SpanLineEnumerator(System.Collections.Generic.IEnumerator[System.ReadOnlySpan[str]]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.ReadOnlySpan[str]:
         ...
 
-    def equals(self, value: typing.Any) -> bool:
+    def get_enumerator(self) -> System.Text.SpanLineEnumerator:
         ...
 
-    @overload
-    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: str) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str]) -> int:
-        ...
-
-    def get_decoder(self) -> System.Text.Decoder:
-        ...
-
-    def get_encoder(self) -> System.Text.Encoder:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_max_byte_count(self, char_count: int) -> int:
-        ...
-
-    def get_max_char_count(self, byte_count: int) -> int:
-        ...
-
-    def get_preamble(self) -> typing.List[int]:
-        ...
-
-    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
-        ...
-
-    def try_get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    def try_get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+    def move_next(self) -> bool:
         ...
 
 
@@ -902,316 +745,165 @@ class UTF32Encoding(System.Text.Encoding):
         ...
 
 
-class EncodingProvider(System.Object, metaclass=abc.ABCMeta):
+class Ascii(System.Object):
     """This class has no documentation."""
 
-    def __init__(self) -> None:
-        ...
-
+    @staticmethod
     @overload
-    def get_encoding(self, name: str) -> System.Text.Encoding:
+    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def get_encoding(self, codepage: int) -> System.Text.Encoding:
+    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def get_encoding(self, name: str, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
+    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def get_encoding(self, codepage: int, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
+    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
         ...
 
-    def get_encodings(self) -> System.Collections.Generic.IEnumerable[System.Text.EncodingInfo]:
-        ...
-
-
-class UTF7Encoding(System.Text.Encoding):
-    """This class has no documentation."""
-
+    @staticmethod
     @overload
-    def __init__(self) -> None:
+    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def __init__(self, allow_optionals: bool) -> None:
+    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
         ...
 
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
+    @staticmethod
     @overload
-    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def get_byte_count(self, s: str) -> int:
+    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
         ...
 
+    @staticmethod
+    def from_utf_16(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+    def is_valid(value: System.ReadOnlySpan[int]) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+    def is_valid(value: int) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+    def is_valid(value: str) -> bool:
         ...
 
+    @staticmethod
     @overload
-    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
-    def get_decoder(self) -> System.Text.Decoder:
-        ...
-
-    def get_encoder(self) -> System.Text.Encoder:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_max_byte_count(self, char_count: int) -> int:
-        ...
-
-    def get_max_char_count(self, byte_count: int) -> int:
-        ...
-
-    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
-        ...
-
-
-class StringBuilderRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.Text.Rune:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
-        ...
-
-    def get_enumerator(self) -> System.Text.StringBuilderRuneEnumerator:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-
-class UnicodeEncoding(System.Text.Encoding):
-    """This class has no documentation."""
-
-    CHAR_SIZE: int = 2
-
-    @property
-    def preamble(self) -> System.ReadOnlySpan[int]:
-        ...
-
+    @staticmethod
     @overload
-    def __init__(self) -> None:
+    def to_lower_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def __init__(self, big_endian: bool, byte_order_mark: bool) -> None:
+    def to_lower_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def __init__(self, big_endian: bool, byte_order_mark: bool, throw_on_invalid_bytes: bool) -> None:
+    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
+    @staticmethod
     @overload
-    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def get_byte_count(self, s: str) -> int:
+    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+    def to_upper_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
     @overload
-    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+    def to_upper_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
         ...
 
+    @staticmethod
+    def to_utf_16(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+    def trim(value: System.ReadOnlySpan[int]) -> System.Range:
         ...
 
+    @staticmethod
     @overload
-    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+    def trim(value: System.ReadOnlySpan[str]) -> System.Range:
         ...
 
+    @staticmethod
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+    def trim_end(value: System.ReadOnlySpan[int]) -> System.Range:
         ...
 
+    @staticmethod
     @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+    def trim_end(value: System.ReadOnlySpan[str]) -> System.Range:
         ...
 
+    @staticmethod
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+    def trim_start(value: System.ReadOnlySpan[int]) -> System.Range:
         ...
 
-    def get_decoder(self) -> System.Text.Decoder:
-        ...
-
-    def get_encoder(self) -> System.Text.Encoder:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_max_byte_count(self, char_count: int) -> int:
-        ...
-
-    def get_max_char_count(self, byte_count: int) -> int:
-        ...
-
-    def get_preamble(self) -> typing.List[int]:
-        ...
-
-    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
-        ...
-
-
-class StringRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.Text.Rune:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
-        ...
-
-    def get_enumerator(self) -> System.Text.StringRuneEnumerator:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-
-class SpanLineEnumerator(System.Collections.Generic.IEnumerator[System.ReadOnlySpan[str]]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.ReadOnlySpan[str]:
-        ...
-
-    def get_enumerator(self) -> System.Text.SpanLineEnumerator:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-
-class EncoderExceptionFallback(System.Text.EncoderFallback):
-    """This class has no documentation."""
-
-    @property
-    def max_char_count(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class EncoderExceptionFallbackBuffer(System.Text.EncoderFallbackBuffer):
-    """This class has no documentation."""
-
-    @property
-    def remaining(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
+    @staticmethod
     @overload
-    def fallback(self, char_unknown: str, index: int) -> bool:
-        ...
-
-    @overload
-    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
-        ...
-
-    def get_next_char(self) -> str:
-        ...
-
-    def move_previous(self) -> bool:
-        ...
-
-
-class EncoderFallbackException(System.ArgumentException):
-    """This class has no documentation."""
-
-    @property
-    def char_unknown(self) -> str:
-        ...
-
-    @property
-    def char_unknown_high(self) -> str:
-        ...
-
-    @property
-    def char_unknown_low(self) -> str:
-        ...
-
-    @property
-    def index(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    def is_unknown_surrogate(self) -> bool:
+    def trim_start(value: System.ReadOnlySpan[str]) -> System.Range:
         ...
 
 
@@ -1314,6 +1006,23 @@ class _StringBuilder_AppendFormat:
         ...
 
     def __getitem__(self, type: typing.Type[System_Text_StringBuilder_AppendFormat_TArg0]) -> System.Text._Typed_StringBuilder_AppendFormat[System_Text_StringBuilder_AppendFormat_TArg0]:
+        ...
+
+
+class StringBuilderRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.Text.Rune:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
+        ...
+
+    def get_enumerator(self) -> System.Text.StringBuilderRuneEnumerator:
+        ...
+
+    def move_next(self) -> bool:
         ...
 
 
@@ -1703,6 +1412,482 @@ class RunePosition(System.IEquatable[System_Text_RunePosition]):
         ...
 
 
+class UnicodeEncoding(System.Text.Encoding):
+    """This class has no documentation."""
+
+    CHAR_SIZE: int = 2
+
+    @property
+    def preamble(self) -> System.ReadOnlySpan[int]:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, big_endian: bool, byte_order_mark: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, big_endian: bool, byte_order_mark: bool, throw_on_invalid_bytes: bool) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, s: str) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+        ...
+
+    def get_decoder(self) -> System.Text.Decoder:
+        ...
+
+    def get_encoder(self) -> System.Text.Encoder:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_max_byte_count(self, char_count: int) -> int:
+        ...
+
+    def get_max_char_count(self, byte_count: int) -> int:
+        ...
+
+    def get_preamble(self) -> typing.List[int]:
+        ...
+
+    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
+        ...
+
+
+class DecoderExceptionFallback(System.Text.DecoderFallback):
+    """This class has no documentation."""
+
+    @property
+    def max_char_count(self) -> int:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class DecoderExceptionFallbackBuffer(System.Text.DecoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+
+class DecoderFallbackException(System.ArgumentException):
+    """This class has no documentation."""
+
+    @property
+    def bytes_unknown(self) -> typing.List[int]:
+        ...
+
+    @property
+    def index(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, bytes_unknown: typing.List[int], index: int) -> None:
+        ...
+
+
+class UTF8Encoding(System.Text.Encoding):
+    """This class has no documentation."""
+
+    @property
+    def preamble(self) -> System.ReadOnlySpan[int]:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, encoder_should_emit_utf_8_identifier: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, encoder_should_emit_utf_8_identifier: bool, throw_on_invalid_bytes: bool) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: str) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str]) -> int:
+        ...
+
+    def get_decoder(self) -> System.Text.Decoder:
+        ...
+
+    def get_encoder(self) -> System.Text.Encoder:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_max_byte_count(self, char_count: int) -> int:
+        ...
+
+    def get_max_char_count(self, byte_count: int) -> int:
+        ...
+
+    def get_preamble(self) -> typing.List[int]:
+        ...
+
+    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
+        ...
+
+    def try_get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class EncoderExceptionFallback(System.Text.EncoderFallback):
+    """This class has no documentation."""
+
+    @property
+    def max_char_count(self) -> int:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class EncoderExceptionFallbackBuffer(System.Text.EncoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def fallback(self, char_unknown: str, index: int) -> bool:
+        ...
+
+    @overload
+    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+
+class EncoderFallbackException(System.ArgumentException):
+    """This class has no documentation."""
+
+    @property
+    def char_unknown(self) -> str:
+        ...
+
+    @property
+    def char_unknown_high(self) -> str:
+        ...
+
+    @property
+    def char_unknown_low(self) -> str:
+        ...
+
+    @property
+    def index(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    def is_unknown_surrogate(self) -> bool:
+        ...
+
+
+class DecoderReplacementFallback(System.Text.DecoderFallback):
+    """This class has no documentation."""
+
+    @property
+    def default_string(self) -> str:
+        ...
+
+    @property
+    def max_char_count(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, replacement: str) -> None:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class DecoderReplacementFallbackBuffer(System.Text.DecoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def __init__(self, fallback: System.Text.DecoderReplacementFallback) -> None:
+        ...
+
+    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
+class StringRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.Text.Rune:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
+        ...
+
+    def get_enumerator(self) -> System.Text.StringRuneEnumerator:
+        ...
+
+    def move_next(self) -> bool:
+        ...
+
+
+class UTF7Encoding(System.Text.Encoding):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, allow_optionals: bool) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, s: str) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+        ...
+
+    def get_decoder(self) -> System.Text.Decoder:
+        ...
+
+    def get_encoder(self) -> System.Text.Encoder:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_max_byte_count(self, char_count: int) -> int:
+        ...
+
+    def get_max_char_count(self, byte_count: int) -> int:
+        ...
+
+    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
+        ...
+
+
 class ASCIIEncoding(System.Text.Encoding):
     """This class has no documentation."""
 
@@ -1788,191 +1973,6 @@ class ASCIIEncoding(System.Text.Encoding):
         ...
 
     def try_get_chars(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class DecoderReplacementFallback(System.Text.DecoderFallback):
-    """This class has no documentation."""
-
-    @property
-    def default_string(self) -> str:
-        ...
-
-    @property
-    def max_char_count(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, replacement: str) -> None:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class DecoderReplacementFallbackBuffer(System.Text.DecoderFallbackBuffer):
-    """This class has no documentation."""
-
-    @property
-    def remaining(self) -> int:
-        ...
-
-    def __init__(self, fallback: System.Text.DecoderReplacementFallback) -> None:
-        ...
-
-    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
-        ...
-
-    def get_next_char(self) -> str:
-        ...
-
-    def move_previous(self) -> bool:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-
-class EncoderReplacementFallback(System.Text.EncoderFallback):
-    """This class has no documentation."""
-
-    @property
-    def default_string(self) -> str:
-        ...
-
-    @property
-    def max_char_count(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, replacement: str) -> None:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class EncoderReplacementFallbackBuffer(System.Text.EncoderFallbackBuffer):
-    """This class has no documentation."""
-
-    @property
-    def remaining(self) -> int:
-        ...
-
-    def __init__(self, fallback: System.Text.EncoderReplacementFallback) -> None:
-        ...
-
-    @overload
-    def fallback(self, char_unknown: str, index: int) -> bool:
-        ...
-
-    @overload
-    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
-        ...
-
-    def get_next_char(self) -> str:
-        ...
-
-    def move_previous(self) -> bool:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-
-class DecoderExceptionFallback(System.Text.DecoderFallback):
-    """This class has no documentation."""
-
-    @property
-    def max_char_count(self) -> int:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class DecoderExceptionFallbackBuffer(System.Text.DecoderFallbackBuffer):
-    """This class has no documentation."""
-
-    @property
-    def remaining(self) -> int:
-        ...
-
-    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
-        ...
-
-    def get_next_char(self) -> str:
-        ...
-
-    def move_previous(self) -> bool:
-        ...
-
-
-class DecoderFallbackException(System.ArgumentException):
-    """This class has no documentation."""
-
-    @property
-    def bytes_unknown(self) -> typing.List[int]:
-        ...
-
-    @property
-    def index(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, bytes_unknown: typing.List[int], index: int) -> None:
-        ...
-
-
-class SpanRuneEnumerator(System.Collections.Generic.IEnumerator[System.Text.Rune]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.Text.Rune:
-        ...
-
-    def get_enumerator(self) -> System.Text.SpanRuneEnumerator:
-        ...
-
-    def move_next(self) -> bool:
         ...
 
 

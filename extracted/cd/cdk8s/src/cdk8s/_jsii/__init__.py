@@ -17,7 +17,7 @@ from jsii._type_checking import check_type
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "cdk8s", "2.70.76", __name__[0:-6], "cdk8s@2.70.76.jsii.tgz"
+    "cdk8s", "2.70.77", __name__[0:-6], "cdk8s@2.70.77.jsii.tgz"
 )
 
 __all__ = [

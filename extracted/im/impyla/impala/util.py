@@ -12,27 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-
 import base64
-import sys
 import warnings
 import logging
 import string
 import random
-import six
 import datetime
 import os.path
-from six.moves import http_cookies
+from http import cookies as http_cookies
 
-
-try:
-    from logging import NullHandler
-except ImportError:
-    # py 2.6 compat
-    class NullHandler(logging.Handler):
-        def emit(self, record):
-            pass
+from logging import NullHandler
 
 
 def get_logger_and_init_null(logger_name):
@@ -146,7 +135,7 @@ def _escape(s):
 def _py_to_sql_string(value):
     if value is None:
         return 'NULL'
-    elif isinstance(value, six.string_types):
+    elif isinstance(value, str):
         return "'" + _escape(value) + "'"
     else:
         return str(value)
@@ -210,12 +199,9 @@ def get_cookies(resp_headers):
 
     cookies = http_cookies.SimpleCookie()
     try:
-        if sys.version_info.major == 2:
-            cookies.load(resp_headers['Set-Cookie'])
-        else:
-            cookie_headers = resp_headers.get_all('Set-Cookie')
-            for header in cookie_headers:
-                cookies.load(header)
+        cookie_headers = resp_headers.get_all('Set-Cookie')
+        for header in cookie_headers:
+            cookies.load(header)
         return cookies
     except Exception:
         return None

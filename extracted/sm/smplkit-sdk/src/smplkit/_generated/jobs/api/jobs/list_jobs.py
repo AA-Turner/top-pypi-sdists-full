@@ -14,7 +14,8 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterrecurring: bool | None | Unset = UNSET,
+    filterkind: None | str | Unset = UNSET,
+    filterscheduled: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
@@ -24,12 +25,19 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_filterrecurring: bool | None | Unset
-    if isinstance(filterrecurring, Unset):
-        json_filterrecurring = UNSET
+    json_filterkind: None | str | Unset
+    if isinstance(filterkind, Unset):
+        json_filterkind = UNSET
     else:
-        json_filterrecurring = filterrecurring
-    params["filter[recurring]"] = json_filterrecurring
+        json_filterkind = filterkind
+    params["filter[kind]"] = json_filterkind
+
+    json_filterscheduled: bool | None | Unset
+    if isinstance(filterscheduled, Unset):
+        json_filterscheduled = UNSET
+    else:
+        json_filterscheduled = filterscheduled
+    params["filter[scheduled]"] = json_filterscheduled
 
     json_filtername: None | str | Unset
     if isinstance(filtername, Unset):
@@ -85,7 +93,8 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterrecurring: bool | None | Unset = UNSET,
+    filterkind: None | str | Unset = UNSET,
+    filterscheduled: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
@@ -97,14 +106,24 @@ def sync_detailed(
      List this account's jobs.
 
     Default sort is `name` ascending. Sort by `name`, `created_at`, or
-    `updated_at`, ascending or descending (prefix `-` for descending). Filter
-    with `filter[recurring]` and `filter[name]` (case-insensitive substring
-    match on the name); filters compose with AND. Each job reports its
-    per-environment enablement and `next_run_at` inside its `environments` map;
-    a scoped caller sees that map narrowed to the environments it may access.
+    `updated_at`, ascending or descending (prefix `-` for descending). By
+    default the list omits transient one-off jobs (request `filter[kind]=one_off`
+    to see them). Filter with `filter[kind]` (`recurring` / `manual` /
+    `one_off`), `filter[scheduled]` (jobs with an upcoming fire in some
+    environment — the feed for an upcoming-runs view, which includes one-offs),
+    and `filter[name]` (case-insensitive substring); filters compose with AND.
+    Each job reports its per-environment enablement and `next_run_at` inside its
+    `environments` map; a scoped caller sees that map narrowed to the
+    environments it may access.
 
     Args:
-        filterrecurring (bool | None | Unset):
+        filterkind (None | str | Unset): Restrict to a single job kind: `recurring`, `manual`, or
+            `one_off`. By default one-off jobs are omitted (they are transient and short-lived);
+            request `filter[kind]=one_off` to list them.
+        filterscheduled (bool | None | Unset): When `true`, list only jobs that have an upcoming
+            fire in at least one environment (a recurring job's next occurrence, or a pending future
+            one-off) — the feed for an upcoming-runs view; this includes one-off jobs. When `false`,
+            list only jobs with no upcoming fire.
         filtername (None | str | Unset): Case-insensitive substring match on the job `name`
             (matches when the name contains the given text).
         sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -130,7 +149,8 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterrecurring=filterrecurring,
+        filterkind=filterkind,
+        filterscheduled=filterscheduled,
         filtername=filtername,
         sort=sort,
         pagenumber=pagenumber,
@@ -148,7 +168,8 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterrecurring: bool | None | Unset = UNSET,
+    filterkind: None | str | Unset = UNSET,
+    filterscheduled: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
@@ -160,14 +181,24 @@ def sync(
      List this account's jobs.
 
     Default sort is `name` ascending. Sort by `name`, `created_at`, or
-    `updated_at`, ascending or descending (prefix `-` for descending). Filter
-    with `filter[recurring]` and `filter[name]` (case-insensitive substring
-    match on the name); filters compose with AND. Each job reports its
-    per-environment enablement and `next_run_at` inside its `environments` map;
-    a scoped caller sees that map narrowed to the environments it may access.
+    `updated_at`, ascending or descending (prefix `-` for descending). By
+    default the list omits transient one-off jobs (request `filter[kind]=one_off`
+    to see them). Filter with `filter[kind]` (`recurring` / `manual` /
+    `one_off`), `filter[scheduled]` (jobs with an upcoming fire in some
+    environment — the feed for an upcoming-runs view, which includes one-offs),
+    and `filter[name]` (case-insensitive substring); filters compose with AND.
+    Each job reports its per-environment enablement and `next_run_at` inside its
+    `environments` map; a scoped caller sees that map narrowed to the
+    environments it may access.
 
     Args:
-        filterrecurring (bool | None | Unset):
+        filterkind (None | str | Unset): Restrict to a single job kind: `recurring`, `manual`, or
+            `one_off`. By default one-off jobs are omitted (they are transient and short-lived);
+            request `filter[kind]=one_off` to list them.
+        filterscheduled (bool | None | Unset): When `true`, list only jobs that have an upcoming
+            fire in at least one environment (a recurring job's next occurrence, or a pending future
+            one-off) — the feed for an upcoming-runs view; this includes one-off jobs. When `false`,
+            list only jobs with no upcoming fire.
         filtername (None | str | Unset): Case-insensitive substring match on the job `name`
             (matches when the name contains the given text).
         sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -194,7 +225,8 @@ def sync(
 
     return sync_detailed(
         client=client,
-        filterrecurring=filterrecurring,
+        filterkind=filterkind,
+        filterscheduled=filterscheduled,
         filtername=filtername,
         sort=sort,
         pagenumber=pagenumber,
@@ -206,7 +238,8 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterrecurring: bool | None | Unset = UNSET,
+    filterkind: None | str | Unset = UNSET,
+    filterscheduled: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
@@ -218,14 +251,24 @@ async def asyncio_detailed(
      List this account's jobs.
 
     Default sort is `name` ascending. Sort by `name`, `created_at`, or
-    `updated_at`, ascending or descending (prefix `-` for descending). Filter
-    with `filter[recurring]` and `filter[name]` (case-insensitive substring
-    match on the name); filters compose with AND. Each job reports its
-    per-environment enablement and `next_run_at` inside its `environments` map;
-    a scoped caller sees that map narrowed to the environments it may access.
+    `updated_at`, ascending or descending (prefix `-` for descending). By
+    default the list omits transient one-off jobs (request `filter[kind]=one_off`
+    to see them). Filter with `filter[kind]` (`recurring` / `manual` /
+    `one_off`), `filter[scheduled]` (jobs with an upcoming fire in some
+    environment — the feed for an upcoming-runs view, which includes one-offs),
+    and `filter[name]` (case-insensitive substring); filters compose with AND.
+    Each job reports its per-environment enablement and `next_run_at` inside its
+    `environments` map; a scoped caller sees that map narrowed to the
+    environments it may access.
 
     Args:
-        filterrecurring (bool | None | Unset):
+        filterkind (None | str | Unset): Restrict to a single job kind: `recurring`, `manual`, or
+            `one_off`. By default one-off jobs are omitted (they are transient and short-lived);
+            request `filter[kind]=one_off` to list them.
+        filterscheduled (bool | None | Unset): When `true`, list only jobs that have an upcoming
+            fire in at least one environment (a recurring job's next occurrence, or a pending future
+            one-off) — the feed for an upcoming-runs view; this includes one-off jobs. When `false`,
+            list only jobs with no upcoming fire.
         filtername (None | str | Unset): Case-insensitive substring match on the job `name`
             (matches when the name contains the given text).
         sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -251,7 +294,8 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterrecurring=filterrecurring,
+        filterkind=filterkind,
+        filterscheduled=filterscheduled,
         filtername=filtername,
         sort=sort,
         pagenumber=pagenumber,
@@ -267,7 +311,8 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterrecurring: bool | None | Unset = UNSET,
+    filterkind: None | str | Unset = UNSET,
+    filterscheduled: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
@@ -279,14 +324,24 @@ async def asyncio(
      List this account's jobs.
 
     Default sort is `name` ascending. Sort by `name`, `created_at`, or
-    `updated_at`, ascending or descending (prefix `-` for descending). Filter
-    with `filter[recurring]` and `filter[name]` (case-insensitive substring
-    match on the name); filters compose with AND. Each job reports its
-    per-environment enablement and `next_run_at` inside its `environments` map;
-    a scoped caller sees that map narrowed to the environments it may access.
+    `updated_at`, ascending or descending (prefix `-` for descending). By
+    default the list omits transient one-off jobs (request `filter[kind]=one_off`
+    to see them). Filter with `filter[kind]` (`recurring` / `manual` /
+    `one_off`), `filter[scheduled]` (jobs with an upcoming fire in some
+    environment — the feed for an upcoming-runs view, which includes one-offs),
+    and `filter[name]` (case-insensitive substring); filters compose with AND.
+    Each job reports its per-environment enablement and `next_run_at` inside its
+    `environments` map; a scoped caller sees that map narrowed to the
+    environments it may access.
 
     Args:
-        filterrecurring (bool | None | Unset):
+        filterkind (None | str | Unset): Restrict to a single job kind: `recurring`, `manual`, or
+            `one_off`. By default one-off jobs are omitted (they are transient and short-lived);
+            request `filter[kind]=one_off` to list them.
+        filterscheduled (bool | None | Unset): When `true`, list only jobs that have an upcoming
+            fire in at least one environment (a recurring job's next occurrence, or a pending future
+            one-off) — the feed for an upcoming-runs view; this includes one-off jobs. When `false`,
+            list only jobs with no upcoming fire.
         filtername (None | str | Unset): Case-insensitive substring match on the job `name`
             (matches when the name contains the given text).
         sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -314,7 +369,8 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            filterrecurring=filterrecurring,
+            filterkind=filterkind,
+            filterscheduled=filterscheduled,
             filtername=filtername,
             sort=sort,
             pagenumber=pagenumber,

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Union, Iterable
+from typing import List, Union, Iterable
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
+from .._types import SequenceNotStr
 from .._utils import PropertyInfo
 
 __all__ = [
@@ -335,10 +336,23 @@ class ClientProfileParams(TypedDict, total=False):
     to use to filter memories.
     """
 
+    buckets: SequenceNotStr[str]
+    """Specific bucket keys to return.
+
+    Omit to return all configured buckets. Only relevant when "buckets" is included.
+    """
+
     filters: Filters
     """Optional metadata filters to apply to profile results and search results.
 
     Supports complex AND/OR queries with multiple conditions.
+    """
+
+    include: List[Literal["static", "dynamic", "buckets"]]
+    """Profile sections to return.
+
+    Omit to return all sections. Pass a subset to reduce payload — e.g. ["buckets"]
+    skips static and dynamic entirely.
     """
 
     q: str

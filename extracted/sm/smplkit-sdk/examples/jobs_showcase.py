@@ -13,13 +13,15 @@ Usage::
 """
 
 import asyncio
+from datetime import datetime, timedelta
 
 from smplkit import AsyncJobsClient, ConflictError
-from smplkit.jobs import HttpConfig
+from smplkit.jobs import HttpConfig, JobKind, RunTrigger
 
 from setup.jobs_setup import cleanup_showcase, setup_showcase
 
 RECURRING_JOB_ID = "showcase-recurring"
+MANUAL_JOB_ID = "showcase-manual"
 ONEOFF_JOB_ID = "showcase-oneoff"
 
 
@@ -29,8 +31,9 @@ async def main() -> None:
     async with AsyncJobsClient() as jobs:
         await setup_showcase(jobs)
         try:
-            # create a recurring job, enabled in production with a development override
-            job = jobs.new(
+            # create a recurring job: a base schedule and configuration every
+            # environment inherits, with per-environment overrides
+            job = jobs.new_recurring_job(
                 RECURRING_JOB_ID,
                 name="Nightly cache warm",
                 description="Warms the product cache every night at 02:00 UTC.",
@@ -43,6 +46,9 @@ async def main() -> None:
                     timeout=30,
                 ),
             )
+            job.set_enabled(True, environment="production")
+            job.set_enabled(True, environment="development")
+            job.set_schedule("0 */6 * * *", environment="development")
             job.set_configuration(
                 HttpConfig(
                     method="POST",
@@ -52,41 +58,31 @@ async def main() -> None:
                 ),
                 environment="development",
             )
-            job.set_enabled(False, environment="development")
-            job.set_enabled(True, environment="production")
             await job.save()
-            assert job.version == 1
-            assert job.is_enabled(environment="development") is False
+            assert job.is_recurring() is True
             assert job.is_enabled(environment="production") is True
+            assert (
+                job.get_configuration(environment="development").url
+                == "https://development.example.com/cache/warm"
+            )
             print(f"Created recurring job {job.id!r} (v{job.version})")
 
             # get a job
             fetched = await jobs.get(RECURRING_JOB_ID)
-            assert fetched.is_enabled(environment="development") is False
-            assert fetched.is_enabled(environment="production") is True
-            assert (
-                fetched.get_configuration(environment="development").url
-                == "https://development.example.com/cache/warm"
-            )
+            assert fetched.environments["development"].schedule == "0 */6 * * *"
             print(f"Fetched job {RECURRING_JOB_ID!r}")
 
-            # list jobs
-            listing = await jobs.list()
+            # list jobs, filtered to recurring jobs
+            listing = await jobs.list(kind=JobKind.RECURRING)
             assert RECURRING_JOB_ID in {j.id for j in listing}
             print(f"Found job {RECURRING_JOB_ID!r} in the listing")
 
-            # update a job (the schedule is environment-agnostic)
+            # update a job
             job.name = "Nightly cache warm (v2)"
-            job.set_schedule("30 2 * * *")
-            job.set_enabled(True, environment="development")
+            job.set_schedule("30 2 * * *", environment="production")
             await job.save()
-            assert (
-                job.version == 2
-                and job.is_enabled(environment="development") is True
-            )
-            print(
-                f"Updated job to v{job.version}: now enabled in production and development"
-            )
+            assert job.version == 2
+            print(f"Updated job to v{job.version}")
 
             # trigger an immediate run
             run = await job.trigger(environment="production")
@@ -122,22 +118,37 @@ async def main() -> None:
                     f"Run {rerun.id} already finished before it could be canceled"
                 )
 
-            # create a one-off job, born in a single environment
-            oneoff = jobs.new(
+            # create a manual job (no schedule, runs only when triggered)
+            manual = jobs.new_manual_job(
+                MANUAL_JOB_ID,
+                name="On-demand reindex",
+                configuration=HttpConfig(
+                    method="POST", url="https://httpbin.org/post"
+                ),
+            )
+            manual.set_enabled(True, environment="production")
+            await manual.save()
+            assert manual.is_manual() is True
+            manual_run = await manual.trigger(environment="production")
+            assert manual_run.trigger == RunTrigger.MANUAL
+            print(f"Created manual job {manual.id!r} and triggered it on demand")
+
+            # schedule a one-off job to run tomorrow
+            tomorrow = datetime.now() + timedelta(days=1)
+            oneoff = jobs.schedule(
                 ONEOFF_JOB_ID,
                 name="One-shot reindex",
-                schedule="now",
+                schedule=tomorrow,
                 configuration=HttpConfig(
                     method="POST", url="https://httpbin.org/post"
                 ),
                 environment="development",
             )
             await oneoff.save()
-            assert (
-                oneoff.version == 1
-                and oneoff.is_enabled(environment="development") is True
-            )
-            print(f"Created one-off job {oneoff.id!r} born in development")
+            assert oneoff.is_one_off() is True
+            assert oneoff.is_enabled(environment="development") is True
+            assert oneoff.environments["development"].next_run_at is not None
+            print(f"Created one-off job {oneoff.id!r} to run in development")
 
             # delete a job
             await job.delete()

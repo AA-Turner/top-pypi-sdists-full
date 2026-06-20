@@ -2,35 +2,70 @@
 
 from __future__ import annotations
 
+import functools
 import importlib
 import json
 import logging
 import os
 import time
+import warnings
 from pathlib import Path
 
 from argus_redact._safe_io import safe_read_text as _safe_read_text
 from argus_redact._types import PatternMatch
+from argus_redact.exceptions import LayerUnavailableError
 from argus_redact.lang._loader import core_patterns
 from argus_redact.layers import LAYER_NER, LAYER_SEMANTIC
 from argus_redact.pure.grammar import normalize_grammar_en
 from argus_redact.pure.hints import (
+    _apply_ablation,
     boost_cross_layer,
     filter_self_reference,
     get_ner_min_confidence,
-    produce_hints,
     should_skip_ner,
 )
 from argus_redact.pure.lang_detect import detect_languages
 from argus_redact.pure.merger import merge_entities
 from argus_redact.pure.normalize import MAX_INPUT_SIZE
-from argus_redact.pure.replacer import replace
+from argus_redact.pure.replacer import SecurityWarning, replace
 from argus_redact.telemetry import PerfRecord, emit, get_perf_hook
 
 logger = logging.getLogger(__name__)
 
 # Cached telemetry constants (resolved once at import, not per-call)
 from argus_redact._core_loader import HAS_CORE as _RUST_CORE, _core
+
+
+@functools.lru_cache(maxsize=1)
+def _warn_ablation_once() -> None:
+    """Warn ONCE per process if any research ablation env toggle is active.
+
+    These toggles ship in the wheel (research ablation hooks); a privacy tool
+    should not silently run a recall-degrading research mode. The env is read
+    INSIDE the function so a test can set the env, clear the cache, and observe
+    the warning. The lru_cache(maxsize=1) keyed on the empty arg tuple makes it
+    fire at most once until ``cache_clear()``.
+    """
+    active = [v for v in ("ARGUS_ABLATION_HINTS", "ARGUS_ABLATION_NO_BOOST") if os.environ.get(v)]
+    if active:
+        logger.warning("research ablation toggle(s) active: %s — recall may be degraded", active)
+
+
+def _ablation_enabled_hints() -> set[str] | None:
+    """Resolve the ARGUS_ABLATION_HINTS research hook from the environment (glue).
+
+    The env read lives here (impure glue), not in the pure layer. Returns the
+    enabled hint-type set for ``_apply_ablation``:
+      unset / "all" → None (keep all); "off" → empty set (drop all);
+      comma-separated names → keep only the listed types.
+    Recognized: pii_density, text_intent, self_reference_tier, near_miss_format.
+    """
+    raw = os.environ.get("ARGUS_ABLATION_HINTS")
+    if raw is None or raw == "all":
+        return None
+    if raw == "off":
+        return set()
+    return {h.strip() for h in raw.split(",") if h.strip()}
 
 
 def _telemetry_hook_active() -> bool:
@@ -79,6 +114,19 @@ _LANG_PATTERNS = {
     "br": "argus_redact.lang.br.patterns",
 }
 
+
+def _validate_langs(langs: tuple[str, ...] | list[str]) -> None:
+    """Raise ValueError for any requested language code not in the known set.
+
+    'shared' is merged in implicitly and is never requestable on its own.
+    """
+    for code in langs:
+        if code not in _LANG_PATTERNS:
+            raise ValueError(
+                f"Unknown language '{code}'. Available: {list(_LANG_PATTERNS.keys())}"
+            )
+
+
 _LANG_NER_ADAPTERS = {
     "zh": "argus_redact.lang.zh.ner_adapter",
     "en": "argus_redact.lang.en.ner_adapter",
@@ -114,9 +162,7 @@ def _load_patterns(lang: str | list[str]) -> list[dict]:
     # "shared" is not a requestable lang on its own (it is always merged in
     # below); requesting it raises, which the parity test relies on to skip the
     # synthetic "shared" corpus.
-    for code in langs:
-        if code not in _LANG_PATTERNS:
-            raise ValueError(f"Unknown language '{code}'. Available: {list(_LANG_PATTERNS.keys())}")
+    _validate_langs(langs)
 
     all_patterns = core_patterns("shared")
     for code in langs:
@@ -180,6 +226,7 @@ def _detect(
     names: list[str] | None,
     types: list[str] | None,
     types_exclude: list[str] | None,
+    strict: bool = False,
 ) -> tuple[list[PatternMatch], list[str], dict, dict]:
     """Run the full detection pipeline (L1 regex + L1b person + L2 NER + L3 LLM + merge).
 
@@ -192,6 +239,8 @@ def _detect(
     timing: dict[str, float] = {}
     entities: list[PatternMatch] = []
     langs = [lang] if isinstance(lang, str) else list(lang)
+    _validate_langs(langs)
+    _warn_ablation_once()
 
     # Layer 1 (regex + person) — single Rust engine call. ``detect_l1`` reproduces
     # internally: normalize_text → match_patterns (over _load_patterns) →
@@ -202,42 +251,60 @@ def _detect(
     # also tagged LAYER_REGEX), the internal L1 hints, and validator ``near_misses``.
     # detect_l1 takes the ORIGINAL text (it normalizes internally).
     t0 = time.perf_counter()
-    layer1, person, _l1_hints, near_misses = _core.detect_l1(text, langs, names or [])
+    layer1, person, l1_hints, near_misses = _core.detect_l1(text, langs, names or [])
     timing["layer_1_ms"] = (time.perf_counter() - t0) * 1000
     entities.extend(layer1)
     entities.extend(person)
     layer1_count = len(layer1) + len(person)
 
-    # Produce the FULL Python hints (all 4 types) from the L1a regex set — consumed
-    # by L2 (NER gating), L3, and the report. The 2 L1 hints here
-    # (text_intent / self_reference_tier) equal detect_l1's internal ones
-    # (golden-locked); the Python set additionally carries pii_density +
-    # near_miss_format, which only the L2/L3/report consumers need.
-    hints = produce_hints(layer1, text, near_misses=near_misses)
+    # Hints come fully from the Rust engine now: detect_l1 emits all 4 types
+    # (pii_density / near_miss_format / text_intent / self_reference_tier) in
+    # Python order, consumed by L2 (NER gating), L3, and the report. Ablation
+    # (the ARGUS_ABLATION_HINTS research hook) is applied Python-side because the
+    # Rust core is environment-unaware.
+    hints = _apply_ablation(l1_hints, _ablation_enabled_hints())
 
     # Layer 2: NER (auto or ner mode), hint-gated
     layer2_count = 0
     layer2_status = "skipped"
-    if mode in ("auto", "ner") and not should_skip_ner(hints):
-        from argus_redact.impure.ner import detect_ner
-
-        ner_confidence = get_ner_min_confidence(hints)
-        t0 = time.perf_counter()
+    if mode in ("auto", "ner"):
         adapters = _get_ner_adapters(lang)
-        if not adapters and mode == "ner":
-            logger.warning(
-                "mode='ner' but no NER models available. "
-                "Install language extras: pip install argus-redact[zh] or [en]"
+        if not adapters:
+            # Availability check runs UNCONDITIONALLY when the layer is requested
+            # (NOT gated by should_skip_ner): the caller named the layer and it is
+            # unavailable, so surface it even for instruction-intent input.
+            if mode == "ner":
+                raise LayerUnavailableError(
+                    "mode='ner' requested but no NER model is available. "
+                    "Install a language extra: pip install argus-redact[zh] or [en]."
+                )
+            # mode == "auto": best-effort degradation — warn + signal, don't raise.
+            warnings.warn(
+                "mode='auto': no NER model available; degrading to L1-only "
+                "(set strict=True to raise instead).",
+                SecurityWarning,
+                stacklevel=2,
             )
             layer2_status = "no_model"
-        for adapter in adapters:
-            ner_entities = detect_ner(text, adapter=adapter, min_confidence=ner_confidence)
-            layer2_matches = [e.to_pattern_match(layer=LAYER_NER) for e in ner_entities]
-            entities.extend(layer2_matches)
-            layer2_count += len(layer2_matches)
-        if adapters:
+            if strict:
+                raise LayerUnavailableError(
+                    "mode='auto' + strict=True: no NER model available."
+                )
+        elif not should_skip_ner(hints):
+            # Model present AND not hint-skipped → run L2 detection.
+            from argus_redact.impure.ner import detect_ner
+
+            ner_confidence = get_ner_min_confidence(hints)
+            t0 = time.perf_counter()
+            for adapter in adapters:
+                ner_entities = detect_ner(text, adapter=adapter, min_confidence=ner_confidence)
+                layer2_matches = [e.to_pattern_match(layer=LAYER_NER) for e in ner_entities]
+                entities.extend(layer2_matches)
+                layer2_count += len(layer2_matches)
             layer2_status = "ok"
-        timing["layer_2_ms"] = (time.perf_counter() - t0) * 1000
+            timing["layer_2_ms"] = (time.perf_counter() - t0) * 1000
+        # else: model present but hint-skipped → layer2_status stays "skipped"
+        #       (the should_skip_ner optimization is preserved for the RUN).
 
     # Layer 3: Semantic LLM (auto mode only)
     layer3_count = 0
@@ -257,6 +324,16 @@ def _detect(
             except Exception:
                 logger.warning("Layer 3 semantic detection failed", exc_info=True)
                 layer3_status = "error"
+                warnings.warn(
+                    "mode='auto': Layer-3 semantic detection failed; continuing "
+                    "with L1+L2 (set strict=True to raise instead).",
+                    SecurityWarning,
+                    stacklevel=2,
+                )
+                if strict:
+                    raise LayerUnavailableError(
+                        "mode='auto' + strict=True: Layer-3 semantic detection failed."
+                    ) from None
             timing["layer_3_ms"] = (time.perf_counter() - t0) * 1000
 
     t0 = time.perf_counter()
@@ -354,6 +431,7 @@ def redact(
     types: list[str] | None = None,
     types_exclude: list[str] | None = None,
     unified_prefix: str | None = None,
+    strict: bool = False,
     _pre_detected: "list[PatternMatch] | None" = None,
 ):
     """Detect and replace PII in text.
@@ -380,6 +458,19 @@ def redact(
     if not isinstance(text, str):
         raise TypeError(f"text must be a string, got {type(text).__name__}")
 
+    # Fail closed if the compiled core is missing. _core has been mandatory since
+    # v0.7.1; without it the fast path would otherwise call detect_l1 on None and
+    # raise an opaque AttributeError. Read HAS_CORE off the loader module (not a
+    # module-level alias) so the value is resolved per call. A privacy tool must
+    # never silently pass text through unredacted when its detection engine is gone.
+    import argus_redact._core_loader as _cl
+
+    if not _cl.HAS_CORE:
+        raise ImportError(
+            "argus-redact requires the compiled _core extension for redaction "
+            "(install the wheel or build with maturin)."
+        )
+
     if len(text) > MAX_INPUT_SIZE:
         raise ValueError(
             f"Input text ({len(text)} chars) exceeds maximum allowed size "
@@ -391,6 +482,17 @@ def redact(
 
     if types is not None and types_exclude is not None:
         raise ValueError("types and types_exclude are mutually exclusive")
+
+    if salt is not None and (
+        isinstance(salt, int)
+        or (isinstance(salt, (bytes, bytearray)) and len(salt) < 16)
+    ):
+        warnings.warn(
+            "low-entropy salt: an integer or short salt is grid-searchable on small "
+            "PII domains; prefer salt=os.urandom(32) for the forward-secure mapping claim.",
+            SecurityWarning,
+            stacklevel=2,
+        )
 
     # Resolve profile → types filter + strategy overrides
     if profile is not None:
@@ -439,7 +541,7 @@ def redact(
     # replacement. Fast / detailed / with_types / report differ only in the
     # final return-shape dispatch below, never in how detection runs. The Python
     # fast-mode path therefore detects exactly once and honors ARGUS_ABLATION_HINTS
-    # (read inside the Python produce_hints _detect calls).
+    # (applied via _apply_ablation to the Rust-produced hints in _detect).
     #
     # _core.redact_l1 (detect_l1 → merge → filter → replace, all in Rust as a
     # single bundled call) is built, bound, and tested, but is NOT used by this
@@ -463,6 +565,7 @@ def redact(
             names=names,
             types=types,
             types_exclude=types_exclude,
+            strict=strict,
         )
 
     redacted, result_key, _aliases = _replace_and_emit(

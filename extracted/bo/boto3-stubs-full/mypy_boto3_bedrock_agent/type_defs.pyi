@@ -52,6 +52,7 @@ from .literals import (
     FlowStatusType,
     FlowValidationSeverityType,
     FlowValidationTypeType,
+    IncludedDataType,
     IncludeExcludeType,
     IncompatibleLoopNodeTypeType,
     IngestionJobSortByAttributeType,
@@ -1064,10 +1065,12 @@ class GetFlowAliasRequestTypeDef(TypedDict):
 
 class GetFlowRequestTypeDef(TypedDict):
     flowIdentifier: str
+    includedData: NotRequired[IncludedDataType]
 
 class GetFlowVersionRequestTypeDef(TypedDict):
     flowIdentifier: str
     flowVersion: str
+    includedData: NotRequired[IncludedDataType]
 
 class GetIngestionJobRequestTypeDef(TypedDict):
     knowledgeBaseId: str
@@ -1080,6 +1083,7 @@ class GetKnowledgeBaseRequestTypeDef(TypedDict):
 class GetPromptRequestTypeDef(TypedDict):
     promptIdentifier: str
     promptVersion: NotRequired[str]
+    includedData: NotRequired[IncludedDataType]
 
 class GetResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str

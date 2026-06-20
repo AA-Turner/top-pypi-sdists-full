@@ -8,19 +8,23 @@
 #
 #    Principal author:       Jérôme Kieffer (Jerome.Kieffer@ESRF.eu)
 #
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#  .
+#  The above copyright notice and this permission notice shall be included in
+#  all copies or substantial portions of the Software.
+#  .
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#  THE SOFTWARE.
 """
 Test cases for the fabioimage class
 
@@ -278,6 +282,16 @@ class TestFabioImage(unittest.TestCase):
         for frame in image:
             self.assertEqual(frame.data[0, 0], 0)
 
+class TestSexedDtype(unittest.TestCase):
+    def test_sexed_dtypes(self):
+        a = FabioImage.get_stype("float32", ">")
+        self.assertEqual(a.str, ">f4")
+        a = FabioImage.get_stype("float64", "<")
+        self.assertEqual(a.str, "<f8")
+        a = FabioImage.get_stype(numpy.float32, "big")
+        self.assertEqual(a.str, ">f4")
+        a = FabioImage.get_stype(numpy.float64, "little")
+        self.assertEqual(a.str, "<f8")
 
 def suite():
     loadTests = unittest.defaultTestLoader.loadTestsFromTestCase
@@ -290,6 +304,7 @@ def suite():
     testsuite.addTest(loadTests(TestPilImage2))
     testsuite.addTest(loadTests(TestPilImage3))
     testsuite.addTest(loadTests(TestDeprecatedFabioImage))
+    testsuite.addTest(loadTests(TestSexedDtype))
     return testsuite
 
 

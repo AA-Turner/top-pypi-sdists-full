@@ -8,6 +8,7 @@ from __future__ import annotations
 # Option descriptions extracted from cli_doc markers
 OPTION_DESCRIPTIONS: dict[str, str] = {
     "--additional-imports": "Add custom imports to generated output files.",
+    "--alias-generator": "Use a Pydantic v2 alias generator in model_config.",
     "--aliases": "Apply custom field and class name aliases from JSON file.",
     "--all-exports-collision-strategy": "Handle name collisions when exporting recursive module hierarchies.",
     "--all-exports-scope": "Generate __all__ exports for child modules in __init__.py files.",
@@ -98,6 +99,7 @@ OPTION_DESCRIPTIONS: dict[str, str] = {
     "--output-datetime-class": "Specify datetime class type for date-time schema fields.",
     "--output-model-type": "Generate models from GraphQL with different output model types.",
     "--parent-scoped-naming": "Namespace models by their parent scope to avoid naming conflicts.",
+    "--preset": "Apply an immutable built-in option preset.",
     "--read-only-write-only-model-type": "Generate separate request and response models for readOnly/writeOnly fields.",
     "--remove-special-field-name-prefix": "Remove the special prefix from field names.",
     "--reuse-model": "Reuse identical model definitions instead of generating duplicates.",

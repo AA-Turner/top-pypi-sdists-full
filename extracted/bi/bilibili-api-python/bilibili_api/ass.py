@@ -4,7 +4,6 @@ bilibili_api.ass
 有关 ASS 文件的操作
 """
 
-import os
 import json
 from tempfile import gettempdir
 from typing import List, Tuple, Union, Optional
@@ -12,26 +11,28 @@ from typing import List, Tuple, Union, Optional
 from .video import Video
 from .bangumi import Episode
 from .cheese import CheeseVideo
-from .utils.srt2ass import srt2ass_from_string
 from .utils.danmaku2ass import Danmaku2ASS
 from .utils.network import Api, Credential
 from .exceptions.ArgsException import ArgsException
 
 
 class AssSubtitleObject:
-    def __init__(self, json_lan_list: json, obj: Union[Video, Episode], lan_set: str = None):
+    def __init__(
+        self,
+        json_lan_list: List[dict],
+        obj: Union[Video, Episode],
+        lan_set: Optional[str] = None,
+    ):
         """
         获取远程字幕
 
         Args:
-            json_lan_list        (json)                : 字幕可选语言
-
-            obj                  (Union[Video,Episode]): 对象
-
-            lan_set              (str)                 : 设置默认字幕语言,如果为None,则自动获取可获取语言
+            json_lan_list (list[dict]): 字幕可选语言
+            obj (Video | Episode): 对象
+            lan_set (str | None): 设置默认字幕语言,如果为None,则自动获取可获取语言
         """
         self.__json_lan_list = json_lan_list
-        self.__json_subtitle_data = None
+        self.__json_subtitle_data: Optional[dict] = None
         self.__obj = obj
         self.__lan_set = lan_set
         self.__data_string = None
@@ -41,7 +42,7 @@ class AssSubtitleObject:
         获取字幕语言列表
 
         Returns:
-            Tuple[List[str], List[Optional[str]]]: 字幕名,字幕语言代码
+            tuple[list[str], list[str | None]]: 字幕名,字幕语言代码 # XXX
         """
         ret_lan_code = []
         ret_lan_doc = []
@@ -51,12 +52,12 @@ class AssSubtitleObject:
                 ret_lan_doc.append(lan.get("lan_doc"))
         return ret_lan_code, ret_lan_doc
 
-    async def request_ass_data_json(self, lan_set: str = None) -> json:
+    async def request_ass_data_json(self, lan_set: Optional[str] = None) -> List[dict]:
         """
         获取对应语言的字幕
 
         Args:
-            lan_set     (str)   : 如果为None，则获取默认字幕语言
+            lan_set (str | None): 如果为None，则获取默认字幕语言
 
         Returns:
             json: 字幕数据
@@ -71,22 +72,27 @@ class AssSubtitleObject:
                 self.__lan_set = None
 
         for subtitle in self.__json_lan_list:
-            if subtitle["lan"] == self.__lan_set or subtitle["lan_doc"] == self.__lan_set:
+            if (
+                subtitle["lan"] == self.__lan_set
+                or subtitle["lan_doc"] == self.__lan_set
+            ):
                 url = subtitle["subtitle_url"]
                 if isinstance(self.__obj, Episode) or "https:" not in url:
                     url = "https:" + url
 
-                self.__json_subtitle_data = await Api(url=url, method="GET").request(raw=True)
-                return self.__json_subtitle_data
+                self.__json_subtitle_data = await Api(url=url, method="GET").request(
+                    raw=True
+                )  # type: ignore
+                return self.__json_subtitle_data["body"]  # type: ignore
 
         raise ArgsException("没有找到指定字幕")
 
-    async def request_ass_data_str(self, lan_set: str = None) -> str:
+    async def request_ass_data_str(self, lan_set: str | None = None) -> str:
         """
         获取对应语言的字幕
 
         Args:
-            lan_set     (str)   : 如果为None，则获取默认字幕语言
+            lan_set (str | None): 如果为None，则获取默认字幕语言
 
         Returns:
             str: 字幕数据
@@ -95,7 +101,9 @@ class AssSubtitleObject:
             if self.__json_subtitle_data:
                 self.__data_string = json.dumps(self.__json_subtitle_data)
             else:
-                self.__data_string = json.dumps(await self.request_ass_data_json(lan_set=lan_set))
+                self.__data_string = json.dumps(
+                    await self.request_ass_data_json(lan_set=lan_set)
+                )
 
         return self.__data_string
 
@@ -111,42 +119,76 @@ class AssSubtitleObject:
 
         self.__data_string = ""
         for cnt, comment in enumerate(self.__json_subtitle_data["body"]):
-            self.__data_string += (
-                "{}\n{}:{}:{},{} --> {}:{}:{},{}\n{}\n\n".format(
-                    cnt + 1,
-                    str(int(comment["from"]) // 3600).zfill(2),
-                    str(int(comment["from"]) // 60 % 60).zfill(2),
-                    str(int(comment["from"]) % 60).zfill(2),
-                    str(
-                        int(round(comment["from"] -
-                            int(comment["from"]), 2) * 100)
-                    ).zfill(2),
-                    str(int(comment["to"] - 0.01) // 3600).zfill(2),
-                    str(int(comment["to"] - 0.01) // 60 % 60).zfill(2),
-                    str(int(comment["to"] - 0.01) % 60).zfill(2),
-                    str(
-                        int(
-                            round(comment["to"] - 0.01 -
-                                  int(comment["to"] - 0.01), 2)
-                            * 100
-                        )
-                    ).zfill(2),
-                    comment["content"],
-                )
+            self.__data_string += "{}\n{}:{}:{},{} --> {}:{}:{},{}\n{}\n\n".format(
+                cnt + 1,
+                str(int(comment["from"]) // 3600).zfill(2),
+                str(int(comment["from"]) // 60 % 60).zfill(2),
+                str(int(comment["from"]) % 60).zfill(2),
+                str(int(round(comment["from"] - int(comment["from"]), 2) * 100)).zfill(
+                    2
+                ),
+                str(int(comment["to"] - 0.01) // 3600).zfill(2),
+                str(int(comment["to"] - 0.01) // 60 % 60).zfill(2),
+                str(int(comment["to"] - 0.01) % 60).zfill(2),
+                str(
+                    int(
+                        round(comment["to"] - 0.01 - int(comment["to"] - 0.01), 2) * 100
+                    )
+                ).zfill(2),
+                comment["content"],
             )
 
         return self.__data_string
 
-    def to_ass(self) -> str:
+    def to_ass(self, font: str = "Simsun", font_size: float = 65.0) -> str:
         """
         获取ass格式的字幕
+
+        Args:
+            font (str): 字体. Defaults to Simsun.
+            font_size (float): 字体大小. Defaults to 25.0
 
         Returns:
             str: ass字幕
         """
-        srt_string = self.to_srt()
-        self.__data_string = srt2ass_from_string(srt_string)
-        return self.__data_string
+        ret = f"""
+[Script Info]
+; Script generated by Aegisub 9212-dev-3a38bf16a
+; http://www.aegisub.org/
+Title: Default ASS file
+ScriptType: v4.00+
+WrapStyle: 2
+PlayResX: 1920
+PlayResY: 1080
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,{font},{font_size},&H00FFFFFF,&H00FFFFFF,&H00038AFC,&H91686868,-1,0,0,0,100,100,0,0,1,3.5,0.5,2,35,35,35,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+        for comment in self.__json_subtitle_data["body"]:  # type: ignore
+            ret += "Dialogue: 0,{}:{}:{}.{},{}:{}:{}.{},Default,,0,0,0,,{}\n".format(
+                str(int(comment["from"]) // 3600).zfill(2),
+                str(int(comment["from"]) // 60 % 60).zfill(2),
+                str(int(comment["from"]) % 60).zfill(2),
+                str(int(round(comment["from"] - int(comment["from"]), 2) * 100)).zfill(
+                    2
+                ),
+                str(int(comment["to"] - 0.01) // 3600).zfill(2),
+                str(int(comment["to"] - 0.01) // 60 % 60).zfill(2),
+                str(int(comment["to"] - 0.01) % 60).zfill(2),
+                str(
+                    int(
+                        round(comment["to"] - 0.01 - int(comment["to"] - 0.01), 2) * 100
+                    )
+                ).zfill(2),
+                comment["content"],
+            )
+        return ret
 
     def to_lrc(self) -> str:
         """
@@ -161,7 +203,7 @@ class AssSubtitleObject:
         self.__data_string = ""
 
         for _, comment in enumerate(self.__json_subtitle_data["body"]):
-            self.__data_string += ("[{}:{}:{}]{}\n[{}:{}:{}]\n".format(
+            self.__data_string += "[{}:{}:{}]{}\n[{}:{}:{}]\n".format(
                 str(int(comment["from"]) // 3600).zfill(2),
                 str(int(comment["from"]) // 60 % 60).zfill(2),
                 str(int(comment["from"]) % 60).zfill(2),
@@ -170,28 +212,29 @@ class AssSubtitleObject:
                 str(int(comment["to"] - 0.01) // 60 % 60).zfill(2),
                 str(int(comment["to"] - 0.01) % 60).zfill(2),
             )
-            )
 
         return self.__data_string
 
-    def to_simple_json(self) -> json:
+    def to_simple_json(self) -> List[dict]:
         """
         获取简化后的JSON数据
 
         Returns:
-            json: 字幕数据
+            List[dict]: 字幕数据
         """
         if self.__json_subtitle_data is None:
             raise ArgsException("未进行字幕数据请求")
 
         jsonResult = []
         for cnt, comment in enumerate(self.__json_subtitle_data["body"]):
-            jsonResult.append({
-                "cnt": cnt + 1,
-                "start_time": float(comment["from"]),
-                "content": comment["content"],
-                "end_time": float(comment["to"] - 0.01)
-            })
+            jsonResult.append(
+                {
+                    "cnt": cnt + 1,
+                    "start_time": float(comment["from"]),
+                    "content": comment["content"],
+                    "end_time": float(comment["to"] - 0.01),
+                }
+            )
 
         return jsonResult
 
@@ -226,15 +269,12 @@ async def request_subtitle_languages(
 
     Args:
         obj        (Union[Video,Episode]): 对象
-
         page_index (int, optional)       : 分 P 索引
-
         cid        (int, optional)       : cid
-
         credential (Credential, optional): Credential 类. 必须在此处或传入的视频 obj 中传入凭据，两者均存在则优先此处
 
     Returns:
-            AssSubtitleObject: 字幕对象
+        AssSubtitleObject: 字幕对象
     """
     # 目测必须得有 Credential 才能获取字幕
     credential = credential if credential else Credential()
@@ -244,7 +284,7 @@ async def request_subtitle_languages(
         credential.raise_for_no_sessdata()
 
     if isinstance(obj, Episode):
-        info = await obj.get_player_info(cid=await obj.get_cid(), epid=obj.get_epid())
+        info = await obj.get_player_info()
     else:
         if cid is None:
             if page_index is None:
@@ -269,21 +309,18 @@ async def request_subtitle(
 
     Args:
         obj        (Union[Video,Episode]): 对象
-
         page_index (int, optional)       : 分 P 索引
-
         cid        (int, optional)       : cid
-
         lan_name   (str, optional)       : 字幕名，如”中文（自动生成）“,是简介的 subtitle 项的'list'项中的弹幕的'lan_doc'属性。Defaults to "中文（自动生成）" 默认None 则自动获取可用歌词.
-
         lan_code   (str, optional)       : 字幕语言代码，如 ”中文（自动翻译）” 和 ”中文（自动生成）“ 为 "ai-zh" 默认None 则自动获取可用歌词
-
         credential (Credential, optional): Credential 类. 必须在此处或传入的视频 obj 中传入凭据，两者均存在则优先此处
 
     Returns:
-            AssSubtitleObject: 字幕对象
+        AssSubtitleObject: 字幕对象
     """
-    subtitle_data_obj = await request_subtitle_languages(obj=obj, page_index=page_index, cid=cid, credential=credential)
+    subtitle_data_obj = await request_subtitle_languages(
+        obj=obj, page_index=page_index, cid=cid, credential=credential
+    )
 
     try:
         await subtitle_data_obj.request_ass_data_json(lan_set=lan_code)
@@ -297,9 +334,11 @@ async def make_ass_file_subtitle(
     obj: Union[Video, Episode],
     page_index: Optional[int] = 0,
     cid: Optional[int] = None,
-    out: Optional[str] = "test.ass",
-    lan_name: Optional[str] = "中文（自动生成）",
-    lan_code: Optional[str] = "ai-zh",
+    out: str = "test.ass",
+    lan_name: str = "中文（自动生成）",
+    lan_code: str = "ai-zh",
+    font: str = "Simsun",
+    font_size: float = 65.0,
     credential: Optional[Credential] = None,
 ) -> None:
     """
@@ -309,23 +348,26 @@ async def make_ass_file_subtitle(
 
     Args:
         obj        (Union[Video,Episode]): 对象
-
         page_index (int, optional)       : 分 P 索引
-
         cid        (int, optional)       : cid
-
         out        (str, optional)       : 输出位置. Defaults to "test.ass".
-
         lan_name   (str, optional)       : 字幕名，如”中文（自动生成）“,是简介的 subtitle 项的'list'项中的弹幕的'lan_doc'属性。Defaults to "中文（自动生成）".
-
         lan_code   (str, optional)       : 字幕语言代码，如 ”中文（自动翻译）” 和 ”中文（自动生成）“ 为 "ai-zh"
-
+        font       (str, optional)       : 字体. Defaults to Simsun.
+        font_size  (float, optional)     : 字体大小. Defaults to 65.
         credential (Credential, optional): Credential 类. 必须在此处或传入的视频 obj 中传入凭据，两者均存在则优先此处
     """
     # 目测必须得有 Credential 才能获取字幕
-    subtitle_data_obj = await request_subtitle(obj=obj, page_index=page_index, cid=cid, lan_name=lan_name, lan_code=lan_code, credential=credential)
+    subtitle_data_obj = await request_subtitle(
+        obj=obj,
+        page_index=page_index,
+        cid=cid,
+        lan_name=lan_name,
+        lan_code=lan_code,
+        credential=credential,
+    )
 
-    subtitle_ass_str = subtitle_data_obj.to_ass()
+    subtitle_ass_str = subtitle_data_obj.to_ass(font=font, font_size=font_size)
 
     with open(out, "w+", encoding="utf-8") as file:
         file.write(subtitle_ass_str)
@@ -335,9 +377,9 @@ async def make_srt_file_subtitle(
     obj: Union[Video, Episode],
     page_index: Optional[int] = 0,
     cid: Optional[int] = None,
-    out: Optional[str] = "test.srt",
-    lan_name: Optional[str] = "中文（自动生成）",
-    lan_code: Optional[str] = "ai-zh",
+    out: str = "test.srt",
+    lan_name: str = "中文（自动生成）",
+    lan_code: str = "ai-zh",
     credential: Optional[Credential] = None,
 ) -> None:
     """
@@ -347,21 +389,22 @@ async def make_srt_file_subtitle(
 
     Args:
         obj        (Union[Video,Episode]): 对象
-
         page_index (int, optional)       : 分 P 索引
-
         cid        (int, optional)       : cid
-
         out        (str, optional)       : 输出位置. Defaults to "test.srt".
-
         lan_name   (str, optional)       : 字幕名，如”中文（自动生成）“,是简介的 subtitle 项的'list'项中的弹幕的'lan_doc'属性。Defaults to "中文（自动生成）".
-
         lan_code   (str, optional)       : 字幕语言代码，如 ”中文（自动翻译）” 和 ”中文（自动生成）“ 为 "ai-zh"
-
         credential (Credential, optional): Credential 类. 必须在此处或传入的视频 obj 中传入凭据，两者均存在则优先此处
     """
     # 目测必须得有 Credential 才能获取字幕
-    subtitle_data_obj = await request_subtitle(obj=obj, page_index=page_index, cid=cid, lan_name=lan_name, lan_code=lan_code, credential=credential)
+    subtitle_data_obj = await request_subtitle(
+        obj=obj,
+        page_index=page_index,
+        cid=cid,
+        lan_name=lan_name,
+        lan_code=lan_code,
+        credential=credential,
+    )
 
     subtitle_ass_str = subtitle_data_obj.to_srt()
 
@@ -373,9 +416,9 @@ async def make_lrc_file_subtitle(
     obj: Union[Video, Episode],
     page_index: Optional[int] = 0,
     cid: Optional[int] = None,
-    out: Optional[str] = "test.lrc",
-    lan_name: Optional[str] = "中文（自动生成）",
-    lan_code: Optional[str] = "ai-zh",
+    out: str = "test.lrc",
+    lan_name: str = "中文（自动生成）",
+    lan_code: str = "ai-zh",
     credential: Optional[Credential] = None,
 ) -> None:
     """
@@ -385,21 +428,22 @@ async def make_lrc_file_subtitle(
 
     Args:
         obj        (Union[Video,Episode]): 对象
-
         page_index (int, optional)       : 分 P 索引
-
         cid        (int, optional)       : cid
-
         out        (str, optional)       : 输出位置. Defaults to "test.lrc".
-
         lan_name   (str, optional)       : 字幕名，如”中文（自动生成）“,是简介的 subtitle 项的'list'项中的弹幕的'lan_doc'属性。Defaults to "中文（自动生成）".
-
         lan_code   (str, optional)       : 字幕语言代码，如 ”中文（自动翻译）” 和 ”中文（自动生成）“ 为 "ai-zh"
-
         credential (Credential, optional): Credential 类. 必须在此处或传入的视频 obj 中传入凭据，两者均存在则优先此处
     """
     # 目测必须得有 Credential 才能获取字幕
-    subtitle_data_obj = await request_subtitle(obj=obj, page_index=page_index, cid=cid, lan_name=lan_name, lan_code=lan_code, credential=credential)
+    subtitle_data_obj = await request_subtitle(
+        obj=obj,
+        page_index=page_index,
+        cid=cid,
+        lan_name=lan_name,
+        lan_code=lan_code,
+        credential=credential,
+    )
 
     subtitle_ass_str = subtitle_data_obj.to_lrc()
 
@@ -411,9 +455,9 @@ async def make_simple_json_file_subtitle(
     obj: Union[Video, Episode],
     page_index: Optional[int] = 0,
     cid: Optional[int] = None,
-    out: Optional[str] = "test.json",
-    lan_name: Optional[str] = "中文（自动生成）",
-    lan_code: Optional[str] = "ai-zh",
+    out: str = "test.json",
+    lan_name: str = "中文（自动生成）",
+    lan_code: str = "ai-zh",
     credential: Optional[Credential] = None,
 ) -> None:
     """
@@ -423,26 +467,28 @@ async def make_simple_json_file_subtitle(
 
     Args:
         obj        (Union[Video,Episode]): 对象
-
         page_index (int, optional)       : 分 P 索引
-
         cid        (int, optional)       : cid
-
         out        (str, optional)       : 输出位置. Defaults to "test.json".
-
         lan_name   (str, optional)       : 字幕名，如”中文（自动生成）“,是简介的 subtitle 项的'list'项中的弹幕的'lan_doc'属性。Defaults to "中文（自动生成）".
-
         lan_code   (str, optional)       : 字幕语言代码，如 ”中文（自动翻译）” 和 ”中文（自动生成）“ 为 "ai-zh"
-
         credential (Credential, optional): Credential 类. 必须在此处或传入的视频 obj 中传入凭据，两者均存在则优先此处
     """
     # 目测必须得有 Credential 才能获取字幕
-    subtitle_data_obj = await request_subtitle(obj=obj, page_index=page_index, cid=cid, lan_name=lan_name, lan_code=lan_code, credential=credential)
+    subtitle_data_obj = await request_subtitle(
+        obj=obj,
+        page_index=page_index,
+        cid=cid,
+        lan_name=lan_name,
+        lan_code=lan_code,
+        credential=credential,
+    )
 
     subtitle_ass_str = subtitle_data_obj.to_simple_json_str()
 
     with open(out, "w+", encoding="utf-8") as file:
         file.write(subtitle_ass_str)
+
 
 # 下面是弹幕处理
 
@@ -508,23 +554,14 @@ async def make_ass_file_danmakus_protobuf(
 
     Args:
         obj         (Union[Video,Episode,CheeseVideo])       : 对象
-
         page        (int, optional)                          : 分 P 号. Defaults to 0.
-
         out         (str, optional)                          : 输出文件. Defaults to "test.ass"
-
         cid         (int | None, optional)                   : cid. Defaults to None.
-
         date        (datetime.date, optional)                : 获取时间. Defaults to None.
-
         font_name   (str, optional)                          : 字体. Defaults to "Simsun".
-
         font_size   (float, optional)                        : 字体大小. Defaults to 25.0.
-
         alpha       (float, optional)                        : 透明度(0-1). Defaults to 1.
-
         fly_time    (float, optional)                        : 滚动弹幕持续时间. Defaults to 7.
-
         static_time (float, optional)                        : 静态弹幕持续时间. Defaults to 5.
     """
     if isinstance(obj, Video):
@@ -536,7 +573,7 @@ async def make_ass_file_danmakus_protobuf(
                 if page is None:
                     raise ArgsException("page_index 和 cid 至少提供一个。")
                 # type: ignore
-                cid = await v._Video__get_cid_by_index(page)
+                cid = await v.get_cid(page_index=page)  # type: ignore
         try:
             info = await v.get_info()
         except:  # noqa: E722
@@ -594,21 +631,13 @@ async def make_ass_file_danmakus_xml(
 
     Args:
         obj         (Union[Video,Episode,Cheese]): 对象
-
         page        (int, optional)              : 分 P 号. Defaults to 0.
-
         out         (str, optional)              : 输出文件. Defaults to "test.ass".
-
         cid         (int | None, optional)       : cid. Defaults to None.
-
         font_name   (str, optional)              : 字体. Defaults to "Simsun".
-
         font_size   (float, optional)            : 字体大小. Defaults to 25.0.
-
         alpha       (float, optional)            : 透明度(0-1). Defaults to 1.
-
         fly_time    (float, optional)            : 滚动弹幕持续时间. Defaults to 7.
-
         static_time (float, optional)            : 静态弹幕持续时间. Defaults to 5.
     """
     if isinstance(obj, Video):
@@ -619,7 +648,7 @@ async def make_ass_file_danmakus_xml(
             if cid is None:
                 if page is None:
                     raise ArgsException("page_index 和 cid 至少提供一个。")
-                cid = await v._Video__get_cid_by_index(page)  # type: ignore
+                cid = await v.get_cid(page)  # type: ignore
         try:
             info = await v.get_info()
         except:  # noqa: E722

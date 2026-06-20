@@ -505,6 +505,22 @@ class OptimizationResult(System.Object):
         ...
 
 
+class OptimizationStatus(IntEnum):
+    """The different optimization status"""
+
+    NEW = 0
+    """Just created and not running optimization (0)"""
+
+    ABORTED = 1
+    """We failed or we were aborted (1)"""
+
+    RUNNING = 2
+    """We are running (2)"""
+
+    COMPLETED = 3
+    """Optimization job has completed (3)"""
+
+
 class OptimizationNodePacket(QuantConnect.Packets.Packet):
     """Provide a packet type containing information on the optimization compute job."""
 
@@ -665,22 +681,6 @@ class OptimizationNodePacket(QuantConnect.Packets.Packet):
         This Class is protected.
         """
         ...
-
-
-class OptimizationStatus(IntEnum):
-    """The different optimization status"""
-
-    NEW = 0
-    """Just created and not running optimization (0)"""
-
-    ABORTED = 1
-    """We failed or we were aborted (1)"""
-
-    RUNNING = 2
-    """We are running (2)"""
-
-    COMPLETED = 3
-    """Optimization job has completed (3)"""
 
 
 class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):

@@ -4,9 +4,12 @@ Tests for the daemon.
 Pyro - Python Remote Objects.  Copyright by Irmen de Jong (irmen@razorvine.net).
 """
 
+import logging
 import time
 import socket
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 import Pyro5.core
 import Pyro5.client
@@ -69,6 +72,11 @@ class TestDaemon:
                 cm = ConnectionMock(msg)
                 d.handleRequest(cm)
 
+    def testDaemonLogsProtocolVersion(self, caplog):
+        caplog.set_level(logging.DEBUG, logger="Pyro5.server")
+        with Pyro5.server.Daemon(port=0):
+            assert "pyro protocol version" in caplog.text
+
     def testDaemon(self):
         with Pyro5.server.Daemon(port=0) as d:
             hostname, port = d.locationStr.split(":")
@@ -110,6 +118,13 @@ class TestDaemon:
                 assert "Existing" in d.transportServer.__class__.__name__
         finally:
             Pyro5.config.SERVERTYPE = "thread"
+
+    def testDaemonConnectedSocketLog(self, caplog):
+        caplog.set_level(logging.INFO, logger="Pyro5.existingconnectionserver")
+        s1, s2 = socket.socketpair()
+        with Pyro5.server.Daemon(connected_socket=s1):
+            assert "starting server on user-supplied connected socket" in caplog.text
+        s2.close()
 
     def testDaemonUnixSocket(self):
         if hasattr(socket, "AF_UNIX"):
@@ -623,6 +638,30 @@ class TestDaemon:
         finally:
             config.SERVERTYPE = "thread"
 
+    def testClientDisconnectLockIsPerDaemon(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        class SlowDisconnectDaemon(Pyro5.server.Daemon):
+            def clientDisconnect(self, conn):
+                time.sleep(0.5)
+
+        s1, c1 = socket.socketpair()
+        s2, c2 = socket.socketpair()
+        d1 = SlowDisconnectDaemon(connected_socket=s1)
+        d2 = SlowDisconnectDaemon(connected_socket=s2)
+        try:
+            start = time.time()
+            with ThreadPoolExecutor(2) as pool:
+                pool.submit(d1._clientDisconnect, d1.transportServer.conn)
+                pool.submit(d2._clientDisconnect, d2.transportServer.conn)
+            elapsed = time.time() - start
+            assert elapsed < 0.9  # per-daemon locks run in parallel
+        finally:
+            d1.close()
+            d2.close()
+            c1.close()
+            c2.close()
+
 
 class TestMetaInfo:
     def testMeta(self):
@@ -667,3 +706,93 @@ class TestMetaInfo:
             assert "newly_added_method_two" in meta["methods"]
             del Dummy.newly_added_method
             del Dummy.newly_added_method_two
+
+
+@Pyro5.server.expose
+class Child:
+    def __init__(self, name: str, alive: set[str]):
+        self.__name = name
+        self.__alive = alive
+        alive.add(name)
+
+    def __del__(self):
+        self.__alive.remove(self.__name)
+
+    def __repr__(self):
+        return self.__name
+
+    def ping(self):
+        return f"I am {self.__name}"
+
+
+_live_objects: set[str]
+
+
+@Pyro5.server.expose
+@Pyro5.server.behavior(instance_mode="session", instance_creator=lambda clazz: clazz(_live_objects))
+class Parent:
+    _pyroDaemon: Pyro5.server.Daemon
+
+    def __init__(self, alive: set[str]):
+        self.__name = f"outer {id(self)}"
+        self.__alive = alive
+        alive.add(self.__name)
+
+    def __del__(self):
+        self.__alive.remove(self.__name)
+
+    def __repr__(self):
+        return self.__name
+
+    def ping(self):
+        return f"I am {self.__name}"
+
+    def createInstance(self, weak=False):
+        i = Child(name="single instance", alive=self.__alive)
+        self._pyroDaemon.register(i, weak)
+        return i
+
+    def createGenerator(self, weak=False):
+        ii = [
+            Child(name=f"iterator instance {i}", alive=self.__alive) for i in range(4)
+        ]
+        for i in ii:
+            self._pyroDaemon.register(i, weak)
+            yield i
+
+
+@pytest.fixture
+def gc_proxy():
+    global _live_objects
+    _live_objects = set()
+    with ThreadPoolExecutor(max_workers=1) as e, Pyro5.server.Daemon() as daemon:
+        uri = daemon.register(Parent, force=True)
+        e.submit(daemon.requestLoop)
+        with Pyro5.client.Proxy(uri) as proxy1, Pyro5.client.Proxy(uri) as proxy2:
+            yield proxy1, proxy2
+        daemon.shutdown()
+    del daemon  # Alternatively, move the daemon to a separate function
+    import gc; gc.collect()  # Delete circular references
+    assert not _live_objects, "some objects were not cleaned up"
+
+
+# succeeds
+def test_proxy_lifetime(gc_proxy):
+    p1, p2 = gc_proxy
+    assert "outer" in p1.ping()
+    assert "outer" in p2.ping()
+
+
+# fails teardown: AssertionError: some objects were not cleaned up
+def test_instance_lifetime(gc_proxy):
+    p, _ = gc_proxy
+    assert "outer" in p.ping()
+    inner = p.createInstance()
+    assert "single instance" in inner.ping()
+
+
+# fails teardown: AssertionError: some objects were not cleaned up
+def test_generator_lifetime(gc_proxy):
+    p, _ = gc_proxy
+    for inner in p.createGenerator():
+        assert "iterator instance" in inner.ping()

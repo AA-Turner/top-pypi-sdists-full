@@ -1,6 +1,5 @@
 from collections.abc import Callable
-from typing import ClassVar, Concatenate, Final, TypedDict
-from typing_extensions import Unpack, override
+from typing import ClassVar, Concatenate, Final, TypedDict, Unpack, override
 
 import numpy as np
 import optype.numpy as onp
@@ -60,6 +59,7 @@ class IterativeSubproblem(BaseQuadraticSubproblem):
         k_hard: onp.ToFloat = 0.2,
         maxiter: float | None = None,
     ) -> None: ...
+
+    #
     @override
-    # pyrefly: ignore[bad-param-name-override]
-    def solve(self, /, tr_radius: onp.ToFloat) -> tuple[onp.ArrayND[np.float64], bool]: ...  # pyright: ignore[reportIncompatibleMethodOverride] # ty: ignore[invalid-method-override]
+    def solve(self, /, tr_radius: onp.ToFloat) -> tuple[onp.ArrayND[np.float64], bool]: ...

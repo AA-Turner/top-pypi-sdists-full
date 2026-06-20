@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esda
-Version: 2.9.0
+Version: 2.10.0
 Summary: Exploratory Spatial Data Analysis in PySAL
 Author-email: Serge Rey <sjsrey@gmail.com>, Levi Wolf <levi.john.wolf@bristol.ac.uk>
 Maintainer: esda contributors
@@ -13,38 +13,45 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: geopandas>=0.14
+Requires-Dist: geopandas>=1.0
 Requires-Dist: libpysal>=4.12
-Requires-Dist: numpy>=1.26
-Requires-Dist: pandas>=2.1
-Requires-Dist: scikit-learn>=1.4
-Requires-Dist: scipy>=1.12
+Requires-Dist: numpy>=2.1
+Requires-Dist: pandas>=2.3
+Requires-Dist: scikit-learn>=1.6
+Requires-Dist: scipy>=1.14
 Requires-Dist: shapely>=2.1
 Provides-Extra: plus
-Requires-Dist: matplotlib>=3.8; extra == "plus"
-Requires-Dist: numba>=0.58; extra == "plus"
-Requires-Dist: rtree>=1.1; extra == "plus"
-Requires-Dist: seaborn>=0.12; extra == "plus"
+Requires-Dist: matplotlib>=3.10; extra == "plus"
+Requires-Dist: numba>=0.61; extra == "plus"
+Requires-Dist: rtree>=1.3; extra == "plus"
+Requires-Dist: seaborn>=0.13; extra == "plus"
 Provides-Extra: tests
 Requires-Dist: codecov; extra == "tests"
-Requires-Dist: folium>=0.15; extra == "tests"
-Requires-Dist: mapclassify>=2.6; extra == "tests"
+Requires-Dist: folium>=0.17; extra == "tests"
+Requires-Dist: geodatasets; extra == "tests"
+Requires-Dist: mapclassify>=2.7; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-doctestplus; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Provides-Extra: docs
+Requires-Dist: mkdocs-jupyter; extra == "docs"
+Requires-Dist: myst_nb; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
 Requires-Dist: nbsphinx; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
 Requires-Dist: pandoc; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx<9,>8; extra == "docs"
 Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
 Requires-Dist: sphinx_bootstrap_theme; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: sphinx-immaterial; extra == "docs"
 Provides-Extra: notebooks
 Requires-Dist: matplotlib-scalebar; extra == "notebooks"
 Requires-Dist: watermark; extra == "notebooks"

@@ -556,6 +556,20 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """Terminate the result thread and apply any required exit procedures like sending final results"""
         ...
 
+    def format_message(self, message: str) -> str:
+        """
+        Prefixes the given message with the algorithm time, matching the format used by
+        the algorithm's own log messages (see IAlgorithm.log). Used to normalize
+        the timestamp across all algorithm logs and messages.
+        
+        
+        This Class is protected.
+        
+        :param message: The message to format
+        :returns: The message prefixed with the algorithm time, or the original message if the algorithm is not yet available.
+        """
+        ...
+
     @overload
     def generate_statistics_results(self, charts: System.Collections.Generic.Dictionary[str, QuantConnect.Chart], profit_loss: System.Collections.Generic.SortedDictionary[datetime.datetime, float] = None, estimated_strategy_capacity: QuantConnect.CapacityEstimate = None) -> QuantConnect.Statistics.StatisticsResults:
         """
@@ -1359,6 +1373,38 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         ...
 
 
+class BacktestProgressMonitor(System.Object):
+    """Monitors and reports the progress of a backtest"""
+
+    @property
+    def total_days(self) -> int:
+        """Gets the total days the algorithm will run"""
+        ...
+
+    @property
+    def processed_days(self) -> int:
+        """Gets the current days the algorithm has been running for"""
+        ...
+
+    @property
+    def progress(self) -> float:
+        """Gets the current progress of the backtest"""
+        ...
+
+    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Creates a new instance
+        
+        :param time_keeper: The time keeper to use
+        :param end_utc_time: The end UTC time
+        """
+        ...
+
+    def invalidate_processed_days(self) -> None:
+        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
+        ...
+
+
 class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResultHandler):
     """
     Provides a wrapper over the BacktestingResultHandler that logs all order events
@@ -1747,38 +1793,6 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
 
     def update_portfolio_values(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
         """This Class is protected."""
-        ...
-
-
-class BacktestProgressMonitor(System.Object):
-    """Monitors and reports the progress of a backtest"""
-
-    @property
-    def total_days(self) -> int:
-        """Gets the total days the algorithm will run"""
-        ...
-
-    @property
-    def processed_days(self) -> int:
-        """Gets the current days the algorithm has been running for"""
-        ...
-
-    @property
-    def progress(self) -> float:
-        """Gets the current progress of the backtest"""
-        ...
-
-    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new instance
-        
-        :param time_keeper: The time keeper to use
-        :param end_utc_time: The end UTC time
-        """
-        ...
-
-    def invalidate_processed_days(self) -> None:
-        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
         ...
 
 

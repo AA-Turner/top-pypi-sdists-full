@@ -20,6 +20,11 @@ from ouroboros.auto.ledger import LedgerEntry, LedgerSource, LedgerStatus, SeedD
 from ouroboros.auto.safe_defaults import _unsafe_context_reason
 from ouroboros.auto.state import AutoPipelineState, AutoStore
 
+# The unsafe-context matcher is disabled by default under the freedom policy
+# (empty production bank); re-inject the historical bank so the matcher
+# observability + blocking paths stay covered. See tests/unit/auto/conftest.py.
+pytestmark = pytest.mark.usefixtures("_legacy_unsafe_bank")
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -62,6 +67,14 @@ def _ledger_all_filled_except(
             ),
         )
     return ledger
+
+
+class _RecordingEventStore:
+    def __init__(self) -> None:
+        self.appended = []
+
+    async def append(self, event, **_kwargs) -> None:
+        self.appended.append(event)
 
 
 # ---------------------------------------------------------------------------
@@ -136,15 +149,18 @@ async def test_safe_default_logs_closed_path(tmp_path) -> None:
         return InterviewTurn("What else should we know?", session_id, seed_ready=False)
 
     state = AutoPipelineState(goal="Build a tiny local CLI", cwd=str(tmp_path))
+    event_store = _RecordingEventStore()
     driver = AutoInterviewDriver(
         FunctionInterviewBackend(start, answer),
         store=AutoStore(tmp_path),
         max_rounds=1,
         timeout_seconds=1,
+        event_store=event_store,
     )
 
     with capture_logs() as captured:
         result = await driver.run(state, ledger)
+    await driver.wait_for_pending_emits()
 
     events = [e["event"] for e in captured]
     assert "auto.interview.safe_default.entered" in events
@@ -155,6 +171,18 @@ async def test_safe_default_logs_closed_path(tmp_path) -> None:
     assert len(closed_events) == 1
     defaulted = closed_events[0]["defaulted_sections"]
     assert "runtime_context" in defaulted
+
+    closure_events = [
+        event for event in event_store.appended if event.type.startswith("auto.closure.")
+    ]
+    assert [event.type for event in closure_events] == [
+        "auto.closure.safe_default_entered",
+        "auto.closure.safe_default_closed",
+    ]
+    assert all(event.aggregate_type == "auto_session" for event in closure_events)
+    assert all(event.aggregate_id == state.auto_session_id for event in closure_events)
+    assert closure_events[0].data["open_gaps"]
+    assert "runtime_context" in closure_events[1].data["defaulted_sections"]
 
     # Behaviour unchanged: seed ready after safe-default closure.
     assert result.status == "seed_ready"
@@ -197,6 +225,50 @@ async def test_safe_default_logs_synthesis_nonclosure(tmp_path) -> None:
     assert nonclosure["defaulted_sections"]
     assert result.status == "blocked"
     assert "did not close" in (result.blocker or "")
+
+
+@pytest.mark.asyncio
+async def test_no_backend_safe_default_persists_closure_events(tmp_path) -> None:
+    """No-backend safe-default success has queryable closure evidence."""
+    ledger = SeedDraftLedger.from_goal("Build a tiny local CLI")
+
+    async def start(goal: str, cwd: str, *, interview_id: str | None = None) -> InterviewTurn:  # noqa: ARG001
+        raise RuntimeError("codex profile failed before first question")
+
+    async def answer(
+        session_id: str, text: str, *, last_question: str | None = None
+    ) -> InterviewTurn:  # noqa: ARG001
+        raise AssertionError("answer must not run when start fails")
+
+    state = AutoPipelineState(goal="Build a tiny local CLI", cwd=str(tmp_path))
+    event_store = _RecordingEventStore()
+    driver = AutoInterviewDriver(
+        FunctionInterviewBackend(start, answer, is_session_persisted=lambda _id: False),
+        store=AutoStore(tmp_path),
+        max_rounds=1,
+        timeout_seconds=1,
+        event_store=event_store,
+    )
+
+    result = await driver.run(state, ledger)
+    await driver.wait_for_pending_emits()
+
+    closure_events = [
+        event for event in event_store.appended if event.type.startswith("auto.closure.")
+    ]
+    assert [event.type for event in closure_events] == [
+        "auto.closure.safe_default_entered",
+        "auto.closure.safe_default_closed",
+    ]
+    assert all(event.aggregate_type == "auto_session" for event in closure_events)
+    assert all(event.aggregate_id == state.auto_session_id for event in closure_events)
+    assert closure_events[0].data["closure_mode"] == "safe_default_no_backend"
+    assert closure_events[0].data["open_gaps"]
+    assert closure_events[1].data["closure_mode"] == "safe_default_no_backend"
+    assert closure_events[1].data["backend_start_failed"] is True
+    assert closure_events[1].data["defaulted_sections"]
+    assert result.status == "seed_ready"
+    assert state.interview_closure_mode == "safe_default_no_backend"
 
 
 # ---------------------------------------------------------------------------

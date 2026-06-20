@@ -256,10 +256,28 @@ def _run_background_check(
             returncode=0,
         )
         
+    # Find a free port dynamically to prevent port collisions (EADDRINUSE)
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            free_port = s.getsockname()[1]
+    except Exception:
+        free_port = 8999  # fallback
+        
     start = time.monotonic()
     full_env = os.environ.copy()
     if env:
         full_env.update(env)
+    full_env["PORT"] = str(free_port)
+    
+    # Rewrite uvicorn --port parameter if present
+    new_cmd = list(cmd)
+    for idx, arg in enumerate(new_cmd):
+        if arg == "--port" and idx + 1 < len(new_cmd):
+            new_cmd[idx + 1] = str(free_port)
+        elif arg.startswith("--port="):
+            new_cmd[idx] = f"--port={free_port}"
         
     preexec = None
     if hasattr(os, "setsid"):
@@ -267,7 +285,7 @@ def _run_background_check(
         
     try:
         proc = subprocess.Popen(
-            cmd,
+            new_cmd,
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

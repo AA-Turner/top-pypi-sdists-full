@@ -66,6 +66,7 @@ from ouroboros.orchestrator.decomposition_params import (
     build_decomposition_user_prompt,
     params_from_profile,
 )
+from ouroboros.orchestrator.effort_routing import resolve_execute_effort
 from ouroboros.orchestrator.events import (
     create_ac_stall_detected_event,
     create_heartbeat_event,
@@ -2431,6 +2432,7 @@ class ParallelACExecutor:
         execution_profile: ExecutionProfile | None = None,
         fat_harness_mode: bool = False,
         atomic_verifier: Verifier | None = None,
+        reasoning_effort: str | None = None,
     ):
         """Initialize executor.
 
@@ -2462,6 +2464,11 @@ class ParallelACExecutor:
         self._task_cwd = task_cwd
         self._execution_profile = execution_profile
         self._fat_harness_mode = fat_harness_mode
+        # Effort-first investment dial (RFC #1405). Base level for full-strength
+        # units; decomposed children run one notch lower. ``None`` leaves effort
+        # routing dormant (execute_task receives no level → no behavior change),
+        # so laying the executor on the capability contract is safe by default.
+        self._reasoning_effort = reasoning_effort
         self._atomic_verifier = atomic_verifier
         self._coordinator = LevelCoordinator(
             adapter,
@@ -5497,6 +5504,62 @@ Files present:
         # an RPM/TPM is configured for this backend) before the stall-scoped run.
         await self._await_dispatch_rate_budget(prompt=prompt, system_prompt=system_prompt)
 
+        # Lay the executor on the capability contract: decide the effort level for
+        # this unit (a decomposed child runs one notch lower) and classify how the
+        # chosen runtime will honor it from its declared capability — enforced via a
+        # native knob, or advised. The level is passed to execute_task; an advised
+        # runtime ignores it. Dormant by default (base effort None → level None).
+        effort_decision, execute_effort_kwargs = resolve_execute_effort(
+            self._adapter,
+            base_effort=self._reasoning_effort,
+            is_decomposed_child=is_sub_ac,
+        )
+        if effort_decision.level is not None:
+            log.debug(
+                "orchestrator.executor.effort_routed",
+                ac_index=ac_index,
+                is_sub_ac=is_sub_ac,
+                effort_level=effort_decision.level,
+                effort_mode=effort_decision.mode,
+                backend=getattr(self._adapter, "runtime_backend", None),
+            )
+            # Record the routing decision as a first-class, queryable event so the
+            # frugality proof can join per-AC (effort_level x effort_mode) against
+            # token attribution and the TraceGuard verdict. Only ``enforced`` rows
+            # count toward the deterministic proof; advised rows are recorded but
+            # excluded — which is exactly the distinction effort_mode carries here.
+            #
+            # This is auxiliary proof telemetry, not a runtime dependency: route it
+            # through ``_safe_emit_event`` so a degraded event store degrades to a
+            # warning (matching the adjacent observe-only executor events) instead of
+            # aborting the AC before runtime dispatch. ``execution_context_id``
+            # (execution_id or session_id) keeps the payload scope aligned with the
+            # aggregate id even on direct/fallback callers that pass no execution_id.
+            from ouroboros.events.base import BaseEvent
+
+            await self._safe_emit_event(
+                BaseEvent(
+                    type="execution.ac.effort_routed",
+                    aggregate_type=runtime_identity.runtime_scope.aggregate_type,
+                    aggregate_id=runtime_identity.session_scope_id,
+                    data={
+                        **runtime_identity.to_metadata(),
+                        "ac_id": runtime_identity.ac_id,
+                        "execution_id": execution_context_id,
+                        "session_id": session_id,
+                        "ac_index": ac_index,
+                        "is_decomposed_child": is_sub_ac,
+                        "effort_level": effort_decision.level,
+                        "effort_mode": effort_decision.mode,
+                        "base_reasoning_effort": self._reasoning_effort,
+                        "runtime_backend": getattr(self._adapter, "runtime_backend", None),
+                    },
+                )
+            )
+        # execute_effort_kwargs (from resolve_execute_effort) carries
+        # reasoning_effort ONLY for runtimes that enforce it; advised runtimes that
+        # do not accept the parameter are never handed it.
+
         try:
             with anyio.CancelScope(
                 deadline=anyio.current_time() + STALL_TIMEOUT_SECONDS,
@@ -5506,6 +5569,7 @@ Files present:
                     tools=tools,
                     system_prompt=system_prompt,
                     resume_handle=runtime_handle,
+                    **execute_effort_kwargs,
                 ):
                     # Reset stall deadline on every message (RC6 core)
                     stall_scope.deadline = anyio.current_time() + STALL_TIMEOUT_SECONDS

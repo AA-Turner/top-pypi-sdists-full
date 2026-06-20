@@ -215,6 +215,9 @@ _SENSITIVE_STRING_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         r"\1*****",
     ),
 )
+_TRUST_SENSITIVE_STRING_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    item for item in _SENSITIVE_STRING_PATTERNS if item[0].pattern != r"(?i)(api[-_ ]?key:\s*)[^\s,;]+"
+)
 
 
 def emit_guard_payload(command: str, payload: PayloadDict, as_json: bool) -> None:
@@ -226,7 +229,7 @@ def emit_guard_payload(command: str, payload: PayloadDict, as_json: bool) -> Non
         sys.stdout.write("\n")
         return
 
-    redacted_payload = _coerce_object_dict(_redact_payload(payload))
+    redacted_payload = _coerce_object_dict(_sanitize_payload_for_output(payload, command=command))
     if not _RICH_AVAILABLE:
         plain_renderer = _PLAIN_TEXT_RENDERERS.get(command)
         if plain_renderer is None:
@@ -242,9 +245,12 @@ def emit_guard_payload(command: str, payload: PayloadDict, as_json: bool) -> Non
     renderer(console, redacted_payload)
 
 
-def _redact_payload(value: object, *, key: str | None = None) -> object:
+def _redact_payload(value: object, *, key: str | None = None, command: str | None = None) -> object:
     if key in _NON_SECRET_STRUCTURED_KEYS and isinstance(value, dict):
-        return {item_key: _redact_payload(item_value, key=item_key) for item_key, item_value in value.items()}
+        return {
+            item_key: _redact_payload(item_value, key=item_key, command=command)
+            for item_key, item_value in value.items()
+        }
     if (
         key is not None
         and key not in _NON_SECRET_STRUCTURED_KEYS
@@ -254,12 +260,20 @@ def _redact_payload(value: object, *, key: str | None = None) -> object:
             return value
         return "*****"
     if isinstance(value, dict):
-        return {item_key: _redact_payload(item_value, key=item_key) for item_key, item_value in value.items()}
+        return {
+            item_key: _redact_payload(item_value, key=item_key, command=command)
+            for item_key, item_value in value.items()
+        }
     if isinstance(value, list):
-        return [_redact_payload(item) for item in value]
+        return [_redact_payload(item, command=command) for item in value]
     if isinstance(value, str):
         redacted = value
-        for pattern, replacement in _SENSITIVE_STRING_PATTERNS:
+        patterns = (
+            _TRUST_SENSITIVE_STRING_PATTERNS
+            if isinstance(command, str) and command.startswith("trust.")
+            else _SENSITIVE_STRING_PATTERNS
+        )
+        for pattern, replacement in patterns:
             redacted = pattern.sub(replacement, redacted)
         return redact_local_path(redacted)
     return value
@@ -273,7 +287,7 @@ def _render_redacted_json_payload(redacted_payload: object) -> str:
 
 def _safe_json_output_text(command: str, payload: PayloadDict) -> str:
     json_payload = _json_payload_for_command(command, payload)
-    sanitized_payload = _sanitize_payload_for_output(json_payload)
+    sanitized_payload = _coerce_object_dict(_sanitize_payload_for_output(json_payload, command=command))
     return _render_redacted_json_payload(sanitized_payload)
 
 
@@ -330,8 +344,8 @@ def _plain_text_protect(payload: PayloadDict) -> str:
     return "\n".join(lines)
 
 
-def _sanitize_payload_for_output(value: object) -> object:
-    return _redact_payload(value)
+def _sanitize_payload_for_output(value: object, *, command: str | None = None) -> object:
+    return _redact_payload(value, command=command)
 
 
 def _json_payload_for_command(command: str, payload: PayloadDict) -> PayloadDict:
@@ -727,19 +741,36 @@ def _render_doctor(console: Console, payload: dict[str, object]) -> None:
 
 def _build_trust_doctor_panel(trust: dict[str, object]) -> Panel:
     body = Table.grid(padding=(0, 1))
+    body.add_row("Mode", str(trust.get("mode") or "unknown"))
     body.add_row("Runtime", str(trust.get("runtime_protection") or "unknown"))
     body.add_row("Remembered rules", str(trust.get("remembered_rules") or "unknown"))
     body.add_row("Cloud policies", str(trust.get("cloud_policies") or "unknown"))
     body.add_row("Passive OS prompts", "blocked" if trust.get("passive_prompt_allowed") is False else "unknown")
+    passive_read_guarantee = trust.get("passive_read_guarantee")
+    if isinstance(passive_read_guarantee, str) and passive_read_guarantee.strip():
+        body.add_row("Prompt-free reads", passive_read_guarantee.strip())
     checks = trust.get("checks")
     if isinstance(checks, dict):
         body.add_row("Local rules protected", _bool_label(bool(checks.get("local_rules_protected"))))
         body.add_row("Passive no-UI check", _bool_label(bool(checks.get("passive_no_ui"))))
+    approval_center = trust.get("approval_center")
+    if isinstance(approval_center, dict):
+        body.add_row("Approval center", str(approval_center.get("approval_url_base") or "inactive"))
+        if approval_center.get("port") is not None:
+            body.add_row("Approval port", str(approval_center.get("port")))
+        detail = approval_center.get("detail")
+        if isinstance(detail, str) and detail.strip():
+            body.add_row("Approval route", textwrap.fill(detail.strip(), width=72))
     official_install = trust.get("official_install")
     if isinstance(official_install, dict):
         version = official_install.get("version") or "unknown"
         update_command = official_install.get("update_command") or "hol-guard update"
         body.add_row("Installed package", f"hol-guard {version}")
+        body.add_row("Install mode", str(official_install.get("installation_mode") or "unknown"))
+        body.add_row("Install check", str(official_install.get("active_command_status") or "unknown"))
+        active_command_path = official_install.get("active_command_path")
+        if isinstance(active_command_path, str) and active_command_path.strip():
+            body.add_row("Active command", active_command_path.strip())
         body.add_row("Update", str(update_command))
     summary = trust.get("summary")
     if isinstance(summary, str) and summary.strip():
@@ -754,6 +785,34 @@ def _build_trust_doctor_panel(trust: dict[str, object]) -> Panel:
 def _render_trust_doctor(console: Console, payload: dict[str, object]) -> None:
     console.print(_build_trust_doctor_panel(payload))
     console.print(_build_diagnostic_command_panel())
+
+
+def _render_trust_explain(console: Console, payload: dict[str, object]) -> None:
+    rule = payload.get("rule")
+    if not isinstance(rule, dict):
+        _render_fallback(console, payload)
+        return
+    body = Table.grid(padding=(0, 1))
+    body.add_row("Rule", str(payload.get("rule_id") or "unknown"))
+    body.add_row("Scope", str(rule.get("scope") or "unknown"))
+    body.add_row("Action", str(rule.get("action") or "unknown"))
+    body.add_row("Source", str(rule.get("source") or "unknown"))
+    body.add_row("Authority", str(payload.get("rule_status_label") or "unknown"))
+    integrity_status = rule.get("integrity_status")
+    if integrity_status is not None:
+        body.add_row("Integrity", str(integrity_status))
+    updated_at = rule.get("updated_at")
+    if updated_at is not None:
+        body.add_row("Updated", str(updated_at))
+    rule_status_reason = payload.get("rule_status_reason")
+    if isinstance(rule_status_reason, str) and rule_status_reason.strip():
+        body.add_row("Why", textwrap.fill(rule_status_reason.strip(), width=72))
+    trust_status = payload.get("trust_status")
+    if isinstance(trust_status, dict):
+        body.add_row("Runtime", str(trust_status.get("runtime_protection") or "unknown"))
+        body.add_row("Local trust", str(trust_status.get("remembered_rules") or "unknown"))
+        body.add_row("Cloud", str(trust_status.get("cloud_policies") or "unknown"))
+    console.print(Panel(body, title="Remembered rule authority", border_style="cyan"))
 
 
 def _render_run(console: Console, payload: dict[str, object]) -> None:
@@ -939,7 +998,7 @@ def _render_policies(console: Console, payload: dict[str, object]) -> None:
         console.print(
             Panel(
                 body,
-                title="Guard policy clear",
+                title="Guard rules clear",
                 border_style="red" if error else "green",
             )
         )
@@ -947,7 +1006,8 @@ def _render_policies(console: Console, payload: dict[str, object]) -> None:
     items = _coerce_dict_list(payload.get("items"))
     console.print(
         Panel.fit(
-            f"[bold]Guard policy decisions[/bold]\n{len(items)} active rule{'s' if len(items) != 1 else ''}",
+            f"[bold]Guard remembered rules and Cloud policies[/bold]\n"
+            f"{len(items)} active rule{'s' if len(items) != 1 else ''}",
             border_style="cyan",
         )
     )
@@ -1918,7 +1978,13 @@ def _render_protect(console: Console, payload: dict[str, object]) -> None:
         if isinstance(user_copy, dict):
             harness_message = str(user_copy.get("harness_message") or "").strip()
             if harness_message:
-                console.print(Panel(Text(harness_message), title="Guard guidance", border_style="magenta"))
+                console.print(
+                    Panel(
+                        Text(harness_message, no_wrap=False, overflow="fold"),
+                        title="Guard guidance",
+                        border_style="magenta",
+                    )
+                )
     supply_chain = payload.get("supply_chain")
     if isinstance(supply_chain, dict):
         console.print(_build_supply_chain_posture_panel(supply_chain))
@@ -2633,6 +2699,7 @@ _RENDERERS: dict[str, Renderer] = {
     "detect": _render_detect,
     "doctor": _render_doctor,
     "trust.doctor": _render_trust_doctor,
+    "trust.explain": _render_trust_explain,
     "run": _render_run,
     "diff": _render_diff,
     "receipts": _render_receipts,

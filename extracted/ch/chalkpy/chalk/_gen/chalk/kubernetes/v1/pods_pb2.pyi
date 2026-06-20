@@ -58,6 +58,207 @@ class KubernetesPodData(_message.Message):
             self, name: _Optional[str] = ..., source: _Optional[_Union[KubernetesPodData.ClaimSource, _Mapping]] = ...
         ) -> None: ...
 
+    class LabelSelectorRequirement(_message.Message):
+        __slots__ = ("key", "operator", "values")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        OPERATOR_FIELD_NUMBER: _ClassVar[int]
+        VALUES_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        operator: str
+        values: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(
+            self, key: _Optional[str] = ..., operator: _Optional[str] = ..., values: _Optional[_Iterable[str]] = ...
+        ) -> None: ...
+
+    class LabelSelector(_message.Message):
+        __slots__ = ("match_labels", "match_expressions")
+        class MatchLabelsEntry(_message.Message):
+            __slots__ = ("key", "value")
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: str
+            value: str
+            def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+        MATCH_LABELS_FIELD_NUMBER: _ClassVar[int]
+        MATCH_EXPRESSIONS_FIELD_NUMBER: _ClassVar[int]
+        match_labels: _containers.ScalarMap[str, str]
+        match_expressions: _containers.RepeatedCompositeFieldContainer[KubernetesPodData.LabelSelectorRequirement]
+        def __init__(
+            self,
+            match_labels: _Optional[_Mapping[str, str]] = ...,
+            match_expressions: _Optional[_Iterable[_Union[KubernetesPodData.LabelSelectorRequirement, _Mapping]]] = ...,
+        ) -> None: ...
+
+    class NodeSelectorRequirement(_message.Message):
+        __slots__ = ("key", "operator", "values")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        OPERATOR_FIELD_NUMBER: _ClassVar[int]
+        VALUES_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        operator: str
+        values: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(
+            self, key: _Optional[str] = ..., operator: _Optional[str] = ..., values: _Optional[_Iterable[str]] = ...
+        ) -> None: ...
+
+    class NodeSelectorTerm(_message.Message):
+        __slots__ = ("match_expressions", "match_fields")
+        MATCH_EXPRESSIONS_FIELD_NUMBER: _ClassVar[int]
+        MATCH_FIELDS_FIELD_NUMBER: _ClassVar[int]
+        match_expressions: _containers.RepeatedCompositeFieldContainer[KubernetesPodData.NodeSelectorRequirement]
+        match_fields: _containers.RepeatedCompositeFieldContainer[KubernetesPodData.NodeSelectorRequirement]
+        def __init__(
+            self,
+            match_expressions: _Optional[_Iterable[_Union[KubernetesPodData.NodeSelectorRequirement, _Mapping]]] = ...,
+            match_fields: _Optional[_Iterable[_Union[KubernetesPodData.NodeSelectorRequirement, _Mapping]]] = ...,
+        ) -> None: ...
+
+    class NodeSelector(_message.Message):
+        __slots__ = ("node_selector_terms",)
+        NODE_SELECTOR_TERMS_FIELD_NUMBER: _ClassVar[int]
+        node_selector_terms: _containers.RepeatedCompositeFieldContainer[KubernetesPodData.NodeSelectorTerm]
+        def __init__(
+            self, node_selector_terms: _Optional[_Iterable[_Union[KubernetesPodData.NodeSelectorTerm, _Mapping]]] = ...
+        ) -> None: ...
+
+    class PreferredSchedulingTerm(_message.Message):
+        __slots__ = ("weight", "preference")
+        WEIGHT_FIELD_NUMBER: _ClassVar[int]
+        PREFERENCE_FIELD_NUMBER: _ClassVar[int]
+        weight: int
+        preference: KubernetesPodData.NodeSelectorTerm
+        def __init__(
+            self,
+            weight: _Optional[int] = ...,
+            preference: _Optional[_Union[KubernetesPodData.NodeSelectorTerm, _Mapping]] = ...,
+        ) -> None: ...
+
+    class NodeAffinity(_message.Message):
+        __slots__ = (
+            "required_during_scheduling_ignored_during_execution",
+            "preferred_during_scheduling_ignored_during_execution",
+        )
+        REQUIRED_DURING_SCHEDULING_IGNORED_DURING_EXECUTION_FIELD_NUMBER: _ClassVar[int]
+        PREFERRED_DURING_SCHEDULING_IGNORED_DURING_EXECUTION_FIELD_NUMBER: _ClassVar[int]
+        required_during_scheduling_ignored_during_execution: KubernetesPodData.NodeSelector
+        preferred_during_scheduling_ignored_during_execution: _containers.RepeatedCompositeFieldContainer[
+            KubernetesPodData.PreferredSchedulingTerm
+        ]
+        def __init__(
+            self,
+            required_during_scheduling_ignored_during_execution: _Optional[
+                _Union[KubernetesPodData.NodeSelector, _Mapping]
+            ] = ...,
+            preferred_during_scheduling_ignored_during_execution: _Optional[
+                _Iterable[_Union[KubernetesPodData.PreferredSchedulingTerm, _Mapping]]
+            ] = ...,
+        ) -> None: ...
+
+    class PodAffinityTerm(_message.Message):
+        __slots__ = (
+            "label_selector",
+            "namespaces",
+            "topology_key",
+            "namespace_selector",
+            "match_label_keys",
+            "mismatch_label_keys",
+        )
+        LABEL_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+        NAMESPACES_FIELD_NUMBER: _ClassVar[int]
+        TOPOLOGY_KEY_FIELD_NUMBER: _ClassVar[int]
+        NAMESPACE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+        MATCH_LABEL_KEYS_FIELD_NUMBER: _ClassVar[int]
+        MISMATCH_LABEL_KEYS_FIELD_NUMBER: _ClassVar[int]
+        label_selector: KubernetesPodData.LabelSelector
+        namespaces: _containers.RepeatedScalarFieldContainer[str]
+        topology_key: str
+        namespace_selector: KubernetesPodData.LabelSelector
+        match_label_keys: _containers.RepeatedScalarFieldContainer[str]
+        mismatch_label_keys: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(
+            self,
+            label_selector: _Optional[_Union[KubernetesPodData.LabelSelector, _Mapping]] = ...,
+            namespaces: _Optional[_Iterable[str]] = ...,
+            topology_key: _Optional[str] = ...,
+            namespace_selector: _Optional[_Union[KubernetesPodData.LabelSelector, _Mapping]] = ...,
+            match_label_keys: _Optional[_Iterable[str]] = ...,
+            mismatch_label_keys: _Optional[_Iterable[str]] = ...,
+        ) -> None: ...
+
+    class WeightedPodAffinityTerm(_message.Message):
+        __slots__ = ("weight", "pod_affinity_term")
+        WEIGHT_FIELD_NUMBER: _ClassVar[int]
+        POD_AFFINITY_TERM_FIELD_NUMBER: _ClassVar[int]
+        weight: int
+        pod_affinity_term: KubernetesPodData.PodAffinityTerm
+        def __init__(
+            self,
+            weight: _Optional[int] = ...,
+            pod_affinity_term: _Optional[_Union[KubernetesPodData.PodAffinityTerm, _Mapping]] = ...,
+        ) -> None: ...
+
+    class PodAffinity(_message.Message):
+        __slots__ = (
+            "required_during_scheduling_ignored_during_execution",
+            "preferred_during_scheduling_ignored_during_execution",
+        )
+        REQUIRED_DURING_SCHEDULING_IGNORED_DURING_EXECUTION_FIELD_NUMBER: _ClassVar[int]
+        PREFERRED_DURING_SCHEDULING_IGNORED_DURING_EXECUTION_FIELD_NUMBER: _ClassVar[int]
+        required_during_scheduling_ignored_during_execution: _containers.RepeatedCompositeFieldContainer[
+            KubernetesPodData.PodAffinityTerm
+        ]
+        preferred_during_scheduling_ignored_during_execution: _containers.RepeatedCompositeFieldContainer[
+            KubernetesPodData.WeightedPodAffinityTerm
+        ]
+        def __init__(
+            self,
+            required_during_scheduling_ignored_during_execution: _Optional[
+                _Iterable[_Union[KubernetesPodData.PodAffinityTerm, _Mapping]]
+            ] = ...,
+            preferred_during_scheduling_ignored_during_execution: _Optional[
+                _Iterable[_Union[KubernetesPodData.WeightedPodAffinityTerm, _Mapping]]
+            ] = ...,
+        ) -> None: ...
+
+    class PodAntiAffinity(_message.Message):
+        __slots__ = (
+            "required_during_scheduling_ignored_during_execution",
+            "preferred_during_scheduling_ignored_during_execution",
+        )
+        REQUIRED_DURING_SCHEDULING_IGNORED_DURING_EXECUTION_FIELD_NUMBER: _ClassVar[int]
+        PREFERRED_DURING_SCHEDULING_IGNORED_DURING_EXECUTION_FIELD_NUMBER: _ClassVar[int]
+        required_during_scheduling_ignored_during_execution: _containers.RepeatedCompositeFieldContainer[
+            KubernetesPodData.PodAffinityTerm
+        ]
+        preferred_during_scheduling_ignored_during_execution: _containers.RepeatedCompositeFieldContainer[
+            KubernetesPodData.WeightedPodAffinityTerm
+        ]
+        def __init__(
+            self,
+            required_during_scheduling_ignored_during_execution: _Optional[
+                _Iterable[_Union[KubernetesPodData.PodAffinityTerm, _Mapping]]
+            ] = ...,
+            preferred_during_scheduling_ignored_during_execution: _Optional[
+                _Iterable[_Union[KubernetesPodData.WeightedPodAffinityTerm, _Mapping]]
+            ] = ...,
+        ) -> None: ...
+
+    class Affinity(_message.Message):
+        __slots__ = ("node_affinity", "pod_affinity", "pod_anti_affinity")
+        NODE_AFFINITY_FIELD_NUMBER: _ClassVar[int]
+        POD_AFFINITY_FIELD_NUMBER: _ClassVar[int]
+        POD_ANTI_AFFINITY_FIELD_NUMBER: _ClassVar[int]
+        node_affinity: KubernetesPodData.NodeAffinity
+        pod_affinity: KubernetesPodData.PodAffinity
+        pod_anti_affinity: KubernetesPodData.PodAntiAffinity
+        def __init__(
+            self,
+            node_affinity: _Optional[_Union[KubernetesPodData.NodeAffinity, _Mapping]] = ...,
+            pod_affinity: _Optional[_Union[KubernetesPodData.PodAffinity, _Mapping]] = ...,
+            pod_anti_affinity: _Optional[_Union[KubernetesPodData.PodAntiAffinity, _Mapping]] = ...,
+        ) -> None: ...
+
     class PodSpec(_message.Message):
         __slots__ = (
             "volumes",
@@ -77,6 +278,7 @@ class KubernetesPodData(_message.Message):
             "share_process_namespace",
             "hostname",
             "subdomain",
+            "affinity",
             "scheduler_name",
             "priority_class_name",
             "priority",
@@ -111,6 +313,7 @@ class KubernetesPodData(_message.Message):
         SHARE_PROCESS_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
         HOSTNAME_FIELD_NUMBER: _ClassVar[int]
         SUBDOMAIN_FIELD_NUMBER: _ClassVar[int]
+        AFFINITY_FIELD_NUMBER: _ClassVar[int]
         SCHEDULER_NAME_FIELD_NUMBER: _ClassVar[int]
         PRIORITY_CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
         PRIORITY_FIELD_NUMBER: _ClassVar[int]
@@ -136,6 +339,7 @@ class KubernetesPodData(_message.Message):
         share_process_namespace: bool
         hostname: str
         subdomain: str
+        affinity: KubernetesPodData.Affinity
         scheduler_name: str
         priority_class_name: str
         priority: int
@@ -163,6 +367,7 @@ class KubernetesPodData(_message.Message):
             share_process_namespace: bool = ...,
             hostname: _Optional[str] = ...,
             subdomain: _Optional[str] = ...,
+            affinity: _Optional[_Union[KubernetesPodData.Affinity, _Mapping]] = ...,
             scheduler_name: _Optional[str] = ...,
             priority_class_name: _Optional[str] = ...,
             priority: _Optional[int] = ...,

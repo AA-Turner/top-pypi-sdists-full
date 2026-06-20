@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lbt-honeybee
-Version: 0.9.379
+Version: 0.9.387
 Summary: Installs a collection of Honeybee core and extension libraries.
 Home-page: https://github.com/ladybug-tools/lbt-honeybee
 Author: Ladybug Tools
@@ -18,10 +18,10 @@ Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: honeybee-radiance-postprocess==0.4.646
-Requires-Dist: honeybee-energy[openstudio,standards]==1.121.7
+Requires-Dist: honeybee-radiance-postprocess==0.4.649
+Requires-Dist: honeybee-energy[openstudio,standards]==1.121.10
 Requires-Dist: honeybee-display==0.6.3
-Requires-Dist: lbt-ladybug==0.27.192
+Requires-Dist: lbt-ladybug==0.27.194
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

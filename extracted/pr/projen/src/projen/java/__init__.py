@@ -23,7 +23,6 @@ from .. import (
     IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
     LoggerOptions as _LoggerOptions_eb0f6309,
     Project as _Project_57d89203,
-    ProjectType as _ProjectType_fd80c725,
     ProjenrcFile as _ProjenrcFile_50432c7e,
     ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
     RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
@@ -36,7 +35,6 @@ from ..github import (
     GitHubProject as _GitHubProject_c48bc7ea,
     GitHubProjectOptions as _GitHubProjectOptions_547f2d08,
     GithubCredentials as _GithubCredentials_ae257072,
-    MergifyOptions as _MergifyOptions_a6faaab3,
     StaleOptions as _StaleOptions_929db764,
 )
 
@@ -94,11 +92,7 @@ class JavaProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -144,11 +138,7 @@ class JavaProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -196,11 +186,7 @@ class JavaProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -1944,11 +1930,7 @@ class UpdatePolicy(metaclass=jsii.JSIIMeta, jsii_type="projen.java.UpdatePolicy"
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -1996,11 +1978,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2045,11 +2023,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -2089,8 +2063,6 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -2128,11 +2100,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -2199,16 +2167,8 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -2488,45 +2448,6 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -2536,22 +2457,6 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -2880,11 +2785,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -2934,11 +2835,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2985,11 +2882,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -3031,8 +2924,6 @@ class JavaProjectOptions(JavaProjectCommonOptions):
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -3070,11 +2961,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -3143,16 +3030,8 @@ class JavaProjectOptions(JavaProjectCommonOptions):
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -3436,45 +3315,6 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -3484,22 +3324,6 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -4103,11 +3927,7 @@ def _typecheckingstub__95d1347bcc9244ea45fe2d94ee57536743a6579b8c3cbeefd1a9832f2
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4155,11 +3975,7 @@ def _typecheckingstub__9bd204911b78eb490a0ff7d3863868024abfc54a7f5ababba6fe97db2
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,

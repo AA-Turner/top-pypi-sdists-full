@@ -6,6 +6,7 @@ Pyro - Python Remote Objects.  Copyright by Irmen de Jong (irmen@razorvine.net).
 import array
 import collections
 import copy
+import logging
 import math
 import uuid
 import pytest
@@ -110,6 +111,49 @@ if "msgpack" in Pyro5.serializers.serializers:
     class TestMsgpackSerializer(TestSerpentSerializer):
         serializer = Pyro5.serializers.serializers["msgpack"]
 
+    import msgpack
+
+    class Thing:
+        def __init__(self, value):
+            self.value = value
+
+    class CustomMsgpackSerializer(Pyro5.serializers.MsgpackSerializer):
+        CUSTOM_EXT_CODE = 0x40
+
+        def default(self, obj):
+            if isinstance(obj, Thing):
+                return msgpack.ExtType(self.CUSTOM_EXT_CODE, str(obj.value).encode("ascii"))
+            return super().default(obj)
+
+        def ext_hook(self, code, data):
+            if code == self.CUSTOM_EXT_CODE:
+                return Thing(int(data))
+            return super().ext_hook(code, data)
+
+    class TestMsgpackExtHookLoadsCall:
+        """Regression: MsgpackSerializer.loadsCall must honor ext_hook so
+        custom-ExtType-encoded call arguments round-trip when a subclass
+        overrides ext_hook for custom codes. Without the fix, loadsCall
+        returns raw msgpack.ExtType objects instead of decoded values."""
+
+        serializer = CustomMsgpackSerializer()
+
+        def testLoadsCallHonorsExtHook(self):
+            data = self.serializer.dumpsCall("obj-id", "method-name", (Thing(42),), {})
+            obj, method, vargs, kwargs = self.serializer.loadsCall(data)
+            assert obj == "obj-id"
+            assert method == "method-name"
+            assert isinstance(vargs[0], Thing)
+            assert vargs[0].value == 42
+            assert kwargs == {}
+
+        def testLoadsAlreadyHonorsExtHook(self):
+            """Sanity check on the sibling that always worked, so future
+            regressions on either method surface symmetrically."""
+            data = self.serializer.dumps(Thing(7))
+            back = self.serializer.loads(data)
+            assert isinstance(back, Thing)
+            assert back.value == 7
 
 class TestSerializer2_serpent:
     SERIALIZER = "serpent"
@@ -688,6 +732,13 @@ class TestGenericCases:
         with pytest.raises(Pyro5.errors.SerializeError) as cm:
             _ = Pyro5.serializers.SerializerBase.dict_to_class(data)
         assert str(cm.value) == "unsupported serialized class: builtins.ZeroDivisionError"
+
+    def testUnsupportedSerializedClassWarning(self, caplog):
+        caplog.set_level(logging.WARNING, logger="Pyro5.serializers")
+        data = {"__class__": "nonexistent.module.SomeType"}
+        with pytest.raises(Pyro5.errors.SerializeError):
+            Pyro5.serializers.SerializerBase.dict_to_class(data)
+        assert "unsupported serialized class: nonexistent.module.SomeType" in caplog.text
 
     def testWeirdFloats(self):
         ser = Pyro5.serializers.serializers[config.SERIALIZER]

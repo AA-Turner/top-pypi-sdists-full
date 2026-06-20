@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.744"
+version = "0.4.755"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -39,7 +39,7 @@ dependencies = [
     "pooch>=1.8.0",
     "arrow>=1.4.0",
     "icclim>=7.0.4",
-    "geoprepare>=0.6.129",
+    "geoprepare>=0.6.274",   # 0.6.274 picks year-specific optimized masks when annual_mask=True
     "logzero>=1.7.0",
     "geopandas>=1.1.2",
     "tabpfn>=6.4.1",
@@ -85,6 +85,11 @@ dependencies = [
     "cachetools>=5.0",        # pygeoutil/rgeo.py
     "geopy>=2.0",             # pygeoutil/rgeo.py
     "scikit-image>=0.21",     # pygeoutil/*
+    # Defensive ceiling: matplotlib 3.11.0 removed several deprecated kwargs
+    # (e.g. Axes.boxplot's `labels=`). 0.4.744 patched the known sites to
+    # `tick_labels=`, but other 3.11 removals may still surface on HPC.
+    # Drop this pin once we've fully audited the plot paths against 3.11.
+    "matplotlib<3.11",
 ]
 
 [project.optional-dependencies]

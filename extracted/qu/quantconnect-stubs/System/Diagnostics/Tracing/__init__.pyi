@@ -505,34 +505,18 @@ class IncrementingEventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
         ...
 
 
-class EventTask(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-
-class EventSourceException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
 class EventSourceCreatedEventArgs(System.EventArgs):
     """This class has no documentation."""
 
     @property
     def event_source(self) -> System.Diagnostics.Tracing.EventSource:
         ...
+
+
+class EventTask(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
 
 
 class EventWrittenEventArgs(System.EventArgs):
@@ -738,24 +722,6 @@ class EventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
         ...
 
 
-class IncrementingPollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """This class has no documentation."""
-
-    @property
-    def display_rate_time_scale(self) -> datetime.timedelta:
-        ...
-
-    @display_rate_time_scale.setter
-    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
-        ...
-
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, total_value_provider: typing.Callable[[], float]) -> None:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
 class PollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
     """This class has no documentation."""
 
@@ -807,6 +773,44 @@ class EventListener(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
 
+class IncrementingPollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    """This class has no documentation."""
+
+    @property
+    def display_rate_time_scale(self) -> datetime.timedelta:
+        ...
+
+    @display_rate_time_scale.setter
+    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
+        ...
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, total_value_provider: typing.Callable[[], float]) -> None:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class EventSourceException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class EventIgnoreAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
 class EventFieldTags(IntEnum):
     """This class has no documentation."""
 
@@ -849,10 +853,6 @@ class EventFieldAttribute(System.Attribute):
     @format.setter
     def format(self, value: System.Diagnostics.Tracing.EventFieldFormat) -> None:
         ...
-
-
-class EventIgnoreAttribute(System.Attribute):
-    """This class has no documentation."""
 
 
 class EventDataAttribute(System.Attribute):

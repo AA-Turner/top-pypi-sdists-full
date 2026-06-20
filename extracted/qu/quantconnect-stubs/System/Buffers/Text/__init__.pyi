@@ -145,12 +145,7 @@ class Utf8Formatter(System.Object):
 
     @staticmethod
     @overload
-    def try_format(value: float, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: datetime.timedelta, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+    def try_format(value: bool, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
         ...
 
     @staticmethod
@@ -160,7 +155,7 @@ class Utf8Formatter(System.Object):
 
     @staticmethod
     @overload
-    def try_format(value: bool, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+    def try_format(value: float, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
         ...
 
     @staticmethod
@@ -171,6 +166,11 @@ class Utf8Formatter(System.Object):
     @staticmethod
     @overload
     def try_format(value: typing.Union[datetime.datetime, datetime.date], destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_format(value: datetime.timedelta, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
         ...
 
     @staticmethod

@@ -1,19 +1,13 @@
 import time
-from collections import deque
 from functools import partial
 from queue import Queue
-from threading import Event, Thread
 from unittest.mock import MagicMock
 
 import pytest
 from louie.saferef import safe_ref
 
-from bec_lib.redis_connector import (
-    DirectReadStreamSubInfo,
-    RedisConnector,
-    StreamSubInfo,
-    StreamSubs,
-)
+from bec_lib.redis_connector.managed_redis_connection import ManagedRedisConnection
+from bec_lib.redis_connector.streams import StreamSubInfo, StreamSubs
 
 
 @pytest.fixture
@@ -56,9 +50,9 @@ def test_add_and_remove_direct_read(stream_subs: StreamSubs):
     connector_self._message_callbacks_queue = Queue()
     connector_self._redis_conn.xrevrange.return_value = None
     connector_self._direct_stream_listener = partial(
-        RedisConnector._direct_stream_listener, connector_self
+        ManagedRedisConnection._direct_stream_listener, connector_self
     )
-    info = RedisConnector._create_direct_stream_listener(
+    info = ManagedRedisConnection._create_direct_stream_listener(
         connector_self, "test", safe_ref(_test_cb1), {}
     )
     stream_subs.add_direct_listener("test", info)

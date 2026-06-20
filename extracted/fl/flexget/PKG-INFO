@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flexget
-Version: 3.19.23
+Version: 3.19.24
 Summary: FlexGet is a program aimed to automate downloading or processing content (torrents, podcasts, etc.) from different sources like RSS-feeds, html-pages, various sites and more.
 Project-URL: Issue Tracker, https://github.com/Flexget/Flexget/issues
 Project-URL: Forum, https://github.com/Flexget/Flexget/discussions
@@ -75,7 +75,7 @@ Requires-Dist: charset-normalizer==3.4.7; extra == 'all'
 Requires-Dist: click-option-group==0.5.9; extra == 'all'
 Requires-Dist: click==8.4.1; extra == 'all'
 Requires-Dist: colorama==0.4.6; (sys_platform == 'win32') and extra == 'all'
-Requires-Dist: cryptography==48.0.0; extra == 'all'
+Requires-Dist: cryptography==48.0.1; extra == 'all'
 Requires-Dist: decorator==5.3.1; extra == 'all'
 Requires-Dist: defusedxml==0.7.1; extra == 'all'
 Requires-Dist: deluge-client==1.10.2; extra == 'all'
@@ -288,7 +288,7 @@ Requires-Dist: rarfile==4.2; extra == 'rarfile'
 Provides-Extra: sftp
 Requires-Dist: bcrypt==5.0.0; extra == 'sftp'
 Requires-Dist: cffi==2.0.0; (platform_python_implementation != 'PyPy') and extra == 'sftp'
-Requires-Dist: cryptography==48.0.0; extra == 'sftp'
+Requires-Dist: cryptography==48.0.1; extra == 'sftp'
 Requires-Dist: paramiko==3.5.1; extra == 'sftp'
 Requires-Dist: pycparser==3.0; (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy') and extra == 'sftp'
 Requires-Dist: pynacl==1.6.2; extra == 'sftp'

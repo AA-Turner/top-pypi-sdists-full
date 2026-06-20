@@ -6,29 +6,6 @@ import System
 import System.Runtime.ExceptionServices
 
 
-class ExceptionHandling(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def raise_app_domain_unhandled_exception_event(exception: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def set_unhandled_exception_handler(handler: typing.Callable[[System.Exception], bool]) -> None:
-        ...
-
-
-class FirstChanceExceptionEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def exception(self) -> System.Exception:
-        ...
-
-    def __init__(self, exception: System.Exception) -> None:
-        ...
-
-
 class HandleProcessCorruptedStateExceptionsAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -62,6 +39,29 @@ class ExceptionDispatchInfo(System.Object):
     @staticmethod
     @overload
     def throw(source: System.Exception) -> None:
+        ...
+
+
+class ExceptionHandling(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def raise_app_domain_unhandled_exception_event(exception: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def set_unhandled_exception_handler(handler: typing.Callable[[System.Exception], bool]) -> None:
+        ...
+
+
+class FirstChanceExceptionEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def exception(self) -> System.Exception:
+        ...
+
+    def __init__(self, exception: System.Exception) -> None:
         ...
 
 

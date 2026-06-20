@@ -81,6 +81,7 @@ class TestClient:
     def test_method_profile_with_all_params(self, client: Supermemory) -> None:
         client_ = client.profile(
             container_tag="containerTag",
+            buckets=["string"],
             filters={
                 "or_": [
                     {
@@ -93,6 +94,7 @@ class TestClient:
                     }
                 ]
             },
+            include=["static"],
             q="q",
             threshold=0,
         )
@@ -194,6 +196,7 @@ class TestAsyncClient:
     async def test_method_profile_with_all_params(self, async_client: AsyncSupermemory) -> None:
         client = await async_client.profile(
             container_tag="containerTag",
+            buckets=["string"],
             filters={
                 "or_": [
                     {
@@ -206,6 +209,7 @@ class TestAsyncClient:
                     }
                 ]
             },
+            include=["static"],
             q="q",
             threshold=0,
         )

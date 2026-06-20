@@ -1049,243 +1049,6 @@ class GoPublishOptions(CommonPublishOptions):
 
 
 @jsii.data_type(
-    jsii_type="projen.release.JsiiReleaseGo",
-    jsii_struct_bases=[GoPublishOptions],
-    name_mapping={
-        "github_environment": "githubEnvironment",
-        "post_publish_steps": "postPublishSteps",
-        "pre_publish_steps": "prePublishSteps",
-        "publish_tools": "publishTools",
-        "git_branch": "gitBranch",
-        "git_commit_message": "gitCommitMessage",
-        "github_deploy_key_secret": "githubDeployKeySecret",
-        "github_token_secret": "githubTokenSecret",
-        "github_use_ssh": "githubUseSsh",
-        "git_user_email": "gitUserEmail",
-        "git_user_name": "gitUserName",
-    },
-)
-class JsiiReleaseGo(GoPublishOptions):
-    def __init__(
-        self,
-        *,
-        github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_branch: typing.Optional[builtins.str] = None,
-        git_commit_message: typing.Optional[builtins.str] = None,
-        github_deploy_key_secret: typing.Optional[builtins.str] = None,
-        github_token_secret: typing.Optional[builtins.str] = None,
-        github_use_ssh: typing.Optional[builtins.bool] = None,
-        git_user_email: typing.Optional[builtins.str] = None,
-        git_user_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
-        :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-        :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-        :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
-        :param git_branch: (experimental) Branch to push to. Default: "main"
-        :param git_commit_message: (experimental) The commit message. Default: "chore(release): $VERSION"
-        :param github_deploy_key_secret: (experimental) The name of the secret that includes a GitHub deploy key used to push to the GitHub repository. Ignored if ``githubUseSsh`` is ``false``. Default: "GO_GITHUB_DEPLOY_KEY"
-        :param github_token_secret: (experimental) The name of the secret that includes a personal GitHub access token used to push to the GitHub repository. Ignored if ``githubUseSsh`` is ``true``. Default: "GO_GITHUB_TOKEN"
-        :param github_use_ssh: (experimental) Use SSH to push to GitHub instead of a personal accses token. Default: false
-        :param git_user_email: (experimental) The email to use in the release git commit. Default: - default GitHub Actions user email
-        :param git_user_name: (experimental) The user name to use for the release git commit. Default: - default GitHub Actions user name
-
-        :deprecated: Use ``GoPublishOptions`` instead.
-
-        :stability: deprecated
-        '''
-        if isinstance(publish_tools, dict):
-            publish_tools = _Tools_75b93a2a(**publish_tools)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44bae65cd3313afa37ada6dbaab99141ff7744458e985bc9c53faa021220e167)
-            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
-            check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
-            check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
-            check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
-            check_type(argname="argument git_branch", value=git_branch, expected_type=type_hints["git_branch"])
-            check_type(argname="argument git_commit_message", value=git_commit_message, expected_type=type_hints["git_commit_message"])
-            check_type(argname="argument github_deploy_key_secret", value=github_deploy_key_secret, expected_type=type_hints["github_deploy_key_secret"])
-            check_type(argname="argument github_token_secret", value=github_token_secret, expected_type=type_hints["github_token_secret"])
-            check_type(argname="argument github_use_ssh", value=github_use_ssh, expected_type=type_hints["github_use_ssh"])
-            check_type(argname="argument git_user_email", value=git_user_email, expected_type=type_hints["git_user_email"])
-            check_type(argname="argument git_user_name", value=git_user_name, expected_type=type_hints["git_user_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if github_environment is not None:
-            self._values["github_environment"] = github_environment
-        if post_publish_steps is not None:
-            self._values["post_publish_steps"] = post_publish_steps
-        if pre_publish_steps is not None:
-            self._values["pre_publish_steps"] = pre_publish_steps
-        if publish_tools is not None:
-            self._values["publish_tools"] = publish_tools
-        if git_branch is not None:
-            self._values["git_branch"] = git_branch
-        if git_commit_message is not None:
-            self._values["git_commit_message"] = git_commit_message
-        if github_deploy_key_secret is not None:
-            self._values["github_deploy_key_secret"] = github_deploy_key_secret
-        if github_token_secret is not None:
-            self._values["github_token_secret"] = github_token_secret
-        if github_use_ssh is not None:
-            self._values["github_use_ssh"] = github_use_ssh
-        if git_user_email is not None:
-            self._values["git_user_email"] = git_user_email
-        if git_user_name is not None:
-            self._values["git_user_name"] = git_user_name
-
-    @builtins.property
-    def github_environment(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The GitHub Actions environment used for publishing.
-
-        This can be used to add an explicit approval step to the release
-        or limit who can initiate a release through environment protection rules.
-
-        Set this to overwrite a package level publishing environment just for this artifact.
-
-        :default: - no environment used, unless set at the package level
-
-        :stability: experimental
-        '''
-        result = self._values.get("github_environment")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute after executing the publishing command.
-
-        These can be used
-        to add/update the release artifacts ot any other tasks needed.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
-
-        These steps are executed after ``dist/`` has been populated with the build
-        output.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
-        '''(experimental) Additional tools to install in the publishing job.
-
-        :default: - no additional tools are installed
-
-        :stability: experimental
-        '''
-        result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
-
-    @builtins.property
-    def git_branch(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Branch to push to.
-
-        :default: "main"
-
-        :stability: experimental
-        '''
-        result = self._values.get("git_branch")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def git_commit_message(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The commit message.
-
-        :default: "chore(release): $VERSION"
-
-        :stability: experimental
-        '''
-        result = self._values.get("git_commit_message")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def github_deploy_key_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the secret that includes a GitHub deploy key used to push to the GitHub repository.
-
-        Ignored if ``githubUseSsh`` is ``false``.
-
-        :default: "GO_GITHUB_DEPLOY_KEY"
-
-        :stability: experimental
-        '''
-        result = self._values.get("github_deploy_key_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def github_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the secret that includes a personal GitHub access token used to push to the GitHub repository.
-
-        Ignored if ``githubUseSsh`` is ``true``.
-
-        :default: "GO_GITHUB_TOKEN"
-
-        :stability: experimental
-        '''
-        result = self._values.get("github_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def github_use_ssh(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Use SSH to push to GitHub instead of a personal accses token.
-
-        :default: false
-
-        :stability: experimental
-        '''
-        result = self._values.get("github_use_ssh")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def git_user_email(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The email to use in the release git commit.
-
-        :default: - default GitHub Actions user email
-
-        :stability: experimental
-        '''
-        result = self._values.get("git_user_email")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def git_user_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The user name to use for the release git commit.
-
-        :default: - default GitHub Actions user name
-
-        :stability: experimental
-        '''
-        result = self._values.get("git_user_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "JsiiReleaseGo(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="projen.release.ManualReleaseOptions",
     jsii_struct_bases=[],
     name_mapping={
@@ -1646,7 +1409,6 @@ class MavenPublishOptions(CommonPublishOptions):
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
         "code_artifact_options": "codeArtifactOptions",
-        "dist_tag": "distTag",
         "npm_provenance": "npmProvenance",
         "npm_token_secret": "npmTokenSecret",
         "registry": "registry",
@@ -1662,7 +1424,6 @@ class NpmPublishOptions(CommonPublishOptions):
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
         code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        dist_tag: typing.Optional[builtins.str] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
@@ -1675,7 +1436,6 @@ class NpmPublishOptions(CommonPublishOptions):
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
         :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - package is not published to
-        :param dist_tag: (deprecated) Tags can be used to provide an alias instead of version numbers. For example, a project might choose to have multiple streams of development and use a different tag for each stream, e.g., stable, beta, dev, canary. By default, the ``latest`` tag is used by npm to identify the current version of a package, and ``npm install <pkg>`` (without any ``@<version>`` or ``@<tag>`` specifier) installs the latest tag. Typically, projects only use the ``latest`` tag for stable release versions, and use other tags for unstable versions such as prereleases. The ``next`` tag is used by some projects to identify the upcoming version. Default: "latest"
         :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Only works in supported CI/CD environments. Default: - enabled for for public packages using trusted publishing, disabled otherwise
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use for publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
         :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
@@ -1694,7 +1454,6 @@ class NpmPublishOptions(CommonPublishOptions):
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
-            check_type(argname="argument dist_tag", value=dist_tag, expected_type=type_hints["dist_tag"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
@@ -1710,8 +1469,6 @@ class NpmPublishOptions(CommonPublishOptions):
             self._values["publish_tools"] = publish_tools
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
-        if dist_tag is not None:
-            self._values["dist_tag"] = dist_tag
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
         if npm_token_secret is not None:
@@ -1786,30 +1543,6 @@ class NpmPublishOptions(CommonPublishOptions):
         '''
         result = self._values.get("code_artifact_options")
         return typing.cast(typing.Optional["CodeArtifactOptions"], result)
-
-    @builtins.property
-    def dist_tag(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) Tags can be used to provide an alias instead of version numbers.
-
-        For example, a project might choose to have multiple streams of development
-        and use a different tag for each stream, e.g., stable, beta, dev, canary.
-
-        By default, the ``latest`` tag is used by npm to identify the current version
-        of a package, and ``npm install <pkg>`` (without any ``@<version>`` or ``@<tag>``
-        specifier) installs the latest tag. Typically, projects only use the
-        ``latest`` tag for stable release versions, and use other tags for unstable
-        versions such as prereleases.
-
-        The ``next`` tag is used by some projects to identify the upcoming version.
-
-        :default: "latest"
-
-        :deprecated: Use ``npmDistTag`` for each release branch instead.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("dist_tag")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def npm_provenance(self) -> typing.Optional[builtins.bool]:
@@ -2091,7 +1824,6 @@ class Publisher(
         dry_run: typing.Optional[builtins.bool] = None,
         failure_issue: typing.Optional[builtins.bool] = None,
         failure_issue_label: typing.Optional[builtins.str] = None,
-        jsii_release_version: typing.Optional[builtins.str] = None,
         publib_version: typing.Optional[builtins.str] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
@@ -2107,7 +1839,6 @@ class Publisher(
         :param dry_run: (experimental) Do not actually publish, only print the commands that would be executed instead. Useful if you wish to block all publishing from a single option.
         :param failure_issue: (experimental) Create an issue when a publish task fails. Default: false
         :param failure_issue_label: (experimental) The label to apply to the issue marking failed publish tasks. Only applies if ``failureIssue`` is true. Default: "failed-release"
-        :param jsii_release_version: 
         :param publib_version: (experimental) Version requirement for ``publib``. Default: "latest"
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
@@ -2127,7 +1858,6 @@ class Publisher(
             dry_run=dry_run,
             failure_issue=failure_issue,
             failure_issue_label=failure_issue_label,
-            jsii_release_version=jsii_release_version,
             publib_version=publib_version,
             publish_tasks=publish_tasks,
             workflow_container_image=workflow_container_image,
@@ -2339,7 +2069,6 @@ class Publisher(
         self,
         *,
         code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        dist_tag: typing.Optional[builtins.str] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
@@ -2352,7 +2081,6 @@ class Publisher(
         '''(experimental) Publishes artifacts from ``js/**`` to npm.
 
         :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - package is not published to
-        :param dist_tag: (deprecated) Tags can be used to provide an alias instead of version numbers. For example, a project might choose to have multiple streams of development and use a different tag for each stream, e.g., stable, beta, dev, canary. By default, the ``latest`` tag is used by npm to identify the current version of a package, and ``npm install <pkg>`` (without any ``@<version>`` or ``@<tag>`` specifier) installs the latest tag. Typically, projects only use the ``latest`` tag for stable release versions, and use other tags for unstable versions such as prereleases. The ``next`` tag is used by some projects to identify the upcoming version. Default: "latest"
         :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Only works in supported CI/CD environments. Default: - enabled for for public packages using trusted publishing, disabled otherwise
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use for publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
         :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
@@ -2366,7 +2094,6 @@ class Publisher(
         '''
         options = NpmPublishOptions(
             code_artifact_options=code_artifact_options,
-            dist_tag=dist_tag,
             npm_provenance=npm_provenance,
             npm_token_secret=npm_token_secret,
             registry=registry,
@@ -2488,16 +2215,6 @@ class Publisher(
         return typing.cast(builtins.str, jsii.get(self, "buildJobId"))
 
     @builtins.property
-    @jsii.member(jsii_name="jsiiReleaseVersion")
-    def jsii_release_version(self) -> builtins.str:
-        '''
-        :deprecated: use ``publibVersion``
-
-        :stability: deprecated
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "jsiiReleaseVersion"))
-
-    @builtins.property
     @jsii.member(jsii_name="publibVersion")
     def publib_version(self) -> builtins.str:
         '''
@@ -2524,7 +2241,6 @@ class Publisher(
         "dry_run": "dryRun",
         "failure_issue": "failureIssue",
         "failure_issue_label": "failureIssueLabel",
-        "jsii_release_version": "jsiiReleaseVersion",
         "publib_version": "publibVersion",
         "publish_tasks": "publishTasks",
         "workflow_container_image": "workflowContainerImage",
@@ -2543,7 +2259,6 @@ class PublisherOptions:
         dry_run: typing.Optional[builtins.bool] = None,
         failure_issue: typing.Optional[builtins.bool] = None,
         failure_issue_label: typing.Optional[builtins.str] = None,
-        jsii_release_version: typing.Optional[builtins.str] = None,
         publib_version: typing.Optional[builtins.str] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
@@ -2559,7 +2274,6 @@ class PublisherOptions:
         :param dry_run: (experimental) Do not actually publish, only print the commands that would be executed instead. Useful if you wish to block all publishing from a single option.
         :param failure_issue: (experimental) Create an issue when a publish task fails. Default: false
         :param failure_issue_label: (experimental) The label to apply to the issue marking failed publish tasks. Only applies if ``failureIssue`` is true. Default: "failed-release"
-        :param jsii_release_version: 
         :param publib_version: (experimental) Version requirement for ``publib``. Default: "latest"
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
@@ -2579,7 +2293,6 @@ class PublisherOptions:
             check_type(argname="argument dry_run", value=dry_run, expected_type=type_hints["dry_run"])
             check_type(argname="argument failure_issue", value=failure_issue, expected_type=type_hints["failure_issue"])
             check_type(argname="argument failure_issue_label", value=failure_issue_label, expected_type=type_hints["failure_issue_label"])
-            check_type(argname="argument jsii_release_version", value=jsii_release_version, expected_type=type_hints["jsii_release_version"])
             check_type(argname="argument publib_version", value=publib_version, expected_type=type_hints["publib_version"])
             check_type(argname="argument publish_tasks", value=publish_tasks, expected_type=type_hints["publish_tasks"])
             check_type(argname="argument workflow_container_image", value=workflow_container_image, expected_type=type_hints["workflow_container_image"])
@@ -2598,8 +2311,6 @@ class PublisherOptions:
             self._values["failure_issue"] = failure_issue
         if failure_issue_label is not None:
             self._values["failure_issue_label"] = failure_issue_label
-        if jsii_release_version is not None:
-            self._values["jsii_release_version"] = jsii_release_version
         if publib_version is not None:
             self._values["publib_version"] = publib_version
         if publish_tasks is not None:
@@ -2684,16 +2395,6 @@ class PublisherOptions:
         :stability: experimental
         '''
         result = self._values.get("failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def jsii_release_version(self) -> typing.Optional[builtins.str]:
-        '''
-        :deprecated: use ``publibVersion`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("jsii_release_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -3024,7 +2725,6 @@ class Release(
         branch: builtins.str,
         version_file: builtins.str,
         github_release: typing.Optional[builtins.bool] = None,
-        task: typing.Optional["_Task_9fa875b6"] = None,
         tasks: typing.Optional[typing.Sequence["_Task_9fa875b6"]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3041,10 +2741,8 @@ class Release(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["BranchOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["ReleaseTrigger"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -3061,7 +2759,6 @@ class Release(
         :param branch: (experimental) The default branch name to release from. Use ``majorVersion`` to restrict this branch to only publish releases with a specific major version. You can add additional branches using ``addBranch()``.
         :param version_file: (experimental) A name of a .json file to set the ``version`` field in after a bump.
         :param github_release: (experimental) Create a GitHub release for each release. Default: true
-        :param task: (deprecated) The task to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
         :param tasks: (experimental) The tasks to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
         :param workflow_node_version: (experimental) Node version to setup in GitHub workflows if any node-based CLI utilities are needed. For example ``publib``, the CLI projen uses to publish releases, is an npm library. Default: "lts/*""
         :param workflow_permissions: (experimental) Permissions granted to the release workflow job. Default: ``{ contents: JobPermission.WRITE }``
@@ -3078,10 +2775,8 @@ class Release(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -3102,7 +2797,6 @@ class Release(
             branch=branch,
             version_file=version_file,
             github_release=github_release,
-            task=task,
             tasks=tasks,
             workflow_node_version=workflow_node_version,
             workflow_permissions=workflow_permissions,
@@ -3119,10 +2813,8 @@ class Release(
             releasable_commits=releasable_commits,
             release_branches=release_branches,
             release_environment=release_environment,
-            release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
-            release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
             release_workflow_env=release_workflow_env,
@@ -3275,10 +2967,8 @@ class Release(
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -3307,10 +2997,8 @@ class ReleaseProjectOptions:
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["BranchOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["ReleaseTrigger"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -3336,10 +3024,8 @@ class ReleaseProjectOptions:
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -3369,10 +3055,8 @@ class ReleaseProjectOptions:
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -3409,14 +3093,10 @@ class ReleaseProjectOptions:
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -3633,19 +3313,6 @@ class ReleaseProjectOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -3667,19 +3334,6 @@ class ReleaseProjectOptions:
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -4083,932 +3737,6 @@ class TagReleaseOptions:
 
 
 @jsii.data_type(
-    jsii_type="projen.release.JsiiReleaseMaven",
-    jsii_struct_bases=[MavenPublishOptions],
-    name_mapping={
-        "github_environment": "githubEnvironment",
-        "post_publish_steps": "postPublishSteps",
-        "pre_publish_steps": "prePublishSteps",
-        "publish_tools": "publishTools",
-        "maven_endpoint": "mavenEndpoint",
-        "maven_gpg_private_key_passphrase": "mavenGpgPrivateKeyPassphrase",
-        "maven_gpg_private_key_secret": "mavenGpgPrivateKeySecret",
-        "maven_password": "mavenPassword",
-        "maven_repository_url": "mavenRepositoryUrl",
-        "maven_server_id": "mavenServerId",
-        "maven_staging_profile_id": "mavenStagingProfileId",
-        "maven_username": "mavenUsername",
-    },
-)
-class JsiiReleaseMaven(MavenPublishOptions):
-    def __init__(
-        self,
-        *,
-        github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
-        maven_endpoint: typing.Optional[builtins.str] = None,
-        maven_gpg_private_key_passphrase: typing.Optional[builtins.str] = None,
-        maven_gpg_private_key_secret: typing.Optional[builtins.str] = None,
-        maven_password: typing.Optional[builtins.str] = None,
-        maven_repository_url: typing.Optional[builtins.str] = None,
-        maven_server_id: typing.Optional[builtins.str] = None,
-        maven_staging_profile_id: typing.Optional[builtins.str] = None,
-        maven_username: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
-        :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-        :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-        :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
-        :param maven_endpoint: (experimental) URL of Nexus repository. if not set, defaults to https://oss.sonatype.org Default: - "https://oss.sonatype.org" or none when publishing to Maven Central
-        :param maven_gpg_private_key_passphrase: (experimental) GitHub secret name which contains the GPG private key or file that includes it. This is used to sign your Maven packages. See instructions. Default: "MAVEN_GPG_PRIVATE_KEY_PASSPHRASE" or not set when using GitHub Packages
-        :param maven_gpg_private_key_secret: (experimental) GitHub secret name which contains the GPG private key or file that includes it. This is used to sign your Maven packages. See instructions. Default: "MAVEN_GPG_PRIVATE_KEY" or not set when using GitHub Packages
-        :param maven_password: (experimental) GitHub secret name which contains the Password for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_PASSWORD" or "GITHUB_TOKEN" when using GitHub Packages
-        :param maven_repository_url: (experimental) Deployment repository when not deploying to Maven Central. Default: - not set
-        :param maven_server_id: (experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub). Set to ``central-ossrh`` to publish to Maven Central. Default: "central-ossrh" (Maven Central) or "github" when using GitHub Packages
-        :param maven_staging_profile_id: (experimental) GitHub secret name which contains the Maven Central (sonatype) staging profile ID (e.g. 68a05363083174). Staging profile ID can be found in the URL of the "Releases" staging profile under "Staging Profiles" in https://oss.sonatype.org (e.g. https://oss.sonatype.org/#stagingProfiles;11a33451234521). Default: "MAVEN_STAGING_PROFILE_ID" or not set when using GitHub Packages
-        :param maven_username: (experimental) GitHub secret name which contains the Username for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_USERNAME" or the GitHub Actor when using GitHub Packages
-
-        :deprecated: Use ``MavenPublishOptions`` instead.
-
-        :stability: deprecated
-        '''
-        if isinstance(publish_tools, dict):
-            publish_tools = _Tools_75b93a2a(**publish_tools)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__370b478ebba8352e12c41a67b57d5954055dba8a6ceae59144e72607fdc6df41)
-            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
-            check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
-            check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
-            check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
-            check_type(argname="argument maven_endpoint", value=maven_endpoint, expected_type=type_hints["maven_endpoint"])
-            check_type(argname="argument maven_gpg_private_key_passphrase", value=maven_gpg_private_key_passphrase, expected_type=type_hints["maven_gpg_private_key_passphrase"])
-            check_type(argname="argument maven_gpg_private_key_secret", value=maven_gpg_private_key_secret, expected_type=type_hints["maven_gpg_private_key_secret"])
-            check_type(argname="argument maven_password", value=maven_password, expected_type=type_hints["maven_password"])
-            check_type(argname="argument maven_repository_url", value=maven_repository_url, expected_type=type_hints["maven_repository_url"])
-            check_type(argname="argument maven_server_id", value=maven_server_id, expected_type=type_hints["maven_server_id"])
-            check_type(argname="argument maven_staging_profile_id", value=maven_staging_profile_id, expected_type=type_hints["maven_staging_profile_id"])
-            check_type(argname="argument maven_username", value=maven_username, expected_type=type_hints["maven_username"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if github_environment is not None:
-            self._values["github_environment"] = github_environment
-        if post_publish_steps is not None:
-            self._values["post_publish_steps"] = post_publish_steps
-        if pre_publish_steps is not None:
-            self._values["pre_publish_steps"] = pre_publish_steps
-        if publish_tools is not None:
-            self._values["publish_tools"] = publish_tools
-        if maven_endpoint is not None:
-            self._values["maven_endpoint"] = maven_endpoint
-        if maven_gpg_private_key_passphrase is not None:
-            self._values["maven_gpg_private_key_passphrase"] = maven_gpg_private_key_passphrase
-        if maven_gpg_private_key_secret is not None:
-            self._values["maven_gpg_private_key_secret"] = maven_gpg_private_key_secret
-        if maven_password is not None:
-            self._values["maven_password"] = maven_password
-        if maven_repository_url is not None:
-            self._values["maven_repository_url"] = maven_repository_url
-        if maven_server_id is not None:
-            self._values["maven_server_id"] = maven_server_id
-        if maven_staging_profile_id is not None:
-            self._values["maven_staging_profile_id"] = maven_staging_profile_id
-        if maven_username is not None:
-            self._values["maven_username"] = maven_username
-
-    @builtins.property
-    def github_environment(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The GitHub Actions environment used for publishing.
-
-        This can be used to add an explicit approval step to the release
-        or limit who can initiate a release through environment protection rules.
-
-        Set this to overwrite a package level publishing environment just for this artifact.
-
-        :default: - no environment used, unless set at the package level
-
-        :stability: experimental
-        '''
-        result = self._values.get("github_environment")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute after executing the publishing command.
-
-        These can be used
-        to add/update the release artifacts ot any other tasks needed.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
-
-        These steps are executed after ``dist/`` has been populated with the build
-        output.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
-        '''(experimental) Additional tools to install in the publishing job.
-
-        :default: - no additional tools are installed
-
-        :stability: experimental
-        '''
-        result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
-
-    @builtins.property
-    def maven_endpoint(self) -> typing.Optional[builtins.str]:
-        '''(experimental) URL of Nexus repository.
-
-        if not set, defaults to https://oss.sonatype.org
-
-        :default: - "https://oss.sonatype.org" or none when publishing to Maven Central
-
-        :stability: experimental
-        '''
-        result = self._values.get("maven_endpoint")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maven_gpg_private_key_passphrase(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret name which contains the GPG private key or file that includes it.
-
-        This is used to sign your Maven packages. See instructions.
-
-        :default: "MAVEN_GPG_PRIVATE_KEY_PASSPHRASE" or not set when using GitHub Packages
-
-        :see: https://github.com/cdklabs/publib#maven
-        :stability: experimental
-        '''
-        result = self._values.get("maven_gpg_private_key_passphrase")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maven_gpg_private_key_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret name which contains the GPG private key or file that includes it.
-
-        This is used to sign your Maven
-        packages. See instructions.
-
-        :default: "MAVEN_GPG_PRIVATE_KEY" or not set when using GitHub Packages
-
-        :see: https://github.com/cdklabs/publib#maven
-        :stability: experimental
-        '''
-        result = self._values.get("maven_gpg_private_key_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maven_password(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret name which contains the Password for maven repository.
-
-        For Maven Central, you will need to Create JIRA account and then request a
-        new project (see links).
-
-        :default: "MAVEN_PASSWORD" or "GITHUB_TOKEN" when using GitHub Packages
-
-        :see: https://issues.sonatype.org/secure/CreateIssue.jspa?issuetype=21&pid=10134
-        :stability: experimental
-        '''
-        result = self._values.get("maven_password")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maven_repository_url(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Deployment repository when not deploying to Maven Central.
-
-        :default: - not set
-
-        :stability: experimental
-        '''
-        result = self._values.get("maven_repository_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maven_server_id(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub).
-
-        Set to ``central-ossrh`` to publish to Maven Central.
-
-        :default: "central-ossrh" (Maven Central) or "github" when using GitHub Packages
-
-        :stability: experimental
-        '''
-        result = self._values.get("maven_server_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maven_staging_profile_id(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret name which contains the Maven Central (sonatype) staging profile ID (e.g. 68a05363083174). Staging profile ID can be found in the URL of the "Releases" staging profile under "Staging Profiles" in https://oss.sonatype.org (e.g. https://oss.sonatype.org/#stagingProfiles;11a33451234521).
-
-        :default: "MAVEN_STAGING_PROFILE_ID" or not set when using GitHub Packages
-
-        :stability: experimental
-        '''
-        result = self._values.get("maven_staging_profile_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maven_username(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret name which contains the Username for maven repository.
-
-        For Maven Central, you will need to Create JIRA account and then request a
-        new project (see links).
-
-        :default: "MAVEN_USERNAME" or the GitHub Actor when using GitHub Packages
-
-        :see: https://issues.sonatype.org/secure/CreateIssue.jspa?issuetype=21&pid=10134
-        :stability: experimental
-        '''
-        result = self._values.get("maven_username")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "JsiiReleaseMaven(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="projen.release.JsiiReleaseNpm",
-    jsii_struct_bases=[NpmPublishOptions],
-    name_mapping={
-        "github_environment": "githubEnvironment",
-        "post_publish_steps": "postPublishSteps",
-        "pre_publish_steps": "prePublishSteps",
-        "publish_tools": "publishTools",
-        "code_artifact_options": "codeArtifactOptions",
-        "dist_tag": "distTag",
-        "npm_provenance": "npmProvenance",
-        "npm_token_secret": "npmTokenSecret",
-        "registry": "registry",
-        "trusted_publishing": "trustedPublishing",
-    },
-)
-class JsiiReleaseNpm(NpmPublishOptions):
-    def __init__(
-        self,
-        *,
-        github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
-        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        dist_tag: typing.Optional[builtins.str] = None,
-        npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_token_secret: typing.Optional[builtins.str] = None,
-        registry: typing.Optional[builtins.str] = None,
-        trusted_publishing: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''
-        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
-        :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-        :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-        :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
-        :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - package is not published to
-        :param dist_tag: (deprecated) Tags can be used to provide an alias instead of version numbers. For example, a project might choose to have multiple streams of development and use a different tag for each stream, e.g., stable, beta, dev, canary. By default, the ``latest`` tag is used by npm to identify the current version of a package, and ``npm install <pkg>`` (without any ``@<version>`` or ``@<tag>`` specifier) installs the latest tag. Typically, projects only use the ``latest`` tag for stable release versions, and use other tags for unstable versions such as prereleases. The ``next`` tag is used by some projects to identify the upcoming version. Default: "latest"
-        :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Only works in supported CI/CD environments. Default: - enabled for for public packages using trusted publishing, disabled otherwise
-        :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use for publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
-        :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
-        :param trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically. When used, ``npmTokenSecret`` will be ignored. Default: - false
-
-        :deprecated: Use ``NpmPublishOptions`` instead.
-
-        :stability: deprecated
-        '''
-        if isinstance(publish_tools, dict):
-            publish_tools = _Tools_75b93a2a(**publish_tools)
-        if isinstance(code_artifact_options, dict):
-            code_artifact_options = CodeArtifactOptions(**code_artifact_options)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a34680d3cf9e2cc6374987796717402a524a0bb377e9172f0707da67450b3239)
-            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
-            check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
-            check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
-            check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
-            check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
-            check_type(argname="argument dist_tag", value=dist_tag, expected_type=type_hints["dist_tag"])
-            check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
-            check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
-            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if github_environment is not None:
-            self._values["github_environment"] = github_environment
-        if post_publish_steps is not None:
-            self._values["post_publish_steps"] = post_publish_steps
-        if pre_publish_steps is not None:
-            self._values["pre_publish_steps"] = pre_publish_steps
-        if publish_tools is not None:
-            self._values["publish_tools"] = publish_tools
-        if code_artifact_options is not None:
-            self._values["code_artifact_options"] = code_artifact_options
-        if dist_tag is not None:
-            self._values["dist_tag"] = dist_tag
-        if npm_provenance is not None:
-            self._values["npm_provenance"] = npm_provenance
-        if npm_token_secret is not None:
-            self._values["npm_token_secret"] = npm_token_secret
-        if registry is not None:
-            self._values["registry"] = registry
-        if trusted_publishing is not None:
-            self._values["trusted_publishing"] = trusted_publishing
-
-    @builtins.property
-    def github_environment(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The GitHub Actions environment used for publishing.
-
-        This can be used to add an explicit approval step to the release
-        or limit who can initiate a release through environment protection rules.
-
-        Set this to overwrite a package level publishing environment just for this artifact.
-
-        :default: - no environment used, unless set at the package level
-
-        :stability: experimental
-        '''
-        result = self._values.get("github_environment")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute after executing the publishing command.
-
-        These can be used
-        to add/update the release artifacts ot any other tasks needed.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
-
-        These steps are executed after ``dist/`` has been populated with the build
-        output.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
-        '''(experimental) Additional tools to install in the publishing job.
-
-        :default: - no additional tools are installed
-
-        :stability: experimental
-        '''
-        result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
-
-    @builtins.property
-    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
-        '''(experimental) Options for publishing npm package to AWS CodeArtifact.
-
-        :default: - package is not published to
-
-        :stability: experimental
-        '''
-        result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional["CodeArtifactOptions"], result)
-
-    @builtins.property
-    def dist_tag(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) Tags can be used to provide an alias instead of version numbers.
-
-        For example, a project might choose to have multiple streams of development
-        and use a different tag for each stream, e.g., stable, beta, dev, canary.
-
-        By default, the ``latest`` tag is used by npm to identify the current version
-        of a package, and ``npm install <pkg>`` (without any ``@<version>`` or ``@<tag>``
-        specifier) installs the latest tag. Typically, projects only use the
-        ``latest`` tag for stable release versions, and use other tags for unstable
-        versions such as prereleases.
-
-        The ``next`` tag is used by some projects to identify the upcoming version.
-
-        :default: "latest"
-
-        :deprecated: Use ``npmDistTag`` for each release branch instead.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("dist_tag")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def npm_provenance(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Should provenance statements be generated when package is published.
-
-        Note that this component is using ``publib`` to publish packages,
-        which is using npm internally and supports provenance statements independently of the package manager used.
-
-        Only works in supported CI/CD environments.
-
-        :default: - enabled for for public packages using trusted publishing, disabled otherwise
-
-        :see: https://docs.npmjs.com/generating-provenance-statements
-        :stability: experimental
-        '''
-        result = self._values.get("npm_provenance")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def npm_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret which contains the NPM token to use for publishing packages.
-
-        :default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("npm_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def registry(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The domain name of the npm package registry.
-
-        To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In
-        this if ``npmTokenSecret`` is not specified, it will default to
-        ``GITHUB_TOKEN`` which means that you will be able to publish to the
-        repository's package store. In this case, make sure ``repositoryUrl`` is
-        correctly defined.
-
-        :default: "registry.npmjs.org"
-
-        :stability: experimental
-
-        Example::
-
-            "npm.pkg.github.com"
-        '''
-        result = self._values.get("registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work.
-
-        Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically.
-        When used, ``npmTokenSecret`` will be ignored.
-
-        :default: - false
-
-        :see: https://docs.npmjs.com/trusted-publishers
-        :stability: experimental
-        '''
-        result = self._values.get("trusted_publishing")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "JsiiReleaseNpm(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="projen.release.JsiiReleaseNuget",
-    jsii_struct_bases=[NugetPublishOptions],
-    name_mapping={
-        "github_environment": "githubEnvironment",
-        "post_publish_steps": "postPublishSteps",
-        "pre_publish_steps": "prePublishSteps",
-        "publish_tools": "publishTools",
-        "nuget_api_key_secret": "nugetApiKeySecret",
-        "nuget_server": "nugetServer",
-        "nuget_username_secret": "nugetUsernameSecret",
-        "trusted_publishing": "trustedPublishing",
-    },
-)
-class JsiiReleaseNuget(NugetPublishOptions):
-    def __init__(
-        self,
-        *,
-        github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
-        nuget_api_key_secret: typing.Optional[builtins.str] = None,
-        nuget_server: typing.Optional[builtins.str] = None,
-        nuget_username_secret: typing.Optional[builtins.str] = None,
-        trusted_publishing: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''
-        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
-        :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-        :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-        :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
-        :param nuget_api_key_secret: (experimental) GitHub secret which contains the API key for NuGet. Default: "NUGET_API_KEY"
-        :param nuget_server: (experimental) NuGet Server URL (defaults to nuget.org).
-        :param nuget_username_secret: (experimental) The NuGet.org username (profile name, not email address) for trusted publisher authentication. Required when using trusted publishing. Default: "NUGET_USERNAME"
-        :param trusted_publishing: (experimental) Use NuGet trusted publishing instead of API keys. Needs to be setup in NuGet.org.
-
-        :deprecated: Use ``NugetPublishOptions`` instead.
-
-        :stability: deprecated
-        '''
-        if isinstance(publish_tools, dict):
-            publish_tools = _Tools_75b93a2a(**publish_tools)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14abe6d299c2354a8f22a08788f088aafaa8acf2b85b20f297416346274a9b96)
-            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
-            check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
-            check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
-            check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
-            check_type(argname="argument nuget_api_key_secret", value=nuget_api_key_secret, expected_type=type_hints["nuget_api_key_secret"])
-            check_type(argname="argument nuget_server", value=nuget_server, expected_type=type_hints["nuget_server"])
-            check_type(argname="argument nuget_username_secret", value=nuget_username_secret, expected_type=type_hints["nuget_username_secret"])
-            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if github_environment is not None:
-            self._values["github_environment"] = github_environment
-        if post_publish_steps is not None:
-            self._values["post_publish_steps"] = post_publish_steps
-        if pre_publish_steps is not None:
-            self._values["pre_publish_steps"] = pre_publish_steps
-        if publish_tools is not None:
-            self._values["publish_tools"] = publish_tools
-        if nuget_api_key_secret is not None:
-            self._values["nuget_api_key_secret"] = nuget_api_key_secret
-        if nuget_server is not None:
-            self._values["nuget_server"] = nuget_server
-        if nuget_username_secret is not None:
-            self._values["nuget_username_secret"] = nuget_username_secret
-        if trusted_publishing is not None:
-            self._values["trusted_publishing"] = trusted_publishing
-
-    @builtins.property
-    def github_environment(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The GitHub Actions environment used for publishing.
-
-        This can be used to add an explicit approval step to the release
-        or limit who can initiate a release through environment protection rules.
-
-        Set this to overwrite a package level publishing environment just for this artifact.
-
-        :default: - no environment used, unless set at the package level
-
-        :stability: experimental
-        '''
-        result = self._values.get("github_environment")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute after executing the publishing command.
-
-        These can be used
-        to add/update the release artifacts ot any other tasks needed.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
-
-        These steps are executed after ``dist/`` has been populated with the build
-        output.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
-        '''(experimental) Additional tools to install in the publishing job.
-
-        :default: - no additional tools are installed
-
-        :stability: experimental
-        '''
-        result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
-
-    @builtins.property
-    def nuget_api_key_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) GitHub secret which contains the API key for NuGet.
-
-        :default: "NUGET_API_KEY"
-
-        :stability: experimental
-        '''
-        result = self._values.get("nuget_api_key_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def nuget_server(self) -> typing.Optional[builtins.str]:
-        '''(experimental) NuGet Server URL (defaults to nuget.org).
-
-        :stability: experimental
-        '''
-        result = self._values.get("nuget_server")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def nuget_username_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The NuGet.org username (profile name, not email address) for trusted publisher authentication.
-
-        Required when using trusted publishing.
-
-        :default: "NUGET_USERNAME"
-
-        :stability: experimental
-        '''
-        result = self._values.get("nuget_username_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Use NuGet trusted publishing instead of API keys.
-
-        Needs to be setup in NuGet.org.
-
-        :see: https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing
-        :stability: experimental
-        '''
-        result = self._values.get("trusted_publishing")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "JsiiReleaseNuget(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="projen.release.JsiiReleasePyPi",
-    jsii_struct_bases=[PyPiPublishOptions],
-    name_mapping={
-        "github_environment": "githubEnvironment",
-        "post_publish_steps": "postPublishSteps",
-        "pre_publish_steps": "prePublishSteps",
-        "publish_tools": "publishTools",
-        "attestations": "attestations",
-        "code_artifact_options": "codeArtifactOptions",
-        "trusted_publishing": "trustedPublishing",
-        "twine_password_secret": "twinePasswordSecret",
-        "twine_registry_url": "twineRegistryUrl",
-        "twine_username_secret": "twineUsernameSecret",
-    },
-)
-class JsiiReleasePyPi(PyPiPublishOptions):
-    def __init__(
-        self,
-        *,
-        github_environment: typing.Optional[builtins.str] = None,
-        post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        publish_tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
-        attestations: typing.Optional[builtins.bool] = None,
-        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        trusted_publishing: typing.Optional[builtins.bool] = None,
-        twine_password_secret: typing.Optional[builtins.str] = None,
-        twine_registry_url: typing.Optional[builtins.str] = None,
-        twine_username_secret: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
-        :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-        :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-        :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
-        :param attestations: (experimental) Generate and publish cryptographic attestations for files uploaded to PyPI. Attestations provide package provenance and integrity an can be viewed on PyPI. They are only available when using a Trusted Publisher for publishing. Default: - enabled when using trusted publishing, otherwise not applicable
-        :param code_artifact_options: (experimental) Options for publishing to AWS CodeArtifact. Default: - undefined
-        :param trusted_publishing: (experimental) Use PyPI trusted publishing instead of tokens or username & password. Needs to be setup in PyPI.
-        :param twine_password_secret: (experimental) The GitHub secret which contains PyPI password. Default: "TWINE_PASSWORD"
-        :param twine_registry_url: (experimental) The registry url to use when releasing packages. Default: - twine default
-        :param twine_username_secret: (experimental) The GitHub secret which contains PyPI user name. Default: "TWINE_USERNAME"
-
-        :deprecated: Use ``PyPiPublishOptions`` instead.
-
-        :stability: deprecated
-        '''
-        if isinstance(publish_tools, dict):
-            publish_tools = _Tools_75b93a2a(**publish_tools)
-        if isinstance(code_artifact_options, dict):
-            code_artifact_options = CodeArtifactOptions(**code_artifact_options)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fa7c01cc40634bf771011bf4e8ddb9e3be28efd1b3f15b5d0768a4e810d37bc)
-            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
-            check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
-            check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
-            check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
-            check_type(argname="argument attestations", value=attestations, expected_type=type_hints["attestations"])
-            check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
-            check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
-            check_type(argname="argument twine_password_secret", value=twine_password_secret, expected_type=type_hints["twine_password_secret"])
-            check_type(argname="argument twine_registry_url", value=twine_registry_url, expected_type=type_hints["twine_registry_url"])
-            check_type(argname="argument twine_username_secret", value=twine_username_secret, expected_type=type_hints["twine_username_secret"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if github_environment is not None:
-            self._values["github_environment"] = github_environment
-        if post_publish_steps is not None:
-            self._values["post_publish_steps"] = post_publish_steps
-        if pre_publish_steps is not None:
-            self._values["pre_publish_steps"] = pre_publish_steps
-        if publish_tools is not None:
-            self._values["publish_tools"] = publish_tools
-        if attestations is not None:
-            self._values["attestations"] = attestations
-        if code_artifact_options is not None:
-            self._values["code_artifact_options"] = code_artifact_options
-        if trusted_publishing is not None:
-            self._values["trusted_publishing"] = trusted_publishing
-        if twine_password_secret is not None:
-            self._values["twine_password_secret"] = twine_password_secret
-        if twine_registry_url is not None:
-            self._values["twine_registry_url"] = twine_registry_url
-        if twine_username_secret is not None:
-            self._values["twine_username_secret"] = twine_username_secret
-
-    @builtins.property
-    def github_environment(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The GitHub Actions environment used for publishing.
-
-        This can be used to add an explicit approval step to the release
-        or limit who can initiate a release through environment protection rules.
-
-        Set this to overwrite a package level publishing environment just for this artifact.
-
-        :default: - no environment used, unless set at the package level
-
-        :stability: experimental
-        '''
-        result = self._values.get("github_environment")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def post_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute after executing the publishing command.
-
-        These can be used
-        to add/update the release artifacts ot any other tasks needed.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("post_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def pre_publish_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
-        '''(experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed.
-
-        These steps are executed after ``dist/`` has been populated with the build
-        output.
-
-        Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
-
-        :stability: experimental
-        '''
-        result = self._values.get("pre_publish_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
-
-    @builtins.property
-    def publish_tools(self) -> typing.Optional["_Tools_75b93a2a"]:
-        '''(experimental) Additional tools to install in the publishing job.
-
-        :default: - no additional tools are installed
-
-        :stability: experimental
-        '''
-        result = self._values.get("publish_tools")
-        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
-
-    @builtins.property
-    def attestations(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Generate and publish cryptographic attestations for files uploaded to PyPI.
-
-        Attestations provide package provenance and integrity an can be viewed on PyPI.
-        They are only available when using a Trusted Publisher for publishing.
-
-        :default: - enabled when using trusted publishing, otherwise not applicable
-
-        :see: https://docs.pypi.org/attestations/producing-attestations/
-        :stability: experimental
-        '''
-        result = self._values.get("attestations")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
-        '''(experimental) Options for publishing to AWS CodeArtifact.
-
-        :default: - undefined
-
-        :stability: experimental
-        '''
-        result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional["CodeArtifactOptions"], result)
-
-    @builtins.property
-    def trusted_publishing(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Use PyPI trusted publishing instead of tokens or username & password.
-
-        Needs to be setup in PyPI.
-
-        :see: https://docs.pypi.org/trusted-publishers/adding-a-publisher/
-        :stability: experimental
-        '''
-        result = self._values.get("trusted_publishing")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def twine_password_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The GitHub secret which contains PyPI password.
-
-        :default: "TWINE_PASSWORD"
-
-        :stability: experimental
-        '''
-        result = self._values.get("twine_password_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def twine_registry_url(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The registry url to use when releasing packages.
-
-        :default: - twine default
-
-        :stability: experimental
-        '''
-        result = self._values.get("twine_registry_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def twine_username_secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The GitHub secret which contains PyPI user name.
-
-        :default: "TWINE_USERNAME"
-
-        :stability: experimental
-        '''
-        result = self._values.get("twine_username_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "JsiiReleasePyPi(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="projen.release.ReleaseOptions",
     jsii_struct_bases=[ReleaseProjectOptions],
     name_mapping={
@@ -5025,10 +3753,8 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -5042,7 +3768,6 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         "branch": "branch",
         "version_file": "versionFile",
         "github_release": "githubRelease",
-        "task": "task",
         "tasks": "tasks",
         "workflow_node_version": "workflowNodeVersion",
         "workflow_permissions": "workflowPermissions",
@@ -5065,10 +3790,8 @@ class ReleaseOptions(ReleaseProjectOptions):
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["BranchOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["ReleaseTrigger"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -5082,7 +3805,6 @@ class ReleaseOptions(ReleaseProjectOptions):
         branch: builtins.str,
         version_file: builtins.str,
         github_release: typing.Optional[builtins.bool] = None,
-        task: typing.Optional["_Task_9fa875b6"] = None,
         tasks: typing.Optional[typing.Sequence["_Task_9fa875b6"]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5102,10 +3824,8 @@ class ReleaseOptions(ReleaseProjectOptions):
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -5119,7 +3839,6 @@ class ReleaseOptions(ReleaseProjectOptions):
         :param branch: (experimental) The default branch name to release from. Use ``majorVersion`` to restrict this branch to only publish releases with a specific major version. You can add additional branches using ``addBranch()``.
         :param version_file: (experimental) A name of a .json file to set the ``version`` field in after a bump.
         :param github_release: (experimental) Create a GitHub release for each release. Default: true
-        :param task: (deprecated) The task to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
         :param tasks: (experimental) The tasks to execute in order to create the release artifacts. Artifacts are expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once build is complete.
         :param workflow_node_version: (experimental) Node version to setup in GitHub workflows if any node-based CLI utilities are needed. For example ``publib``, the CLI projen uses to publish releases, is an npm library. Default: "lts/*""
         :param workflow_permissions: (experimental) Permissions granted to the release workflow job. Default: ``{ contents: JobPermission.WRITE }``
@@ -5145,10 +3864,8 @@ class ReleaseOptions(ReleaseProjectOptions):
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -5162,7 +3879,6 @@ class ReleaseOptions(ReleaseProjectOptions):
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
             check_type(argname="argument version_file", value=version_file, expected_type=type_hints["version_file"])
             check_type(argname="argument github_release", value=github_release, expected_type=type_hints["github_release"])
-            check_type(argname="argument task", value=task, expected_type=type_hints["task"])
             check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_permissions", value=workflow_permissions, expected_type=type_hints["workflow_permissions"])
@@ -5197,14 +3913,10 @@ class ReleaseOptions(ReleaseProjectOptions):
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -5225,8 +3937,6 @@ class ReleaseOptions(ReleaseProjectOptions):
             self._values["workflow_runs_on_group"] = workflow_runs_on_group
         if github_release is not None:
             self._values["github_release"] = github_release
-        if task is not None:
-            self._values["task"] = task
         if tasks is not None:
             self._values["tasks"] = tasks
         if workflow_node_version is not None:
@@ -5431,19 +4141,6 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -5465,19 +4162,6 @@ class ReleaseOptions(ReleaseProjectOptions):
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -5645,21 +4329,6 @@ class ReleaseOptions(ReleaseProjectOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def task(self) -> typing.Optional["_Task_9fa875b6"]:
-        '''(deprecated) The task to execute in order to create the release artifacts.
-
-        Artifacts are
-        expected to reside under ``artifactsDirectory`` (defaults to ``dist/``) once
-        build is complete.
-
-        :deprecated: Use ``tasks`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("task")
-        return typing.cast(typing.Optional["_Task_9fa875b6"], result)
-
-    @builtins.property
     def tasks(self) -> typing.Optional[typing.List["_Task_9fa875b6"]]:
         '''(experimental) The tasks to execute in order to create the release artifacts.
 
@@ -5718,11 +4387,6 @@ __all__ = [
     "GitHubReleasesPublishOptions",
     "GitPublishOptions",
     "GoPublishOptions",
-    "JsiiReleaseGo",
-    "JsiiReleaseMaven",
-    "JsiiReleaseNpm",
-    "JsiiReleaseNuget",
-    "JsiiReleasePyPi",
     "ManualReleaseOptions",
     "MavenPublishOptions",
     "NpmPublishOptions",
@@ -5823,23 +4487,6 @@ def _typecheckingstub__81a5b8a4f17bcea99089b42477d5b778fd3a9066d3d1126736ccf21a9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__44bae65cd3313afa37ada6dbaab99141ff7744458e985bc9c53faa021220e167(
-    *,
-    github_environment: typing.Optional[builtins.str] = None,
-    post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
-    git_branch: typing.Optional[builtins.str] = None,
-    git_commit_message: typing.Optional[builtins.str] = None,
-    github_deploy_key_secret: typing.Optional[builtins.str] = None,
-    github_token_secret: typing.Optional[builtins.str] = None,
-    github_use_ssh: typing.Optional[builtins.bool] = None,
-    git_user_email: typing.Optional[builtins.str] = None,
-    git_user_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2492d83058b766179e85fd785d08928e38b53ce70b0f2dc9a1c5edccb668b930(
     *,
     changelog: typing.Optional[builtins.bool] = None,
@@ -5874,7 +4521,6 @@ def _typecheckingstub__458289050585e6e895f9ee709ee4e102166b0f71e3c8b2a0617efa2d2
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
     code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    dist_tag: typing.Optional[builtins.str] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     registry: typing.Optional[builtins.str] = None,
@@ -5906,7 +4552,6 @@ def _typecheckingstub__eee2fd880a34190cc3f39bd885d4276ff656803edbfe41e03f405df37
     dry_run: typing.Optional[builtins.bool] = None,
     failure_issue: typing.Optional[builtins.bool] = None,
     failure_issue_label: typing.Optional[builtins.str] = None,
-    jsii_release_version: typing.Optional[builtins.str] = None,
     publib_version: typing.Optional[builtins.str] = None,
     publish_tasks: typing.Optional[builtins.bool] = None,
     workflow_container_image: typing.Optional[builtins.str] = None,
@@ -5937,7 +4582,6 @@ def _typecheckingstub__4e430972b008e5968049196f964ee9dfa036c68b2195f125119bc2629
     dry_run: typing.Optional[builtins.bool] = None,
     failure_issue: typing.Optional[builtins.bool] = None,
     failure_issue_label: typing.Optional[builtins.str] = None,
-    jsii_release_version: typing.Optional[builtins.str] = None,
     publib_version: typing.Optional[builtins.str] = None,
     publish_tasks: typing.Optional[builtins.bool] = None,
     workflow_container_image: typing.Optional[builtins.str] = None,
@@ -5971,7 +4615,6 @@ def _typecheckingstub__b447ecb34d36869391ee159467e6c78b74da704722d4c6a517e05bbae
     branch: builtins.str,
     version_file: builtins.str,
     github_release: typing.Optional[builtins.bool] = None,
-    task: typing.Optional[_Task_9fa875b6] = None,
     tasks: typing.Optional[typing.Sequence[_Task_9fa875b6]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5988,10 +4631,8 @@ def _typecheckingstub__b447ecb34d36869391ee159467e6c78b74da704722d4c6a517e05bbae
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[ReleaseTrigger] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -6047,10 +4688,8 @@ def _typecheckingstub__cc5e99254de9f29d2ac3b86e193164816e1ed36e491e602128e7d16fb
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[ReleaseTrigger] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -6078,70 +4717,6 @@ def _typecheckingstub__c780e45abd4dc2180a4e3ffcbe5fee656f75dc2e5fa799e018e4b79fc
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__370b478ebba8352e12c41a67b57d5954055dba8a6ceae59144e72607fdc6df41(
-    *,
-    github_environment: typing.Optional[builtins.str] = None,
-    post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
-    maven_endpoint: typing.Optional[builtins.str] = None,
-    maven_gpg_private_key_passphrase: typing.Optional[builtins.str] = None,
-    maven_gpg_private_key_secret: typing.Optional[builtins.str] = None,
-    maven_password: typing.Optional[builtins.str] = None,
-    maven_repository_url: typing.Optional[builtins.str] = None,
-    maven_server_id: typing.Optional[builtins.str] = None,
-    maven_staging_profile_id: typing.Optional[builtins.str] = None,
-    maven_username: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a34680d3cf9e2cc6374987796717402a524a0bb377e9172f0707da67450b3239(
-    *,
-    github_environment: typing.Optional[builtins.str] = None,
-    post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
-    code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    dist_tag: typing.Optional[builtins.str] = None,
-    npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_token_secret: typing.Optional[builtins.str] = None,
-    registry: typing.Optional[builtins.str] = None,
-    trusted_publishing: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__14abe6d299c2354a8f22a08788f088aafaa8acf2b85b20f297416346274a9b96(
-    *,
-    github_environment: typing.Optional[builtins.str] = None,
-    post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
-    nuget_api_key_secret: typing.Optional[builtins.str] = None,
-    nuget_server: typing.Optional[builtins.str] = None,
-    nuget_username_secret: typing.Optional[builtins.str] = None,
-    trusted_publishing: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0fa7c01cc40634bf771011bf4e8ddb9e3be28efd1b3f15b5d0768a4e810d37bc(
-    *,
-    github_environment: typing.Optional[builtins.str] = None,
-    post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
-    attestations: typing.Optional[builtins.bool] = None,
-    code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    trusted_publishing: typing.Optional[builtins.bool] = None,
-    twine_password_secret: typing.Optional[builtins.str] = None,
-    twine_registry_url: typing.Optional[builtins.str] = None,
-    twine_username_secret: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__abcbb9106f2fe858c4efa7a5934906e63b00b56fa33c47c5f910dac2a904f472(
     *,
     bump_package: typing.Optional[builtins.str] = None,
@@ -6157,10 +4732,8 @@ def _typecheckingstub__abcbb9106f2fe858c4efa7a5934906e63b00b56fa33c47c5f910dac2a
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[ReleaseTrigger] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -6174,7 +4747,6 @@ def _typecheckingstub__abcbb9106f2fe858c4efa7a5934906e63b00b56fa33c47c5f910dac2a
     branch: builtins.str,
     version_file: builtins.str,
     github_release: typing.Optional[builtins.bool] = None,
-    task: typing.Optional[_Task_9fa875b6] = None,
     tasks: typing.Optional[typing.Sequence[_Task_9fa875b6]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,

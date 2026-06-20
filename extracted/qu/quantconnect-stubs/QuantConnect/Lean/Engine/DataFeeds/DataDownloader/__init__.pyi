@@ -12,34 +12,6 @@ import QuantConnect.Securities
 import System
 
 
-class DataDownloaderSelector(System.Object, System.IDisposable):
-    """Selects the appropriate data downloader based on the data type."""
-
-    def __init__(self, base_data_downloader: QuantConnect.IDataDownloader, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider = None) -> None:
-        """
-        Initializes a new instance of the DataDownloaderSelector class.
-        
-        :param base_data_downloader: The base data downloader instance.
-        :param map_file_provider: The map file provider used for initializing chain providers.
-        :param data_provider: The data provider used for initializing chain providers.
-        :param factor_file_provider: The factor file provider used for initializing chain providers.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Disposes the base downloader and the decorator if it was initialized."""
-        ...
-
-    def get_data_downloader(self, data_type: typing.Type) -> QuantConnect.IDataDownloader:
-        """
-        Returns the appropriate downloader for the given data type.
-        
-        :param data_type: The type of data to download.
-        :returns: The base downloader for common lean data types, otherwise the canonical decorator.
-        """
-        ...
-
-
 class CanonicalDataDownloaderDecorator(System.Object, QuantConnect.IDataDownloader):
     """
     Decorates an IDataDownloader to support canonical symbols by automatically
@@ -80,6 +52,34 @@ class CanonicalDataDownloaderDecorator(System.Object, QuantConnect.IDataDownload
         :param adjusted_start_date_utc: The adjusted start date in UTC, or default if no valid range exists.
         :param adjusted_end_date_utc: The adjusted end date in UTC, or default if no valid range exists.
         :returns: True if a valid adjusted date range was found, false otherwise.
+        """
+        ...
+
+
+class DataDownloaderSelector(System.Object, System.IDisposable):
+    """Selects the appropriate data downloader based on the data type."""
+
+    def __init__(self, base_data_downloader: QuantConnect.IDataDownloader, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider = None) -> None:
+        """
+        Initializes a new instance of the DataDownloaderSelector class.
+        
+        :param base_data_downloader: The base data downloader instance.
+        :param map_file_provider: The map file provider used for initializing chain providers.
+        :param data_provider: The data provider used for initializing chain providers.
+        :param factor_file_provider: The factor file provider used for initializing chain providers.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Disposes the base downloader and the decorator if it was initialized."""
+        ...
+
+    def get_data_downloader(self, data_type: typing.Type) -> QuantConnect.IDataDownloader:
+        """
+        Returns the appropriate downloader for the given data type.
+        
+        :param data_type: The type of data to download.
+        :returns: The base downloader for common lean data types, otherwise the canonical decorator.
         """
         ...
 

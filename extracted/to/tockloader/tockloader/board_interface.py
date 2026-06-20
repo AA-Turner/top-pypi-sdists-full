@@ -56,15 +56,9 @@ class BoardInterface:
             "no_attribute_table": True,
             "jlink": {
                 "device": "nrf52840_xxAA",
-                "address_maximum": 0x11FFFFFF,
             },
             "openocd": {
                 "cfg": "nordic_nrf52_dk.cfg",
-            },
-            "nrfjprog": {
-                "device_family": "NRF52",
-                "qspi_size": 1024 * 1024 * 64,
-                "qspi_address": 0x12000000,
             },
         },
         "nano33ble": {
@@ -169,6 +163,17 @@ class BoardInterface:
         "qemu_rv32_virt": {
             "description": "QEMU RISC-V 32 bit virt Platform",
             "arch": "rv32imac",
+            "no_attribute_table": True,
+            "flash_file": {
+                "flash_address": 0x80000000,
+                # Size of the ROM and PROG region combined, where the resulting
+                # binary will be loaded into by QEMU:
+                "max_size": 0x00200000,
+            },
+        },
+        "qemu_rv64_virt": {
+            "description": "QEMU RISC-V 64 bit virt Platform",
+            "arch": "rv64imac",
             "no_attribute_table": True,
             "flash_file": {
                 "flash_address": 0x80000000,
@@ -316,6 +321,22 @@ class BoardInterface:
                 "flush_command": "probe-rs download {binary} --binary-format bin --base-address 0x10000000 --chip CY8C624AAZI-S2D44",
             },
         },
+        "lpc55s69": {
+            "description": "NXP LPC55S69-based board",
+            "arch": "cortex-m4",
+            "page_size": 512,
+            "no_attribute_table": True,
+            "linkserver": {"device": "LPC55S69"},
+        },
+        "nucleo_u545re_q": {
+            "description": "STM32U545RE-based Nucleo development board",
+            "arch": "cortex-m4",
+            "page_size": 8192,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/stlink.cfg]; source [find target/stm32u5x.cfg];",
+            },
+        },
     }
 
     def __init__(self, args):
@@ -431,9 +452,17 @@ class BoardInterface:
         """
         return
 
-    def flash_binary(self, address, binary):
+    def flash_binary(self, address, binary, pad=True):
         """
         Write a binary to the address given.
+
+        `pad` is a bool indicating whether it is ok for the writing interface to
+        pad the binary to be written to meet any size requirements. If `True`,
+        the writing interface can add values (e.g., `0xFF`s) to the binary to
+        meet writing size constraints. If `False`, the writing interface must
+        not simply add values like 0xFFs, and instead must read what is already
+        written to do any needed padding when needing to meet size
+        requirements.
         """
         return
 

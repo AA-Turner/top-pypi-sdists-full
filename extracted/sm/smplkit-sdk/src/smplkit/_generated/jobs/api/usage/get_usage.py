@@ -62,8 +62,8 @@ def sync_detailed(
      Report this account's current-period usage against its plan allotments.
 
     `runs_used` is the number of runs metered so far this calendar month;
-    `active_jobs` is the number of recurring (scheduled) jobs, which is what the
-    plan's job limit bounds.
+    `active_jobs` is the number of permanent jobs (recurring + manual), which is
+    what the plan's job limit bounds (one-off jobs do not count).
 
     Args:
         filterperiod (str | Unset):  Default: 'current'.
@@ -97,8 +97,8 @@ def sync(
      Report this account's current-period usage against its plan allotments.
 
     `runs_used` is the number of runs metered so far this calendar month;
-    `active_jobs` is the number of recurring (scheduled) jobs, which is what the
-    plan's job limit bounds.
+    `active_jobs` is the number of permanent jobs (recurring + manual), which is
+    what the plan's job limit bounds (one-off jobs do not count).
 
     Args:
         filterperiod (str | Unset):  Default: 'current'.
@@ -127,8 +127,8 @@ async def asyncio_detailed(
      Report this account's current-period usage against its plan allotments.
 
     `runs_used` is the number of runs metered so far this calendar month;
-    `active_jobs` is the number of recurring (scheduled) jobs, which is what the
-    plan's job limit bounds.
+    `active_jobs` is the number of permanent jobs (recurring + manual), which is
+    what the plan's job limit bounds (one-off jobs do not count).
 
     Args:
         filterperiod (str | Unset):  Default: 'current'.
@@ -160,8 +160,8 @@ async def asyncio(
      Report this account's current-period usage against its plan allotments.
 
     `runs_used` is the number of runs metered so far this calendar month;
-    `active_jobs` is the number of recurring (scheduled) jobs, which is what the
-    plan's job limit bounds.
+    `active_jobs` is the number of permanent jobs (recurring + manual), which is
+    what the plan's job limit bounds (one-off jobs do not count).
 
     Args:
         filterperiod (str | Unset):  Default: 'current'.

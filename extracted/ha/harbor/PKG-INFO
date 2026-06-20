@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.14.0
+Version: 0.15.0
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
@@ -29,6 +29,7 @@ Requires-Dist: httpx>=0.27.0
 Requires-Dist: harbor[cloud] ; extra == 'all'
 Requires-Dist: harbor[tinker] ; extra == 'all'
 Requires-Dist: harbor[computer-1] ; extra == 'all'
+Requires-Dist: harbor[dspy] ; extra == 'all'
 Requires-Dist: blaxel>=0.2.52 ; extra == 'blaxel'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'blaxel'
 Requires-Dist: harbor[cwsandbox] ; extra == 'cloud'
@@ -49,6 +50,7 @@ Requires-Dist: anthropic[bedrock]>=0.102.0 ; extra == 'computer-1'
 Requires-Dist: google-genai>=2.3.0 ; extra == 'computer-1'
 Requires-Dist: cwsandbox>=0.23.3 ; extra == 'cwsandbox'
 Requires-Dist: daytona>=0.184.0 ; extra == 'daytona'
+Requires-Dist: dspy>=2.6.0 ; extra == 'dspy'
 Requires-Dist: e2b>=2.25.0 ; extra == 'e2b'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'e2b'
 Requires-Dist: kubernetes>=32.0.0 ; extra == 'gke'
@@ -61,7 +63,7 @@ Requires-Dist: novita-sandbox>=2.0.0a3 ; extra == 'novita'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'novita'
 Requires-Dist: runloop-api-client>=1.23.2 ; extra == 'runloop'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'runloop'
-Requires-Dist: tensorlake>=0.5.18 ; extra == 'tensorlake'
+Requires-Dist: tensorlake>=0.5.46 ; extra == 'tensorlake'
 Requires-Dist: tinker>=0.14.0 ; extra == 'tinker'
 Requires-Dist: tinker-cookbook>=0.1.0 ; extra == 'tinker'
 Requires-Dist: use-computer>=0.0.2 ; extra == 'use-computer'
@@ -74,6 +76,7 @@ Provides-Extra: cloud
 Provides-Extra: computer-1
 Provides-Extra: cwsandbox
 Provides-Extra: daytona
+Provides-Extra: dspy
 Provides-Extra: e2b
 Provides-Extra: gke
 Provides-Extra: islo

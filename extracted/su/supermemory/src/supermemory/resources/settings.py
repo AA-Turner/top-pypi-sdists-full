@@ -65,6 +65,7 @@ class SettingsResource(SyncAPIResource):
         onedrive_client_id: Optional[str] | Omit = omit,
         onedrive_client_secret: Optional[str] | Omit = omit,
         onedrive_custom_key_enabled: Optional[bool] | Omit = omit,
+        profile_buckets: Iterable[setting_update_params.ProfileBucket] | Omit = omit,
         should_llm_filter: Optional[bool] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -77,6 +78,8 @@ class SettingsResource(SyncAPIResource):
         Update settings for an organization
 
         Args:
+          profile_buckets: Profile bucket definitions
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -105,6 +108,7 @@ class SettingsResource(SyncAPIResource):
                     "onedrive_client_id": onedrive_client_id,
                     "onedrive_client_secret": onedrive_client_secret,
                     "onedrive_custom_key_enabled": onedrive_custom_key_enabled,
+                    "profile_buckets": profile_buckets,
                     "should_llm_filter": should_llm_filter,
                 },
                 setting_update_params.SettingUpdateParams,
@@ -176,6 +180,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         onedrive_client_id: Optional[str] | Omit = omit,
         onedrive_client_secret: Optional[str] | Omit = omit,
         onedrive_custom_key_enabled: Optional[bool] | Omit = omit,
+        profile_buckets: Iterable[setting_update_params.ProfileBucket] | Omit = omit,
         should_llm_filter: Optional[bool] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -188,6 +193,8 @@ class AsyncSettingsResource(AsyncAPIResource):
         Update settings for an organization
 
         Args:
+          profile_buckets: Profile bucket definitions
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -216,6 +223,7 @@ class AsyncSettingsResource(AsyncAPIResource):
                     "onedrive_client_id": onedrive_client_id,
                     "onedrive_client_secret": onedrive_client_secret,
                     "onedrive_custom_key_enabled": onedrive_custom_key_enabled,
+                    "profile_buckets": profile_buckets,
                     "should_llm_filter": should_llm_filter,
                 },
                 setting_update_params.SettingUpdateParams,

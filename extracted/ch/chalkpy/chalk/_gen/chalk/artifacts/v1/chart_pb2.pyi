@@ -133,6 +133,7 @@ class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FILTER_KIND_SCALING_GROUP: _ClassVar[FilterKind]
     FILTER_KIND_FUNCTION_NAME: _ClassVar[FilterKind]
     FILTER_KIND_SERVICE_KIND: _ClassVar[FilterKind]
+    FILTER_KIND_CONSUMER_GROUP: _ClassVar[FilterKind]
 
 class ComparatorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -179,6 +180,7 @@ class GroupByKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GROUP_BY_KIND_PARTITION_NAME: _ClassVar[GroupByKind]
     GROUP_BY_KIND_FUNCTION_NAME: _ClassVar[GroupByKind]
     GROUP_BY_KIND_SERVICE_KIND: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_CONSUMER_GROUP: _ClassVar[GroupByKind]
 
 class MetricFormulaKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -337,6 +339,7 @@ FILTER_KIND_PARTITION_NAME: FilterKind
 FILTER_KIND_SCALING_GROUP: FilterKind
 FILTER_KIND_FUNCTION_NAME: FilterKind
 FILTER_KIND_SERVICE_KIND: FilterKind
+FILTER_KIND_CONSUMER_GROUP: FilterKind
 COMPARATOR_KIND_UNSPECIFIED: ComparatorKind
 COMPARATOR_KIND_EQ: ComparatorKind
 COMPARATOR_KIND_NEQ: ComparatorKind
@@ -374,6 +377,7 @@ GROUP_BY_KIND_SUBSCRIPTION_NAME: GroupByKind
 GROUP_BY_KIND_PARTITION_NAME: GroupByKind
 GROUP_BY_KIND_FUNCTION_NAME: GroupByKind
 GROUP_BY_KIND_SERVICE_KIND: GroupByKind
+GROUP_BY_KIND_CONSUMER_GROUP: GroupByKind
 METRIC_FORMULA_KIND_UNSPECIFIED: MetricFormulaKind
 METRIC_FORMULA_KIND_SUM: MetricFormulaKind
 METRIC_FORMULA_KIND_TOTAL_RATIO: MetricFormulaKind

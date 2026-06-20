@@ -23,6 +23,7 @@
 #
 #
 """Read 7zip format archives."""
+
 from __future__ import annotations
 
 import collections.abc
@@ -54,6 +55,7 @@ from py7zr.exceptions import (
     AbsolutePathError,
     Bad7zFile,
     CrcError,
+    DecompressionBombError,
     DecompressionError,
     InternalError,
     UnsupportedCompressionMethodError,
@@ -368,6 +370,7 @@ class SevenZipFile(contextlib.AbstractContextManager):
         header_encryption: bool = False,
         blocksize: int | None = None,
         mp: bool = False,
+        max_extract_size: int | None = None,
     ) -> None:
         # check invalid mode.
         if mode not in ("r", "w", "x", "a"):
@@ -375,6 +378,7 @@ class SevenZipFile(contextlib.AbstractContextManager):
         self.fp: IO[bytes]
         self.mp = mp
         self.password_protected = password is not None
+        self.max_extract_size = max_extract_size
         if blocksize:
             self._block_size = blocksize
         else:
@@ -504,7 +508,7 @@ class SevenZipFile(contextlib.AbstractContextManager):
             if not file_info["emptystream"] and folders is not None:
                 folder = folders[pstat.folder]
                 numinstreams = max([coder.get("numinstreams", 1) for coder in folder.coders])
-                (maxsize, compressed, uncompressed, packsize, solid) = self._get_fileinfo_sizes(
+                maxsize, compressed, uncompressed, packsize, solid = self._get_fileinfo_sizes(
                     pstat, subinfo, packinfo, folder, packsizes, unpacksizes, file_in_solid, numinstreams
                 )
                 pstat.input += 1
@@ -648,6 +652,7 @@ class SevenZipFile(contextlib.AbstractContextManager):
                 else:
                     raise DecompressionError(f"Directory {target_dir} making fails on unknown condition.")
 
+        self.worker.max_extract_size = self.max_extract_size
         if callback is not None:
             self.worker.extract(
                 self.fp,
@@ -669,12 +674,9 @@ class SevenZipFile(contextlib.AbstractContextManager):
         # set file properties
         for outfilename, properties in target_files:
             # mtime
-            lastmodified = None
-            try:
-                lastmodified = ArchiveTimestamp(properties["lastwritetime"]).totimestamp()
-            except KeyError:
-                pass
-            if lastmodified is not None:
+            lastwritetime = properties.get("lastwritetime")
+            if lastwritetime is not None:
+                lastmodified = ArchiveTimestamp(lastwritetime).totimestamp()
                 os.utime(str(outfilename), times=(lastmodified, lastmodified))
             if os.name == "posix":
                 st_mode = properties["posix_mode"]
@@ -727,7 +729,7 @@ class SevenZipFile(contextlib.AbstractContextManager):
 
     def _write_header(self):
         """Write header and update signature header."""
-        (header_pos, header_len, header_crc) = self.header.write(
+        header_pos, header_len, header_crc = self.header.write(
             self.fp,
             self.afterheader,
             encoded=self.encoded_header_mode,
@@ -780,15 +782,15 @@ class SevenZipFile(contextlib.AbstractContextManager):
     ):
         if pstat.input == 0:
             folder.solid = subinfo.num_unpackstreams_folders[pstat.folder] > 1
-        maxsize = (folder.solid and packinfo.packsizes[pstat.stream]) or None
-        uncompressed = unpacksizes[pstat.outstreams]
+        maxsize: int | None = (folder.solid and packinfo.packsizes[pstat.stream]) or None
+        uncompressed: int = unpacksizes[pstat.outstreams]
         if file_in_solid > 0:
-            compressed = None
+            compressed: int | None = None
         elif pstat.stream < len(packsizes):  # file is compressed
             compressed = packsizes[pstat.stream]
         else:  # file is not compressed
             compressed = uncompressed
-        packsize = packsizes[pstat.stream : pstat.stream + numinstreams]
+        packsize: int = packsizes[pstat.stream : pstat.stream + numinstreams]
         return maxsize, compressed, uncompressed, packsize, folder.solid
 
     def set_encoded_header_mode(self, mode: bool) -> None:
@@ -847,9 +849,7 @@ class SevenZipFile(contextlib.AbstractContextManager):
         del self.sig_header
 
     @staticmethod
-    def _make_file_info(  # noqa
-        target: pathlib.Path, arcname: str | None = None, dereference: bool = False
-    ) -> FileInfoDict:
+    def _make_file_info(target: pathlib.Path, arcname: str | None = None, dereference: bool = False) -> FileInfoDict:
         origin = target
         filename = pathlib.Path(arcname).as_posix() if arcname else target.as_posix()
         target = target.resolve() if dereference else target
@@ -1093,6 +1093,9 @@ class SevenZipFile(contextlib.AbstractContextManager):
         return self._writef(bio, arcname)
 
     def _writef(self, bio: IO[Any], arcname: str) -> None:
+        # Check for null byte injection - 7z uses null-terminated strings in headers
+        if "\\x00" in arcname:
+            raise ValueError(f"Filename contains null byte: {arcname}")
         if isinstance(bio, io.BytesIO):
             size = bio.getbuffer().nbytes
         elif isinstance(bio, io.TextIOBase):
@@ -1266,6 +1269,8 @@ class Worker:
         self.header = header
         self.current_file_index = len(self.files)
         self.last_file_index = len(self.files) - 1
+        self.max_extract_size: int | None = None
+        self._total_extracted: int = 0
         if mp:
             self.concurrent: type[Thread] | type[Process] = Process
         else:
@@ -1409,6 +1414,8 @@ class Worker:
                 self._check(fp, just_check, src_end)
                 just_check = []
                 if not isinstance(fileish, MemIO):
+                    if not is_path_valid(fileish, path):
+                        raise Bad7zFile(f"Specified path is bad: {fileish}")
                     fileish.parent.mkdir(parents=True, exist_ok=True)
                 if not f.emptystream:
                     if f.is_junction and not isinstance(fileish, MemIO) and sys.platform == "win32":
@@ -1500,6 +1507,13 @@ class Worker:
         while out_remaining > 0:
             tmp = decompressor.decompress(fp, min(out_remaining, max_block_size))
             if len(tmp) > 0:
+                if self.max_extract_size is not None:
+                    self._total_extracted += len(tmp)
+                    if self._total_extracted > self.max_extract_size:
+                        raise DecompressionBombError(
+                            f"Extraction aborted: decompressed size {self._total_extracted} "
+                            f"exceeds limit of {self.max_extract_size} bytes"
+                        )
                 out_remaining -= len(tmp)
                 fq.write(tmp)
                 crc32 = calculate_crc32(tmp, crc32)

@@ -26,9 +26,9 @@ import io
 import operator
 import os
 import struct
-from binascii import unhexlify
 from functools import reduce
 from io import BytesIO
+from itertools import accumulate
 from operator import and_, or_
 from struct import pack, unpack
 from typing import Any, BinaryIO, Optional, Union
@@ -39,6 +39,7 @@ from py7zr.helpers import ArchiveTimestamp, calculate_crc32
 from py7zr.properties import DEFAULT_FILTERS, MAGIC_7Z, PROPERTY
 
 MAX_LENGTH = 65536
+MAX_NUMSTREAMS = 65536
 P7ZIP_MAJOR_VERSION = b"\x00"
 P7ZIP_MINOR_VERSION = b"\x04"
 
@@ -177,7 +178,7 @@ def write_uint64(file: BinaryIO | WriteWithCrc, value: int):
 def read_boolean(file: BinaryIO, count: int, checkall: bool = False) -> list[bool]:
     if checkall:
         all_defined = file.read(1)
-        if all_defined != unhexlify("00"):
+        if all_defined != b"\x00":
             return [True] * count
     result = []
     b = 0
@@ -206,19 +207,23 @@ def write_boolean(file: BinaryIO | WriteWithCrc, booleans: list[bool], all_defin
 
 def read_utf16(file: BinaryIO) -> str:
     """read a utf-16 string from file"""
-    val = b""
-    for _ in range(MAX_LENGTH):
+    nul = False
+    for i in range(MAX_LENGTH):
         ch = file.read(2)
-        if ch == unhexlify("0000"):
+        if ch == b"\x00\x00":
+            nul = True
             break
-        val += ch
+    size = (i + 1) * 2
+    file.seek(-size, 1)
+    val = file.read(size)
+    if nul:
+        val = val[:-2]
     return val.decode("utf-16LE")
 
 
 def write_utf16(file: BinaryIO | WriteWithCrc, val: str):
     """write a utf-16 string to file"""
-    for c in val:
-        file.write(c.encode("utf-16LE"))
+    file.write(val.encode("utf-16LE"))
     file.write(b"\x00\x00")
 
 
@@ -254,6 +259,8 @@ class PackInfo:
     def _read(self, file: BinaryIO):
         self.packpos = read_uint64(file)
         self.numstreams = read_uint64(file)
+        if self.numstreams > MAX_NUMSTREAMS:
+            raise Bad7zFile("numstreams value %d exceeds limit %d" % (self.numstreams, MAX_NUMSTREAMS))
         pid = file.read(1)
         if pid == PROPERTY.SIZE:
             self.packsizes = [read_uint64(file) for _ in range(self.numstreams)]
@@ -267,7 +274,7 @@ class PackInfo:
                 pid = file.read(1)
         if pid != PROPERTY.END:
             raise Bad7zFile("end id expected but %s found" % repr(pid))  # pragma: no-cover  # noqa
-        self.packpositions: list[int] = [sum(self.packsizes[:i]) for i in range(self.numstreams + 1)]
+        self.packpositions: list[int] = list(accumulate(self.packsizes, initial=0))
         self.enable_digests = len(self.crcs) > 0
         return self
 

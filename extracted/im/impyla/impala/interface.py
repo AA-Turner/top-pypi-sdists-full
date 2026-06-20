@@ -12,12 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-
 import datetime
 import re
-import six
-from six import reraise
 
 from impala.util import _escape
 from impala.error import (  # pylint: disable=unused-import
@@ -66,7 +62,7 @@ class Connection(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         if exc_type is not None:
-            reraise(exc_type, exc_val, exc_tb)
+            raise exc_val.with_traceback(exc_tb)
 
     # optional DB API addition to make the errors attributes of Connection
     Error = Error
@@ -176,7 +172,7 @@ class Cursor(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         if exc_type is not None:
-            reraise(exc_type, exc_val, exc_tb)
+            raise exc_val.with_traceback(exc_tb)
 
 
 def _replace_numeric_markers(operation, string_parameters, paramstyle):
@@ -244,7 +240,7 @@ def _bind_parameters_list(operation, parameters, paramstyle):
     for value in parameters:
         if value is None:
             string_parameters.append('NULL')
-        elif isinstance(value, six.string_types):
+        elif isinstance(value, str):
             string_parameters.append("'" + _escape(value) + "'")
         elif isinstance(value, datetime.datetime):
             string_parameters.append("'" + str(value) + "'")
@@ -259,10 +255,10 @@ def _bind_parameters_list(operation, parameters, paramstyle):
 
 def _bind_parameters_dict(operation, parameters):
     string_parameters = {}
-    for (name, value) in six.iteritems(parameters):
+    for (name, value) in parameters.items():
         if value is None:
             string_parameters[name] = 'NULL'
-        elif isinstance(value, six.string_types):
+        elif isinstance(value, str):
             string_parameters[name] = "'" + _escape(value) + "'"
         elif isinstance(value, datetime.date):
             string_parameters[name] = "'{0}'".format(value)

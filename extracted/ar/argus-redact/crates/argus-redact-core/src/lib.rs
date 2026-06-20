@@ -1,4 +1,10 @@
 //! argus-redact core — pure-Rust PII detection/redaction primitives.
+
+/// Maximum accepted input size, in bytes. Enforced unconditionally at the Rust
+/// core entry points (`match_patterns`, `detect_l1`) so direct `_core.*` callers
+/// are capped identically to the Python wrapper (`pure/normalize.py`).
+pub const MAX_INPUT_SIZE: usize = 1024 * 1024;
+
 pub mod types;
 pub mod merger;
 pub mod restore;
@@ -8,6 +14,7 @@ pub mod validators;
 pub mod data;
 pub mod lang_detect;
 pub mod normalize;
+pub mod confusables;
 pub mod grammar;
 pub mod display_marker;
 pub mod seed;
@@ -16,6 +23,8 @@ pub mod shake_rng;
 pub mod fakers;
 pub mod person_data;
 pub mod hints_data;
+pub mod risk_data;
+pub mod risk;
 pub mod hints;
 pub mod person_zh;
 pub mod person_en;

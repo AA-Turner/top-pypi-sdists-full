@@ -100,6 +100,13 @@ def lint_appspec(
     all_errors.extend(errors)
     all_warnings.extend(warnings)
 
+    # ADR-0039 (#778/#1398) D6/A1: the auth_identity: bridge must be statically complete.
+    from dazzle.core.validation.entities import validate_auth_identity_binding
+
+    errors, warnings = validate_auth_identity_binding(appspec)
+    all_errors.extend(errors)
+    all_warnings.extend(warnings)
+
     errors, warnings = validate_experiences(appspec)
     all_errors.extend(errors)
     all_warnings.extend(warnings)
@@ -227,6 +234,13 @@ def lint_appspec(
     # Workspace primary_actions target resolution (#1324 FR-5 — authored
     # heading-CTA actions must reference a declared surface or workspace)
     errors, warnings = validate_workspace_primary_actions(appspec)
+    all_errors.extend(errors)
+    all_warnings.extend(warnings)
+
+    # #1392 item 3: every custom-surface `emits:` target must resolve to a declared surface.
+    from dazzle.core.validation.ux import validate_emits_targets
+
+    errors, warnings = validate_emits_targets(appspec)
     all_errors.extend(errors)
     all_warnings.extend(warnings)
 

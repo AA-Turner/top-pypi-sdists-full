@@ -141,12 +141,12 @@ def test_llama_cpp_models_filtering(tmp_path):
     large_file.write_text("a" * 100)
     # Force mock filesystem size calculation using monkeypatch
     original_stat = Path.stat
-    def mock_stat(self):
+    def mock_stat(self, *args, **kwargs):
         class MockStat:
             st_size = int(4.5 * (1024 ** 3)) # 4.5 GB
         if self.name == "qwen-coder.gguf":
             return MockStat()
-        return original_stat(self)
+        return original_stat(self, *args, **kwargs)
 
     import unittest.mock as mock
     with mock.patch.object(Path, "stat", mock_stat):
@@ -235,12 +235,12 @@ def test_integration_auto_model_selection_flow(tmp_path, monkeypatch):
 
     # Mock Path stat sizes
     original_stat = Path.stat
-    def mock_stat(self):
+    def mock_stat(self, *args, **kwargs):
         class MockStat:
             st_size = int(6.5 * (1024 ** 3)) # 6.5 GB
         if self.suffix == ".gguf":
             return MockStat()
-        return original_stat(self)
+        return original_stat(self, *args, **kwargs)
 
     # Mock RAM to 16GB
     monkeypatch.setattr("sage.core.auto_model._available_ram_gb", lambda: 16.0)
@@ -284,10 +284,10 @@ def test_llama_cpp_models_stat_os_error(tmp_path):
     (tmp_path / "broken.gguf").write_text("dummy")
     
     original_stat = Path.stat
-    def mock_stat(self):
+    def mock_stat(self, *args, **kwargs):
         if self.name == "broken.gguf":
             raise OSError("Permission denied")
-        return original_stat(self)
+        return original_stat(self, *args, **kwargs)
 
     import unittest.mock as mock
     with mock.patch.object(Path, "stat", mock_stat):
@@ -312,12 +312,12 @@ def test_list_installed_models_default_path(tmp_path, monkeypatch):
     (default_dir / "test.gguf").write_text("model content")
     
     original_stat = Path.stat
-    def mock_stat(self):
+    def mock_stat(self, *args, **kwargs):
         class MockStat:
             st_size = int(1.0 * (1024 ** 3)) # 1 GB
         if self.name == "test.gguf":
             return MockStat()
-        return original_stat(self)
+        return original_stat(self, *args, **kwargs)
         
     import unittest.mock as mock
     with mock.patch.object(Path, "stat", mock_stat):

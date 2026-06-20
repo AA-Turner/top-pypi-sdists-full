@@ -40,7 +40,7 @@ Inspired by C++ code:   https://git.3lp.cx/dyadkin/cryio/src/branch/master/src/e
 __author__ = ["Florian Plaswig", "Jérôme Kieffer"]
 __contact__ = "jerome.kieffer@esrf.eu"
 __license__ = "MIT"
-__date__ = "28/10/2025"
+__date__ = "17/06/2026"
 __copyright__ = "European Synchrotron Radiation Facility, Grenoble, France"
 
 import logging
@@ -61,6 +61,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+LE_uint32 = numpy.dtype("uint32").newbyteorder("<")
 
 MASK = [(1 << i) - 1 for i in range(9)]
 
@@ -86,10 +87,7 @@ def compress(frame):
 
     data_size = pack("<I", buffer.tell())
 
-    if numpy.little_endian:
-        buffer.write(row_start.tobytes())
-    else:
-        buffer.write(row_start.byteswap().tobytes())
+    buffer.write(row_start.astype(LE_uint32).tobytes())
 
     return data_size + buffer.getvalue()
 
@@ -284,8 +282,8 @@ def compress_field(ifield, fieldsize, overflow_table):
 def decode_field(field):
     """decodes a field from bytes.
 
-    One field always encode for 8 pixels but my be stored on 1 to 8 pixels
-    (overflow are handeled separately)
+    One field always encode for 8 pixels but may be stored on 1 to 8 pixels
+    (overflow are handled separately)
 
     :param field: bytes
     :returns list
@@ -302,7 +300,7 @@ def decode_field(field):
 
 
 def read_len_byte(lb):
-    """parses the length byte and returns the sizes of the next twofields
+    """parses the length byte and returns the sizes of the next two fields
     :param lb: int/byte
     :returns tuple
     """
@@ -310,7 +308,7 @@ def read_len_byte(lb):
 
 
 def write_escaped(value, buffer):
-    """write an value to the buffer and escape when overflowing one byte
+    """write a value to the buffer and escape when overflowing one byte
     :param value: int
     :param buffer: io.BytesIO
     """

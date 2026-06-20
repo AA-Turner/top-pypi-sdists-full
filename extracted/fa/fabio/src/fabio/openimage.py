@@ -122,8 +122,13 @@ MAGIC_NUMBERS = [
 ]
 
 
-def do_magic(byts, filename):
-    """Try to interpret the bytes starting the file as a magic number"""
+def _do_magic(byts:bytes, filename:str="") -> str:
+    """Try to interpret the bytes starting the file as a magic number
+
+    :param byts: begining of the file
+    :param filename: name of the file or empty string in the case of a buffer
+    :return: format_type as string
+    """
     for magic, format_type in MAGIC_NUMBERS:
         if byts.startswith(magic):
             if "/" in format_type:
@@ -168,17 +173,17 @@ def do_magic(byts, filename):
                     else:
                         return "tif"
 
-            if format_type == "edf" and isinstance(filename, str):
+            if format_type == "edf" and "." in filename:
+                dot_splitted = filename.split(".")
                 # Might be GE with an EDF header. Check the extension.
-                extension = filename.split(".")[-1]
+                extension = dot_splitted[-1]
                 # If it is a compression extension, check the next one up.
                 if f".{extension}" in ExternalCompressors.COMMANDS:
-                    extension = filename.split(".")[-2]
+                    extension = dot_splitted[-2]
 
                 # If the extension is `ge` plus a number, assume it is GE
                 if re.search(r"^ge\d*$", extension):
                     return "GE"
-
             return format_type
     raise Exception("Could not interpret magic string")
 
@@ -256,6 +261,7 @@ def _openimage(filename):
     hdf5:///example.h5?entry/instrument/detector/data/data#slice=[:,:,5]
 
     """
+    stream_input = False
     if hasattr(filename, "seek") and hasattr(filename, "read"):
         # Data stream without filename
         filename.seek(0)
@@ -263,6 +269,7 @@ def _openimage(filename):
         actual_filename = BytesIO(data)
         # Back to the location before the read
         filename.seek(0)
+        stream_input = True
     else:
         if os.path.exists(filename):
             # Already a valid filename
@@ -284,7 +291,8 @@ def _openimage(filename):
 
     filetype = None
     try:
-        filetype = do_magic(magic_bytes, filename)
+        filetype = _do_magic(magic_bytes,
+                            "" if stream_input else filename)
     except Exception:
         logger.debug("Backtrace", exc_info=True)
         try:
@@ -302,10 +310,10 @@ def _openimage(filename):
 
         except Exception:
             logger.debug("Backtrace", exc_info=True)
-            raise IOError("Fabio could not identify " + filename)
+            raise IOError(f"Fabio could not identify {filename}")
 
     if filetype is None:
-        raise IOError("Fabio could not identify " + filename)
+        raise IOError(f"Fabio could not identify {filename}")
 
     klass_name = "".join(filetype) + "image"
 
@@ -338,16 +346,16 @@ def open_series(
         iterator, or :class:`~fabio.file_series.filename_series` or
         :class:`~fabio.file_series.file_series` objects.
     :param str first_filename: If provided iterate filenames from this filename
-        and try to consecutivelly open next files. If this argument is specified
+        and try to consecutively open next files. If this argument is specified
         the `filenames` have to unspecified. Internally it uses
         :class:`~fabio.file_series.filename_series` to iterate the filenames.
     :param Union[Bool,None] single_frame: If True, all files are supposed to
         contain only one frame.
     :param Union[Bool,None] fixed_frames: If True, all files are supposed to
         contain the same amount of frames (this fixed amount will be reached
-        from the first file of the serie).
+        from the first file of the series).
     :param Union[Integer,None] fixed_frame_number: If set, all files are
-        supposed to contain the same amount of frames (sepecified by this
+        supposed to contain the same amount of frames (specified by this
         argument)
     :rtype: :class:`~file_series.FileSeries`
     """

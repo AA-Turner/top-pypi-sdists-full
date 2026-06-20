@@ -8,19 +8,23 @@
 #
 #    Principal author:       Jérôme Kieffer (Jerome.Kieffer@ESRF.eu)
 #
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#  .
+#  The above copyright notice and this permission notice shall be included in
+#  all copies or substantial portions of the Software.
+#  .
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#  THE SOFTWARE.
 """
 # Unit tests
 
@@ -30,6 +34,7 @@ Jerome Kieffer 04/12/2014
 
 import unittest
 import logging
+import io
 from fabio.openimage import openimage
 from fabio.edfimage import EdfImage
 from fabio.marccdimage import MarccdImage
@@ -69,6 +74,19 @@ class TestOpenEdf(unittest.TestCase):
         filename = UtilsTest.getimage(fname)
         self.checkFile(filename)
 
+    def testStream(self):
+        fname = "F2K_Seb_Lyso0675.edf.bz2"
+        filename = UtilsTest.getimage(fname)[:-4]
+        with open(filename, "rb") as fd:
+            stream = io.BytesIO(fd.read())
+        fimg = openimage(stream)
+        ref = EdfImage()
+        ref.read(filename)
+
+        self.assertEqual(type(ref), type(fimg), "type matches")
+        self.assertEqual(ref.shape, fimg.shape, "shape matches")
+        self.assertEqual(ref.dtype, fimg.dtype, "dtype matches")
+
 
 class TestOpenMccd(unittest.TestCase):
     """openimage opening mccd"""
@@ -96,6 +114,19 @@ class TestOpenMccd(unittest.TestCase):
         fname = "somedata_0001.mccd.bz2"
         filename = UtilsTest.getimage(fname)
         self.checkFile(filename)
+
+    def testStream(self):
+        fname = "somedata_0001.mccd.bz2"
+        filename = UtilsTest.getimage(fname)[:-4]
+        with open(filename, "rb") as fd:
+            stream = io.BytesIO(fd.read())
+        fimg = openimage(stream)
+        ref = MarccdImage()
+        ref.read(filename)
+
+        self.assertTrue("TifImage" in type(fimg).__name__, "type matches")
+        self.assertEqual(ref.shape, fimg.shape, "shape matches")
+        self.assertEqual(ref.dtype, fimg.dtype, "dtype matches")
 
 
 class TestOpenMask(unittest.TestCase):
@@ -129,6 +160,18 @@ class TestOpenMask(unittest.TestCase):
         filename = UtilsTest.getimage(fname)
         self.checkFile(filename)
 
+    def testStream(self):
+        fname = "face.msk.bz2"
+        filename = UtilsTest.getimage(fname)[:-4]
+        with open(filename, "rb") as fd:
+            stream = io.BytesIO(fd.read())
+        fimg = openimage(stream)
+        ref = Fit2dMaskImage()
+        ref.read(filename)
+
+        self.assertTrue("Fit2dMaskImage" in type(fimg).__name__, "type matches")
+        self.assertEqual(ref.shape, fimg.shape, "shape matches")
+        self.assertEqual(ref.dtype, fimg.dtype, "dtype matches")
 
 class TestOpenBruker(unittest.TestCase):
     """openimage opening bruker"""
@@ -159,6 +202,19 @@ class TestOpenBruker(unittest.TestCase):
         fname = "Cr8F8140k103.0026.bz2"
         filename = UtilsTest.getimage(fname)
         self.checkFile(filename)
+
+    def testStream(self):
+        fname = "Cr8F8140k103.0026.bz2"
+        filename = UtilsTest.getimage(fname)[:-4]
+        with open(filename, "rb") as fd:
+            stream = io.BytesIO(fd.read())
+        fimg = openimage(stream)
+        ref = BrukerImage()
+        ref.read(filename)
+
+        self.assertTrue("BrukerImage" in type(fimg).__name__, "type matches")
+        self.assertEqual(ref.shape, fimg.shape, "shape matches")
+        self.assertEqual(ref.dtype, fimg.dtype, "dtype matches")
 
 
 class TestOpenDtrek(unittest.TestCase):
@@ -191,6 +247,19 @@ class TestOpenDtrek(unittest.TestCase):
         filename = UtilsTest.getimage(fname)
         self.checkFile(filename)
 
+    def testStream(self):
+        fname = "mb_LP_1_001.img.bz2"
+        filename = UtilsTest.getimage(fname)[:-4]
+        with open(filename, "rb") as fd:
+            stream = io.BytesIO(fd.read())
+        fimg = openimage(stream)
+        ref = DtrekImage()
+        ref.read(filename)
+
+        self.assertTrue("DtrekImage" in type(fimg).__name__, "type matches")
+        self.assertEqual(ref.shape, fimg.shape, "shape matches")
+        self.assertEqual(ref.dtype, fimg.dtype, "dtype matches")
+
 
 class TestOpenOxd(unittest.TestCase):
     """openimage opening adsc"""
@@ -215,6 +284,19 @@ class TestOpenOxd(unittest.TestCase):
         fname = "b191_1_9_1_uncompressed.img.bz2"
         filename = UtilsTest.getimage(fname)[:-4]
         self.checkFile(filename)
+
+    def testStream(self):
+        fname = "b191_1_9_1_uncompressed.img.bz2"
+        filename = UtilsTest.getimage(fname)[:-4]
+        with open(filename, "rb") as fd:
+            stream = io.BytesIO(fd.read())
+        fimg = openimage(stream)
+        ref = OXDimage()
+        ref.read(filename)
+
+        self.assertTrue("OxdImage" in type(fimg).__name__, "type matches")
+        self.assertEqual(ref.shape, fimg.shape, "shape matches")
+        self.assertEqual(ref.dtype, fimg.dtype, "dtype matches")
 
 
 def suite():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.744
+Version: 0.4.755
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -34,7 +34,7 @@ Requires-Dist: xarray>=2026.2.0
 Requires-Dist: pooch>=1.8.0
 Requires-Dist: arrow>=1.4.0
 Requires-Dist: icclim>=7.0.4
-Requires-Dist: geoprepare>=0.6.129
+Requires-Dist: geoprepare>=0.6.274
 Requires-Dist: logzero>=1.7.0
 Requires-Dist: geopandas>=1.1.2
 Requires-Dist: tabpfn>=6.4.1
@@ -74,6 +74,7 @@ Requires-Dist: stabl>=0.0.1
 Requires-Dist: cachetools>=5.0
 Requires-Dist: geopy>=2.0
 Requires-Dist: scikit-image>=0.21
+Requires-Dist: matplotlib<3.11
 Provides-Extra: dashboard
 Requires-Dist: panel>=1.4.0; extra == "dashboard"
 Requires-Dist: hvplot>=0.10.0; extra == "dashboard"
@@ -220,7 +221,7 @@ Two consumers of `geoprepare` extraction outputs that tune the cropland mask use
 from geocif import threshold_optimizer
 threshold_optimizer.run(cfg_geocif)
 
-# Per-cell binary mask via genetic algorithm (independent in/out decision per cell).
+# Per-cell binary mask — independent in/out decision per cropland cell.
 # Reads geoprepare.extract_cells output:
 #   ${PATHS:dir_output}/cell_optimizer/{country}/{crop}/{country}_{crop}_s{season}_cells.parquet
 # Writes a production-mask parquet at the same location that geoextract picks up.
@@ -229,6 +230,40 @@ cell_optimizer.run(cfg_geocif)
 ```
 
 Configure under `[THRESHOLD_OPTIMIZER]` and `[CELL_OPTIMIZER]` in `geocif.txt`. Outputs land under `${PATHS:dir_output}/ml/analysis/{date}/{threshold_sweep_summary|cell_optimizer}/`.
+
+#### Using the optimized cell mask in production extraction
+
+`geoprepare 0.6.273+` can apply the per-cell mask produced by `cell_optimizer` during EO extraction. Opt in per country (or in `[DEFAULT]`) in `geoextract.txt`:
+
+```ini
+[DEFAULT]
+use_optimized_mask = True
+```
+
+When the flag is on, `geoprepare.extract_EO` reads
+`${PATHS:dir_output}/cell_optimizer/{country}/{crop}/{country}_{crop}_s{season}_optimized_mask.parquet`
+for every configured (country, crop, season) and AND-s it with the existing floor/ceiling AFI mask. Cells the optimizer marked `included=False` are dropped from the per-region aggregate even if they pass the floor/ceiling rule. Multi-season countries get the **union** across seasons — a cell is kept if any season's optimizer selected it.
+
+**Pipeline order with the optimized mask:**
+```python
+geoprepare.extract_cells.run(cfg_geoprepare)   # writes per-cell parquets
+geocif.cell_optimizer.run(cfg_geocif)          # writes optimized_mask.parquet
+geoprepare.geoextract.run(cfg_geoprepare)      # reads optimized_mask.parquet
+```
+
+`extract_EO` aborts at startup with a missing-parquet list if `use_optimized_mask = True` for any country whose mask hasn't been produced yet — silent fallback to the floor/ceiling rule when the operator asked for the overlay would be a confusing footgun, so it doesn't.
+
+Currently wired in `process_aef`, `process_fldas`, `process_chirps_mfc`, `process_soilgrids` (the static + monthly-forecast EO paths). The daily-EO path through `geom_extract` (NDVI, daily CHIRPS, ESI, etc.) is not yet wired — track via a future change in geoprepare.
+
+#### Annual (leave-one-out) masks
+
+Enable `annual_mask = True` under `[CELL_OPTIMIZER]` in `geocif.txt` to produce **one mask per historical year** instead of a single pooled mask. For each year Y, the GA trains on every OTHER year — year Y's yield never sees the cell selection — and that mask is written to a `_y{year}_optimized_mask.parquet` file alongside the pooled one. `geoprepare.extract_EO` prefers the year-specific file when extracting year Y (FLDAS / CHIRPS-MFC, which are per-year datasets) and falls back to the pooled file for forecast / current years. AEF and SoilGrids (static) always use the pooled mask.
+
+This closes the overfitting failure mode where the pooled mask was selected with year Y's yield as part of the training data — visible in pre-0.4.747 runs as regions whose Pearson r between yield and NDVI flipped sign after selection (the GA found anti-correlated cells because R² is sign-blind).
+
+**Cost.** Roughly `(n_years + 1) ×` the pooled-only default per region. On a country with 25 yield years that's ~26× more GA runs; expect runtime to scale accordingly. Opt in only when the data span justifies it.
+
+Off by default. Existing configs without `annual_mask` continue to write the single pooled parquet.
 
 ### ML models
 

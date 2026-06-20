@@ -18,7 +18,7 @@ import pytest
 from smplkit import AsyncJobsClient, JobsClient
 from smplkit.errors import ConflictError, NotFoundError
 from smplkit._generated.jobs.client import AuthenticatedClient
-from smplkit.jobs import AsyncJob, AsyncRun, HttpConfig, Job, JobEnvironment, Run, Usage
+from smplkit.jobs import AsyncJob, AsyncRun, HttpConfig, Job, JobEnvironment, JobKind, Run, RunTrigger, Usage
 
 BASE = "https://jobs.example.com"
 RUN_ID = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d"
@@ -55,7 +55,7 @@ def _job_resource(job_id="my-job", *, created=True, version=1, environments="def
     attributes = {
         "name": "My Job",
         "description": "does a thing",
-        "recurring": True,
+        "kind": "recurring",
         "type": "http",
         "schedule": "0 * * * *",
         "configuration": {
@@ -79,6 +79,16 @@ def _job_resource(job_id="my-job", *, created=True, version=1, environments="def
     if environments is not None:
         attributes["environments"] = environments
     return {"id": job_id, "type": "job", "attributes": attributes}
+
+
+def _kind_resource(kind):
+    """A job resource carrying the given ``kind`` (or none when ``kind`` is None)."""
+    res = _job_resource()
+    if kind is None:
+        del res["attributes"]["kind"]
+    else:
+        res["attributes"]["kind"] = kind
+    return res
 
 
 def _run_resource(run_id=RUN_ID, status="SUCCEEDED", trigger="SCHEDULE", rerun_of=None, environment="production"):
@@ -181,8 +191,25 @@ class TestModels:
         run = Run._from_resource(_run_resource(environment="staging"))
         assert run.status == "SUCCEEDED" and run.total_duration_ms == 400 and "Run(" in repr(run)
         assert run.environment == "staging"
+        # trigger is a plain string, equal to the RunTrigger constant and the raw value
+        assert run.trigger == RunTrigger.SCHEDULE and run.trigger == "SCHEDULE"
         usage = Usage._from_resource(_USAGE)
         assert usage.runs_used == 12 and "Usage(" in repr(usage)
+
+    def test_kind_predicates(self):
+        from smplkit.jobs.clients import _job_base_from_resource
+
+        rec = _job_base_from_resource(_kind_resource("recurring"))
+        assert rec.kind is JobKind.RECURRING
+        assert rec.is_recurring() and not rec.is_manual() and not rec.is_one_off()
+        man = _job_base_from_resource(_kind_resource("manual"))
+        assert man.is_manual() and not man.is_recurring() and not man.is_one_off()
+        off = _job_base_from_resource(_kind_resource("one_off"))
+        assert off.is_one_off() and not off.is_recurring() and not off.is_manual()
+        # a resource with no kind leaves it None — every predicate is False
+        nokind = _job_base_from_resource(_kind_resource(None))
+        assert nokind.kind is None
+        assert not (nokind.is_recurring() or nokind.is_manual() or nokind.is_one_off())
 
     def test_parse_dt_passthrough(self):
         from datetime import datetime, timezone
@@ -214,7 +241,7 @@ class TestModels:
 class TestSyncSurface:
     def test_create_then_update_via_save(self):
         c = _sync()
-        job = c.new("my-job", name="My Job", schedule="0 * * * *", configuration=_CFG, description="d")
+        job = c.new_recurring_job("my-job", name="My Job", schedule="0 * * * *", configuration=_CFG, description="d")
         assert job.created_at is None
         job.save()
         assert job.created_at is not None and job.version == 1
@@ -230,15 +257,40 @@ class TestSyncSurface:
         c.delete("my-job")
         c.get("my-job").delete()  # active-record delete with bound client
 
-    def test_list_recurring_and_name_filters(self):
+    def test_list_kind_scheduled_and_name_filters(self):
         caps: list[dict] = []
         c = _sync(_recording(caps))
-        c.list(recurring=True, name="health")
+        c.list(kind=JobKind.MANUAL, scheduled=True, name="health")
         params = caps[-1]["params"]
-        assert params.get("filter[recurring]") == "true"
+        assert params.get("filter[kind]") == "manual"  # JobKind serialized to its value
+        assert params.get("filter[scheduled]") == "true"
         assert params.get("filter[name]") == "health"
-        # The dropped enabled filter is never emitted.
-        assert "filter[enabled]" not in params
+        # The dropped recurring filter is never emitted.
+        assert "filter[recurring]" not in params
+
+    def test_manual_job_round_trip(self):
+        # A manual job is created with no schedule: ``new()`` leaves schedule
+        # None, the create body carries ``schedule: null``, and the server
+        # echoes back ``kind="manual"`` with no schedule.
+        caps: list[dict] = []
+
+        def h(req: httpx.Request) -> httpx.Response:
+            caps.append({"method": req.method, "body": json.loads(req.content) if req.content else None})
+            if req.url.path == "/api/v1/jobs" and req.method == "POST":
+                attrs = _job_resource("manual-job")["attributes"]
+                attrs["kind"] = "manual"
+                del attrs["schedule"]
+                return httpx.Response(201, json={"data": {"id": "manual-job", "type": "job", "attributes": attrs}})
+            return _handler(req)
+
+        c = _sync(h)
+        job = c.new_manual_job("manual-job", name="Manual", configuration=_CFG)
+        assert job.schedule is None  # no schedule supplied
+        job.set_enabled(True, environment="production")
+        job.save()
+        assert job.is_manual() and job.kind is JobKind.MANUAL and job.schedule is None
+        post = next(x for x in caps if x["method"] == "POST")
+        assert post["body"]["data"]["attributes"]["schedule"] is None  # null sent on the wire
 
     def test_run_runs_usage(self):
         c = _sync()
@@ -259,14 +311,14 @@ class TestSyncSurface:
         with pytest.raises(NotFoundError):
             c.get("missing")
         with pytest.raises(ConflictError):
-            c.new("dup", name="D", schedule="now", configuration=_CFG).save()
+            c.new_manual_job("dup", name="D", configuration=_CFG).save()
 
 
 class TestAsyncSurface:
     def test_full_lifecycle(self):
         async def _run():
             c = _async()
-            job = c.new("my-job", name="My Job", schedule="0 * * * *", configuration=_CFG)
+            job = c.new_recurring_job("my-job", name="My Job", schedule="0 * * * *", configuration=_CFG)
             await job.save()
             assert job.created_at is not None
             job.name = "renamed"
@@ -290,6 +342,22 @@ class TestAsyncSurface:
             assert (await c.runs.cancel(RUN_ID)).status == "CANCELED"
             assert (await c.runs.rerun(RUN_ID)).trigger == "RERUN"
             assert (await c.usage()).runs_used == 12
+
+        asyncio.run(_run())
+
+    def test_async_manual_and_schedule_constructors(self):
+        async def _run():
+            caps: list[dict] = []
+            c = AsyncJobsClient(auth_client=_auth(_recording(caps), is_async=True))
+            manual = c.new_manual_job("m", name="M", configuration=_CFG)
+            assert manual.schedule is None  # no schedule kwarg on the manual constructor
+            await manual.save()
+            when = datetime.datetime(2030, 6, 1)
+            oneoff = c.schedule("o", name="O", schedule=when, configuration=_CFG, environment="staging")
+            await oneoff.save()
+            post = next(x for x in caps if x["method"] == "POST" and x["body"]["data"]["id"] == "o")
+            assert post["body"]["data"]["attributes"]["schedule"] == when.isoformat()
+            assert post["env_header"] == "staging"
 
         asyncio.run(_run())
 
@@ -437,7 +505,7 @@ class TestEnvironmentModelsAndHelpers:
         # must round-trip through new().save() without crashing.
         caps: list[dict] = []
         c = _sync(_recording(caps))
-        job = c.new(
+        job = c.new_recurring_job(
             "my-job",
             name="My Job",
             schedule="0 * * * *",
@@ -476,7 +544,7 @@ class TestEnvironmentModelsAndHelpers:
         c = _sync()
         job = c.get("my-job")
         assert job.enabled is True  # derived roll-up (production enabled)
-        assert job.recurring is True
+        assert job.kind is JobKind.RECURRING and job.is_recurring()
         assert job.environments["production"].enabled is True
         assert job.environments["production"].configuration is None  # inherits base
         assert job.environments["production"].schedule is None  # inherits base schedule
@@ -515,7 +583,7 @@ class TestEnvironmentsSync:
     def test_create_sends_environments_map(self):
         caps: list[dict] = []
         c = _sync(_recording(caps))
-        job = c.new(
+        job = c.new_recurring_job(
             "my-job",
             name="My Job",
             schedule="0 * * * *",
@@ -539,7 +607,7 @@ class TestEnvironmentsSync:
         # round-tripped from a prior GET must never be written back.
         caps: list[dict] = []
         c = _sync(_recording(caps))
-        job = c.new(
+        job = c.new_recurring_job(
             "my-job",
             name="My Job",
             schedule="0 * * * *",
@@ -591,13 +659,15 @@ class TestEnvironmentsSync:
         _sync(_recording(caps3)).run("my-job")
         assert caps3[-1]["env_header"] is None
 
-    def test_one_off_birth_environment_header_on_create(self):
+    def test_schedule_one_off_serializes_datetime_and_birth_environment(self):
         caps: list[dict] = []
         c = _sync(_recording(caps))
-        job = c.new("one-off", name="One", schedule="now", configuration=_CFG, environment="staging")
+        when = datetime.datetime(2030, 1, 1, 12, 30)
+        job = c.schedule("one-off", name="One", schedule=when, configuration=_CFG, environment="staging")
         job.save()
         post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
-        assert post["env_header"] == "staging"
+        assert post["env_header"] == "staging"  # birth environment
+        assert post["body"]["data"]["attributes"]["schedule"] == when.isoformat()  # datetime -> ISO-8601
 
     def test_update_sends_client_default_environment_header(self):
         caps: list[dict] = []
@@ -615,7 +685,7 @@ class TestEnvironmentsAsync:
             caps: list[dict] = []
             c = AsyncJobsClient(auth_client=_auth(_recording(caps), is_async=True), environment="production")
             # create with environments map (async _create header = client default)
-            job = c.new(
+            job = c.new_recurring_job(
                 "my-job",
                 name="My Job",
                 schedule="0 * * * *",

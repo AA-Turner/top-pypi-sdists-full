@@ -62,8 +62,15 @@ class MLLMSchedulerConfig:
     prefill_batch_size: int = 16
     # Completion batch size
     completion_batch_size: int = 16
-    # Prefill step size for chunked prefill
-    prefill_step_size: int = 1024
+    # Prefill step size — per-request prompt-token budget. Vision tokens
+    # balloon the prompt size on VLMs (a 1920×1080 screenshot alone is
+    # ~2200 tokens on Qwen3-VL), so the MLLM-side default is 8192 to
+    # cover typical desktop screenshots and small multi-image messages
+    # out-of-the-box. ``BatchedEngine._start_mllm`` applies a bump-policy
+    # (see ``_resolve_mllm_prefill_step_size``) so a SchedulerConfig
+    # carrying the text-LLM default (2048) gets bumped to 8192, while
+    # any explicit operator-set value is honored as-is (#682, codex r2).
+    prefill_step_size: int = 8192
     # Enable vision embedding cache
     enable_vision_cache: bool = True
     # Maximum cache entries
@@ -577,6 +584,16 @@ class MLLMScheduler:
 
             # output_token_ids is a live reference (not a defensive copy):
             # consumers read it synchronously; the per-decode list() was O(n).
+            #
+            # ``logprobs`` is wired through from the MLLMBatchResponse so a
+            # ``logprobs=true, top_logprobs=K`` chat request gets the same
+            # per-token data the text-only AR path produces. Pre-fix the
+            # MLLM path silently dropped the field — every chunk reached
+            # the route with ``logprobs=None`` and the OpenAI ``choices[0].
+            # logprobs`` slot serialised as ``null``. The shape matches the
+            # text path's ``RequestOutput.logprobs`` field exactly so the
+            # downstream ``_extract_streaming_token_logprobs`` extractor
+            # works unmodified for both paths.
             output = RequestOutput(
                 request_id=request_id,
                 new_token_ids=[response.token],
@@ -584,15 +601,25 @@ class MLLMScheduler:
                 output_token_ids=request.output_tokens,
                 prompt_tokens=request.num_prompt_tokens,
                 completion_tokens=request.num_output_tokens,
+                logprobs=getattr(response, "logprobs", None),
             )
 
-            # Check text-based stop sequences
+            # Check text-based stop sequences against the full decoded
+            # output. ``tokenizer.decode(request.output_tokens)`` re-
+            # decodes the entire token list each step (O(T) per step) —
+            # equivalent to the text scheduler's IncrementalDecoder-
+            # backed surface, but built up from the cumulative token
+            # list. The MLLM streaming detokenizer
+            # (``NaiveStreamingDetokenizer``) only carries the
+            # current-segment slice in its ``.text`` property, so it
+            # is NOT equivalent to a fresh full decode — the stop
+            # check must use the full decode.
             finish_reason = response.finish_reason
             stop_trimmed = False
             if finish_reason is None and request.stop:
                 decoded_so_far = tokenizer.decode(request.output_tokens)
                 for stop_str in request.stop:
-                    if stop_str in decoded_so_far:
+                    if stop_str and stop_str in decoded_so_far:
                         finish_reason = "stop"
                         # Trim output at stop string
                         idx = decoded_so_far.index(stop_str)
@@ -714,22 +741,30 @@ class MLLMScheduler:
                     if uids_to_remove:
                         self.batch_generator.remove(uids_to_remove)
 
-                # Differentiate CLIENT errors (image/video fetch failures)
-                # from SERVER errors (oversized prompt, runtime crash).
+                # Differentiate CLIENT errors (image/video fetch failures,
+                # oversized prompt) from SERVER errors (runtime crash).
                 # Client errors get a non-None ``error`` field so
                 # ``stream_outputs`` can raise — letting the route layer
                 # convert to HTTP 400 instead of the previous silent
                 # 200+empty-content+finish_reason=length pattern that
                 # caused #457 (Anthropic SDK clients + curl saw a 200 OK
-                # with no signal that the image fetch had failed).
+                # with no signal that the image fetch had failed) and
+                # #682 (Desktop users sending 1920×1080 screenshots to a
+                # VLM saw an empty assistant message + "Reached max_tokens
+                # before any output" rendered by the client).
                 #
-                # Non-client errors keep the legacy
-                # finish_reason="length"+empty-text behavior to avoid
-                # breaking callers that handle oversized-prompt as a soft
-                # truncation rather than a hard failure.
+                # The "per-batch cap" string is the marker raised by
+                # ``mllm_batch_generator._process_prompts`` when prompt
+                # tokens (vision + text) exceed the configured cap. For
+                # VLM the typical trigger is a high-resolution image; the
+                # error message already tells the user to downscale or
+                # raise --prefill-step-size, so surfacing the message
+                # is strictly more informative than the legacy soft
+                # truncation.
                 is_client_error = (
                     "Failed to process image" in err_msg
                     or "Failed to process video" in err_msg
+                    or "exceeds the per-batch cap" in err_msg
                 )
                 # Create error outputs (queue delivery deferred to caller).
                 for request_id in error_ids:

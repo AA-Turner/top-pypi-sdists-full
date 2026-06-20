@@ -36,6 +36,7 @@ __all__ = (
     "CapabilityStatusType",
     "ConfigChangeStatusType",
     "ConnectionModeType",
+    "DataSourceAttachmentStatusType",
     "DataSourceStatusType",
     "DeploymentStatusType",
     "DeploymentStrategyType",
@@ -141,6 +142,7 @@ ConfigChangeStatusType = Literal[
     "ValidationFailed",
 ]
 ConnectionModeType = Literal["DIRECT", "VPC_ENDPOINT"]
+DataSourceAttachmentStatusType = Literal["ATTACHED", "FAILED", "PENDING"]
 DataSourceStatusType = Literal["ACTIVE", "DISABLED"]
 DeploymentStatusType = Literal[
     "COMPLETED", "ELIGIBLE", "IN_PROGRESS", "NOT_ELIGIBLE", "PENDING_UPDATE"

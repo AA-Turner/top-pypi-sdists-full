@@ -982,3 +982,249 @@ def test_streaming_rescue_skipped_when_response_format_is_json_schema():
         f"got streamed_content={streamed_content!r}"
     )
     assert "json shape" in streamed_reasoning.lower()
+
+
+# ── 2026-06-17 VibeThinker truncated-``<think>`` rescue gate ──────────
+
+
+def test_rescue_skipped_when_truncated_think_with_finish_length():
+    """2026-06-17 VibeThinker live-test repro: when ``finish_reason="length"``
+    AND ``raw_text`` opens with an unclosed ``<think>``, the rescue must
+    NOT fire. The reasoning trace is an in-progress thought, not a
+    final answer — surfacing it as ``content`` would feed clients the
+    SAME bytes as ``reasoning_content`` and break the "content is the
+    final answer" contract.
+
+    Live-test signature: content_len == reasoning_len (modulo the
+    ``<think>`` opener), byte-identical. After fix: content stays
+    ``None`` so clients can detect "model ran out of budget" via
+    ``finish_reason="length"``.
+    """
+    raw = "<think>The user wants me to compute 17 * 23. Step 1: 17 * 20 = 340"
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text="The user wants me to compute 17 * 23. Step 1: 17 * 20 = 340",
+        tool_calls=None,
+        finish_reason="length",
+        raw_text=raw,
+    )
+    assert rescued is None, (
+        "rescue must NOT fire on truncated-<think> + finish_reason=length; "
+        f"got rescued={rescued!r}"
+    )
+
+
+def test_rescue_skipped_when_truncated_think_with_leading_whitespace():
+    """The leading-position check uses ``lstrip().startswith`` so the
+    gate still fires when ``raw_text`` opens with whitespace before
+    ``<think>`` (the chat-template may emit a leading newline)."""
+    raw = "\n  <think>thinking truncated"
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text="thinking truncated",
+        tool_calls=None,
+        finish_reason="length",
+        raw_text=raw,
+    )
+    assert rescued is None
+
+
+def test_rescue_still_fires_on_length_when_raw_text_lacks_open_think():
+    """Counter-test for the new gate: a ``finish_reason="length"``
+    response WITHOUT an unclosed ``<think>`` opener (e.g. gemma-4
+    stuck inside ``<|channel>thought\\n…`` — the original #569
+    failure mode) must STILL rescue. The new gate only blocks the
+    rescue when the model's raw text explicitly carries an unclosed
+    ``<think>`` opener."""
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text="reasoning that got truncated",
+        tool_calls=None,
+        finish_reason="length",
+        raw_text="reasoning that got truncated",  # no <think> opener
+    )
+    assert rescued == "reasoning that got truncated", (
+        "rescue MUST fire for #569 gemma-4 failure mode even when "
+        "finish_reason=length, when raw_text does not start with <think>"
+    )
+
+
+def test_rescue_still_fires_on_truncated_think_when_finish_is_stop():
+    """Counter-test: ``raw_text`` opens with unclosed ``<think>`` but
+    ``finish_reason`` is ``stop`` (model voluntarily ended without
+    producing a final answer). The new gate is specifically the
+    ``length`` x truncated-think INTERSECTION — other shapes still
+    rescue. This protects models that emit only a thought block then
+    stop (uncommon but possible)."""
+    raw = "<think>just a thought"
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text="just a thought",
+        tool_calls=None,
+        finish_reason="stop",
+        raw_text=raw,
+    )
+    assert rescued == "just a thought"
+
+
+def test_rescue_still_fires_on_truncated_think_when_finish_unknown():
+    """Counter-test: when ``finish_reason`` is ``None`` (legacy caller
+    that doesn't thread the kwarg), the gate is conservative and
+    rescue still fires. The kwarg defaults to ``None`` for back-
+    compat with existing callers."""
+    raw = "<think>just a thought"
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text="just a thought",
+        tool_calls=None,
+    )
+    assert rescued == "just a thought"
+
+
+def test_rescue_skipped_when_closed_think_block_truncated_after():
+    """Edge case: ``raw_text`` contains a CLOSED ``<think>...</think>``
+    block plus partial answer truncated at length. The gate uses
+    ``"</think>" not in raw_text`` so the closed block bypasses the
+    rescue-skip and the rescue fires normally (the rescue's normal
+    predicates still gate it appropriately)."""
+    raw = "<think>complete thought</think>The ans"
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text="complete thought",
+        tool_calls=None,
+        finish_reason="length",
+        raw_text=raw,
+    )
+    # </think> is in raw_text, so the gate does NOT fire → rescue runs
+    # normally and surfaces the reasoning.
+    assert rescued == "complete thought"
+
+
+# Codex r3 P1 — streaming rescue must skip truncated `<think>`.
+
+
+def test_streaming_rescue_gate_skips_synthetic_truncated_think():
+    """Codex r3 P1: when streaming, the parser consumes ``<think>``
+    as a state transition so ``accumulated_reasoning`` doesn't carry
+    the literal opener. The route synthesises a ``raw_text`` of
+    ``"<think>" + accumulated_reasoning`` when the parser's
+    ``_saw_any_tag`` flag indicates an unclosed opener was seen, then
+    feeds that to the rescue. The rescue's existing
+    ``finish=length + raw_text.lstrip().startswith("<think>") +
+    "</think>" not in raw_text`` gate then suppresses the rescue
+    uniformly with the non-streaming path.
+
+    Pin the gate semantics: synthetic ``"<think>" + trace`` with
+    ``finish="length"`` MUST suppress the rescue.
+    """
+    trace = "the model is in the middle of thinking..."
+    synthetic_raw = "<think>" + trace
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text=trace,
+        tool_calls=None,
+        finish_reason="length",
+        raw_text=synthetic_raw,
+    )
+    assert rescued is None, (
+        "streaming truncated-<think> path must suppress rescue — got "
+        f"rescued={rescued!r}"
+    )
+
+
+def test_streaming_rescue_still_fires_for_gemma4_stuck_thought_shape():
+    """Counter-test: gemma-4 stuck-thought streaming shape — the
+    original #569 failure — has no ``<think>`` opener in the
+    accumulated reasoning. The route DOES NOT synthesise a
+    ``<think>`` prefix for it (``_saw_any_tag`` is False on a
+    non-``<think>`` parser like gemma4), so the rescue's gate stays
+    OFF and the rescue still fires. Pin that path against drift."""
+    trace = "the model is stuck inside the analysis channel"
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text=trace,
+        tool_calls=None,
+        finish_reason="length",
+        # No ``<think>`` prefix — the route did not synthesise one
+        # because ``_saw_any_tag`` was False on the (non-think) parser.
+        raw_text=trace,
+    )
+    assert rescued == trace, (
+        f"gemma-4 #569 failure mode must still rescue — got rescued={rescued!r}"
+    )
+
+
+# Bug C / Bug 3 cross-cut: PR #715 bundle live-test repro for
+# ``reasoning_is_case4``.
+
+
+def test_rescue_skipped_when_reasoning_is_case4_and_length():
+    """PR #715 bundle, fuzz finding C / VibeThinker live-test repro:
+    when the parser's Case-4 fallback fired (no tags in raw_text,
+    ``enable_thinking=True``, parser routed the whole output to
+    reasoning, helper blanked cleaned_text=""), the rescue MUST NOT
+    surface that reasoning as content.
+
+    Without this gate, the route mistakes the post-Case-4 empty
+    content for a #569 silent drop and feeds the client byte-
+    identical content + reasoning_content (live-test repro: model
+    answered "What is 2+2?" with plain prose, no ``<think>`` token
+    emitted at all, raw_text did NOT start with ``<think>`` — so the
+    original narrow opener gate missed it).
+    """
+    trace = (
+        'First, the user asked "What is 2+2?" This seems like a '
+        "simple arithmetic question. Let me think..."
+    )
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text=trace,
+        tool_calls=None,
+        finish_reason="length",
+        # No ``<think>`` literal — model emitted plain prose. Without
+        # the case4 gate the rescue would surface the trace.
+        raw_text=trace,
+        reasoning_is_case4=True,
+    )
+    assert rescued is None, (
+        f"Case-4 length-truncated reasoning must NOT be surfaced as "
+        f"content — got rescued={rescued!r}"
+    )
+
+
+def test_rescue_fires_when_case4_but_finish_is_stop():
+    """Counter-test: the Case-4 gate is specifically for the
+    ``length`` x case4 INTERSECTION. A model that voluntarily ended
+    after emitting only reasoning (no ``<think>`` token, finish=stop)
+    is a genuine silent drop — rescue still fires.
+
+    Uncommon but real (a chatty model that "talks itself out" of the
+    final answer). The same shape #569 was originally written for
+    on gemma-4."""
+    trace = "thought trace that ended cleanly without a final answer"
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text=trace,
+        tool_calls=None,
+        finish_reason="stop",
+        raw_text=trace,
+        reasoning_is_case4=True,
+    )
+    assert rescued == trace
+
+
+def test_rescue_fires_when_length_but_not_case4():
+    """Counter-test: ``finish_reason="length"`` without the Case-4
+    signal AND without the ``<think>`` opener still rescues — the
+    original #569 gemma-4 stuck-thought failure shape. The case4
+    gate is additive, not replacing, the narrow opener gate."""
+    trace = "gemma-4 analysis channel content"
+    rescued = _rescue_silent_drop_from_reasoning(
+        final_content=None,
+        reasoning_text=trace,
+        tool_calls=None,
+        finish_reason="length",
+        raw_text=trace,
+        reasoning_is_case4=False,
+    )
+    assert rescued == trace

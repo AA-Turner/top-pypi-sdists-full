@@ -455,7 +455,7 @@
         fmax, &ifeasiblef, &iinfesiblef, ierror, args, jones,
         force_stop);
     if (!ret) {
-        return NULL;
+        goto cleanup;
     }
 /* +-----------------------------------------------------------------------+ */
 /* | Added error checking.                                                 | */
@@ -777,7 +777,8 @@
         PyObject* callback_py = PyObject_CallObject(callback, arg_tuple);
         Py_DECREF(arg_tuple);
         if( !callback_py ) {
-            return NULL;
+            ret = NULL;
+            goto cleanup;
         }
         Py_DECREF(callback_py);  /* DECREF the callback's return value */
     }

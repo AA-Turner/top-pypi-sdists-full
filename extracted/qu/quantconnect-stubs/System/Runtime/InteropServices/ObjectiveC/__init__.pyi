@@ -7,6 +7,13 @@ import System.Runtime.InteropServices
 import System.Runtime.InteropServices.ObjectiveC
 
 
+class ObjectiveCTrackedTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
 class ObjectiveCMarshal(System.Object):
     """This class has no documentation."""
 
@@ -54,13 +61,6 @@ class ObjectiveCMarshal(System.Object):
         ...
 
     def unhandled_exception_propagation_handler(self, exception: System.Exception, last_method: System.RuntimeMethodHandle, context: typing.Optional[System.IntPtr]) -> typing.Tuple[typing.Any, System.IntPtr]:
-        ...
-
-
-class ObjectiveCTrackedTypeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
         ...
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nameparser
-Version: 1.2.0
+Version: 1.2.1
 Summary: A simple Python module for parsing human names into their individual components.
 Author-email: Derek Gulbranson <derek73@gmail.com>
 License: LGPL

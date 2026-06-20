@@ -1,388 +1,147 @@
-"""Initialize new HUD environments with minimal templates."""
+"""``hud init``: scaffold a new HUD environment package.
+
+By default (or in a non-interactive shell) it writes a minimal local scaffold —
+no network, no API key. With ``--preset`` (or via the interactive picker) it
+downloads one of the starter environments from GitHub instead — the same set the
+platform's *environments/new* flow offers. See :mod:`hud.cli.presets`.
+"""
 
 from __future__ import annotations
 
-import os
+import shutil
+import sys
 import tarfile
-import tempfile
-import time
 from pathlib import Path
+from typing import Any
 
 import httpx
-import questionary
 import typer
 
-from hud.cli.utils.api import hud_headers
-from hud.settings import settings
 from hud.utils.hud_console import HUDConsole
 
-# Presets mapping to public GitHub repositories under hud-evals org
-GITHUB_OWNER = "hud-evals"
-GITHUB_BRANCH = "main"
+from .presets import ENVIRONMENT_PRESETS, PRESETS_BY_ID, EnvironmentPreset, materialize_preset
+from .templates import DOCKERFILE_HUD, ENV_PY, PYPROJECT_TOML, TASKS_PY
 
-PRESET_MAP: dict[str, str | None] = {
-    "blank": "hud-blank",
-    "deep-research": "hud-deepresearch",
-    "browser": "hud-browser",
-    "remote-browser": "hud-remote-browser",
-    "coding": "coding-template",
-    "rubrics": "hud-rubrics",
-    "verilog-coding-template": "verilog-coding-template",
-    "data-science-template": "data-science-template",
-}
-
-SKIP_DIR_NAMES = {"node_modules", "__pycache__", "dist", "build", ".next", ".git"}
-
-# Files that need placeholder replacement
-PLACEHOLDER_FILES = {
-    "server/pyproject.toml",
-    "environment/pyproject.toml",
-    "server/main.py",
-    "server/README.md",
-    "environment/README.md",
-    "tasks.json",
-    "test_env.ipynb",
-    "README.md",
-}
+_LOCAL_SCAFFOLD = "__local__"
 
 
-def _replace_placeholders(target_dir: Path, env_name: str) -> list[str]:
-    """Replace placeholders in template files with the actual environment name.
-
-    Args:
-        target_dir: Directory containing the downloaded template files
-        env_name: The environment name to replace placeholders with
-
-    Returns:
-        List of files that were modified
-    """
-    modified_files = []
-    placeholder = "blank"  # Placeholder used in blank environment template
-
-    # Normalize environment name for use in code/configs
-    # Replace spaces and special chars with underscores for Python identifiers
-    normalized_name = env_name.replace("-", "_").replace(" ", "_")
-    normalized_name = "".join(c if c.isalnum() or c == "_" else "_" for c in normalized_name)
-
-    for root, dirs, files in os.walk(target_dir):
-        # Skip directories we don't want to process
-        dirs[:] = [d for d in dirs if d not in SKIP_DIR_NAMES]
-
-        for file in files:
-            file_path = Path(root) / file
-
-            # Check if this file should have placeholders replaced
-            should_replace = file in PLACEHOLDER_FILES or any(
-                file_path.relative_to(target_dir).as_posix().endswith(f) for f in PLACEHOLDER_FILES
-            )
-
-            if should_replace:
-                try:
-                    content = file_path.read_text(encoding="utf-8")
-                    if placeholder in content:
-                        new_content = content.replace(placeholder, normalized_name)
-                        file_path.write_text(new_content, encoding="utf-8")
-                        modified_files.append(str(file_path.relative_to(target_dir)))
-                except Exception:  # noqa: S110
-                    # Skip files that can't be read as text
-                    pass
-
-    return modified_files
+def _python_name(name: str) -> str:
+    """Normalize a package name into a Python-identifier-ish env name."""
+    name = name.replace("-", "_").replace(" ", "_")
+    return "".join(c if c.isalnum() or c == "_" else "_" for c in name)
 
 
-def _fetch_available_templates() -> tuple[list[dict], list[dict]]:
-    """Fetch available templates from the HUD API.
-
-    Returns (public_templates, private_templates). Falls back to empty
-    private list if the API is unreachable or the user has no API key.
-    """
-    if not settings.api_key:
-        return [], []
-
-    try:
-        with httpx.Client(timeout=10) as client:
-            resp = client.get(
-                f"{settings.hud_api_url}/templates/available",
-                headers=hud_headers(),
-            )
-            if resp.status_code != 200:
-                return [], []
-            data = resp.json()
-            return data.get("public_templates", []), data.get("private_templates", [])
-    except Exception:
-        return [], []
-
-
-def _prompt_for_preset() -> tuple[str, bool] | None:
-    """Ask the user to choose a preset when not provided.
-
-    Returns (preset_id, is_private) or None if the user cancels.
-    """
-    # Fetch private templates from API
-    _, private_templates = _fetch_available_templates()
-
-    try:
-        choices = [questionary.Choice(title=key, value=(key, False)) for key in PRESET_MAP] + [
-            questionary.Choice(title=t["id"], value=(t["id"], True)) for t in private_templates
-        ]
-
-        selected = questionary.select(
-            "Choose a preset",
-            choices=choices,
-        ).ask()
-        if not selected:
-            return None  # User cancelled
-        return selected
-    except KeyboardInterrupt:
-        return None  # User pressed Ctrl+C
-    except Exception:
-        return ("blank", False)
-
-
-def _download_tarball_repo(
-    owner: str, repo: str, ref: str, dest_dir: Path, files_created: list[str]
-) -> None:
-    """Download a GitHub tarball and extract the entire repository."""
-    tarball_url = f"https://codeload.github.com/{owner}/{repo}/tar.gz/{ref}"
-
-    token = os.getenv("GITHUB_TOKEN")
-    headers = {"Authorization": f"token {token}"} if token else {}
-    with (
-        tempfile.NamedTemporaryFile(delete=False) as tmp_file,
-        httpx.Client(timeout=60) as client,
-        client.stream(
-            "GET",
-            tarball_url,
-            headers=headers,
-        ) as resp,
-    ):
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"Failed to download tarball (HTTP {resp.status_code}) from {tarball_url}"
-            )
-        for chunk in resp.iter_bytes():
-            if chunk:
-                tmp_file.write(chunk)
-        tmp_path = Path(tmp_file.name)
-
-    _extract_tarball(tmp_path, dest_dir, files_created)
-
-
-def _download_private_template(template_id: str, dest_dir: Path, files_created: list[str]) -> None:
-    """Download a private template tarball from the HUD API."""
-    url = f"{settings.hud_api_url}/templates/private/{template_id}/download"
-
-    with (
-        tempfile.NamedTemporaryFile(delete=False) as tmp_file,
-        httpx.Client(timeout=120) as client,
-        client.stream("GET", url, headers=hud_headers()) as resp,
-    ):
-        if resp.status_code == 403:
-            raise RuntimeError("Access denied: your team does not have access to this template.")
-        if resp.status_code != 200:
-            raise RuntimeError(f"Failed to download private template (HTTP {resp.status_code})")
-        for chunk in resp.iter_bytes():
-            if chunk:
-                tmp_file.write(chunk)
-        tmp_path = Path(tmp_file.name)
-
-    _extract_tarball(tmp_path, dest_dir, files_created)
-
-
-def _extract_tarball(tmp_path: Path, dest_dir: Path, files_created: list[str]) -> None:
-    """Extract a tarball into dest_dir, stripping the top-level directory."""
-    try:
-        with tarfile.open(tmp_path, mode="r:gz") as tar:
-            members = tar.getmembers()
-            if not members:
-                return
-            top = members[0].name.split("/", 1)[0]
-
-            for member in members:
-                name = member.name
-                if name == top:
-                    continue
-
-                if not name.startswith(top + "/"):
-                    continue
-
-                rel_path = name[len(top) + 1 :]
-                if not rel_path:
-                    continue
-
-                out_path = (dest_dir / rel_path).resolve()
-                dest_root = dest_dir.resolve()
-                if not str(out_path).startswith(str(dest_root)):
-                    continue
-
-                if member.isdir():
-                    out_path.mkdir(parents=True, exist_ok=True)
-                elif member.isreg():
-                    out_path.parent.mkdir(parents=True, exist_ok=True)
-                    extracted = tar.extractfile(member)
-                    if extracted is None:
-                        continue
-                    with open(out_path, "wb") as f:
-                        f.write(extracted.read())
-                    # Use absolute dest_root for relative path computation to avoid Windows issues
-                    files_created.append(str(out_path.relative_to(dest_root)))
-    finally:
-        from contextlib import suppress
-
-        with suppress(Exception):
-            os.remove(tmp_path)
-
-
-def create_environment(
-    name: str | None, directory: str, force: bool, preset: str | None = None
-) -> None:
-    """Create a new HUD environment by downloading a preset from the repo."""
-
-    hud_console = HUDConsole()
-
-    is_private = False
-
-    # Choose preset
-    if preset:
-        preset_stripped = preset.strip()
-        preset_normalized = preset_stripped.lower()
-        # Check if the preset matches a private template (case-insensitive)
-        _, private_templates = _fetch_available_templates()
-        for t in private_templates:
-            if t["id"].lower() == preset_normalized:
-                # Preserve the original API ID for case-sensitive downstream use
-                preset_normalized = t["id"]
-                is_private = True
-                break
-    else:
-        preset_result = _prompt_for_preset()
-        if preset_result is None:
-            # User cancelled the selection
-            raise typer.Exit(0)
-        preset_normalized, is_private = preset_result
-
-    # If no name is provided, use the preset name as the environment name
-    if name is None:
-        name = preset_normalized
-        hud_console.info(f"Using preset name as environment name: {name}")
-
-    # Always create a new directory based on the name
-    target_dir = Path.cwd() / name if directory == "." else Path(directory) / name
-
-    if not is_private and preset_normalized not in PRESET_MAP:
-        available = ", ".join(sorted(PRESET_MAP.keys()))
-        hud_console.warning(
-            f"Unknown preset '{preset_normalized}', defaulting to 'blank' (available: {available})"
-        )
-        preset_normalized = "blank"
-
-    # Check if directory exists
-    if target_dir.exists() and any(target_dir.iterdir()):
-        if not force:
-            hud_console.error(f"Directory {target_dir} already exists and is not empty")
-            hud_console.info("Use --force to overwrite existing files")
+def _resolve_preset(preset: str | None, hud_console: HUDConsole) -> EnvironmentPreset | None:
+    """Pick the starter: an explicit ``--preset`` id, an interactive choice, or
+    ``None`` for the minimal local scaffold."""
+    if preset is not None:
+        chosen = PRESETS_BY_ID.get(preset)
+        if chosen is None:
+            available = ", ".join(PRESETS_BY_ID)
+            hud_console.error(f"Unknown preset {preset!r}. Available: {available}")
             raise typer.Exit(1)
-        else:
-            hud_console.warning(f"Overwriting existing files in {target_dir}")
+        return chosen
 
-    hud_console.header(f"Initializing HUD Environment: {name} (preset: {preset_normalized})")
-    target_dir.mkdir(parents=True, exist_ok=True)
+    # No flag: pick interactively when we have a TTY, else the local scaffold.
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return None
 
-    started = time.time()
-    files_created_dl: list[str] = []
+    choices: list[str | dict[str, Any]] = [
+        {"name": "Minimal (local scaffold, no download)", "value": _LOCAL_SCAFFOLD},
+        *({"name": f"{p.name} — {p.description}", "value": p.id} for p in ENVIRONMENT_PRESETS),
+    ]
+    selected = hud_console.select("Choose a starter", choices, default=0)
+    return None if selected == _LOCAL_SCAFFOLD else PRESETS_BY_ID[selected]
 
-    if is_private:
-        hud_console.section_title("Downloading private template from HUD")
-        try:
-            _download_private_template(
-                template_id=preset_normalized,
-                dest_dir=target_dir,
-                files_created=files_created_dl,
-            )
-        except Exception as e:
-            hud_console.error(f"Failed to download private template '{preset_normalized}': {e}")
-            raise typer.Exit(1) from None
-    else:
-        # Download preset from GitHub
-        repo_name = PRESET_MAP[preset_normalized]
-        if repo_name is None:
-            hud_console.error("Internal error: preset mapping missing repo name")
-            raise typer.Exit(1)
 
-        hud_console.section_title("Downloading template from GitHub")
-        source_url = f"https://github.com/{GITHUB_OWNER}/{repo_name}"
-        hud_console.info("Source: " + source_url)
-
-        try:
-            _download_tarball_repo(
-                owner=GITHUB_OWNER,
-                repo=repo_name,
-                ref=GITHUB_BRANCH,
-                dest_dir=target_dir,
-                files_created=files_created_dl,
-            )
-        except Exception as e:
-            hud_console.error(f"Failed to download preset '{preset_normalized}': {e}")
-            raise typer.Exit(1) from None
-
-    duration_ms = int((time.time() - started) * 1000)
-    hud_console.success(
-        f"Downloaded {len(files_created_dl)} files in {duration_ms} ms into {target_dir}"
-    )
-
-    # Replace placeholders in template files (only for blank preset)
-    if preset_normalized == "blank" and not is_private:
-        hud_console.section_title("Customizing template files")
-        modified_files = _replace_placeholders(target_dir, name)
-        if modified_files:
-            hud_console.success(f"Replaced placeholders in {len(modified_files)} files:")
-            for file in modified_files[:5]:  # Show first 5 files
-                hud_console.status_item(file, "updated")
-            if len(modified_files) > 5:
-                hud_console.info(f"... and {len(modified_files) - 5} more files")
-        else:
-            hud_console.info("No placeholder replacements needed")
-
-    hud_console.section_title("Top-level files and folders")
-    for entry in sorted(os.listdir(target_dir)):
-        hud_console.status_item(entry, "added")
-
-    hud_console.section_title("Next steps")
-    # Since we now almost always create a new directory, show cd command
-    hud_console.info("1. Enter the directory:")
-    hud_console.command_example(f"cd {target_dir.name}")
-    hud_console.info("\n2. Start development server (with MCP inspector):")
-    hud_console.command_example("hud dev --inspector")
-    hud_console.info("\n3. Review the README in this preset for specific instructions.")
-    hud_console.info("\n4. Customize as needed.")
+def _write_local_scaffold(target: Path, env_name: str, hud_console: HUDConsole) -> None:
+    """Write the bundled minimal env package into ``target``."""
+    files = {
+        "pyproject.toml": PYPROJECT_TOML.format(name=env_name.replace("_", "-")),
+        "env.py": ENV_PY.format(env_name=env_name),
+        "tasks.py": TASKS_PY.format(env_name=env_name),
+        "Dockerfile.hud": DOCKERFILE_HUD,
+    }
+    target.mkdir(parents=True, exist_ok=True)
+    for filename, content in files.items():
+        (target / filename).write_text(content)
+        hud_console.status_item(filename, "✓")
 
 
 def init_command(
-    name: str = typer.Argument(None, help="Environment name (default: directory name)"),
-    directory: str = typer.Option(".", "--dir", "-d", help="Target directory"),
+    name: str = typer.Argument(..., help="Environment name (directory to create)"),
+    directory: str = typer.Option(".", "--dir", "-d", help="Parent directory"),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
     preset: str | None = typer.Option(
         None,
         "--preset",
         "-p",
-        help="Download a preset: blank, deep-research, browser, rubrics",
+        help="Starter preset to download from GitHub (e.g. blank, browser, "
+        "deepresearch, cua, autonomous-businesses, verilog). Omit for an interactive picker; in a "
+        "non-interactive shell, omitting it writes the minimal local scaffold.",
     ),
 ) -> None:
-    """🚀 Initialize a HUD environment.
+    """🚀 Create a new HUD environment package.
 
-    [not dim]Choose a preset interactively and create a new directory.
-
-    Use --preset to skip selection and download a specific template.
+    [not dim]With no --preset, writes a minimal local scaffold (env.py, tasks.py,
+    Dockerfile.hud, pyproject.toml) — or, in a TTY, lets you pick a starter. With
+    --preset, downloads that starter from GitHub.
 
     Examples:
-        hud init                    # Choose a preset interactively
-        hud init my-env             # Initialize with custom name
-        hud init --preset browser   # Download browser preset[/not dim]
-
+        hud init my-env                  # interactive picker (or local scaffold)
+        hud init my-env --preset browser  # download the browser starter
+        hud init my-env --dir envs       # create ./envs/my-env[/not dim]
     """
-    if preset:
-        create_environment(name, directory, force, preset)
-    else:
-        from hud.cli.flows.init import smart_init
+    hud_console = HUDConsole()
 
-        smart_init(name, directory, force)
+    target = Path(directory) / name
+    if target.exists() and any(target.iterdir()) and not force:
+        hud_console.error(f"{target} already exists and is not empty (use --force)")
+        raise typer.Exit(1)
+
+    chosen = _resolve_preset(preset, hud_console)
+
+    hud_console.header(f"HUD Init: {name}")
+    if chosen is not None:
+        hud_console.info(f"Downloading {chosen.owner}/{chosen.repo} …")
+        created = not target.exists()
+        try:
+            materialize_preset(chosen, target)
+        except (httpx.HTTPError, tarfile.TarError, ValueError, OSError) as exc:
+            # Don't leave a half-written tree behind — it would trip the
+            # non-empty-directory guard on the next run. Only remove a directory
+            # this run created (never a dir the user already had).
+            if created and target.exists():
+                shutil.rmtree(target, ignore_errors=True)
+            hud_console.error(f"Failed to fetch preset {chosen.id!r}: {exc}")
+            raise typer.Exit(1) from exc
+        hud_console.status_item(f"{chosen.owner}/{chosen.repo}", "✓")
+    else:
+        _write_local_scaffold(target, _python_name(name), hud_console)
+
+    hud_console.section_title("Next Steps")
+    hud_console.info("")
+    hud_console.command_example(f"cd {target}", "1. Enter the package")
+    hud_console.info("")
+    if chosen is not None:
+        hud_console.info("2. Read the README for this starter's setup + tasks.")
+        hud_console.info("")
+        hud_console.command_example("hud eval tasks.py claude", "3. Run an agent over the tasks")
+        hud_console.info("")
+        hud_console.info("4. Deploy for scale")
+        hud_console.info("   hud deploy, then run many evals in parallel.")
+    else:
+        hud_console.info("2. Define task definitions in env.py")
+        hud_console.info("   A @env.template is an async generator: it yields a prompt, then")
+        hud_console.info("   (after the agent answers) yields a reward.")
+        hud_console.info("")
+        hud_console.info("3. List the tasks to run in tasks.py")
+        hud_console.info("   Call a task with args to bind a runnable Task.")
+        hud_console.info("")
+        hud_console.command_example("hud eval tasks.py claude", "4. Run an agent over them")
+        hud_console.info("")
+        hud_console.info("5. Deploy for scale")
+        hud_console.info("   hud deploy, then run many evals in parallel.")
+    hud_console.info("")
+    hud_console.info("Tip: Install the HUD skill so your coding agent can help you build:")
+    hud_console.command_example("npx skills add docs.hud.ai", "Install HUD skill")

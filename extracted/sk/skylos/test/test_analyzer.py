@@ -9,6 +9,7 @@ from collections import defaultdict
 from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.analysis.penalties import apply_penalties
+from skylos.deadcode.config_entrypoints import configured_entrypoint_reason
 
 from skylos.analyzer import (
     Skylos,
@@ -205,6 +206,39 @@ class TestSkylos:
 
         assert "root_traced" in names
         assert "unused" in names
+
+    def test_analysis_summary_includes_directory_rollups(self, tmp_path):
+        source = tmp_path / "src" / "api" / "views.py"
+        source.parent.mkdir(parents=True)
+        source.write_text(
+            "def used():\n"
+            "    return 1\n\n"
+            "def unused_handler():\n"
+            "    return 2\n\n"
+            "def very_long():\n"
+            + "".join(f"    value_{i} = {i}\n" for i in range(55))
+            + "    return value_0\n\n"
+            "used()\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path),
+                conf=0,
+                enable_quality=True,
+                grep_verify=False,
+                trace_file=False,
+            )
+        )
+
+        rollups = result["analysis_summary"]["by_directory"]
+        api_rollup = next(item for item in rollups if item["path"] == "src/api")
+        assert api_rollup["total"] >= 2
+        assert api_rollup["files"] == 1
+        assert api_rollup["dead_code"] >= 1
+        assert api_rollup["quality"] >= 1
+        assert api_rollup["rules"]["SKY-C304"] == 1
 
     @patch("skylos.analyzer.Path")
     def test_get_python_files_single_file(self, mock_path, skylos):
@@ -658,6 +692,113 @@ class TestAnalyze:
         }
 
         assert "AgentActionName" not in unused_imports
+
+    def test_noqa_f401_suppresses_only_matching_unused_import(self, tmp_path):
+        (tmp_path / "constants.py").write_text(
+            "USED_FOR_COMPAT = 1\n"
+            "PLAIN_UNUSED = 2\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "facade.py").write_text(
+            "from constants import (\n"
+            "    USED_FOR_COMPAT,  # noqa: F401 - compatibility re-export\n"
+            "    PLAIN_UNUSED,\n"
+            ")\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0, grep_verify=False))
+        unused_imports = {
+            item["simple_name"] for item in result.get("unused_imports", [])
+        }
+        suppressed = {
+            item["name"]
+            for item in result.get("suppressed", [])
+            if item.get("suppression_code") == "noqa:F401"
+        }
+
+        assert "USED_FOR_COMPAT" not in unused_imports
+        assert "PLAIN_UNUSED" in unused_imports
+        assert "USED_FOR_COMPAT" in suppressed
+
+    def test_noqa_f401_on_multiline_import_statement_suppresses_aliases(
+        self, tmp_path
+    ):
+        (tmp_path / "constants.py").write_text(
+            "COMPAT_ONE = 1\n"
+            "COMPAT_TWO = 2\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "facade.py").write_text(
+            "from constants import (  # noqa: F401 - compatibility re-export\n"
+            "    COMPAT_ONE,\n"
+            "    COMPAT_TWO,\n"
+            ")\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0, grep_verify=False))
+        unused_imports = {
+            item["simple_name"] for item in result.get("unused_imports", [])
+        }
+
+        assert "COMPAT_ONE" not in unused_imports
+        assert "COMPAT_TWO" not in unused_imports
+
+    def test_noqa_f401_on_multiline_import_close_suppresses_aliases(
+        self, tmp_path
+    ):
+        (tmp_path / "constants.py").write_text(
+            "COMPAT_ONE = 1\n"
+            "COMPAT_TWO = 2\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "facade.py").write_text(
+            "from constants import (\n"
+            "    COMPAT_ONE,\n"
+            "    COMPAT_TWO,\n"
+            ")  # noqa: F401 - compatibility re-export\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0, grep_verify=False))
+        unused_imports = {
+            item["simple_name"] for item in result.get("unused_imports", [])
+        }
+
+        assert "COMPAT_ONE" not in unused_imports
+        assert "COMPAT_TWO" not in unused_imports
+
+    def test_noqa_f401_on_second_import_does_not_suppress_first_import(
+        self, tmp_path
+    ):
+        (tmp_path / "app.py").write_text(
+            "import os\n"
+            "import sys  # noqa: F401 - compatibility re-export\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0, grep_verify=False))
+        unused_imports = {
+            item["simple_name"] for item in result.get("unused_imports", [])
+        }
+        suppressed = {item["name"] for item in result.get("suppressed", [])}
+
+        assert "os" in unused_imports
+        assert "sys" in suppressed
+
+    def test_noqa_f401_does_not_suppress_unused_variable(self, tmp_path):
+        (tmp_path / "app.py").write_text(
+            "unused_value = 1  # noqa: F401\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0, grep_verify=False))
+        unused_variables = {
+            item["simple_name"] for item in result.get("unused_variables", [])
+        }
+
+        assert "unused_value" in unused_variables
 
     def test_mcp_decorated_tools_and_resources_are_live(self, tmp_path):
         (tmp_path / "server.py").write_text(
@@ -1125,7 +1266,7 @@ max_args = false
         assert result["unused_functions"]
         assert "SKY-D201" in {f.get("rule_id") for f in result.get("danger", [])}
 
-    @patch("skylos.analyzer.scan_typescript_file")
+    @patch("skylos.analysis.file_processing.scan_typescript_file")
     def test_proc_file_dispatches_js_to_typescript_scanner(self, mock_scan):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
             f.write("export function run() { return 1; }\n")
@@ -1490,7 +1631,7 @@ max_args = false
         assert ("SKY-Q803", "mini_pkg.core") not in architecture_rules
         assert ("SKY-Q803", "tests.test_core") not in architecture_rules
 
-    @patch("skylos.analyzer.scan_typescript_file")
+    @patch("skylos.analysis.file_processing.scan_typescript_file")
     def test_proc_file_dispatches_mjs_to_typescript_scanner(self, mock_scan):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".mjs", delete=False) as f:
             f.write("export function run() { return 1; }\n")
@@ -1506,7 +1647,7 @@ max_args = false
         mock_scan.assert_called_once()
         assert result == tuple(range(13))
 
-    @patch("skylos.analyzer.scan_php_file")
+    @patch("skylos.analysis.file_processing.scan_php_file")
     def test_proc_file_dispatches_php_to_php_scanner(self, mock_scan):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".php", delete=False) as f:
             f.write("<?php function run() { return 1; }\n")
@@ -1522,7 +1663,7 @@ max_args = false
         mock_scan.assert_called_once()
         assert result == tuple(range(13))
 
-    @patch("skylos.analyzer.scan_rust_file")
+    @patch("skylos.analysis.file_processing.scan_rust_file")
     def test_proc_file_dispatches_rust_to_rust_scanner(self, mock_scan):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as f:
             f.write("pub fn run() { }\n")
@@ -2016,6 +2157,155 @@ class TestApplyPenalties:
             skylos, mock_def, mock_test_aware_visitor, mock_framework_aware_visitor
         )
         assert mock_def.confidence == 0
+
+
+class TestConfiguredDeadCodeEntrypoints:
+    @patch("skylos.analysis.penalties.detect_framework_usage")
+    def test_configured_class_entrypoint_matches_path_and_base(
+        self,
+        mock_detect_framework,
+        mock_definition,
+        mock_test_aware_visitor,
+        mock_framework_aware_visitor,
+    ):
+        mock_detect_framework.return_value = None
+        skylos = Skylos()
+        skylos._project_root = Path("/repo")
+        cfg = {
+            "dead_code": {
+                "entrypoints": [
+                    {
+                        "type": "class",
+                        "name": "_Main",
+                        "path": "app/main.py",
+                        "base_classes": ["Application"],
+                        "reason": "custom app entrypoint",
+                    }
+                ]
+            }
+        }
+        mock_def = mock_definition(
+            name="app.main._Main",
+            simple_name="_Main",
+            type="class",
+            confidence=100,
+        )
+        mock_def.filename = Path("/repo/app/main.py")
+        mock_def.base_classes = ["framework.Application"]
+
+        apply_penalties(
+            skylos,
+            mock_def,
+            mock_test_aware_visitor,
+            mock_framework_aware_visitor,
+            cfg,
+        )
+
+        assert mock_def.confidence == 0
+        assert mock_def.skip_reason == "custom app entrypoint"
+        assert mock_def.suppression_code == "configured_entrypoint"
+
+    def test_configured_method_entrypoint_matches_parent_base(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            """
+[tool.skylos]
+ignore = []
+
+[[tool.skylos.dead_code.entrypoints]]
+type = "method"
+name = ["create"]
+parent = { name = "Main", base_classes = ["Application"] }
+reason = "custom framework lifecycle method"
+""",
+            encoding="utf-8",
+        )
+        (tmp_path / "main.py").write_text(
+            """
+class Application:
+    pass
+
+class Main(Application):
+    def create(self):
+        return None
+
+    def stale(self):
+        return None
+
+app = Main()
+""",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0))
+        unused_methods = {
+            item["full_name"].rsplit(".", 1)[-1]
+            for item in result["unused_functions"]
+        }
+
+        assert "create" not in unused_methods
+        assert "stale" in unused_methods
+
+    def test_configured_function_entrypoint_matches_decorator(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            """
+[tool.skylos]
+ignore = []
+
+[[tool.skylos.dead_code.entrypoints]]
+type = "function"
+decorators = ["runtime_hook"]
+reason = "custom decorator entrypoint"
+""",
+            encoding="utf-8",
+        )
+        (tmp_path / "hooks.py").write_text(
+            """
+def runtime_hook(fn):
+    return fn
+
+@runtime_hook
+def boot():
+    return None
+
+def orphan():
+    return None
+""",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0))
+        unused_functions = {
+            item["simple_name"] for item in result["unused_functions"]
+        }
+
+        assert "boot" not in unused_functions
+        assert "orphan" in unused_functions
+
+    def test_malformed_entrypoint_rule_does_not_suppress_broadly(
+        self, mock_definition
+    ):
+        skylos = Skylos()
+        skylos._project_root = Path("/repo")
+        cfg = {
+            "dead_code": {
+                "entrypoints": [
+                    {
+                        "type": "function",
+                        "path": "main.py",
+                        "reason": "too broad",
+                    }
+                ]
+            }
+        }
+        mock_def = mock_definition(
+            name="main.orphan",
+            simple_name="orphan",
+            type="function",
+            confidence=100,
+        )
+        mock_def.filename = Path("/repo/main.py")
+
+        assert configured_entrypoint_reason(mock_def, skylos, cfg) is None
 
 
 class TestIgnorePragmas:

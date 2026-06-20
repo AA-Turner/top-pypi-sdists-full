@@ -15,6 +15,7 @@ from pyld import iri_resolver, jsonld
 
 from .resolved_context import ResolvedContext
 
+# Restraints
 MAX_CONTEXT_URLS = 10
 
 
@@ -23,14 +24,22 @@ class ContextResolver:
     Resolves and caches remote contexts.
     """
 
-    def __init__(self, shared_cache, document_loader):
+    def __init__(
+        self, shared_cache, document_loader, max_context_urls: int = MAX_CONTEXT_URLS
+    ):
         """
         Creates a ContextResolver.
+
+        :param shared_cache: the shared document cache.
+        :param document_loader: the document loader.
+        :param max_context_urls: the maximum number of times to recusively fetch contexts.
+          (default MAX_CONTEXT_URLS).
         """
         # processor-specific RDF parsers
         self.per_op_cache = {}
         self.shared_cache = shared_cache
         self.document_loader = document_loader
+        self.max_context_urls: int = max_context_urls
 
     def resolve(self, active_ctx, context, base, cycles=None):
         """
@@ -39,8 +48,7 @@ class ContextResolver:
         :param active_ctx: the current active context.
         :param context: the context to resolve.
         :param base: the absolute URL to use for making url absolute.
-        :param cycles: the maximum number of times to recusively fetch contexts.
-          (default MAX_CONTEXT_URLS).
+        :param cycles: the set to store fetched contexts and detect cycles. (default None).
         """
         if cycles is None:
             cycles = set()
@@ -125,11 +133,11 @@ class ContextResolver:
 
     def _fetch_context(self, active_ctx, url, cycles):
         # check for max context URLs fetched during a resolve operation
-        if len(cycles) > MAX_CONTEXT_URLS:
+        if len(cycles) > self.max_context_urls:
             raise jsonld.JsonLdError(
                 'Maximum number of @context URLs exceeded.',
                 'jsonld.ContextUrlError',
-                {'max': MAX_CONTEXT_URLS},
+                {'max': self.max_context_urls},
                 code=(
                     'loading remote context failed'
                     if active_ctx.get('processingMode') == 'json-ld-1.0'

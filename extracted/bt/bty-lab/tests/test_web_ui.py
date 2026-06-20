@@ -150,28 +150,34 @@ def test_ui_dashboard_renders_after_login(client: TestClient) -> None:
     assert "Images" in body
     # Health Monitoring panel (renamed from "Sanity checklist").
     assert "Health Monitoring" in body
-    # Recent-activity card title.
-    assert "Recent Events" in body
+    # Recent-activity card title (renamed in v0.57: distance in
+    # time is subject to the row's age, not the card label).
+    assert "Last 10 Events" in body
     # Navbar still carries the Machines nav-btn.
     assert 'href="/ui/machines">' in body
     assert "Machines" in body
 
 
-def test_ui_images_renders_default_catalog_repo(
+def test_ui_images_renders_default_catalog_url(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The /ui/images Fetch control surfaces the catalog repo
-    (default ``safl/nosi``, the upstream image-builder) in the
-    button title + the fetch-release form action. v0.46 split the
-    catalog repo away from the netboot repo so the catalog comes
-    from nosi while netboot artifacts stay on safl/bty."""
+    """The /ui/images Fetch control surfaces the catalog URL (the
+    default points at nosi's /releases/latest/download/catalog.toml,
+    the upstream image-builder) in the button title + the fetch-
+    release form action. ``$BTY_BOOT_RELEASE_REPO`` controls only
+    the netboot repo, not the catalog URL."""
     monkeypatch.setenv("BTY_BOOT_RELEASE_REPO", "")
     _login(client)
     r = client.get("/ui/images")
     assert r.status_code == 200
     body = r.text
     assert "safl/nosi" in body
+    # Default pins to a specific nosi ISO-week release at the time
+    # bty was cut (not /latest/), so two operators on the same bty
+    # version see byte-identical catalog content.
+    assert "/releases/download/" in body
+    assert "/catalog.toml" in body
     assert 'action="/ui/catalog/fetch-release"' in body
 
 
@@ -222,7 +228,7 @@ def test_ui_dashboard_shows_recent_activity_after_a_pxe_event(client: TestClient
     r = client.get("/ui/dashboard")
     assert r.status_code == 200
     body = r.text
-    assert "Recent Events" in body
+    assert "Last 10 Events" in body
     assert "machine.discovered" in body
     assert 'href="/ui/events"' in body
 
@@ -480,7 +486,8 @@ def test_subnavs_drop_the_redundant_list_pill(client: TestClient) -> None:
     # Settings carries its own section-jump sub-nav (anchor links + rules).
     settings = client.get("/ui/settings").text
     assert 'aria-label="Settings sections"' in settings
-    assert 'href="#upstream-sources"' in settings
+    assert 'href="#netboot-release"' in settings
+    assert 'href="#catalog-source"' in settings
     assert 'href="#dhcp-pxe"' in settings
 
 
@@ -864,6 +871,103 @@ def test_ui_machines_filter_unrecognised_value_falls_back_to_full_list(
     assert "filter:" not in body
     # SSE wiring restored when no filter active.
     assert 'sse-connect="/events/machines"' in body
+
+
+def _machines_tbody(body: str) -> str:
+    """Extract the inner contents of the ``<tbody id="machines-tbody">``.
+    Other parts of the page (the inline-add form's placeholder, JS
+    snippets, the Activity card) mention MACs too, so a body-wide
+    ``index()`` matches the wrong text. Scoping to the tbody keeps the
+    sort/search assertions tied to the rows that actually rendered."""
+    head = 'id="machines-tbody"'
+    start = body.index(head)
+    open_close = body.index(">", start)
+    end = body.index("</tbody>", open_close)
+    return body[open_close + 1 : end]
+
+
+def test_ui_machines_sort_by_column_orders_table(client: TestClient) -> None:
+    """``?sort=<col>&dir=<asc|desc>`` orders the machines table by the
+    chosen column. The column allowlist is the SQL-injection guard;
+    here we just confirm the happy path: two MACs added in one order
+    appear in the requested order in the response."""
+    _login(client)
+    # Stage two machines: discovery order gives ee:ff then ee:11.
+    client.get("/pxe/aa:bb:cc:dd:ee:ff")
+    client.get("/pxe/aa:bb:cc:dd:ee:11")
+    # Default sort is mac ASC; ee:11 < ee:ff so ee:11 appears first.
+    tbody = _machines_tbody(client.get("/ui/machines").text)
+    assert tbody.index("aa:bb:cc:dd:ee:11") < tbody.index("aa:bb:cc:dd:ee:ff")
+    # ``?dir=desc`` flips the order.
+    tbody = _machines_tbody(client.get("/ui/machines?sort=mac&dir=desc").text)
+    assert tbody.index("aa:bb:cc:dd:ee:ff") < tbody.index("aa:bb:cc:dd:ee:11")
+
+
+def test_ui_machines_sort_unknown_column_falls_back_to_default(client: TestClient) -> None:
+    """A ``?sort=`` value not in the page's allowlist falls back to the
+    default (mac) rather than being interpolated into the SQL. This
+    is the SQL-injection guard; a bogus column must not 500 or leak."""
+    _login(client)
+    client.get("/pxe/aa:bb:cc:dd:ee:aa")
+    # Garbage column name; default-mac ASC should still render the row.
+    r = client.get("/ui/machines?sort=%3B+DROP+TABLE+machines%3B--&dir=asc")
+    assert r.status_code == 200
+    assert "aa:bb:cc:dd:ee:aa" in r.text
+
+
+def test_ui_machines_search_filters_by_mac_or_hostname(client: TestClient) -> None:
+    """``?q=<text>`` is a substring filter across MAC, hostname,
+    image ref, and last-seen IP. Typing a few hex of one MAC narrows
+    the table to just that machine; clearing the query restores the
+    full list."""
+    _login(client)
+    client.get("/pxe/aa:bb:cc:dd:ee:11")
+    client.get("/pxe/aa:bb:cc:dd:ee:ff")
+    body = client.get("/ui/machines?q=ee%3Aff").text
+    list_part = body.split('id="machines-activity"')[0]
+    assert "aa:bb:cc:dd:ee:ff" in list_part
+    assert "aa:bb:cc:dd:ee:11" not in list_part
+    # The "Clear" anchor is rendered while a query is active.
+    assert "Clear" in body
+    # Without the q the second MAC reappears.
+    body = client.get("/ui/machines").text
+    list_part = body.split('id="machines-activity"')[0]
+    assert "aa:bb:cc:dd:ee:11" in list_part
+
+
+def test_ui_machines_search_with_no_matches_renders_empty_state(client: TestClient) -> None:
+    """A search that matches nothing must not 500; it should render
+    the table chrome with zero rows and the active-search chip so
+    the operator can see why the table looks empty."""
+    _login(client)
+    client.get("/pxe/aa:bb:cc:dd:ee:11")
+    r = client.get("/ui/machines?q=zzzzz")
+    assert r.status_code == 200
+    body = r.text
+    assert "aa:bb:cc:dd:ee:11" not in body.split('id="machines-activity"')[0]
+    # Footer says "No machines."
+    assert "No machines." in body
+
+
+def test_ui_machines_pagination_slices_rows(client: TestClient) -> None:
+    """``?per_page=25&page=2`` slices the machines list to a 25-row
+    window starting at row 26. Stage enough rows that two pages
+    exist and assert the first row of page 2 lands."""
+    _login(client)
+    # 27 machines so the 25-per-page slicing has a meaningful page 2.
+    for i in range(27):
+        client.get(f"/pxe/aa:bb:cc:dd:00:{i:02x}")
+    # Page 1: first 25 (00:00..00:18). Page 2: 00:19, 00:1a.
+    page1 = client.get("/ui/machines?per_page=25&page=1").text
+    page2 = client.get("/ui/machines?per_page=25&page=2").text
+    list1 = page1.split('id="machines-activity"')[0]
+    list2 = page2.split('id="machines-activity"')[0]
+    assert "aa:bb:cc:dd:00:00" in list1
+    assert "aa:bb:cc:dd:00:18" in list1
+    assert "aa:bb:cc:dd:00:1a" in list2
+    # Inline pagination "<a>-<b> of <total>" reflects the slice.
+    assert "<strong>1</strong>&ndash;<strong>25</strong>" in page1
+    assert "<strong>26</strong>&ndash;<strong>27</strong>" in page2
 
 
 def test_ui_machines_filter_discovered_excludes_assigned(client: TestClient) -> None:
@@ -1697,16 +1801,18 @@ def test_ui_settings_renders_when_authed(client: TestClient) -> None:
     r = client.get("/ui/settings")
     assert r.status_code == 200
     body = r.text
-    # Editable upstream card: netboot repo + catalog repo + the two
-    # tag fields + the save form. v0.46+ split the release repo into
-    # separate netboot + catalog repos so a default deploy can pull
-    # the catalog from nosi while netboot artifacts stay on safl/bty.
-    assert "Upstream sources" in body
+    # Editable upstream cards: separate Netboot release (repo + tag)
+    # and Catalog (single URL) panels. The catalog has no repo/tag
+    # split: the URL is the only knob.
+    assert "Netboot release" in body
+    assert ">Catalog<" in body  # the card header label
     assert 'action="/ui/settings/upstream"' in body
     assert 'id="netboot_repo"' in body
-    assert 'id="catalog_repo"' in body
-    assert 'id="catalog_tag"' in body
     assert 'id="netboot_tag"' in body
+    assert 'id="catalog_url"' in body
+    # No catalog repo / tag fields any more.
+    assert 'id="catalog_repo"' not in body
+    assert 'id="catalog_tag"' not in body
     # Read-only config groups: storage + the Identity magic values.
     assert "Storage paths" in body
     # v0.42+: the convention is BTY_<SECTION>_<KEY>; the legacy
@@ -1878,17 +1984,18 @@ def test_ui_settings_upstream_override_round_trips(client: TestClient) -> None:
     """Saving upstream overrides persists them; the Settings page then
     shows them, and clearing the fields reverts to the defaults.
 
-    v0.46+: the form takes ``netboot_repo`` (default ``safl/bty``)
-    and ``catalog_repo`` (default ``safl/nosi``) as separate knobs.
+    The form takes ``netboot_repo`` + ``netboot_tag`` (defaults
+    ``safl/bty`` / ``latest``) and a single ``catalog_url`` (default
+    nosi's ``/releases/latest/download/catalog.toml``).
     """
     _login(client)
+    custom_catalog = "https://example.invalid/forks/catalog.toml"
     r = client.post(
         "/ui/settings/upstream",
         data={
             "netboot_repo": "acme/bty-fork",
-            "catalog_repo": "acme/nosi-fork",
-            "catalog_tag": "v1.2.3",
             "netboot_tag": "v1.2.3",
+            "catalog_url": custom_catalog,
         },
         follow_redirects=False,
     )
@@ -1896,24 +2003,17 @@ def test_ui_settings_upstream_override_round_trips(client: TestClient) -> None:
     assert r.headers["location"] == "/ui/settings?saved=upstream"
     body = client.get("/ui/settings").text
     assert "acme/bty-fork" in body
-    assert "acme/nosi-fork" in body
     assert "v1.2.3" in body
-    # The derived catalog URL uses the catalog repo + explicit-tag form.
-    assert "https://github.com/acme/nosi-fork/releases/download/v1.2.3/catalog.toml" in body
+    assert custom_catalog in body
     # Clearing every field reverts to defaults.
     client.post(
         "/ui/settings/upstream",
-        data={
-            "netboot_repo": "",
-            "catalog_repo": "",
-            "catalog_tag": "",
-            "netboot_tag": "",
-        },
+        data={"netboot_repo": "", "netboot_tag": "", "catalog_url": ""},
     )
     body2 = client.get("/ui/settings").text
     assert "acme/bty-fork" not in body2
-    assert "acme/nosi-fork" not in body2
-    # Both built-in defaults visible again.
+    assert custom_catalog not in body2
+    # Built-in defaults visible again (netboot repo, catalog URL).
     assert "safl/bty" in body2
     assert "safl/nosi" in body2
 
@@ -1921,19 +2021,19 @@ def test_ui_settings_upstream_override_round_trips(client: TestClient) -> None:
 def test_ui_settings_upstream_audit_event_captures_old_and_new(
     client: TestClient,
 ) -> None:
-    """``settings.upstream.updated`` event details carries both
-    ``old`` and ``new`` for each of the four knobs (netboot_repo,
-    catalog_repo, catalog_tag, netboot_tag). v0.46+ split the
-    release repo into separate netboot + catalog repos."""
+    """``settings.upstream.updated`` event details carry both
+    ``old`` and ``new`` for each of the three editable knobs
+    (netboot_repo, netboot_tag, catalog_url)."""
     _login(client)
+    catalog_v1 = "https://example.invalid/v1/catalog.toml"
+    catalog_v2 = "https://example.invalid/v2/catalog.toml"
     # Initial save: olds are all None (defaults in effect).
     r1 = client.post(
         "/ui/settings/upstream",
         data={
             "netboot_repo": "acme/bty-fork",
-            "catalog_repo": "acme/nosi-fork",
-            "catalog_tag": "v1.0.0",
             "netboot_tag": "v1.0.0",
+            "catalog_url": catalog_v1,
         },
         follow_redirects=False,
     )
@@ -1943,9 +2043,8 @@ def test_ui_settings_upstream_audit_event_captures_old_and_new(
         "/ui/settings/upstream",
         data={
             "netboot_repo": "acme/bty-fork",  # unchanged
-            "catalog_repo": "acme/nosi-fork",  # unchanged
-            "catalog_tag": "v1.1.0",  # changed
             "netboot_tag": "",  # cleared
+            "catalog_url": catalog_v2,  # changed
         },
         follow_redirects=False,
     )
@@ -1958,9 +2057,8 @@ def test_ui_settings_upstream_audit_event_captures_old_and_new(
     newest = events[0]
     d = newest["details"]
     assert d["netboot_repo"] == {"old": "acme/bty-fork", "new": "acme/bty-fork"}
-    assert d["catalog_repo"] == {"old": "acme/nosi-fork", "new": "acme/nosi-fork"}
-    assert d["catalog_tag"] == {"old": "v1.0.0", "new": "v1.1.0"}
     assert d["netboot_tag"] == {"old": "v1.0.0", "new": None}
+    assert d["catalog_url"] == {"old": catalog_v1, "new": catalog_v2}
 
 
 def test_ui_settings_renders_backup_schedule_card(client: TestClient) -> None:
@@ -2059,21 +2157,17 @@ def test_ui_settings_backup_invalid_retention_rejects(client: TestClient) -> Non
 def test_settings_upstream_override_drives_catalog_fetch_url(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The catalog-fetch handler resolves its URL from the catalog
-    repo + catalog tag overrides at request time. v0.46+: the
-    catalog repo is its own knob, independent of the netboot repo."""
+    """The catalog-fetch handler resolves its URL from the
+    ``catalog_url`` override at request time. The URL is the only
+    catalog knob: no repo/tag composition, no rewriting."""
     import urllib.error
     import urllib.request
 
     _login(client)
+    custom = "https://example.invalid/forks/catalog.toml"
     client.post(
         "/ui/settings/upstream",
-        data={
-            "netboot_repo": "",
-            "catalog_repo": "acme/widgets",
-            "catalog_tag": "v9.9.9",
-            "netboot_tag": "",
-        },
+        data={"netboot_repo": "", "netboot_tag": "", "catalog_url": custom},
     )
     seen: list[str] = []
 
@@ -2083,7 +2177,7 @@ def test_settings_upstream_override_drives_catalog_fetch_url(
 
     monkeypatch.setattr(urllib.request, "urlopen", _fake_urlopen)
     client.post("/ui/catalog/fetch-release", follow_redirects=False)
-    assert seen == ["https://github.com/acme/widgets/releases/download/v9.9.9/catalog.toml"]
+    assert seen == [custom]
 
 
 def test_ui_settings_requires_auth(client: TestClient) -> None:
@@ -2150,9 +2244,15 @@ def test_ui_machines_list_shows_boot_mode_badge(client: TestClient) -> None:
     assert "bg-dark" in body and ">ipxe-exit<" in body
     assert "bg-info text-dark" in body and ">bty-tui<" in body
     assert "bg-primary" in body and ">bty-inventory<" in body
-    # Table header has Boot column + Last flashed column.
-    assert ">Boot</th>" in body
-    assert ">Last flashed</th>" in body
+    # Table header has Boot column + Last flashed column. The
+    # sortable-header macro wraps each label in an ``<a>``, so the
+    # closing ``</th>`` isn't adjacent to the label any more; the
+    # label text plus the sort-arrow span are enough to confirm the
+    # column shipped.
+    assert "Boot\n" in body or "Boot " in body
+    assert "Last flashed\n" in body or "Last flashed " in body
+    assert 'href="?' in body and "sort=boot_mode" in body
+    assert "sort=last_flashed_at" in body
 
 
 def test_ui_machine_detail_shows_boot_state_tracking_signals(client: TestClient) -> None:
@@ -2275,23 +2375,26 @@ def test_ui_machine_detail_inventory_state_requires_actual_inventory(
     assert "live env running; awaiting inventory" not in body
 
 
-def test_ui_events_renders_older_link_when_full_page(
+def test_ui_events_renders_pagination_nav_when_full_page(
     client: TestClient,
 ) -> None:
-    """The /ui/events page renders an "Older" link with
-    ``?before_id=<smallest-id-on-page>`` when a full page of 50
-    rows comes back. Without the cursor an operator on a busy
-    appliance can't page back beyond the first 50 events."""
+    """The /ui/events page renders the offset-pagination footer
+    (Page 2 / Next / Last buttons) when more than ``per_page``
+    rows exist. Replaces the old cursor-pagination ``before_id``
+    contract retired in v0.57."""
     _login(client)
-    # 60 PXE check-ins -> 120 events (machine.discovered +
-    # pxe.offered per MAC) -- well past page_size=50.
-    for i in range(60):
+    # 12 PXE check-ins emit several events each, easily filling more
+    # than one page at the default per_page=10.
+    for i in range(12):
         client.get(f"/pxe/aa:bb:cc:dd:ee:{i:02x}")
     r = client.get("/ui/events", cookies=AUTH)
     assert r.status_code == 200
     body = r.text
-    # Cursor link present.
-    assert "before_id=" in body
+    # Page-N anchor links from the inline-pagination macro.
+    assert "page=2" in body
+    # The /ui/events url with explicit ?page=2 lands on page 2.
+    r2 = client.get("/ui/events?page=2", cookies=AUTH)
+    assert r2.status_code == 200
 
 
 def test_ui_events_pagination_cursor_returns_older_rows(

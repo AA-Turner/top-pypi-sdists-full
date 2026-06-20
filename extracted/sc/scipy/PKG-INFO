@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: scipy
-Version: 1.17.1
+Version: 1.18.0
 Summary: Fundamental algorithms for scientific computing in Python
 Maintainer-Email: SciPy Developers <scipy-dev@python.org>
 License: Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy Developers.
@@ -41,7 +41,6 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
@@ -57,8 +56,8 @@ Project-URL: documentation, https://docs.scipy.org/doc/scipy/
 Project-URL: source, https://github.com/scipy/scipy
 Project-URL: download, https://github.com/scipy/scipy/releases
 Project-URL: tracker, https://github.com/scipy/scipy/issues
-Requires-Python: >=3.11
-Requires-Dist: numpy<2.7,>=1.26.4
+Requires-Python: >=3.12
+Requires-Dist: numpy<2.8,>=2.0.0
 Provides-Extra: test
 Requires-Dist: pytest>=8.0.0; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
@@ -75,6 +74,7 @@ Requires-Dist: array-api-strict>=2.3.1; extra == "test"
 Requires-Dist: Cython; extra == "test"
 Requires-Dist: meson; extra == "test"
 Requires-Dist: ninja; sys_platform != "emscripten" and extra == "test"
+Requires-Dist: scipy-doctest>=2.0.0; extra == "test"
 Provides-Extra: doc
 Requires-Dist: sphinx<8.2.0,>=5.0.0; extra == "doc"
 Requires-Dist: intersphinx_registry; extra == "doc"
@@ -93,7 +93,8 @@ Requires-Dist: tabulate; extra == "doc"
 Provides-Extra: dev
 Requires-Dist: click<8.3.0; extra == "dev"
 Requires-Dist: spin; extra == "dev"
-Requires-Dist: mypy==1.10.0; extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
+Requires-Dist: pyrefly==0.63.0; extra == "dev"
 Requires-Dist: typing_extensions; extra == "dev"
 Requires-Dist: types-psutil; extra == "dev"
 Requires-Dist: pycodestyle; extra == "dev"
@@ -105,7 +106,7 @@ Description-Content-Type: text/x-rst
   :target: https://scipy.org
   :width: 110
   :height: 110
-  :align: left 
+  :align: left
 
 .. image:: https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A
   :target: https://numfocus.org
@@ -139,7 +140,8 @@ ODE solvers, and more.
 - **Contributing:** https://scipy.github.io/devdocs/dev/index.html
 - **Bug reports:** https://github.com/scipy/scipy/issues
 - **Code of Conduct:** https://docs.scipy.org/doc/scipy/dev/conduct/code_of_conduct.html
-- **Report a security vulnerability:** https://tidelift.com/docs/security
+- **Report a security vulnerability:** via Tidelift, as explained in
+  `our docs on Security <https://scipy.github.io/devdocs/tutorial/security.html>`__
 - **Citing in your work:** https://www.scipy.org/citing-scipy/
 
 SciPy is built to work with

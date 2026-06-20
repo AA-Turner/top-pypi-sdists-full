@@ -12,13 +12,6 @@ import System.Security
 import System.Security.Permissions
 
 
-class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
 class PartialTrustVisibilityLevel(IntEnum):
     """This class has no documentation."""
 
@@ -148,7 +141,15 @@ class IPermission(System.Security.ISecurityEncodable, metaclass=abc.ABCMeta):
         ...
 
 
-class SecurityTransparentAttribute(System.Attribute):
+class SecurityCriticalScope(IntEnum):
+    """This class has no documentation."""
+
+    EXPLICIT = 0
+
+    EVERYTHING = ...
+
+
+class SecuritySafeCriticalAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
@@ -165,17 +166,118 @@ class SecurityRuleSet(IntEnum):
     LEVEL_2 = 2
 
 
-class SecurityTreatAsSafeAttribute(System.Attribute):
+class SecurityRulesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def skip_verification_in_full_trust(self) -> bool:
+        ...
+
+    @skip_verification_in_full_trust.setter
+    def skip_verification_in_full_trust(self, value: bool) -> None:
+        ...
+
+    @property
+    def rule_set(self) -> System.Security.SecurityRuleSet:
+        ...
+
+    def __init__(self, rule_set: System.Security.SecurityRuleSet) -> None:
+        ...
+
+
+class SecurityTransparentAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class SecuritySafeCriticalAttribute(System.Attribute):
+class SecureString(System.Object, System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any, length: int) -> None:
+        ...
+
+    def append_char(self, c: str) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def copy(self) -> System.Security.SecureString:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def insert_at(self, index: int, c: str) -> None:
+        ...
+
+    def is_read_only(self) -> bool:
+        ...
+
+    def make_read_only(self) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
+        ...
+
+    def set_at(self, index: int, c: str) -> None:
+        ...
+
+
+class UnverifiableCodeAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
+        ...
+
+
+class VerificationException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class IStackWalk(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def Assert(self) -> None:
+        ...
+
+    def demand(self) -> None:
+        ...
+
+    def deny(self) -> None:
+        ...
+
+    def permit_only(self) -> None:
         ...
 
 
@@ -289,112 +391,41 @@ class SecurityException(System.SystemException):
         ...
 
 
-class SecurityCriticalScope(IntEnum):
+class AllowPartiallyTrustedCallersAttribute(System.Attribute):
     """This class has no documentation."""
 
-    EXPLICIT = 0
+    @property
+    def partial_trust_visibility_level(self) -> System.Security.PartialTrustVisibilityLevel:
+        ...
 
-    EVERYTHING = ...
+    @partial_trust_visibility_level.setter
+    def partial_trust_visibility_level(self, value: System.Security.PartialTrustVisibilityLevel) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
 
 
-class UnverifiableCodeAttribute(System.Attribute):
+class SecurityTreatAsSafeAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class SecurityRulesAttribute(System.Attribute):
+class SecurityCriticalAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def skip_verification_in_full_trust(self) -> bool:
-        ...
-
-    @skip_verification_in_full_trust.setter
-    def skip_verification_in_full_trust(self, value: bool) -> None:
-        ...
-
-    @property
-    def rule_set(self) -> System.Security.SecurityRuleSet:
-        ...
-
-    def __init__(self, rule_set: System.Security.SecurityRuleSet) -> None:
-        ...
-
-
-class SecureString(System.Object, System.IDisposable):
-    """This class has no documentation."""
-
-    @property
-    def length(self) -> int:
-        ...
+    def scope(self) -> System.Security.SecurityCriticalScope:
+        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
 
     @overload
     def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, value: typing.Any, length: int) -> None:
-        ...
-
-    def append_char(self, c: str) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def copy(self) -> System.Security.SecureString:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def insert_at(self, index: int, c: str) -> None:
-        ...
-
-    def is_read_only(self) -> bool:
-        ...
-
-    def make_read_only(self) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
-        ...
-
-    def set_at(self, index: int, c: str) -> None:
-        ...
-
-
-class VerificationException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class IStackWalk(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def Assert(self) -> None:
-        ...
-
-    def demand(self) -> None:
-        ...
-
-    def deny(self) -> None:
-        ...
-
-    def permit_only(self) -> None:
+    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
         ...
 
 
@@ -515,37 +546,6 @@ class PermissionSet(System.Object, System.Collections.ICollection, System.Runtim
         ...
 
     def union(self, other: System.Security.PermissionSet) -> System.Security.PermissionSet:
-        ...
-
-
-class AllowPartiallyTrustedCallersAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def partial_trust_visibility_level(self) -> System.Security.PartialTrustVisibilityLevel:
-        ...
-
-    @partial_trust_visibility_level.setter
-    def partial_trust_visibility_level(self, value: System.Security.PartialTrustVisibilityLevel) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
-class SecurityCriticalAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def scope(self) -> System.Security.SecurityCriticalScope:
-        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
         ...
 
 

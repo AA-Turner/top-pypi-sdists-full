@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field as FieldInfo
 
@@ -10,10 +10,13 @@ __all__ = ["ProfileResponse", "Profile", "SearchResults"]
 
 
 class Profile(BaseModel):
-    dynamic: List[str]
+    buckets: Optional[Dict[str, List[str]]] = None
+    """Per-bucket memory lists, keyed by bucket key"""
+
+    dynamic: Optional[List[str]] = None
     """Dynamic profile information (recent memories)"""
 
-    static: List[str]
+    static: Optional[List[str]] = None
     """Static profile information that remains relevant long-term"""
 
 

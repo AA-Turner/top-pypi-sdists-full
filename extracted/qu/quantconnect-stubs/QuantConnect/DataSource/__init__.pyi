@@ -19,4006 +19,371 @@ import System
 import System.Collections.Generic
 
 QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K = typing.Any
-QuantConnect_DataSource_BrainStockRanking5Day = typing.Any
-QuantConnect_DataSource_BrainStockRanking2Day = typing.Any
-QuantConnect_DataSource_BrainStockRanking3Day = typing.Any
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll = typing.Any
+QuantConnect_DataSource_BrainLanguageMetricsEarningsCalls = typing.Any
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll = typing.Any
 QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K = typing.Any
 QuantConnect_DataSource_BrainStockRanking21Day = typing.Any
+QuantConnect_DataSource_BrainStockRanking5Day = typing.Any
+QuantConnect_DataSource_BrainStockRanking3Day = typing.Any
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll = typing.Any
 QuantConnect_DataSource_BrainSentimentIndicator30Day = typing.Any
+QuantConnect_DataSource_BrainStockRanking2Day = typing.Any
 QuantConnect_DataSource_BrainStockRanking10Day = typing.Any
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll = typing.Any
-QuantConnect_DataSource_BrainLanguageMetricsEarningsCalls = typing.Any
 QuantConnect_DataSource_BrainSentimentIndicator7Day = typing.Any
 
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T")
-QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T = typing.TypeVar("QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T")
 QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T")
-QuantConnect_DataSource_BrainStockRankingBase_T = typing.TypeVar("QuantConnect_DataSource_BrainStockRankingBase_T")
 QuantConnect_DataSource_BrainSentimentIndicatorBase_T = typing.TypeVar("QuantConnect_DataSource_BrainSentimentIndicatorBase_T")
+QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T = typing.TypeVar("QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T")
+QuantConnect_DataSource_BrainStockRankingBase_T = typing.TypeVar("QuantConnect_DataSource_BrainStockRankingBase_T")
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T")
 
 
-class Fred(QuantConnect.Data.BaseData):
+class BrainCompanyFilingLanguageMetricsSimilarityDifference(System.Object):
     """This class has no documentation."""
 
-    class LIBOR(System.Object):
-        """London InterBank Offered Rate"""
-
-        SPOT_NEXT_BASED_ON_SWISS_FRANC: str = "CHFONTD156N"
-        """Spot Next London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
-
-        SPOT_NEXT_BASED_ON_JAPANESE_YEN: str = "JPYONTD156N"
-        """Spot Next London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
-
-        SIX_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY6MTD156N"
-        """6-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
-
-        THREE_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY3MTD156N"
-        """3-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
-
-        SIX_MONTH_BASED_ON_USD: str = "USD6MTD156N"
-        """6-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
-
-        ONE_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY1MTD156N"
-        """1-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
-
-        TWELVE_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY12MD156N"
-        """12-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
-
-        TWELVE_MONTH_BASED_ON_BRITISH_POUND: str = "GBP12MD156N"
-        """12-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
-
-        ONE_MONTH_BASED_ON_BRITISH_POUND: str = "GBP1MTD156N"
-        """1-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
-
-        ONE_WEEK_BASED_ON_BRITISH_POUND: str = "GBP1WKD156N"
-        """1-Week London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
-
-        TWO_MONTH_BASED_ON_BRITISH_POUND: str = "GBP2MTD156N"
-        """2-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
-
-        THREE_MONTH_BASED_ON_BRITISH_POUND: str = "GBP3MTD156N"
-        """3-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
-
-        ONE_WEEK_BASED_ON_JAPANESE_YEN: str = "JPY1WKD156N"
-        """1-Week London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
-
-        TWO_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY2MTD156N"
-        """2-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
-
-        SIX_MONTH_BASED_ON_SWISS_FRANC: str = "CHF6MTD156N"
-        """6-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
-
-        THREE_MONTH_BASED_ON_SWISS_FRANC: str = "CHF3MTD156N"
-        """3-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
-
-        ONE_MONTH_BASED_ON_USD: str = "USD1MTD156N"
-        """1-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
-
-        TWELVE_MONTH_BASED_ON_SWISS_FRANC: str = "CHF12MD156N"
-        """12-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
-
-        TWELVE_MONTH_BASED_ON_USD: str = "USD12MD156N"
-        """12-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
-
-        ONE_MONTH_BASED_ON_SWISS_FRANC: str = "CHF1MTD156N"
-        """1-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
-
-        ONE_WEEK_BASED_ON_SWISS_FRANC: str = "CHF1WKD156N"
-        """1-Week London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
-
-        TWO_MONTH_BASED_ON_SWISS_FRANC: str = "CHF2MTD156N"
-        """2-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
-
-        TWELVE_MONTH_BASED_ON_EURO: str = "EUR12MD156N"
-        """12-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
-
-        SIX_MONTH_BASED_ON_BRITISH_POUND: str = "GBP6MTD156N"
-        """6-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
-
-        ONE_MONTH_BASED_ON_EURO: str = "EUR1MTD156N"
-        """1-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
-
-        TWO_MONTH_BASED_ON_EURO: str = "EUR2MTD156N"
-        """2-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
-
-        THREE_MONTH_BASED_ON_EURO: str = "EUR3MTD156N"
-        """3-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
-
-        SIX_MONTH_BASED_ON_EURO: str = "EUR6MTD156N"
-        """6-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
-
-        OVERNIGHT_BASED_ON_EURO: str = "EURONTD156N"
-        """Overnight London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
-
-        ONE_WEEK_BASED_ON_USD: str = "USD1WKD156N"
-        """1-Week London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
-
-        TWO_MONTH_BASED_ON_USD: str = "USD2MTD156N"
-        """2-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
-
-        THREE_MONTH_BASED_ON_USD: str = "USD3MTD156N"
-        """3-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
-
-        OVERNIGHT_BASED_ON_USD: str = "USDONTD156N"
-        """Overnight London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
-
-        ONE_WEEK_BASED_ON_EURO: str = "EUR1WKD156N"
-        """1-Week London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
-
-        OVERNIGHT_BASED_ON_BRITISH_POUND: str = "GBPONTD156N"
-        """Overnight London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
-
-    class CentralBankInterventions(System.Object):
-        """Central Bank Interventions"""
-
-        JAPANESE_BANK_PURCHASES_OF_DM_EURO_AGAINST_JPY: str = "JPINTDDMEJPY"
-        """Japan Intervention: Japanese Bank purchases of DM/Euro against JPY (in 100 Million Yen)"""
-
-        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_DM: str = "JPINTDEXR"
-        """Japan Intervention: Japanese Bank purchases of USD against DM (in 100 Million Yen)"""
-
-        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_RUPIAH: str = "JPINTDUSDRP"
-        """Japan Intervention: Japanese Bank purchases of USD against Rupiah (in 100 Million Yen)"""
-
-        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_THE_JPY_USD: str = "USINTDMRKTJPY"
-        """U.S. Intervention: in Market Transactions in the JPY/USD (Millions of USD) (in Millions of USD)"""
-
-        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_OTHER_CURRENCIES: str = "USINTDCSOTH"
-        """U.S. Intervention: With-Customer Transactions in Other Currencies (Millions of USD) (in Millions of USD)"""
-
-        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_THE_JPY_USD: str = "USINTDCSJPY"
-        """U.S. Intervention: With-Customer Transactions in the JPY/USD (Millions of USD) (in Millions of USD)"""
-
-        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_THE_DEM_USD_EURO: str = "USINTDCSDM"
-        """U.S. Intervention: With-Customer Transactions in the DEM/USD (Euro since 1999) (Millions of USD) (in Millions of USD)"""
-
-        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_OTHER_CURRENCIES: str = "USINTDMRKTOTH"
-        """U.S. Intervention: in Market Transactions in Other Currencies (Millions of USD) (in Millions of USD)"""
-
-        CENTRAL_BANK_OF_TURKEY_PURCHASES_OF_USD: str = "TRINTDEXR"
-        """Turkish Intervention: Central Bank of Turkey Purchases of USD (Millions of USD) (in Millions of USD)"""
-
-        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_JPY: str = "JPINTDUSDJPY"
-        """Japan Intervention: Japanese Bank purchases of USD against JPY (in 100 Million Yen)"""
-
-        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_THE_DEM_USD_EURO: str = "USINTDMRKTDM"
-        """U.S. Intervention: in Market Transactions in the DEM/USD (Euro since 1999) (Millions of USD) (in Millions of USD)"""
-
-        SWISS_NATIONAL_BANK_PURCHASES_OF_DEM_AGAINST_CHF_MILLIONS_OF_DEM: str = "CHINTDCHFDM"
-        """Swiss Intervention: Swiss National Bank Purchases of DEM against CHF (Millions of DEM) (in Millions of DEM)"""
-
-        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_DEM: str = "CHINTDUSDDM"
-        """Swiss Intervention: Swiss National Bank Purchases of USD against DEM (Millions of USD) (in Millions of USD)"""
-
-        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_JPY: str = "CHINTDUSDJPY"
-        """Swiss Intervention: Swiss National Bank Purchases of USD against JPY (Millions of USD) (in Millions of USD)"""
-
-        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_CHF: str = "CHINTDCHFUSD"
-        """Swiss Intervention: Swiss National Bank Purchases of USD against CHF (Millions of USD) (in Millions of USD)"""
-
-        BANCO_DE_MEXICO_PURCHASE_ON_THE_USD: str = "MEXINTDUSD"
-        """Mexican Intervention: Banco de Mexico Purchase on the USD (in Millions of USD)"""
-
-    class ICEBofAML(System.Object):
-        """ICE BofAML"""
-
-        AAAA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM1BRRAAA2ACRPITRIV"
-        """ICE BofAML AAA-A Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        AAAAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM1RAAA2ALCRPIUSTRIV"
-        """ICE BofAML AAA-A US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        ASIA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMRACRPIASIATRIV"
-        """ICE BofAML Asia Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        ASIA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMALLCRPIASIAUSTRIV"
-        """ICE BofAML Asia US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        BAND_LOWER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM4BRRBLCRPITRIV"
-        """ICE BofAML B and Lower Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        BAND_LOWER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM4RBLLCRPIUSTRIV"
-        """ICE BofAML B and Lower US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        BB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM3BRRBBCRPITRIV"
-        """ICE BofAML BB Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        BBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM3RBBLCRPIUSTRIV"
-        """ICE BofAML BB US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        BBB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM2BRRBBBCRPITRIV"
-        """ICE BofAML BBB Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        BBBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM2RBBBLCRPIUSTRIV"
-        """ICE BofAML BBB US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        CROSSOVER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM5BCOCRPITRIV"
-        """ICE BofAML Crossover Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        CROSSOVER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMXOCOLCRPIUSTRIV"
-        """ICE BofAML Crossover US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        EMERGING_MARKETS_CORPORATE_PLUS_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMCBPITRIV"
-        """ICE BofAML Emerging Markets Corporate Plus Index Total Return Index Value (in Index)"""
-
-        EURO_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMEBCRPIETRIV"
-        """ICE BofAML Euro Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        EMEA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMRECRPIEMEATRIV"
-        """ICE BofAML Europe, the Middle East, and Africa (EMEA) Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        EMEAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMELLCRPIEMEAUSTRIV"
-        """ICE BofAML Europe, the Middle East, and Africa (EMEA) US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMFSFCRPITRIV"
-        """ICE BofAML Financial Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMFLFLCRPIUSTRIV"
-        """ICE BofAML Financial US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        HIGH_GRADE_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMIBHGCRPITRIV"
-        """ICE BofAML High Grade Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        HIGH_GRADE_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMHGHGLCRPIUSTRIV"
-        """ICE BofAML High Grade US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        HIGH_YIELD_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMHBHYCRPITRIV"
-        """ICE BofAML High Yield Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        HIGH_YIELD_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMHYHYLCRPIUSTRIV"
-        """ICE BofAML High Yield US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        LATIN_AMERICA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMRLCRPILATRIV"
-        """ICE BofAML Latin America Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        LATIN_AMERICA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMLLLCRPILAUSTRIV"
-        """ICE BofAML Latin America US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        NON_FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMNSNFCRPITRIV"
-        """ICE BofAML Non-Financial Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        NON_FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMNFNFLCRPIUSTRIV"
-        """ICE BofAML Non-Financial US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        US_CORPORATE_MASTER_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A0CM"
-        """ICE BofAML US Corporate Master Option-Adjusted Spread (in Percent)"""
-
-        US_HIGH_YIELD_MASTER_II_OPTION_ADJUSTED_SPREAD: str = "BAMLH0A0HYM2"
-        """ICE BofAML US High Yield Master II Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_1_TO_3_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC1A0C13Y"
-        """ICE BofAML US Corporate 1-3 Year Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_10_TO_15_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC7A0C1015Y"
-        """ICE BofAML US Corporate 10-15 Year Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_MORE_THAN_15_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC8A0C15PY"
-        """ICE BofAML US Corporate 15+ Year Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_3_TO_5_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC2A0C35Y"
-        """ICE BofAML US Corporate 3-5 Year Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_5_TO_7_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC3A0C57Y"
-        """ICE BofAML US Corporate 5-7 Year Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_7_TO_10_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC4A0C710Y"
-        """ICE BofAML US Corporate 7-10 Year Option-Adjusted Spread (in Percent)"""
-
-        PUBLIC_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMPUPUBSLCRPIUSTRIV"
-        """ICE BofAML Public Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        US_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMUBCRPIUSTRIV"
-        """ICE BofAML US Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
-
-        US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMCLLCRPIUSTRIV"
-        """ICE BofAML US Emerging Markets Liquid Corporate Plus Index Total Return Index Value (in Index)"""
-
-        EURO_HIGH_YIELD_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHE00EHYITRIV"
-        """ICE BofAML Euro High Yield Index Total Return Index Value (in Index)"""
-
-        US_CORP_1_TO_3_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC1A013YTRIV"
-        """ICE BofAML US Corp 1-3yr Total Return Index Value (in Index)"""
-
-        US_CORP_10_TO_15_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC7A01015YTRIV"
-        """ICE BofAML US Corp 10-15yr Total Return Index Value (in Index)"""
-
-        US_CORP_MORE_THAN_15_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC8A015PYTRIV"
-        """ICE BofAML US Corp 15+yr Total Return Index Value (in Index)"""
-
-        US_CORPE_TO_5_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC2A035YTRIV"
-        """ICE BofAML US Corp 3-5yr Total Return Index Value (in Index)"""
-
-        US_CORP_5_TO_7_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC3A057YTRIV"
-        """ICE BofAML US Corp 5-7yr Total Return Index Value (in Index)"""
-
-        US_CORPORATE_7_TO_10_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC4A0710YTRIV"
-        """ICE BofAML US Corporate 7-10yr Total Return Index Value (in Index)"""
-
-        US_CORP_A_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A3ATRIV"
-        """ICE BofAML US Corp A Total Return Index Value (in Index)"""
-
-        US_CORP_AA_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A2AATRIV"
-        """ICE BofAML US Corp AA Total Return Index Value (in Index)"""
-
-        US_CORP_AAA_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A1AAATRIV"
-        """ICE BofAML US Corp AAA Total Return Index Value (in Index)"""
-
-        US_HIGH_YIELD_B_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHYH0A2BTRIV"
-        """ICE BofAML US High Yield B Total Return Index Value (in Index)"""
-
-        US_HIGH_YIELD_BB_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHYH0A1BBTRIV"
-        """ICE BofAML US High Yield BB Total Return Index Value (in Index)"""
-
-        US_CORP_BBB_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A4BBBTRIV"
-        """ICE BofAML US Corp BBB Total Return Index Value (in Index)"""
-
-        US_HIGH_YIELD_CC_COR_BELOW_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHYH0A3CMTRIV"
-        """ICE BofAML US High Yield CCC or Below Total Return Index Value (in Index)"""
-
-        US_CORP_MASTER_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A0CMTRIV"
-        """ICE BofAML US Corp Master Total Return Index Value (in Index)"""
-
-        US_HIGH_YIELD_MASTER_II_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHYH0A0HYM2TRIV"
-        """ICE BofAML US High Yield Master II Total Return Index Value (in Index)"""
-
-        AAAA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM1BRRAAA2ACRPIOAS"
-        """ICE BofAML AAA-A Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        AAAAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM1RAAA2ALCRPIUSOAS"
-        """ICE BofAML AAA-A US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        ASIA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMRACRPIASIAOAS"
-        """ICE BofAML Asia Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        ASIA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMALLCRPIASIAUSOAS"
-        """ICE BofAML Asia US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        BAND_LOWER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM4BRRBLCRPIOAS"
-        """ICE BofAML B and Lower Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        BAND_LOWER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM4RBLLCRPIUSOAS"
-        """ICE BofAML B and Lower US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        BB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM3BRRBBCRPIOAS"
-        """ICE BofAML BB Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        BBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM3RBBLCRPIUSOAS"
-        """ICE BofAML BB US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        BBB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM2BRRBBBCRPIOAS"
-        """ICE BofAML BBB Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        BBBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM2RBBBLCRPIUSOAS"
-        """ICE BofAML BBB US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        CROSSOVER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM5BCOCRPIOAS"
-        """ICE BofAML Crossover Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        CROSSOVER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMXOCOLCRPIUSOAS"
-        """ICE BofAML Crossover US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        EMERGING_MARKETS_CORPORATE_PLUS_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMCBPIOAS"
-        """ICE BofAML Emerging Markets Corporate Plus Index Option-Adjusted Spread (in Percent)"""
-
-        EURO_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMEBCRPIEOAS"
-        """ICE BofAML Euro Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        EMEA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMRECRPIEMEAOAS"
-        """ICE BofAML Europe, the Middle East, and Africa (EMEA) Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        EMEAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMELLCRPIEMEAUSOAS"
-        """ICE BofAML Europe, the Middle East, and Africa (EMEA) US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMFSFCRPIOAS"
-        """ICE BofAML Financial Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMFLFLCRPIUSOAS"
-        """ICE BofAML Financial US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        HIGH_GRADE_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMIBHGCRPIOAS"
-        """ICE BofAML High Grade Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        HIGH_GRADE_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMHGHGLCRPIUSOAS"
-        """ICE BofAML High Grade US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        HIGH_YIELD_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMHBHYCRPIOAS"
-        """ICE BofAML High Yield Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        HIGH_YIELD_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMHYHYLCRPIUSOAS"
-        """ICE BofAML High Yield US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        LATIN_AMERICA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMRLCRPILAOAS"
-        """ICE BofAML Latin America Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        LATIN_AMERICA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMLLLCRPILAUSOAS"
-        """ICE BofAML Latin America US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        NON_FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMNSNFCRPIOAS"
-        """ICE BofAML Non-Financial Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        NON_FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMNFNFLCRPIUSOAS"
-        """ICE BofAML Non-Financial US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        PUBLIC_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMPUPUBSLCRPIUSOAS"
-        """ICE BofAML Public Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        US_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMUBCRPIUSOAS"
-        """ICE BofAML US Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
-
-        US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMCLLCRPIUSOAS"
-        """ICE BofAML US Emerging Markets Liquid Corporate Plus Index Option-Adjusted Spread (in Percent)"""
-
-        EURO_HIGH_YIELD_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLHE00EHYIOAS"
-        """ICE BofAML Euro High Yield Index Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_A_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A3CA"
-        """ICE BofAML US Corporate A Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_AA_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A2CAA"
-        """ICE BofAML US Corporate AA Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_AAA_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A1CAAA"
-        """ICE BofAML US Corporate AAA Option-Adjusted Spread (in Percent)"""
-
-        US_HIGH_YIELD_B_OPTION_ADJUSTED_SPREAD: str = "BAMLH0A2HYB"
-        """ICE BofAML US High Yield B Option-Adjusted Spread (in Percent)"""
-
-        US_HIGH_YIELD_BB_OPTION_ADJUSTED_SPREAD: str = "BAMLH0A1HYBB"
-        """ICE BofAML US High Yield BB Option-Adjusted Spread (in Percent)"""
-
-        US_CORPORATE_BBB_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A4CBBB"
-        """ICE BofAML US Corporate BBB Option-Adjusted Spread (in Percent)"""
-
-        US_HIGH_YIELD_CC_COR_BELOW_OPTION_ADJUSTED_SPREAD: str = "BAMLH0A3HYC"
-        """ICE BofAML US High Yield CCC or Below Option-Adjusted Spread (in Percent)"""
-
-        AAAA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM1BRRAAA2ACRPIEY"
-        """ICE BofAML AAA-A Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        AAAAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM1RAAA2ALCRPIUSEY"
-        """ICE BofAML AAA-A US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        ASIA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMRACRPIASIAEY"
-        """ICE BofAML Asia Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        ASIA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMALLCRPIASIAUSEY"
-        """ICE BofAML Asia US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        BAND_LOWER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM4BRRBLCRPIEY"
-        """ICE BofAML B and Lower Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        BAND_LOWER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM4RBLLCRPIUSEY"
-        """ICE BofAML B and Lower US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        BB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM3BRRBBCRPIEY"
-        """ICE BofAML BB Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        BBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM3RBBLCRPIUSEY"
-        """ICE BofAML BB US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        BBB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM2BRRBBBCRPIEY"
-        """ICE BofAML BBB Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        BBBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM2RBBBLCRPIUSEY"
-        """ICE BofAML BBB US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        CROSSOVER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM5BCOCRPIEY"
-        """ICE BofAML Crossover Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        CROSSOVER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMXOCOLCRPIUSEY"
-        """ICE BofAML Crossover US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        EMERGING_MARKETS_CORPORATE_PLUS_INDEX_EFFECTIVE_YIELD: str = "BAMLEMCBPIEY"
-        """ICE BofAML Emerging Markets Corporate Plus Index Effective Yield (in Percent)"""
-
-        EURO_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMEBCRPIEEY"
-        """ICE BofAML Euro Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        EURO_HIGH_YIELD_INDEX_EFFECTIVE_YIELD: str = "BAMLHE00EHYIEY"
-        """ICE BofAML Euro High Yield Index Effective Yield (in Percent)"""
-
-        EMEA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMRECRPIEMEAEY"
-        """ICE BofAML Europe, the Middle East, and Africa (EMEA) Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        EMEAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMELLCRPIEMEAUSEY"
-        """ICE BofAML Europe, the Middle East, and Africa (EMEA) US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMFSFCRPIEY"
-        """ICE BofAML Financial Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMFLFLCRPIUSEY"
-        """ICE BofAML Financial US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        HIGH_GRADE_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMIBHGCRPIEY"
-        """ICE BofAML High Grade Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        HIGH_GRADE_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMHGHGLCRPIUSEY"
-        """ICE BofAML High Grade US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        HIGH_YIELD_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMHBHYCRPIEY"
-        """ICE BofAML High Yield Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        HIGH_YIELD_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMHYHYLCRPIUSEY"
-        """ICE BofAML High Yield US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        LATIN_AMERICA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMRLCRPILAEY"
-        """ICE BofAML Latin America Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        LATIN_AMERICA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMLLLCRPILAUSEY"
-        """ICE BofAML Latin America US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        NON_FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMNSNFCRPIEY"
-        """ICE BofAML Non-Financial Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        NON_FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMNFNFLCRPIUSEY"
-        """ICE BofAML Non-Financial US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        PUBLIC_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMPUPUBSLCRPIUSEY"
-        """ICE BofAML Public Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        US_CORPORATE_1_THREE_YEAR_EFFECTIVE_YIELD: str = "BAMLC1A0C13YEY"
-        """ICE BofAML US Corporate 1-3 Year Effective Yield (in Percent)"""
-
-        US_CORPORATE_10_TO_15_YEAR_EFFECTIVE_YIELD: str = "BAMLC7A0C1015YEY"
-        """ICE BofAML US Corporate 10-15 Year Effective Yield (in Percent)"""
-
-        US_CORPORATE_MORE_THAN_15_YEAR_EFFECTIVE_YIELD: str = "BAMLC8A0C15PYEY"
-        """ICE BofAML US Corporate 15+ Year Effective Yield (in Percent)"""
-
-        US_CORPORATE_3_TO_5_YEAR_EFFECTIVE_YIELD: str = "BAMLC2A0C35YEY"
-        """ICE BofAML US Corporate 3-5 Year Effective Yield (in Percent)"""
-
-        US_CORPORATE_5_TO_7_YEAR_EFFECTIVE_YIELD: str = "BAMLC3A0C57YEY"
-        """ICE BofAML US Corporate 5-7 Year Effective Yield (in Percent)"""
-
-        US_CORPORATE_7_TO_10_YEAR_EFFECTIVE_YIELD: str = "BAMLC4A0C710YEY"
-        """ICE BofAML US Corporate 7-10 Year Effective Yield (in Percent)"""
-
-        US_CORPORATE_A_EFFECTIVE_YIELD: str = "BAMLC0A3CAEY"
-        """ICE BofAML US Corporate A Effective Yield (in Percent)"""
-
-        US_CORPORATE_AA_EFFECTIVE_YIELD: str = "BAMLC0A2CAAEY"
-        """ICE BofAML US Corporate AA Effective Yield (in Percent)"""
-
-        US_CORPORATE_AAA_EFFECTIVE_YIELD: str = "BAMLC0A1CAAAEY"
-        """ICE BofAML US Corporate AAA Effective Yield (in Percent)"""
-
-        US_HIGH_YIELD_B_EFFECTIVE_YIELD: str = "BAMLH0A2HYBEY"
-        """ICE BofAML US High Yield B Effective Yield (in Percent)"""
-
-        US_HIGH_YIELD_BB_EFFECTIVE_YIELD: str = "BAMLH0A1HYBBEY"
-        """ICE BofAML US High Yield BB Effective Yield (in Percent)"""
-
-        US_CORPORATE_BBB_EFFECTIVE_YIELD: str = "BAMLC0A4CBBBEY"
-        """ICE BofAML US Corporate BBB Effective Yield (in Percent)"""
-
-        US_HIGH_YIELD_CC_COR_BELOW_EFFECTIVE_YIELD: str = "BAMLH0A3HYCEY"
-        """ICE BofAML US High Yield CCC or Below Effective Yield (in Percent)"""
-
-        US_CORPORATE_MASTER_EFFECTIVE_YIELD: str = "BAMLC0A0CMEY"
-        """ICE BofAML US Corporate Master Effective Yield (in Percent)"""
-
-        US_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMUBCRPIUSEY"
-        """ICE BofAML US Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
-
-        US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_INDEX_EFFECTIVE_YIELD: str = "BAMLEMCLLCRPIUSEY"
-        """ICE BofAML US Emerging Markets Liquid Corporate Plus Index Effective Yield (in Percent)"""
-
-        US_HIGH_YIELD_MASTER_II_EFFECTIVE_YIELD: str = "BAMLH0A0HYM2EY"
-        """ICE BofAML US High Yield Master II Effective Yield (in Percent)"""
-
-        AAAA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM1BRRAAA2ACRPISYTW"
-        """ICE BofAML AAA-A Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        AAAAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM1RAAA2ALCRPIUSSYTW"
-        """ICE BofAML AAA-A US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        ASIA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMRACRPIASIASYTW"
-        """ICE BofAML Asia Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        ASIA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMALLCRPIASIAUSSYTW"
-        """ICE BofAML Asia US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        BAND_LOWER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM4BRRBLCRPISYTW"
-        """ICE BofAML B and Lower Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        BAND_LOWER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM4RBLLCRPIUSSYTW"
-        """ICE BofAML B and Lower US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        BB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM3BRRBBCRPISYTW"
-        """ICE BofAML BB Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        BBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM3RBBLCRPIUSSYTW"
-        """ICE BofAML BB US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        BBB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM2BRRBBBCRPISYTW"
-        """ICE BofAML BBB Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        BBBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM2RBBBLCRPIUSSYTW"
-        """ICE BofAML BBB US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        CROSSOVER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM5BCOCRPISYTW"
-        """ICE BofAML Crossover Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        CROSSOVER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMXOCOLCRPIUSSYTW"
-        """ICE BofAML Crossover US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        EMERGING_MARKETS_CORPORATE_PLUS_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMCBPISYTW"
-        """ICE BofAML Emerging Markets Corporate Plus Index Semi-Annual Yield to Worst (in Percent)"""
-
-        EURO_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMEBCRPIESYTW"
-        """ICE BofAML Euro Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        EURO_HIGH_YIELD_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLHE00EHYISYTW"
-        """ICE BofAML Euro High Yield Index Semi-Annual Yield to Worst (in Percent)"""
-
-        EMEA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMRECRPIEMEASYTW"
-        """ICE BofAML Europe, the Middle East, and Africa (EMEA) Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        EMEAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMELLCRPIEMEAUSSYTW"
-        """ICE BofAML Europe, the Middle East, and Africa (EMEA) US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMFSFCRPISYTW"
-        """ICE BofAML Financial Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMFLFLCRPIUSSYTW"
-        """ICE BofAML Financial US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        HIGH_GRADE_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMIBHGCRPISYTW"
-        """ICE BofAML High Grade Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        HIGH_GRADE_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMHGHGLCRPIUSSYTW"
-        """ICE BofAML High Grade US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        HIGH_YIELD_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMHBHYCRPISYTW"
-        """ICE BofAML High Yield Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        HIGH_YIELD_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMHYHYLCRPIUSSYTW"
-        """ICE BofAML High Yield US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        LATIN_AMERICA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMRLCRPILASYTW"
-        """ICE BofAML Latin America Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        LATIN_AMERICA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMLLLCRPILAUSSYTW"
-        """ICE BofAML Latin America US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        NON_FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMNSNFCRPISYTW"
-        """ICE BofAML Non-Financial Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        NON_FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMNFNFLCRPIUSSYTW"
-        """ICE BofAML Non-Financial US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        PRIVATE_SECTOR_ISSUERS_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMPTPRVICRPISYTW"
-        """ICE BofAML Private Sector Issuers Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        PRIVATE_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMPVPRIVSLCRPIUSSYTW"
-        """ICE BofAML Private Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        PUBLIC_SECTOR_ISSUERS_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMPBPUBSICRPISYTW"
-        """ICE BofAML Public Sector Issuers Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        PUBLIC_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMPUPUBSLCRPIUSSYTW"
-        """ICE BofAML Public Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_1_TO_3_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC1A0C13YSYTW"
-        """ICE BofAML US Corporate 1-3 Year Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_10_TO_15_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC7A0C1015YSYTW"
-        """ICE BofAML US Corporate 10-15 Year Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_MORE_THAN_15_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC8A0C15PYSYTW"
-        """ICE BofAML US Corporate 15+ Year Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_3_TO_5_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC2A0C35YSYTW"
-        """ICE BofAML US Corporate 3-5 Year Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_5_TO_7_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC3A0C57YSYTW"
-        """ICE BofAML US Corporate 5-7 Year Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_7_TO_10_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC4A0C710YSYTW"
-        """ICE BofAML US Corporate 7-10 Year Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_A_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A3CASYTW"
-        """ICE BofAML US Corporate A Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_AA_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A2CAASYTW"
-        """ICE BofAML US Corporate AA Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_AAA_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A1CAAASYTW"
-        """ICE BofAML US Corporate AAA Semi-Annual Yield to Worst (in Percent)"""
-
-        US_HIGH_YIELD_B_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A2HYBSYTW"
-        """ICE BofAML US High Yield B Semi-Annual Yield to Worst (in Percent)"""
-
-        US_HIGH_YIELD_BB_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A1HYBBSYTW"
-        """ICE BofAML US High Yield BB Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_BBB_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A4CBBBSYTW"
-        """ICE BofAML US Corporate BBB Semi-Annual Yield to Worst (in Percent)"""
-
-        US_HIGH_YIELD_CC_COR_BELOW_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A3HYCSYTW"
-        """ICE BofAML US High Yield CCC or Below Semi-Annual Yield to Worst (in Percent)"""
-
-        US_CORPORATE_MASTER_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A0CMSYTW"
-        """ICE BofAML US Corporate Master Semi-Annual Yield to Worst (in Percent)"""
-
-        US_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMUBCRPIUSSYTW"
-        """ICE BofAML US Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
-
-        US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMCLLCRPIUSSYTW"
-        """ICE BofAML US Emerging Markets Liquid Corporate Plus Index Semi-Annual Yield to Worst (in Percent)"""
-
-        US_HIGH_YIELD_MASTER_II_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A0HYM2SYTW"
-        """ICE BofAML US High Yield Master II Semi-Annual Yield to Worst (in Percent)"""
-
-    class OECDRecessionIndicators(System.Object):
-        """
-        These time series is an interpretation of Organisation of Economic Development (OECD) Composite Leading Indicators: Reference Turning Points and Component Series data, which can be found at http://www.oecd.org/std/leading-indicators/oecdcompositeleadingindicatorsreferenceturningpointsandcomponentseries.htm. The OECD identifies months of turning points without designating a date within the month that turning points occurred. The dummy variable adopts an arbitrary convention that the turning point occurred at a specific date within the month. The arbitrary convention does not reflect any judgment on this issue by the OECD. Our time series is composed of dummy variables that represent periods of expansion and recession. A value of 1 is a recessionary period, while a value of 0 is an expansionary period. For this time series, the recession begins on the 15th day of the month of the peak and ends on the 15th day of the month of the trough. This time series is a disaggregation of the monthly series. For more options on recession shading, see the note and links below.
-        The recession shading data that we provide initially comes from the source as a list of dates that are either an economic peak or trough. We interpret dates into recession shading data using one of three arbitrary methods. All of our recession shading data is available using all three interpretations. The period between a peak and trough is always shaded as a recession. The peak and trough are collectively extrema. Depending on the application, the extrema, both individually and collectively, may be included in the recession period in whole or in part. In situations where a portion of a period is included in the recession, the whole period is deemed to be included in the recession period.
-        The first interpretation, known as the midpoint method, is to show a recession from the midpoint of the peak through the midpoint of the trough for monthly and quarterly data. For daily data, the recession begins on the 15th of the month of the peak and ends on the 15th of the month of the trough. Daily data is a disaggregation of monthly data. For monthly and quarterly data, the entire peak and trough periods are included in the recession shading. This method shows the maximum number of periods as a recession for monthly and quarterly data. The Federal Reserve Bank of St. Louis uses this method in its own publications. The midpoint method is used for this series.
-        The second interpretation, known as the trough method, is to show a recession from the period following the peak through the trough (i.e. the peak is not included in the recession shading, but the trough is). For daily data, the recession begins on the first day of the first month following the peak and ends on the last day of the month of the trough. Daily data is a disaggregation of monthly data. The trough method is used when displaying data on FRED graphs. A version of this time series represented using the trough method can be found at:
-        The third interpretation, known as the peak method, is to show a recession from the period of the peak to the trough (i.e. the peak is included in the recession shading, but the trough is not). For daily data, the recession begins on the first day of the month of the peak and ends on the last day of the month preceding the trough. Daily data is a disaggregation of monthly data. A version of this time series represented using the peak method can be found at:
-        The OECD CLI system is based on the "growth cycle" approach, where business cycles and turning points are measured and identified in the deviation-from-trend series. The main reference series used in the OECD CLI system for the majority of countries is industrial production (IIP) covering all industry sectors excluding construction. This series is used because of its cyclical sensitivity and monthly availability, while the broad based Gross Domestic Product (GDP) is used to supplement the IIP series for identification of the final reference turning points in the growth cycle.
-        Zones aggregates of the CLIs and the reference series are calculated as weighted averages of the corresponding zone member series (i.e. CLIs and IIPs).
-        Up to December 2008 the turning points chronologies shown for regional/zone area aggregates or individual countries are determined by the rules established by the National Bureau of Economic Research (NBER) in the United States, which have been formalized and incorporated in a computer routine (Bry and Boschan) and included in the Phase-Average Trend (PAT) de-trending procedure. Starting from December 2008 the turning point detection algorithm is decoupled from the de-trending procedure, and is a simplified version of the original Bry and Boschan routine. (The routine parses local minima and maxima in the cycle series and applies censor rules to guarantee alternating peaks and troughs, as well as phase and cycle length constraints.)
-        The components of the CLI are time series which exhibit leading relationship with the reference series (IIP) at turning points. Country CLIs are compiled by combining de-trended smoothed and normalized components. The component series for each country are selected based on various criteria such as economic significance; cyclical behavior; data quality; timeliness and availability.
-        OECD data should be cited as follows: OECD Composite Leading Indicators, "Composite Leading Indicators: Reference Turning Points and Component Series", http://www.oecd.org/std/leading-indicators/oecdcompositeleadingindicatorsreferenceturningpointsandcomponentseries.htm
-        """
-
-        FOUR_BIG_EUROPEAN_COUNTRIES_FROM_PEAK_THROUGH_THE_TROUGH: str = "4BIGEURORECDM"
-        """OECD based Recession Indicators for Four Big European Countries from the Peak through the Trough (in +1 or 0)"""
-
-        AUSTRALIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "AUSRECDM"
-        """OECD based Recession Indicators for Australia from the Peak through the Trough (in +1 or 0)"""
-
-        AUSTRIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "AUTRECDM"
-        """OECD based Recession Indicators for Austria from the Peak through the Trough (in +1 or 0)"""
-
-        BELGIUM_FROM_PEAK_THROUGH_THE_TROUGH: str = "BELRECDM"
-        """OECD based Recession Indicators for Belgium from the Peak through the Trough (in +1 or 0)"""
-
-        BRAZIL_FROM_PEAK_THROUGH_THE_TROUGH: str = "BRARECDM"
-        """OECD based Recession Indicators for Brazil from the Peak through the Trough (in +1 or 0)"""
-
-        CANADA_FROM_PEAK_THROUGH_THE_TROUGH: str = "CANRECDM"
-        """OECD based Recession Indicators for Canada from the Peak through the Trough (in +1 or 0)"""
-
-        SWITZERLAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "CHERECDM"
-        """OECD based Recession Indicators for Switzerland from the Peak through the Trough (in +1 or 0)"""
-
-        CHILE_FROM_PEAK_THROUGH_THE_TROUGH: str = "CHLRECDM"
-        """OECD based Recession Indicators for Chile from the Peak through the Trough (in +1 or 0)"""
-
-        CHINA_FROM_PEAK_THROUGH_THE_TROUGH: str = "CHNRECDM"
-        """OECD based Recession Indicators for China from the Peak through the Trough (in +1 or 0)"""
-
-        CZECH_REPUBLIC_FROM_PEAK_THROUGH_THE_TROUGH: str = "CZERECDM"
-        """OECD based Recession Indicators for the Czech Republic from the Peak through the Trough (in +1 or 0)"""
-
-        GERMANY_FROM_PEAK_THROUGH_THE_TROUGH: str = "DEURECDM"
-        """OECD based Recession Indicators for Germany from the Peak through the Trough (in +1 or 0)"""
-
-        DENMARK_FROM_PEAK_THROUGH_THE_TROUGH: str = "DNKRECDM"
-        """OECD based Recession Indicators for Denmark from the Peak through the Trough (in +1 or 0)"""
-
-        SPAIN_FROM_PEAK_THROUGH_THE_TROUGH: str = "ESPRECDM"
-        """OECD based Recession Indicators for Spain from the Peak through the Trough (in +1 or 0)"""
-
-        ESTONIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "ESTRECDM"
-        """OECD based Recession Indicators for Estonia from the Peak through the Trough (in +1 or 0)"""
-
-        EURO_AREA_FROM_PEAK_THROUGH_THE_TROUGH: str = "EURORECDM"
-        """OECD based Recession Indicators for Euro Area from the Peak through the Trough (in +1 or 0)"""
-
-        FINLAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "FINRECDM"
-        """OECD based Recession Indicators for Finland from the Peak through the Trough (in +1 or 0)"""
-
-        FRANCE_FROM_PEAK_THROUGH_THE_TROUGH: str = "FRARECDM"
-        """OECD based Recession Indicators for France from the Peak through the Trough (in +1 or 0)"""
-
-        UNITED_KINGDOM_FROM_PEAK_THROUGH_THE_TROUGH: str = "GBRRECDM"
-        """OECD based Recession Indicators for the United Kingdom from the Peak through the Trough (in +1 or 0)"""
-
-        GREECE_FROM_PEAK_THROUGH_THE_TROUGH: str = "GRCRECDM"
-        """OECD based Recession Indicators for Greece from the Peak through the Trough (in +1 or 0)"""
-
-        HUNGARY_FROM_PEAK_THROUGH_THE_TROUGH: str = "HUNRECDM"
-        """OECD based Recession Indicators for Hungary from the Peak through the Trough (in +1 or 0)"""
-
-        INDONESIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "IDNRECDM"
-        """OECD based Recession Indicators for Indonesia from the Peak through the Trough (in +1 or 0)"""
-
-        INDIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "INDRECDM"
-        """OECD based Recession Indicators for India from the Peak through the Trough (in +1 or 0)"""
-
-        IRELAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "IRLRECDM"
-        """OECD based Recession Indicators for Ireland from the Peak through the Trough (in +1 or 0)"""
-
-        ISRAEL_FROM_PEAK_THROUGH_THE_TROUGH: str = "ISRRECDM"
-        """OECD based Recession Indicators for Israel from the Peak through the Trough (in +1 or 0)"""
-
-        ITALY_FROM_PEAK_THROUGH_THE_TROUGH: str = "ITARECDM"
-        """OECD based Recession Indicators for Italy from the Peak through the Trough (in +1 or 0)"""
-
-        JAPAN_FROM_PEAK_THROUGH_THE_TROUGH: str = "JPNRECDM"
-        """OECD based Recession Indicators for Japan from the Peak through the Trough (in +1 or 0)"""
-
-        KOREA_FROM_PEAK_THROUGH_THE_TROUGH: str = "KORRECDM"
-        """OECD based Recession Indicators for Korea from the Peak through the Trough (in +1 or 0)"""
-
-        LUXEMBOURG_FROM_PEAK_THROUGH_THE_TROUGH: str = "LUXRECDM"
-        """OECD based Recession Indicators for Luxembourg from the Peak through the Trough (in +1 or 0)"""
-
-        MAJOR_FIVE_ASIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "MAJOR5ASIARECDM"
-        """OECD based Recession Indicators for Major 5 Asia from the Peak through the Trough (in +1 or 0)"""
-
-        MEXICO_FROM_PEAK_THROUGH_THE_TROUGH: str = "MEXRECDM"
-        """OECD based Recession Indicators for Mexico from the Peak through the Trough (in +1 or 0)"""
-
-        MAJOR_SEVEN_COUNTRIES_FROM_PEAK_THROUGH_THE_TROUGH: str = "MSCRECDM"
-        """OECD based Recession Indicators for Major Seven Countries from the Peak through the Trough (in +1 or 0)"""
-
-        NAFTA_AREA_FROM_PEAK_THROUGH_THE_TROUGH: str = "NAFTARECDM"
-        """OECD based Recession Indicators for NAFTA Area from the Peak through the Trough (in +1 or 0)"""
-
-        NETHERLANDS_FROM_PEAK_THROUGH_THE_TROUGH: str = "NDLRECDM"
-        """OECD based Recession Indicators for Netherlands from the Peak through the Trough (in +1 or 0)"""
-
-        NORWAY_FROM_PEAK_THROUGH_THE_TROUGH: str = "NORRECDM"
-        """OECD based Recession Indicators for Norway from the Peak through the Trough (in +1 or 0)"""
-
-        NEW_ZEALAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "NZLRECDM"
-        """OECD based Recession Indicators for New Zealand from the Peak through the Trough (in +1 or 0)"""
-
-        OECD_EUROPE_FROM_PEAK_THROUGH_THE_TROUGH: str = "OECDEUROPERECDM"
-        """OECD based Recession Indicators for OECD Europe from the Peak through the Trough (in +1 or 0)"""
-
-        OECD_AND_NONMEMBER_ECONOMIES_FROM_PEAK_THROUGH_THE_TROUGH: str = "OECDNMERECDM"
-        """OECD based Recession Indicators for OECD and Non-member Economies from the Peak through the Trough (in +1 or 0)"""
-
-        OECD_TOTAL_AREA_FROM_PEAK_THROUGH_THE_TROUGH: str = "OECDRECDM"
-        """OECD based Recession Indicators for the OECD Total Area from the Peak through the Trough (in +1 or 0)"""
-
-        POLAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "POLRECDM"
-        """OECD based Recession Indicators for Poland from the Peak through the Trough (in +1 or 0)"""
-
-        PORTUGAL_FROM_PEAK_THROUGH_THE_TROUGH: str = "PRTRECDM"
-        """OECD based Recession Indicators for Portugal from the Peak through the Trough (in +1 or 0)"""
-
-        RUSSIAN_FEDERATION_FROM_PEAK_THROUGH_THE_TROUGH: str = "RUSRECDM"
-        """OECD based Recession Indicators for Russian Federation from the Peak through the Trough (in +1 or 0)"""
-
-        SLOVAK_REPUBLIC_FROM_PEAK_THROUGH_THE_TROUGH: str = "SVKRECDM"
-        """OECD based Recession Indicators for the Slovak Republic from the Peak through the Trough (in +1 or 0)"""
-
-        SLOVENIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "SVNRECDM"
-        """OECD based Recession Indicators for Slovenia from the Peak through the Trough (in +1 or 0)"""
-
-        SWEDEN_FROM_PEAK_THROUGH_THE_TROUGH: str = "SWERECDM"
-        """OECD based Recession Indicators for Sweden from the Peak through the Trough (in +1 or 0)"""
-
-        TURKEY_FROM_PEAK_THROUGH_THE_TROUGH: str = "TURRECDM"
-        """OECD based Recession Indicators for Turkey from the Peak through the Trough (in +1 or 0)"""
-
-        UNITED_STATES_FROM_PEAK_THROUGH_THE_TROUGH: str = "USARECDM"
-        """OECD based Recession Indicators for the United States from the Peak through the Trough (in +1 or 0)"""
-
-        SOUTH_AFRICA_FROM_PEAK_THROUGH_THE_TROUGH: str = "ZAFRECDM"
-        """OECD based Recession Indicators for South Africa from the Peak through the Trough (in +1 or 0)"""
-
-        FOUR_BIG_EUROPEAN_COUNTRIES_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "4BIGEURORECD"
-        """OECD based Recession Indicators for Four Big European Countries from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        AUSTRALIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "AUSRECD"
-        """OECD based Recession Indicators for Australia from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        AUSTRIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "AUTRECD"
-        """OECD based Recession Indicators for Austria from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        BELGIUM_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "BELRECD"
-        """OECD based Recession Indicators for Belgium from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        BRAZIL_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "BRARECD"
-        """OECD based Recession Indicators for Brazil from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        CANADA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CANRECD"
-        """OECD based Recession Indicators for Canada from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        SWITZERLAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CHERECD"
-        """OECD based Recession Indicators for Switzerland from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        CHILE_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CHLRECD"
-        """OECD based Recession Indicators for Chile from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        CHINA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CHNRECD"
-        """OECD based Recession Indicators for China from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        CZECH_REPUBLIC_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CZERECD"
-        """OECD based Recession Indicators for the Czech Republic from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        GERMANY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "DEURECD"
-        """OECD based Recession Indicators for Germany from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        DENMARK_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "DNKRECD"
-        """OECD based Recession Indicators for Denmark from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        SPAIN_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ESPRECD"
-        """OECD based Recession Indicators for Spain from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        ESTONIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ESTRECD"
-        """OECD based Recession Indicators for Estonia from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        EURO_AREA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "EURORECD"
-        """OECD based Recession Indicators for Euro Area from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        FINLAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "FINRECD"
-        """OECD based Recession Indicators for Finland from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        FRANCE_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "FRARECD"
-        """OECD based Recession Indicators for France from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        UNITED_KINGDOM_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "GBRRECD"
-        """OECD based Recession Indicators for the United Kingdom from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        GREECE_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "GRCRECD"
-        """OECD based Recession Indicators for Greece from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        HUNGARY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "HUNRECD"
-        """OECD based Recession Indicators for Hungary from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        INDONESIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "IDNRECD"
-        """OECD based Recession Indicators for Indonesia from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        INDIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "INDRECD"
-        """OECD based Recession Indicators for India from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        IRELAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "IRLRECD"
-        """OECD based Recession Indicators for Ireland from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        ISRAEL_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ISRRECD"
-        """OECD based Recession Indicators for Israel from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        ITALY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ITARECD"
-        """OECD based Recession Indicators for Italy from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        JAPAN_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "JPNRECD"
-        """OECD based Recession Indicators for Japan from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        KOREA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "KORRECD"
-        """OECD based Recession Indicators for Korea from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        LUXEMBOURG_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "LUXRECD"
-        """OECD based Recession Indicators for Luxembourg from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        MAJOR_FIVE_ASIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "MAJOR5ASIARECD"
-        """OECD based Recession Indicators for Major 5 Asia from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        MEXICO_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "MEXRECD"
-        """OECD based Recession Indicators for Mexico from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        MAJOR_SEVEN_COUNTRIES_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "MSCRECD"
-        """OECD based Recession Indicators for Major Seven Countries from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        NAFTA_AREA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "NAFTARECD"
-        """OECD based Recession Indicators for NAFTA Area from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        NETHERLANDS_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "NDLRECD"
-        """OECD based Recession Indicators for Netherlands from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        NORWAY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "NORRECD"
-        """OECD based Recession Indicators for Norway from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        NEW_ZEALAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "NZLRECD"
-        """OECD based Recession Indicators for New Zealand from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        OECD_EUROPE_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "OECDEUROPERECD"
-        """OECD based Recession Indicators for OECD Europe from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        OEC_DAND_NONMEMBER_ECONOMIES_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "OECDNMERECD"
-        """OECD based Recession Indicators for OECD and Non-member Economies from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        OECD_TOTAL_AREA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "OECDRECD"
-        """OECD based Recession Indicators for the OECD Total Area from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        POLAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "POLRECD"
-        """OECD based Recession Indicators for Poland from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        PORTUGAL_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "PRTRECD"
-        """OECD based Recession Indicators for Portugal from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        RUSSIAN_FEDERATION_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "RUSRECD"
-        """OECD based Recession Indicators for Russian Federation from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        SLOVAK_REPUBLIC_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "SVKRECD"
-        """OECD based Recession Indicators for the Slovak Republic from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        SLOVENIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "SVNRECD"
-        """OECD based Recession Indicators for Slovenia from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        SWEDEN_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "SWERECD"
-        """OECD based Recession Indicators for Sweden from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        TURKEY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "TURRECD"
-        """OECD based Recession Indicators for Turkey from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        UNITED_STATES_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "USARECD"
-        """OECD based Recession Indicators for the United States from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        SOUTH_AFRICA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ZAFRECD"
-        """OECD based Recession Indicators for South Africa from the Period following the Peak through the Trough (in +1 or 0)"""
-
-        FOUR_BIG_EUROPEAN_COUNTRIES_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "4BIGEURORECDP"
-        """OECD based Recession Indicators for Four Big European Countries from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        AUSTRALIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "AUSRECDP"
-        """OECD based Recession Indicators for Australia from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        AUSTRIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "AUTRECDP"
-        """OECD based Recession Indicators for Austria from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        BELGIUM_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "BELRECDP"
-        """OECD based Recession Indicators for Belgium from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        BRAZIL_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "BRARECDP"
-        """OECD based Recession Indicators for Brazil from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        CANADA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CANRECDP"
-        """OECD based Recession Indicators for Canada from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        SWITZERLAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CHERECDP"
-        """OECD based Recession Indicators for Switzerland from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        CHILE_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CHLRECDP"
-        """OECD based Recession Indicators for Chile from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        CHINA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CHNRECDP"
-        """OECD based Recession Indicators for China from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        CZECH_REPUBLIC_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CZERECDP"
-        """OECD based Recession Indicators for the Czech Republic from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        GERMANY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "DEURECDP"
-        """OECD based Recession Indicators for Germany from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        DENMARK_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "DNKRECDP"
-        """OECD based Recession Indicators for Denmark from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        SPAIN_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ESPRECDP"
-        """OECD based Recession Indicators for Spain from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        ESTONIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ESTRECDP"
-        """OECD based Recession Indicators for Estonia from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        EURO_AREA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "EURORECDP"
-        """OECD based Recession Indicators for Euro Area from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        FINLAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "FINRECDP"
-        """OECD based Recession Indicators for Finland from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        FRANCE_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "FRARECDP"
-        """OECD based Recession Indicators for France from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        UNITED_KINGDOM_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "GBRRECDP"
-        """OECD based Recession Indicators for the United Kingdom from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        GREECE_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "GRCRECDP"
-        """OECD based Recession Indicators for Greece from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        HUNGARY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "HUNRECDP"
-        """OECD based Recession Indicators for Hungary from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        INDONESIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "IDNRECDP"
-        """OECD based Recession Indicators for Indonesia from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        INDIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "INDRECDP"
-        """OECD based Recession Indicators for India from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        IRELAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "IRLRECDP"
-        """OECD based Recession Indicators for Ireland from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        ISRAEL_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ISRRECDP"
-        """OECD based Recession Indicators for Israel from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        ITALY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ITARECDP"
-        """OECD based Recession Indicators for Italy from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        JAPAN_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "JPNRECDP"
-        """OECD based Recession Indicators for Japan from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        KOREA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "KORRECDP"
-        """OECD based Recession Indicators for Korea from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        LUXEMBOURG_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "LUXRECDP"
-        """OECD based Recession Indicators for Luxembourg from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        MAJOR_FIVE_ASIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "MAJOR5ASIARECDP"
-        """OECD based Recession Indicators for Major 5 Asia from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        MEXICO_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "MEXRECDP"
-        """OECD based Recession Indicators for Mexico from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        MAJOR_SEVEN_COUNTRIES_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "MSCRECDP"
-        """OECD based Recession Indicators for Major Seven Countries from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        NAFTA_AREA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "NAFTARECDP"
-        """OECD based Recession Indicators for NAFTA Area from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        NETHERLANDS_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "NDLRECDP"
-        """OECD based Recession Indicators for Netherlands from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        NORWAY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "NORRECDP"
-        """OECD based Recession Indicators for Norway from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        NEW_ZEALAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "NZLRECDP"
-        """OECD based Recession Indicators for New Zealand from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        OECD_EUROPE_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "OECDEUROPERECDP"
-        """OECD based Recession Indicators for OECD Europe from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        OEC_DAND_NONMEMBER_ECONOMIES_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "OECDNMERECDP"
-        """OECD based Recession Indicators for OECD and Non-member Economies from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        OECD_TOTAL_AREA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "OECDRECDP"
-        """OECD based Recession Indicators for the OECD Total Area from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        POLAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "POLRECDP"
-        """OECD based Recession Indicators for Poland from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        PORTUGAL_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "PRTRECDP"
-        """OECD based Recession Indicators for Portugal from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        RUSSIAN_FEDERATION_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "RUSRECDP"
-        """OECD based Recession Indicators for Russian Federation from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        SLOVAK_REPUBLIC_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "SVKRECDP"
-        """OECD based Recession Indicators for the Slovak Republic from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        SLOVENIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "SVNRECDP"
-        """OECD based Recession Indicators for Slovenia from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        SWEDEN_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "SWERECDP"
-        """OECD based Recession Indicators for Sweden from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        TURKEY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "TURRECDP"
-        """OECD based Recession Indicators for Turkey from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        UNITED_STATES_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "USARECDP"
-        """OECD based Recession Indicators for the United States from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-        SOUTH_AFRICA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ZAFRECDP"
-        """OECD based Recession Indicators for South Africa from the Peak through the Period preceding the Trough (in +1 or 0)"""
-
-    class CBOE(System.Object):
-        """Chicago Board Options Exchange"""
-
-        VIX_ON_GOOGLE: str = "VXGOGCLS"
-        """CBOE Equity VIX on Google (in Index)"""
-
-        VXD: str = "VXDCLS"
-        """CBOE DJIA Volatility Index (in Index)"""
-
-        VIX_ON_GOLDMAN_SACHS: str = "VXGSCLS"
-        """CBOE Equity VIX on Goldman Sachs (in Index)"""
-
-        VIX_ON_IBM: str = "VXIBMCLS"
-        """CBOE Equity VIX on IBM (in Index)"""
-
-        VIX_ON_AMAZON: str = "VXAZNCLS"
-        """CBOE Equity VIX on Amazon (in Index)"""
-
-        VXO: str = "VXOCLS"
-        """CBOE S&P 100 Volatility Index: VXO (in Index)"""
-
-        VXN: str = "VXNCLS"
-        """CBOE NASDAQ 100 Volatility Index (in Index)"""
-
-        TEN_YEAR_TREASURY_NOTE_VOLATILITY_FUTURES: str = "VXTYN"
-        """CBOE 10-Year Treasury Note Volatility Futures (in Index)"""
-
-        RVX: str = "RVXCLS"
-        """CBOE Russell 2000 Volatility Index (in Index)"""
-
-        SP_500_THREE_MONTH_VOLATILITY_INDEX: str = "VXVCLS"
-        """CBOE S&P 500 3-Month Volatility Index (in Index)"""
-
-        VIX_ON_APPLE: str = "VXAPLCLS"
-        """CBOE Equity VIX on Apple (in Index)"""
-
-        GOLD_MINERS_ETF_VOLATILITY_INDEX: str = "VXGDXCLS"
-        """CBOE Gold Miners ETF Volatility Index (in Index)"""
-
-        CHINA_ETF_VOLATILITY_INDEX: str = "VXFXICLS"
-        """CBOE China ETF Volatility Index (in Index)"""
-
-        BRAZIL_ETF_VOLATILITY_INDEX: str = "VXEWZCLS"
-        """CBOE Brazil ETF Volatility Index (in Index)"""
-
-        EMERGING_MARKETS_ETF_VOLATILITY_INDEX: str = "VXEEMCLS"
-        """CBOE Emerging Markets ETF Volatility Index (in Index)"""
-
-        EURO_CURRENCY_ETF_VOLATILITY_INDEX: str = "EVZCLS"
-        """CBOE EuroCurrency ETF Volatility Index (in Index)"""
-
-        GOLD_ETF_VOLATILITY_INDEX: str = "GVZCLS"
-        """CBOE Gold ETF Volatility Index (in Index)"""
-
-        CRUDE_OIL_ETF_VOLATILITY_INDEX: str = "OVXCLS"
-        """CBOE Crude Oil ETF Volatility Index (in Index)"""
-
-        SILVER_ETF_VOLATILITY_INDEX: str = "VXSLVCLS"
-        """CBOE Silver ETF Volatility Index (in Index)"""
-
-        ENERGY_SECTOR_ETF_VOLATILITY_INDEX: str = "VXXLECLS"
-        """CBOE Energy Sector ETF Volatility Index (in Index)"""
-
-        VIX: str = "VIXCLS"
-        """CBOE Volatility Index: VIX (in Index)"""
-
-    class TradeWeightedIndexes(System.Object):
-        """Trade Weight Indexes"""
-
-        MAJOR_CURRENCIES_GOODS: str = "DTWEXM"
-        """Trade Weighted U.S. Dollar Index: Major Currencies, Goods (in Index Mar 1973=100)"""
-
-        OTHER_IMPORTANT_TRADING_PARTNERS_GOODS: str = "DTWEXO"
-        """Trade Weighted U.S. Dollar Index: Other Important Trading Partners, Goods (in Index Jan 1997=100)"""
-
-        BROAD_GOODS: str = "DTWEXB"
-        """Trade Weighted U.S. Dollar Index: Broad, Goods (in Index Jan 1997=100)"""
-
-        ADVANCED_FOREIGN_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXAFEGS"
-        """Trade Weighted U.S. Dollar Index: Advanced Foreign Economies, Goods and Services (in Index Jan 2006=100)"""
-
-        BROAD_GOODS_AND_SERVICES: str = "DTWEXBGS"
-        """Trade Weighted U.S. Dollar Index: Broad, Goods and Services (in Index Jan 2006=100)"""
-
-        EMERGING_MARKETS_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXEMEGS"
-        """Trade Weighted U.S. Dollar Index: Emerging Markets Economies, Goods and Services (in Index Jan 2006=100)"""
-
-    class Wilshire(System.Object):
-        """Wilshire Indexes help clients, investment professionals and researchers accurately measure and better understand the market. The Wilshire Index family leverages more than 40 years of Wilshire performance measurement expertise and employs unbiased construction rules."""
-
-        US_SMALL_CAP_VALUE_PRICE: str = "WILLSMLCAPVALPR"
-        """Wilshire US Small-Cap Value Price Index (in Index)"""
-
-        PRICE_2500: str = "WILL2500PR"
-        """Wilshire 2500 Price Index (in Index)"""
-
-        PRICE_4500: str = "WILL4500PR"
-        """Wilshire 4500 Price Index (in Index)"""
-
-        VALUE_PRICE_2500: str = "WILL2500PRVAL"
-        """Wilshire 2500 Value Price Index (in Index)"""
-
-        GROWTH_PRICE_2500: str = "WILL2500PRGR"
-        """Wilshire 2500 Growth Price Index (in Index)"""
-
-        US_SMALL_CAP_PRICE: str = "WILLSMLCAPPR"
-        """Wilshire US Small-Cap Price Index (in Index)"""
-
-        PRICE_5000: str = "WILL5000PR"
-        """Wilshire 5000 Price Index (in Index)"""
-
-        US_SMALL_CAP_GROWTH_PRICE: str = "WILLSMLCAPGRPR"
-        """Wilshire US Small-Cap Growth Price Index (in Index)"""
-
-        US_MID_CAP_VALUE_PRICE: str = "WILLMIDCAPVALPR"
-        """Wilshire US Mid-Cap Value Price Index (in Index)"""
-
-        US_REAL_ESTATE_SECURITIES_PRICE: str = "WILLRESIPR"
-        """Wilshire US Real Estate Securities Price Index (Wilshire US RESI) (in Index)"""
-
-        US_LARGE_CAP_PRICE: str = "WILLLRGCAPPR"
-        """Wilshire US Large-Cap Price Index (in Index)"""
-
-        US_MID_CAP_PRICE: str = "WILLMIDCAPPR"
-        """Wilshire US Mid-Cap Price Index (in Index)"""
-
-        US_MID_CAP_GROWTH_PRICE: str = "WILLMIDCAPGRPR"
-        """Wilshire US Mid-Cap Growth Price Index (in Index)"""
-
-        US_MICRO_CAP_PRICE: str = "WILLMICROCAPPR"
-        """Wilshire US Micro-Cap Price Index (in Index)"""
-
-        US_REAL_ESTATE_INVESTMENT_TRUST_PRICE: str = "WILLREITPR"
-        """Wilshire US Real Estate Investment Trust Price Index (Wilshire US REIT) (in Index)"""
-
-        US_LARGE_CAP_VALUE_PRICE: str = "WILLLRGCAPVALPR"
-        """Wilshire US Large-Cap Value Price Index (in Index)"""
-
-        US_LARGE_CAP_GROWTH_PRICE: str = "WILLLRGCAPGRPR"
-        """Wilshire US Large-Cap Growth Price Index (in Index)"""
-
-        FULL_CAP_PRICE_5000: str = "WILL5000PRFC"
-        """Wilshire 5000 Full Cap Price Index (in Index)"""
-
-        US_MID_CAP_VALUE: str = "WILLMIDCAPVAL"
-        """Wilshire US Mid-Cap Value Total Market Index (in Index)"""
-
-        US_MID_CAP_GROWTH: str = "WILLMIDCAPGR"
-        """Wilshire US Mid-Cap Growth Total Market Index (in Index)"""
-
-        US_MID_CAP: str = "WILLMIDCAP"
-        """Wilshire US Mid-Cap Total Market Index (in Index)"""
-
-        US_REAL_ESTATE_SECURITIES: str = "WILLRESIND"
-        """Wilshire US Real Estate Securities Total Market Index (Wilshire US RESI) (in Index)"""
-
-        INDEX_4500: str = "WILL4500IND"
-        """Wilshire 4500 Total Market Index (in Index)"""
-
-        INDEX_5000: str = "WILL5000IND"
-        """Wilshire 5000 Total Market Index (in Index)"""
-
-        US_LARGE_CAP_GROWTH: str = "WILLLRGCAPGR"
-        """Wilshire US Large-Cap Growth Total Market Index (in Index)"""
-
-        US_MICRO_CAP: str = "WILLMICROCAP"
-        """Wilshire US Micro-Cap Total Market Index (in Index)"""
-
-        VALUE_2500: str = "WILL2500INDVAL"
-        """Wilshire 2500 Value Total Market Index (in Index)"""
-
-        US_SMALL_CAP_GROWTH: str = "WILLSMLCAPGR"
-        """Wilshire US Small-Cap Growth Total Market Index (in Index)"""
-
-        US_SMALL_CAP_VALUE: str = "WILLSMLCAPVAL"
-        """Wilshire US Small-Cap Value Total Market Index (in Index)"""
-
-        US_LARGE_CAP_VALUE: str = "WILLLRGCAPVAL"
-        """Wilshire US Large-Cap Value Total Market Index (in Index)"""
-
-        US_REAL_ESTATE_INVESTMENT_TRUST: str = "WILLREITIND"
-        """Wilshire US Real Estate Investment Trust Total Market Index (Wilshire US REIT) (in Index)"""
-
-        INDEX_2500: str = "WILL2500IND"
-        """Wilshire 2500 Total Market Index (in Index)"""
-
-        US_SMALL_CAP: str = "WILLSMLCAP"
-        """Wilshire US Small-Cap Total Market Index (in Index)"""
-
-        US_LARGE_CAP: str = "WILLLRGCAP"
-        """Wilshire US Large-Cap Total Market Index (in Index)"""
-
-        GROWTH_2500: str = "WILL2500INDGR"
-        """Wilshire 2500 Growth Total Market Index (in Index)"""
-
-        TOTAL_MARKET_FULL_CAP_5000: str = "WILL5000INDFC"
-        """Wilshire 5000 Total Market Full Cap Index (in Index)"""
-
-    class CommercialPaper(System.Object):
-        """
-        Commercial paper (CP) consists of short-term, promissory notes issued primarily by corporations. Maturities range up to 270 days but average about 30 days. Many companies use CP to raise cash needed for current transactions, and many find it to be a lower-cost alternative to bank loans.
-        The Federal Reserve Board disseminates information on CP primarily through its World Wide Web site. In addition, the Board publishes one-, two-, and three-month rates on AA nonfinancial and AA financial CP weekly in its H.15 Statistical Release.
-        The Federal Reserve Board's CP release is derived from data supplied by The Depository Trust & Clearing Corporation (DTCC), a national clearinghouse for the settlement of securities trades and a custodian for securities. DTCC performs these functions for almost all activity in the domestic CP market. The Federal Reserve Board only considers maturities of 270 days or less. CP is exempt from SEC registration if its maturity does not exceed 270 days.
-        Data on CP issuance rates and volumes typically are updated daily and typically posted with a one-day lag. Data on CP outstanding usually are available as of the close of business each Wednesday and as of the last business day of the month; these data are also posted with a one-day lag. The daily CP release will usually be available at 9:45 a.m. EST. However, the Federal Reserve Board makes no guarantee regarding the timing of the daily CP release. This policy is subject to change at any time without notice.
-        """
-
-        THREE_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN3M"
-        """3-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
-
-        ONE_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN30"
-        """1-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
-
-        TWO_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN2M"
-        """2-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
-
-        THREE_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF3M"
-        """3-Month AA Financial Commercial Paper Rate (in Percent)"""
-
-        TWO_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF2M"
-        """2-Month AA Financial Commercial Paper Rate (in Percent)"""
-
-        ONE_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF1M"
-        """1-Month AA Financial Commercial Paper Rate (in Percent)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN14A2P2VOL"
-        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN59A2P2VOL"
-        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN59A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN4180AAVOL"
-        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "ABGT80AAAMT"
-        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN4180AAAMT"
-        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN4180A2P2VOL"
-        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN4180A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN2140AAVOL"
-        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN2140AAAMT"
-        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN2140A2P2VOL"
-        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN2140A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN14AAVOL"
-        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN1020A2P2VOL"
-        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN1020AAAMT"
-        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB2140AAAMT"
-        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN1020AAVOL"
-        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN14A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN14AAAMT"
-        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUEOF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_1_AND_4_DAYS: str = "MKT14MKTAMT"
-        """Total Value of Commercial Paper Issues with a Maturity Between 1 and 4 Days (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN1020A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FINGT80AAVOL"
-        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN1020AAVOL"
-        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN14AAAMT"
-        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN14AAVOL"
-        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUEOF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_10_AND_20_DAYS: str = "MKT1020MKTAMT"
-        """Total Value of Commercial Paper Issues with a Maturity Between 10 and 20 Days (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_10_AND_20_DAYS: str = "MKT1020MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 10 and 20 Days (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN2140AAAMT"
-        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_1_AND_4_DAYS: str = "MKT14MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 1 and 4 Days (in Number)"""
-
-        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_21_AND_40_DAYS: str = "MKT2140MKTAMT"
-        """Total Value of Issuers of Commercial Paper with a Maturity Between 21 and 40 Days (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_21_AND_40_DAYS: str = "MKT2140MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 21 and 40 Days (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN2140AAVOL"
-        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_41_AND_80_DAYS: str = "MKT4180MKTAMT"
-        """Total Value of Issuers of Commercial Paper with a Maturity Between 41 and 80 Days (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN59AAAMT"
-        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_41_AND_80_DAYS: str = "MKT4180MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 41 and 80 Days (in Number)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_5_AND_9_DAYS: str = "MKT59MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 5 and 9 Days (in Number)"""
-
-        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_GREATER_THAN_80_DAYS: str = "MKTGT80MKTAMT"
-        """Total Value of Issuers of Commercial Paper with a Maturity Greater Than 80 Days (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_GREATER_THAN_80_DAYS: str = "MKTGT80MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Greater Than 80 Days (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN4180AAAMT"
-        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN4180AAVOL"
-        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB4180AAAMT"
-        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN59AAAMT"
-        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN59AAVOL"
-        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FINGT80AAAMT"
-        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN1020AAAMT"
-        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB2140AAVOL"
-        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_5_AND_9_DAYS: str = "MKT59MKTAMT"
-        """Total Value of Issuers of Commercial Paper with a Maturity Between 5 and 9 Days (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "ABGT80AAVOL"
-        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN59AAVOL"
-        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        FIFTEEN_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD15NB"
-        """15-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB59AAAMT"
-        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB4180AAVOL"
-        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        FIFTEEN_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D15NB"
-        """15-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        SEVEN_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D07NB"
-        """7-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        OVERNIGHT_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D01NB"
-        """Overnight A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NINETY_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD90NB"
-        """90-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        OVERNIGHT_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD01NB"
-        """Overnight AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        THREE_0_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D30NB"
-        """30-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        SIXTY_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD60NB"
-        """60-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        THREE_0_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD30NB"
-        """30-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFINGT80A2P2AMT"
-        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        THREE_0_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD30NB"
-        """30-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        SIXTY_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD60NB"
-        """60-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        NINETY_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD90NB"
-        """90-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        FIFTEEN_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD15NB"
-        """15-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        SEVEN_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD07NB"
-        """7-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        SEVEN_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD07NB"
-        """7-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        OVERNIGHT_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD01NB"
-        """Overnight AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        SIXTY_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D60NB"
-        """60-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB59AAVOL"
-        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB14AAVOL"
-        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFINGT80A2P2VOL"
-        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB14AAAMT"
-        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        NINETY_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D90NB"
-        """90-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB1020AAVOL"
-        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFINGT80AAAMT"
-        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        OVERNIGHT_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD01NB"
-        """Overnight AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB1020AAAMT"
-        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        SEVEN_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD07NB"
-        """7-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NINETY_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD90NB"
-        """90-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        FIFTEEN_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD15NB"
-        """15-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        THREE_0_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD30NB"
-        """30-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        SIXTY_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD60NB"
-        """60-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFINGT80AAVOL"
-        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        THREE_MONTH_COMMERCIAL_PAPER_MINUS_FEDERAL_FUNDS_RATE: str = "CPFF"
-        """3-Month Commercial Paper Minus Federal Funds Rate (in Percent)"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    is_auth_code_set: bool
-    """Flag indicating whether or not the FRED auth code has been set yet"""
-
-    def __init__(self) -> None:
-        """Default Fred constructor"""
+    @property
+    def all(self) -> typing.Optional[float]:
         ...
 
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
+    @all.setter
+    def all(self, value: typing.Optional[float]) -> None:
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
+    @property
+    def positive(self) -> typing.Optional[float]:
         ...
 
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
+    @positive.setter
+    def positive(self, value: typing.Optional[float]) -> None:
         ...
 
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
+    @property
+    def negative(self) -> typing.Optional[float]:
         ...
 
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance of FRED data.
-        """
+    @negative.setter
+    def negative(self, value: typing.Optional[float]) -> None:
         ...
 
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied
-        to an underlying symbol and requires that corporate
-        events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
+    @property
+    def uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @uncertainty.setter
+    def uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def litigious(self) -> typing.Optional[float]:
+        ...
+
+    @litigious.setter
+    def litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def constraining(self) -> typing.Optional[float]:
+        ...
+
+    @constraining.setter
+    def constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interesting(self) -> typing.Optional[float]:
+        ...
+
+    @interesting.setter
+    def interesting(self, value: typing.Optional[float]) -> None:
         ...
 
     @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Set the FRED authentication code to request the data.
-        
-        :param auth_code: 
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
+    def parse(similarity_values: typing.List[str]) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
         ...
 
 
-class SECReportDateTimeConverter:
-    """Specifies format for parsing DateTime values from SEC data"""
-
-    def __init__(self) -> None:
-        """Constructor, initializes DateTime format"""
-        ...
-
-
-class SECReportDocument(System.Object):
-    """Business documents reported to the SEC"""
+class BrainCompanyFilingLanguageMetrics(System.Object):
+    """This class has no documentation."""
 
     @property
-    def form_type(self) -> str:
-        """Report document type, e.g. 10-Q, 8-K, S-1"""
+    def sentence_count(self) -> typing.Optional[int]:
         ...
 
-    @form_type.setter
-    def form_type(self, value: str) -> None:
+    @sentence_count.setter
+    def sentence_count(self, value: typing.Optional[int]) -> None:
         ...
 
     @property
-    def sequence(self) -> int:
-        """Nth attachment to the form filed"""
+    def mean_sentence_length(self) -> typing.Optional[float]:
         ...
 
-    @sequence.setter
-    def sequence(self, value: int) -> None:
-        ...
-
-    @property
-    def filename(self) -> str:
-        """File name that the file had when it was uploaded"""
-        ...
-
-    @filename.setter
-    def filename(self, value: str) -> None:
+    @mean_sentence_length.setter
+    def mean_sentence_length(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def description(self) -> str:
-        """Attachment content(s) description"""
+    def sentiment(self) -> typing.Optional[float]:
         ...
 
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def text(self) -> str:
-        """
-        Content of the attachment. This is the field that will most likely contain
-        information related to financial reports. Sometimes, XML will
-        be present in the data. If the first line starts with "<XML>", then
-        XML data will be present in the contents of the document
-        """
-        ...
-
-    @text.setter
-    def text(self, value: str) -> None:
-        ...
-
-
-class SECReportIndexItem(System.Object):
-    """SEC Report Index Item"""
-
-    @property
-    def last_modified(self) -> datetime.datetime:
-        """Date the SEC submission was published"""
-        ...
-
-    @last_modified.setter
-    def last_modified(self, value: datetime.datetime) -> None:
+    @sentiment.setter
+    def sentiment(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def name(self) -> str:
-        """Name of folder/file. Usually accession number"""
+    def uncertainty(self) -> typing.Optional[float]:
         ...
 
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def file_type(self) -> str:
-        """Specifies what kind of file the entry is"""
-        ...
-
-    @file_type.setter
-    def file_type(self, value: str) -> None:
+    @uncertainty.setter
+    def uncertainty(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def size(self) -> str:
-        """Size of the file. Empty if directory"""
+    def litigious(self) -> typing.Optional[float]:
         ...
 
-    @size.setter
-    def size(self, value: str) -> None:
-        ...
-
-
-class SECReportIndexDirectory(System.Object):
-    """SEC Report Index Directory, contains a list of Items"""
-
-    @property
-    def items(self) -> typing.List[QuantConnect.DataSource.SECReportIndexItem]:
-        """Contains additional metadata regarding files present on the server"""
-        ...
-
-    @items.setter
-    def items(self, value: typing.List[QuantConnect.DataSource.SECReportIndexItem]) -> None:
+    @litigious.setter
+    def litigious(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def name(self) -> str:
-        """Path directory"""
+    def constraining(self) -> typing.Optional[float]:
         ...
 
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def parent_directory(self) -> str:
-        """Parent directory (if one exists)"""
-        ...
-
-    @parent_directory.setter
-    def parent_directory(self, value: str) -> None:
-        ...
-
-
-class SECReportIndexFile(System.Object):
-    """SEC Report Index"""
-
-    @property
-    def directory(self) -> QuantConnect.DataSource.SECReportIndexDirectory:
-        """First and only root entry of SEC index.json"""
-        ...
-
-    @directory.setter
-    def directory(self, value: QuantConnect.DataSource.SECReportIndexDirectory) -> None:
-        ...
-
-
-class SECReportCompanyData(System.Object):
-    """Company Information reported to SEC"""
-
-    @property
-    def conformed_name(self) -> str:
-        """Current company name"""
-        ...
-
-    @conformed_name.setter
-    def conformed_name(self, value: str) -> None:
+    @constraining.setter
+    def constraining(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def cik(self) -> str:
-        """Company's Central Index Key. Used to uniquely identify company filings in SEC's EDGAR system"""
+    def interesting(self) -> typing.Optional[float]:
         ...
 
-    @cik.setter
-    def cik(self, value: str) -> None:
-        ...
-
-    @property
-    def assigned_sic(self) -> str:
-        """Standard Industrial Classification"""
-        ...
-
-    @assigned_sic.setter
-    def assigned_sic(self, value: str) -> None:
+    @interesting.setter
+    def interesting(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def irs_number(self) -> str:
-        """Employer Identification Number"""
+    def readability(self) -> typing.Optional[float]:
         ...
 
-    @irs_number.setter
-    def irs_number(self, value: str) -> None:
-        ...
-
-    @property
-    def state_of_incorporation(self) -> str:
-        """State of incorporation"""
-        ...
-
-    @state_of_incorporation.setter
-    def state_of_incorporation(self, value: str) -> None:
+    @readability.setter
+    def readability(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def fiscal_year_end(self) -> str:
-        """Day fiscal year ends for given company. Formatted as MMdd"""
+    def lexical_richness(self) -> typing.Optional[float]:
         ...
 
-    @fiscal_year_end.setter
-    def fiscal_year_end(self, value: str) -> None:
-        ...
-
-
-class SECReportFilingValues(System.Object):
-    """SEC Report Filing information"""
-
-    @property
-    def form_type(self) -> str:
-        """SEC Form Type (e.g. 10-Q, 8-K, S-1, etc.)"""
-        ...
-
-    @form_type.setter
-    def form_type(self, value: str) -> None:
+    @lexical_richness.setter
+    def lexical_richness(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def act(self) -> str:
-        """Identification of the act(s) under which certain IM filings are made. The form type may be filed under more than one act. Required in each filing values tag nest."""
+    def lexical_density(self) -> typing.Optional[float]:
         ...
 
-    @act.setter
-    def act(self, value: str) -> None:
-        ...
-
-    @property
-    def file_number(self) -> str:
-        """SEC filing number"""
-        ...
-
-    @file_number.setter
-    def file_number(self, value: str) -> None:
+    @lexical_density.setter
+    def lexical_density(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def film_number(self) -> str:
-        """Used to access documents in the SEC's Virtual Private Reference Room (VPRR)"""
+    def specific_density(self) -> typing.Optional[float]:
         ...
 
-    @film_number.setter
-    def film_number(self, value: str) -> None:
-        ...
-
-
-class SECReportBusinessAddress(System.Object):
-    """Business Address reported to the SEC"""
-
-    @property
-    def street_one(self) -> str:
-        """Street Address 1"""
-        ...
-
-    @street_one.setter
-    def street_one(self, value: str) -> None:
+    @specific_density.setter
+    def specific_density(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def street_two(self) -> str:
-        """Street Address 2"""
+    def similarity(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
         ...
 
-    @street_two.setter
-    def street_two(self, value: str) -> None:
+    @similarity.setter
+    def similarity(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference) -> None:
         ...
 
-    @property
-    def city(self) -> str:
-        """City"""
-        ...
-
-    @city.setter
-    def city(self, value: str) -> None:
-        ...
-
-    @property
-    def state(self) -> str:
-        """US State"""
-        ...
-
-    @state.setter
-    def state(self, value: str) -> None:
-        ...
-
-    @property
-    def zip(self) -> str:
-        """ZIP Code"""
-        ...
-
-    @zip.setter
-    def zip(self, value: str) -> None:
-        ...
-
-    @property
-    def phone(self) -> str:
-        """Business phone number"""
-        ...
-
-    @phone.setter
-    def phone(self, value: str) -> None:
+    @staticmethod
+    def parse(metrics: typing.List[str], similarity: typing.List[str] = None) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
         ...
 
 
-class SECReportMailAddress(System.Object):
-    """SEC Report Mail Address"""
-
-    @property
-    def street_one(self) -> str:
-        """Mailing street address"""
-        ...
-
-    @street_one.setter
-    def street_one(self, value: str) -> None:
-        ...
-
-    @property
-    def street_two(self) -> str:
-        """Mailing street address 2"""
-        ...
-
-    @street_two.setter
-    def street_two(self, value: str) -> None:
-        ...
-
-    @property
-    def city(self) -> str:
-        """City"""
-        ...
-
-    @city.setter
-    def city(self, value: str) -> None:
-        ...
-
-    @property
-    def state(self) -> str:
-        """US State"""
-        ...
-
-    @state.setter
-    def state(self, value: str) -> None:
-        ...
-
-    @property
-    def zip(self) -> str:
-        """ZIP code. Not an integer because ZIP codes with dashes and letters exist"""
-        ...
-
-    @zip.setter
-    def zip(self, value: str) -> None:
-        ...
-
-
-class SECReportFormerCompany(System.Object):
-    """SEC Name Changing Report"""
-
-    @property
-    def former_conformed_name(self) -> str:
-        """Previous company name"""
-        ...
-
-    @former_conformed_name.setter
-    def former_conformed_name(self, value: str) -> None:
-        ...
-
-    @property
-    def changed(self) -> datetime.datetime:
-        """Date the company name was changed to a new name"""
-        ...
-
-    @changed.setter
-    def changed(self, value: datetime.datetime) -> None:
-        ...
-
-
-class SECReportFiler(System.Object):
-    """SEC Filing"""
-
-    @property
-    def company_data(self) -> QuantConnect.DataSource.SECReportCompanyData:
-        """SEC data containing company data such as company name, cik, etc."""
-        ...
-
-    @company_data.setter
-    def company_data(self, value: QuantConnect.DataSource.SECReportCompanyData) -> None:
-        ...
-
-    @property
-    def values(self) -> typing.List[QuantConnect.DataSource.SECReportFilingValues]:
-        """Information regarding the filing itself"""
-        ...
-
-    @values.setter
-    def values(self, value: typing.List[QuantConnect.DataSource.SECReportFilingValues]) -> None:
-        ...
-
-    @property
-    def business_address(self) -> typing.List[QuantConnect.DataSource.SECReportBusinessAddress]:
-        """Information related to the business' address"""
-        ...
-
-    @business_address.setter
-    def business_address(self, value: typing.List[QuantConnect.DataSource.SECReportBusinessAddress]) -> None:
-        ...
-
-    @property
-    def mailing_address(self) -> typing.List[QuantConnect.DataSource.SECReportMailAddress]:
-        """Company mailing address information"""
-        ...
-
-    @mailing_address.setter
-    def mailing_address(self, value: typing.List[QuantConnect.DataSource.SECReportMailAddress]) -> None:
-        ...
-
-    @property
-    def former_companies(self) -> typing.List[QuantConnect.DataSource.SECReportFormerCompany]:
-        """
-        Former company names. Default to empty list in order to not have null values
-        in the case that the company has never had a former name
-        """
-        ...
-
-    @former_companies.setter
-    def former_companies(self, value: typing.List[QuantConnect.DataSource.SECReportFormerCompany]) -> None:
-        ...
-
-
-class SECReportSubmission(System.Object):
-    """SEC Report Submission"""
-
-    @property
-    def accession_number(self) -> str:
-        """Number used to access document filings on the SEC website"""
-        ...
-
-    @accession_number.setter
-    def accession_number(self, value: str) -> None:
-        ...
-
-    @property
-    def form_type(self) -> str:
-        """SEC form type"""
-        ...
-
-    @form_type.setter
-    def form_type(self, value: str) -> None:
-        ...
-
-    @property
-    def public_document_count(self) -> str:
-        """Number of documents made public by the SEC"""
-        ...
-
-    @public_document_count.setter
-    def public_document_count(self, value: str) -> None:
-        ...
-
-    @property
-    def period(self) -> datetime.datetime:
-        """End date of reporting period of filing. Optional."""
-        ...
-
-    @period.setter
-    def period(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def items(self) -> typing.List[str]:
-        """Identifies 1 or more items declared in 8-K filings. Optional & Repeatable."""
-        ...
-
-    @items.setter
-    def items(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def filing_date(self) -> datetime.datetime:
-        """Date report was filed with the SEC"""
-        ...
-
-    @filing_date.setter
-    def filing_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def filing_date_change(self) -> datetime.datetime:
-        """Date when the last Post Acceptance occurred. Optional."""
-        ...
-
-    @filing_date_change.setter
-    def filing_date_change(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def made_available_at(self) -> datetime.datetime:
-        """
-        Exact time the report was filed with the SEC and made available to the public (plus 10 minute delay).
-        This field is NOT included with the raw SEC report, and should be added during post processing of the data
-        """
-        ...
-
-    @made_available_at.setter
-    def made_available_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def filers(self) -> typing.List[QuantConnect.DataSource.SECReportFiler]:
-        """Contains information regarding who the filer of the report is."""
-        ...
-
-    @filers.setter
-    def filers(self, value: typing.List[QuantConnect.DataSource.SECReportFiler]) -> None:
-        ...
-
-    @property
-    def documents(self) -> typing.List[QuantConnect.DataSource.SECReportDocument]:
-        """Attachments/content associated with the report"""
-        ...
-
-    @documents.setter
-    def documents(self, value: typing.List[QuantConnect.DataSource.SECReportDocument]) -> None:
-        ...
-
-
-class ISECReport(QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta):
-    """
-    Base interface for all SEC report types.
-    Using an interface, we can retrieve all report types with a single
-    call to Slice.Get{T}()
-    """
-
-    @property
-    @abc.abstractmethod
-    def report(self) -> QuantConnect.DataSource.SECReportSubmission:
-        """Contents of the actual SEC report"""
-        ...
-
-
-class SECReport10Q(QuantConnect.Data.BaseData, QuantConnect.DataSource.ISECReport):
-    """
-    SEC 10-Q report (quarterly earnings) BaseData implementation.
-    Using this class, you can retrieve SEC report data for a security if it exists.
-    If the ticker you want no longer trades, you can also use the CIK of the company
-    you want data for as well except for currently traded stocks. This may change in the future.
-    """
+class BrainCompanyFilingLanguageMetrics10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K]):
+    """Brain sentiment on only 10-K SEC reports"""
 
     DATA_SOURCE_ID: int
     """Data source ID"""
 
     @property
-    def report(self) -> QuantConnect.DataSource.SECReportSubmission:
-        """Contents of the actual SEC report"""
+    def report_type(self) -> str:
+        """This Property is protected."""
         ...
 
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for Slice.Get{T}()"""
-        ...
-
-    @overload
-    def __init__(self, report: QuantConnect.DataSource.SECReportSubmission) -> None:
-        """
-        Constructor used to initialize instance with the given report
-        
-        :param report: SEC report submission
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the current object into a new object
-        
-        :returns: BaseData clone of the current object.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Returns a subscription data source pointing towards SEC 10-Q report data
-        
-        :param config: User configuration
-        :param date: Date data has been requested for
-        :param is_live_mode: Is livetrading
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data into BaseData
-        
-        :param config: User subscription config
-        :param line: Line of source file to parse
-        :param date: Date data was requested for
-        :param is_live_mode: Is livetrading mode
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
+    @report_type.setter
+    def report_type(self, value: str) -> None:
         ...
 
 
-class SECReport10K(QuantConnect.Data.BaseData, QuantConnect.DataSource.ISECReport):
+class BrainLanguageMetricsEarningsCalls(QuantConnect.DataSource.BrainLanguageMetricsEarningsCallsBase[QuantConnect_DataSource_BrainLanguageMetricsEarningsCalls]):
     """
-    SEC 10-K report (annual earnings) BaseData implementation.
-    Using this class, you can retrieve SEC report data for a security if it exists.
-    If the ticker you want no longer trades, you can also use the CIK of the company
-    you want data for as well except for currently traded stocks. This may change in the future.
-    """
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def report(self) -> QuantConnect.DataSource.SECReportSubmission:
-        """Contents of the actual SEC report"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for Slice.Get{T}()"""
-        ...
-
-    @overload
-    def __init__(self, report: QuantConnect.DataSource.SECReportSubmission) -> None:
-        """
-        Constructor used to initialize instance with the given report
-        
-        :param report: SEC report submission
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the current object into a new object
-        
-        :returns: BaseData clone of the current object.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Returns a subscription data source pointing towards SEC 10-K report data
-        
-        :param config: User configuration
-        :param date: Date data has been requested for
-        :param is_live_mode: Is livetrading
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data into BaseData
-        
-        :param config: User subscription config
-        :param line: Line of source file to parse
-        :param date: Date data was requested for
-        :param is_live_mode: Is livetrading mode
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-
-class SECReport8K(QuantConnect.Data.BaseData, QuantConnect.DataSource.ISECReport):
-    """
-    SEC 8-K report (important investor notices) BaseData implementation.
-    Using this class, you can retrieve SEC report data for a security if it exists.
-    If the ticker you want no longer trades, you can also use the CIK of the company
-    you want data for as well except for currently traded stocks. This may change in the future.
-    """
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def report(self) -> QuantConnect.DataSource.SECReportSubmission:
-        """Contents of the actual SEC report"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for Slice.Get{T}()"""
-        ...
-
-    @overload
-    def __init__(self, report: QuantConnect.DataSource.SECReportSubmission) -> None:
-        """
-        Constructor used to initialize instance with the given report
-        
-        :param report: SEC report submission
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the current object into a new object
-        
-        :returns: BaseData clone of the current object.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Returns a subscription data source pointing towards SEC 8-K report data
-        
-        :param config: User configuration
-        :param date: Date data has been requested for
-        :param is_live_mode: Is livetrading
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data into instance of BaseData
-        
-        :param config: User subscription config
-        :param line: Line of source file to parse
-        :param date: Date data was requested for
-        :param is_live_mode: Is live trading mode
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-
-class SECReportFactory(System.Object):
-    """SEC Report Factory for deserializing XML formatted data"""
-
-    def create_sec_report(self, xml_text: str) -> QuantConnect.DataSource.ISECReport:
-        """
-        Factory method creates SEC report by deserializing XML formatted SEC data to SECReportSubmission
-        
-        :param xml_text: XML text containing SEC data
-        """
-        ...
-
-
-class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
-    """
-    Kavout signals are machine-learning enhanced scores that capture the returns
-    of systematic factors such as Quality, Value, Momentum, Growth, and Low Volatility.
-    There are many different anomalies discovered by researchers and practitioners across
-    these factor categories, and there is no good common definition of each style
-    across the literature.
+    Brain Earnings Call Language Metrics (BLMECT).
     
-    Kavout creates an ensemble score for each style that gauges the different factors
-    considered in the literature and industry practice.
+    Provides daily language-analysis metrics computed from the most recent earnings call
+    available as of each calculation date for a given symbol.
     
-    Each signal is generated by an ensemble model consisting of inputs from hundreds of anomalies.
+    The dataset decomposes each earnings call transcript into three sections:
+    MD (Management Discussion) – prepared remarks by company management.
+        AQ (Analyst Questions) – questions asked by sell-side analysts.
+        MA (Management Answers) – management responses during the Q&A session.
+        
+    
+    For each section, the dataset includes:
+    Absolute language metrics (sentiment, uncertainty, readability, etc.)Changes (deltas) relative to the previous earnings callText similarity scores comparing the latest and previous calls
+    
+    The BaseData.time value represents the calculation date (DATE),
+    not the earnings call date. Transcript metadata fields such as
+    LastTranscriptDate, LastTranscriptQuarter, and LastTranscriptYear
+    identify the earnings call used to compute the metrics.
+    
+    This dataset is sparse, daily, and mapping-aware, allowing seamless use across
+    ticker changes and corporate actions in Lean algorithms.
     """
 
-    @property
-    def growth(self) -> float:
-        """Growth factor score"""
-        ...
 
-    @growth.setter
-    def growth(self, value: float) -> None:
-        ...
+class BrainCompanyFilingLanguageMetricsAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll]):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
 
     @property
-    def value_factor(self) -> float:
-        """Value factor score"""
+    def report_type(self) -> str:
+        """This Property is protected."""
         ...
 
-    @value_factor.setter
-    def value_factor(self, value: float) -> None:
+    @report_type.setter
+    def report_type(self, value: str) -> None:
         ...
 
-    @property
-    def quality(self) -> float:
-        """Quality factor score"""
-        ...
 
-    @quality.setter
-    def quality(self, value: float) -> None:
-        ...
+class BrainCompanyFilingLanguageMetricsUniverse10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K]):
+    """Brain sentiment universe on only 10-K SEC reports"""
 
     @property
-    def momentum(self) -> float:
-        """Momentum factor score"""
+    def report_type(self) -> str:
+        """This Property is protected."""
         ...
 
-    @momentum.setter
-    def momentum(self, value: float) -> None:
-        ...
-
-    @property
-    def low_volatility(self) -> float:
-        """Low volatility factor score"""
-        ...
-
-    @low_volatility.setter
-    def low_volatility(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time that the data became available to the algorithm"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
+    @report_type.setter
+    def report_type(self, value: str) -> None:
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with Cross-asset model data
-        
-        :returns: string containing Cross-asset model information.
-        """
+        """Clones this instance"""
         ...
 
 
-class CoinGecko(QuantConnect.Data.BaseData):
-    """Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
+class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
 
     @property
-    def coin(self) -> str:
-        """Coin Name"""
+    def report_date(self) -> datetime.datetime:
+        ...
+
+    @report_date.setter
+    def report_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def volume(self) -> float:
-        """Volume in USD of the coin for that day"""
+    def report_category(self) -> str:
         ...
 
-    @volume.setter
-    def volume(self, value: float) -> None:
-        ...
-
-    @property
-    def market_cap(self) -> float:
-        """Market Cap in USD of the coin for that day"""
-        ...
-
-    @market_cap.setter
-    def market_cap(self, value: float) -> None:
+    @report_category.setter
+    def report_category(self, value: str) -> None:
         ...
 
     @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
+    def report_period(self) -> typing.Optional[int]:
         ...
 
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
+    @report_period.setter
+    def report_period(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def previous_report_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @previous_report_date.setter
+    def previous_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def previous_report_category(self) -> str:
+        ...
+
+    @previous_report_category.setter
+    def previous_report_category(self, value: str) -> None:
+        ...
+
+    @property
+    def previous_report_period(self) -> typing.Optional[int]:
+        ...
+
+    @previous_report_period.setter
+    def previous_report_period(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @report_sentiment.setter
+    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @risk_factors_statement_sentiment.setter
+    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def report_type(self) -> str:
+        """This Property is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T:
         """
         Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def create_symbol(self, market: str, quote_currency: str = "USD", security_type: QuantConnect.SecurityType = ...) -> QuantConnect.Symbol:
-        """
-        Creates a Symbol object for a given market and quote currency
-        
-        :param market: The market the ticker resides in
-        :param quote_currency: The quote currency of the crypto-currency pair. E.g. USD for BTCUSD
-        :param security_type: The security type of the ticker resides in
-        :returns: A new Symbol object for the specified ticker.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class CoinGeckoUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
-    """Universe Selection Model for Coin Gecko data which contains Price, Volume and Market Cap"""
-
-    @overload
-    def __init__(self, selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, selector: typing.Callable[[typing.List[QuantConnect.DataSource.CoinGecko]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
-        """
-        Creates a new fundamental universe using this class's selection functions
-        
-        :param algorithm: The algorithm instance to create universes for
-        :returns: The universe defined by this model.
-        """
-        ...
-
-    def selector(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: typing.List[QuantConnect.DataSource.CoinGecko]) -> typing.Sequence[QuantConnect.Symbol]:
-        """
-        Defines the CoinGecko selection function.
-        
-        :param algorithm: The algorithm instance
-        :param data: The CoinGecko Universe data used to perform filtering
-        :returns: An enumerable of symbols passing the filter.
-        """
-        ...
-
-
-class CoinGeckoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection Data for Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-
-class SmartInsiderEventType(IntEnum):
-    """Describes what will or has taken place in an execution"""
-
-    AUTHORIZATION = 0
-    """Notification that the board has gained the authority to repurchase"""
-
-    INTENTION = 1
-    """Notification of the board that shares will be repurchased."""
-
-    TRANSACTION = 2
-    """Repurchase transactions that have been actioned."""
-
-    UPWARDS_REVISION = 3
-    """Increase in the scope of the existing plan (extended date, increased value, etc.)"""
-
-    DOWNWARDS_REVISION = 4
-    """Decrease in the scope of the existing plan (shortened date, reduced value, etc.)"""
-
-    REVISED_DETAILS = 5
-    """General change of details of the plan (max/min price alteration, etc.)"""
-
-    CANCELLATION = 6
-    """Total cancellation of the plan"""
-
-    SEEK_AUTHORIZATION = 7
-    """Announcement by a company that the board of directors or management will be seeking to obtain authorisation for a repurchase plan."""
-
-    PLAN_SUSPENSION = 8
-    """Announcement by a company that a plan of repurchase has been suspended. Further details of the suspension are included in the note."""
-
-    PLAN_RE_STARTED = 9
-    """Announcement by a company that a suspended plan has been re-started. Further details of the suspension are included in the note."""
-
-    NOT_SPECIFIED = 10
-    """Announcement by a company not specified and/or not documented in the other categories. Further details are included in the note."""
-
-
-class SmartInsiderEvent(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
-    """
-    SmartInsider Intention and Transaction events. These are fields
-    that are shared between intentions and transactions.
-    """
-
-    @property
-    def transaction_id(self) -> str:
-        """Proprietary unique field. Not nullable"""
-        ...
-
-    @transaction_id.setter
-    def transaction_id(self, value: str) -> None:
-        ...
-
-    @property
-    def event_type(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderEventType]:
-        """Description of what has or will take place in an execution"""
-        ...
-
-    @event_type.setter
-    def event_type(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderEventType]) -> None:
-        ...
-
-    @property
-    def last_update(self) -> datetime.datetime:
-        """The date when a transaction is updated after it has been reported. Not nullable"""
-        ...
-
-    @last_update.setter
-    def last_update(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def last_i_ds_update(self) -> typing.Optional[datetime.datetime]:
-        """Date that company identifiers were changed. Can be a name, Ticker Symbol or ISIN change"""
-        ...
-
-    @last_i_ds_update.setter
-    def last_i_ds_update(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def isin(self) -> str:
-        """Industry classification number"""
-        ...
-
-    @isin.setter
-    def isin(self, value: str) -> None:
-        ...
-
-    @property
-    def usd_market_cap(self) -> typing.Optional[float]:
-        """The market capitalization at the time of the transaction stated in US Dollars"""
-        ...
-
-    @usd_market_cap.setter
-    def usd_market_cap(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def company_id(self) -> typing.Optional[int]:
-        """Smart Insider proprietary identifier for the company"""
-        ...
-
-    @company_id.setter
-    def company_id(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def icb_industry(self) -> str:
-        """FTSE Russell Sector Classification"""
-        ...
-
-    @icb_industry.setter
-    def icb_industry(self, value: str) -> None:
-        ...
-
-    @property
-    def icb_super_sector(self) -> str:
-        """FTSE Russell Sector Classification"""
-        ...
-
-    @icb_super_sector.setter
-    def icb_super_sector(self, value: str) -> None:
-        ...
-
-    @property
-    def icb_sector(self) -> str:
-        """FTSE Russell Sector Classification"""
-        ...
-
-    @icb_sector.setter
-    def icb_sector(self, value: str) -> None:
-        ...
-
-    @property
-    def icb_sub_sector(self) -> str:
-        """FTSE Russell Sector Classification"""
-        ...
-
-    @icb_sub_sector.setter
-    def icb_sub_sector(self, value: str) -> None:
-        ...
-
-    @property
-    def icb_code(self) -> typing.Optional[int]:
-        """Numeric code that is the most granular level in ICB classification"""
-        ...
-
-    @icb_code.setter
-    def icb_code(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def company_name(self) -> str:
-        """Company name. PLC is always excluded"""
-        ...
-
-    @company_name.setter
-    def company_name(self, value: str) -> None:
-        ...
-
-    @property
-    def previous_results_announcement_date(self) -> typing.Optional[datetime.datetime]:
-        """Announcement date of last results, this will be the end date of the last "Close Period\""""
-        ...
-
-    @previous_results_announcement_date.setter
-    def previous_results_announcement_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def next_results_announcements_date(self) -> typing.Optional[datetime.datetime]:
-        """Announcement date of next results, this will be the end date of the next "Close Period\""""
-        ...
-
-    @next_results_announcements_date.setter
-    def next_results_announcements_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def next_close_begin(self) -> typing.Optional[datetime.datetime]:
-        """Start date of next trading embargo ahead of scheduled results announcment"""
-        ...
-
-    @next_close_begin.setter
-    def next_close_begin(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def last_close_ended(self) -> typing.Optional[datetime.datetime]:
-        """Date trading embargo (Close Period) is lifted as results are made public"""
-        ...
-
-    @last_close_ended.setter
-    def last_close_ended(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def security_description(self) -> str:
-        """Type of security. Does not contain nominal value"""
-        ...
-
-    @security_description.setter
-    def security_description(self, value: str) -> None:
-        ...
-
-    @property
-    def ticker_country(self) -> str:
-        """Country of local identifier, denoting where the trade took place"""
-        ...
-
-    @ticker_country.setter
-    def ticker_country(self, value: str) -> None:
-        ...
-
-    @property
-    def ticker_symbol(self) -> str:
-        """Local market identifier"""
-        ...
-
-    @ticker_symbol.setter
-    def ticker_symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def announcement_date(self) -> typing.Optional[datetime.datetime]:
-        """Date Transaction was entered onto our system. Where a transaction is after the London market close (usually 4.30pm) this will be stated as the next day"""
-        ...
-
-    @announcement_date.setter
-    def announcement_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def time_released(self) -> typing.Optional[datetime.datetime]:
-        """Time the announcement first appeared on a Regulatory News Service or other disclosure system and became available to the market, time stated is local market time"""
-        ...
-
-    @time_released.setter
-    def time_released(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def time_processed(self) -> typing.Optional[datetime.datetime]:
-        """Time the transaction was entered into Smart Insider systems and appeared on their website, time stated is local to London, UK"""
-        ...
-
-    @time_processed.setter
-    def time_processed(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def time_released_utc(self) -> typing.Optional[datetime.datetime]:
-        """Time the announcement first appeared on a Regulatory News Service or other disclosure system and became available to the market. Time stated is GMT standard"""
-        ...
-
-    @time_released_utc.setter
-    def time_released_utc(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def time_processed_utc(self) -> typing.Optional[datetime.datetime]:
-        """Time the transaction was entered onto our systems and appeared on our website. Time stated is GMT standard"""
-        ...
-
-    @time_processed_utc.setter
-    def time_processed_utc(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def announced_in(self) -> str:
-        """Market in which the transaction was announced, this can reference more than one country"""
-        ...
-
-    @announced_in.setter
-    def announced_in(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for cloning"""
-        ...
-
-    @overload
-    def __init__(self, tsv_line: str) -> None:
-        """
-        Parses a line of TSV (tab delimited) from Smart Insider data
         
         
         This Class is protected.
         
-        :param tsv_line: Tab delimited line of data
+        :returns: A clone of the object.
         """
         ...
 
     def data_time_zone(self) -> typing.Any:
         """
-        Specifies the timezone of this data source
+        Specifies the data time zone for this data type. This is useful for custom data types
         
-        :returns: Timezone.
-        """
-        ...
-
-    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
-        """
-        Derived class instances populate their fields from raw TSV
-        
-        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
-        :param indexes: Index per header column
-        :returns: success of the parsing task.
-        """
-        ...
-
-    @staticmethod
-    def parse_date(date: str) -> datetime.datetime:
-        """
-        Attempts to normalize and parse SmartInsider dates that include a time component.
-        
-        :param date: Date string to parse
-        :returns: DateTime object.
-        """
-        ...
-
-    def to_line(self) -> str:
-        """
-        Converts data to TSV
-        
-        :returns: String of TSV.
-        """
-        ...
-
-
-class SmartInsiderExecution(IntEnum):
-    """Describes how the transaction was executed"""
-
-    MARKET = 0
-    """Took place via the open market"""
-
-    TENDER_OFFER = 1
-    """Via a companywide tender offer to all shareholders"""
-
-    OFF_MARKET = 2
-    """Under a specific agreement between the issuer and shareholder"""
-
-    ERROR = 3
-    """Field is not in this enum"""
-
-
-class SmartInsiderExecutionEntity(IntEnum):
-    """Entity that intends to or executed the transaction"""
-
-    ISSUER = 0
-    """Issuer of the stock"""
-
-    SUBSIDIARY = 1
-    """Subsidiary of the issuer"""
-
-    BROKER = 2
-    """
-    Brokers are commonly used to repurchase shares under mandate to avoid insider
-    information rules and to allow repurchases to carry on through close periods
-    """
-
-    EMPLOYER_BENEFIT_TRUST = 3
-    """Unknown - Transaction"""
-
-    EMPLOYEE_BENEFIT_TRUST = 4
-    """To cater for shares which will need to be transferred to employees as part of remunerative plans"""
-
-    THIRD_PARTY = 5
-    """Undisclosed independent third party. Likely to be a broker."""
-
-    ERROR = 6
-    """The field was not found in this enum"""
-
-
-class SmartInsiderExecutionHolding(IntEnum):
-    """Details regarding the way holdings will be or were processed in a buyback execution"""
-
-    TREASURY = 0
-    """Held in treasury until they are sold back to the market"""
-
-    CANCELLATION = 1
-    """Immediately cancelled"""
-
-    TRUST = 2
-    """Held in trust, generally to cover employee renumerative plans"""
-
-    SATISFY_EMPLOYEE_TAX = 3
-    """Shares will be used to satisfy employee tax liabilities"""
-
-    NOT_REPORTED = 4
-    """Not disclosed by the issuer in the announcements"""
-
-    SATISFY_STOCK_VESTING = 5
-    """Shares will be used to satisfy vesting of employee stock"""
-
-    ERROR = 6
-    """The field was not found in the enum, or is representative of a SatisfyStockVesting entry."""
-
-
-class SmartInsiderIntention(QuantConnect.DataSource.SmartInsiderEvent):
-    """Smart Insider Intentions - Intention to execute a stock buyback and details about the future event"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
-        """Describes how the transaction was executed"""
-        ...
-
-    @execution.setter
-    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
-        ...
-
-    @property
-    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
-        """Describes which entity intends to execute the transaction"""
-        ...
-
-    @execution_entity.setter
-    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
-        ...
-
-    @property
-    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
-        """Describes what will be done with those shares following repurchase"""
-        ...
-
-    @execution_holding.setter
-    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[int]:
-        """Number of shares to be or authorised to be traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def value_currency(self) -> str:
-        """Currency of the value of shares to be/Authorised to be traded (ISO Code)"""
-        ...
-
-    @value_currency.setter
-    def value_currency(self, value: str) -> None:
-        ...
-
-    @property
-    def amount_value(self) -> typing.Optional[int]:
-        """Value of shares to be authorised to be traded"""
-        ...
-
-    @amount_value.setter
-    def amount_value(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def percentage(self) -> typing.Optional[float]:
-        """Percentage of oustanding shares to be authorised to be traded"""
-        ...
-
-    @percentage.setter
-    def percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def authorization_start_date(self) -> typing.Optional[datetime.datetime]:
-        """start of the period the intention/authorisation applies to"""
-        ...
-
-    @authorization_start_date.setter
-    def authorization_start_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def authorization_end_date(self) -> typing.Optional[datetime.datetime]:
-        """End of the period the intention/authorisation applies to"""
-        ...
-
-    @authorization_end_date.setter
-    def authorization_end_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def price_currency(self) -> str:
-        """Currency of min/max prices (ISO Code)"""
-        ...
-
-    @price_currency.setter
-    def price_currency(self, value: str) -> None:
-        ...
-
-    @property
-    def minimum_price(self) -> typing.Optional[float]:
-        """Minimum price shares will or may be purchased at"""
-        ...
-
-    @minimum_price.setter
-    def minimum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_price(self) -> typing.Optional[float]:
-        """Maximum price shares will or may be purchased at"""
-        ...
-
-    @maximum_price.setter
-    def maximum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def note_text(self) -> str:
-        """Free text which explains further details about the trade"""
-        ...
-
-    @note_text.setter
-    def note_text(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for Slice.Get{T}()"""
-        ...
-
-    @overload
-    def __init__(self, line: str) -> None:
-        """
-        Constructs instance of this via a *formatted* TSV line (tab delimited)
-        
-        :param line: Line of formatted TSV data
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the object to a new instance. This method
-        is required for custom data sources that make use
-        of properties with more complex types since otherwise
-        the values will default to null using the default clone method
-        
-        :returns: A new cloned instance of this object.
-        """
-        ...
-
-    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
-        """
-        Constructs a new instance from unformatted TSV data
-        
-        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
-        :param indexes: Index per header column
-        :returns: success of the parsing task.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Loads and reads the data to be used in LEAN
-        
-        :param config: Subscription configuration
-        :param line: TSV line
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Instance of the object.
-        """
-        ...
-
-    def to_line(self) -> str:
-        """
-        Converts the data to TSV
-        
-        :returns: String of TSV.
-        """
-        ...
-
-
-class SmartInsiderIntentionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Smart Insider Intentions Universe"""
-
-    @property
-    def amount(self) -> typing.Optional[int]:
-        """Number of shares to be or authorised to be traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def amount_value(self) -> typing.Optional[int]:
-        """Value of shares to be authorised to be traded"""
-        ...
-
-    @amount_value.setter
-    def amount_value(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def percentage(self) -> typing.Optional[float]:
-        """Percentage of oustanding shares to be authorised to be traded"""
-        ...
-
-    @percentage.setter
-    def percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def minimum_price(self) -> typing.Optional[float]:
-        """Minimum price shares will or may be purchased at"""
-        ...
-
-    @minimum_price.setter
-    def minimum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_price(self) -> typing.Optional[float]:
-        """Maximum price shares will or may be purchased at"""
-        ...
-
-    @maximum_price.setter
-    def maximum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def usd_market_cap(self) -> typing.Optional[float]:
-        """Market Capitalization in USD"""
-        ...
-
-    @usd_market_cap.setter
-    def usd_market_cap(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the timezone of this data source
-        
-        :returns: Timezone.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Loads and reads the data to be used in LEAN
-        
-        :param config: Subscription configuration
-        :param line: TSV line
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Instance of the object.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class SmartInsiderTransactionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Smart Insider Transaction Universe"""
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """Number of shares traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def minimum_execution_price(self) -> typing.Optional[float]:
-        """Minimum Value of Denominated in Currency of Transaction"""
-        ...
-
-    @minimum_execution_price.setter
-    def minimum_execution_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_execution_price(self) -> typing.Optional[float]:
-        """Maximum Value of Denominated in Currency of Transaction"""
-        ...
-
-    @maximum_execution_price.setter
-    def maximum_execution_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def usd_value(self) -> typing.Optional[float]:
-        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
-        ...
-
-    @usd_value.setter
-    def usd_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def buyback_percentage(self) -> typing.Optional[float]:
-        """Percentage of value of the trade as part of the issuers total Market Cap"""
-        ...
-
-    @buyback_percentage.setter
-    def buyback_percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def volume_percentage(self) -> typing.Optional[float]:
-        """Percentage of the volume traded on the day of the buyback."""
-        ...
-
-    @volume_percentage.setter
-    def volume_percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def usd_market_cap(self) -> typing.Optional[float]:
-        """Market Capitalization in USD"""
-        ...
-
-    @usd_market_cap.setter
-    def usd_market_cap(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the timezone of this data source
-        
-        :returns: Timezone.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Loads and reads the data to be used in LEAN
-        
-        :param config: Subscription configuration
-        :param line: TSV line
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Instance of the object.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class SmartInsiderTransaction(QuantConnect.DataSource.SmartInsiderEvent):
-    """Smart Insider Transaction - Execution of a stock buyback and details about the event occurred"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def buyback_date(self) -> typing.Optional[datetime.datetime]:
-        """Date traded through the market"""
-        ...
-
-    @buyback_date.setter
-    def buyback_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
-        """Describes how transaction was executed"""
-        ...
-
-    @execution.setter
-    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
-        ...
-
-    @property
-    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
-        """Describes which entity carried out the transaction"""
-        ...
-
-    @execution_entity.setter
-    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
-        ...
-
-    @property
-    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
-        """Describes what will be done with those shares following repurchase"""
-        ...
-
-    @execution_holding.setter
-    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
-        ...
-
-    @property
-    def currency(self) -> str:
-        """Currency of transation (ISO Code)"""
-        ...
-
-    @currency.setter
-    def currency(self, value: str) -> None:
-        ...
-
-    @property
-    def execution_price(self) -> typing.Optional[float]:
-        """Denominated in Currency of Transaction"""
-        ...
-
-    @execution_price.setter
-    def execution_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """Number of shares traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def gbp_value(self) -> typing.Optional[float]:
-        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
-        ...
-
-    @gbp_value.setter
-    def gbp_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def eur_value(self) -> typing.Optional[float]:
-        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
-        ...
-
-    @eur_value.setter
-    def eur_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def usd_value(self) -> typing.Optional[float]:
-        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
-        ...
-
-    @usd_value.setter
-    def usd_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def note_text(self) -> str:
-        """Free text which expains futher details about the trade"""
-        ...
-
-    @note_text.setter
-    def note_text(self, value: str) -> None:
-        ...
-
-    @property
-    def buyback_percentage(self) -> typing.Optional[float]:
-        """Percentage of value of the trade as part of the issuers total Market Cap"""
-        ...
-
-    @buyback_percentage.setter
-    def buyback_percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def volume_percentage(self) -> typing.Optional[float]:
-        """Percentage of the volume traded on the day of the buyback."""
-        ...
-
-    @volume_percentage.setter
-    def volume_percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def conversion_rate(self) -> typing.Optional[float]:
-        """Rate used to calculate 'Value (GBP)' from 'Price' multiplied by 'Amount'. Will be 1 where Currency is also 'GBP'"""
-        ...
-
-    @conversion_rate.setter
-    def conversion_rate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def amount_adjusted_factor(self) -> typing.Optional[float]:
-        """Multiplier which can be applied to 'Amount' field to account for subsequent corporate action"""
-        ...
-
-    @amount_adjusted_factor.setter
-    def amount_adjusted_factor(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price_adjusted_factor(self) -> typing.Optional[float]:
-        """Multiplier which can be applied to 'Price' and 'LastClose' fields to account for subsequent corporate actions"""
-        ...
-
-    @price_adjusted_factor.setter
-    def price_adjusted_factor(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def treasury_holding(self) -> typing.Optional[int]:
-        """Post trade holding of the Treasury or Trust in the security traded"""
-        ...
-
-    @treasury_holding.setter
-    def treasury_holding(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty contsructor required for Slice.Get{T}()"""
-        ...
-
-    @overload
-    def __init__(self, line: str) -> None:
-        """
-        Creates an instance of the object by taking a formatted TSV line
-        
-        :param line: Line of formatted TSV
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the object to a new instance. This method
-        is required for custom data sources that make use
-        of properties with more complex types since otherwise
-        the values will default to null using the default clone method
-        
-        :returns: A new cloned instance of this object.
-        """
-        ...
-
-    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
-        """
-        Creates an instance of the object by taking a formatted TSV line
-        
-        :param line: Line of formatted TSV
-        :param indexes: Index per header column
-        :returns: success of the parsing task.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reads the data into LEAN for use in algorithms
-        
-        :param config: Subscription configuration
-        :param line: Line of TSV
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Instance of the object.
-        """
-        ...
-
-    def to_line(self) -> str:
-        """
-        Converts the data to TSV
-        
-        :returns: String of TSV.
-        """
-        ...
-
-
-class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
-    """U.S. Treasury yield curve data"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def one_month(self) -> typing.Optional[float]:
-        """One month yield curve"""
-        ...
-
-    @one_month.setter
-    def one_month(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def two_month(self) -> typing.Optional[float]:
-        """Two month yield curve"""
-        ...
-
-    @two_month.setter
-    def two_month(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def three_month(self) -> typing.Optional[float]:
-        """Three month yield curve"""
-        ...
-
-    @three_month.setter
-    def three_month(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def six_month(self) -> typing.Optional[float]:
-        """Six month yield curve"""
-        ...
-
-    @six_month.setter
-    def six_month(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def one_year(self) -> typing.Optional[float]:
-        """One year yield curve"""
-        ...
-
-    @one_year.setter
-    def one_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def two_year(self) -> typing.Optional[float]:
-        """Two year yield curve"""
-        ...
-
-    @two_year.setter
-    def two_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def three_year(self) -> typing.Optional[float]:
-        """Three year yield curve"""
-        ...
-
-    @three_year.setter
-    def three_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def five_year(self) -> typing.Optional[float]:
-        """Five year yield curve"""
-        ...
-
-    @five_year.setter
-    def five_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def seven_year(self) -> typing.Optional[float]:
-        """Seven year yield curve"""
-        ...
-
-    @seven_year.setter
-    def seven_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ten_year(self) -> typing.Optional[float]:
-        """Ten year yield curve"""
-        ...
-
-    @ten_year.setter
-    def ten_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def twenty_year(self) -> typing.Optional[float]:
-        """Twenty year yield curve"""
-        ...
-
-    @twenty_year.setter
-    def twenty_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def thirty_year(self) -> typing.Optional[float]:
-        """Thirty year yield curve"""
-        ...
-
-    @thirty_year.setter
-    def thirty_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the object. This method implementation is required
-        so that we don't have any null values for our properties
-        when the user attempts to use it in backtesting/live trading
-        
-        :returns: Cloned instance.
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
         ...
 
@@ -4028,24 +393,41 @@ class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Specifies the location of the data and directs LEAN where to load the data from
+        Return the URL string source of the file. This will be converted to a stream
         
-        :param config: Subscription configuration
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Reads and parses yield curve data from a csv file
+        Parses the data from the line provided and loads it into LEAN
         
         :param config: Subscription configuration
-        :param line: CSV line containing yield curve data
-        :param date: Date request was made for
+        :param line: Line of data
+        :param date: Date
         :param is_live_mode: Is live mode
-        :returns: YieldCurve instance.
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
         """
         ...
 
@@ -4053,13 +435,69 @@ class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
         """Gets the supported resolution for this data and security type"""
         ...
 
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
 
-class RegalyticsRegulatoryArticles(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Regalytics Regulatory articles collection"""
 
-    def clone(self) -> QuantConnect.Data.BaseData:
+class BrainSentimentIndicatorBase(typing.Generic[QuantConnect_DataSource_BrainSentimentIndicatorBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on news"""
+
+    @property
+    def total_article_mentions(self) -> int:
+        ...
+
+    @total_article_mentions.setter
+    def total_article_mentions(self, value: int) -> None:
+        ...
+
+    @property
+    def sentimental_article_mentions(self) -> float:
+        ...
+
+    @sentimental_article_mentions.setter
+    def sentimental_article_mentions(self, value: float) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> float:
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
+        ...
+
+    @property
+    def total_buzz_volume(self) -> typing.Optional[float]:
+        ...
+
+    @total_buzz_volume.setter
+    def total_buzz_volume(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentimental_buzz_volume(self) -> typing.Optional[float]:
+        ...
+
+    @sentimental_buzz_volume.setter
+    def sentimental_buzz_volume(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def lookback_days(self) -> int:
+        """This Property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainSentimentIndicatorBase_T:
         """
         Clones the data
+        
+        
+        This Class is protected.
         
         :returns: A clone of the object.
         """
@@ -4122,198 +560,847 @@ class RegalyticsRegulatoryArticles(QuantConnect.Data.UniverseSelection.BaseDataC
         ...
 
     def to_string(self) -> str:
-        """
-        Formats a string with QuiverCNBC data
-        
-        :returns: string containing QuiverCNBC information.
-        """
+        """Converts the instance to string"""
         ...
 
 
-class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
-    """Regalytics Regulatory articles"""
+class BrainLanguageMetricsEarningsCallsBase(typing.Generic[QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T], QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
+    """
+    Base class for Brain Language Metrics on Earnings Calls (metrics-only version).
+    This class parses daily rows of MD/AQ/MA metrics for a given symbol.
+    """
+
+    @property
+    def last_transcript_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @last_transcript_date.setter
+    def last_transcript_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def last_transcript_quarter(self) -> typing.Optional[int]:
+        ...
+
+    @last_transcript_quarter.setter
+    def last_transcript_quarter(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def last_transcript_year(self) -> typing.Optional[int]:
+        ...
+
+    @last_transcript_year.setter
+    def last_transcript_year(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def md_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @md_n_characters.setter
+    def md_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @md_sentiment.setter
+    def md_sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @md_score_uncertainty.setter
+    def md_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @md_score_litigious.setter
+    def md_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @md_score_constraining.setter
+    def md_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_readability(self) -> typing.Optional[float]:
+        ...
+
+    @md_readability.setter
+    def md_readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @md_lexical_richness.setter
+    def md_lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @md_lexical_density.setter
+    def md_lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @md_specific_density.setter
+    def md_specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @aq_n_characters.setter
+    def aq_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @aq_sentiment.setter
+    def aq_sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @aq_score_uncertainty.setter
+    def aq_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @aq_score_litigious.setter
+    def aq_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @aq_score_constraining.setter
+    def aq_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @ma_n_characters.setter
+    def ma_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @ma_sentiment.setter
+    def ma_sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @ma_score_uncertainty.setter
+    def ma_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @ma_score_litigious.setter
+    def ma_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @ma_score_constraining.setter
+    def ma_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_readability(self) -> typing.Optional[float]:
+        ...
+
+    @ma_readability.setter
+    def ma_readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @ma_lexical_richness.setter
+    def ma_lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @ma_lexical_density.setter
+    def ma_lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @ma_specific_density.setter
+    def ma_specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def prev_transcript_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @prev_transcript_date.setter
+    def prev_transcript_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def prev_transcript_quarter(self) -> typing.Optional[int]:
+        ...
+
+    @prev_transcript_quarter.setter
+    def prev_transcript_quarter(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def prev_transcript_year(self) -> typing.Optional[int]:
+        ...
+
+    @prev_transcript_year.setter
+    def prev_transcript_year(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def md_delta_perc_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_perc_n_characters.setter
+    def md_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_sentiment.setter
+    def md_delta_sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_score_uncertainty.setter
+    def md_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_score_litigious.setter
+    def md_delta_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_score_constraining.setter
+    def md_delta_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_readability(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_readability.setter
+    def md_delta_readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_lexical_richness.setter
+    def md_delta_lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_lexical_density.setter
+    def md_delta_lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_specific_density.setter
+    def md_delta_specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_all(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_all.setter
+    def md_similarity_all(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_positive(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_positive.setter
+    def md_similarity_positive(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_negative(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_negative.setter
+    def md_similarity_negative(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_uncertainty.setter
+    def md_similarity_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_litigious.setter
+    def md_similarity_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_constraining.setter
+    def md_similarity_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_perc_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_perc_n_characters.setter
+    def aq_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_sentiment_delta(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_sentiment_delta.setter
+    def aq_delta_sentiment_delta(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_score_uncertainty.setter
+    def aq_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_score_litigious.setter
+    def aq_delta_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_score_constraining.setter
+    def aq_delta_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_similarity_all(self) -> typing.Optional[float]:
+        ...
+
+    @aq_similarity_all.setter
+    def aq_similarity_all(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_similarity_positive(self) -> typing.Optional[float]:
+        ...
+
+    @aq_similarity_positive.setter
+    def aq_similarity_positive(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_similarity_negative(self) -> typing.Optional[float]:
+        ...
+
+    @aq_similarity_negative.setter
+    def aq_similarity_negative(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_perc_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_perc_n_characters.setter
+    def ma_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_sentiment_delta(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_sentiment_delta.setter
+    def ma_delta_sentiment_delta(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_score_uncertainty.setter
+    def ma_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_score_litigious.setter
+    def ma_delta_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_score_constraining.setter
+    def ma_delta_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_readability(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_readability.setter
+    def ma_delta_readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_lexical_richness.setter
+    def ma_delta_lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_lexical_density.setter
+    def ma_delta_lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_specific_density.setter
+    def ma_delta_specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_all(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_all.setter
+    def ma_similarity_all(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_positive(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_positive.setter
+    def ma_similarity_positive(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_negative(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_negative.setter
+    def ma_similarity_negative(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_uncertainty.setter
+    def ma_similarity_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_litigious.setter
+    def ma_similarity_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_constraining.setter
+    def ma_similarity_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Path structure:
+        alternative/brain/blmect/{symbol}.csv
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parse one metrics row.
+        CSV Layout:
+        0: date (yyyyMMdd)
+        1: last transcript date (yyyy-MM-dd)
+        2: last transcript quarter
+        3: last transcript year
+        4..12: MD metrics (9 columns)
+        13..17: AQ metrics (5 columns)
+        18..26: MA metrics (9 columns)
+        27: prev transcript date (yyyy-MM-dd)
+        28: prev transcript quarter
+        29: prev transcript year
+        30..38: MD deltas (9 columns)
+        39..44: MD similarities (6 columns)
+        45..49: AQ deltas (5 columns)
+        50..52: AQ similarities (3 columns)
+        53..62: MA deltas (10 columns)
+        63..68: MA similarities (6 columns)
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        ...
+
+
+class BrainStockRanking21Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking21Day]):
+    """Brain universe stock rankings on expected returns in the next 30 days"""
 
     DATA_SOURCE_ID: int
     """Data source ID"""
 
     @property
-    def id(self) -> str:
+    def lookback_days(self) -> int:
+        """This Property is protected."""
         ...
 
-    @id.setter
-    def id(self, value: str) -> None:
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRanking5Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking5Day]):
+    """Brain universe stock rankings on expected returns in the next 5 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This Property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRanking3Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking3Day]):
+    """Brain universe stock rankings on expected returns in the next 3 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This Property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsUniverseAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll]):
+    """Brain sentiment universe on 10-K/10-Q SEC reports"""
+
+    @property
+    def report_type(self) -> str:
+        """This Property is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+
+class BrainWikipediaPageViews(QuantConnect.Data.BaseData):
+    """
+    Brain Wikipedia Page Views (BWPV)
+    
+    The dataset monitors Wikipedia page views and "buzz" metrics for
+    the top ~1000 US companies. It provides the raw views and buzz
+    scores over different horizons (1, 7, and 30 days).
+    """
+
+    @property
+    def number_views_1(self) -> typing.Optional[float]:
+        """Raw number of views for the past day"""
+        ...
+
+    @number_views_1.setter
+    def number_views_1(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def title(self) -> str:
+    def buzz_1(self) -> typing.Optional[float]:
+        """"Buzz" metric over the past day"""
         ...
 
-    @title.setter
-    def title(self, value: str) -> None:
-        ...
-
-    @property
-    def summary(self) -> str:
-        ...
-
-    @summary.setter
-    def summary(self, value: str) -> None:
+    @buzz_1.setter
+    def buzz_1(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def status(self) -> str:
+    def number_views_7(self) -> typing.Optional[float]:
+        """Raw number of views over the past 7 days"""
         ...
 
-    @status.setter
-    def status(self, value: str) -> None:
-        ...
-
-    @property
-    def classification(self) -> str:
-        ...
-
-    @classification.setter
-    def classification(self, value: str) -> None:
+    @number_views_7.setter
+    def number_views_7(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def filing_type(self) -> str:
+    def buzz_7(self) -> typing.Optional[float]:
+        """"Buzz" metric over the past 7 days"""
         ...
 
-    @filing_type.setter
-    def filing_type(self, value: str) -> None:
-        ...
-
-    @property
-    def in_federal_register(self) -> bool:
-        ...
-
-    @in_federal_register.setter
-    def in_federal_register(self, value: bool) -> None:
+    @buzz_7.setter
+    def buzz_7(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def federal_register_number(self) -> str:
+    def number_views_30(self) -> typing.Optional[float]:
+        """Raw number of views over the past 30 days"""
         ...
 
-    @federal_register_number.setter
-    def federal_register_number(self, value: str) -> None:
-        ...
-
-    @property
-    def docket_file_number(self) -> str:
-        ...
-
-    @docket_file_number.setter
-    def docket_file_number(self, value: str) -> None:
+    @number_views_30.setter
+    def number_views_30(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def sec_release_number(self) -> str:
+    def buzz_30(self) -> typing.Optional[float]:
+        """"Buzz" metric over the past 30 days"""
         ...
 
-    @sec_release_number.setter
-    def sec_release_number(self, value: str) -> None:
+    @buzz_30.setter
+    def buzz_30(self, value: typing.Optional[float]) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Gets the data time zone (UTC)"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution (daily)"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Returns the path to the daily data file for a given symbol and month.
+        
+        Folder structure (Option A):
+            alternative/brain/bwpv/{yyyyMM}/{symbol}.csv
+        
+        Each file contains multiple daily rows for the given symbol and month.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Indicates whether the data is sparse"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses a line from the BWPV data file into a BrainWikipediaPageViews instance.
+        
+        File format (per line):
+          0: yyyyMMdd (data date)
+          1: NumberViews1
+          2: Buzz1
+          3: NumberViews7
+          4: Buzz7
+          5: NumberViews30
+          6: Buzz30
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Indicates whether the data source requires symbol mapping"""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolutions (daily only)"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts this instance to a string"""
+        ...
+
+
+class BrainSentimentIndicator30Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator30Day]):
+    """Brain sentiment indicator on 30 days of news"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This Property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRanking2Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking2Day]):
+    """Brain universe stock rankings on expected returns in the next 2 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This Property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRanking10Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking10Day]):
+    """Brain universe stock rankings on expected returns in the next 10 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This Property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRankingBase(typing.Generic[QuantConnect_DataSource_BrainStockRankingBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
+
+    @property
+    def rank(self) -> float:
+        ...
+
+    @rank.setter
+    def rank(self, value: float) -> None:
         ...
 
     @property
-    def proposed_comments_due_date(self) -> typing.Optional[datetime.datetime]:
+    def lookback_days(self) -> int:
+        """This Property is protected."""
         ...
 
-    @proposed_comments_due_date.setter
-    def proposed_comments_due_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def original_publication_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @original_publication_date.setter
-    def original_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def federal_register_publication_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @federal_register_publication_date.setter
-    def federal_register_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def rule_effective_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @rule_effective_date.setter
-    def rule_effective_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def sourced_at(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @sourced_at.setter
-    def sourced_at(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def latest_update(self) -> datetime.datetime:
-        ...
-
-    @latest_update.setter
-    def latest_update(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def alert_type(self) -> str:
-        ...
-
-    @alert_type.setter
-    def alert_type(self, value: str) -> None:
-        ...
-
-    @property
-    def states(self) -> System.Collections.Generic.Dictionary[str, typing.List[str]]:
-        ...
-
-    @states.setter
-    def states(self, value: System.Collections.Generic.Dictionary[str, typing.List[str]]) -> None:
-        ...
-
-    @property
-    def agencies(self) -> typing.List[str]:
-        ...
-
-    @agencies.setter
-    def agencies(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def sector(self) -> typing.List[System.Collections.Generic.Dictionary[str, str]]:
-        ...
-
-    @sector.setter
-    def sector(self, value: typing.List[System.Collections.Generic.Dictionary[str, str]]) -> None:
-        ...
-
-    @property
-    def announcement_url(self) -> str:
-        ...
-
-    @announcement_url.setter
-    def announcement_url(self, value: str) -> None:
-        ...
-
-    @property
-    def created_at(self) -> datetime.datetime:
-        ...
-
-    @created_at.setter
-    def created_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -4322,6 +1409,10 @@ class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
         
         :returns: A clone of the object.
         """
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainStockRankingBase_T:
+        """This Class is protected."""
         ...
 
     def data_time_zone(self) -> typing.Any:
@@ -4334,6 +1425,17 @@ class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
 
     def default_resolution(self) -> QuantConnect.Resolution:
         """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
         ...
 
     def is_sparse_data(self) -> bool:
@@ -4374,486 +1476,469 @@ class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
         ...
 
 
-class PriceUnit(IntEnum):
-    """Price unit for USDA retail price data."""
-
-    PER_POUND = 0
-    """Price per pound (used for solid products)"""
-
-    PER_PINT = 1
-    """Price per pint (used for juice products)"""
-
-
-class CupEquivalentUnit(IntEnum):
-    """Cup equivalent unit for USDA nutritional data."""
-
-    POUNDS = 0
-    """Cup equivalent measured in pounds"""
-
-    PINTS = 1
-    """Cup equivalent measured in pints"""
-
-    FLUID_OUNCES = 2
-    """Cup equivalent measured in fluid ounces"""
-
-
-class USDAFruitAndVegetable(QuantConnect.Data.BaseData):
-    """
-    USDAFruitAndVegetable - Individual data point for USDA ERS retail price estimates.
-    Contains price data for a specific product form (Fresh, Canned, Frozen, etc.).
-    """
-
-    class Symbols(System.Object):
-        """
-        Product symbols for USDA Fruit and Vegetables data.
-        AddData<USDAFruitAndVegetables>(USDAFruitAndVegetable.Symbols.Apples)
-        """
-
-        ACORN_SQUASH: str
-        """Acorn squash"""
-
-        APPLES: str
-        """Apples"""
-
-        APRICOTS: str
-        """Apricots"""
-
-        ARTICHOKE: str
-        """Artichoke"""
-
-        ASPARAGUS: str
-        """Asparagus"""
-
-        AVOCADOS: str
-        """Avocados"""
-
-        BANANAS: str
-        """Bananas"""
-
-        BEETS: str
-        """Beets"""
-
-        BLACK_BEANS: str
-        """Black beans"""
-
-        BLACKBERRIES: str
-        """Blackberries"""
-
-        BLACKEYE_PEAS: str
-        """Blackeye peas"""
-
-        BLUEBERRIES: str
-        """Blueberries"""
-
-        BROCCOLI: str
-        """Broccoli"""
-
-        BRUSSELS_SPROUTS: str
-        """Brussels sprouts"""
-
-        BUTTERNUT_SQUASH: str
-        """Butternut squash"""
-
-        CABBAGE: str
-        """Cabbage"""
-
-        CANTALOUPE: str
-        """Cantaloupe"""
-
-        CARROTS: str
-        """Carrots"""
-
-        CAULIFLOWER: str
-        """Cauliflower"""
-
-        CELERY: str
-        """Celery"""
-
-        CHERRIES: str
-        """Cherries"""
-
-        CLEMENTINES: str
-        """Clementines"""
-
-        COLLARD_GREENS: str
-        """Collard greens"""
-
-        CRANBERRIES: str
-        """Cranberries"""
-
-        CUCUMBERS: str
-        """Cucumbers"""
-
-        DATES: str
-        """Dates"""
-
-        FIGS: str
-        """Figs"""
-
-        FRUIT_COCKTAIL: str
-        """Fruit cocktail"""
-
-        GRAPEFRUIT: str
-        """Grapefruit"""
-
-        GRAPES: str
-        """Grapes"""
-
-        GREAT_NORTHERN_BEANS: str
-        """Great northern beans"""
-
-        GREEN_BEANS: str
-        """Green beans"""
-
-        GREEN_PEAS: str
-        """Green peas"""
-
-        GREEN_PEPPERS: str
-        """Green peppers"""
-
-        HONEYDEW_MELON: str
-        """Honeydew melon"""
-
-        ICEBERG_LETTUCE: str
-        """Iceberg lettuce"""
-
-        KALE: str
-        """Kale"""
-
-        KIDNEY_BEANS: str
-        """Kidney beans"""
-
-        KIWI: str
-        """Kiwi"""
-
-        LENTILS: str
-        """Lentils"""
-
-        LIMA_BEANS: str
-        """Lima beans"""
-
-        MANGOES: str
-        """Mangoes"""
-
-        MIXED_BERRIES: str
-        """Mixed berries"""
-
-        MIXED_VEGETABLES: str
-        """Mixed vegetables"""
-
-        MUSHROOMS: str
-        """Mushrooms"""
-
-        MUSTARD_GREENS: str
-        """Mustard greens"""
-
-        NAVY_BEANS: str
-        """Navy beans"""
-
-        NECTARINES: str
-        """Nectarines"""
-
-        OKRA: str
-        """Okra"""
-
-        OLIVES: str
-        """Olives"""
-
-        ONIONS: str
-        """Onions"""
-
-        ORANGES: str
-        """Oranges"""
-
-        PAPAYA: str
-        """Papaya"""
-
-        PEACHES: str
-        """Peaches"""
-
-        PEARS: str
-        """Pears"""
-
-        PINEAPPLE: str
-        """Pineapple"""
-
-        PINTO_BEANS: str
-        """Pinto beans"""
-
-        PLUMS: str
-        """Plums"""
-
-        POMEGRANATE: str
-        """Pomegranate"""
-
-        POTATOES: str
-        """Potatoes"""
-
-        PUMPKIN: str
-        """Pumpkin"""
-
-        RADISH: str
-        """Radish"""
-
-        RASPBERRIES: str
-        """Raspberries"""
-
-        RED_PEPPERS: str
-        """Red peppers"""
-
-        ROMAINE_LETTUCE: str
-        """Romaine lettuce"""
-
-        SPINACH: str
-        """Spinach"""
-
-        STRAWBERRIES: str
-        """Strawberries"""
-
-        SUMMER_SQUASH: str
-        """Summer squash"""
-
-        SWEET_CORN: str
-        """Sweet corn"""
-
-        SWEET_POTATOES: str
-        """Sweet potatoes"""
-
-        TANGERINES: str
-        """Tangerines"""
-
-        TOMATOES: str
-        """Tomatoes"""
-
-        TURNIP_GREENS: str
-        """Turnip greens"""
-
-        WATERMELON: str
-        """Watermelon"""
-
-        ZUCCHINI: str
-        """Zucchini"""
+class BrainSentimentIndicatorUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for Brain Sentiment dataset"""
 
     @property
-    def form(self) -> str:
-        """Product form identifier (e.g., "Fresh", "Canned", "Fresh - Florets")."""
+    def total_article_mentions_7_days(self) -> typing.Optional[int]:
+        """Total Article Mentions in 7 days"""
         ...
 
-    @form.setter
-    def form(self, value: str) -> None:
+    @total_article_mentions_7_days.setter
+    def total_article_mentions_7_days(self, value: typing.Optional[int]) -> None:
         ...
 
     @property
-    def average_retail_price(self) -> typing.Optional[float]:
-        """Average retail price per unit (pound or pint)."""
+    def sentimental_article_mentions_7_days(self) -> typing.Optional[float]:
+        """Sentimental Article Mentions in 7 days"""
         ...
 
-    @average_retail_price.setter
-    def average_retail_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def unit(self) -> typing.Optional[QuantConnect.DataSource.PriceUnit]:
-        """Unit of measure - PerPound (solids) or PerPint (juice)."""
-        ...
-
-    @unit.setter
-    def unit(self, value: typing.Optional[QuantConnect.DataSource.PriceUnit]) -> None:
+    @sentimental_article_mentions_7_days.setter
+    def sentimental_article_mentions_7_days(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def preparation_yield_factor(self) -> typing.Optional[float]:
-        """Fraction of product that is edible after preparation (0.0-1.0)."""
+    def sentiment_7_days(self) -> typing.Optional[float]:
+        """Setiment Score in 7 days"""
         ...
 
-    @preparation_yield_factor.setter
-    def preparation_yield_factor(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def cup_equivalent_size(self) -> typing.Optional[float]:
-        """Size of one edible cup equivalent."""
-        ...
-
-    @cup_equivalent_size.setter
-    def cup_equivalent_size(self, value: typing.Optional[float]) -> None:
+    @sentiment_7_days.setter
+    def sentiment_7_days(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def cup_equivalent_unit(self) -> typing.Optional[QuantConnect.DataSource.CupEquivalentUnit]:
-        """Unit of measure for cup_equivalent_size."""
+    def total_buzz_volume_7_days(self) -> typing.Optional[float]:
+        """Total Buzz Volume in 7 days"""
         ...
 
-    @cup_equivalent_unit.setter
-    def cup_equivalent_unit(self, value: typing.Optional[QuantConnect.DataSource.CupEquivalentUnit]) -> None:
-        ...
-
-    @property
-    def price_per_cup_equivalent(self) -> typing.Optional[float]:
-        """Normalized price per edible cup equivalent (comparable across forms)."""
-        ...
-
-    @price_per_cup_equivalent.setter
-    def price_per_cup_equivalent(self, value: typing.Optional[float]) -> None:
+    @total_buzz_volume_7_days.setter
+    def total_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def value(self) -> float:
-        """Returns the primary value (PricePerCupEquivalent), or 0 if null."""
+    def sentimental_buzz_volume_7_days(self) -> typing.Optional[float]:
+        """Sentimental Buzz Volume in 7 days"""
+        ...
+
+    @sentimental_buzz_volume_7_days.setter
+    def sentimental_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_article_mentions_30_days(self) -> typing.Optional[int]:
+        """Total Article Mentions in 30 days"""
+        ...
+
+    @total_article_mentions_30_days.setter
+    def total_article_mentions_30_days(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def sentimental_article_mentions_30_days(self) -> typing.Optional[float]:
+        """Sentimental Article Mentions in 30 days"""
+        ...
+
+    @sentimental_article_mentions_30_days.setter
+    def sentimental_article_mentions_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentiment_30_days(self) -> typing.Optional[float]:
+        """Setiment Score in 30 days"""
+        ...
+
+    @sentiment_30_days.setter
+    def sentiment_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_buzz_volume_30_days(self) -> typing.Optional[float]:
+        """Total Buzz Volume in 30 days"""
+        ...
+
+    @total_buzz_volume_30_days.setter
+    def total_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentimental_buzz_volume_30_days(self) -> typing.Optional[float]:
+        """Sentimental Buzz Volume in 30 days"""
+        ...
+
+    @sentimental_buzz_volume_30_days.setter
+    def sentimental_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Creates a clone of this instance
-        
-        :returns: A clone of this instance.
-        """
+        """Clones this instance"""
         ...
 
     def data_time_zone(self) -> typing.Any:
         """
-        Gets the data timezone for this data
+        Specifies the data time zone for this data type. This is useful for custom data types
         
-        :returns: The timezone.
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
         ...
 
     def default_resolution(self) -> QuantConnect.Resolution:
-        """
-        Gets the default resolution for this data
-        
-        :returns: The default resolution.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether this is sparse data
-        
-        :returns: True if sparse, false otherwise.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Read and parse the data from a line
-        
-        :param config: Subscription data config
-        :param line: Line of data
-        :param date: Date of the data
-        :param is_live_mode: Is this live mode
-        :returns: Parsed data object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether this data requires mapping
-        
-        :returns: True if requires mapping, false otherwise.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """
-        Gets the supported resolutions for this data
-        
-        :returns: List of supported resolutions.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string representation of this data
-        
-        :returns: String representation.
-        """
-        ...
-
-
-class USDAFruitAndVegetables(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """
-    USDAFruitAndVegetables - Collection of USDA ERS retail price data for a product.
-    Aggregates all product forms (Fresh, Canned, Frozen, etc.) under a single subscription.
-    """
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Creates a deep clone of this collection, including all data points.
-        
-        :returns: A clone of this collection with cloned data points.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Gets the data timezone for this data
-        
-        :returns: The timezone.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """
-        Gets the default resolution for this data
-        
-        :returns: The default resolution.
-        """
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Return the URL source for the data
+        Return the URL string source of the file. This will be converted to a stream
         
-        :param config: Subscription data config
-        :param date: Date of the data
-        :param is_live_mode: Is this live mode
-        :returns: Subscription data source.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether this is sparse data
-        
-        :returns: True if sparse, false otherwise.
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Read and parse the data from a line, delegating to the factory instance.
+        Parses the data from the line provided and loads it into LEAN
         
-        :param config: Subscription data config
+        :param config: Subscription configuration
         :param line: Line of data
-        :param date: Date of the data
-        :param is_live_mode: Is this live mode
-        :returns: Parsed data object.
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainSentimentIndicator7Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator7Day]):
+    """Brain sentiment indicator on 7 days of news"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This Property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsUniverse(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T], QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for BrainCompanyFilingLanguageMetrics dataset"""
+
+    @property
+    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by report part"""
+        ...
+
+    @report_sentiment.setter
+    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by risk factor statement part"""
+        ...
+
+    @risk_factors_statement_sentiment.setter
+    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by Management Discussion Analyasis Of Financial Condition And Results Of Operations"""
+        ...
+
+    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def report_type(self) -> str:
+        """
+        Report Type of which the language metric came from
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainStockRankingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for Brain ML Stock Ranking dataset"""
+
+    @property
+    def rank_2_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 2 days"""
+        ...
+
+    @rank_2_days.setter
+    def rank_2_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_3_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 3 days"""
+        ...
+
+    @rank_3_days.setter
+    def rank_3_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_5_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 5 days"""
+        ...
+
+    @rank_5_days.setter
+    def rank_5_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_10_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 10 days"""
+        ...
+
+    @rank_10_days.setter
+    def rank_10_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_21_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 21 days"""
+        ...
+
+    @rank_21_days.setter
+    def rank_21_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class EODHDUpcomingDividends(QuantConnect.Data.BaseData):
+    """EODHDUpcomingDividends data type."""
+
+    @property
+    def dividend_date(self) -> datetime.datetime:
+        """Date of the dividend will happen"""
+        ...
+
+    @dividend_date.setter
+    def dividend_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def declaration_date(self) -> typing.Optional[datetime.datetime]:
+        """Date of the dividend being declared"""
+        ...
+
+    @declaration_date.setter
+    def declaration_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def report_date(self) -> typing.Optional[datetime.datetime]:
+        """Date on which the investor must be on the company's books in order to receive a dividend"""
+        ...
+
+    @report_date.setter
+    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def payment_date(self) -> typing.Optional[datetime.datetime]:
+        """Date of the dividend being actually paid/delivered"""
+        ...
+
+    @payment_date.setter
+    def payment_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def dividend(self) -> float:
+        """Absolute payment of dividend per share"""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
         """
         ...
 
     def requires_mapping(self) -> bool:
         """
-        Indicates whether this data requires mapping
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
         
-        :returns: True if requires mapping, false otherwise.
+        :returns: false.
         """
         ...
 
     def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """
-        Gets the supported resolutions for this data
-        
-        :returns: List of supported resolutions.
-        """
+        """Gets the supported resolution for this data and security type"""
         ...
 
     def to_string(self) -> str:
-        """
-        Returns a string representation of this collection
-        
-        :returns: String representation.
-        """
+        """Converts the instance to string"""
         ...
 
 
@@ -34764,36 +31849,6 @@ class EODHD(System.Object):
             UNEMPLOYMENT_TOTAL_PERCENT: str = "ZWE/unemployment_total_percent"
             """Unemployment total (% of labor force)"""
 
-    class DealType(IntEnum):
-        """The earnings report time."""
-
-        EXPECTED = 0
-        """The IPO is anticipated to happen soon, but the company has not yet finalized a price or date"""
-
-        PRICED = 1
-        """The company has set the final price for its shares, and the offering is ready to occur."""
-
-        FILED = 2
-        """The company has submitted its registration statement to the regulatory body, but has not yet started the offering process."""
-
-        AMENDED = 3
-        """The company has made changes to its previously filed registration statement, often in response to feedback from regulators or to update financial information."""
-
-        WITHDRAWN = 4
-        """The company has decided to cancel the IPO process before it becomes effective."""
-
-        POSTPONED = 5
-        """The IPO has been delayed, typically due to market conditions or company-specific reasons."""
-
-    class ReportTime(IntEnum):
-        """The earnings report time."""
-
-        BEFORE_MARKET = 0
-        """The earnings will be reported that day before market open."""
-
-        AFTER_MARKET = 1
-        """The earnings will be reported that day after market closed."""
-
     class Events(System.Object):
         """The Events class contains all events normalized for your convenience"""
 
@@ -46548,35 +43603,208 @@ class EODHD(System.Object):
             INFLATION_RATE: str = "ZWE/inflation_rate"
             """Inflation Rate"""
 
+    class DealType(IntEnum):
+        """The earnings report time."""
 
-class EODHDUpcomingEarnings(QuantConnect.Data.BaseData):
-    """EODHD Upcoming Earnings object"""
+        EXPECTED = 0
+        """The IPO is anticipated to happen soon, but the company has not yet finalized a price or date"""
+
+        PRICED = 1
+        """The company has set the final price for its shares, and the offering is ready to occur."""
+
+        FILED = 2
+        """The company has submitted its registration statement to the regulatory body, but has not yet started the offering process."""
+
+        AMENDED = 3
+        """The company has made changes to its previously filed registration statement, often in response to feedback from regulators or to update financial information."""
+
+        WITHDRAWN = 4
+        """The company has decided to cancel the IPO process before it becomes effective."""
+
+        POSTPONED = 5
+        """The IPO has been delayed, typically due to market conditions or company-specific reasons."""
+
+    class ReportTime(IntEnum):
+        """The earnings report time."""
+
+        BEFORE_MARKET = 0
+        """The earnings will be reported that day before market open."""
+
+        AFTER_MARKET = 1
+        """The earnings will be reported that day after market closed."""
+
+
+class EODHDMacroIndicator(QuantConnect.Data.BaseData):
+    """EODHDMacroIndicator data type"""
 
     @property
-    def report_date(self) -> datetime.datetime:
-        """The predetermined earnings report date."""
+    def indicator(self) -> str:
+        """The macro indicator"""
         ...
 
-    @report_date.setter
-    def report_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def report_time(self) -> typing.Optional[QuantConnect.DataSource.EODHD.ReportTime]:
-        """Whether the earnings report will be published before market open or after market closed on the report date."""
-        ...
-
-    @report_time.setter
-    def report_time(self, value: typing.Optional[QuantConnect.DataSource.EODHD.ReportTime]) -> None:
+    @indicator.setter
+    def indicator(self, value: str) -> None:
         ...
 
     @property
-    def estimate(self) -> typing.Optional[float]:
-        """The estimated earnings per share."""
+    def country(self) -> str:
+        """The country of the indicator. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3."""
         ...
 
-    @estimate.setter
-    def estimate(self, value: typing.Optional[float]) -> None:
+    @country.setter
+    def country(self, value: str) -> None:
+        ...
+
+    @property
+    def frequency(self) -> QuantConnect.DataSource.EODHD.Frequency:
+        """The representation period of the indicator"""
+        ...
+
+    @frequency.setter
+    def frequency(self, value: QuantConnect.DataSource.EODHD.Frequency) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class EODHDUpcomingIPOs(QuantConnect.Data.BaseData):
+    """EODHDUpcomingIPOs data type"""
+
+    @property
+    def name(self) -> str:
+        """The name of the company of the IPO"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def exchange(self) -> QuantConnect.Exchange:
+        """The exchange that the IPO takes place"""
+        ...
+
+    @exchange.setter
+    def exchange(self, value: QuantConnect.Exchange) -> None:
+        ...
+
+    @property
+    def ipo_date(self) -> typing.Optional[datetime.datetime]:
+        """The date of the IPO takes place"""
+        ...
+
+    @ipo_date.setter
+    def ipo_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def filing_date(self) -> typing.Optional[datetime.datetime]:
+        """The date of the IPO registration submission"""
+        ...
+
+    @filing_date.setter
+    def filing_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def amended_date(self) -> typing.Optional[datetime.datetime]:
+        """The date of the last change of the IPO arrangement if any"""
+        ...
+
+    @amended_date.setter
+    def amended_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def lowest_price(self) -> typing.Optional[float]:
+        """The set lower bound of the IPO price"""
+        ...
+
+    @lowest_price.setter
+    def lowest_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def highest_price(self) -> typing.Optional[float]:
+        """The set upper bound of the IPO price"""
+        ...
+
+    @highest_price.setter
+    def highest_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def offer_price(self) -> typing.Optional[float]:
+        """The exact price set for the IPO"""
+        ...
+
+    @offer_price.setter
+    def offer_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares(self) -> typing.Optional[float]:
+        """The number of shares of the IPO"""
+        ...
+
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def deal_type(self) -> QuantConnect.DataSource.EODHD.DealType:
+        """The deal type of the IPO"""
+        ...
+
+    @deal_type.setter
+    def deal_type(self, value: QuantConnect.DataSource.EODHD.DealType) -> None:
         ...
 
     @property
@@ -46645,48 +43873,262 @@ class EODHDUpcomingEarnings(QuantConnect.Data.BaseData):
         ...
 
 
-class EODHDUpcomingDividends(QuantConnect.Data.BaseData):
-    """EODHDUpcomingDividends data type."""
+class EODHDMacroIndicators(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """EODHDMacroIndicators data type"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class EODHDUpcomingSplits(QuantConnect.Data.BaseData):
+    """EODHDUpcomingSplits data type."""
 
     @property
-    def dividend_date(self) -> datetime.datetime:
-        """Date of the dividend will happen"""
+    def split_date(self) -> datetime.datetime:
+        """Date of the split will happen"""
         ...
 
-    @dividend_date.setter
-    def dividend_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def declaration_date(self) -> typing.Optional[datetime.datetime]:
-        """Date of the dividend being declared"""
-        ...
-
-    @declaration_date.setter
-    def declaration_date(self, value: typing.Optional[datetime.datetime]) -> None:
+    @split_date.setter
+    def split_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def report_date(self) -> typing.Optional[datetime.datetime]:
-        """Date on which the investor must be on the company's books in order to receive a dividend"""
+    def optionable(self) -> bool:
+        """If this is split optionable for shareholders."""
+        ...
+
+    @optionable.setter
+    def optionable(self, value: bool) -> None:
+        ...
+
+    @property
+    def split_factor(self) -> float:
+        """Ratio of old shares / new shares."""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class EODHDEconomicEvents(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """EODHDEconomicEvents data type"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class EODHDUpcomingEarnings(QuantConnect.Data.BaseData):
+    """EODHD Upcoming Earnings object"""
+
+    @property
+    def report_date(self) -> datetime.datetime:
+        """The predetermined earnings report date."""
         ...
 
     @report_date.setter
-    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+    def report_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def payment_date(self) -> typing.Optional[datetime.datetime]:
-        """Date of the dividend being actually paid/delivered"""
+    def report_time(self) -> typing.Optional[QuantConnect.DataSource.EODHD.ReportTime]:
+        """Whether the earnings report will be published before market open or after market closed on the report date."""
         ...
 
-    @payment_date.setter
-    def payment_date(self, value: typing.Optional[datetime.datetime]) -> None:
+    @report_time.setter
+    def report_time(self, value: typing.Optional[QuantConnect.DataSource.EODHD.ReportTime]) -> None:
         ...
 
     @property
-    def dividend(self) -> float:
-        """Absolute payment of dividend per share"""
+    def estimate(self) -> typing.Optional[float]:
+        """The estimated earnings per share."""
+        ...
+
+    @estimate.setter
+    def estimate(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
@@ -46875,97 +44317,651 @@ class EODHDEconomicEvent(QuantConnect.Data.BaseData):
         ...
 
 
-class EODHDUpcomingIPOs(QuantConnect.Data.BaseData):
-    """EODHDUpcomingIPOs data type"""
+class SmartInsiderExecutionEntity(IntEnum):
+    """Entity that intends to or executed the transaction"""
+
+    ISSUER = 0
+    """Issuer of the stock"""
+
+    SUBSIDIARY = 1
+    """Subsidiary of the issuer"""
+
+    BROKER = 2
+    """
+    Brokers are commonly used to repurchase shares under mandate to avoid insider
+    information rules and to allow repurchases to carry on through close periods
+    """
+
+    EMPLOYER_BENEFIT_TRUST = 3
+    """Unknown - Transaction"""
+
+    EMPLOYEE_BENEFIT_TRUST = 4
+    """To cater for shares which will need to be transferred to employees as part of remunerative plans"""
+
+    THIRD_PARTY = 5
+    """Undisclosed independent third party. Likely to be a broker."""
+
+    ERROR = 6
+    """The field was not found in this enum"""
+
+
+class SmartInsiderExecution(IntEnum):
+    """Describes how the transaction was executed"""
+
+    MARKET = 0
+    """Took place via the open market"""
+
+    TENDER_OFFER = 1
+    """Via a companywide tender offer to all shareholders"""
+
+    OFF_MARKET = 2
+    """Under a specific agreement between the issuer and shareholder"""
+
+    ERROR = 3
+    """Field is not in this enum"""
+
+
+class SmartInsiderEventType(IntEnum):
+    """Describes what will or has taken place in an execution"""
+
+    AUTHORIZATION = 0
+    """Notification that the board has gained the authority to repurchase"""
+
+    INTENTION = 1
+    """Notification of the board that shares will be repurchased."""
+
+    TRANSACTION = 2
+    """Repurchase transactions that have been actioned."""
+
+    UPWARDS_REVISION = 3
+    """Increase in the scope of the existing plan (extended date, increased value, etc.)"""
+
+    DOWNWARDS_REVISION = 4
+    """Decrease in the scope of the existing plan (shortened date, reduced value, etc.)"""
+
+    REVISED_DETAILS = 5
+    """General change of details of the plan (max/min price alteration, etc.)"""
+
+    CANCELLATION = 6
+    """Total cancellation of the plan"""
+
+    SEEK_AUTHORIZATION = 7
+    """Announcement by a company that the board of directors or management will be seeking to obtain authorisation for a repurchase plan."""
+
+    PLAN_SUSPENSION = 8
+    """Announcement by a company that a plan of repurchase has been suspended. Further details of the suspension are included in the note."""
+
+    PLAN_RE_STARTED = 9
+    """Announcement by a company that a suspended plan has been re-started. Further details of the suspension are included in the note."""
+
+    NOT_SPECIFIED = 10
+    """Announcement by a company not specified and/or not documented in the other categories. Further details are included in the note."""
+
+
+class SmartInsiderEvent(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
+    """
+    SmartInsider Intention and Transaction events. These are fields
+    that are shared between intentions and transactions.
+    """
 
     @property
-    def name(self) -> str:
-        """The name of the company of the IPO"""
+    def transaction_id(self) -> str:
+        """Proprietary unique field. Not nullable"""
         ...
 
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def exchange(self) -> QuantConnect.Exchange:
-        """The exchange that the IPO takes place"""
-        ...
-
-    @exchange.setter
-    def exchange(self, value: QuantConnect.Exchange) -> None:
+    @transaction_id.setter
+    def transaction_id(self, value: str) -> None:
         ...
 
     @property
-    def ipo_date(self) -> typing.Optional[datetime.datetime]:
-        """The date of the IPO takes place"""
+    def event_type(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderEventType]:
+        """Description of what has or will take place in an execution"""
         ...
 
-    @ipo_date.setter
-    def ipo_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def filing_date(self) -> typing.Optional[datetime.datetime]:
-        """The date of the IPO registration submission"""
-        ...
-
-    @filing_date.setter
-    def filing_date(self, value: typing.Optional[datetime.datetime]) -> None:
+    @event_type.setter
+    def event_type(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderEventType]) -> None:
         ...
 
     @property
-    def amended_date(self) -> typing.Optional[datetime.datetime]:
-        """The date of the last change of the IPO arrangement if any"""
+    def last_update(self) -> datetime.datetime:
+        """The date when a transaction is updated after it has been reported. Not nullable"""
         ...
 
-    @amended_date.setter
-    def amended_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def lowest_price(self) -> typing.Optional[float]:
-        """The set lower bound of the IPO price"""
-        ...
-
-    @lowest_price.setter
-    def lowest_price(self, value: typing.Optional[float]) -> None:
+    @last_update.setter
+    def last_update(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def highest_price(self) -> typing.Optional[float]:
-        """The set upper bound of the IPO price"""
+    def last_i_ds_update(self) -> typing.Optional[datetime.datetime]:
+        """Date that company identifiers were changed. Can be a name, Ticker Symbol or ISIN change"""
         ...
 
-    @highest_price.setter
-    def highest_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def offer_price(self) -> typing.Optional[float]:
-        """The exact price set for the IPO"""
-        ...
-
-    @offer_price.setter
-    def offer_price(self, value: typing.Optional[float]) -> None:
+    @last_i_ds_update.setter
+    def last_i_ds_update(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
     @property
-    def shares(self) -> typing.Optional[float]:
-        """The number of shares of the IPO"""
+    def isin(self) -> str:
+        """Industry classification number"""
         ...
 
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
+    @isin.setter
+    def isin(self, value: str) -> None:
         ...
 
     @property
-    def deal_type(self) -> QuantConnect.DataSource.EODHD.DealType:
-        """The deal type of the IPO"""
+    def usd_market_cap(self) -> typing.Optional[float]:
+        """The market capitalization at the time of the transaction stated in US Dollars"""
         ...
 
-    @deal_type.setter
-    def deal_type(self, value: QuantConnect.DataSource.EODHD.DealType) -> None:
+    @usd_market_cap.setter
+    def usd_market_cap(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def company_id(self) -> typing.Optional[int]:
+        """Smart Insider proprietary identifier for the company"""
+        ...
+
+    @company_id.setter
+    def company_id(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def icb_industry(self) -> str:
+        """FTSE Russell Sector Classification"""
+        ...
+
+    @icb_industry.setter
+    def icb_industry(self, value: str) -> None:
+        ...
+
+    @property
+    def icb_super_sector(self) -> str:
+        """FTSE Russell Sector Classification"""
+        ...
+
+    @icb_super_sector.setter
+    def icb_super_sector(self, value: str) -> None:
+        ...
+
+    @property
+    def icb_sector(self) -> str:
+        """FTSE Russell Sector Classification"""
+        ...
+
+    @icb_sector.setter
+    def icb_sector(self, value: str) -> None:
+        ...
+
+    @property
+    def icb_sub_sector(self) -> str:
+        """FTSE Russell Sector Classification"""
+        ...
+
+    @icb_sub_sector.setter
+    def icb_sub_sector(self, value: str) -> None:
+        ...
+
+    @property
+    def icb_code(self) -> typing.Optional[int]:
+        """Numeric code that is the most granular level in ICB classification"""
+        ...
+
+    @icb_code.setter
+    def icb_code(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def company_name(self) -> str:
+        """Company name. PLC is always excluded"""
+        ...
+
+    @company_name.setter
+    def company_name(self, value: str) -> None:
+        ...
+
+    @property
+    def previous_results_announcement_date(self) -> typing.Optional[datetime.datetime]:
+        """Announcement date of last results, this will be the end date of the last "Close Period\""""
+        ...
+
+    @previous_results_announcement_date.setter
+    def previous_results_announcement_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def next_results_announcements_date(self) -> typing.Optional[datetime.datetime]:
+        """Announcement date of next results, this will be the end date of the next "Close Period\""""
+        ...
+
+    @next_results_announcements_date.setter
+    def next_results_announcements_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def next_close_begin(self) -> typing.Optional[datetime.datetime]:
+        """Start date of next trading embargo ahead of scheduled results announcment"""
+        ...
+
+    @next_close_begin.setter
+    def next_close_begin(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def last_close_ended(self) -> typing.Optional[datetime.datetime]:
+        """Date trading embargo (Close Period) is lifted as results are made public"""
+        ...
+
+    @last_close_ended.setter
+    def last_close_ended(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def security_description(self) -> str:
+        """Type of security. Does not contain nominal value"""
+        ...
+
+    @security_description.setter
+    def security_description(self, value: str) -> None:
+        ...
+
+    @property
+    def ticker_country(self) -> str:
+        """Country of local identifier, denoting where the trade took place"""
+        ...
+
+    @ticker_country.setter
+    def ticker_country(self, value: str) -> None:
+        ...
+
+    @property
+    def ticker_symbol(self) -> str:
+        """Local market identifier"""
+        ...
+
+    @ticker_symbol.setter
+    def ticker_symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def announcement_date(self) -> typing.Optional[datetime.datetime]:
+        """Date Transaction was entered onto our system. Where a transaction is after the London market close (usually 4.30pm) this will be stated as the next day"""
+        ...
+
+    @announcement_date.setter
+    def announcement_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def time_released(self) -> typing.Optional[datetime.datetime]:
+        """Time the announcement first appeared on a Regulatory News Service or other disclosure system and became available to the market, time stated is local market time"""
+        ...
+
+    @time_released.setter
+    def time_released(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def time_processed(self) -> typing.Optional[datetime.datetime]:
+        """Time the transaction was entered into Smart Insider systems and appeared on their website, time stated is local to London, UK"""
+        ...
+
+    @time_processed.setter
+    def time_processed(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def time_released_utc(self) -> typing.Optional[datetime.datetime]:
+        """Time the announcement first appeared on a Regulatory News Service or other disclosure system and became available to the market. Time stated is GMT standard"""
+        ...
+
+    @time_released_utc.setter
+    def time_released_utc(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def time_processed_utc(self) -> typing.Optional[datetime.datetime]:
+        """Time the transaction was entered onto our systems and appeared on our website. Time stated is GMT standard"""
+        ...
+
+    @time_processed_utc.setter
+    def time_processed_utc(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def announced_in(self) -> str:
+        """Market in which the transaction was announced, this can reference more than one country"""
+        ...
+
+    @announced_in.setter
+    def announced_in(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for cloning"""
+        ...
+
+    @overload
+    def __init__(self, tsv_line: str) -> None:
+        """
+        Parses a line of TSV (tab delimited) from Smart Insider data
+        
+        
+        This Class is protected.
+        
+        :param tsv_line: Tab delimited line of data
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the timezone of this data source
+        
+        :returns: Timezone.
+        """
+        ...
+
+    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
+        """
+        Derived class instances populate their fields from raw TSV
+        
+        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
+        :param indexes: Index per header column
+        :returns: success of the parsing task.
+        """
+        ...
+
+    @staticmethod
+    def parse_date(date: str) -> datetime.datetime:
+        """
+        Attempts to normalize and parse SmartInsider dates that include a time component.
+        
+        :param date: Date string to parse
+        :returns: DateTime object.
+        """
+        ...
+
+    def to_line(self) -> str:
+        """
+        Converts data to TSV
+        
+        :returns: String of TSV.
+        """
+        ...
+
+
+class SmartInsiderExecutionHolding(IntEnum):
+    """Details regarding the way holdings will be or were processed in a buyback execution"""
+
+    TREASURY = 0
+    """Held in treasury until they are sold back to the market"""
+
+    CANCELLATION = 1
+    """Immediately cancelled"""
+
+    TRUST = 2
+    """Held in trust, generally to cover employee renumerative plans"""
+
+    SATISFY_EMPLOYEE_TAX = 3
+    """Shares will be used to satisfy employee tax liabilities"""
+
+    NOT_REPORTED = 4
+    """Not disclosed by the issuer in the announcements"""
+
+    SATISFY_STOCK_VESTING = 5
+    """Shares will be used to satisfy vesting of employee stock"""
+
+    ERROR = 6
+    """The field was not found in the enum, or is representative of a SatisfyStockVesting entry."""
+
+
+class SmartInsiderIntention(QuantConnect.DataSource.SmartInsiderEvent):
+    """Smart Insider Intentions - Intention to execute a stock buyback and details about the future event"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
+        """Describes how the transaction was executed"""
+        ...
+
+    @execution.setter
+    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
+        ...
+
+    @property
+    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
+        """Describes which entity intends to execute the transaction"""
+        ...
+
+    @execution_entity.setter
+    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
+        ...
+
+    @property
+    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
+        """Describes what will be done with those shares following repurchase"""
+        ...
+
+    @execution_holding.setter
+    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[int]:
+        """Number of shares to be or authorised to be traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def value_currency(self) -> str:
+        """Currency of the value of shares to be/Authorised to be traded (ISO Code)"""
+        ...
+
+    @value_currency.setter
+    def value_currency(self, value: str) -> None:
+        ...
+
+    @property
+    def amount_value(self) -> typing.Optional[int]:
+        """Value of shares to be authorised to be traded"""
+        ...
+
+    @amount_value.setter
+    def amount_value(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def percentage(self) -> typing.Optional[float]:
+        """Percentage of oustanding shares to be authorised to be traded"""
+        ...
+
+    @percentage.setter
+    def percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def authorization_start_date(self) -> typing.Optional[datetime.datetime]:
+        """start of the period the intention/authorisation applies to"""
+        ...
+
+    @authorization_start_date.setter
+    def authorization_start_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def authorization_end_date(self) -> typing.Optional[datetime.datetime]:
+        """End of the period the intention/authorisation applies to"""
+        ...
+
+    @authorization_end_date.setter
+    def authorization_end_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def price_currency(self) -> str:
+        """Currency of min/max prices (ISO Code)"""
+        ...
+
+    @price_currency.setter
+    def price_currency(self, value: str) -> None:
+        ...
+
+    @property
+    def minimum_price(self) -> typing.Optional[float]:
+        """Minimum price shares will or may be purchased at"""
+        ...
+
+    @minimum_price.setter
+    def minimum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_price(self) -> typing.Optional[float]:
+        """Maximum price shares will or may be purchased at"""
+        ...
+
+    @maximum_price.setter
+    def maximum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def note_text(self) -> str:
+        """Free text which explains further details about the trade"""
+        ...
+
+    @note_text.setter
+    def note_text(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for Slice.Get{T}()"""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Constructs instance of this via a *formatted* TSV line (tab delimited)
+        
+        :param line: Line of formatted TSV data
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the object to a new instance. This method
+        is required for custom data sources that make use
+        of properties with more complex types since otherwise
+        the values will default to null using the default clone method
+        
+        :returns: A new cloned instance of this object.
+        """
+        ...
+
+    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
+        """
+        Constructs a new instance from unformatted TSV data
+        
+        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
+        :param indexes: Index per header column
+        :returns: success of the parsing task.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load the data from
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Loads and reads the data to be used in LEAN
+        
+        :param config: Subscription configuration
+        :param line: TSV line
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Instance of the object.
+        """
+        ...
+
+    def to_line(self) -> str:
+        """
+        Converts the data to TSV
+        
+        :returns: String of TSV.
+        """
+        ...
+
+
+class SmartInsiderIntentionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Smart Insider Intentions Universe"""
+
+    @property
+    def amount(self) -> typing.Optional[int]:
+        """Number of shares to be or authorised to be traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def amount_value(self) -> typing.Optional[int]:
+        """Value of shares to be authorised to be traded"""
+        ...
+
+    @amount_value.setter
+    def amount_value(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def percentage(self) -> typing.Optional[float]:
+        """Percentage of oustanding shares to be authorised to be traded"""
+        ...
+
+    @percentage.setter
+    def percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def minimum_price(self) -> typing.Optional[float]:
+        """Minimum price shares will or may be purchased at"""
+        ...
+
+    @minimum_price.setter
+    def minimum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_price(self) -> typing.Optional[float]:
+        """Maximum price shares will or may be purchased at"""
+        ...
+
+    @maximum_price.setter
+    def maximum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def usd_market_cap(self) -> typing.Optional[float]:
+        """Market Capitalization in USD"""
+        ...
+
+    @usd_market_cap.setter
+    def usd_market_cap(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
@@ -46974,59 +44970,38 @@ class EODHDUpcomingIPOs(QuantConnect.Data.BaseData):
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
+        """Clone implementation"""
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the timezone of this data source
+        
+        :returns: Timezone.
+        """
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Return the URL string source of the file. This will be converted to a stream
+        Specifies the location of the data and directs LEAN where to load the data from
         
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Parses the data from the line provided and loads it into LEAN
+        Loads and reads the data to be used in LEAN
         
         :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
+        :param line: TSV line
+        :param date: Algorithm date
         :param is_live_mode: Is live mode
-        :returns: New instance.
+        :returns: Instance of the object.
         """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
         ...
 
     def to_string(self) -> str:
@@ -47034,30 +45009,296 @@ class EODHDUpcomingIPOs(QuantConnect.Data.BaseData):
         ...
 
 
-class EODHDUpcomingSplits(QuantConnect.Data.BaseData):
-    """EODHDUpcomingSplits data type."""
+class SmartInsiderTransaction(QuantConnect.DataSource.SmartInsiderEvent):
+    """Smart Insider Transaction - Execution of a stock buyback and details about the event occurred"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
 
     @property
-    def split_date(self) -> datetime.datetime:
-        """Date of the split will happen"""
+    def buyback_date(self) -> typing.Optional[datetime.datetime]:
+        """Date traded through the market"""
         ...
 
-    @split_date.setter
-    def split_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def optionable(self) -> bool:
-        """If this is split optionable for shareholders."""
-        ...
-
-    @optionable.setter
-    def optionable(self, value: bool) -> None:
+    @buyback_date.setter
+    def buyback_date(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
     @property
-    def split_factor(self) -> float:
-        """Ratio of old shares / new shares."""
+    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
+        """Describes how transaction was executed"""
+        ...
+
+    @execution.setter
+    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
+        ...
+
+    @property
+    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
+        """Describes which entity carried out the transaction"""
+        ...
+
+    @execution_entity.setter
+    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
+        ...
+
+    @property
+    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
+        """Describes what will be done with those shares following repurchase"""
+        ...
+
+    @execution_holding.setter
+    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
+        ...
+
+    @property
+    def currency(self) -> str:
+        """Currency of transation (ISO Code)"""
+        ...
+
+    @currency.setter
+    def currency(self, value: str) -> None:
+        ...
+
+    @property
+    def execution_price(self) -> typing.Optional[float]:
+        """Denominated in Currency of Transaction"""
+        ...
+
+    @execution_price.setter
+    def execution_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """Number of shares traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def gbp_value(self) -> typing.Optional[float]:
+        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
+        ...
+
+    @gbp_value.setter
+    def gbp_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def eur_value(self) -> typing.Optional[float]:
+        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
+        ...
+
+    @eur_value.setter
+    def eur_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def usd_value(self) -> typing.Optional[float]:
+        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
+        ...
+
+    @usd_value.setter
+    def usd_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def note_text(self) -> str:
+        """Free text which expains futher details about the trade"""
+        ...
+
+    @note_text.setter
+    def note_text(self, value: str) -> None:
+        ...
+
+    @property
+    def buyback_percentage(self) -> typing.Optional[float]:
+        """Percentage of value of the trade as part of the issuers total Market Cap"""
+        ...
+
+    @buyback_percentage.setter
+    def buyback_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def volume_percentage(self) -> typing.Optional[float]:
+        """Percentage of the volume traded on the day of the buyback."""
+        ...
+
+    @volume_percentage.setter
+    def volume_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def conversion_rate(self) -> typing.Optional[float]:
+        """Rate used to calculate 'Value (GBP)' from 'Price' multiplied by 'Amount'. Will be 1 where Currency is also 'GBP'"""
+        ...
+
+    @conversion_rate.setter
+    def conversion_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def amount_adjusted_factor(self) -> typing.Optional[float]:
+        """Multiplier which can be applied to 'Amount' field to account for subsequent corporate action"""
+        ...
+
+    @amount_adjusted_factor.setter
+    def amount_adjusted_factor(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_adjusted_factor(self) -> typing.Optional[float]:
+        """Multiplier which can be applied to 'Price' and 'LastClose' fields to account for subsequent corporate actions"""
+        ...
+
+    @price_adjusted_factor.setter
+    def price_adjusted_factor(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def treasury_holding(self) -> typing.Optional[int]:
+        """Post trade holding of the Treasury or Trust in the security traded"""
+        ...
+
+    @treasury_holding.setter
+    def treasury_holding(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty contsructor required for Slice.Get{T}()"""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates an instance of the object by taking a formatted TSV line
+        
+        :param line: Line of formatted TSV
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the object to a new instance. This method
+        is required for custom data sources that make use
+        of properties with more complex types since otherwise
+        the values will default to null using the default clone method
+        
+        :returns: A new cloned instance of this object.
+        """
+        ...
+
+    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
+        """
+        Creates an instance of the object by taking a formatted TSV line
+        
+        :param line: Line of formatted TSV
+        :param indexes: Index per header column
+        :returns: success of the parsing task.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load the data from
+        
+        :param config: Subscription configuration
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads the data into LEAN for use in algorithms
+        
+        :param config: Subscription configuration
+        :param line: Line of TSV
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Instance of the object.
+        """
+        ...
+
+    def to_line(self) -> str:
+        """
+        Converts the data to TSV
+        
+        :returns: String of TSV.
+        """
+        ...
+
+
+class SmartInsiderTransactionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Smart Insider Transaction Universe"""
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """Number of shares traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def minimum_execution_price(self) -> typing.Optional[float]:
+        """Minimum Value of Denominated in Currency of Transaction"""
+        ...
+
+    @minimum_execution_price.setter
+    def minimum_execution_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_execution_price(self) -> typing.Optional[float]:
+        """Maximum Value of Denominated in Currency of Transaction"""
+        ...
+
+    @maximum_execution_price.setter
+    def maximum_execution_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def usd_value(self) -> typing.Optional[float]:
+        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
+        ...
+
+    @usd_value.setter
+    def usd_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def buyback_percentage(self) -> typing.Optional[float]:
+        """Percentage of value of the trade as part of the issuers total Market Cap"""
+        ...
+
+    @buyback_percentage.setter
+    def buyback_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def volume_percentage(self) -> typing.Optional[float]:
+        """Percentage of the volume traded on the day of the buyback."""
+        ...
+
+    @volume_percentage.setter
+    def volume_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def usd_market_cap(self) -> typing.Optional[float]:
+        """Market Capitalization in USD"""
+        ...
+
+    @usd_market_cap.setter
+    def usd_market_cap(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
@@ -47066,59 +45307,38 @@ class EODHDUpcomingSplits(QuantConnect.Data.BaseData):
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
+        """Clone implementation"""
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the timezone of this data source
+        
+        :returns: Timezone.
+        """
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Return the URL string source of the file. This will be converted to a stream
+        Specifies the location of the data and directs LEAN where to load the data from
         
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Parses the data from the line provided and loads it into LEAN
+        Loads and reads the data to be used in LEAN
         
         :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
+        :param line: TSV line
+        :param date: Algorithm date
         :param is_live_mode: Is live mode
-        :returns: New instance.
+        :returns: Instance of the object.
         """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
         ...
 
     def to_string(self) -> str:
@@ -47126,94 +45346,92 @@ class EODHDUpcomingSplits(QuantConnect.Data.BaseData):
         ...
 
 
-class EODHDMacroIndicator(QuantConnect.Data.BaseData):
-    """EODHDMacroIndicator data type"""
+class ExtractAlphaTacticalModel(QuantConnect.Data.BaseData):
+    """
+    ExtractAlpha Tactical Model (TM1) - Stock selection model that is designed
+    to capture technical dynamics of U.S. equities over a period of 1-10 days.
+    """
 
     @property
-    def indicator(self) -> str:
-        """The macro indicator"""
+    def reversal(self) -> int:
+        """
+        The stock's likelihood to revert to the mean.
+        This value is the percentile rank bounded between <1, 100>. The closer the value is to the upper
+        bound, the more likely the stock will outperform according to this component.
+        """
         ...
 
-    @indicator.setter
-    def indicator(self, value: str) -> None:
-        ...
-
-    @property
-    def country(self) -> str:
-        """The country of the indicator. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3."""
-        ...
-
-    @country.setter
-    def country(self, value: str) -> None:
+    @reversal.setter
+    def reversal(self, value: int) -> None:
         ...
 
     @property
-    def frequency(self) -> QuantConnect.DataSource.EODHD.Frequency:
-        """The representation period of the indicator"""
+    def factor_momentum(self) -> int:
+        """
+        Cross-asset momentum percentile rank based on one of
+        the stock's factors (e.g. industry, value/growth stock classification, etc.)
+        This value is the percentile rank bounded between <1, 100>. The closer the value is to the upper
+        bound, the more likely the stock will outperform according to this component.
+        """
         ...
 
-    @frequency.setter
-    def frequency(self, value: QuantConnect.DataSource.EODHD.Frequency) -> None:
+    @factor_momentum.setter
+    def factor_momentum(self, value: int) -> None:
+        ...
+
+    @property
+    def liquidity_shock(self) -> int:
+        """
+        Short-term stock liquidity shock score.
+        This value is the percentile rank bounded between <1, 100>. The closer this value is to the upper
+        bound, the more likely the stock will outperform according to this component.
+        """
+        ...
+
+    @liquidity_shock.setter
+    def liquidity_shock(self, value: int) -> None:
+        ...
+
+    @property
+    def seasonality(self) -> int:
+        """
+        Seasonality score of cross-section stock returns.
+        This value is the percentile rank bounded between <1, 100>. The closer this value is to the upper
+        bound, the more likely the stock will outperform according to this component.
+        """
+        ...
+
+    @seasonality.setter
+    def seasonality(self, value: int) -> None:
+        ...
+
+    @property
+    def score(self) -> int:
+        """
+        Composite model score of all defined scores: Reversal, FactorMomentum, LiquidityShock, and Seasonality.
+        This value is the percentile rank bounded between <1, 100>. The closer this value is to the upper
+        bound, the more likely the stock will outperform according to this component.
+        """
+        ...
+
+    @score.setter
+    def score(self, value: int) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time that the data became available to the algorithm"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Clones the data
+        Return a new instance clone of this object, used in fill forward
         
-        :returns: A clone of the object.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class EODHDEconomicEvents(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """EODHDEconomicEvents data type"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
+        :returns: A clone of the current object.
         """
         ...
 
@@ -47225,10 +45443,6 @@ class EODHDEconomicEvents(QuantConnect.Data.UniverseSelection.BaseDataCollection
         """
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
         Return the URL string source of the file. This will be converted to a stream
@@ -47242,103 +45456,35 @@ class EODHDEconomicEvents(QuantConnect.Data.UniverseSelection.BaseDataCollection
 
     def is_sparse_data(self) -> bool:
         """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
+        Indicates that the data set is expected to be sparse
         
-        :returns: true.
+        :returns: True if the data set represented by this type is expected to be sparse.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Parses the data from the line provided and loads it into LEAN
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
         
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class EODHDMacroIndicators(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """EODHDMacroIndicators data type"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
         """
         ...
 
     def requires_mapping(self) -> bool:
         """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
+        Indicates if there is support for mapping
         
-        :returns: false.
+        :returns: True indicates mapping should be used.
         """
         ...
 
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
     def to_string(self) -> str:
-        """Converts the instance to string"""
+        """Formats the string with TacticalModel data"""
         ...
 
 
@@ -47676,2228 +45822,546 @@ class FearGreedIndex(QuantConnect.Data.BaseData):
         ...
 
 
-class BrainCompanyFilingLanguageMetrics10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K]):
-    """Brain sentiment on only 10-K SEC reports"""
+class PriceUnit(IntEnum):
+    """Price unit for USDA retail price data."""
 
-    DATA_SOURCE_ID: int
-    """Data source ID"""
+    PER_POUND = 0
+    """Price per pound (used for solid products)"""
 
-    @property
-    def report_type(self) -> str:
-        """This Property is protected."""
-        ...
+    PER_PINT = 1
+    """Price per pint (used for juice products)"""
 
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
 
+class CupEquivalentUnit(IntEnum):
+    """Cup equivalent unit for USDA nutritional data."""
 
-class BrainStockRanking5Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking5Day]):
-    """Brain universe stock rankings on expected returns in the next 5 days"""
+    POUNDS = 0
+    """Cup equivalent measured in pounds"""
 
-    DATA_SOURCE_ID: int
-    """Data source ID"""
+    PINTS = 1
+    """Cup equivalent measured in pints"""
 
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
+    FLUID_OUNCES = 2
+    """Cup equivalent measured in fluid ounces"""
 
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
 
-
-class BrainStockRanking2Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking2Day]):
-    """Brain universe stock rankings on expected returns in the next 2 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsSimilarityDifference(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def all(self) -> typing.Optional[float]:
-        ...
-
-    @all.setter
-    def all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def positive(self) -> typing.Optional[float]:
-        ...
-
-    @positive.setter
-    def positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def negative(self) -> typing.Optional[float]:
-        ...
-
-    @negative.setter
-    def negative(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @uncertainty.setter
-    def uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def litigious(self) -> typing.Optional[float]:
-        ...
-
-    @litigious.setter
-    def litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def constraining(self) -> typing.Optional[float]:
-        ...
-
-    @constraining.setter
-    def constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def interesting(self) -> typing.Optional[float]:
-        ...
-
-    @interesting.setter
-    def interesting(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @staticmethod
-    def parse(similarity_values: typing.List[str]) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
-        ...
-
-
-class BrainCompanyFilingLanguageMetrics(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def sentence_count(self) -> typing.Optional[int]:
-        ...
-
-    @sentence_count.setter
-    def sentence_count(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def mean_sentence_length(self) -> typing.Optional[float]:
-        ...
-
-    @mean_sentence_length.setter
-    def mean_sentence_length(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @uncertainty.setter
-    def uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def litigious(self) -> typing.Optional[float]:
-        ...
-
-    @litigious.setter
-    def litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def constraining(self) -> typing.Optional[float]:
-        ...
-
-    @constraining.setter
-    def constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def interesting(self) -> typing.Optional[float]:
-        ...
-
-    @interesting.setter
-    def interesting(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def readability(self) -> typing.Optional[float]:
-        ...
-
-    @readability.setter
-    def readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @lexical_richness.setter
-    def lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @lexical_density.setter
-    def lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @specific_density.setter
-    def specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def similarity(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
-        ...
-
-    @similarity.setter
-    def similarity(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference) -> None:
-        ...
-
-    @staticmethod
-    def parse(metrics: typing.List[str], similarity: typing.List[str] = None) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsUniverse(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T], QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for BrainCompanyFilingLanguageMetrics dataset"""
-
-    @property
-    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by report part"""
-        ...
-
-    @report_sentiment.setter
-    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by risk factor statement part"""
-        ...
-
-    @risk_factors_statement_sentiment.setter
-    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by Management Discussion Analyasis Of Financial Condition And Results Of Operations"""
-        ...
-
-    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def report_type(self) -> str:
-        """
-        Report Type of which the language metric came from
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRanking3Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking3Day]):
-    """Brain universe stock rankings on expected returns in the next 3 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainStockRankingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for Brain ML Stock Ranking dataset"""
-
-    @property
-    def rank_2_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 2 days"""
-        ...
-
-    @rank_2_days.setter
-    def rank_2_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_3_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 3 days"""
-        ...
-
-    @rank_3_days.setter
-    def rank_3_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_5_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 5 days"""
-        ...
-
-    @rank_5_days.setter
-    def rank_5_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_10_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 10 days"""
-        ...
-
-    @rank_10_days.setter
-    def rank_10_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_21_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 21 days"""
-        ...
-
-    @rank_21_days.setter
-    def rank_21_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsUniverseAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll]):
-    """Brain sentiment universe on 10-K/10-Q SEC reports"""
-
-    @property
-    def report_type(self) -> str:
-        """This Property is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-
-class BrainLanguageMetricsEarningsCallsBase(typing.Generic[QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T], QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
+class USDAFruitAndVegetable(QuantConnect.Data.BaseData):
     """
-    Base class for Brain Language Metrics on Earnings Calls (metrics-only version).
-    This class parses daily rows of MD/AQ/MA metrics for a given symbol.
+    USDAFruitAndVegetable - Individual data point for USDA ERS retail price estimates.
+    Contains price data for a specific product form (Fresh, Canned, Frozen, etc.).
     """
 
-    @property
-    def last_transcript_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @last_transcript_date.setter
-    def last_transcript_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def last_transcript_quarter(self) -> typing.Optional[int]:
-        ...
-
-    @last_transcript_quarter.setter
-    def last_transcript_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def last_transcript_year(self) -> typing.Optional[int]:
-        ...
-
-    @last_transcript_year.setter
-    def last_transcript_year(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def md_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @md_n_characters.setter
-    def md_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @md_sentiment.setter
-    def md_sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @md_score_uncertainty.setter
-    def md_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @md_score_litigious.setter
-    def md_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @md_score_constraining.setter
-    def md_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_readability(self) -> typing.Optional[float]:
-        ...
-
-    @md_readability.setter
-    def md_readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @md_lexical_richness.setter
-    def md_lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @md_lexical_density.setter
-    def md_lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @md_specific_density.setter
-    def md_specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @aq_n_characters.setter
-    def aq_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @aq_sentiment.setter
-    def aq_sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @aq_score_uncertainty.setter
-    def aq_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @aq_score_litigious.setter
-    def aq_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @aq_score_constraining.setter
-    def aq_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @ma_n_characters.setter
-    def ma_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @ma_sentiment.setter
-    def ma_sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @ma_score_uncertainty.setter
-    def ma_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @ma_score_litigious.setter
-    def ma_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @ma_score_constraining.setter
-    def ma_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_readability(self) -> typing.Optional[float]:
-        ...
-
-    @ma_readability.setter
-    def ma_readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @ma_lexical_richness.setter
-    def ma_lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @ma_lexical_density.setter
-    def ma_lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @ma_specific_density.setter
-    def ma_specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def prev_transcript_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @prev_transcript_date.setter
-    def prev_transcript_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def prev_transcript_quarter(self) -> typing.Optional[int]:
-        ...
-
-    @prev_transcript_quarter.setter
-    def prev_transcript_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def prev_transcript_year(self) -> typing.Optional[int]:
-        ...
-
-    @prev_transcript_year.setter
-    def prev_transcript_year(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def md_delta_perc_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_perc_n_characters.setter
-    def md_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_sentiment.setter
-    def md_delta_sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_score_uncertainty.setter
-    def md_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_score_litigious.setter
-    def md_delta_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_score_constraining.setter
-    def md_delta_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_readability(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_readability.setter
-    def md_delta_readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_lexical_richness.setter
-    def md_delta_lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_lexical_density.setter
-    def md_delta_lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_specific_density.setter
-    def md_delta_specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_all(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_all.setter
-    def md_similarity_all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_positive(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_positive.setter
-    def md_similarity_positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_negative(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_negative.setter
-    def md_similarity_negative(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_uncertainty.setter
-    def md_similarity_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_litigious.setter
-    def md_similarity_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_constraining.setter
-    def md_similarity_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_perc_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_perc_n_characters.setter
-    def aq_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_sentiment_delta(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_sentiment_delta.setter
-    def aq_delta_sentiment_delta(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_score_uncertainty.setter
-    def aq_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_score_litigious.setter
-    def aq_delta_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_score_constraining.setter
-    def aq_delta_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_similarity_all(self) -> typing.Optional[float]:
-        ...
-
-    @aq_similarity_all.setter
-    def aq_similarity_all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_similarity_positive(self) -> typing.Optional[float]:
-        ...
-
-    @aq_similarity_positive.setter
-    def aq_similarity_positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_similarity_negative(self) -> typing.Optional[float]:
-        ...
-
-    @aq_similarity_negative.setter
-    def aq_similarity_negative(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_perc_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_perc_n_characters.setter
-    def ma_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_sentiment_delta(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_sentiment_delta.setter
-    def ma_delta_sentiment_delta(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_score_uncertainty.setter
-    def ma_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_score_litigious.setter
-    def ma_delta_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_score_constraining.setter
-    def ma_delta_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_readability(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_readability.setter
-    def ma_delta_readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_lexical_richness.setter
-    def ma_delta_lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_lexical_density.setter
-    def ma_delta_lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_specific_density.setter
-    def ma_delta_specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_all(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_all.setter
-    def ma_similarity_all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_positive(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_positive.setter
-    def ma_similarity_positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_negative(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_negative.setter
-    def ma_similarity_negative(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_uncertainty.setter
-    def ma_similarity_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_litigious.setter
-    def ma_similarity_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_constraining.setter
-    def ma_similarity_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+    class Symbols(System.Object):
         """
-        Path structure:
-        alternative/brain/blmect/{symbol}.csv
+        Product symbols for USDA Fruit and Vegetables data.
+        AddData<USDAFruitAndVegetables>(USDAFruitAndVegetable.Symbols.Apples)
         """
-        ...
 
-    def is_sparse_data(self) -> bool:
-        ...
+        ACORN_SQUASH: str
+        """Acorn squash"""
 
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parse one metrics row.
-        CSV Layout:
-        0: date (yyyyMMdd)
-        1: last transcript date (yyyy-MM-dd)
-        2: last transcript quarter
-        3: last transcript year
-        4..12: MD metrics (9 columns)
-        13..17: AQ metrics (5 columns)
-        18..26: MA metrics (9 columns)
-        27: prev transcript date (yyyy-MM-dd)
-        28: prev transcript quarter
-        29: prev transcript year
-        30..38: MD deltas (9 columns)
-        39..44: MD similarities (6 columns)
-        45..49: AQ deltas (5 columns)
-        50..52: AQ similarities (3 columns)
-        53..62: MA deltas (10 columns)
-        63..68: MA similarities (6 columns)
-        """
-        ...
+        APPLES: str
+        """Apples"""
 
-    def requires_mapping(self) -> bool:
-        ...
+        APRICOTS: str
+        """Apricots"""
 
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        ...
+        ARTICHOKE: str
+        """Artichoke"""
 
+        ASPARAGUS: str
+        """Asparagus"""
 
-class BrainCompanyFilingLanguageMetricsUniverse10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K]):
-    """Brain sentiment universe on only 10-K SEC reports"""
+        AVOCADOS: str
+        """Avocados"""
+
+        BANANAS: str
+        """Bananas"""
+
+        BEETS: str
+        """Beets"""
+
+        BLACK_BEANS: str
+        """Black beans"""
+
+        BLACKBERRIES: str
+        """Blackberries"""
+
+        BLACKEYE_PEAS: str
+        """Blackeye peas"""
+
+        BLUEBERRIES: str
+        """Blueberries"""
+
+        BROCCOLI: str
+        """Broccoli"""
+
+        BRUSSELS_SPROUTS: str
+        """Brussels sprouts"""
+
+        BUTTERNUT_SQUASH: str
+        """Butternut squash"""
+
+        CABBAGE: str
+        """Cabbage"""
+
+        CANTALOUPE: str
+        """Cantaloupe"""
+
+        CARROTS: str
+        """Carrots"""
+
+        CAULIFLOWER: str
+        """Cauliflower"""
+
+        CELERY: str
+        """Celery"""
+
+        CHERRIES: str
+        """Cherries"""
+
+        CLEMENTINES: str
+        """Clementines"""
+
+        COLLARD_GREENS: str
+        """Collard greens"""
+
+        CRANBERRIES: str
+        """Cranberries"""
+
+        CUCUMBERS: str
+        """Cucumbers"""
+
+        DATES: str
+        """Dates"""
+
+        FIGS: str
+        """Figs"""
+
+        FRUIT_COCKTAIL: str
+        """Fruit cocktail"""
+
+        GRAPEFRUIT: str
+        """Grapefruit"""
+
+        GRAPES: str
+        """Grapes"""
+
+        GREAT_NORTHERN_BEANS: str
+        """Great northern beans"""
+
+        GREEN_BEANS: str
+        """Green beans"""
+
+        GREEN_PEAS: str
+        """Green peas"""
+
+        GREEN_PEPPERS: str
+        """Green peppers"""
+
+        HONEYDEW_MELON: str
+        """Honeydew melon"""
+
+        ICEBERG_LETTUCE: str
+        """Iceberg lettuce"""
+
+        KALE: str
+        """Kale"""
+
+        KIDNEY_BEANS: str
+        """Kidney beans"""
+
+        KIWI: str
+        """Kiwi"""
+
+        LENTILS: str
+        """Lentils"""
+
+        LIMA_BEANS: str
+        """Lima beans"""
+
+        MANGOES: str
+        """Mangoes"""
+
+        MIXED_BERRIES: str
+        """Mixed berries"""
+
+        MIXED_VEGETABLES: str
+        """Mixed vegetables"""
+
+        MUSHROOMS: str
+        """Mushrooms"""
+
+        MUSTARD_GREENS: str
+        """Mustard greens"""
+
+        NAVY_BEANS: str
+        """Navy beans"""
+
+        NECTARINES: str
+        """Nectarines"""
+
+        OKRA: str
+        """Okra"""
+
+        OLIVES: str
+        """Olives"""
+
+        ONIONS: str
+        """Onions"""
+
+        ORANGES: str
+        """Oranges"""
+
+        PAPAYA: str
+        """Papaya"""
+
+        PEACHES: str
+        """Peaches"""
+
+        PEARS: str
+        """Pears"""
+
+        PINEAPPLE: str
+        """Pineapple"""
+
+        PINTO_BEANS: str
+        """Pinto beans"""
+
+        PLUMS: str
+        """Plums"""
+
+        POMEGRANATE: str
+        """Pomegranate"""
+
+        POTATOES: str
+        """Potatoes"""
+
+        PUMPKIN: str
+        """Pumpkin"""
+
+        RADISH: str
+        """Radish"""
+
+        RASPBERRIES: str
+        """Raspberries"""
+
+        RED_PEPPERS: str
+        """Red peppers"""
+
+        ROMAINE_LETTUCE: str
+        """Romaine lettuce"""
+
+        SPINACH: str
+        """Spinach"""
+
+        STRAWBERRIES: str
+        """Strawberries"""
+
+        SUMMER_SQUASH: str
+        """Summer squash"""
+
+        SWEET_CORN: str
+        """Sweet corn"""
+
+        SWEET_POTATOES: str
+        """Sweet potatoes"""
+
+        TANGERINES: str
+        """Tangerines"""
+
+        TOMATOES: str
+        """Tomatoes"""
+
+        TURNIP_GREENS: str
+        """Turnip greens"""
+
+        WATERMELON: str
+        """Watermelon"""
+
+        ZUCCHINI: str
+        """Zucchini"""
 
     @property
-    def report_type(self) -> str:
-        """This Property is protected."""
+    def form(self) -> str:
+        """Product form identifier (e.g., "Fresh", "Canned", "Fresh - Florets")."""
         ...
 
-    @report_type.setter
-    def report_type(self, value: str) -> None:
+    @form.setter
+    def form(self, value: str) -> None:
+        ...
+
+    @property
+    def average_retail_price(self) -> typing.Optional[float]:
+        """Average retail price per unit (pound or pint)."""
+        ...
+
+    @average_retail_price.setter
+    def average_retail_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def unit(self) -> typing.Optional[QuantConnect.DataSource.PriceUnit]:
+        """Unit of measure - PerPound (solids) or PerPint (juice)."""
+        ...
+
+    @unit.setter
+    def unit(self, value: typing.Optional[QuantConnect.DataSource.PriceUnit]) -> None:
+        ...
+
+    @property
+    def preparation_yield_factor(self) -> typing.Optional[float]:
+        """Fraction of product that is edible after preparation (0.0-1.0)."""
+        ...
+
+    @preparation_yield_factor.setter
+    def preparation_yield_factor(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def cup_equivalent_size(self) -> typing.Optional[float]:
+        """Size of one edible cup equivalent."""
+        ...
+
+    @cup_equivalent_size.setter
+    def cup_equivalent_size(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def cup_equivalent_unit(self) -> typing.Optional[QuantConnect.DataSource.CupEquivalentUnit]:
+        """Unit of measure for cup_equivalent_size."""
+        ...
+
+    @cup_equivalent_unit.setter
+    def cup_equivalent_unit(self, value: typing.Optional[QuantConnect.DataSource.CupEquivalentUnit]) -> None:
+        ...
+
+    @property
+    def price_per_cup_equivalent(self) -> typing.Optional[float]:
+        """Normalized price per edible cup equivalent (comparable across forms)."""
+        ...
+
+    @price_per_cup_equivalent.setter
+    def price_per_cup_equivalent(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the primary value (PricePerCupEquivalent), or 0 if null."""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-
-class BrainStockRanking21Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking21Day]):
-    """Brain universe stock rankings on expected returns in the next 30 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainWikipediaPageViews(QuantConnect.Data.BaseData):
-    """
-    Brain Wikipedia Page Views (BWPV)
-    
-    The dataset monitors Wikipedia page views and "buzz" metrics for
-    the top ~1000 US companies. It provides the raw views and buzz
-    scores over different horizons (1, 7, and 30 days).
-    """
-
-    @property
-    def number_views_1(self) -> typing.Optional[float]:
-        """Raw number of views for the past day"""
-        ...
-
-    @number_views_1.setter
-    def number_views_1(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def buzz_1(self) -> typing.Optional[float]:
-        """"Buzz" metric over the past day"""
-        ...
-
-    @buzz_1.setter
-    def buzz_1(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def number_views_7(self) -> typing.Optional[float]:
-        """Raw number of views over the past 7 days"""
-        ...
-
-    @number_views_7.setter
-    def number_views_7(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def buzz_7(self) -> typing.Optional[float]:
-        """"Buzz" metric over the past 7 days"""
-        ...
-
-    @buzz_7.setter
-    def buzz_7(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def number_views_30(self) -> typing.Optional[float]:
-        """Raw number of views over the past 30 days"""
-        ...
-
-    @number_views_30.setter
-    def number_views_30(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def buzz_30(self) -> typing.Optional[float]:
-        """"Buzz" metric over the past 30 days"""
-        ...
-
-    @buzz_30.setter
-    def buzz_30(self, value: typing.Optional[float]) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """Gets the data time zone (UTC)"""
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution (daily)"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Returns the path to the daily data file for a given symbol and month.
+        Creates a clone of this instance
         
-        Folder structure (Option A):
-            alternative/brain/bwpv/{yyyyMM}/{symbol}.csv
-        
-        Each file contains multiple daily rows for the given symbol and month.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """Indicates whether the data is sparse"""
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses a line from the BWPV data file into a BrainWikipediaPageViews instance.
-        
-        File format (per line):
-          0: yyyyMMdd (data date)
-          1: NumberViews1
-          2: Buzz1
-          3: NumberViews7
-          4: Buzz7
-          5: NumberViews30
-          6: Buzz30
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """Indicates whether the data source requires symbol mapping"""
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolutions (daily only)"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts this instance to a string"""
-        ...
-
-
-class BrainSentimentIndicatorUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for Brain Sentiment dataset"""
-
-    @property
-    def total_article_mentions_7_days(self) -> typing.Optional[int]:
-        """Total Article Mentions in 7 days"""
-        ...
-
-    @total_article_mentions_7_days.setter
-    def total_article_mentions_7_days(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions_7_days(self) -> typing.Optional[float]:
-        """Sentimental Article Mentions in 7 days"""
-        ...
-
-    @sentimental_article_mentions_7_days.setter
-    def sentimental_article_mentions_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment_7_days(self) -> typing.Optional[float]:
-        """Setiment Score in 7 days"""
-        ...
-
-    @sentiment_7_days.setter
-    def sentiment_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_buzz_volume_7_days(self) -> typing.Optional[float]:
-        """Total Buzz Volume in 7 days"""
-        ...
-
-    @total_buzz_volume_7_days.setter
-    def total_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume_7_days(self) -> typing.Optional[float]:
-        """Sentimental Buzz Volume in 7 days"""
-        ...
-
-    @sentimental_buzz_volume_7_days.setter
-    def sentimental_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_article_mentions_30_days(self) -> typing.Optional[int]:
-        """Total Article Mentions in 30 days"""
-        ...
-
-    @total_article_mentions_30_days.setter
-    def total_article_mentions_30_days(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions_30_days(self) -> typing.Optional[float]:
-        """Sentimental Article Mentions in 30 days"""
-        ...
-
-    @sentimental_article_mentions_30_days.setter
-    def sentimental_article_mentions_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment_30_days(self) -> typing.Optional[float]:
-        """Setiment Score in 30 days"""
-        ...
-
-    @sentiment_30_days.setter
-    def sentiment_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_buzz_volume_30_days(self) -> typing.Optional[float]:
-        """Total Buzz Volume in 30 days"""
-        ...
-
-    @total_buzz_volume_30_days.setter
-    def total_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume_30_days(self) -> typing.Optional[float]:
-        """Sentimental Buzz Volume in 30 days"""
-        ...
-
-    @sentimental_buzz_volume_30_days.setter
-    def sentimental_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainSentimentIndicator30Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator30Day]):
-    """Brain sentiment indicator on 30 days of news"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    @property
-    def report_date(self) -> datetime.datetime:
-        ...
-
-    @report_date.setter
-    def report_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def report_category(self) -> str:
-        ...
-
-    @report_category.setter
-    def report_category(self, value: str) -> None:
-        ...
-
-    @property
-    def report_period(self) -> typing.Optional[int]:
-        ...
-
-    @report_period.setter
-    def report_period(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def previous_report_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @previous_report_date.setter
-    def previous_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def previous_report_category(self) -> str:
-        ...
-
-    @previous_report_category.setter
-    def previous_report_category(self, value: str) -> None:
-        ...
-
-    @property
-    def previous_report_period(self) -> typing.Optional[int]:
-        ...
-
-    @previous_report_period.setter
-    def previous_report_period(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-    @report_sentiment.setter
-    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-    @risk_factors_statement_sentiment.setter
-    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def report_type(self) -> str:
-        """This Property is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T:
-        """
-        Clones the data
-        
-        
-        This Class is protected.
-        
-        :returns: A clone of the object.
+        :returns: A clone of this instance.
         """
         ...
 
     def data_time_zone(self) -> typing.Any:
         """
-        Specifies the data time zone for this data type. This is useful for custom data types
+        Gets the data timezone for this data
         
-        :returns: The NodaTime.DateTimeZone of this data type.
+        :returns: The timezone.
         """
         ...
 
     def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Return the URL string source of the file. This will be converted to a stream
+        Gets the default resolution for this data
         
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
+        :returns: The default resolution.
         """
         ...
 
     def is_sparse_data(self) -> bool:
         """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
+        Indicates whether this is sparse data
         
-        :returns: true.
+        :returns: True if sparse, false otherwise.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Parses the data from the line provided and loads it into LEAN
+        Read and parse the data from a line
         
-        :param config: Subscription configuration
+        :param config: Subscription data config
         :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
+        :param date: Date of the data
+        :param is_live_mode: Is this live mode
+        :returns: Parsed data object.
         """
         ...
 
     def requires_mapping(self) -> bool:
         """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        Indicates whether this data requires mapping
         
-        :returns: false.
+        :returns: True if requires mapping, false otherwise.
         """
         ...
 
     def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
+        """
+        Gets the supported resolutions for this data
+        
+        :returns: List of supported resolutions.
+        """
         ...
 
     def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRanking10Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking10Day]):
-    """Brain universe stock rankings on expected returns in the next 10 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll]):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def report_type(self) -> str:
-        """This Property is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-
-class BrainLanguageMetricsEarningsCalls(QuantConnect.DataSource.BrainLanguageMetricsEarningsCallsBase[QuantConnect_DataSource_BrainLanguageMetricsEarningsCalls]):
-    """
-    Brain Earnings Call Language Metrics (BLMECT).
-    
-    Provides daily language-analysis metrics computed from the most recent earnings call
-    available as of each calculation date for a given symbol.
-    
-    The dataset decomposes each earnings call transcript into three sections:
-    MD (Management Discussion) – prepared remarks by company management.
-        AQ (Analyst Questions) – questions asked by sell-side analysts.
-        MA (Management Answers) – management responses during the Q&A session.
+        """
+        Returns a string representation of this data
         
-    
-    For each section, the dataset includes:
-    Absolute language metrics (sentiment, uncertainty, readability, etc.)Changes (deltas) relative to the previous earnings callText similarity scores comparing the latest and previous calls
-    
-    The BaseData.time value represents the calculation date (DATE),
-    not the earnings call date. Transcript metadata fields such as
-    LastTranscriptDate, LastTranscriptQuarter, and LastTranscriptYear
-    identify the earnings call used to compute the metrics.
-    
-    This dataset is sparse, daily, and mapping-aware, allowing seamless use across
-    ticker changes and corporate actions in Lean algorithms.
+        :returns: String representation.
+        """
+        ...
+
+
+class USDAFruitAndVegetables(QuantConnect.Data.UniverseSelection.BaseDataCollection):
     """
-
-
-class BrainSentimentIndicator7Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator7Day]):
-    """Brain sentiment indicator on 7 days of news"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainStockRankingBase(typing.Generic[QuantConnect_DataSource_BrainStockRankingBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    @property
-    def rank(self) -> float:
-        ...
-
-    @rank.setter
-    def rank(self, value: float) -> None:
-        ...
-
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
+    USDAFruitAndVegetables - Collection of USDA ERS retail price data for a product.
+    Aggregates all product forms (Fresh, Canned, Frozen, etc.) under a single subscription.
+    """
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Clones the data
+        Creates a deep clone of this collection, including all data points.
         
-        :returns: A clone of the object.
-        """
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainStockRankingBase_T:
-        """This Class is protected."""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainSentimentIndicatorBase(typing.Generic[QuantConnect_DataSource_BrainSentimentIndicatorBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on news"""
-
-    @property
-    def total_article_mentions(self) -> int:
-        ...
-
-    @total_article_mentions.setter
-    def total_article_mentions(self, value: int) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions(self) -> float:
-        ...
-
-    @sentimental_article_mentions.setter
-    def sentimental_article_mentions(self, value: float) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> float:
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
-        ...
-
-    @property
-    def total_buzz_volume(self) -> typing.Optional[float]:
-        ...
-
-    @total_buzz_volume.setter
-    def total_buzz_volume(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume(self) -> typing.Optional[float]:
-        ...
-
-    @sentimental_buzz_volume.setter
-    def sentimental_buzz_volume(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lookback_days(self) -> int:
-        """This Property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainSentimentIndicatorBase_T:
-        """
-        Clones the data
-        
-        
-        This Class is protected.
-        
-        :returns: A clone of the object.
+        :returns: A clone of this collection with cloned data points.
         """
         ...
 
     def data_time_zone(self) -> typing.Any:
         """
-        Specifies the data time zone for this data type. This is useful for custom data types
+        Gets the data timezone for this data
         
-        :returns: The NodaTime.DateTimeZone of this data type.
+        :returns: The timezone.
         """
         ...
 
     def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
+        """
+        Gets the default resolution for this data
+        
+        :returns: The default resolution.
+        """
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Return the URL string source of the file. This will be converted to a stream
+        Return the URL source for the data
         
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
+        :param config: Subscription data config
+        :param date: Date of the data
+        :param is_live_mode: Is this live mode
+        :returns: Subscription data source.
         """
         ...
 
     def is_sparse_data(self) -> bool:
         """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
+        Indicates whether this is sparse data
         
-        :returns: true.
+        :returns: True if sparse, false otherwise.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Parses the data from the line provided and loads it into LEAN
+        Read and parse the data from a line, delegating to the factory instance.
         
-        :param config: Subscription configuration
+        :param config: Subscription data config
         :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
+        :param date: Date of the data
+        :param is_live_mode: Is this live mode
+        :returns: Parsed data object.
         """
         ...
 
     def requires_mapping(self) -> bool:
         """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        Indicates whether this data requires mapping
         
-        :returns: false.
+        :returns: True if requires mapping, false otherwise.
         """
         ...
 
     def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
+        """
+        Gets the supported resolutions for this data
+        
+        :returns: List of supported resolutions.
+        """
         ...
 
     def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Crypto Coarse Fundamental object for crpyto universe selection"""
-
-    @property
-    def open(self) -> float:
-        """Daily Open Price (UTC 00:00)"""
-        ...
-
-    @open.setter
-    def open(self, value: float) -> None:
-        ...
-
-    @property
-    def high(self) -> float:
-        """Daily High Price"""
-        ...
-
-    @high.setter
-    def high(self, value: float) -> None:
-        ...
-
-    @property
-    def low(self) -> float:
-        """Daily Low Price"""
-        ...
-
-    @low.setter
-    def low(self, value: float) -> None:
-        ...
-
-    @property
-    def close(self) -> float:
-        """Daily Close Price"""
-        ...
-
-    @close.setter
-    def close(self, value: float) -> None:
-        ...
-
-    @property
-    def volume(self) -> float:
         """
-        Daily Trade Volume
-        Note that this only includes the volume traded in the selected market
-        """
-        ...
-
-    @volume.setter
-    def volume(self, value: float) -> None:
-        ...
-
-    @property
-    def volume_in_quote_currency(self) -> float:
-        """
-        Daily Volume in Quote Currency
-        Note that this only includes the volume traded in the selected market
-        """
-        ...
-
-    @volume_in_quote_currency.setter
-    def volume_in_quote_currency(self, value: float) -> None:
-        ...
-
-    @property
-    def volume_in_usd(self) -> typing.Optional[float]:
-        """
-        Daily Volume in USD
-        Note that this only includes the volume traded in the selected market
-        """
-        ...
-
-    @volume_in_usd.setter
-    def volume_in_usd(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price(self) -> float:
-        """Alias of close price"""
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    @staticmethod
-    @overload
-    def binance(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
+        Returns a string representation of this collection
         
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance_us(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance_us(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance_us(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bitfinex(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bitfinex(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bitfinex(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bybit(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bybit(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bybit(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def coinbase(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def coinbase(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def coinbase(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def kraken(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def kraken(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def kraken(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-    def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
-        """
-        Creates the universe symbol
-        
-        :returns: A crypto coarse universe symbol.
+        :returns: String representation.
         """
         ...
 
 
-class CryptoCoarseFundamental(QuantConnect.DataSource.CryptoUniverse):
-    """'CryptoCoarseFundamental' was renamed to 'CryptoUniverse'"""
-
-
-class ExtractAlphaTacticalModel(QuantConnect.Data.BaseData):
+class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
     """
-    ExtractAlpha Tactical Model (TM1) - Stock selection model that is designed
-    to capture technical dynamics of U.S. equities over a period of 1-10 days.
+    Kavout signals are machine-learning enhanced scores that capture the returns
+    of systematic factors such as Quality, Value, Momentum, Growth, and Low Volatility.
+    There are many different anomalies discovered by researchers and practitioners across
+    these factor categories, and there is no good common definition of each style
+    across the literature.
+    
+    Kavout creates an ensemble score for each style that gauges the different factors
+    considered in the literature and industry practice.
+    
+    Each signal is generated by an ensemble model consisting of inputs from hundreds of anomalies.
     """
 
     @property
-    def reversal(self) -> int:
-        """
-        The stock's likelihood to revert to the mean.
-        This value is the percentile rank bounded between <1, 100>. The closer the value is to the upper
-        bound, the more likely the stock will outperform according to this component.
-        """
+    def growth(self) -> float:
+        """Growth factor score"""
         ...
 
-    @reversal.setter
-    def reversal(self, value: int) -> None:
+    @growth.setter
+    def growth(self, value: float) -> None:
         ...
 
     @property
-    def factor_momentum(self) -> int:
-        """
-        Cross-asset momentum percentile rank based on one of
-        the stock's factors (e.g. industry, value/growth stock classification, etc.)
-        This value is the percentile rank bounded between <1, 100>. The closer the value is to the upper
-        bound, the more likely the stock will outperform according to this component.
-        """
+    def value_factor(self) -> float:
+        """Value factor score"""
         ...
 
-    @factor_momentum.setter
-    def factor_momentum(self, value: int) -> None:
+    @value_factor.setter
+    def value_factor(self, value: float) -> None:
         ...
 
     @property
-    def liquidity_shock(self) -> int:
-        """
-        Short-term stock liquidity shock score.
-        This value is the percentile rank bounded between <1, 100>. The closer this value is to the upper
-        bound, the more likely the stock will outperform according to this component.
-        """
+    def quality(self) -> float:
+        """Quality factor score"""
         ...
 
-    @liquidity_shock.setter
-    def liquidity_shock(self, value: int) -> None:
+    @quality.setter
+    def quality(self, value: float) -> None:
         ...
 
     @property
-    def seasonality(self) -> int:
-        """
-        Seasonality score of cross-section stock returns.
-        This value is the percentile rank bounded between <1, 100>. The closer this value is to the upper
-        bound, the more likely the stock will outperform according to this component.
-        """
+    def momentum(self) -> float:
+        """Momentum factor score"""
         ...
 
-    @seasonality.setter
-    def seasonality(self, value: int) -> None:
+    @momentum.setter
+    def momentum(self, value: float) -> None:
         ...
 
     @property
-    def score(self) -> int:
-        """
-        Composite model score of all defined scores: Reversal, FactorMomentum, LiquidityShock, and Seasonality.
-        This value is the percentile rank bounded between <1, 100>. The closer this value is to the upper
-        bound, the more likely the stock will outperform according to this component.
-        """
+    def low_volatility(self) -> float:
+        """Low volatility factor score"""
         ...
 
-    @score.setter
-    def score(self, value: int) -> None:
+    @low_volatility.setter
+    def low_volatility(self, value: float) -> None:
         ...
 
     @property
@@ -49966,136 +46430,972 @@ class ExtractAlphaTacticalModel(QuantConnect.Data.BaseData):
         ...
 
     def to_string(self) -> str:
-        """Formats the string with TacticalModel data"""
+        """
+        Formats a string with Cross-asset model data
+        
+        :returns: string containing Cross-asset model information.
+        """
         ...
 
 
-class EstimizeRelease(QuantConnect.Data.BaseData):
-    """Financial releases for the specified company"""
+class QuiverGovernmentContract(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Government Contract by Agencies"""
+
+    @property
+    def description(self) -> str:
+        """Contract description"""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def agency(self) -> str:
+        """Awarding Agency Name"""
+        ...
+
+    @agency.setter
+    def agency(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> float:
+        """Total dollars obligated under the given contract"""
+        ...
+
+    @amount.setter
+    def amount(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverGovernmentContract data
+        
+        :returns: string containing QuiverGovernmentContract information.
+        """
+        ...
+
+
+class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Orders.OrderDirection, str]):
+    """Converts Quiver Quantitative TransactionDirection to OrderDirection"""
+
+    @overload
+    def convert(self, value: QuantConnect.Orders.OrderDirection) -> str:
+        """
+        Convert OrderDirection to string
+        
+        
+        This Class is protected.
+        
+        :param value: OrderDirection to convert
+        :returns: Resulting string.
+        """
+        ...
+
+    @overload
+    def convert(self, value: str) -> QuantConnect.Orders.OrderDirection:
+        """
+        Convert string to OrderDirection
+        
+        
+        This Class is protected.
+        
+        :param value: string to convert
+        :returns: Resulting OrderDirection.
+        """
+        ...
+
+
+class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Insider Trading by private businesses"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """Transaction date as reported on SEC Form 4"""
+        ...
+
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def file_date(self) -> datetime.datetime:
+        """Time the transaction was filed and became publicly available"""
+        ...
+
+    @file_date.setter
+    def file_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def transaction_code(self) -> QuantConnect.DataSource.QuiverQuant.TransactionCode:
+        """
+        Type of transaction (see SEC Form 4 codes:
+        https://www.sec.gov/files/forms-3-4-5.pdf)
+        """
+        ...
+
+    @transaction_code.setter
+    def transaction_code(self, value: QuantConnect.DataSource.QuiverQuant.TransactionCode) -> None:
+        ...
+
+    @property
+    def price_per_share(self) -> typing.Optional[float]:
+        """Reported price per share transacted"""
+        ...
+
+    @price_per_share.setter
+    def price_per_share(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares(self) -> typing.Optional[float]:
+        """Number of shares transacted"""
+        ...
+
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares_owned_following(self) -> typing.Optional[float]:
+        """Number of shares owned by insider following the transaction"""
+        ...
+
+    @shares_owned_following.setter
+    def shares_owned_following(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def acquired_disposed_code(self) -> QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode:
+        """Indicates whether transaction was share acquisition or disposal"""
+        ...
+
+    @acquired_disposed_code.setter
+    def acquired_disposed_code(self, value: QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode) -> None:
+        ...
+
+    @property
+    def direct_or_indirect_ownership(self) -> QuantConnect.DataSource.QuiverQuant.OwnershipType:
+        """Whether the security is held directly or indirectly by the reporting person"""
+        ...
+
+    @direct_or_indirect_ownership.setter
+    def direct_or_indirect_ownership(self, value: QuantConnect.DataSource.QuiverQuant.OwnershipType) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of the transactor"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def officer_title(self) -> str:
+        """Corporate title of the transactor"""
+        ...
+
+    @officer_title.setter
+    def officer_title(self, value: str) -> None:
+        ...
+
+    @property
+    def is_director(self) -> typing.Optional[bool]:
+        """Whether the transactor is a director of the company"""
+        ...
+
+    @is_director.setter
+    def is_director(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_officer(self) -> typing.Optional[bool]:
+        """Whether the transactor is an officer of the company"""
+        ...
+
+    @is_officer.setter
+    def is_officer(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_ten_percent_owner(self) -> typing.Optional[bool]:
+        """Whether the transactor is a 10% owner of the company"""
+        ...
+
+    @is_ten_percent_owner.setter
+    def is_ten_percent_owner(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_other(self) -> typing.Optional[bool]:
+        """Whether the transactor is not a director, officer, or 10% owner"""
+        ...
+
+    @is_other.setter
+    def is_other(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clone implementation"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class Party(IntEnum):
+    """Political Parties of the United States of America"""
+
+    INDEPENDENT = 0
+    """Not affiliated with any political party."""
+
+    REPUBLICAN = 1
+    """Republican Party. https://en.wikipedia.org/wiki/Republican_Party_(United_States)"""
+
+    DEMOCRATIC = 2
+    """Democratic Party. https://en.wikipedia.org/wiki/Democratic_Party_(United_States)"""
+
+    LIBERTARIAN = 3
+    """Libertarian Party. https://en.wikipedia.org/wiki/Libertarian_Party_(United_States)"""
+
+
+class QuiverLobbyings(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Collection of Quiver Lobbying data"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverLobbying data
+        
+        :returns: string containing QuiverLobbying information.
+        """
+        ...
+
+
+class QuiverCNBC(QuantConnect.Data.BaseData):
+    """Personal stock advice by CNBC"""
+
+    @property
+    def notes(self) -> str:
+        """Contract description"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    @property
+    def direction(self) -> QuantConnect.Orders.OrderDirection:
+        """Direction of trade"""
+        ...
+
+    @direction.setter
+    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def traders(self) -> str:
+        """Individual Name"""
+        ...
+
+    @traders.setter
+    def traders(self, value: str) -> None:
+        ...
+
+    @property
+    def advice_date(self) -> datetime.datetime:
+        """Date the trader issued the stock advice on CNBC"""
+        ...
+
+    @advice_date.setter
+    def advice_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverQuant InsiderTrading dataset"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """Transaction date as reported on SEC Form 4"""
+        ...
+
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def file_date(self) -> datetime.datetime:
+        """Time the transaction was filed and became publicly available"""
+        ...
+
+    @file_date.setter
+    def file_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def transaction_code(self) -> QuantConnect.DataSource.QuiverQuant.TransactionCode:
+        """Type of transaction (SEC Form 4 code)"""
+        ...
+
+    @transaction_code.setter
+    def transaction_code(self, value: QuantConnect.DataSource.QuiverQuant.TransactionCode) -> None:
+        ...
+
+    @property
+    def price_per_share(self) -> typing.Optional[float]:
+        """Reported price per share transacted"""
+        ...
+
+    @price_per_share.setter
+    def price_per_share(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares(self) -> typing.Optional[float]:
+        """Number of shares transacted"""
+        ...
+
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares_owned_following(self) -> typing.Optional[float]:
+        """Number of shares owned by insider following the transaction"""
+        ...
+
+    @shares_owned_following.setter
+    def shares_owned_following(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def acquired_disposed_code(self) -> QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode:
+        """Indicates whether transaction was share acquisition or disposal"""
+        ...
+
+    @acquired_disposed_code.setter
+    def acquired_disposed_code(self, value: QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode) -> None:
+        ...
+
+    @property
+    def direct_or_indirect_ownership(self) -> QuantConnect.DataSource.QuiverQuant.OwnershipType:
+        """Whether the security is held directly or indirectly"""
+        ...
+
+    @direct_or_indirect_ownership.setter
+    def direct_or_indirect_ownership(self, value: QuantConnect.DataSource.QuiverQuant.OwnershipType) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of the transactor"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def officer_title(self) -> str:
+        """Corporate title of the transactor"""
+        ...
+
+    @officer_title.setter
+    def officer_title(self, value: str) -> None:
+        ...
+
+    @property
+    def is_director(self) -> typing.Optional[bool]:
+        """Whether the transactor is a director of the company"""
+        ...
+
+    @is_director.setter
+    def is_director(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_officer(self) -> typing.Optional[bool]:
+        """Whether the transactor is an officer of the company"""
+        ...
+
+    @is_officer.setter
+    def is_officer(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_ten_percent_owner(self) -> typing.Optional[bool]:
+        """Whether the transactor is a 10% owner of the company"""
+        ...
+
+    @is_ten_percent_owner.setter
+    def is_ten_percent_owner(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_other(self) -> typing.Optional[bool]:
+        """Whether the transactor is not a director, officer, or 10% owner"""
+        ...
+
+    @is_other.setter
+    def is_other(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clone implementation"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class Congress(IntEnum):
+    """United States of America Legislative Branch House of Congress"""
+
+    SENATE = 0
+    """The United States Senate"""
+
+    REPRESENTATIVES = 1
+    """The United States House of Representatives"""
+
+
+class QuiverQuantCongressUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverQuant Congress dataset"""
+
+    @property
+    def record_date(self) -> datetime.datetime:
+        """The date the transaction was recorded by QuiverQuant. Value will always exist."""
+        ...
+
+    @record_date.setter
+    def record_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def updated_at(self) -> datetime.datetime:
+        """The date the recorded transaction was updated by QuiverQuant. Alias for EndTime."""
+        ...
+
+    @property
+    def report_date(self) -> typing.Optional[datetime.datetime]:
+        """The date the transaction was reported. Value will always exist."""
+        ...
+
+    @report_date.setter
+    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def transaction_date(self) -> datetime.datetime:
+        """The date the transaction took place"""
+        ...
+
+    @transaction_date.setter
+    def transaction_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def representative(self) -> str:
+        """The Representative making the transaction"""
+        ...
+
+    @representative.setter
+    def representative(self, value: str) -> None:
+        ...
+
+    @property
+    def transaction(self) -> QuantConnect.Orders.OrderDirection:
+        """The type of transaction"""
+        ...
+
+    @transaction.setter
+    def transaction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The amount of the transaction (in USD). The Representative can report a range (see maximum_amount)."""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_amount(self) -> typing.Optional[float]:
+        """The maximum amount of the transaction (in USD). The Representative can report a range (see amount)."""
+        ...
+
+    @maximum_amount.setter
+    def maximum_amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def house(self) -> QuantConnect.DataSource.Congress:
+        """The Chamber of Congress that the trader belongs to"""
+        ...
+
+    @house.setter
+    def house(self, value: QuantConnect.DataSource.Congress) -> None:
+        ...
+
+    @property
+    def party(self) -> QuantConnect.DataSource.Party:
+        """The political party that the trader belongs to"""
+        ...
+
+    @party.setter
+    def party(self, value: QuantConnect.DataSource.Party) -> None:
+        ...
+
+    @property
+    def district(self) -> str:
+        """The district that the trader belongs to (null or empty for Senators)"""
+        ...
+
+    @district.setter
+    def district(self, value: str) -> None:
+        ...
+
+    @property
+    def state(self) -> str:
+        """The state that the trader belongs to"""
+        ...
+
+    @state.setter
+    def state(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverWallStreetBets(QuantConnect.Data.BaseData):
+    """Mentions of the given company's ticker in the WallStreetBets daily discussion thread"""
 
     DATA_SOURCE_ID: int
     """Data source ID"""
 
     @property
-    def id(self) -> str:
-        """The unique identifier for the release"""
+    def date(self) -> datetime.datetime:
+        """Date of the daily discussion thread"""
         ...
 
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def fiscal_year(self) -> int:
-        """The fiscal year for the release"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def fiscal_quarter(self) -> int:
-        """The fiscal quarter for the release"""
+    def mentions(self) -> int:
+        """The number of mentions on the given date"""
         ...
 
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: int) -> None:
-        ...
-
-    @property
-    def release_date(self) -> datetime.datetime:
-        """The date of the release"""
-        ...
-
-    @release_date.setter
-    def release_date(self, value: datetime.datetime) -> None:
+    @mentions.setter
+    def mentions(self, value: int) -> None:
         ...
 
     @property
-    def eps(self) -> typing.Optional[float]:
-        """The earnings per share for the specified fiscal quarter"""
+    def rank(self) -> int:
+        """This ticker's rank on the given date (as determined by total number of mentions)"""
         ...
 
-    @eps.setter
-    def eps(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def revenue(self) -> typing.Optional[float]:
-        """The revenue for the specified fiscal quarter"""
-        ...
-
-    @revenue.setter
-    def revenue(self, value: typing.Optional[float]) -> None:
+    @rank.setter
+    def rank(self, value: int) -> None:
         ...
 
     @property
-    def wall_street_eps_estimate(self) -> typing.Optional[float]:
-        """The estimated EPS from Wall Street"""
+    def sentiment(self) -> float:
+        """
+        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
+        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
+        """
         ...
 
-    @wall_street_eps_estimate.setter
-    def wall_street_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def wall_street_revenue_estimate(self) -> typing.Optional[float]:
-        """The estimated revenue from Wall Street"""
-        ...
-
-    @wall_street_revenue_estimate.setter
-    def wall_street_revenue_estimate(self, value: typing.Optional[float]) -> None:
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
         ...
 
     @property
-    def consensus_eps_estimate(self) -> typing.Optional[float]:
-        """The mean EPS consensus by the Estimize community"""
-        ...
-
-    @consensus_eps_estimate.setter
-    def consensus_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_revenue_estimate(self) -> typing.Optional[float]:
-        """The mean revenue consensus by the Estimize community"""
-        ...
-
-    @consensus_revenue_estimate.setter
-    def consensus_revenue_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_weighted_eps_estimate(self) -> typing.Optional[float]:
-        """The weighted EPS consensus by the Estimize community"""
-        ...
-
-    @consensus_weighted_eps_estimate.setter
-    def consensus_weighted_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_weighted_revenue_estimate(self) -> typing.Optional[float]:
-        """The weighted revenue consensus by the Estimize community"""
-        ...
-
-    @consensus_weighted_revenue_estimate.setter
-    def consensus_weighted_revenue_estimate(self, value: typing.Optional[float]) -> None:
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
         ...
 
     @overload
     def __init__(self) -> None:
-        """
-        Without a default constructor, Json.NET will call the
-        other constructor with `null` for the string parameter
-        """
+        """Required for successful Json.NET deserialization"""
         ...
 
     @overload
     def __init__(self, csv_line: str) -> None:
         """
-        Creates EstimizeRelease instance from a line of CSV
+        Creates a new instance of QuiverWallStreetBets from a CSV line
         
         :param csv_line: CSV line
         """
@@ -50128,7 +47428,7 @@ class EstimizeRelease(QuantConnect.Data.BaseData):
         :param line: Content of the source document
         :param date: Date of the requested data
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize Release object.
+        :returns: Quiver WallStreetBets object.
         """
         ...
 
@@ -50141,160 +47441,18 @@ class EstimizeRelease(QuantConnect.Data.BaseData):
         ...
 
     def to_string(self) -> str:
-        """Formats a string with the Estimize Release information."""
+        """Formats a string with the Quiver WallStreetBets information."""
         ...
 
 
-class EstimizeConsensus(QuantConnect.Data.BaseData):
-    """Consensus of the specified release"""
+class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Personal stock transactions by U.S. Representatives"""
 
-    class ConsensusSource(IntEnum):
-        """Source of the Consensus"""
-
-        WALL_STREET = 0
-        """Consensus from Wall Street"""
-
-        ESTIMIZE = 1
-        """Consensus from Estimize"""
-
-        WEIGHTED_WALL_STREET = 2
-        """Weighted consensus from Wall Street"""
-
-        WEIGHTED_ESTIMIZE = 3
-        """Weighted consensus from Estimize"""
-
-    class ConsensusType(IntEnum):
-        """Type of the consensus"""
-
-        EPS = 0
-        """Consensus on earnings per share value"""
-
-        REVENUE = 1
-        """Consensus on revenue value"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> str:
-        """The unique identifier for the estimate"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def source(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]:
-        """Consensus source (Wall Street or Estimize)"""
-        ...
-
-    @source.setter
-    def source(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]) -> None:
-        ...
-
-    @property
-    def type(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]:
-        """Type of Consensus (EPS or Revenue)"""
-        ...
-
-    @type.setter
-    def type(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]) -> None:
-        ...
-
-    @property
-    def mean(self) -> typing.Optional[float]:
-        """The mean of the distribution of estimates (the "consensus")"""
-        ...
-
-    @mean.setter
-    def mean(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def value(self) -> float:
-        """The mean of the distribution of estimates (the "consensus")"""
-        ...
-
-    @property
-    def high(self) -> typing.Optional[float]:
-        """The highest estimate in the distribution"""
-        ...
-
-    @high.setter
-    def high(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def low(self) -> typing.Optional[float]:
-        """The lowest estimate in the distribution"""
-        ...
-
-    @low.setter
-    def low(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def standard_deviation(self) -> typing.Optional[float]:
-        """The standard deviation of the distribution"""
-        ...
-
-    @standard_deviation.setter
-    def standard_deviation(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def count(self) -> typing.Optional[int]:
-        """The number of estimates in the distribution"""
-        ...
-
-    @count.setter
-    def count(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def updated_at(self) -> datetime.datetime:
-        """The timestamp of this consensus (UTC)"""
-        ...
-
-    @updated_at.setter
-    def updated_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def fiscal_year(self) -> typing.Optional[int]:
-        """The fiscal year for the release"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> typing.Optional[int]:
-        """The fiscal quarter for the release"""
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The timestamp of this consensus (UTC)"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for successful Json.NET deserialization"""
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
+    def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Creates an instance from CSV lines
+        Clones the data
         
-        :param csv_line: CSV file
+        :returns: A clone of the object.
         """
         ...
 
@@ -50302,8 +47460,12 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
         """
         Specifies the data time zone for this data type. This is useful for custom data types
         
-        :returns: The DateTimeZone of this data type.
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -50317,15 +47479,24 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
         """
         ...
 
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Reader converts each line of the data source into BaseData objects.
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
         
         :param config: Subscription data config setup object
-        :param line: Content of the source document
+        :param line: Line of the source document
         :param date: Date of the requested data
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize consensus object.
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
         """
         ...
 
@@ -50337,45 +47508,169 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
         """
         ...
 
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
     def to_string(self) -> str:
-        """Formats a string with the Estimize Estimate information."""
+        """
+        Formats a string with the Quiver Congress information.
+        
+        :returns: string containing Quiver Congress information.
+        """
         ...
 
 
-class ExtractAlphaTrueBeatEarningsMetric(IntEnum):
-    """The earnings metric/type being forecasted"""
+class QuiverLobbyingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Example custom data type"""
 
-    EPS = 0
-    """Earnings per share"""
+    @property
+    def client(self) -> str:
+        """Full name of the lobbying client"""
+        ...
 
-    REVENUE = 1
-    """Revenue"""
+    @client.setter
+    def client(self, value: str) -> None:
+        ...
 
+    @property
+    def issue(self) -> str:
+        """Category of legislation that is being lobbied for"""
+        ...
 
-class ExtractAlphaTrueBeats(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """A collection of Extra Alpha True Beats for a Symbol and date"""
+    @issue.setter
+    def issue(self, value: str) -> None:
+        ...
 
-    def add(self, new_data_point: QuantConnect.Data.BaseData) -> None:
+    @property
+    def specific_issue(self) -> str:
+        """Specific piece of legislation being lobbied for"""
+        ...
+
+    @specific_issue.setter
+    def specific_issue(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The Size of spending instance (USD)"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
         """
-        Adds a new data point to this collection
+        Specifies the data time zone for this data type. This is useful for custom data types
         
-        :param new_data_point: The new data point to add
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
         ...
 
-    def add_range(self, new_data_points: typing.List[QuantConnect.Data.BaseData]) -> None:
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Adds a new data points to this collection
+        Return the URL string source of the file. This will be converted to a stream
         
-        :param new_data_points: The new data points to add
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
         """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverLobbying(QuantConnect.Data.BaseData):
+    """Quiver Lobbying data"""
+
+    @property
+    def client(self) -> str:
+        """Full name of the lobbying client"""
+        ...
+
+    @client.setter
+    def client(self, value: str) -> None:
+        ...
+
+    @property
+    def issue(self) -> str:
+        """Category of legislation that is being lobbied for"""
+        ...
+
+    @issue.setter
+    def issue(self, value: str) -> None:
+        ...
+
+    @property
+    def specific_issue(self) -> str:
+        """Specific piece of legislation being lobbied for"""
+        ...
+
+    @specific_issue.setter
+    def specific_issue(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The Size of spending instance (USD)"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Return a new instance clone of this object, used in fill forward
+        Clones the data
         
-        :returns: A clone of the current object.
+        :returns: A clone of the object.
         """
         ...
 
@@ -50385,6 +47680,172 @@ class ExtractAlphaTrueBeats(QuantConnect.Data.UniverseSelection.BaseDataCollecti
         
         :returns: The NodaTime.DateTimeZone of this data type.
         """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverCNBCsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverQuant CNBC dataset"""
+
+    @property
+    def notes(self) -> str:
+        """Extra Information"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    @property
+    def direction(self) -> QuantConnect.Orders.OrderDirection:
+        """Direction of trade"""
+        ...
+
+    @direction.setter
+    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def traders(self) -> str:
+        """Individual Name"""
+        ...
+
+    @traders.setter
+    def traders(self, value: str) -> None:
+        ...
+
+    @property
+    def advice_date(self) -> datetime.datetime:
+        """Date the trader issued the stock advice on CNBC"""
+        ...
+
+    @advice_date.setter
+    def advice_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Collection of personal stock advices by CNBC"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -50427,12 +47888,356 @@ class ExtractAlphaTrueBeats(QuantConnect.Data.UniverseSelection.BaseDataCollecti
         """
         ...
 
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
     def to_string(self) -> str:
         """
-        Formats a string with TrueBeat data
+        Formats a string with QuiverCNBC data
         
-        :returns: string containing TrueBeat information.
+        :returns: string containing QuiverCNBC information.
         """
+        ...
+
+
+class QuiverGovernmentContractUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverQuant Government Contracts dataset"""
+
+    @property
+    def description(self) -> str:
+        """Contract description"""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def agency(self) -> str:
+        """Awarding Agency Name"""
+        ...
+
+    @agency.setter
+    def agency(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """Total dollars obligated under the given contract"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverWallStreetBets dataset"""
+
+    @property
+    def mentions(self) -> int:
+        """The number of mentions on the given date"""
+        ...
+
+    @mentions.setter
+    def mentions(self, value: int) -> None:
+        ...
+
+    @property
+    def rank(self) -> int:
+        """This ticker's rank on the given date (as determined by total number of mentions)"""
+        ...
+
+    @rank.setter
+    def rank(self, value: int) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> float:
+        """
+        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
+        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
+        """
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+
+class QuiverCongressDataPoint(QuantConnect.Data.BaseData):
+    """Single data point for QuiverCongress data"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def record_date(self) -> datetime.datetime:
+        """The date the transaction was recorded by QuiverQuant. Value will always exist."""
+        ...
+
+    @record_date.setter
+    def record_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def updated_at(self) -> datetime.datetime:
+        """The date the recorded transaction was updated by QuiverQuant. Alias for EndTime."""
+        ...
+
+    @property
+    def report_date(self) -> typing.Optional[datetime.datetime]:
+        """The date the transaction was reported. Value will always exist."""
+        ...
+
+    @report_date.setter
+    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def transaction_date(self) -> datetime.datetime:
+        """The date the transaction took place"""
+        ...
+
+    @transaction_date.setter
+    def transaction_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def representative(self) -> str:
+        """The Representative making the transaction"""
+        ...
+
+    @representative.setter
+    def representative(self, value: str) -> None:
+        ...
+
+    @property
+    def transaction(self) -> QuantConnect.Orders.OrderDirection:
+        """The type of transaction"""
+        ...
+
+    @transaction.setter
+    def transaction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The amount of the transaction (in USD). The Representative can report a range (see maximum_amount)."""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_amount(self) -> typing.Optional[float]:
+        """The maximum amount of the transaction (in USD). The Representative can report a range (see amount)."""
+        ...
+
+    @maximum_amount.setter
+    def maximum_amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def house(self) -> QuantConnect.DataSource.Congress:
+        """The Chamber of Congress that the trader belongs to"""
+        ...
+
+    @house.setter
+    def house(self, value: QuantConnect.DataSource.Congress) -> None:
+        ...
+
+    @property
+    def party(self) -> QuantConnect.DataSource.Party:
+        """The political party that the trader belongs to"""
+        ...
+
+    @party.setter
+    def party(self, value: QuantConnect.DataSource.Party) -> None:
+        ...
+
+    @property
+    def district(self) -> str:
+        """The district that the trader belongs to (null or empty for Senators)"""
+        ...
+
+    @district.setter
+    def district(self, value: str) -> None:
+        ...
+
+    @property
+    def state(self) -> str:
+        """The state that the trader belongs to"""
+        ...
+
+    @state.setter
+    def state(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance of QuiverCongressDataPoint"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates a new instance of QuiverCongressDataPoint from a CSV line
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Quiver Congress object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Quiver Congress information."""
         ...
 
 
@@ -50574,468 +48379,6 @@ class ExtractAlphaCrossAssetModel(QuantConnect.Data.BaseData):
         Formats a string with Cross-asset model data
         
         :returns: string containing Cross-asset model information.
-        """
-        ...
-
-
-class EstimizeEstimate(QuantConnect.Data.BaseData):
-    """Financial estimates for the specified company"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> str:
-        """The unique identifier for the estimate"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def ticker(self) -> str:
-        """The ticker of the company being estimated"""
-        ...
-
-    @ticker.setter
-    def ticker(self, value: str) -> None:
-        ...
-
-    @property
-    def fiscal_year(self) -> int:
-        """The fiscal year of the quarter being estimated"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> int:
-        """The fiscal quarter of the quarter being estimated"""
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: int) -> None:
-        ...
-
-    @property
-    def created_at(self) -> datetime.datetime:
-        """The time that the estimate was created (UTC)"""
-        ...
-
-    @created_at.setter
-    def created_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def eps(self) -> typing.Optional[float]:
-        """The estimated earnings per share for the company in the specified fiscal quarter"""
-        ...
-
-    @eps.setter
-    def eps(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def revenue(self) -> typing.Optional[float]:
-        """The estimated revenue for the company in the specified fiscal quarter"""
-        ...
-
-    @revenue.setter
-    def revenue(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def user_name(self) -> str:
-        """The unique identifier for the author of the estimate"""
-        ...
-
-    @user_name.setter
-    def user_name(self, value: str) -> None:
-        ...
-
-    @property
-    def analyst_id(self) -> str:
-        """The author of the estimate"""
-        ...
-
-    @analyst_id.setter
-    def analyst_id(self, value: str) -> None:
-        ...
-
-    @property
-    def flagged(self) -> bool:
-        """
-        A boolean value which indicates whether we have flagged this estimate internally as erroneous
-        (spam, wrong accounting standard, etc)
-        """
-        ...
-
-    @flagged.setter
-    def flagged(self, value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Required for successful Json.NET deserialization"""
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates a new instance of EstimizeEstimate from a CSV line
-        
-        :param csv_line: CSV line
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize Estimate object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Estimize Estimate information."""
-        ...
-
-
-class ExtractAlphaFiscalPeriod(System.Object):
-    """Fiscal period that the ExtractAlphaTrueBeat instance has forecasts for."""
-
-    @property
-    def fiscal_year(self) -> int:
-        """Fiscal year (i.e. the year that the financial report applies to in 10-Q and/or 10-K SEC filings)"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> typing.Optional[int]:
-        """
-        Fiscal quarter (i.e. the quarter that the financial report applies to in 10-Q filings).
-        If this is null, then the fiscal period being reported is for the full year of the fiscal_year
-        """
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def end(self) -> typing.Optional[datetime.datetime]:
-        """The date that the fiscal quarter ends"""
-        ...
-
-    @end.setter
-    def end(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def expected_report_date(self) -> typing.Optional[datetime.datetime]:
-        """The date that the SEC report for the fiscal period is expected to be released publicly"""
-        ...
-
-    @expected_report_date.setter
-    def expected_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def annual(self) -> bool:
-        """Returns true if the fiscal period is for the whole fiscal year (all quarters)"""
-        ...
-
-    @property
-    def quarterly(self) -> bool:
-        """Returns true if the fiscal period is for a single quarter only"""
-        ...
-
-
-class ExtractAlphaTrueBeat(QuantConnect.Data.BaseData):
-    """
-    EPS/Revenue earnings surprise forecasting for upcoming financial reports released
-    by regulatory agencies (e.g. United States SEC)
-    """
-
-    @property
-    def fiscal_period(self) -> QuantConnect.DataSource.ExtractAlphaFiscalPeriod:
-        """The fiscal period that is being forecasted"""
-        ...
-
-    @fiscal_period.setter
-    def fiscal_period(self, value: QuantConnect.DataSource.ExtractAlphaFiscalPeriod) -> None:
-        ...
-
-    @property
-    def earnings_metric(self) -> QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric:
-        """The earnings metric being forecasted (e.g. EPS, revenue)"""
-        ...
-
-    @earnings_metric.setter
-    def earnings_metric(self, value: QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric) -> None:
-        ...
-
-    @property
-    def analyst_estimates_count(self) -> int:
-        """The number of analyst estimates that the true_beat used in its calculation"""
-        ...
-
-    @analyst_estimates_count.setter
-    def analyst_estimates_count(self, value: int) -> None:
-        ...
-
-    @property
-    def true_beat(self) -> float:
-        """
-        The forecasted earnings surprise percentage, relative to consensus estimates.
-        TrueBeat is calculated as the total sum of the expert_beat, trend_beat, and management_beat metrics.
-        """
-        ...
-
-    @true_beat.setter
-    def true_beat(self, value: float) -> None:
-        ...
-
-    @property
-    def expert_beat(self) -> typing.Optional[float]:
-        """The component of true_beat that is derived from top analyst estimates"""
-        ...
-
-    @expert_beat.setter
-    def expert_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def trend_beat(self) -> typing.Optional[float]:
-        """The component of true_beat that is derived from trends in stock and peer surprises"""
-        ...
-
-    @trend_beat.setter
-    def trend_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def management_beat(self) -> typing.Optional[float]:
-        """The component of true_beat that is derived from management activity (e.g. guidance)"""
-        ...
-
-    @management_beat.setter
-    def management_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time that the data became available to the algorithm"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with TrueBeat data
-        
-        :returns: string containing TrueBeat information.
-        """
-        ...
-
-
-class ExtractAlphaInnovationModel(QuantConnect.Data.BaseData):
-    """ExtractAlpha Innovation Model - Long-term innovation intensity of U.S. equities"""
-
-    @property
-    def stock_innovation(self) -> typing.Optional[int]:
-        """
-        The individual stock's innovation score.
-        This value is the percentile rank bounded between <1, 100>. The closer the value is to the upper
-        bound, the more likely the stock will outperform according to this component.
-        """
-        ...
-
-    @stock_innovation.setter
-    def stock_innovation(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def industry_innovation(self) -> int:
-        """
-        The industry's innovation score that the stock resides in.
-        This value is the percentile rank bounded between <1, 100>. The closer the value is to the upper
-        bound, the more likely the stock will outperform according to this component.
-        """
-        ...
-
-    @industry_innovation.setter
-    def industry_innovation(self, value: int) -> None:
-        ...
-
-    @property
-    def innovation(self) -> int:
-        """
-        Overall Innovation Model score.
-        Composite of stock_innovation and industry_innovation.
-        This value is the percentile rank bounded between <1, 100>. The closer the value is to the upper
-        bound, the more likely the stock will outperform according to this score.
-        """
-        ...
-
-    @innovation.setter
-    def innovation(self, value: int) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time that the data became available to the algorithm"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with Innovation Model data
-        
-        :returns: string containing Innovation Model information.
         """
         ...
 
@@ -51313,6 +48656,39 @@ class BenzingaNewsJsonConverter:
         ...
 
 
+class TiingoSymbolMapper(System.Object):
+    """Helper class to map a Lean format ticker to Tiingo format"""
+
+    @staticmethod
+    def get_lean_ticker(ticker: str) -> str:
+        """Maps a given Tiingo ticker to Lean equivalent"""
+        ...
+
+    @staticmethod
+    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """Maps a given Symbol instance to it's Tiingo equivalent"""
+        ...
+
+
+class Tiingo(System.Object):
+    """Helper class for Tiingo configuration"""
+
+    auth_code: str
+    """Gets the Tiingo API token."""
+
+    is_auth_code_set: bool
+    """Returns true if the Tiingo API token has been set."""
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Sets the Tiingo API token.
+        
+        :param auth_code: The Tiingo API token
+        """
+        ...
+
+
 class TiingoNews(QuantConnect.Data.IndexedBaseData):
     """
     Tiingo news data
@@ -51464,25 +48840,6 @@ class TiingoNews(QuantConnect.Data.IndexedBaseData):
         ...
 
 
-class Tiingo(System.Object):
-    """Helper class for Tiingo configuration"""
-
-    auth_code: str
-    """Gets the Tiingo API token."""
-
-    is_auth_code_set: bool
-    """Returns true if the Tiingo API token has been set."""
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Sets the Tiingo API token.
-        
-        :param auth_code: The Tiingo API token
-        """
-        ...
-
-
 class TiingoNewsJsonConverter:
     """
     Helper json converter class used to convert a list of Tiingo news data
@@ -51539,228 +48896,39 @@ class TiingoNewsJsonConverter:
         ...
 
 
-class TiingoSymbolMapper(System.Object):
-    """Helper class to map a Lean format ticker to Tiingo format"""
-
-    @staticmethod
-    def get_lean_ticker(ticker: str) -> str:
-        """Maps a given Tiingo ticker to Lean equivalent"""
-        ...
-
-    @staticmethod
-    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """Maps a given Symbol instance to it's Tiingo equivalent"""
-        ...
-
-
-class BitcoinMetadata(QuantConnect.Data.BaseData):
-    """Blockchain Bitcoin Metadata dataset"""
+class CoinGecko(QuantConnect.Data.BaseData):
+    """Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
 
     @property
-    def difficulty(self) -> float:
-        """A relative measure of how difficult it is to find a new block. The difficulty is adjusted periodically as a function of how much hashing power has been deployed by the network of miners."""
-        ...
-
-    @difficulty.setter
-    def difficulty(self, value: float) -> None:
+    def coin(self) -> str:
+        """Coin Name"""
         ...
 
     @property
-    def my_wallet_numberof_users(self) -> float:
-        """Number of wallets hosts using our My Wallet Service."""
+    def volume(self) -> float:
+        """Volume in USD of the coin for that day"""
         ...
 
-    @my_wallet_numberof_users.setter
-    def my_wallet_numberof_users(self, value: float) -> None:
-        ...
-
-    @property
-    def average_block_size(self) -> float:
-        """The average block size in MB."""
-        ...
-
-    @average_block_size.setter
-    def average_block_size(self, value: float) -> None:
+    @volume.setter
+    def volume(self, value: float) -> None:
         ...
 
     @property
-    def blockchain_size(self) -> float:
-        """The total size of all block headers and transactions. Not including database indexes."""
+    def market_cap(self) -> float:
+        """Market Cap in USD of the coin for that day"""
         ...
 
-    @blockchain_size.setter
-    def blockchain_size(self, value: float) -> None:
-        ...
-
-    @property
-    def median_transaction_confirmation_time(self) -> float:
-        """The median time for a transaction to be accepted into a mined block and added to the public ledger (note: only includes transactions with miner fees)."""
-        ...
-
-    @median_transaction_confirmation_time.setter
-    def median_transaction_confirmation_time(self, value: float) -> None:
+    @market_cap.setter
+    def market_cap(self, value: float) -> None:
         ...
 
     @property
-    def miners_revenue(self) -> float:
-        """Total value of coinbase block rewards and transaction fees paid to miners."""
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
         ...
 
-    @miners_revenue.setter
-    def miners_revenue(self, value: float) -> None:
-        ...
-
-    @property
-    def hash_rate(self) -> float:
-        """The estimated number of tera hashes per second (trillions of hashes per second) the Bitcoin network is performing"""
-        ...
-
-    @hash_rate.setter
-    def hash_rate(self, value: float) -> None:
-        ...
-
-    @property
-    def cost_per_transaction(self) -> float:
-        """The miners revenue divided by the number of transactions."""
-        ...
-
-    @cost_per_transaction.setter
-    def cost_per_transaction(self, value: float) -> None:
-        ...
-
-    @property
-    def cost_percentof_transaction_volume(self) -> float:
-        """The miners revenue as percentage of the transaction volume."""
-        ...
-
-    @cost_percentof_transaction_volume.setter
-    def cost_percentof_transaction_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def estimated_transaction_volume_usd(self) -> float:
-        """The Estimated Transaction Value in USD value."""
-        ...
-
-    @estimated_transaction_volume_usd.setter
-    def estimated_transaction_volume_usd(self, value: float) -> None:
-        ...
-
-    @property
-    def estimated_transaction_volume(self) -> float:
-        """The total estimated value of transactions on the Bitcoin blockchain (does not include coins returned to sender as change)."""
-        ...
-
-    @estimated_transaction_volume.setter
-    def estimated_transaction_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def total_output_volume(self) -> float:
-        """The total value of all transaction outputs per day (includes coins returned to the sender as change)."""
-        ...
-
-    @total_output_volume.setter
-    def total_output_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactionper_block(self) -> float:
-        """The average number of transactions per block."""
-        ...
-
-    @numberof_transactionper_block.setter
-    def numberof_transactionper_block(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_unique_bitcoin_addresses_used(self) -> float:
-        """The total number of unique addresses used on the Bitcoin blockchain."""
-        ...
-
-    @numberof_unique_bitcoin_addresses_used.setter
-    def numberof_unique_bitcoin_addresses_used(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactions_excluding_popular_addresses(self) -> float:
-        """The total number of Bitcoin transactions, excluding those involving any of the network's 100 most popular addresses."""
-        ...
-
-    @numberof_transactions_excluding_popular_addresses.setter
-    def numberof_transactions_excluding_popular_addresses(self, value: float) -> None:
-        ...
-
-    @property
-    def total_numberof_transactions(self) -> float:
-        """The Total Number of transactions."""
-        ...
-
-    @total_numberof_transactions.setter
-    def total_numberof_transactions(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactions(self) -> float:
-        """The number of daily confirmed Bitcoin transactions."""
-        ...
-
-    @numberof_transactions.setter
-    def numberof_transactions(self, value: float) -> None:
-        ...
-
-    @property
-    def total_transaction_fees_usd(self) -> float:
-        """The total value of all transaction fees in USD paid to miners (not including the coinbase value of block rewards)."""
-        ...
-
-    @total_transaction_fees_usd.setter
-    def total_transaction_fees_usd(self, value: float) -> None:
-        ...
-
-    @property
-    def total_transaction_fees(self) -> float:
-        """The total value of all transaction fees in Bitcoin paid to miners (not including the coinbase value of block rewards)."""
-        ...
-
-    @total_transaction_fees.setter
-    def total_transaction_fees(self, value: float) -> None:
-        ...
-
-    @property
-    def market_capitalization(self) -> float:
-        """The total USD value of bitcoin supply in circulation, as calculated by the daily average market price across major exchanges."""
-        ...
-
-    @market_capitalization.setter
-    def market_capitalization(self, value: float) -> None:
-        ...
-
-    @property
-    def total_bitcoins(self) -> float:
-        """The total number of bitcoins that have already been mined; in other words, the current supply of bitcoins on the network."""
-        ...
-
-    @total_bitcoins.setter
-    def total_bitcoins(self, value: float) -> None:
-        ...
-
-    @property
-    def my_wallet_numberof_transaction_per_day(self) -> float:
-        """Number of transactions made by My Wallet Users per day."""
-        ...
-
-    @my_wallet_numberof_transaction_per_day.setter
-    def my_wallet_numberof_transaction_per_day(self, value: float) -> None:
-        ...
-
-    @property
-    def my_wallet_transaction_volume(self) -> float:
-        """24hr Transaction Volume of our web wallet service."""
-        ...
-
-    @my_wallet_transaction_volume.setter
-    def my_wallet_transaction_volume(self, value: float) -> None:
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -51768,6 +48936,17 @@ class BitcoinMetadata(QuantConnect.Data.BaseData):
         Clones the data
         
         :returns: A clone of the object.
+        """
+        ...
+
+    def create_symbol(self, market: str, quote_currency: str = "USD", security_type: QuantConnect.SecurityType = ...) -> QuantConnect.Symbol:
+        """
+        Creates a Symbol object for a given market and quote currency
+        
+        :param market: The market the ticker resides in
+        :param quote_currency: The quote currency of the crypto-currency pair. E.g. USD for BTCUSD
+        :param security_type: The security type of the ticker resides in
+        :returns: A new Symbol object for the specified ticker.
         """
         ...
 
@@ -51832,176 +49011,1747 @@ class BitcoinMetadata(QuantConnect.Data.BaseData):
         ...
 
 
-class VIXCentralContango(QuantConnect.Data.BaseData):
-    """VIXCentral Contango"""
+class CoinGeckoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection Data for Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+
+class CoinGeckoUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+    """Universe Selection Model for Coin Gecko data which contains Price, Volume and Market Cap"""
+
+    @overload
+    def __init__(self, selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, selector: typing.Callable[[typing.List[QuantConnect.DataSource.CoinGecko]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates a new fundamental universe using this class's selection functions
+        
+        :param algorithm: The algorithm instance to create universes for
+        :returns: The universe defined by this model.
+        """
+        ...
+
+    def selector(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: typing.List[QuantConnect.DataSource.CoinGecko]) -> typing.Sequence[QuantConnect.Symbol]:
+        """
+        Defines the CoinGecko selection function.
+        
+        :param algorithm: The algorithm instance
+        :param data: The CoinGecko Universe data used to perform filtering
+        :returns: An enumerable of symbols passing the filter.
+        """
+        ...
+
+
+class Fred(QuantConnect.Data.BaseData):
+    """This class has no documentation."""
+
+    class Wilshire(System.Object):
+        """Wilshire Indexes help clients, investment professionals and researchers accurately measure and better understand the market. The Wilshire Index family leverages more than 40 years of Wilshire performance measurement expertise and employs unbiased construction rules."""
+
+        US_SMALL_CAP_VALUE_PRICE: str = "WILLSMLCAPVALPR"
+        """Wilshire US Small-Cap Value Price Index (in Index)"""
+
+        PRICE_2500: str = "WILL2500PR"
+        """Wilshire 2500 Price Index (in Index)"""
+
+        PRICE_4500: str = "WILL4500PR"
+        """Wilshire 4500 Price Index (in Index)"""
+
+        VALUE_PRICE_2500: str = "WILL2500PRVAL"
+        """Wilshire 2500 Value Price Index (in Index)"""
+
+        GROWTH_PRICE_2500: str = "WILL2500PRGR"
+        """Wilshire 2500 Growth Price Index (in Index)"""
+
+        US_SMALL_CAP_PRICE: str = "WILLSMLCAPPR"
+        """Wilshire US Small-Cap Price Index (in Index)"""
+
+        PRICE_5000: str = "WILL5000PR"
+        """Wilshire 5000 Price Index (in Index)"""
+
+        US_SMALL_CAP_GROWTH_PRICE: str = "WILLSMLCAPGRPR"
+        """Wilshire US Small-Cap Growth Price Index (in Index)"""
+
+        US_MID_CAP_VALUE_PRICE: str = "WILLMIDCAPVALPR"
+        """Wilshire US Mid-Cap Value Price Index (in Index)"""
+
+        US_REAL_ESTATE_SECURITIES_PRICE: str = "WILLRESIPR"
+        """Wilshire US Real Estate Securities Price Index (Wilshire US RESI) (in Index)"""
+
+        US_LARGE_CAP_PRICE: str = "WILLLRGCAPPR"
+        """Wilshire US Large-Cap Price Index (in Index)"""
+
+        US_MID_CAP_PRICE: str = "WILLMIDCAPPR"
+        """Wilshire US Mid-Cap Price Index (in Index)"""
+
+        US_MID_CAP_GROWTH_PRICE: str = "WILLMIDCAPGRPR"
+        """Wilshire US Mid-Cap Growth Price Index (in Index)"""
+
+        US_MICRO_CAP_PRICE: str = "WILLMICROCAPPR"
+        """Wilshire US Micro-Cap Price Index (in Index)"""
+
+        US_REAL_ESTATE_INVESTMENT_TRUST_PRICE: str = "WILLREITPR"
+        """Wilshire US Real Estate Investment Trust Price Index (Wilshire US REIT) (in Index)"""
+
+        US_LARGE_CAP_VALUE_PRICE: str = "WILLLRGCAPVALPR"
+        """Wilshire US Large-Cap Value Price Index (in Index)"""
+
+        US_LARGE_CAP_GROWTH_PRICE: str = "WILLLRGCAPGRPR"
+        """Wilshire US Large-Cap Growth Price Index (in Index)"""
+
+        FULL_CAP_PRICE_5000: str = "WILL5000PRFC"
+        """Wilshire 5000 Full Cap Price Index (in Index)"""
+
+        US_MID_CAP_VALUE: str = "WILLMIDCAPVAL"
+        """Wilshire US Mid-Cap Value Total Market Index (in Index)"""
+
+        US_MID_CAP_GROWTH: str = "WILLMIDCAPGR"
+        """Wilshire US Mid-Cap Growth Total Market Index (in Index)"""
+
+        US_MID_CAP: str = "WILLMIDCAP"
+        """Wilshire US Mid-Cap Total Market Index (in Index)"""
+
+        US_REAL_ESTATE_SECURITIES: str = "WILLRESIND"
+        """Wilshire US Real Estate Securities Total Market Index (Wilshire US RESI) (in Index)"""
+
+        INDEX_4500: str = "WILL4500IND"
+        """Wilshire 4500 Total Market Index (in Index)"""
+
+        INDEX_5000: str = "WILL5000IND"
+        """Wilshire 5000 Total Market Index (in Index)"""
+
+        US_LARGE_CAP_GROWTH: str = "WILLLRGCAPGR"
+        """Wilshire US Large-Cap Growth Total Market Index (in Index)"""
+
+        US_MICRO_CAP: str = "WILLMICROCAP"
+        """Wilshire US Micro-Cap Total Market Index (in Index)"""
+
+        VALUE_2500: str = "WILL2500INDVAL"
+        """Wilshire 2500 Value Total Market Index (in Index)"""
+
+        US_SMALL_CAP_GROWTH: str = "WILLSMLCAPGR"
+        """Wilshire US Small-Cap Growth Total Market Index (in Index)"""
+
+        US_SMALL_CAP_VALUE: str = "WILLSMLCAPVAL"
+        """Wilshire US Small-Cap Value Total Market Index (in Index)"""
+
+        US_LARGE_CAP_VALUE: str = "WILLLRGCAPVAL"
+        """Wilshire US Large-Cap Value Total Market Index (in Index)"""
+
+        US_REAL_ESTATE_INVESTMENT_TRUST: str = "WILLREITIND"
+        """Wilshire US Real Estate Investment Trust Total Market Index (Wilshire US REIT) (in Index)"""
+
+        INDEX_2500: str = "WILL2500IND"
+        """Wilshire 2500 Total Market Index (in Index)"""
+
+        US_SMALL_CAP: str = "WILLSMLCAP"
+        """Wilshire US Small-Cap Total Market Index (in Index)"""
+
+        US_LARGE_CAP: str = "WILLLRGCAP"
+        """Wilshire US Large-Cap Total Market Index (in Index)"""
+
+        GROWTH_2500: str = "WILL2500INDGR"
+        """Wilshire 2500 Growth Total Market Index (in Index)"""
+
+        TOTAL_MARKET_FULL_CAP_5000: str = "WILL5000INDFC"
+        """Wilshire 5000 Total Market Full Cap Index (in Index)"""
+
+    class OECDRecessionIndicators(System.Object):
+        """
+        These time series is an interpretation of Organisation of Economic Development (OECD) Composite Leading Indicators: Reference Turning Points and Component Series data, which can be found at http://www.oecd.org/std/leading-indicators/oecdcompositeleadingindicatorsreferenceturningpointsandcomponentseries.htm. The OECD identifies months of turning points without designating a date within the month that turning points occurred. The dummy variable adopts an arbitrary convention that the turning point occurred at a specific date within the month. The arbitrary convention does not reflect any judgment on this issue by the OECD. Our time series is composed of dummy variables that represent periods of expansion and recession. A value of 1 is a recessionary period, while a value of 0 is an expansionary period. For this time series, the recession begins on the 15th day of the month of the peak and ends on the 15th day of the month of the trough. This time series is a disaggregation of the monthly series. For more options on recession shading, see the note and links below.
+        The recession shading data that we provide initially comes from the source as a list of dates that are either an economic peak or trough. We interpret dates into recession shading data using one of three arbitrary methods. All of our recession shading data is available using all three interpretations. The period between a peak and trough is always shaded as a recession. The peak and trough are collectively extrema. Depending on the application, the extrema, both individually and collectively, may be included in the recession period in whole or in part. In situations where a portion of a period is included in the recession, the whole period is deemed to be included in the recession period.
+        The first interpretation, known as the midpoint method, is to show a recession from the midpoint of the peak through the midpoint of the trough for monthly and quarterly data. For daily data, the recession begins on the 15th of the month of the peak and ends on the 15th of the month of the trough. Daily data is a disaggregation of monthly data. For monthly and quarterly data, the entire peak and trough periods are included in the recession shading. This method shows the maximum number of periods as a recession for monthly and quarterly data. The Federal Reserve Bank of St. Louis uses this method in its own publications. The midpoint method is used for this series.
+        The second interpretation, known as the trough method, is to show a recession from the period following the peak through the trough (i.e. the peak is not included in the recession shading, but the trough is). For daily data, the recession begins on the first day of the first month following the peak and ends on the last day of the month of the trough. Daily data is a disaggregation of monthly data. The trough method is used when displaying data on FRED graphs. A version of this time series represented using the trough method can be found at:
+        The third interpretation, known as the peak method, is to show a recession from the period of the peak to the trough (i.e. the peak is included in the recession shading, but the trough is not). For daily data, the recession begins on the first day of the month of the peak and ends on the last day of the month preceding the trough. Daily data is a disaggregation of monthly data. A version of this time series represented using the peak method can be found at:
+        The OECD CLI system is based on the "growth cycle" approach, where business cycles and turning points are measured and identified in the deviation-from-trend series. The main reference series used in the OECD CLI system for the majority of countries is industrial production (IIP) covering all industry sectors excluding construction. This series is used because of its cyclical sensitivity and monthly availability, while the broad based Gross Domestic Product (GDP) is used to supplement the IIP series for identification of the final reference turning points in the growth cycle.
+        Zones aggregates of the CLIs and the reference series are calculated as weighted averages of the corresponding zone member series (i.e. CLIs and IIPs).
+        Up to December 2008 the turning points chronologies shown for regional/zone area aggregates or individual countries are determined by the rules established by the National Bureau of Economic Research (NBER) in the United States, which have been formalized and incorporated in a computer routine (Bry and Boschan) and included in the Phase-Average Trend (PAT) de-trending procedure. Starting from December 2008 the turning point detection algorithm is decoupled from the de-trending procedure, and is a simplified version of the original Bry and Boschan routine. (The routine parses local minima and maxima in the cycle series and applies censor rules to guarantee alternating peaks and troughs, as well as phase and cycle length constraints.)
+        The components of the CLI are time series which exhibit leading relationship with the reference series (IIP) at turning points. Country CLIs are compiled by combining de-trended smoothed and normalized components. The component series for each country are selected based on various criteria such as economic significance; cyclical behavior; data quality; timeliness and availability.
+        OECD data should be cited as follows: OECD Composite Leading Indicators, "Composite Leading Indicators: Reference Turning Points and Component Series", http://www.oecd.org/std/leading-indicators/oecdcompositeleadingindicatorsreferenceturningpointsandcomponentseries.htm
+        """
+
+        FOUR_BIG_EUROPEAN_COUNTRIES_FROM_PEAK_THROUGH_THE_TROUGH: str = "4BIGEURORECDM"
+        """OECD based Recession Indicators for Four Big European Countries from the Peak through the Trough (in +1 or 0)"""
+
+        AUSTRALIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "AUSRECDM"
+        """OECD based Recession Indicators for Australia from the Peak through the Trough (in +1 or 0)"""
+
+        AUSTRIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "AUTRECDM"
+        """OECD based Recession Indicators for Austria from the Peak through the Trough (in +1 or 0)"""
+
+        BELGIUM_FROM_PEAK_THROUGH_THE_TROUGH: str = "BELRECDM"
+        """OECD based Recession Indicators for Belgium from the Peak through the Trough (in +1 or 0)"""
+
+        BRAZIL_FROM_PEAK_THROUGH_THE_TROUGH: str = "BRARECDM"
+        """OECD based Recession Indicators for Brazil from the Peak through the Trough (in +1 or 0)"""
+
+        CANADA_FROM_PEAK_THROUGH_THE_TROUGH: str = "CANRECDM"
+        """OECD based Recession Indicators for Canada from the Peak through the Trough (in +1 or 0)"""
+
+        SWITZERLAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "CHERECDM"
+        """OECD based Recession Indicators for Switzerland from the Peak through the Trough (in +1 or 0)"""
+
+        CHILE_FROM_PEAK_THROUGH_THE_TROUGH: str = "CHLRECDM"
+        """OECD based Recession Indicators for Chile from the Peak through the Trough (in +1 or 0)"""
+
+        CHINA_FROM_PEAK_THROUGH_THE_TROUGH: str = "CHNRECDM"
+        """OECD based Recession Indicators for China from the Peak through the Trough (in +1 or 0)"""
+
+        CZECH_REPUBLIC_FROM_PEAK_THROUGH_THE_TROUGH: str = "CZERECDM"
+        """OECD based Recession Indicators for the Czech Republic from the Peak through the Trough (in +1 or 0)"""
+
+        GERMANY_FROM_PEAK_THROUGH_THE_TROUGH: str = "DEURECDM"
+        """OECD based Recession Indicators for Germany from the Peak through the Trough (in +1 or 0)"""
+
+        DENMARK_FROM_PEAK_THROUGH_THE_TROUGH: str = "DNKRECDM"
+        """OECD based Recession Indicators for Denmark from the Peak through the Trough (in +1 or 0)"""
+
+        SPAIN_FROM_PEAK_THROUGH_THE_TROUGH: str = "ESPRECDM"
+        """OECD based Recession Indicators for Spain from the Peak through the Trough (in +1 or 0)"""
+
+        ESTONIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "ESTRECDM"
+        """OECD based Recession Indicators for Estonia from the Peak through the Trough (in +1 or 0)"""
+
+        EURO_AREA_FROM_PEAK_THROUGH_THE_TROUGH: str = "EURORECDM"
+        """OECD based Recession Indicators for Euro Area from the Peak through the Trough (in +1 or 0)"""
+
+        FINLAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "FINRECDM"
+        """OECD based Recession Indicators for Finland from the Peak through the Trough (in +1 or 0)"""
+
+        FRANCE_FROM_PEAK_THROUGH_THE_TROUGH: str = "FRARECDM"
+        """OECD based Recession Indicators for France from the Peak through the Trough (in +1 or 0)"""
+
+        UNITED_KINGDOM_FROM_PEAK_THROUGH_THE_TROUGH: str = "GBRRECDM"
+        """OECD based Recession Indicators for the United Kingdom from the Peak through the Trough (in +1 or 0)"""
+
+        GREECE_FROM_PEAK_THROUGH_THE_TROUGH: str = "GRCRECDM"
+        """OECD based Recession Indicators for Greece from the Peak through the Trough (in +1 or 0)"""
+
+        HUNGARY_FROM_PEAK_THROUGH_THE_TROUGH: str = "HUNRECDM"
+        """OECD based Recession Indicators for Hungary from the Peak through the Trough (in +1 or 0)"""
+
+        INDONESIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "IDNRECDM"
+        """OECD based Recession Indicators for Indonesia from the Peak through the Trough (in +1 or 0)"""
+
+        INDIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "INDRECDM"
+        """OECD based Recession Indicators for India from the Peak through the Trough (in +1 or 0)"""
+
+        IRELAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "IRLRECDM"
+        """OECD based Recession Indicators for Ireland from the Peak through the Trough (in +1 or 0)"""
+
+        ISRAEL_FROM_PEAK_THROUGH_THE_TROUGH: str = "ISRRECDM"
+        """OECD based Recession Indicators for Israel from the Peak through the Trough (in +1 or 0)"""
+
+        ITALY_FROM_PEAK_THROUGH_THE_TROUGH: str = "ITARECDM"
+        """OECD based Recession Indicators for Italy from the Peak through the Trough (in +1 or 0)"""
+
+        JAPAN_FROM_PEAK_THROUGH_THE_TROUGH: str = "JPNRECDM"
+        """OECD based Recession Indicators for Japan from the Peak through the Trough (in +1 or 0)"""
+
+        KOREA_FROM_PEAK_THROUGH_THE_TROUGH: str = "KORRECDM"
+        """OECD based Recession Indicators for Korea from the Peak through the Trough (in +1 or 0)"""
+
+        LUXEMBOURG_FROM_PEAK_THROUGH_THE_TROUGH: str = "LUXRECDM"
+        """OECD based Recession Indicators for Luxembourg from the Peak through the Trough (in +1 or 0)"""
+
+        MAJOR_FIVE_ASIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "MAJOR5ASIARECDM"
+        """OECD based Recession Indicators for Major 5 Asia from the Peak through the Trough (in +1 or 0)"""
+
+        MEXICO_FROM_PEAK_THROUGH_THE_TROUGH: str = "MEXRECDM"
+        """OECD based Recession Indicators for Mexico from the Peak through the Trough (in +1 or 0)"""
+
+        MAJOR_SEVEN_COUNTRIES_FROM_PEAK_THROUGH_THE_TROUGH: str = "MSCRECDM"
+        """OECD based Recession Indicators for Major Seven Countries from the Peak through the Trough (in +1 or 0)"""
+
+        NAFTA_AREA_FROM_PEAK_THROUGH_THE_TROUGH: str = "NAFTARECDM"
+        """OECD based Recession Indicators for NAFTA Area from the Peak through the Trough (in +1 or 0)"""
+
+        NETHERLANDS_FROM_PEAK_THROUGH_THE_TROUGH: str = "NDLRECDM"
+        """OECD based Recession Indicators for Netherlands from the Peak through the Trough (in +1 or 0)"""
+
+        NORWAY_FROM_PEAK_THROUGH_THE_TROUGH: str = "NORRECDM"
+        """OECD based Recession Indicators for Norway from the Peak through the Trough (in +1 or 0)"""
+
+        NEW_ZEALAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "NZLRECDM"
+        """OECD based Recession Indicators for New Zealand from the Peak through the Trough (in +1 or 0)"""
+
+        OECD_EUROPE_FROM_PEAK_THROUGH_THE_TROUGH: str = "OECDEUROPERECDM"
+        """OECD based Recession Indicators for OECD Europe from the Peak through the Trough (in +1 or 0)"""
+
+        OECD_AND_NONMEMBER_ECONOMIES_FROM_PEAK_THROUGH_THE_TROUGH: str = "OECDNMERECDM"
+        """OECD based Recession Indicators for OECD and Non-member Economies from the Peak through the Trough (in +1 or 0)"""
+
+        OECD_TOTAL_AREA_FROM_PEAK_THROUGH_THE_TROUGH: str = "OECDRECDM"
+        """OECD based Recession Indicators for the OECD Total Area from the Peak through the Trough (in +1 or 0)"""
+
+        POLAND_FROM_PEAK_THROUGH_THE_TROUGH: str = "POLRECDM"
+        """OECD based Recession Indicators for Poland from the Peak through the Trough (in +1 or 0)"""
+
+        PORTUGAL_FROM_PEAK_THROUGH_THE_TROUGH: str = "PRTRECDM"
+        """OECD based Recession Indicators for Portugal from the Peak through the Trough (in +1 or 0)"""
+
+        RUSSIAN_FEDERATION_FROM_PEAK_THROUGH_THE_TROUGH: str = "RUSRECDM"
+        """OECD based Recession Indicators for Russian Federation from the Peak through the Trough (in +1 or 0)"""
+
+        SLOVAK_REPUBLIC_FROM_PEAK_THROUGH_THE_TROUGH: str = "SVKRECDM"
+        """OECD based Recession Indicators for the Slovak Republic from the Peak through the Trough (in +1 or 0)"""
+
+        SLOVENIA_FROM_PEAK_THROUGH_THE_TROUGH: str = "SVNRECDM"
+        """OECD based Recession Indicators for Slovenia from the Peak through the Trough (in +1 or 0)"""
+
+        SWEDEN_FROM_PEAK_THROUGH_THE_TROUGH: str = "SWERECDM"
+        """OECD based Recession Indicators for Sweden from the Peak through the Trough (in +1 or 0)"""
+
+        TURKEY_FROM_PEAK_THROUGH_THE_TROUGH: str = "TURRECDM"
+        """OECD based Recession Indicators for Turkey from the Peak through the Trough (in +1 or 0)"""
+
+        UNITED_STATES_FROM_PEAK_THROUGH_THE_TROUGH: str = "USARECDM"
+        """OECD based Recession Indicators for the United States from the Peak through the Trough (in +1 or 0)"""
+
+        SOUTH_AFRICA_FROM_PEAK_THROUGH_THE_TROUGH: str = "ZAFRECDM"
+        """OECD based Recession Indicators for South Africa from the Peak through the Trough (in +1 or 0)"""
+
+        FOUR_BIG_EUROPEAN_COUNTRIES_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "4BIGEURORECD"
+        """OECD based Recession Indicators for Four Big European Countries from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        AUSTRALIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "AUSRECD"
+        """OECD based Recession Indicators for Australia from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        AUSTRIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "AUTRECD"
+        """OECD based Recession Indicators for Austria from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        BELGIUM_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "BELRECD"
+        """OECD based Recession Indicators for Belgium from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        BRAZIL_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "BRARECD"
+        """OECD based Recession Indicators for Brazil from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        CANADA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CANRECD"
+        """OECD based Recession Indicators for Canada from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        SWITZERLAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CHERECD"
+        """OECD based Recession Indicators for Switzerland from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        CHILE_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CHLRECD"
+        """OECD based Recession Indicators for Chile from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        CHINA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CHNRECD"
+        """OECD based Recession Indicators for China from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        CZECH_REPUBLIC_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "CZERECD"
+        """OECD based Recession Indicators for the Czech Republic from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        GERMANY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "DEURECD"
+        """OECD based Recession Indicators for Germany from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        DENMARK_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "DNKRECD"
+        """OECD based Recession Indicators for Denmark from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        SPAIN_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ESPRECD"
+        """OECD based Recession Indicators for Spain from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        ESTONIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ESTRECD"
+        """OECD based Recession Indicators for Estonia from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        EURO_AREA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "EURORECD"
+        """OECD based Recession Indicators for Euro Area from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        FINLAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "FINRECD"
+        """OECD based Recession Indicators for Finland from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        FRANCE_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "FRARECD"
+        """OECD based Recession Indicators for France from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        UNITED_KINGDOM_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "GBRRECD"
+        """OECD based Recession Indicators for the United Kingdom from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        GREECE_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "GRCRECD"
+        """OECD based Recession Indicators for Greece from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        HUNGARY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "HUNRECD"
+        """OECD based Recession Indicators for Hungary from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        INDONESIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "IDNRECD"
+        """OECD based Recession Indicators for Indonesia from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        INDIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "INDRECD"
+        """OECD based Recession Indicators for India from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        IRELAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "IRLRECD"
+        """OECD based Recession Indicators for Ireland from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        ISRAEL_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ISRRECD"
+        """OECD based Recession Indicators for Israel from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        ITALY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ITARECD"
+        """OECD based Recession Indicators for Italy from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        JAPAN_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "JPNRECD"
+        """OECD based Recession Indicators for Japan from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        KOREA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "KORRECD"
+        """OECD based Recession Indicators for Korea from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        LUXEMBOURG_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "LUXRECD"
+        """OECD based Recession Indicators for Luxembourg from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        MAJOR_FIVE_ASIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "MAJOR5ASIARECD"
+        """OECD based Recession Indicators for Major 5 Asia from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        MEXICO_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "MEXRECD"
+        """OECD based Recession Indicators for Mexico from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        MAJOR_SEVEN_COUNTRIES_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "MSCRECD"
+        """OECD based Recession Indicators for Major Seven Countries from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        NAFTA_AREA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "NAFTARECD"
+        """OECD based Recession Indicators for NAFTA Area from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        NETHERLANDS_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "NDLRECD"
+        """OECD based Recession Indicators for Netherlands from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        NORWAY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "NORRECD"
+        """OECD based Recession Indicators for Norway from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        NEW_ZEALAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "NZLRECD"
+        """OECD based Recession Indicators for New Zealand from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        OECD_EUROPE_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "OECDEUROPERECD"
+        """OECD based Recession Indicators for OECD Europe from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        OEC_DAND_NONMEMBER_ECONOMIES_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "OECDNMERECD"
+        """OECD based Recession Indicators for OECD and Non-member Economies from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        OECD_TOTAL_AREA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "OECDRECD"
+        """OECD based Recession Indicators for the OECD Total Area from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        POLAND_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "POLRECD"
+        """OECD based Recession Indicators for Poland from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        PORTUGAL_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "PRTRECD"
+        """OECD based Recession Indicators for Portugal from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        RUSSIAN_FEDERATION_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "RUSRECD"
+        """OECD based Recession Indicators for Russian Federation from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        SLOVAK_REPUBLIC_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "SVKRECD"
+        """OECD based Recession Indicators for the Slovak Republic from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        SLOVENIA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "SVNRECD"
+        """OECD based Recession Indicators for Slovenia from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        SWEDEN_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "SWERECD"
+        """OECD based Recession Indicators for Sweden from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        TURKEY_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "TURRECD"
+        """OECD based Recession Indicators for Turkey from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        UNITED_STATES_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "USARECD"
+        """OECD based Recession Indicators for the United States from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        SOUTH_AFRICA_FROM_PERIOD_FOLLOWING_PEAK_THROUGH_THE_TROUGH: str = "ZAFRECD"
+        """OECD based Recession Indicators for South Africa from the Period following the Peak through the Trough (in +1 or 0)"""
+
+        FOUR_BIG_EUROPEAN_COUNTRIES_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "4BIGEURORECDP"
+        """OECD based Recession Indicators for Four Big European Countries from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        AUSTRALIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "AUSRECDP"
+        """OECD based Recession Indicators for Australia from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        AUSTRIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "AUTRECDP"
+        """OECD based Recession Indicators for Austria from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        BELGIUM_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "BELRECDP"
+        """OECD based Recession Indicators for Belgium from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        BRAZIL_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "BRARECDP"
+        """OECD based Recession Indicators for Brazil from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        CANADA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CANRECDP"
+        """OECD based Recession Indicators for Canada from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        SWITZERLAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CHERECDP"
+        """OECD based Recession Indicators for Switzerland from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        CHILE_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CHLRECDP"
+        """OECD based Recession Indicators for Chile from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        CHINA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CHNRECDP"
+        """OECD based Recession Indicators for China from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        CZECH_REPUBLIC_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "CZERECDP"
+        """OECD based Recession Indicators for the Czech Republic from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        GERMANY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "DEURECDP"
+        """OECD based Recession Indicators for Germany from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        DENMARK_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "DNKRECDP"
+        """OECD based Recession Indicators for Denmark from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        SPAIN_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ESPRECDP"
+        """OECD based Recession Indicators for Spain from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        ESTONIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ESTRECDP"
+        """OECD based Recession Indicators for Estonia from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        EURO_AREA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "EURORECDP"
+        """OECD based Recession Indicators for Euro Area from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        FINLAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "FINRECDP"
+        """OECD based Recession Indicators for Finland from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        FRANCE_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "FRARECDP"
+        """OECD based Recession Indicators for France from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        UNITED_KINGDOM_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "GBRRECDP"
+        """OECD based Recession Indicators for the United Kingdom from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        GREECE_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "GRCRECDP"
+        """OECD based Recession Indicators for Greece from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        HUNGARY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "HUNRECDP"
+        """OECD based Recession Indicators for Hungary from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        INDONESIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "IDNRECDP"
+        """OECD based Recession Indicators for Indonesia from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        INDIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "INDRECDP"
+        """OECD based Recession Indicators for India from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        IRELAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "IRLRECDP"
+        """OECD based Recession Indicators for Ireland from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        ISRAEL_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ISRRECDP"
+        """OECD based Recession Indicators for Israel from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        ITALY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ITARECDP"
+        """OECD based Recession Indicators for Italy from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        JAPAN_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "JPNRECDP"
+        """OECD based Recession Indicators for Japan from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        KOREA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "KORRECDP"
+        """OECD based Recession Indicators for Korea from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        LUXEMBOURG_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "LUXRECDP"
+        """OECD based Recession Indicators for Luxembourg from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        MAJOR_FIVE_ASIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "MAJOR5ASIARECDP"
+        """OECD based Recession Indicators for Major 5 Asia from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        MEXICO_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "MEXRECDP"
+        """OECD based Recession Indicators for Mexico from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        MAJOR_SEVEN_COUNTRIES_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "MSCRECDP"
+        """OECD based Recession Indicators for Major Seven Countries from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        NAFTA_AREA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "NAFTARECDP"
+        """OECD based Recession Indicators for NAFTA Area from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        NETHERLANDS_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "NDLRECDP"
+        """OECD based Recession Indicators for Netherlands from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        NORWAY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "NORRECDP"
+        """OECD based Recession Indicators for Norway from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        NEW_ZEALAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "NZLRECDP"
+        """OECD based Recession Indicators for New Zealand from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        OECD_EUROPE_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "OECDEUROPERECDP"
+        """OECD based Recession Indicators for OECD Europe from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        OEC_DAND_NONMEMBER_ECONOMIES_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "OECDNMERECDP"
+        """OECD based Recession Indicators for OECD and Non-member Economies from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        OECD_TOTAL_AREA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "OECDRECDP"
+        """OECD based Recession Indicators for the OECD Total Area from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        POLAND_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "POLRECDP"
+        """OECD based Recession Indicators for Poland from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        PORTUGAL_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "PRTRECDP"
+        """OECD based Recession Indicators for Portugal from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        RUSSIAN_FEDERATION_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "RUSRECDP"
+        """OECD based Recession Indicators for Russian Federation from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        SLOVAK_REPUBLIC_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "SVKRECDP"
+        """OECD based Recession Indicators for the Slovak Republic from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        SLOVENIA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "SVNRECDP"
+        """OECD based Recession Indicators for Slovenia from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        SWEDEN_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "SWERECDP"
+        """OECD based Recession Indicators for Sweden from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        TURKEY_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "TURRECDP"
+        """OECD based Recession Indicators for Turkey from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        UNITED_STATES_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "USARECDP"
+        """OECD based Recession Indicators for the United States from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+        SOUTH_AFRICA_FROM_PEAK_THROUGH_THE_PERIOD_PRECEDINGTHE_TROUGH: str = "ZAFRECDP"
+        """OECD based Recession Indicators for South Africa from the Peak through the Period preceding the Trough (in +1 or 0)"""
+
+    class CentralBankInterventions(System.Object):
+        """Central Bank Interventions"""
+
+        JAPANESE_BANK_PURCHASES_OF_DM_EURO_AGAINST_JPY: str = "JPINTDDMEJPY"
+        """Japan Intervention: Japanese Bank purchases of DM/Euro against JPY (in 100 Million Yen)"""
+
+        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_DM: str = "JPINTDEXR"
+        """Japan Intervention: Japanese Bank purchases of USD against DM (in 100 Million Yen)"""
+
+        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_RUPIAH: str = "JPINTDUSDRP"
+        """Japan Intervention: Japanese Bank purchases of USD against Rupiah (in 100 Million Yen)"""
+
+        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_THE_JPY_USD: str = "USINTDMRKTJPY"
+        """U.S. Intervention: in Market Transactions in the JPY/USD (Millions of USD) (in Millions of USD)"""
+
+        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_OTHER_CURRENCIES: str = "USINTDCSOTH"
+        """U.S. Intervention: With-Customer Transactions in Other Currencies (Millions of USD) (in Millions of USD)"""
+
+        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_THE_JPY_USD: str = "USINTDCSJPY"
+        """U.S. Intervention: With-Customer Transactions in the JPY/USD (Millions of USD) (in Millions of USD)"""
+
+        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_THE_DEM_USD_EURO: str = "USINTDCSDM"
+        """U.S. Intervention: With-Customer Transactions in the DEM/USD (Euro since 1999) (Millions of USD) (in Millions of USD)"""
+
+        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_OTHER_CURRENCIES: str = "USINTDMRKTOTH"
+        """U.S. Intervention: in Market Transactions in Other Currencies (Millions of USD) (in Millions of USD)"""
+
+        CENTRAL_BANK_OF_TURKEY_PURCHASES_OF_USD: str = "TRINTDEXR"
+        """Turkish Intervention: Central Bank of Turkey Purchases of USD (Millions of USD) (in Millions of USD)"""
+
+        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_JPY: str = "JPINTDUSDJPY"
+        """Japan Intervention: Japanese Bank purchases of USD against JPY (in 100 Million Yen)"""
+
+        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_THE_DEM_USD_EURO: str = "USINTDMRKTDM"
+        """U.S. Intervention: in Market Transactions in the DEM/USD (Euro since 1999) (Millions of USD) (in Millions of USD)"""
+
+        SWISS_NATIONAL_BANK_PURCHASES_OF_DEM_AGAINST_CHF_MILLIONS_OF_DEM: str = "CHINTDCHFDM"
+        """Swiss Intervention: Swiss National Bank Purchases of DEM against CHF (Millions of DEM) (in Millions of DEM)"""
+
+        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_DEM: str = "CHINTDUSDDM"
+        """Swiss Intervention: Swiss National Bank Purchases of USD against DEM (Millions of USD) (in Millions of USD)"""
+
+        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_JPY: str = "CHINTDUSDJPY"
+        """Swiss Intervention: Swiss National Bank Purchases of USD against JPY (Millions of USD) (in Millions of USD)"""
+
+        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_CHF: str = "CHINTDCHFUSD"
+        """Swiss Intervention: Swiss National Bank Purchases of USD against CHF (Millions of USD) (in Millions of USD)"""
+
+        BANCO_DE_MEXICO_PURCHASE_ON_THE_USD: str = "MEXINTDUSD"
+        """Mexican Intervention: Banco de Mexico Purchase on the USD (in Millions of USD)"""
+
+    class CommercialPaper(System.Object):
+        """
+        Commercial paper (CP) consists of short-term, promissory notes issued primarily by corporations. Maturities range up to 270 days but average about 30 days. Many companies use CP to raise cash needed for current transactions, and many find it to be a lower-cost alternative to bank loans.
+        The Federal Reserve Board disseminates information on CP primarily through its World Wide Web site. In addition, the Board publishes one-, two-, and three-month rates on AA nonfinancial and AA financial CP weekly in its H.15 Statistical Release.
+        The Federal Reserve Board's CP release is derived from data supplied by The Depository Trust & Clearing Corporation (DTCC), a national clearinghouse for the settlement of securities trades and a custodian for securities. DTCC performs these functions for almost all activity in the domestic CP market. The Federal Reserve Board only considers maturities of 270 days or less. CP is exempt from SEC registration if its maturity does not exceed 270 days.
+        Data on CP issuance rates and volumes typically are updated daily and typically posted with a one-day lag. Data on CP outstanding usually are available as of the close of business each Wednesday and as of the last business day of the month; these data are also posted with a one-day lag. The daily CP release will usually be available at 9:45 a.m. EST. However, the Federal Reserve Board makes no guarantee regarding the timing of the daily CP release. This policy is subject to change at any time without notice.
+        """
+
+        THREE_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN3M"
+        """3-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
+
+        ONE_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN30"
+        """1-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
+
+        TWO_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN2M"
+        """2-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
+
+        THREE_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF3M"
+        """3-Month AA Financial Commercial Paper Rate (in Percent)"""
+
+        TWO_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF2M"
+        """2-Month AA Financial Commercial Paper Rate (in Percent)"""
+
+        ONE_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF1M"
+        """1-Month AA Financial Commercial Paper Rate (in Percent)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN14A2P2VOL"
+        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN59A2P2VOL"
+        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN59A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN4180AAVOL"
+        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "ABGT80AAAMT"
+        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN4180AAAMT"
+        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN4180A2P2VOL"
+        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN4180A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN2140AAVOL"
+        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN2140AAAMT"
+        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN2140A2P2VOL"
+        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN2140A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN14AAVOL"
+        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN1020A2P2VOL"
+        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN1020AAAMT"
+        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB2140AAAMT"
+        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN1020AAVOL"
+        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN14A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN14AAAMT"
+        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUEOF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_1_AND_4_DAYS: str = "MKT14MKTAMT"
+        """Total Value of Commercial Paper Issues with a Maturity Between 1 and 4 Days (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN1020A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FINGT80AAVOL"
+        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN1020AAVOL"
+        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN14AAAMT"
+        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN14AAVOL"
+        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUEOF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_10_AND_20_DAYS: str = "MKT1020MKTAMT"
+        """Total Value of Commercial Paper Issues with a Maturity Between 10 and 20 Days (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_10_AND_20_DAYS: str = "MKT1020MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 10 and 20 Days (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN2140AAAMT"
+        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_1_AND_4_DAYS: str = "MKT14MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 1 and 4 Days (in Number)"""
+
+        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_21_AND_40_DAYS: str = "MKT2140MKTAMT"
+        """Total Value of Issuers of Commercial Paper with a Maturity Between 21 and 40 Days (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_21_AND_40_DAYS: str = "MKT2140MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 21 and 40 Days (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN2140AAVOL"
+        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_41_AND_80_DAYS: str = "MKT4180MKTAMT"
+        """Total Value of Issuers of Commercial Paper with a Maturity Between 41 and 80 Days (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN59AAAMT"
+        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_41_AND_80_DAYS: str = "MKT4180MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 41 and 80 Days (in Number)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_5_AND_9_DAYS: str = "MKT59MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 5 and 9 Days (in Number)"""
+
+        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_GREATER_THAN_80_DAYS: str = "MKTGT80MKTAMT"
+        """Total Value of Issuers of Commercial Paper with a Maturity Greater Than 80 Days (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_GREATER_THAN_80_DAYS: str = "MKTGT80MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Greater Than 80 Days (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN4180AAAMT"
+        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN4180AAVOL"
+        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB4180AAAMT"
+        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN59AAAMT"
+        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN59AAVOL"
+        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FINGT80AAAMT"
+        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN1020AAAMT"
+        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB2140AAVOL"
+        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_5_AND_9_DAYS: str = "MKT59MKTAMT"
+        """Total Value of Issuers of Commercial Paper with a Maturity Between 5 and 9 Days (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "ABGT80AAVOL"
+        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN59AAVOL"
+        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        FIFTEEN_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD15NB"
+        """15-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB59AAAMT"
+        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB4180AAVOL"
+        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        FIFTEEN_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D15NB"
+        """15-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        SEVEN_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D07NB"
+        """7-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        OVERNIGHT_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D01NB"
+        """Overnight A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NINETY_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD90NB"
+        """90-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        OVERNIGHT_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD01NB"
+        """Overnight AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        THREE_0_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D30NB"
+        """30-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        SIXTY_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD60NB"
+        """60-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        THREE_0_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD30NB"
+        """30-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFINGT80A2P2AMT"
+        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        THREE_0_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD30NB"
+        """30-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        SIXTY_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD60NB"
+        """60-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        NINETY_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD90NB"
+        """90-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        FIFTEEN_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD15NB"
+        """15-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        SEVEN_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD07NB"
+        """7-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        SEVEN_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD07NB"
+        """7-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        OVERNIGHT_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD01NB"
+        """Overnight AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        SIXTY_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D60NB"
+        """60-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB59AAVOL"
+        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB14AAVOL"
+        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFINGT80A2P2VOL"
+        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB14AAAMT"
+        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        NINETY_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D90NB"
+        """90-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB1020AAVOL"
+        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFINGT80AAAMT"
+        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        OVERNIGHT_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD01NB"
+        """Overnight AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB1020AAAMT"
+        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        SEVEN_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD07NB"
+        """7-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NINETY_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD90NB"
+        """90-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        FIFTEEN_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD15NB"
+        """15-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        THREE_0_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD30NB"
+        """30-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        SIXTY_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD60NB"
+        """60-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFINGT80AAVOL"
+        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        THREE_MONTH_COMMERCIAL_PAPER_MINUS_FEDERAL_FUNDS_RATE: str = "CPFF"
+        """3-Month Commercial Paper Minus Federal Funds Rate (in Percent)"""
+
+    class TradeWeightedIndexes(System.Object):
+        """Trade Weight Indexes"""
+
+        MAJOR_CURRENCIES_GOODS: str = "DTWEXM"
+        """Trade Weighted U.S. Dollar Index: Major Currencies, Goods (in Index Mar 1973=100)"""
+
+        OTHER_IMPORTANT_TRADING_PARTNERS_GOODS: str = "DTWEXO"
+        """Trade Weighted U.S. Dollar Index: Other Important Trading Partners, Goods (in Index Jan 1997=100)"""
+
+        BROAD_GOODS: str = "DTWEXB"
+        """Trade Weighted U.S. Dollar Index: Broad, Goods (in Index Jan 1997=100)"""
+
+        ADVANCED_FOREIGN_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXAFEGS"
+        """Trade Weighted U.S. Dollar Index: Advanced Foreign Economies, Goods and Services (in Index Jan 2006=100)"""
+
+        BROAD_GOODS_AND_SERVICES: str = "DTWEXBGS"
+        """Trade Weighted U.S. Dollar Index: Broad, Goods and Services (in Index Jan 2006=100)"""
+
+        EMERGING_MARKETS_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXEMEGS"
+        """Trade Weighted U.S. Dollar Index: Emerging Markets Economies, Goods and Services (in Index Jan 2006=100)"""
+
+    class ICEBofAML(System.Object):
+        """ICE BofAML"""
+
+        AAAA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM1BRRAAA2ACRPITRIV"
+        """ICE BofAML AAA-A Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        AAAAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM1RAAA2ALCRPIUSTRIV"
+        """ICE BofAML AAA-A US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        ASIA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMRACRPIASIATRIV"
+        """ICE BofAML Asia Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        ASIA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMALLCRPIASIAUSTRIV"
+        """ICE BofAML Asia US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        BAND_LOWER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM4BRRBLCRPITRIV"
+        """ICE BofAML B and Lower Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        BAND_LOWER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM4RBLLCRPIUSTRIV"
+        """ICE BofAML B and Lower US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        BB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM3BRRBBCRPITRIV"
+        """ICE BofAML BB Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        BBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM3RBBLCRPIUSTRIV"
+        """ICE BofAML BB US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        BBB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM2BRRBBBCRPITRIV"
+        """ICE BofAML BBB Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        BBBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM2RBBBLCRPIUSTRIV"
+        """ICE BofAML BBB US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        CROSSOVER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEM5BCOCRPITRIV"
+        """ICE BofAML Crossover Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        CROSSOVER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMXOCOLCRPIUSTRIV"
+        """ICE BofAML Crossover US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        EMERGING_MARKETS_CORPORATE_PLUS_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMCBPITRIV"
+        """ICE BofAML Emerging Markets Corporate Plus Index Total Return Index Value (in Index)"""
+
+        EURO_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMEBCRPIETRIV"
+        """ICE BofAML Euro Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        EMEA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMRECRPIEMEATRIV"
+        """ICE BofAML Europe, the Middle East, and Africa (EMEA) Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        EMEAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMELLCRPIEMEAUSTRIV"
+        """ICE BofAML Europe, the Middle East, and Africa (EMEA) US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMFSFCRPITRIV"
+        """ICE BofAML Financial Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMFLFLCRPIUSTRIV"
+        """ICE BofAML Financial US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        HIGH_GRADE_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMIBHGCRPITRIV"
+        """ICE BofAML High Grade Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        HIGH_GRADE_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMHGHGLCRPIUSTRIV"
+        """ICE BofAML High Grade US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        HIGH_YIELD_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMHBHYCRPITRIV"
+        """ICE BofAML High Yield Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        HIGH_YIELD_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMHYHYLCRPIUSTRIV"
+        """ICE BofAML High Yield US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        LATIN_AMERICA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMRLCRPILATRIV"
+        """ICE BofAML Latin America Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        LATIN_AMERICA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMLLLCRPILAUSTRIV"
+        """ICE BofAML Latin America US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        NON_FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMNSNFCRPITRIV"
+        """ICE BofAML Non-Financial Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        NON_FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMNFNFLCRPIUSTRIV"
+        """ICE BofAML Non-Financial US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        US_CORPORATE_MASTER_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A0CM"
+        """ICE BofAML US Corporate Master Option-Adjusted Spread (in Percent)"""
+
+        US_HIGH_YIELD_MASTER_II_OPTION_ADJUSTED_SPREAD: str = "BAMLH0A0HYM2"
+        """ICE BofAML US High Yield Master II Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_1_TO_3_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC1A0C13Y"
+        """ICE BofAML US Corporate 1-3 Year Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_10_TO_15_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC7A0C1015Y"
+        """ICE BofAML US Corporate 10-15 Year Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_MORE_THAN_15_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC8A0C15PY"
+        """ICE BofAML US Corporate 15+ Year Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_3_TO_5_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC2A0C35Y"
+        """ICE BofAML US Corporate 3-5 Year Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_5_TO_7_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC3A0C57Y"
+        """ICE BofAML US Corporate 5-7 Year Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_7_TO_10_YEAR_OPTION_ADJUSTED_SPREAD: str = "BAMLC4A0C710Y"
+        """ICE BofAML US Corporate 7-10 Year Option-Adjusted Spread (in Percent)"""
+
+        PUBLIC_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMPUPUBSLCRPIUSTRIV"
+        """ICE BofAML Public Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        US_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMUBCRPIUSTRIV"
+        """ICE BofAML US Emerging Markets Corporate Plus Sub-Index Total Return Index Value (in Index)"""
+
+        US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLEMCLLCRPIUSTRIV"
+        """ICE BofAML US Emerging Markets Liquid Corporate Plus Index Total Return Index Value (in Index)"""
+
+        EURO_HIGH_YIELD_INDEX_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHE00EHYITRIV"
+        """ICE BofAML Euro High Yield Index Total Return Index Value (in Index)"""
+
+        US_CORP_1_TO_3_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC1A013YTRIV"
+        """ICE BofAML US Corp 1-3yr Total Return Index Value (in Index)"""
+
+        US_CORP_10_TO_15_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC7A01015YTRIV"
+        """ICE BofAML US Corp 10-15yr Total Return Index Value (in Index)"""
+
+        US_CORP_MORE_THAN_15_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC8A015PYTRIV"
+        """ICE BofAML US Corp 15+yr Total Return Index Value (in Index)"""
+
+        US_CORPE_TO_5_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC2A035YTRIV"
+        """ICE BofAML US Corp 3-5yr Total Return Index Value (in Index)"""
+
+        US_CORP_5_TO_7_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC3A057YTRIV"
+        """ICE BofAML US Corp 5-7yr Total Return Index Value (in Index)"""
+
+        US_CORPORATE_7_TO_10_YEARS_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC4A0710YTRIV"
+        """ICE BofAML US Corporate 7-10yr Total Return Index Value (in Index)"""
+
+        US_CORP_A_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A3ATRIV"
+        """ICE BofAML US Corp A Total Return Index Value (in Index)"""
+
+        US_CORP_AA_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A2AATRIV"
+        """ICE BofAML US Corp AA Total Return Index Value (in Index)"""
+
+        US_CORP_AAA_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A1AAATRIV"
+        """ICE BofAML US Corp AAA Total Return Index Value (in Index)"""
+
+        US_HIGH_YIELD_B_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHYH0A2BTRIV"
+        """ICE BofAML US High Yield B Total Return Index Value (in Index)"""
+
+        US_HIGH_YIELD_BB_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHYH0A1BBTRIV"
+        """ICE BofAML US High Yield BB Total Return Index Value (in Index)"""
+
+        US_CORP_BBB_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A4BBBTRIV"
+        """ICE BofAML US Corp BBB Total Return Index Value (in Index)"""
+
+        US_HIGH_YIELD_CC_COR_BELOW_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHYH0A3CMTRIV"
+        """ICE BofAML US High Yield CCC or Below Total Return Index Value (in Index)"""
+
+        US_CORP_MASTER_TOTAL_RETURN_INDEX_VALUE: str = "BAMLCC0A0CMTRIV"
+        """ICE BofAML US Corp Master Total Return Index Value (in Index)"""
+
+        US_HIGH_YIELD_MASTER_II_TOTAL_RETURN_INDEX_VALUE: str = "BAMLHYH0A0HYM2TRIV"
+        """ICE BofAML US High Yield Master II Total Return Index Value (in Index)"""
+
+        AAAA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM1BRRAAA2ACRPIOAS"
+        """ICE BofAML AAA-A Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        AAAAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM1RAAA2ALCRPIUSOAS"
+        """ICE BofAML AAA-A US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        ASIA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMRACRPIASIAOAS"
+        """ICE BofAML Asia Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        ASIA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMALLCRPIASIAUSOAS"
+        """ICE BofAML Asia US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        BAND_LOWER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM4BRRBLCRPIOAS"
+        """ICE BofAML B and Lower Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        BAND_LOWER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM4RBLLCRPIUSOAS"
+        """ICE BofAML B and Lower US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        BB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM3BRRBBCRPIOAS"
+        """ICE BofAML BB Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        BBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM3RBBLCRPIUSOAS"
+        """ICE BofAML BB US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        BBB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM2BRRBBBCRPIOAS"
+        """ICE BofAML BBB Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        BBBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM2RBBBLCRPIUSOAS"
+        """ICE BofAML BBB US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        CROSSOVER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEM5BCOCRPIOAS"
+        """ICE BofAML Crossover Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        CROSSOVER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMXOCOLCRPIUSOAS"
+        """ICE BofAML Crossover US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        EMERGING_MARKETS_CORPORATE_PLUS_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMCBPIOAS"
+        """ICE BofAML Emerging Markets Corporate Plus Index Option-Adjusted Spread (in Percent)"""
+
+        EURO_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMEBCRPIEOAS"
+        """ICE BofAML Euro Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        EMEA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMRECRPIEMEAOAS"
+        """ICE BofAML Europe, the Middle East, and Africa (EMEA) Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        EMEAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMELLCRPIEMEAUSOAS"
+        """ICE BofAML Europe, the Middle East, and Africa (EMEA) US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMFSFCRPIOAS"
+        """ICE BofAML Financial Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMFLFLCRPIUSOAS"
+        """ICE BofAML Financial US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        HIGH_GRADE_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMIBHGCRPIOAS"
+        """ICE BofAML High Grade Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        HIGH_GRADE_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMHGHGLCRPIUSOAS"
+        """ICE BofAML High Grade US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        HIGH_YIELD_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMHBHYCRPIOAS"
+        """ICE BofAML High Yield Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        HIGH_YIELD_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMHYHYLCRPIUSOAS"
+        """ICE BofAML High Yield US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        LATIN_AMERICA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMRLCRPILAOAS"
+        """ICE BofAML Latin America Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        LATIN_AMERICA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMLLLCRPILAUSOAS"
+        """ICE BofAML Latin America US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        NON_FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMNSNFCRPIOAS"
+        """ICE BofAML Non-Financial Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        NON_FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMNFNFLCRPIUSOAS"
+        """ICE BofAML Non-Financial US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        PUBLIC_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMPUPUBSLCRPIUSOAS"
+        """ICE BofAML Public Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        US_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMUBCRPIUSOAS"
+        """ICE BofAML US Emerging Markets Corporate Plus Sub-Index Option-Adjusted Spread (in Percent)"""
+
+        US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLEMCLLCRPIUSOAS"
+        """ICE BofAML US Emerging Markets Liquid Corporate Plus Index Option-Adjusted Spread (in Percent)"""
+
+        EURO_HIGH_YIELD_INDEX_OPTION_ADJUSTED_SPREAD: str = "BAMLHE00EHYIOAS"
+        """ICE BofAML Euro High Yield Index Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_A_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A3CA"
+        """ICE BofAML US Corporate A Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_AA_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A2CAA"
+        """ICE BofAML US Corporate AA Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_AAA_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A1CAAA"
+        """ICE BofAML US Corporate AAA Option-Adjusted Spread (in Percent)"""
+
+        US_HIGH_YIELD_B_OPTION_ADJUSTED_SPREAD: str = "BAMLH0A2HYB"
+        """ICE BofAML US High Yield B Option-Adjusted Spread (in Percent)"""
+
+        US_HIGH_YIELD_BB_OPTION_ADJUSTED_SPREAD: str = "BAMLH0A1HYBB"
+        """ICE BofAML US High Yield BB Option-Adjusted Spread (in Percent)"""
+
+        US_CORPORATE_BBB_OPTION_ADJUSTED_SPREAD: str = "BAMLC0A4CBBB"
+        """ICE BofAML US Corporate BBB Option-Adjusted Spread (in Percent)"""
+
+        US_HIGH_YIELD_CC_COR_BELOW_OPTION_ADJUSTED_SPREAD: str = "BAMLH0A3HYC"
+        """ICE BofAML US High Yield CCC or Below Option-Adjusted Spread (in Percent)"""
+
+        AAAA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM1BRRAAA2ACRPIEY"
+        """ICE BofAML AAA-A Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        AAAAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM1RAAA2ALCRPIUSEY"
+        """ICE BofAML AAA-A US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        ASIA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMRACRPIASIAEY"
+        """ICE BofAML Asia Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        ASIA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMALLCRPIASIAUSEY"
+        """ICE BofAML Asia US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        BAND_LOWER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM4BRRBLCRPIEY"
+        """ICE BofAML B and Lower Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        BAND_LOWER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM4RBLLCRPIUSEY"
+        """ICE BofAML B and Lower US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        BB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM3BRRBBCRPIEY"
+        """ICE BofAML BB Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        BBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM3RBBLCRPIUSEY"
+        """ICE BofAML BB US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        BBB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM2BRRBBBCRPIEY"
+        """ICE BofAML BBB Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        BBBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM2RBBBLCRPIUSEY"
+        """ICE BofAML BBB US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        CROSSOVER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEM5BCOCRPIEY"
+        """ICE BofAML Crossover Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        CROSSOVER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMXOCOLCRPIUSEY"
+        """ICE BofAML Crossover US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        EMERGING_MARKETS_CORPORATE_PLUS_INDEX_EFFECTIVE_YIELD: str = "BAMLEMCBPIEY"
+        """ICE BofAML Emerging Markets Corporate Plus Index Effective Yield (in Percent)"""
+
+        EURO_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMEBCRPIEEY"
+        """ICE BofAML Euro Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        EURO_HIGH_YIELD_INDEX_EFFECTIVE_YIELD: str = "BAMLHE00EHYIEY"
+        """ICE BofAML Euro High Yield Index Effective Yield (in Percent)"""
+
+        EMEA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMRECRPIEMEAEY"
+        """ICE BofAML Europe, the Middle East, and Africa (EMEA) Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        EMEAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMELLCRPIEMEAUSEY"
+        """ICE BofAML Europe, the Middle East, and Africa (EMEA) US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMFSFCRPIEY"
+        """ICE BofAML Financial Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMFLFLCRPIUSEY"
+        """ICE BofAML Financial US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        HIGH_GRADE_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMIBHGCRPIEY"
+        """ICE BofAML High Grade Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        HIGH_GRADE_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMHGHGLCRPIUSEY"
+        """ICE BofAML High Grade US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        HIGH_YIELD_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMHBHYCRPIEY"
+        """ICE BofAML High Yield Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        HIGH_YIELD_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMHYHYLCRPIUSEY"
+        """ICE BofAML High Yield US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        LATIN_AMERICA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMRLCRPILAEY"
+        """ICE BofAML Latin America Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        LATIN_AMERICA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMLLLCRPILAUSEY"
+        """ICE BofAML Latin America US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        NON_FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMNSNFCRPIEY"
+        """ICE BofAML Non-Financial Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        NON_FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMNFNFLCRPIUSEY"
+        """ICE BofAML Non-Financial US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        PUBLIC_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMPUPUBSLCRPIUSEY"
+        """ICE BofAML Public Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        US_CORPORATE_1_THREE_YEAR_EFFECTIVE_YIELD: str = "BAMLC1A0C13YEY"
+        """ICE BofAML US Corporate 1-3 Year Effective Yield (in Percent)"""
+
+        US_CORPORATE_10_TO_15_YEAR_EFFECTIVE_YIELD: str = "BAMLC7A0C1015YEY"
+        """ICE BofAML US Corporate 10-15 Year Effective Yield (in Percent)"""
+
+        US_CORPORATE_MORE_THAN_15_YEAR_EFFECTIVE_YIELD: str = "BAMLC8A0C15PYEY"
+        """ICE BofAML US Corporate 15+ Year Effective Yield (in Percent)"""
+
+        US_CORPORATE_3_TO_5_YEAR_EFFECTIVE_YIELD: str = "BAMLC2A0C35YEY"
+        """ICE BofAML US Corporate 3-5 Year Effective Yield (in Percent)"""
+
+        US_CORPORATE_5_TO_7_YEAR_EFFECTIVE_YIELD: str = "BAMLC3A0C57YEY"
+        """ICE BofAML US Corporate 5-7 Year Effective Yield (in Percent)"""
+
+        US_CORPORATE_7_TO_10_YEAR_EFFECTIVE_YIELD: str = "BAMLC4A0C710YEY"
+        """ICE BofAML US Corporate 7-10 Year Effective Yield (in Percent)"""
+
+        US_CORPORATE_A_EFFECTIVE_YIELD: str = "BAMLC0A3CAEY"
+        """ICE BofAML US Corporate A Effective Yield (in Percent)"""
+
+        US_CORPORATE_AA_EFFECTIVE_YIELD: str = "BAMLC0A2CAAEY"
+        """ICE BofAML US Corporate AA Effective Yield (in Percent)"""
+
+        US_CORPORATE_AAA_EFFECTIVE_YIELD: str = "BAMLC0A1CAAAEY"
+        """ICE BofAML US Corporate AAA Effective Yield (in Percent)"""
+
+        US_HIGH_YIELD_B_EFFECTIVE_YIELD: str = "BAMLH0A2HYBEY"
+        """ICE BofAML US High Yield B Effective Yield (in Percent)"""
+
+        US_HIGH_YIELD_BB_EFFECTIVE_YIELD: str = "BAMLH0A1HYBBEY"
+        """ICE BofAML US High Yield BB Effective Yield (in Percent)"""
+
+        US_CORPORATE_BBB_EFFECTIVE_YIELD: str = "BAMLC0A4CBBBEY"
+        """ICE BofAML US Corporate BBB Effective Yield (in Percent)"""
+
+        US_HIGH_YIELD_CC_COR_BELOW_EFFECTIVE_YIELD: str = "BAMLH0A3HYCEY"
+        """ICE BofAML US High Yield CCC or Below Effective Yield (in Percent)"""
+
+        US_CORPORATE_MASTER_EFFECTIVE_YIELD: str = "BAMLC0A0CMEY"
+        """ICE BofAML US Corporate Master Effective Yield (in Percent)"""
+
+        US_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_EFFECTIVE_YIELD: str = "BAMLEMUBCRPIUSEY"
+        """ICE BofAML US Emerging Markets Corporate Plus Sub-Index Effective Yield (in Percent)"""
+
+        US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_INDEX_EFFECTIVE_YIELD: str = "BAMLEMCLLCRPIUSEY"
+        """ICE BofAML US Emerging Markets Liquid Corporate Plus Index Effective Yield (in Percent)"""
+
+        US_HIGH_YIELD_MASTER_II_EFFECTIVE_YIELD: str = "BAMLH0A0HYM2EY"
+        """ICE BofAML US High Yield Master II Effective Yield (in Percent)"""
+
+        AAAA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM1BRRAAA2ACRPISYTW"
+        """ICE BofAML AAA-A Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        AAAAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM1RAAA2ALCRPIUSSYTW"
+        """ICE BofAML AAA-A US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        ASIA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMRACRPIASIASYTW"
+        """ICE BofAML Asia Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        ASIA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMALLCRPIASIAUSSYTW"
+        """ICE BofAML Asia US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        BAND_LOWER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM4BRRBLCRPISYTW"
+        """ICE BofAML B and Lower Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        BAND_LOWER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM4RBLLCRPIUSSYTW"
+        """ICE BofAML B and Lower US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        BB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM3BRRBBCRPISYTW"
+        """ICE BofAML BB Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        BBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM3RBBLCRPIUSSYTW"
+        """ICE BofAML BB US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        BBB_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM2BRRBBBCRPISYTW"
+        """ICE BofAML BBB Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        BBBUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM2RBBBLCRPIUSSYTW"
+        """ICE BofAML BBB US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        CROSSOVER_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEM5BCOCRPISYTW"
+        """ICE BofAML Crossover Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        CROSSOVER_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMXOCOLCRPIUSSYTW"
+        """ICE BofAML Crossover US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        EMERGING_MARKETS_CORPORATE_PLUS_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMCBPISYTW"
+        """ICE BofAML Emerging Markets Corporate Plus Index Semi-Annual Yield to Worst (in Percent)"""
+
+        EURO_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMEBCRPIESYTW"
+        """ICE BofAML Euro Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        EURO_HIGH_YIELD_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLHE00EHYISYTW"
+        """ICE BofAML Euro High Yield Index Semi-Annual Yield to Worst (in Percent)"""
+
+        EMEA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMRECRPIEMEASYTW"
+        """ICE BofAML Europe, the Middle East, and Africa (EMEA) Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        EMEAUS_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMELLCRPIEMEAUSSYTW"
+        """ICE BofAML Europe, the Middle East, and Africa (EMEA) US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMFSFCRPISYTW"
+        """ICE BofAML Financial Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMFLFLCRPIUSSYTW"
+        """ICE BofAML Financial US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        HIGH_GRADE_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMIBHGCRPISYTW"
+        """ICE BofAML High Grade Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        HIGH_GRADE_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMHGHGLCRPIUSSYTW"
+        """ICE BofAML High Grade US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        HIGH_YIELD_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMHBHYCRPISYTW"
+        """ICE BofAML High Yield Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        HIGH_YIELD_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMHYHYLCRPIUSSYTW"
+        """ICE BofAML High Yield US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        LATIN_AMERICA_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMRLCRPILASYTW"
+        """ICE BofAML Latin America Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        LATIN_AMERICA_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMLLLCRPILAUSSYTW"
+        """ICE BofAML Latin America US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        NON_FINANCIAL_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMNSNFCRPISYTW"
+        """ICE BofAML Non-Financial Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        NON_FINANCIAL_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMNFNFLCRPIUSSYTW"
+        """ICE BofAML Non-Financial US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        PRIVATE_SECTOR_ISSUERS_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMPTPRVICRPISYTW"
+        """ICE BofAML Private Sector Issuers Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        PRIVATE_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMPVPRIVSLCRPIUSSYTW"
+        """ICE BofAML Private Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        PUBLIC_SECTOR_ISSUERS_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMPBPUBSICRPISYTW"
+        """ICE BofAML Public Sector Issuers Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        PUBLIC_SECTOR_ISSUERS_US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMPUPUBSLCRPIUSSYTW"
+        """ICE BofAML Public Sector Issuers US Emerging Markets Liquid Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_1_TO_3_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC1A0C13YSYTW"
+        """ICE BofAML US Corporate 1-3 Year Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_10_TO_15_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC7A0C1015YSYTW"
+        """ICE BofAML US Corporate 10-15 Year Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_MORE_THAN_15_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC8A0C15PYSYTW"
+        """ICE BofAML US Corporate 15+ Year Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_3_TO_5_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC2A0C35YSYTW"
+        """ICE BofAML US Corporate 3-5 Year Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_5_TO_7_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC3A0C57YSYTW"
+        """ICE BofAML US Corporate 5-7 Year Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_7_TO_10_YEAR_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC4A0C710YSYTW"
+        """ICE BofAML US Corporate 7-10 Year Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_A_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A3CASYTW"
+        """ICE BofAML US Corporate A Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_AA_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A2CAASYTW"
+        """ICE BofAML US Corporate AA Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_AAA_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A1CAAASYTW"
+        """ICE BofAML US Corporate AAA Semi-Annual Yield to Worst (in Percent)"""
+
+        US_HIGH_YIELD_B_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A2HYBSYTW"
+        """ICE BofAML US High Yield B Semi-Annual Yield to Worst (in Percent)"""
+
+        US_HIGH_YIELD_BB_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A1HYBBSYTW"
+        """ICE BofAML US High Yield BB Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_BBB_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A4CBBBSYTW"
+        """ICE BofAML US Corporate BBB Semi-Annual Yield to Worst (in Percent)"""
+
+        US_HIGH_YIELD_CC_COR_BELOW_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A3HYCSYTW"
+        """ICE BofAML US High Yield CCC or Below Semi-Annual Yield to Worst (in Percent)"""
+
+        US_CORPORATE_MASTER_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLC0A0CMSYTW"
+        """ICE BofAML US Corporate Master Semi-Annual Yield to Worst (in Percent)"""
+
+        US_EMERGING_MARKETS_CORPORATE_PLUS_SUB_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMUBCRPIUSSYTW"
+        """ICE BofAML US Emerging Markets Corporate Plus Sub-Index Semi-Annual Yield to Worst (in Percent)"""
+
+        US_EMERGING_MARKETS_LIQUID_CORPORATE_PLUS_INDEX_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLEMCLLCRPIUSSYTW"
+        """ICE BofAML US Emerging Markets Liquid Corporate Plus Index Semi-Annual Yield to Worst (in Percent)"""
+
+        US_HIGH_YIELD_MASTER_II_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A0HYM2SYTW"
+        """ICE BofAML US High Yield Master II Semi-Annual Yield to Worst (in Percent)"""
+
+    class CBOE(System.Object):
+        """Chicago Board Options Exchange"""
+
+        VIX_ON_GOOGLE: str = "VXGOGCLS"
+        """CBOE Equity VIX on Google (in Index)"""
+
+        VXD: str = "VXDCLS"
+        """CBOE DJIA Volatility Index (in Index)"""
+
+        VIX_ON_GOLDMAN_SACHS: str = "VXGSCLS"
+        """CBOE Equity VIX on Goldman Sachs (in Index)"""
+
+        VIX_ON_IBM: str = "VXIBMCLS"
+        """CBOE Equity VIX on IBM (in Index)"""
+
+        VIX_ON_AMAZON: str = "VXAZNCLS"
+        """CBOE Equity VIX on Amazon (in Index)"""
+
+        VXO: str = "VXOCLS"
+        """CBOE S&P 100 Volatility Index: VXO (in Index)"""
+
+        VXN: str = "VXNCLS"
+        """CBOE NASDAQ 100 Volatility Index (in Index)"""
+
+        TEN_YEAR_TREASURY_NOTE_VOLATILITY_FUTURES: str = "VXTYN"
+        """CBOE 10-Year Treasury Note Volatility Futures (in Index)"""
+
+        RVX: str = "RVXCLS"
+        """CBOE Russell 2000 Volatility Index (in Index)"""
+
+        SP_500_THREE_MONTH_VOLATILITY_INDEX: str = "VXVCLS"
+        """CBOE S&P 500 3-Month Volatility Index (in Index)"""
+
+        VIX_ON_APPLE: str = "VXAPLCLS"
+        """CBOE Equity VIX on Apple (in Index)"""
+
+        GOLD_MINERS_ETF_VOLATILITY_INDEX: str = "VXGDXCLS"
+        """CBOE Gold Miners ETF Volatility Index (in Index)"""
+
+        CHINA_ETF_VOLATILITY_INDEX: str = "VXFXICLS"
+        """CBOE China ETF Volatility Index (in Index)"""
+
+        BRAZIL_ETF_VOLATILITY_INDEX: str = "VXEWZCLS"
+        """CBOE Brazil ETF Volatility Index (in Index)"""
+
+        EMERGING_MARKETS_ETF_VOLATILITY_INDEX: str = "VXEEMCLS"
+        """CBOE Emerging Markets ETF Volatility Index (in Index)"""
+
+        EURO_CURRENCY_ETF_VOLATILITY_INDEX: str = "EVZCLS"
+        """CBOE EuroCurrency ETF Volatility Index (in Index)"""
+
+        GOLD_ETF_VOLATILITY_INDEX: str = "GVZCLS"
+        """CBOE Gold ETF Volatility Index (in Index)"""
+
+        CRUDE_OIL_ETF_VOLATILITY_INDEX: str = "OVXCLS"
+        """CBOE Crude Oil ETF Volatility Index (in Index)"""
+
+        SILVER_ETF_VOLATILITY_INDEX: str = "VXSLVCLS"
+        """CBOE Silver ETF Volatility Index (in Index)"""
+
+        ENERGY_SECTOR_ETF_VOLATILITY_INDEX: str = "VXXLECLS"
+        """CBOE Energy Sector ETF Volatility Index (in Index)"""
+
+        VIX: str = "VIXCLS"
+        """CBOE Volatility Index: VIX (in Index)"""
+
+    class LIBOR(System.Object):
+        """London InterBank Offered Rate"""
+
+        SPOT_NEXT_BASED_ON_SWISS_FRANC: str = "CHFONTD156N"
+        """Spot Next London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
+
+        SPOT_NEXT_BASED_ON_JAPANESE_YEN: str = "JPYONTD156N"
+        """Spot Next London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
+
+        SIX_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY6MTD156N"
+        """6-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
+
+        THREE_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY3MTD156N"
+        """3-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
+
+        SIX_MONTH_BASED_ON_USD: str = "USD6MTD156N"
+        """6-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
+
+        ONE_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY1MTD156N"
+        """1-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
+
+        TWELVE_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY12MD156N"
+        """12-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
+
+        TWELVE_MONTH_BASED_ON_BRITISH_POUND: str = "GBP12MD156N"
+        """12-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
+
+        ONE_MONTH_BASED_ON_BRITISH_POUND: str = "GBP1MTD156N"
+        """1-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
+
+        ONE_WEEK_BASED_ON_BRITISH_POUND: str = "GBP1WKD156N"
+        """1-Week London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
+
+        TWO_MONTH_BASED_ON_BRITISH_POUND: str = "GBP2MTD156N"
+        """2-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
+
+        THREE_MONTH_BASED_ON_BRITISH_POUND: str = "GBP3MTD156N"
+        """3-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
+
+        ONE_WEEK_BASED_ON_JAPANESE_YEN: str = "JPY1WKD156N"
+        """1-Week London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
+
+        TWO_MONTH_BASED_ON_JAPANESE_YEN: str = "JPY2MTD156N"
+        """2-Month London Interbank Offered Rate (LIBOR), based on Japanese Yen (in Percent)"""
+
+        SIX_MONTH_BASED_ON_SWISS_FRANC: str = "CHF6MTD156N"
+        """6-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
+
+        THREE_MONTH_BASED_ON_SWISS_FRANC: str = "CHF3MTD156N"
+        """3-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
+
+        ONE_MONTH_BASED_ON_USD: str = "USD1MTD156N"
+        """1-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
+
+        TWELVE_MONTH_BASED_ON_SWISS_FRANC: str = "CHF12MD156N"
+        """12-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
+
+        TWELVE_MONTH_BASED_ON_USD: str = "USD12MD156N"
+        """12-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
+
+        ONE_MONTH_BASED_ON_SWISS_FRANC: str = "CHF1MTD156N"
+        """1-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
+
+        ONE_WEEK_BASED_ON_SWISS_FRANC: str = "CHF1WKD156N"
+        """1-Week London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
+
+        TWO_MONTH_BASED_ON_SWISS_FRANC: str = "CHF2MTD156N"
+        """2-Month London Interbank Offered Rate (LIBOR), based on Swiss Franc (in Percent)"""
+
+        TWELVE_MONTH_BASED_ON_EURO: str = "EUR12MD156N"
+        """12-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
+
+        SIX_MONTH_BASED_ON_BRITISH_POUND: str = "GBP6MTD156N"
+        """6-Month London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
+
+        ONE_MONTH_BASED_ON_EURO: str = "EUR1MTD156N"
+        """1-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
+
+        TWO_MONTH_BASED_ON_EURO: str = "EUR2MTD156N"
+        """2-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
+
+        THREE_MONTH_BASED_ON_EURO: str = "EUR3MTD156N"
+        """3-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
+
+        SIX_MONTH_BASED_ON_EURO: str = "EUR6MTD156N"
+        """6-Month London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
+
+        OVERNIGHT_BASED_ON_EURO: str = "EURONTD156N"
+        """Overnight London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
+
+        ONE_WEEK_BASED_ON_USD: str = "USD1WKD156N"
+        """1-Week London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
+
+        TWO_MONTH_BASED_ON_USD: str = "USD2MTD156N"
+        """2-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
+
+        THREE_MONTH_BASED_ON_USD: str = "USD3MTD156N"
+        """3-Month London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
+
+        OVERNIGHT_BASED_ON_USD: str = "USDONTD156N"
+        """Overnight London Interbank Offered Rate (LIBOR), based on U.S. Dollar (in Percent)"""
+
+        ONE_WEEK_BASED_ON_EURO: str = "EUR1WKD156N"
+        """1-Week London Interbank Offered Rate (LIBOR), based on Euro (in Percent)"""
+
+        OVERNIGHT_BASED_ON_BRITISH_POUND: str = "GBPONTD156N"
+        """Overnight London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
 
     DATA_SOURCE_ID: int
     """Data source ID"""
 
-    @property
-    def front_month(self) -> int:
-        """The month of the front month contract (possible values: 1 - 12)"""
-        ...
-
-    @front_month.setter
-    def front_month(self, value: int) -> None:
-        ...
-
-    @property
-    def f_1(self) -> float:
-        """Front month contract"""
-        ...
-
-    @f_1.setter
-    def f_1(self, value: float) -> None:
-        ...
-
-    @property
-    def f_2(self) -> float:
-        """Contract 1 month away from the front month contract"""
-        ...
-
-    @f_2.setter
-    def f_2(self, value: float) -> None:
-        ...
-
-    @property
-    def f_3(self) -> float:
-        """Contract 2 months away from the front month contract"""
-        ...
-
-    @f_3.setter
-    def f_3(self, value: float) -> None:
-        ...
-
-    @property
-    def f_4(self) -> float:
-        """Contract 3 months away from the front month contract"""
-        ...
-
-    @f_4.setter
-    def f_4(self, value: float) -> None:
-        ...
-
-    @property
-    def f_5(self) -> float:
-        """Contract 4 months away from the front month contract"""
-        ...
-
-    @f_5.setter
-    def f_5(self, value: float) -> None:
-        ...
-
-    @property
-    def f_6(self) -> float:
-        """Contract 5 months away from the front month contract"""
-        ...
-
-    @f_6.setter
-    def f_6(self, value: float) -> None:
-        ...
-
-    @property
-    def f_7(self) -> float:
-        """Contract 6 months away from the front month contract"""
-        ...
-
-    @f_7.setter
-    def f_7(self, value: float) -> None:
-        ...
-
-    @property
-    def f_8(self) -> float:
-        """Contract 7 months away from the front month contract"""
-        ...
-
-    @f_8.setter
-    def f_8(self, value: float) -> None:
-        ...
-
-    @property
-    def f_9(self) -> typing.Optional[float]:
-        """Contract 8 months away from the front month contract"""
-        ...
-
-    @f_9.setter
-    def f_9(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def f_10(self) -> typing.Optional[float]:
-        """Contract 9 months away from the front month contract"""
-        ...
-
-    @f_10.setter
-    def f_10(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def f_11(self) -> typing.Optional[float]:
-        """Contract 10 months away from the front month contract"""
-        ...
-
-    @f_11.setter
-    def f_11(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def f_12(self) -> typing.Optional[float]:
-        """Contract 11 months away from the front month contract"""
-        ...
-
-    @f_12.setter
-    def f_12(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def contango_f_2_minus_f_1(self) -> float:
-        """Percentage change between contract F2 and F1, calculated as: (F2 - F1) / F1"""
-        ...
-
-    @contango_f_2_minus_f_1.setter
-    def contango_f_2_minus_f_1(self, value: float) -> None:
-        ...
-
-    @property
-    def contango_f_7_minus_f_4(self) -> float:
-        """Percentage change between contract F7 and F4, calculated as: (F7 - F4) / F4"""
-        ...
-
-    @contango_f_7_minus_f_4.setter
-    def contango_f_7_minus_f_4(self, value: float) -> None:
-        ...
-
-    @property
-    def contango_f_7_minus_f_4_div_3(self) -> float:
-        """Percentage change between contract F7 and F4 divided by 3, calculated as: ((F7 - F4) / F4) / 3"""
-        ...
-
-    @contango_f_7_minus_f_4_div_3.setter
-    def contango_f_7_minus_f_4_div_3(self, value: float) -> None:
-        ...
-
-    @property
-    def period(self) -> datetime.timedelta:
-        """The timespan that each data point covers"""
-        ...
-
-    @period.setter
-    def period(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The ending time of the data point"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
+    is_auth_code_set: bool
+    """Flag indicating whether or not the FRED auth code has been set yet"""
 
     def __init__(self) -> None:
-        """Creates a new instance of the object"""
+        """Default Fred constructor"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
         ...
 
     def default_resolution(self) -> QuantConnect.Resolution:
@@ -52010,39 +50760,52 @@ class VIXCentralContango(QuantConnect.Data.BaseData):
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Gets the source location of the VIXCentral data
+        Return the URL string source of the file. This will be converted to a stream
         
-        :param config: 
-        :param date: 
-        :param is_live_mode: 
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
         """
         ...
 
     def is_sparse_data(self) -> bool:
         """
-        Determines if data source is sparse
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
         
-        :returns: false.
+        :returns: true.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Reads the data from the source and creates a BaseData instance
+        Parses the data from the line provided and loads it into LEAN
         
-        :param config: Configuration
+        :param config: Subscription configuration
         :param line: Line of data
-        :param date: Date we're requesting data for
+        :param date: Date
         :param is_live_mode: Is live mode
-        :returns: New BaseData instance to be used in the algorithm.
+        :returns: New instance of FRED data.
         """
         ...
 
     def requires_mapping(self) -> bool:
         """
-        Determines whether the data source requires mapping
+        Indicates whether the data source is tied
+        to an underlying symbol and requires that corporate
+        events be applied to it as well, such as renames and delistings
         
         :returns: false.
+        """
+        ...
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Set the FRED authentication code to request the data.
+        
+        :param auth_code: 
         """
         ...
 
@@ -52051,16 +50814,12 @@ class VIXCentralContango(QuantConnect.Data.BaseData):
         ...
 
     def to_string(self) -> str:
-        """
-        Converts the instance to a string
-        
-        :returns: String containing open, high, low, close.
-        """
+        """Converts the instance to string"""
         ...
 
 
 class USEnergy(QuantConnect.Data.BaseData):
-    """United States Energy Information Administration (EIA). This loads U.S. Energy data from QuantConnect's cache."""
+    """This class has no documentation."""
 
     class Petroleum(System.Object):
         """Petroleum"""
@@ -52779,14 +51538,1067 @@ class USEnergy(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Collection of personal stock advices by CNBC"""
+class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
+    """U.S. Treasury yield curve data"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def one_month(self) -> typing.Optional[float]:
+        """One month yield curve"""
+        ...
+
+    @one_month.setter
+    def one_month(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def two_month(self) -> typing.Optional[float]:
+        """Two month yield curve"""
+        ...
+
+    @two_month.setter
+    def two_month(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def three_month(self) -> typing.Optional[float]:
+        """Three month yield curve"""
+        ...
+
+    @three_month.setter
+    def three_month(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def six_month(self) -> typing.Optional[float]:
+        """Six month yield curve"""
+        ...
+
+    @six_month.setter
+    def six_month(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def one_year(self) -> typing.Optional[float]:
+        """One year yield curve"""
+        ...
+
+    @one_year.setter
+    def one_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def two_year(self) -> typing.Optional[float]:
+        """Two year yield curve"""
+        ...
+
+    @two_year.setter
+    def two_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def three_year(self) -> typing.Optional[float]:
+        """Three year yield curve"""
+        ...
+
+    @three_year.setter
+    def three_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def five_year(self) -> typing.Optional[float]:
+        """Five year yield curve"""
+        ...
+
+    @five_year.setter
+    def five_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def seven_year(self) -> typing.Optional[float]:
+        """Seven year yield curve"""
+        ...
+
+    @seven_year.setter
+    def seven_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ten_year(self) -> typing.Optional[float]:
+        """Ten year yield curve"""
+        ...
+
+    @ten_year.setter
+    def ten_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def twenty_year(self) -> typing.Optional[float]:
+        """Twenty year yield curve"""
+        ...
+
+    @twenty_year.setter
+    def twenty_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def thirty_year(self) -> typing.Optional[float]:
+        """Thirty year yield curve"""
+        ...
+
+    @thirty_year.setter
+    def thirty_year(self, value: typing.Optional[float]) -> None:
+        ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Clones the data
+        Clones the object. This method implementation is required
+        so that we don't have any null values for our properties
+        when the user attempts to use it in backtesting/live trading
         
-        :returns: A clone of the object.
+        :returns: Cloned instance.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load the data from
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads and parses yield curve data from a csv file
+        
+        :param config: Subscription configuration
+        :param line: CSV line containing yield curve data
+        :param date: Date request was made for
+        :param is_live_mode: Is live mode
+        :returns: YieldCurve instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class EstimizeRelease(QuantConnect.Data.BaseData):
+    """Financial releases for the specified company"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        """The unique identifier for the release"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> int:
+        """The fiscal year for the release"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> int:
+        """The fiscal quarter for the release"""
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: int) -> None:
+        ...
+
+    @property
+    def release_date(self) -> datetime.datetime:
+        """The date of the release"""
+        ...
+
+    @release_date.setter
+    def release_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def eps(self) -> typing.Optional[float]:
+        """The earnings per share for the specified fiscal quarter"""
+        ...
+
+    @eps.setter
+    def eps(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def revenue(self) -> typing.Optional[float]:
+        """The revenue for the specified fiscal quarter"""
+        ...
+
+    @revenue.setter
+    def revenue(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def wall_street_eps_estimate(self) -> typing.Optional[float]:
+        """The estimated EPS from Wall Street"""
+        ...
+
+    @wall_street_eps_estimate.setter
+    def wall_street_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def wall_street_revenue_estimate(self) -> typing.Optional[float]:
+        """The estimated revenue from Wall Street"""
+        ...
+
+    @wall_street_revenue_estimate.setter
+    def wall_street_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_eps_estimate(self) -> typing.Optional[float]:
+        """The mean EPS consensus by the Estimize community"""
+        ...
+
+    @consensus_eps_estimate.setter
+    def consensus_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_revenue_estimate(self) -> typing.Optional[float]:
+        """The mean revenue consensus by the Estimize community"""
+        ...
+
+    @consensus_revenue_estimate.setter
+    def consensus_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_weighted_eps_estimate(self) -> typing.Optional[float]:
+        """The weighted EPS consensus by the Estimize community"""
+        ...
+
+    @consensus_weighted_eps_estimate.setter
+    def consensus_weighted_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_weighted_revenue_estimate(self) -> typing.Optional[float]:
+        """The weighted revenue consensus by the Estimize community"""
+        ...
+
+    @consensus_weighted_revenue_estimate.setter
+    def consensus_weighted_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Without a default constructor, Json.NET will call the
+        other constructor with `null` for the string parameter
+        """
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates EstimizeRelease instance from a line of CSV
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize Release object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Release information."""
+        ...
+
+
+class EstimizeEstimate(QuantConnect.Data.BaseData):
+    """Financial estimates for the specified company"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        """The unique identifier for the estimate"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def ticker(self) -> str:
+        """The ticker of the company being estimated"""
+        ...
+
+    @ticker.setter
+    def ticker(self, value: str) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> int:
+        """The fiscal year of the quarter being estimated"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> int:
+        """The fiscal quarter of the quarter being estimated"""
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: int) -> None:
+        ...
+
+    @property
+    def created_at(self) -> datetime.datetime:
+        """The time that the estimate was created (UTC)"""
+        ...
+
+    @created_at.setter
+    def created_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def eps(self) -> typing.Optional[float]:
+        """The estimated earnings per share for the company in the specified fiscal quarter"""
+        ...
+
+    @eps.setter
+    def eps(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def revenue(self) -> typing.Optional[float]:
+        """The estimated revenue for the company in the specified fiscal quarter"""
+        ...
+
+    @revenue.setter
+    def revenue(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def user_name(self) -> str:
+        """The unique identifier for the author of the estimate"""
+        ...
+
+    @user_name.setter
+    def user_name(self, value: str) -> None:
+        ...
+
+    @property
+    def analyst_id(self) -> str:
+        """The author of the estimate"""
+        ...
+
+    @analyst_id.setter
+    def analyst_id(self, value: str) -> None:
+        ...
+
+    @property
+    def flagged(self) -> bool:
+        """
+        A boolean value which indicates whether we have flagged this estimate internally as erroneous
+        (spam, wrong accounting standard, etc)
+        """
+        ...
+
+    @flagged.setter
+    def flagged(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Required for successful Json.NET deserialization"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates a new instance of EstimizeEstimate from a CSV line
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize Estimate object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Estimate information."""
+        ...
+
+
+class EstimizeConsensus(QuantConnect.Data.BaseData):
+    """Consensus of the specified release"""
+
+    class ConsensusSource(IntEnum):
+        """Source of the Consensus"""
+
+        WALL_STREET = 0
+        """Consensus from Wall Street"""
+
+        ESTIMIZE = 1
+        """Consensus from Estimize"""
+
+        WEIGHTED_WALL_STREET = 2
+        """Weighted consensus from Wall Street"""
+
+        WEIGHTED_ESTIMIZE = 3
+        """Weighted consensus from Estimize"""
+
+    class ConsensusType(IntEnum):
+        """Type of the consensus"""
+
+        EPS = 0
+        """Consensus on earnings per share value"""
+
+        REVENUE = 1
+        """Consensus on revenue value"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        """The unique identifier for the estimate"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def source(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]:
+        """Consensus source (Wall Street or Estimize)"""
+        ...
+
+    @source.setter
+    def source(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]) -> None:
+        ...
+
+    @property
+    def type(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]:
+        """Type of Consensus (EPS or Revenue)"""
+        ...
+
+    @type.setter
+    def type(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]) -> None:
+        ...
+
+    @property
+    def mean(self) -> typing.Optional[float]:
+        """The mean of the distribution of estimates (the "consensus")"""
+        ...
+
+    @mean.setter
+    def mean(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def value(self) -> float:
+        """The mean of the distribution of estimates (the "consensus")"""
+        ...
+
+    @property
+    def high(self) -> typing.Optional[float]:
+        """The highest estimate in the distribution"""
+        ...
+
+    @high.setter
+    def high(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def low(self) -> typing.Optional[float]:
+        """The lowest estimate in the distribution"""
+        ...
+
+    @low.setter
+    def low(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def standard_deviation(self) -> typing.Optional[float]:
+        """The standard deviation of the distribution"""
+        ...
+
+    @standard_deviation.setter
+    def standard_deviation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def count(self) -> typing.Optional[int]:
+        """The number of estimates in the distribution"""
+        ...
+
+    @count.setter
+    def count(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def updated_at(self) -> datetime.datetime:
+        """The timestamp of this consensus (UTC)"""
+        ...
+
+    @updated_at.setter
+    def updated_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> typing.Optional[int]:
+        """The fiscal year for the release"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> typing.Optional[int]:
+        """The fiscal quarter for the release"""
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The timestamp of this consensus (UTC)"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for successful Json.NET deserialization"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates an instance from CSV lines
+        
+        :param csv_line: CSV file
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize consensus object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Estimate information."""
+        ...
+
+
+class VIXCentralContango(QuantConnect.Data.BaseData):
+    """VIXCentral Contango"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def front_month(self) -> int:
+        """The month of the front month contract (possible values: 1 - 12)"""
+        ...
+
+    @front_month.setter
+    def front_month(self, value: int) -> None:
+        ...
+
+    @property
+    def f_1(self) -> float:
+        """Front month contract"""
+        ...
+
+    @f_1.setter
+    def f_1(self, value: float) -> None:
+        ...
+
+    @property
+    def f_2(self) -> float:
+        """Contract 1 month away from the front month contract"""
+        ...
+
+    @f_2.setter
+    def f_2(self, value: float) -> None:
+        ...
+
+    @property
+    def f_3(self) -> float:
+        """Contract 2 months away from the front month contract"""
+        ...
+
+    @f_3.setter
+    def f_3(self, value: float) -> None:
+        ...
+
+    @property
+    def f_4(self) -> float:
+        """Contract 3 months away from the front month contract"""
+        ...
+
+    @f_4.setter
+    def f_4(self, value: float) -> None:
+        ...
+
+    @property
+    def f_5(self) -> float:
+        """Contract 4 months away from the front month contract"""
+        ...
+
+    @f_5.setter
+    def f_5(self, value: float) -> None:
+        ...
+
+    @property
+    def f_6(self) -> float:
+        """Contract 5 months away from the front month contract"""
+        ...
+
+    @f_6.setter
+    def f_6(self, value: float) -> None:
+        ...
+
+    @property
+    def f_7(self) -> float:
+        """Contract 6 months away from the front month contract"""
+        ...
+
+    @f_7.setter
+    def f_7(self, value: float) -> None:
+        ...
+
+    @property
+    def f_8(self) -> float:
+        """Contract 7 months away from the front month contract"""
+        ...
+
+    @f_8.setter
+    def f_8(self, value: float) -> None:
+        ...
+
+    @property
+    def f_9(self) -> typing.Optional[float]:
+        """Contract 8 months away from the front month contract"""
+        ...
+
+    @f_9.setter
+    def f_9(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def f_10(self) -> typing.Optional[float]:
+        """Contract 9 months away from the front month contract"""
+        ...
+
+    @f_10.setter
+    def f_10(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def f_11(self) -> typing.Optional[float]:
+        """Contract 10 months away from the front month contract"""
+        ...
+
+    @f_11.setter
+    def f_11(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def f_12(self) -> typing.Optional[float]:
+        """Contract 11 months away from the front month contract"""
+        ...
+
+    @f_12.setter
+    def f_12(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def contango_f_2_minus_f_1(self) -> float:
+        """Percentage change between contract F2 and F1, calculated as: (F2 - F1) / F1"""
+        ...
+
+    @contango_f_2_minus_f_1.setter
+    def contango_f_2_minus_f_1(self, value: float) -> None:
+        ...
+
+    @property
+    def contango_f_7_minus_f_4(self) -> float:
+        """Percentage change between contract F7 and F4, calculated as: (F7 - F4) / F4"""
+        ...
+
+    @contango_f_7_minus_f_4.setter
+    def contango_f_7_minus_f_4(self, value: float) -> None:
+        ...
+
+    @property
+    def contango_f_7_minus_f_4_div_3(self) -> float:
+        """Percentage change between contract F7 and F4 divided by 3, calculated as: ((F7 - F4) / F4) / 3"""
+        ...
+
+    @contango_f_7_minus_f_4_div_3.setter
+    def contango_f_7_minus_f_4_div_3(self, value: float) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """The timespan that each data point covers"""
+        ...
+
+    @period.setter
+    def period(self, value: datetime.timedelta) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The ending time of the data point"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Creates a new instance of the object"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Gets the source location of the VIXCentral data
+        
+        :param config: 
+        :param date: 
+        :param is_live_mode: 
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Determines if data source is sparse
+        
+        :returns: false.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads the data from the source and creates a BaseData instance
+        
+        :param config: Configuration
+        :param line: Line of data
+        :param date: Date we're requesting data for
+        :param is_live_mode: Is live mode
+        :returns: New BaseData instance to be used in the algorithm.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Determines whether the data source requires mapping
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the instance to a string
+        
+        :returns: String containing open, high, low, close.
+        """
+        ...
+
+
+class ExtractAlphaTrueBeatEarningsMetric(IntEnum):
+    """The earnings metric/type being forecasted"""
+
+    EPS = 0
+    """Earnings per share"""
+
+    REVENUE = 1
+    """Revenue"""
+
+
+class ExtractAlphaFiscalPeriod(System.Object):
+    """Fiscal period that the ExtractAlphaTrueBeat instance has forecasts for."""
+
+    @property
+    def fiscal_year(self) -> int:
+        """Fiscal year (i.e. the year that the financial report applies to in 10-Q and/or 10-K SEC filings)"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> typing.Optional[int]:
+        """
+        Fiscal quarter (i.e. the quarter that the financial report applies to in 10-Q filings).
+        If this is null, then the fiscal period being reported is for the full year of the fiscal_year
+        """
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def end(self) -> typing.Optional[datetime.datetime]:
+        """The date that the fiscal quarter ends"""
+        ...
+
+    @end.setter
+    def end(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def expected_report_date(self) -> typing.Optional[datetime.datetime]:
+        """The date that the SEC report for the fiscal period is expected to be released publicly"""
+        ...
+
+    @expected_report_date.setter
+    def expected_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def annual(self) -> bool:
+        """Returns true if the fiscal period is for the whole fiscal year (all quarters)"""
+        ...
+
+    @property
+    def quarterly(self) -> bool:
+        """Returns true if the fiscal period is for a single quarter only"""
+        ...
+
+
+class ExtractAlphaTrueBeat(QuantConnect.Data.BaseData):
+    """
+    EPS/Revenue earnings surprise forecasting for upcoming financial reports released
+    by regulatory agencies (e.g. United States SEC)
+    """
+
+    @property
+    def fiscal_period(self) -> QuantConnect.DataSource.ExtractAlphaFiscalPeriod:
+        """The fiscal period that is being forecasted"""
+        ...
+
+    @fiscal_period.setter
+    def fiscal_period(self, value: QuantConnect.DataSource.ExtractAlphaFiscalPeriod) -> None:
+        ...
+
+    @property
+    def earnings_metric(self) -> QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric:
+        """The earnings metric being forecasted (e.g. EPS, revenue)"""
+        ...
+
+    @earnings_metric.setter
+    def earnings_metric(self, value: QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric) -> None:
+        ...
+
+    @property
+    def analyst_estimates_count(self) -> int:
+        """The number of analyst estimates that the true_beat used in its calculation"""
+        ...
+
+    @analyst_estimates_count.setter
+    def analyst_estimates_count(self, value: int) -> None:
+        ...
+
+    @property
+    def true_beat(self) -> float:
+        """
+        The forecasted earnings surprise percentage, relative to consensus estimates.
+        TrueBeat is calculated as the total sum of the expert_beat, trend_beat, and management_beat metrics.
+        """
+        ...
+
+    @true_beat.setter
+    def true_beat(self, value: float) -> None:
+        ...
+
+    @property
+    def expert_beat(self) -> typing.Optional[float]:
+        """The component of true_beat that is derived from top analyst estimates"""
+        ...
+
+    @expert_beat.setter
+    def expert_beat(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def trend_beat(self) -> typing.Optional[float]:
+        """The component of true_beat that is derived from trends in stock and peer surprises"""
+        ...
+
+    @trend_beat.setter
+    def trend_beat(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def management_beat(self) -> typing.Optional[float]:
+        """The component of true_beat that is derived from management activity (e.g. guidance)"""
+        ...
+
+    @management_beat.setter
+    def management_beat(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time that the data became available to the algorithm"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
         """
         ...
 
@@ -52798,8 +52610,77 @@ class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
         """
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with TrueBeat data
+        
+        :returns: string containing TrueBeat information.
+        """
+        ...
+
+
+class ExtractAlphaTrueBeats(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """A collection of Extra Alpha True Beats for a Symbol and date"""
+
+    def add(self, new_data_point: QuantConnect.Data.BaseData) -> None:
+        """
+        Adds a new data point to this collection
+        
+        :param new_data_point: The new data point to add
+        """
+        ...
+
+    def add_range(self, new_data_points: typing.List[QuantConnect.Data.BaseData]) -> None:
+        """
+        Adds a new data points to this collection
+        
+        :param new_data_points: The new data points to add
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -52839,6 +52720,1491 @@ class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
         Indicates if there is support for mapping
         
         :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with TrueBeat data
+        
+        :returns: string containing TrueBeat information.
+        """
+        ...
+
+
+class SECReportDocument(System.Object):
+    """Business documents reported to the SEC"""
+
+    @property
+    def form_type(self) -> str:
+        """Report document type, e.g. 10-Q, 8-K, S-1"""
+        ...
+
+    @form_type.setter
+    def form_type(self, value: str) -> None:
+        ...
+
+    @property
+    def sequence(self) -> int:
+        """Nth attachment to the form filed"""
+        ...
+
+    @sequence.setter
+    def sequence(self, value: int) -> None:
+        ...
+
+    @property
+    def filename(self) -> str:
+        """File name that the file had when it was uploaded"""
+        ...
+
+    @filename.setter
+    def filename(self, value: str) -> None:
+        ...
+
+    @property
+    def description(self) -> str:
+        """Attachment content(s) description"""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def text(self) -> str:
+        """
+        Content of the attachment. This is the field that will most likely contain
+        information related to financial reports. Sometimes, XML will
+        be present in the data. If the first line starts with "<XML>", then
+        XML data will be present in the contents of the document
+        """
+        ...
+
+    @text.setter
+    def text(self, value: str) -> None:
+        ...
+
+
+class SECReportCompanyData(System.Object):
+    """Company Information reported to SEC"""
+
+    @property
+    def conformed_name(self) -> str:
+        """Current company name"""
+        ...
+
+    @conformed_name.setter
+    def conformed_name(self, value: str) -> None:
+        ...
+
+    @property
+    def cik(self) -> str:
+        """Company's Central Index Key. Used to uniquely identify company filings in SEC's EDGAR system"""
+        ...
+
+    @cik.setter
+    def cik(self, value: str) -> None:
+        ...
+
+    @property
+    def assigned_sic(self) -> str:
+        """Standard Industrial Classification"""
+        ...
+
+    @assigned_sic.setter
+    def assigned_sic(self, value: str) -> None:
+        ...
+
+    @property
+    def irs_number(self) -> str:
+        """Employer Identification Number"""
+        ...
+
+    @irs_number.setter
+    def irs_number(self, value: str) -> None:
+        ...
+
+    @property
+    def state_of_incorporation(self) -> str:
+        """State of incorporation"""
+        ...
+
+    @state_of_incorporation.setter
+    def state_of_incorporation(self, value: str) -> None:
+        ...
+
+    @property
+    def fiscal_year_end(self) -> str:
+        """Day fiscal year ends for given company. Formatted as MMdd"""
+        ...
+
+    @fiscal_year_end.setter
+    def fiscal_year_end(self, value: str) -> None:
+        ...
+
+
+class SECReportFilingValues(System.Object):
+    """SEC Report Filing information"""
+
+    @property
+    def form_type(self) -> str:
+        """SEC Form Type (e.g. 10-Q, 8-K, S-1, etc.)"""
+        ...
+
+    @form_type.setter
+    def form_type(self, value: str) -> None:
+        ...
+
+    @property
+    def act(self) -> str:
+        """Identification of the act(s) under which certain IM filings are made. The form type may be filed under more than one act. Required in each filing values tag nest."""
+        ...
+
+    @act.setter
+    def act(self, value: str) -> None:
+        ...
+
+    @property
+    def file_number(self) -> str:
+        """SEC filing number"""
+        ...
+
+    @file_number.setter
+    def file_number(self, value: str) -> None:
+        ...
+
+    @property
+    def film_number(self) -> str:
+        """Used to access documents in the SEC's Virtual Private Reference Room (VPRR)"""
+        ...
+
+    @film_number.setter
+    def film_number(self, value: str) -> None:
+        ...
+
+
+class SECReportBusinessAddress(System.Object):
+    """Business Address reported to the SEC"""
+
+    @property
+    def street_one(self) -> str:
+        """Street Address 1"""
+        ...
+
+    @street_one.setter
+    def street_one(self, value: str) -> None:
+        ...
+
+    @property
+    def street_two(self) -> str:
+        """Street Address 2"""
+        ...
+
+    @street_two.setter
+    def street_two(self, value: str) -> None:
+        ...
+
+    @property
+    def city(self) -> str:
+        """City"""
+        ...
+
+    @city.setter
+    def city(self, value: str) -> None:
+        ...
+
+    @property
+    def state(self) -> str:
+        """US State"""
+        ...
+
+    @state.setter
+    def state(self, value: str) -> None:
+        ...
+
+    @property
+    def zip(self) -> str:
+        """ZIP Code"""
+        ...
+
+    @zip.setter
+    def zip(self, value: str) -> None:
+        ...
+
+    @property
+    def phone(self) -> str:
+        """Business phone number"""
+        ...
+
+    @phone.setter
+    def phone(self, value: str) -> None:
+        ...
+
+
+class SECReportMailAddress(System.Object):
+    """SEC Report Mail Address"""
+
+    @property
+    def street_one(self) -> str:
+        """Mailing street address"""
+        ...
+
+    @street_one.setter
+    def street_one(self, value: str) -> None:
+        ...
+
+    @property
+    def street_two(self) -> str:
+        """Mailing street address 2"""
+        ...
+
+    @street_two.setter
+    def street_two(self, value: str) -> None:
+        ...
+
+    @property
+    def city(self) -> str:
+        """City"""
+        ...
+
+    @city.setter
+    def city(self, value: str) -> None:
+        ...
+
+    @property
+    def state(self) -> str:
+        """US State"""
+        ...
+
+    @state.setter
+    def state(self, value: str) -> None:
+        ...
+
+    @property
+    def zip(self) -> str:
+        """ZIP code. Not an integer because ZIP codes with dashes and letters exist"""
+        ...
+
+    @zip.setter
+    def zip(self, value: str) -> None:
+        ...
+
+
+class SECReportFormerCompany(System.Object):
+    """SEC Name Changing Report"""
+
+    @property
+    def former_conformed_name(self) -> str:
+        """Previous company name"""
+        ...
+
+    @former_conformed_name.setter
+    def former_conformed_name(self, value: str) -> None:
+        ...
+
+    @property
+    def changed(self) -> datetime.datetime:
+        """Date the company name was changed to a new name"""
+        ...
+
+    @changed.setter
+    def changed(self, value: datetime.datetime) -> None:
+        ...
+
+
+class SECReportFiler(System.Object):
+    """SEC Filing"""
+
+    @property
+    def company_data(self) -> QuantConnect.DataSource.SECReportCompanyData:
+        """SEC data containing company data such as company name, cik, etc."""
+        ...
+
+    @company_data.setter
+    def company_data(self, value: QuantConnect.DataSource.SECReportCompanyData) -> None:
+        ...
+
+    @property
+    def values(self) -> typing.List[QuantConnect.DataSource.SECReportFilingValues]:
+        """Information regarding the filing itself"""
+        ...
+
+    @values.setter
+    def values(self, value: typing.List[QuantConnect.DataSource.SECReportFilingValues]) -> None:
+        ...
+
+    @property
+    def business_address(self) -> typing.List[QuantConnect.DataSource.SECReportBusinessAddress]:
+        """Information related to the business' address"""
+        ...
+
+    @business_address.setter
+    def business_address(self, value: typing.List[QuantConnect.DataSource.SECReportBusinessAddress]) -> None:
+        ...
+
+    @property
+    def mailing_address(self) -> typing.List[QuantConnect.DataSource.SECReportMailAddress]:
+        """Company mailing address information"""
+        ...
+
+    @mailing_address.setter
+    def mailing_address(self, value: typing.List[QuantConnect.DataSource.SECReportMailAddress]) -> None:
+        ...
+
+    @property
+    def former_companies(self) -> typing.List[QuantConnect.DataSource.SECReportFormerCompany]:
+        """
+        Former company names. Default to empty list in order to not have null values
+        in the case that the company has never had a former name
+        """
+        ...
+
+    @former_companies.setter
+    def former_companies(self, value: typing.List[QuantConnect.DataSource.SECReportFormerCompany]) -> None:
+        ...
+
+
+class SECReportSubmission(System.Object):
+    """SEC Report Submission"""
+
+    @property
+    def accession_number(self) -> str:
+        """Number used to access document filings on the SEC website"""
+        ...
+
+    @accession_number.setter
+    def accession_number(self, value: str) -> None:
+        ...
+
+    @property
+    def form_type(self) -> str:
+        """SEC form type"""
+        ...
+
+    @form_type.setter
+    def form_type(self, value: str) -> None:
+        ...
+
+    @property
+    def public_document_count(self) -> str:
+        """Number of documents made public by the SEC"""
+        ...
+
+    @public_document_count.setter
+    def public_document_count(self, value: str) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.datetime:
+        """End date of reporting period of filing. Optional."""
+        ...
+
+    @period.setter
+    def period(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def items(self) -> typing.List[str]:
+        """Identifies 1 or more items declared in 8-K filings. Optional & Repeatable."""
+        ...
+
+    @items.setter
+    def items(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def filing_date(self) -> datetime.datetime:
+        """Date report was filed with the SEC"""
+        ...
+
+    @filing_date.setter
+    def filing_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def filing_date_change(self) -> datetime.datetime:
+        """Date when the last Post Acceptance occurred. Optional."""
+        ...
+
+    @filing_date_change.setter
+    def filing_date_change(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def made_available_at(self) -> datetime.datetime:
+        """
+        Exact time the report was filed with the SEC and made available to the public (plus 10 minute delay).
+        This field is NOT included with the raw SEC report, and should be added during post processing of the data
+        """
+        ...
+
+    @made_available_at.setter
+    def made_available_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def filers(self) -> typing.List[QuantConnect.DataSource.SECReportFiler]:
+        """Contains information regarding who the filer of the report is."""
+        ...
+
+    @filers.setter
+    def filers(self, value: typing.List[QuantConnect.DataSource.SECReportFiler]) -> None:
+        ...
+
+    @property
+    def documents(self) -> typing.List[QuantConnect.DataSource.SECReportDocument]:
+        """Attachments/content associated with the report"""
+        ...
+
+    @documents.setter
+    def documents(self, value: typing.List[QuantConnect.DataSource.SECReportDocument]) -> None:
+        ...
+
+
+class ISECReport(QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta):
+    """
+    Base interface for all SEC report types.
+    Using an interface, we can retrieve all report types with a single
+    call to Slice.Get{T}()
+    """
+
+    @property
+    @abc.abstractmethod
+    def report(self) -> QuantConnect.DataSource.SECReportSubmission:
+        """Contents of the actual SEC report"""
+        ...
+
+
+class SECReport10K(QuantConnect.Data.BaseData, QuantConnect.DataSource.ISECReport):
+    """
+    SEC 10-K report (annual earnings) BaseData implementation.
+    Using this class, you can retrieve SEC report data for a security if it exists.
+    If the ticker you want no longer trades, you can also use the CIK of the company
+    you want data for as well except for currently traded stocks. This may change in the future.
+    """
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def report(self) -> QuantConnect.DataSource.SECReportSubmission:
+        """Contents of the actual SEC report"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for Slice.Get{T}()"""
+        ...
+
+    @overload
+    def __init__(self, report: QuantConnect.DataSource.SECReportSubmission) -> None:
+        """
+        Constructor used to initialize instance with the given report
+        
+        :param report: SEC report submission
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the current object into a new object
+        
+        :returns: BaseData clone of the current object.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Returns a subscription data source pointing towards SEC 10-K report data
+        
+        :param config: User configuration
+        :param date: Date data has been requested for
+        :param is_live_mode: Is livetrading
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data into BaseData
+        
+        :param config: User subscription config
+        :param line: Line of source file to parse
+        :param date: Date data was requested for
+        :param is_live_mode: Is livetrading mode
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class SECReportIndexItem(System.Object):
+    """SEC Report Index Item"""
+
+    @property
+    def last_modified(self) -> datetime.datetime:
+        """Date the SEC submission was published"""
+        ...
+
+    @last_modified.setter
+    def last_modified(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of folder/file. Usually accession number"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def file_type(self) -> str:
+        """Specifies what kind of file the entry is"""
+        ...
+
+    @file_type.setter
+    def file_type(self, value: str) -> None:
+        ...
+
+    @property
+    def size(self) -> str:
+        """Size of the file. Empty if directory"""
+        ...
+
+    @size.setter
+    def size(self, value: str) -> None:
+        ...
+
+
+class SECReportIndexDirectory(System.Object):
+    """SEC Report Index Directory, contains a list of Items"""
+
+    @property
+    def items(self) -> typing.List[QuantConnect.DataSource.SECReportIndexItem]:
+        """Contains additional metadata regarding files present on the server"""
+        ...
+
+    @items.setter
+    def items(self, value: typing.List[QuantConnect.DataSource.SECReportIndexItem]) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """Path directory"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def parent_directory(self) -> str:
+        """Parent directory (if one exists)"""
+        ...
+
+    @parent_directory.setter
+    def parent_directory(self, value: str) -> None:
+        ...
+
+
+class SECReportIndexFile(System.Object):
+    """SEC Report Index"""
+
+    @property
+    def directory(self) -> QuantConnect.DataSource.SECReportIndexDirectory:
+        """First and only root entry of SEC index.json"""
+        ...
+
+    @directory.setter
+    def directory(self, value: QuantConnect.DataSource.SECReportIndexDirectory) -> None:
+        ...
+
+
+class SECReport10Q(QuantConnect.Data.BaseData, QuantConnect.DataSource.ISECReport):
+    """
+    SEC 10-Q report (quarterly earnings) BaseData implementation.
+    Using this class, you can retrieve SEC report data for a security if it exists.
+    If the ticker you want no longer trades, you can also use the CIK of the company
+    you want data for as well except for currently traded stocks. This may change in the future.
+    """
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def report(self) -> QuantConnect.DataSource.SECReportSubmission:
+        """Contents of the actual SEC report"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for Slice.Get{T}()"""
+        ...
+
+    @overload
+    def __init__(self, report: QuantConnect.DataSource.SECReportSubmission) -> None:
+        """
+        Constructor used to initialize instance with the given report
+        
+        :param report: SEC report submission
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the current object into a new object
+        
+        :returns: BaseData clone of the current object.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Returns a subscription data source pointing towards SEC 10-Q report data
+        
+        :param config: User configuration
+        :param date: Date data has been requested for
+        :param is_live_mode: Is livetrading
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data into BaseData
+        
+        :param config: User subscription config
+        :param line: Line of source file to parse
+        :param date: Date data was requested for
+        :param is_live_mode: Is livetrading mode
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class SECReportDateTimeConverter:
+    """Specifies format for parsing DateTime values from SEC data"""
+
+    def __init__(self) -> None:
+        """Constructor, initializes DateTime format"""
+        ...
+
+
+class SECReport8K(QuantConnect.Data.BaseData, QuantConnect.DataSource.ISECReport):
+    """
+    SEC 8-K report (important investor notices) BaseData implementation.
+    Using this class, you can retrieve SEC report data for a security if it exists.
+    If the ticker you want no longer trades, you can also use the CIK of the company
+    you want data for as well except for currently traded stocks. This may change in the future.
+    """
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def report(self) -> QuantConnect.DataSource.SECReportSubmission:
+        """Contents of the actual SEC report"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for Slice.Get{T}()"""
+        ...
+
+    @overload
+    def __init__(self, report: QuantConnect.DataSource.SECReportSubmission) -> None:
+        """
+        Constructor used to initialize instance with the given report
+        
+        :param report: SEC report submission
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the current object into a new object
+        
+        :returns: BaseData clone of the current object.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Returns a subscription data source pointing towards SEC 8-K report data
+        
+        :param config: User configuration
+        :param date: Date data has been requested for
+        :param is_live_mode: Is livetrading
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data into instance of BaseData
+        
+        :param config: User subscription config
+        :param line: Line of source file to parse
+        :param date: Date data was requested for
+        :param is_live_mode: Is live trading mode
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class SECReportFactory(System.Object):
+    """SEC Report Factory for deserializing XML formatted data"""
+
+    def create_sec_report(self, xml_text: str) -> QuantConnect.DataSource.ISECReport:
+        """
+        Factory method creates SEC report by deserializing XML formatted SEC data to SECReportSubmission
+        
+        :param xml_text: XML text containing SEC data
+        """
+        ...
+
+
+class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Crypto Coarse Fundamental object for crpyto universe selection"""
+
+    @property
+    def open(self) -> float:
+        """Daily Open Price (UTC 00:00)"""
+        ...
+
+    @open.setter
+    def open(self, value: float) -> None:
+        ...
+
+    @property
+    def high(self) -> float:
+        """Daily High Price"""
+        ...
+
+    @high.setter
+    def high(self, value: float) -> None:
+        ...
+
+    @property
+    def low(self) -> float:
+        """Daily Low Price"""
+        ...
+
+    @low.setter
+    def low(self, value: float) -> None:
+        ...
+
+    @property
+    def close(self) -> float:
+        """Daily Close Price"""
+        ...
+
+    @close.setter
+    def close(self, value: float) -> None:
+        ...
+
+    @property
+    def volume(self) -> float:
+        """
+        Daily Trade Volume
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume.setter
+    def volume(self, value: float) -> None:
+        ...
+
+    @property
+    def volume_in_quote_currency(self) -> float:
+        """
+        Daily Volume in Quote Currency
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume_in_quote_currency.setter
+    def volume_in_quote_currency(self, value: float) -> None:
+        ...
+
+    @property
+    def volume_in_usd(self) -> typing.Optional[float]:
+        """
+        Daily Volume in USD
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume_in_usd.setter
+    def volume_in_usd(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price(self) -> float:
+        """Alias of close price"""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    @staticmethod
+    @overload
+    def binance(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance_us(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance_us(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance_us(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bitfinex(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bitfinex(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bitfinex(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bybit(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bybit(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bybit(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def coinbase(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def coinbase(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def coinbase(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def kraken(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def kraken(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def kraken(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+    def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
+        """
+        Creates the universe symbol
+        
+        :returns: A crypto coarse universe symbol.
+        """
+        ...
+
+
+class CryptoCoarseFundamental(QuantConnect.DataSource.CryptoUniverse):
+    """'CryptoCoarseFundamental' was renamed to 'CryptoUniverse'"""
+
+
+class BitcoinMetadata(QuantConnect.Data.BaseData):
+    """Blockchain Bitcoin Metadata dataset"""
+
+    @property
+    def difficulty(self) -> float:
+        """A relative measure of how difficult it is to find a new block. The difficulty is adjusted periodically as a function of how much hashing power has been deployed by the network of miners."""
+        ...
+
+    @difficulty.setter
+    def difficulty(self, value: float) -> None:
+        ...
+
+    @property
+    def my_wallet_numberof_users(self) -> float:
+        """Number of wallets hosts using our My Wallet Service."""
+        ...
+
+    @my_wallet_numberof_users.setter
+    def my_wallet_numberof_users(self, value: float) -> None:
+        ...
+
+    @property
+    def average_block_size(self) -> float:
+        """The average block size in MB."""
+        ...
+
+    @average_block_size.setter
+    def average_block_size(self, value: float) -> None:
+        ...
+
+    @property
+    def blockchain_size(self) -> float:
+        """The total size of all block headers and transactions. Not including database indexes."""
+        ...
+
+    @blockchain_size.setter
+    def blockchain_size(self, value: float) -> None:
+        ...
+
+    @property
+    def median_transaction_confirmation_time(self) -> float:
+        """The median time for a transaction to be accepted into a mined block and added to the public ledger (note: only includes transactions with miner fees)."""
+        ...
+
+    @median_transaction_confirmation_time.setter
+    def median_transaction_confirmation_time(self, value: float) -> None:
+        ...
+
+    @property
+    def miners_revenue(self) -> float:
+        """Total value of coinbase block rewards and transaction fees paid to miners."""
+        ...
+
+    @miners_revenue.setter
+    def miners_revenue(self, value: float) -> None:
+        ...
+
+    @property
+    def hash_rate(self) -> float:
+        """The estimated number of tera hashes per second (trillions of hashes per second) the Bitcoin network is performing"""
+        ...
+
+    @hash_rate.setter
+    def hash_rate(self, value: float) -> None:
+        ...
+
+    @property
+    def cost_per_transaction(self) -> float:
+        """The miners revenue divided by the number of transactions."""
+        ...
+
+    @cost_per_transaction.setter
+    def cost_per_transaction(self, value: float) -> None:
+        ...
+
+    @property
+    def cost_percentof_transaction_volume(self) -> float:
+        """The miners revenue as percentage of the transaction volume."""
+        ...
+
+    @cost_percentof_transaction_volume.setter
+    def cost_percentof_transaction_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def estimated_transaction_volume_usd(self) -> float:
+        """The Estimated Transaction Value in USD value."""
+        ...
+
+    @estimated_transaction_volume_usd.setter
+    def estimated_transaction_volume_usd(self, value: float) -> None:
+        ...
+
+    @property
+    def estimated_transaction_volume(self) -> float:
+        """The total estimated value of transactions on the Bitcoin blockchain (does not include coins returned to sender as change)."""
+        ...
+
+    @estimated_transaction_volume.setter
+    def estimated_transaction_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def total_output_volume(self) -> float:
+        """The total value of all transaction outputs per day (includes coins returned to the sender as change)."""
+        ...
+
+    @total_output_volume.setter
+    def total_output_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactionper_block(self) -> float:
+        """The average number of transactions per block."""
+        ...
+
+    @numberof_transactionper_block.setter
+    def numberof_transactionper_block(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_unique_bitcoin_addresses_used(self) -> float:
+        """The total number of unique addresses used on the Bitcoin blockchain."""
+        ...
+
+    @numberof_unique_bitcoin_addresses_used.setter
+    def numberof_unique_bitcoin_addresses_used(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactions_excluding_popular_addresses(self) -> float:
+        """The total number of Bitcoin transactions, excluding those involving any of the network's 100 most popular addresses."""
+        ...
+
+    @numberof_transactions_excluding_popular_addresses.setter
+    def numberof_transactions_excluding_popular_addresses(self, value: float) -> None:
+        ...
+
+    @property
+    def total_numberof_transactions(self) -> float:
+        """The Total Number of transactions."""
+        ...
+
+    @total_numberof_transactions.setter
+    def total_numberof_transactions(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactions(self) -> float:
+        """The number of daily confirmed Bitcoin transactions."""
+        ...
+
+    @numberof_transactions.setter
+    def numberof_transactions(self, value: float) -> None:
+        ...
+
+    @property
+    def total_transaction_fees_usd(self) -> float:
+        """The total value of all transaction fees in USD paid to miners (not including the coinbase value of block rewards)."""
+        ...
+
+    @total_transaction_fees_usd.setter
+    def total_transaction_fees_usd(self, value: float) -> None:
+        ...
+
+    @property
+    def total_transaction_fees(self) -> float:
+        """The total value of all transaction fees in Bitcoin paid to miners (not including the coinbase value of block rewards)."""
+        ...
+
+    @total_transaction_fees.setter
+    def total_transaction_fees(self, value: float) -> None:
+        ...
+
+    @property
+    def market_capitalization(self) -> float:
+        """The total USD value of bitcoin supply in circulation, as calculated by the daily average market price across major exchanges."""
+        ...
+
+    @market_capitalization.setter
+    def market_capitalization(self, value: float) -> None:
+        ...
+
+    @property
+    def total_bitcoins(self) -> float:
+        """The total number of bitcoins that have already been mined; in other words, the current supply of bitcoins on the network."""
+        ...
+
+    @total_bitcoins.setter
+    def total_bitcoins(self, value: float) -> None:
+        ...
+
+    @property
+    def my_wallet_numberof_transaction_per_day(self) -> float:
+        """Number of transactions made by My Wallet Users per day."""
+        ...
+
+    @my_wallet_numberof_transaction_per_day.setter
+    def my_wallet_numberof_transaction_per_day(self, value: float) -> None:
+        ...
+
+    @property
+    def my_wallet_transaction_volume(self) -> float:
+        """24hr Transaction Volume of our web wallet service."""
+        ...
+
+    @my_wallet_transaction_volume.setter
+    def my_wallet_transaction_volume(self, value: float) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class RegalyticsRegulatoryArticles(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Regalytics Regulatory articles collection"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
         """
         ...
 
@@ -52855,1424 +54221,190 @@ class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
         ...
 
 
-class QuiverGovernmentContractUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverQuant Government Contracts dataset"""
-
-    @property
-    def description(self) -> str:
-        """Contract description"""
-        ...
-
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def agency(self) -> str:
-        """Awarding Agency Name"""
-        ...
-
-    @agency.setter
-    def agency(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """Total dollars obligated under the given contract"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class Congress(IntEnum):
-    """United States of America Legislative Branch House of Congress"""
-
-    SENATE = 0
-    """The United States Senate"""
-
-    REPRESENTATIVES = 1
-    """The United States House of Representatives"""
-
-
-class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverWallStreetBets dataset"""
-
-    @property
-    def mentions(self) -> int:
-        """The number of mentions on the given date"""
-        ...
-
-    @mentions.setter
-    def mentions(self, value: int) -> None:
-        ...
-
-    @property
-    def rank(self) -> int:
-        """This ticker's rank on the given date (as determined by total number of mentions)"""
-        ...
-
-    @rank.setter
-    def rank(self, value: int) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> float:
-        """
-        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
-        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
-        """
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-
-class QuiverCNBCsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverQuant CNBC dataset"""
-
-    @property
-    def notes(self) -> str:
-        """Extra Information"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    @property
-    def direction(self) -> QuantConnect.Orders.OrderDirection:
-        """Direction of trade"""
-        ...
-
-    @direction.setter
-    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def traders(self) -> str:
-        """Individual Name"""
-        ...
-
-    @traders.setter
-    def traders(self, value: str) -> None:
-        ...
-
-    @property
-    def advice_date(self) -> datetime.datetime:
-        """Date the trader issued the stock advice on CNBC"""
-        ...
-
-    @advice_date.setter
-    def advice_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverLobbyingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Example custom data type"""
-
-    @property
-    def client(self) -> str:
-        """Full name of the lobbying client"""
-        ...
-
-    @client.setter
-    def client(self, value: str) -> None:
-        ...
-
-    @property
-    def issue(self) -> str:
-        """Category of legislation that is being lobbied for"""
-        ...
-
-    @issue.setter
-    def issue(self, value: str) -> None:
-        ...
-
-    @property
-    def specific_issue(self) -> str:
-        """Specific piece of legislation being lobbied for"""
-        ...
-
-    @specific_issue.setter
-    def specific_issue(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """The Size of spending instance (USD)"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Insider Trading by private businesses"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """Transaction date as reported on SEC Form 4"""
-        ...
-
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def file_date(self) -> datetime.datetime:
-        """Time the transaction was filed and became publicly available"""
-        ...
-
-    @file_date.setter
-    def file_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def transaction_code(self) -> QuantConnect.DataSource.QuiverQuant.TransactionCode:
-        """
-        Type of transaction (see SEC Form 4 codes:
-        https://www.sec.gov/files/forms-3-4-5.pdf)
-        """
-        ...
-
-    @transaction_code.setter
-    def transaction_code(self, value: QuantConnect.DataSource.QuiverQuant.TransactionCode) -> None:
-        ...
-
-    @property
-    def price_per_share(self) -> typing.Optional[float]:
-        """Reported price per share transacted"""
-        ...
-
-    @price_per_share.setter
-    def price_per_share(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def shares(self) -> typing.Optional[float]:
-        """Number of shares transacted"""
-        ...
-
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def shares_owned_following(self) -> typing.Optional[float]:
-        """Number of shares owned by insider following the transaction"""
-        ...
-
-    @shares_owned_following.setter
-    def shares_owned_following(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def acquired_disposed_code(self) -> QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode:
-        """Indicates whether transaction was share acquisition or disposal"""
-        ...
-
-    @acquired_disposed_code.setter
-    def acquired_disposed_code(self, value: QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode) -> None:
-        ...
-
-    @property
-    def direct_or_indirect_ownership(self) -> QuantConnect.DataSource.QuiverQuant.OwnershipType:
-        """Whether the security is held directly or indirectly by the reporting person"""
-        ...
-
-    @direct_or_indirect_ownership.setter
-    def direct_or_indirect_ownership(self, value: QuantConnect.DataSource.QuiverQuant.OwnershipType) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        """Name of the transactor"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def officer_title(self) -> str:
-        """Corporate title of the transactor"""
-        ...
-
-    @officer_title.setter
-    def officer_title(self, value: str) -> None:
-        ...
-
-    @property
-    def is_director(self) -> typing.Optional[bool]:
-        """Whether the transactor is a director of the company"""
-        ...
-
-    @is_director.setter
-    def is_director(self, value: typing.Optional[bool]) -> None:
-        ...
-
-    @property
-    def is_officer(self) -> typing.Optional[bool]:
-        """Whether the transactor is an officer of the company"""
-        ...
-
-    @is_officer.setter
-    def is_officer(self, value: typing.Optional[bool]) -> None:
-        ...
-
-    @property
-    def is_ten_percent_owner(self) -> typing.Optional[bool]:
-        """Whether the transactor is a 10% owner of the company"""
-        ...
-
-    @is_ten_percent_owner.setter
-    def is_ten_percent_owner(self, value: typing.Optional[bool]) -> None:
-        ...
-
-    @property
-    def is_other(self) -> typing.Optional[bool]:
-        """Whether the transactor is not a director, officer, or 10% owner"""
-        ...
-
-    @is_other.setter
-    def is_other(self, value: typing.Optional[bool]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverCNBC(QuantConnect.Data.BaseData):
-    """Personal stock advice by CNBC"""
-
-    @property
-    def notes(self) -> str:
-        """Contract description"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    @property
-    def direction(self) -> QuantConnect.Orders.OrderDirection:
-        """Direction of trade"""
-        ...
-
-    @direction.setter
-    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def traders(self) -> str:
-        """Individual Name"""
-        ...
-
-    @traders.setter
-    def traders(self, value: str) -> None:
-        ...
-
-    @property
-    def advice_date(self) -> datetime.datetime:
-        """Date the trader issued the stock advice on CNBC"""
-        ...
-
-    @advice_date.setter
-    def advice_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverWallStreetBets(QuantConnect.Data.BaseData):
-    """Mentions of the given company's ticker in the WallStreetBets daily discussion thread"""
+class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
+    """Regalytics Regulatory articles"""
 
     DATA_SOURCE_ID: int
     """Data source ID"""
 
     @property
-    def date(self) -> datetime.datetime:
-        """Date of the daily discussion thread"""
+    def id(self) -> str:
         ...
 
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def mentions(self) -> int:
-        """The number of mentions on the given date"""
-        ...
-
-    @mentions.setter
-    def mentions(self, value: int) -> None:
+    @id.setter
+    def id(self, value: str) -> None:
         ...
 
     @property
-    def rank(self) -> int:
-        """This ticker's rank on the given date (as determined by total number of mentions)"""
+    def title(self) -> str:
         ...
 
-    @rank.setter
-    def rank(self, value: int) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> float:
-        """
-        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
-        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
-        """
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
+    @title.setter
+    def title(self, value: str) -> None:
         ...
 
     @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
+    def summary(self) -> str:
         ...
 
-    @overload
-    def __init__(self) -> None:
-        """Required for successful Json.NET deserialization"""
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates a new instance of QuiverWallStreetBets from a CSV line
-        
-        :param csv_line: CSV line
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Quiver WallStreetBets object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Quiver WallStreetBets information."""
-        ...
-
-
-class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverQuant InsiderTrading dataset"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """Transaction date as reported on SEC Form 4"""
-        ...
-
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
+    @summary.setter
+    def summary(self, value: str) -> None:
         ...
 
     @property
-    def file_date(self) -> datetime.datetime:
-        """Time the transaction was filed and became publicly available"""
+    def status(self) -> str:
         ...
 
-    @file_date.setter
-    def file_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def transaction_code(self) -> QuantConnect.DataSource.QuiverQuant.TransactionCode:
-        """Type of transaction (SEC Form 4 code)"""
-        ...
-
-    @transaction_code.setter
-    def transaction_code(self, value: QuantConnect.DataSource.QuiverQuant.TransactionCode) -> None:
+    @status.setter
+    def status(self, value: str) -> None:
         ...
 
     @property
-    def price_per_share(self) -> typing.Optional[float]:
-        """Reported price per share transacted"""
+    def classification(self) -> str:
         ...
 
-    @price_per_share.setter
-    def price_per_share(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def shares(self) -> typing.Optional[float]:
-        """Number of shares transacted"""
-        ...
-
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
+    @classification.setter
+    def classification(self, value: str) -> None:
         ...
 
     @property
-    def shares_owned_following(self) -> typing.Optional[float]:
-        """Number of shares owned by insider following the transaction"""
+    def filing_type(self) -> str:
         ...
 
-    @shares_owned_following.setter
-    def shares_owned_following(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def acquired_disposed_code(self) -> QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode:
-        """Indicates whether transaction was share acquisition or disposal"""
-        ...
-
-    @acquired_disposed_code.setter
-    def acquired_disposed_code(self, value: QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode) -> None:
+    @filing_type.setter
+    def filing_type(self, value: str) -> None:
         ...
 
     @property
-    def direct_or_indirect_ownership(self) -> QuantConnect.DataSource.QuiverQuant.OwnershipType:
-        """Whether the security is held directly or indirectly"""
+    def in_federal_register(self) -> bool:
         ...
 
-    @direct_or_indirect_ownership.setter
-    def direct_or_indirect_ownership(self, value: QuantConnect.DataSource.QuiverQuant.OwnershipType) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        """Name of the transactor"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
+    @in_federal_register.setter
+    def in_federal_register(self, value: bool) -> None:
         ...
 
     @property
-    def officer_title(self) -> str:
-        """Corporate title of the transactor"""
+    def federal_register_number(self) -> str:
         ...
 
-    @officer_title.setter
-    def officer_title(self, value: str) -> None:
-        ...
-
-    @property
-    def is_director(self) -> typing.Optional[bool]:
-        """Whether the transactor is a director of the company"""
-        ...
-
-    @is_director.setter
-    def is_director(self, value: typing.Optional[bool]) -> None:
+    @federal_register_number.setter
+    def federal_register_number(self, value: str) -> None:
         ...
 
     @property
-    def is_officer(self) -> typing.Optional[bool]:
-        """Whether the transactor is an officer of the company"""
+    def docket_file_number(self) -> str:
         ...
 
-    @is_officer.setter
-    def is_officer(self, value: typing.Optional[bool]) -> None:
-        ...
-
-    @property
-    def is_ten_percent_owner(self) -> typing.Optional[bool]:
-        """Whether the transactor is a 10% owner of the company"""
-        ...
-
-    @is_ten_percent_owner.setter
-    def is_ten_percent_owner(self, value: typing.Optional[bool]) -> None:
+    @docket_file_number.setter
+    def docket_file_number(self, value: str) -> None:
         ...
 
     @property
-    def is_other(self) -> typing.Optional[bool]:
-        """Whether the transactor is not a director, officer, or 10% owner"""
+    def sec_release_number(self) -> str:
         ...
 
-    @is_other.setter
-    def is_other(self, value: typing.Optional[bool]) -> None:
+    @sec_release_number.setter
+    def sec_release_number(self, value: str) -> None:
+        ...
+
+    @property
+    def proposed_comments_due_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @proposed_comments_due_date.setter
+    def proposed_comments_due_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def original_publication_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @original_publication_date.setter
+    def original_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def federal_register_publication_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @federal_register_publication_date.setter
+    def federal_register_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def rule_effective_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @rule_effective_date.setter
+    def rule_effective_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def sourced_at(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @sourced_at.setter
+    def sourced_at(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def latest_update(self) -> datetime.datetime:
+        ...
+
+    @latest_update.setter
+    def latest_update(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def alert_type(self) -> str:
+        ...
+
+    @alert_type.setter
+    def alert_type(self, value: str) -> None:
+        ...
+
+    @property
+    def states(self) -> System.Collections.Generic.Dictionary[str, typing.List[str]]:
+        ...
+
+    @states.setter
+    def states(self, value: System.Collections.Generic.Dictionary[str, typing.List[str]]) -> None:
+        ...
+
+    @property
+    def agencies(self) -> typing.List[str]:
+        ...
+
+    @agencies.setter
+    def agencies(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def sector(self) -> typing.List[System.Collections.Generic.Dictionary[str, str]]:
+        ...
+
+    @sector.setter
+    def sector(self, value: typing.List[System.Collections.Generic.Dictionary[str, str]]) -> None:
+        ...
+
+    @property
+    def announcement_url(self) -> str:
+        ...
+
+    @announcement_url.setter
+    def announcement_url(self, value: str) -> None:
+        ...
+
+    @property
+    def created_at(self) -> datetime.datetime:
+        ...
+
+    @created_at.setter
+    def created_at(self, value: datetime.datetime) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
-        """Time the data becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverGovernmentContract(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Government Contract by Agencies"""
-
-    @property
-    def description(self) -> str:
-        """Contract description"""
-        ...
-
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def agency(self) -> str:
-        """Awarding Agency Name"""
-        ...
-
-    @agency.setter
-    def agency(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> float:
-        """Total dollars obligated under the given contract"""
-        ...
-
-    @amount.setter
-    def amount(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverGovernmentContract data
-        
-        :returns: string containing QuiverGovernmentContract information.
-        """
-        ...
-
-
-class Party(IntEnum):
-    """Political Parties of the United States of America"""
-
-    INDEPENDENT = 0
-    """Not affiliated with any political party."""
-
-    REPUBLICAN = 1
-    """Republican Party. https://en.wikipedia.org/wiki/Republican_Party_(United_States)"""
-
-    DEMOCRATIC = 2
-    """Democratic Party. https://en.wikipedia.org/wiki/Democratic_Party_(United_States)"""
-
-    LIBERTARIAN = 3
-    """Libertarian Party. https://en.wikipedia.org/wiki/Libertarian_Party_(United_States)"""
-
-
-class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Personal stock transactions by U.S. Representatives"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with the Quiver Congress information.
-        
-        :returns: string containing Quiver Congress information.
-        """
-        ...
-
-
-class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Orders.OrderDirection, str]):
-    """Converts Quiver Quantitative TransactionDirection to OrderDirection"""
-
-    @overload
-    def convert(self, value: QuantConnect.Orders.OrderDirection) -> str:
-        """
-        Convert OrderDirection to string
-        
-        
-        This Class is protected.
-        
-        :param value: OrderDirection to convert
-        :returns: Resulting string.
-        """
-        ...
-
-    @overload
-    def convert(self, value: str) -> QuantConnect.Orders.OrderDirection:
-        """
-        Convert string to OrderDirection
-        
-        
-        This Class is protected.
-        
-        :param value: string to convert
-        :returns: Resulting OrderDirection.
-        """
-        ...
-
-
-class QuiverCongressDataPoint(QuantConnect.Data.BaseData):
-    """Single data point for QuiverCongress data"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def record_date(self) -> datetime.datetime:
-        """The date the transaction was recorded by QuiverQuant. Value will always exist."""
-        ...
-
-    @record_date.setter
-    def record_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def updated_at(self) -> datetime.datetime:
-        """The date the recorded transaction was updated by QuiverQuant. Alias for EndTime."""
-        ...
-
-    @property
-    def report_date(self) -> typing.Optional[datetime.datetime]:
-        """The date the transaction was reported. Value will always exist."""
-        ...
-
-    @report_date.setter
-    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def transaction_date(self) -> datetime.datetime:
-        """The date the transaction took place"""
-        ...
-
-    @transaction_date.setter
-    def transaction_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def representative(self) -> str:
-        """The Representative making the transaction"""
-        ...
-
-    @representative.setter
-    def representative(self, value: str) -> None:
-        ...
-
-    @property
-    def transaction(self) -> QuantConnect.Orders.OrderDirection:
-        """The type of transaction"""
-        ...
-
-    @transaction.setter
-    def transaction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """The amount of the transaction (in USD). The Representative can report a range (see maximum_amount)."""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_amount(self) -> typing.Optional[float]:
-        """The maximum amount of the transaction (in USD). The Representative can report a range (see amount)."""
-        ...
-
-    @maximum_amount.setter
-    def maximum_amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def house(self) -> QuantConnect.DataSource.Congress:
-        """The Chamber of Congress that the trader belongs to"""
-        ...
-
-    @house.setter
-    def house(self, value: QuantConnect.DataSource.Congress) -> None:
-        ...
-
-    @property
-    def party(self) -> QuantConnect.DataSource.Party:
-        """The political party that the trader belongs to"""
-        ...
-
-    @party.setter
-    def party(self, value: QuantConnect.DataSource.Party) -> None:
-        ...
-
-    @property
-    def district(self) -> str:
-        """The district that the trader belongs to (null or empty for Senators)"""
-        ...
-
-    @district.setter
-    def district(self, value: str) -> None:
-        ...
-
-    @property
-    def state(self) -> str:
-        """The state that the trader belongs to"""
-        ...
-
-    @state.setter
-    def state(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of QuiverCongressDataPoint"""
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates a new instance of QuiverCongressDataPoint from a CSV line
-        
-        :param csv_line: CSV line
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Quiver Congress object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Quiver Congress information."""
-        ...
-
-
-class QuiverLobbying(QuantConnect.Data.BaseData):
-    """Quiver Lobbying data"""
-
-    @property
-    def client(self) -> str:
-        """Full name of the lobbying client"""
-        ...
-
-    @client.setter
-    def client(self, value: str) -> None:
-        ...
-
-    @property
-    def issue(self) -> str:
-        """Category of legislation that is being lobbied for"""
-        ...
-
-    @issue.setter
-    def issue(self, value: str) -> None:
-        ...
-
-    @property
-    def specific_issue(self) -> str:
-        """Specific piece of legislation being lobbied for"""
-        ...
-
-    @specific_issue.setter
-    def specific_issue(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """The Size of spending instance (USD)"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -54330,255 +54462,6 @@ class QuiverLobbying(QuantConnect.Data.BaseData):
 
     def to_string(self) -> str:
         """Converts the instance to string"""
-        ...
-
-
-class QuiverQuantCongressUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverQuant Congress dataset"""
-
-    @property
-    def record_date(self) -> datetime.datetime:
-        """The date the transaction was recorded by QuiverQuant. Value will always exist."""
-        ...
-
-    @record_date.setter
-    def record_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def updated_at(self) -> datetime.datetime:
-        """The date the recorded transaction was updated by QuiverQuant. Alias for EndTime."""
-        ...
-
-    @property
-    def report_date(self) -> typing.Optional[datetime.datetime]:
-        """The date the transaction was reported. Value will always exist."""
-        ...
-
-    @report_date.setter
-    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def transaction_date(self) -> datetime.datetime:
-        """The date the transaction took place"""
-        ...
-
-    @transaction_date.setter
-    def transaction_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def representative(self) -> str:
-        """The Representative making the transaction"""
-        ...
-
-    @representative.setter
-    def representative(self, value: str) -> None:
-        ...
-
-    @property
-    def transaction(self) -> QuantConnect.Orders.OrderDirection:
-        """The type of transaction"""
-        ...
-
-    @transaction.setter
-    def transaction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """The amount of the transaction (in USD). The Representative can report a range (see maximum_amount)."""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_amount(self) -> typing.Optional[float]:
-        """The maximum amount of the transaction (in USD). The Representative can report a range (see amount)."""
-        ...
-
-    @maximum_amount.setter
-    def maximum_amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def house(self) -> QuantConnect.DataSource.Congress:
-        """The Chamber of Congress that the trader belongs to"""
-        ...
-
-    @house.setter
-    def house(self, value: QuantConnect.DataSource.Congress) -> None:
-        ...
-
-    @property
-    def party(self) -> QuantConnect.DataSource.Party:
-        """The political party that the trader belongs to"""
-        ...
-
-    @party.setter
-    def party(self, value: QuantConnect.DataSource.Party) -> None:
-        ...
-
-    @property
-    def district(self) -> str:
-        """The district that the trader belongs to (null or empty for Senators)"""
-        ...
-
-    @district.setter
-    def district(self, value: str) -> None:
-        ...
-
-    @property
-    def state(self) -> str:
-        """The state that the trader belongs to"""
-        ...
-
-    @state.setter
-    def state(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverLobbyings(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Collection of Quiver Lobbying data"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverLobbying data
-        
-        :returns: string containing QuiverLobbying information.
-        """
         ...
 
 

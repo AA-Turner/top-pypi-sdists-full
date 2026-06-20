@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.5",
-  "hatchling>=1.27",
+  "hatchling>=1.28",
 ]
 
 [project]
@@ -36,18 +36,39 @@ dependencies = [
   "pre-commit>=4.3",
   "uv>=0.9.1",
 ]
-optional-dependencies.testing = [
+urls."Bug Tracker" = "https://github.com/tox-dev/pre-commit-uv/issues"
+urls."Source Code" = "https://github.com/tox-dev/pre-commit-uv"
+urls.Changelog = "https://github.com/tox-dev/pre-commit-uv/releases"
+urls.Documentation = "https://github.com/tox-dev/pre-commit-uv/"
+
+[dependency-groups]
+dev = [
+  { include-group = "lint" },
+  { include-group = "pkg-meta" },
+  { include-group = "test" },
+  { include-group = "type" },
+]
+test = [
   "covdefaults>=2.3",
   "pytest>=8.4.2",
   "pytest-cov>=7",
   "pytest-mock>=3.15.1",
 ]
-urls."Bug Tracker" = "https://github.com/tox-dev/pre-commit-uv/issues"
-urls."Changelog" = "https://github.com/tox-dev/pre-commit-uv/releases"
-urls."Source Code" = "https://github.com/tox-dev/pre-commit-uv"
-urls.Documentation = "https://github.com/tox-dev/pre-commit-uv/"
+type = [
+  "ty>=0.0.17",
+  { include-group = "test" },
+]
+lint = [
+  "pre-commit-uv>=4.2",
+]
+pkg-meta = [
+  "check-wheel-contents>=0.6.3",
+  "twine>=6.2",
+  "uv>=0.10.2",
+]
 
 [tool.hatch]
+version.source = "vcs"
 build.dev-mode-dirs = [
   "src",
 ]
@@ -58,7 +79,6 @@ build.targets.sdist.include = [
 ]
 build.targets.wheel.only-include = [ "src" ]
 build.targets.wheel.sources = [ "src" ]
-version.source = "vcs"
 
 [tool.ruff]
 line-length = 120
@@ -69,7 +89,6 @@ lint.select = [
   "ALL",
 ]
 lint.ignore = [
-  "ANN101", # no type annotation for self
   "ANN401", # allow Any as type annotation
   "COM812", # Conflict with formatter
   "CPY",    # No copyright statements
@@ -105,6 +124,9 @@ count = true
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
 
+[tool.ty]
+environment.python-version = "3.14"
+
 [tool.pytest]
 ini_options.testpaths = [
   "tests",
@@ -127,12 +149,3 @@ paths.source = [
 report.fail_under = 63
 html.show_contexts = true
 html.skip_covered = false
-
-[tool.mypy]
-show_error_codes = true
-strict = true
-overrides = [
-  { module = [
-    "pre_commit.*",
-  ], ignore_missing_imports = true },
-]

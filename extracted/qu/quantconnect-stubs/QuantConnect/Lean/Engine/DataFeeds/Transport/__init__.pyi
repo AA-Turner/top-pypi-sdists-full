@@ -10,66 +10,6 @@ import System.Collections.Generic
 import System.IO
 
 
-class RemoteFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
-    """
-    Represents a stream reader capabable of downloading a remote file and then
-    reading it from disk
-    """
-
-    @property
-    def should_be_rate_limited(self) -> bool:
-        """Gets whether or not this stream reader should be rate limited"""
-        ...
-
-    @property
-    def stream_reader(self) -> System.IO.StreamReader:
-        """Direct access to the StreamReader instance"""
-        ...
-
-    @property
-    def local_file_name(self) -> str:
-        """The local file name of the downloaded file"""
-        ...
-
-    @property
-    def transport_medium(self) -> QuantConnect.SubscriptionTransportMedium:
-        """Gets SubscriptionTransportMedium.REMOTE_FILE"""
-        ...
-
-    @property
-    def end_of_stream(self) -> bool:
-        """Gets whether or not there's more data to be read in the stream"""
-        ...
-
-    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, source: str, download_directory: str, headers: typing.List[System.Collections.Generic.KeyValuePair[str, str]]) -> None:
-        """
-        Initializes a new instance of the RemoteFileSubscriptionStreamReader class.
-        
-        :param data_cache_provider: The IDataCacheProvider used to retrieve a stream of data
-        :param source: The remote url to be downloaded via web client
-        :param download_directory: The local directory and destination of the download
-        :param headers: Defines header values to add to the request
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Disposes of the stream"""
-        ...
-
-    def read_line(self) -> str:
-        """Gets the next line/batch of content from the stream"""
-        ...
-
-    @staticmethod
-    def set_download_provider(downloader: QuantConnect.Interfaces.IDownloadProvider) -> None:
-        """
-        Save reference to the download system.
-        
-        :param downloader: Downloader provider for the remote file fetching.
-        """
-        ...
-
-
 class LocalFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
     """Represents a stream reader capable of reading lines from disk"""
 
@@ -141,6 +81,47 @@ class LocalFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.I
         ...
 
 
+class ObjectStoreSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
+    """Represents a stream reader capable of reading lines from the object store"""
+
+    @property
+    def should_be_rate_limited(self) -> bool:
+        """Gets whether or not this stream reader should be rate limited"""
+        ...
+
+    @property
+    def stream_reader(self) -> System.IO.StreamReader:
+        """Direct access to the StreamReader instance"""
+        ...
+
+    @property
+    def transport_medium(self) -> QuantConnect.SubscriptionTransportMedium:
+        """Gets SubscriptionTransportMedium.LOCAL_FILE"""
+        ...
+
+    @property
+    def end_of_stream(self) -> bool:
+        """Gets whether or not there's more data to be read in the stream"""
+        ...
+
+    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore, key: str) -> None:
+        """
+        Initializes a new instance of the ObjectStoreSubscriptionStreamReader class.
+        
+        :param object_store: The IObjectStore used to retrieve a stream of data
+        :param key: The object store key the data should be fetched from
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Disposes of the stream"""
+        ...
+
+    def read_line(self) -> str:
+        """Gets the next line/batch of content from the stream"""
+        ...
+
+
 class RestSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
     """Represents a stream reader capable of polling a rest client"""
 
@@ -183,8 +164,11 @@ class RestSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStrea
         ...
 
 
-class ObjectStoreSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
-    """Represents a stream reader capable of reading lines from the object store"""
+class RemoteFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
+    """
+    Represents a stream reader capabable of downloading a remote file and then
+    reading it from disk
+    """
 
     @property
     def should_be_rate_limited(self) -> bool:
@@ -197,8 +181,13 @@ class ObjectStoreSubscriptionStreamReader(System.Object, QuantConnect.Interfaces
         ...
 
     @property
+    def local_file_name(self) -> str:
+        """The local file name of the downloaded file"""
+        ...
+
+    @property
     def transport_medium(self) -> QuantConnect.SubscriptionTransportMedium:
-        """Gets SubscriptionTransportMedium.LOCAL_FILE"""
+        """Gets SubscriptionTransportMedium.REMOTE_FILE"""
         ...
 
     @property
@@ -206,12 +195,14 @@ class ObjectStoreSubscriptionStreamReader(System.Object, QuantConnect.Interfaces
         """Gets whether or not there's more data to be read in the stream"""
         ...
 
-    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore, key: str) -> None:
+    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, source: str, download_directory: str, headers: typing.List[System.Collections.Generic.KeyValuePair[str, str]]) -> None:
         """
-        Initializes a new instance of the ObjectStoreSubscriptionStreamReader class.
+        Initializes a new instance of the RemoteFileSubscriptionStreamReader class.
         
-        :param object_store: The IObjectStore used to retrieve a stream of data
-        :param key: The object store key the data should be fetched from
+        :param data_cache_provider: The IDataCacheProvider used to retrieve a stream of data
+        :param source: The remote url to be downloaded via web client
+        :param download_directory: The local directory and destination of the download
+        :param headers: Defines header values to add to the request
         """
         ...
 
@@ -221,6 +212,15 @@ class ObjectStoreSubscriptionStreamReader(System.Object, QuantConnect.Interfaces
 
     def read_line(self) -> str:
         """Gets the next line/batch of content from the stream"""
+        ...
+
+    @staticmethod
+    def set_download_provider(downloader: QuantConnect.Interfaces.IDownloadProvider) -> None:
+        """
+        Save reference to the download system.
+        
+        :param downloader: Downloader provider for the remote file fetching.
+        """
         ...
 
 

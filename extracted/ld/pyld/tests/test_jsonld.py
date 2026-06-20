@@ -180,6 +180,298 @@ class TestExpand:
         got = jsonld.expand(input)
         assert got == expected
 
+    def test_base_does_not_expand_property_terms(self):
+        """
+        Regression test: @base must not be used to expand property keys.
+
+        Property names are expanded vocabulary-relative: @vocab, term
+        definitions, compact IRIs with a defined prefix, etc. The active
+        context's @base is for document-relative IRI resolution where the
+        algorithms pass that flag (e.g. certain @id and @type values), not
+        for turning arbitrary keys into absolute IRIs. Here the context sets
+        only @base; `name` has no term definition and no @vocab, so it
+        cannot become an absolute property IRI and must be dropped.
+
+        See: https://www.w3.org/TR/json-ld11-api/#iri-expansion
+        """
+        doc = {
+            '@context': {'@base': 'https://schema.org/'},
+            '@id': 'https://w3.org/yaml-ld/',
+            '@type': 'WebContent',
+            'name': 'YAML-LD',
+        }
+        result = jsonld.expand(doc)
+        # `name` has no vocabulary-relative mapping (@vocab or term
+        # definition); @base must not supply one. The key is dropped.
+        assert result == [
+            {
+                '@id': 'https://w3.org/yaml-ld/',
+                '@type': ['https://schema.org/WebContent'],
+            }
+        ]
+
+    def _make_context(self, num_terms):
+        """Build a context with `num_terms` @type:@vocab terms sharing a scoped context."""
+        ctx = {"ex": "https://example.org/"}
+
+        # A context with multiple terms sharing the same scoped @context.
+        # This triggers the bug: the first scoped context pre-validation caches
+        # a result with partial mappings, and subsequent expansion-time lookups
+        # get a stale cache hit.
+        shared_scoped_ctx = {
+            "@vocab": "https://example.org/",
+            "text": "http://www.w3.org/2004/02/skos/core#notation",
+            "description": "http://www.w3.org/2004/02/skos/core#prefLabel",
+            "meaning": "@id",
+        }
+        for i in range(num_terms):
+            ctx[f"EnumProp{i}"] = {
+                "@id": f"ex:EnumProp{i}",
+                "@type": "@vocab",
+                "@context": dict(shared_scoped_ctx),
+            }
+        # Add some plain string terms to increase context size
+        for i in range(80):
+            ctx[f"prop{i}"] = f"ex:prop{i}"
+        return ctx
+
+    def test_single_vocab_term_expands_correctly(self):
+        """Single @type:@vocab term should expand bare string to @id."""
+        ctx = {
+            "ex": "https://example.org/",
+            "Color": {
+                "@id": "ex:Color",
+                "@type": "@vocab",
+                "@context": {"@vocab": "https://example.org/"},
+            },
+        }
+        doc = {"@context": ctx, "Color": "Red"}
+        result = jsonld.expand(doc)
+        assert result[0]["https://example.org/Color"] == [
+            {"@id": "https://example.org/Red"}
+        ]
+
+    def test_many_shared_scoped_contexts_expand_correctly(self):
+        """
+        Regression test for scoped context cache pollution during context processing.
+
+        When a JSON-LD context has multiple terms that share the same scoped @context
+        (e.g., enum-typed properties using @type: @vocab with a scoped @vocab), the
+        pre-validation of scoped contexts during _process_context would cache the
+        processed result keyed by rval['_uuid']. Since rval is mutated (mappings added)
+        during the loop, later expansion-time lookups of the same scoped context would
+        get a stale cache hit with incomplete mappings, causing @type coercion to fail.
+
+        The fix regenerates rval['_uuid'] after all term definitions are created,
+        ensuring expansion-time lookups miss the pre-validation cache.
+
+        Multiple @type:@vocab terms with identical scoped contexts should all expand.
+        """
+        ctx = self._make_context(num_terms=30)
+        doc = {"@context": ctx}
+        # Set a value for each enum property
+        for i in range(30):
+            doc[f"EnumProp{i}"] = f"Value{i}"
+
+        result = jsonld.expand(doc)
+        expanded = result[0]
+
+        for i in range(30):
+            prop_iri = f"https://example.org/EnumProp{i}"
+            assert prop_iri in expanded, f"EnumProp{i} not in expanded result"
+            assert expanded[prop_iri] == [{"@id": f"https://example.org/Value{i}"}], (
+                f"EnumProp{i} did not expand to @id"
+            )
+
+    def test_last_vocab_term_expands_with_large_context(self):
+        """The LAST @type:@vocab term in a large context must also expand correctly.
+
+        This is the most likely to fail because all prior scoped context
+        pre-validations have already populated the cache.
+        """
+        ctx = self._make_context(num_terms=27)
+        # Only test the last term
+        doc = {"@context": ctx, "EnumProp26": "TestValue"}
+        result = jsonld.expand(doc)
+        assert result[0]["https://example.org/EnumProp26"] == [
+            {"@id": "https://example.org/TestValue"}
+        ]
+
+    def test_structured_value_still_works_with_scoped_context(self):
+        """Structured values (objects) should still use the scoped context mappings."""
+        ctx = self._make_context(num_terms=10)
+        doc = {
+            "@context": ctx,
+            "EnumProp5": {
+                "text": "MyLabel",
+                "description": "A description",
+                "meaning": "https://example.org/SomeValue",
+            },
+        }
+        result = jsonld.expand(doc)
+        prop_val = result[0]["https://example.org/EnumProp5"][0]
+        # text -> skos:notation
+        assert "http://www.w3.org/2004/02/skos/core#notation" in prop_val
+        # meaning -> @id
+        assert "@id" in prop_val
+
+    # Issue 204
+    def test_scoped_context_on_nest_term_expands_nested_properties(self):
+        """A scoped context on a @nest term should apply to nested properties."""
+        input = {
+            "@context": {
+                "@vocab": "http://example.org/vocab#",
+                "p1": {
+                    "@id": "@nest",
+                    "@context": {"p2": "http://example.org/ns#P2"},
+                },
+            },
+            "p1": {"p2": "foo"},
+        }
+
+        expected = [
+            {
+                "http://example.org/ns#P2": [
+                    {
+                        "@value": "foo",
+                    }
+                ],
+            }
+        ]
+
+        result = jsonld.expand(input)
+
+        assert result == expected
+
+    # Issue 204
+    def test_scoped_context_on_nest_term_expands_nested_type_scoped_context(self):
+        """
+        A scoped context on a @nest term should be in effect when expanding the
+        nested node, including when processing any type-scoped contexts found on
+        that node.
+        """
+        input = {
+            "@context": {
+                "@vocab": "http://example.org/outer#",
+                # p1 is an @nest term with a property-scoped context. That context defines
+                # Type and gives Type its own type-scoped context.
+                "p1": {
+                    "@id": "@nest",
+                    "@context": {
+                        # The nested node uses Type and then uses p2 from Type's scoped context.
+                        "Type": {
+                            "@id": "http://example.org/ns#Type",
+                            "@context": {
+                                "p2": "http://example.org/ns#P2",
+                            },
+                        },
+                    },
+                },
+            },
+            "p1": {
+                "@type": "Type",
+                "p2": "foo",
+            },
+        }
+
+        # The @nest term context is active before @type is expanded and before Type's scoped
+        # context is applied.
+        expected = [
+            {
+                # If nested values are expanded by directly walking their keys instead of
+                # running the normal expansion setup for the nested node, Type and p2 fall
+                # back to the outer @vocab.
+                "@type": ["http://example.org/ns#Type"],
+                "http://example.org/ns#P2": [
+                    {
+                        "@value": "foo",
+                    }
+                ],
+            }
+        ]
+
+        result = jsonld.expand(input)
+
+        assert result == expected
+
+    def test_mixed_plain_and_vocab_terms(self):
+        """Contexts with both plain and @type:@vocab terms should work correctly."""
+        ctx = {
+            "ex": "https://example.org/",
+            "name": "ex:name",
+            "Color": {
+                "@id": "ex:Color",
+                "@type": "@vocab",
+                "@context": {"@vocab": "https://example.org/"},
+            },
+            "Shape": {
+                "@id": "ex:Shape",
+                "@type": "@vocab",
+                "@context": {"@vocab": "https://example.org/"},
+            },
+        }
+        # Add many plain terms to make context large enough to trigger caching
+        for i in range(100):
+            ctx[f"field{i}"] = f"ex:field{i}"
+
+        doc = {
+            "@context": ctx,
+            "name": "test",
+            "Color": "Blue",
+            "Shape": "Circle",
+        }
+        result = jsonld.expand(doc)
+        expanded = result[0]
+        assert expanded["https://example.org/Color"] == [
+            {"@id": "https://example.org/Blue"}
+        ]
+        assert expanded["https://example.org/Shape"] == [
+            {"@id": "https://example.org/Circle"}
+        ]
+        assert expanded["https://example.org/name"] == [{"@value": "test"}]
+
+    # Issue 145
+    def test_context_contained_with_propagate(self):
+        """
+        The same context object contained under the node with @propagate
+        should properly expand.
+        """
+        input = {
+            "@context": {
+                "@propagate": False,
+                "a": {
+                    "@id": "http://abc/a",
+                    "@context": {"b": "http://abc/b", "c": "http://abc/c"},
+                },
+                "d": {
+                    "@id": "http://abc/d",
+                    "@context": {"b": "http://abc/b", "c": "http://abc/c"},
+                },
+            },
+            "a": {"b": "bb", "c": "cc"},
+            "d": {"b": "bbb", "c": "ccc"},
+        }
+
+        expected = [
+            {
+                "http://abc/a": [
+                    {
+                        "http://abc/b": [{"@value": "bb"}],
+                        "http://abc/c": [{"@value": "cc"}],
+                    }
+                ],
+                "http://abc/d": [
+                    {
+                        "http://abc/b": [{"@value": "bbb"}],
+                        "http://abc/c": [{"@value": "ccc"}],
+                    }
+                ],
+            }
+        ]
+
+        expanded = jsonld.expand(input)
+        assert expanded == expected
+
 
 class TestFrame:
     # Issue 11 - PR: https://github.com/digitalbazaar/pyld/issues/149
@@ -485,6 +777,62 @@ class TestFrame:
         framed = jsonld.frame(input, frame)
         assert framed == expected
 
+    def test_circular_references_link_and_embed(self):
+        input = {
+            "@context": "http://schema.org/",
+            "@type": "Person",
+            "name": "Jane Doe",
+            "jobTitle": "Professor",
+            "telephone": "(425) 123-4567",
+            "@id": "http://www.janedoe.com",
+            "knows": {
+                "name": "John Smith",
+                "@type": "Person",
+                "@id": "http://www.johnsmith.me",
+                "knows": {"@id": "http://www.janedoe.com"},
+            },
+        }
+
+        expected = {
+            "@context": "http://schema.org",
+            "@graph": [
+                {
+                    "id": "http://www.janedoe.com",
+                    "type": "Person",
+                    "jobTitle": "Professor",
+                    "knows": {
+                        "id": "http://www.johnsmith.me",
+                        "type": "Person",
+                        "knows": {"id": "http://www.janedoe.com"},
+                        "name": "John Smith",
+                    },
+                    "name": "Jane Doe",
+                    "telephone": "(425) 123-4567",
+                },
+                {
+                    "id": "http://www.johnsmith.me",
+                    "type": "Person",
+                    "knows": {
+                        "id": "http://www.janedoe.com",
+                        "type": "Person",
+                        "jobTitle": "Professor",
+                        "knows": {"id": "http://www.johnsmith.me"},
+                        "name": "Jane Doe",
+                        "telephone": "(425) 123-4567",
+                    },
+                    "name": "John Smith",
+                },
+            ],
+        }
+
+        frame = {'@context': 'http://schema.org', '@embed': '@once'}
+        assert expected == jsonld.frame(input, frame)
+
+        # this should result in a RuntimeError for exceeding recursion depth
+        frame = {'@context': 'http://schema.org', '@embed': '@link'}
+        with pytest.raises(RecursionError):
+            jsonld.frame(input, frame)
+
 
 class TestToRdf:
     # PR: https://github.com/digitalbazaar/pyld/pull/202
@@ -522,6 +870,251 @@ class TestToRdf:
 
         result = jsonld.to_rdf(input)
         assert result == expected
+
+    def test_compound_literal_direction_without_language(self):
+        """
+        Values with @direction should become compound literals during to_rdf
+        when rdfDirection is compound-literal.
+        """
+        input = {
+            'http://example.org/label': {
+                '@value': 'no language',
+                '@direction': 'rtl',
+            }
+        }
+
+        expected = """_:b0 <http://example.org/label> _:b1 .
+_:b1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#direction> "rtl" .
+_:b1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "no language" .
+"""
+
+        nquads = jsonld.to_rdf(
+            input,
+            options={
+                'format': 'application/n-quads',
+                'rdfDirection': 'compound-literal',
+            },
+        )
+
+        assert nquads == expected
+
+    def test_compound_literal_direction_with_language(self):
+        """
+        Values with @language should preserve it in compound literals during
+        to_rdf when rdfDirection is compound-literal.
+        """
+        input = {
+            'http://example.org/label': {
+                '@value': 'en-US',
+                '@language': 'en-US',
+                '@direction': 'rtl',
+            }
+        }
+
+        expected = """_:b0 <http://example.org/label> _:b1 .
+_:b1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#direction> "rtl" .
+_:b1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#language> "en-us" .
+_:b1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "en-US" .
+"""
+
+        nquads = jsonld.to_rdf(
+            input,
+            options={
+                'format': 'application/n-quads',
+                'rdfDirection': 'compound-literal',
+            },
+        )
+
+        assert nquads == expected
+
+    # Issue 204
+    def test_conflicting_property_names(self):
+        """
+        Conversion to RDF should allow a node in the root @context with
+        a conflicting property name in its own @context
+        """
+        input = {
+            "@context": {
+                "dublinCore": {
+                    "@id": "http://foo.bar/dc",
+                    "@context": {"title": "http://purl.org/dc/terms/title"},
+                },
+                "title": "http://foo.bar/title",
+            },
+            "@id": "http://foo.bar/obj/test",
+            "title": "test",
+            "dublinCore": {"title": "Chapter 1: Jonathan Harker's Journal"},
+        }
+
+        expected = """<http://foo.bar/obj/test> <http://foo.bar/dc> _:b0 .
+<http://foo.bar/obj/test> <http://foo.bar/title> "test" .
+_:b0 <http://purl.org/dc/terms/title> "Chapter 1: Jonathan Harker's Journal" .
+"""
+
+        nquads = jsonld.to_rdf(input, options={'format': 'application/n-quads'})
+        assert nquads == expected
+
+    def test_conflicting_property_names_in_nested_node(self):
+        """
+        Conversion to RDF should not ignore a @nest'ed node in the root @context
+        a conflicting property name in its own @context
+        """
+        input = {
+            "@context": {
+                "dublinCore": {
+                    "@id": "@nest",
+                    "@context": {"title": "http://purl.org/dc/terms/title"},
+                },
+                "title": "http://foo.bar/title",
+            },
+            "@id": "http://foo.bar/obj/test",
+            "title": "test",
+            "dublinCore": {"title": "Chapter 1: Jonathan Harker's Journal"},
+        }
+
+        expected = """<http://foo.bar/obj/test> <http://foo.bar/title> "test" .
+<http://foo.bar/obj/test> <http://purl.org/dc/terms/title> "Chapter 1: Jonathan Harker's Journal" .
+"""
+
+        nquads = jsonld.to_rdf(input, options={'format': 'application/n-quads'})
+        assert nquads == expected
+
+
+class TestFromRDF:
+    def test_compound_literal_direction_without_language(self):
+        """
+        Compound literals with rdf:direction should become JSON-LD value
+        objects when rdfDirection is compound-literal.
+        """
+        input = """
+        <http://example.com/a> <http://example.org/label> _:cl1 .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "no language" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#direction> "rtl" .
+        """
+
+        expected = [
+            {
+                '@id': 'http://example.com/a',
+                'http://example.org/label': [
+                    {'@value': 'no language', '@direction': 'rtl'}
+                ],
+            }
+        ]
+
+        result = jsonld.from_rdf(input, {'rdfDirection': 'compound-literal'})
+
+        assert result == expected
+
+    def test_compound_literal_direction_with_language(self):
+        """
+        Compound literals with rdf:language should preserve the language
+        when rdfDirection is compound-literal.
+        """
+        input = """
+        <http://example.com/a> <http://example.org/label> _:cl1 .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "en-US" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#language> "en-us" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#direction> "rtl" .
+        """
+
+        expected = [
+            {
+                '@id': 'http://example.com/a',
+                'http://example.org/label': [
+                    {
+                        '@value': 'en-US',
+                        '@language': 'en-us',
+                        '@direction': 'rtl',
+                    }
+                ],
+            }
+        ]
+
+        result = jsonld.from_rdf(input, {'rdfDirection': 'compound-literal'})
+
+        assert result == expected
+
+    def test_shared_compound_literal_blank_node_remains_node(self):
+        """
+        Compound literal blank nodes must only be decoded once when referenced.
+        """
+        input = """
+        <http://example.com/a> <http://example.org/label> _:cl1 .
+        <http://example.com/b> <http://example.org/label> _:cl1 .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "shared" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#direction> "rtl" .
+        """
+
+        expected = [
+            {
+                '@id': '_:cl1',
+                'http://www.w3.org/1999/02/22-rdf-syntax-ns#direction': [
+                    {'@value': 'rtl'}
+                ],
+                'http://www.w3.org/1999/02/22-rdf-syntax-ns#value': [
+                    {'@value': 'shared'}
+                ],
+            },
+            {
+                '@id': 'http://example.com/a',
+                'http://example.org/label': [{'@id': '_:cl1'}],
+            },
+            {
+                '@id': 'http://example.com/b',
+                'http://example.org/label': [{'@id': '_:cl1'}],
+            },
+        ]
+
+        result = jsonld.from_rdf(input, {'rdfDirection': 'compound-literal'})
+
+        assert result == expected
+
+    def test_compound_literal_invalid_direction_fails(self):
+        """
+        Invalid rdf:direction values in compound literals must fail.
+        """
+        input = """
+        <http://example.com/a> <http://example.org/label> _:cl1 .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "bad" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#direction> "up" .
+        """
+
+        with pytest.raises(jsonld.JsonLdError) as exc:
+            jsonld.from_rdf(input, {'rdfDirection': 'compound-literal'})
+
+        assert exc.value.code == 'invalid base direction'
+
+    def test_compound_literal_invalid_value_fails(self):
+        """
+        Invalid rdf:value entries in compound literals must fail.
+        """
+        input = """
+        <http://example.com/a> <http://example.org/label> _:cl1 .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "one" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "two" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#direction> "rtl" .
+        """
+
+        with pytest.raises(jsonld.JsonLdError) as exc:
+            jsonld.from_rdf(input, {'rdfDirection': 'compound-literal'})
+
+        assert exc.value.code == 'invalid value object'
+
+    def test_compound_literal_invalid_language_fails(self):
+        """
+        Invalid rdf:language values in compound literals must fail.
+        """
+        input = """
+        <http://example.com/a> <http://example.org/label> _:cl1 .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> "bad lang" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#language> "bad_lang" .
+        _:cl1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#direction> "rtl" .
+        """
+
+        with pytest.raises(jsonld.JsonLdError) as exc:
+            jsonld.from_rdf(input, {'rdfDirection': 'compound-literal'})
+
+        assert exc.value.code == 'invalid language-tagged string'
 
 
 class TestCompact:
@@ -561,6 +1154,199 @@ class TestCompact:
         compacted = jsonld.compact(input, context)
         assert compacted == expected
 
+    # Issue 247 - term selection order during compaction
+    def test_compact_prefers_shortest_term(self):
+        """
+        When two terms map to the same IRI, compaction should prefer the
+        shorter term, per the Inverse Context Creation algorithm (spec
+        section 4.3 step 3: "ordered by shortest term first").
+        """
+        context = {
+            "schema": "https://schema.org/",
+            "name": "schema:name",
+            "full_name": "schema:name",
+        }
+        doc = {"https://schema.org/name": [{"@value": "Alice"}]}
+        result = jsonld.compact(doc, context)
+        assert "name" in result
+        assert "full_name" not in result
+
+    def test_compact_shortest_wins_over_underscore_prefix(self):
+        """
+        A shorter term should be preferred even when a longer
+        underscore-prefixed term sorts lexicographically first.
+        """
+        context = {
+            "schema": "https://schema.org/",
+            "name": "schema:name",
+            "_internal_name": {"@id": "schema:name"},
+        }
+        doc = {"https://schema.org/name": [{"@value": "Alice"}]}
+        result = jsonld.compact(doc, context)
+        assert "name" in result
+        assert "_internal_name" not in result
+
+    def test_compact_same_length_uses_lexicographic_tiebreak(self):
+        """
+        When two terms of the same length map to the same IRI, the
+        lexicographically least term (by code point order) should win.
+        """
+        context = {
+            "schema": "https://schema.org/",
+            "name": "schema:name",
+            "nick": "schema:name",
+        }
+        doc = {"https://schema.org/name": [{"@value": "Alice"}]}
+        result = jsonld.compact(doc, context)
+        assert "name" in result
+        assert "nick" not in result
+
+    def test_index_map_with_compact_iri_index_round_trips(self):
+        """
+        When an @index container uses a compact IRI as its @index mapping,
+        compaction should use the indexed property value as the map key and
+        preserve the expanded representation on round-trip.
+        """
+        context = {
+            "@context": {
+                "ex": "http://example.com/",
+                "items": {
+                    "@id": "ex:items",
+                    "@container": "@index",
+                    "@index": "ex:rank",
+                },
+            }
+        }
+        expanded = [
+            {
+                "http://example.com/items": [
+                    {
+                        "http://example.com/rank": [{"@value": "first"}],
+                        "http://example.com/name": [{"@value": "Alice"}],
+                    }
+                ]
+            }
+        ]
+
+        compacted = jsonld.compact(expanded, context, {"skipExpansion": True})
+
+        assert compacted == {
+            "@context": context["@context"],
+            "items": {"first": {"ex:name": "Alice"}},
+        }
+        assert jsonld.expand(compacted) == expanded
+
+    def test_reverse_index_map_with_term_index_uses_property_value_as_key(self):
+        """
+        When an @index container uses a term as its @index mapping, compaction
+        should still find the property key selected using the indexed value.
+        """
+        context = {
+            "@context": {
+                "@version": 1.1,
+                "@base": "https://example.org/",
+                "@vocab": "https://example.net/ns#",
+                "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+                "statement": {
+                    "@reverse": "rdf:subject",
+                    "@container": "@index",
+                    "@index": "predicate",
+                },
+                "predicate": {"@id": "rdf:predicate", "@type": "@vocab"},
+                "term": {"@id": "rdf:object", "@type": "@vocab"},
+                "addedIn": {"@type": "@id"},
+            }
+        }
+        expanded = [
+            {
+                "@id": "https://example.org/item/1",
+                "@reverse": {
+                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#subject": [
+                        {
+                            "https://example.net/ns#addedIn": [
+                                {"@id": "https://example.org/v1"}
+                            ],
+                            "http://www.w3.org/1999/02/22-rdf-syntax-ns#object": [
+                                {"@id": "https://example.net/ns#A"}
+                            ],
+                            "http://www.w3.org/1999/02/22-rdf-syntax-ns#predicate": [
+                                {
+                                    "@id": (
+                                        "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                                        "type"
+                                    )
+                                }
+                            ],
+                        }
+                    ]
+                },
+            }
+        ]
+
+        compacted = jsonld.compact(expanded, context, {"skipExpansion": True})
+
+        assert compacted == {
+            "@context": context["@context"],
+            "@id": "item/1",
+            "statement": {"rdf:type": {"term": "A", "addedIn": "v1"}},
+        }
+
+    def test_node_reference_compacts_to_string_value_of_type_map(self):
+        """
+        A node reference in a type map can compact to a string when the term
+        is type-coerced to @id. In that case the type map should use @none.
+        """
+        input = {
+            "@context": {"@vocab": "http://schema.org/"},
+            "@type": "Event",
+            "location": {"@id": "http://kg.artsdata.ca/resource/K11-200"},
+        }
+        context = {
+            "@context": {
+                "@vocab": "http://schema.org/",
+                "location": {"@type": "@id", "@container": "@type"},
+            }
+        }
+
+        compacted = jsonld.compact(input, context)
+
+        assert compacted == {
+            "@context": context["@context"],
+            "@type": "Event",
+            "location": {"@none": "http://kg.artsdata.ca/resource/K11-200"},
+        }
+
+    def test_empty_property_scoped_context_preserves_outer_terms(self):
+        """
+        An empty property-scoped context should not reset the active context
+        during compaction.
+        """
+        expanded = [
+            {
+                "http://example.com/title": [{"@value": "top"}],
+                "http://example.com/thing": [
+                    {
+                        "http://example.com/title": [{"@value": "sub"}],
+                    }
+                ],
+            }
+        ]
+        context = {
+            "@context": {
+                "ex": "http://example.com/",
+                "thing": {"@id": "ex:thing", "@context": {}},
+                "title": "ex:title",
+            }
+        }
+
+        compacted = jsonld.compact(expanded, context, {"skipExpansion": True})
+
+        assert compacted == {
+            "@context": context["@context"],
+            "title": "top",
+            "thing": {"title": "sub"},
+        }
+
     # Issue 91
     def test_empty_context(self):
         """
@@ -569,3 +1355,84 @@ class TestCompact:
         input = {'http://schema.org/codeRepository': {'@id': 'http:'}}
         compacted = jsonld.compact(input, {})
         assert compacted == input
+
+    # Issue 82
+    def test_no_initial_context_drops_property(self):
+        """
+        Compacting without initial context should drop the original input.
+        """
+
+        input = {'name': 'Bob'}
+
+        compacted = jsonld.compact(input, {"@vocab": "http://example.org#"})
+        expected = {"@context": {"@vocab": "http://example.org#"}}
+
+        assert compacted == expected
+
+    @pytest.mark.xfail
+    def test_no_initial_context_and_with_skip_expand_does_not_drop_property_whe_not_array(
+        self,
+    ):
+        """
+        Compacting document with singular value and without initial context should
+        output the original input when skipExpansion is enabled.
+        """
+
+        input = {'name': 'Bob'}
+
+        compacted = jsonld.compact(
+            input, {"@vocab": "http://example.org#"}, {"skipExpansion": True}
+        )
+        expected = {"@context": {"@vocab": "http://example.org#"}, "name": "Bob"}
+        assert compacted == expected
+
+    def test_no_initial_context_and_with_skip_expand_does_not_drop_property_when_array(
+        self,
+    ):
+        """
+        Compacting document with array value and without initial context should
+        output the original input when skipExpansion is enabled.
+        """
+
+        input = {'name': ['Bob']}
+
+        compacted = jsonld.compact(
+            input, {"@vocab": "http://example.org#"}, {"skipExpansion": True}
+        )
+        expected = {"@context": {"@vocab": "http://example.org#"}, "name": "Bob"}
+        assert compacted == expected
+
+    # Issue 83
+    def test_with_vocab_no_id(self):
+        """
+        Compacting with @vocab should not compact a plain string value
+        """
+        ctx = {'@vocab': 'http://ex.org/#', 'path': {'@type': '@id'}}
+        input = {
+            'http://ex.org/#path': 'http://ex.org/#shortname',
+        }
+        expected = {
+            "@context": {"@vocab": "http://ex.org/#", "path": {"@type": "@id"}},
+            "http://ex.org/#path": "http://ex.org/#shortname",
+        }
+
+        compacted = jsonld.compact(input, ctx)
+
+        assert compacted == expected
+
+    def test_with_vocab_with_id(self):
+        """
+        Compacting with @vocab should compact an @id value
+        """
+        ctx = {'@vocab': 'http://ex.org/#', 'path': {'@type': '@id'}}
+        input = {
+            'http://ex.org/#path': {'@id': 'http://ex.org/#shortname'},
+        }
+        expected = {
+            "@context": {"@vocab": "http://ex.org/#", "path": {"@type": "@id"}},
+            "path": "http://ex.org/#shortname",
+        }
+
+        compacted = jsonld.compact(input, ctx)
+
+        assert compacted == expected

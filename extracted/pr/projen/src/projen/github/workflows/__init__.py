@@ -86,7 +86,6 @@ class AppPermission(enum.Enum):
         "pages": "pages",
         "profile": "profile",
         "pull_requests": "pullRequests",
-        "repository_announcement_banners": "repositoryAnnouncementBanners",
         "repository_custom_properties": "repositoryCustomProperties",
         "repository_hooks": "repositoryHooks",
         "repository_projects": "repositoryProjects",
@@ -142,7 +141,6 @@ class AppPermissions:
         pages: typing.Optional["AppPermission"] = None,
         profile: typing.Optional["AppPermission"] = None,
         pull_requests: typing.Optional["AppPermission"] = None,
-        repository_announcement_banners: typing.Optional["AppPermission"] = None,
         repository_custom_properties: typing.Optional["AppPermission"] = None,
         repository_hooks: typing.Optional["AppPermission"] = None,
         repository_projects: typing.Optional["AppPermission"] = None,
@@ -199,7 +197,6 @@ class AppPermissions:
         :param pages: 
         :param profile: 
         :param pull_requests: 
-        :param repository_announcement_banners: 
         :param repository_custom_properties: 
         :param repository_hooks: 
         :param repository_projects: 
@@ -255,7 +252,6 @@ class AppPermissions:
             check_type(argname="argument pages", value=pages, expected_type=type_hints["pages"])
             check_type(argname="argument profile", value=profile, expected_type=type_hints["profile"])
             check_type(argname="argument pull_requests", value=pull_requests, expected_type=type_hints["pull_requests"])
-            check_type(argname="argument repository_announcement_banners", value=repository_announcement_banners, expected_type=type_hints["repository_announcement_banners"])
             check_type(argname="argument repository_custom_properties", value=repository_custom_properties, expected_type=type_hints["repository_custom_properties"])
             check_type(argname="argument repository_hooks", value=repository_hooks, expected_type=type_hints["repository_hooks"])
             check_type(argname="argument repository_projects", value=repository_projects, expected_type=type_hints["repository_projects"])
@@ -343,8 +339,6 @@ class AppPermissions:
             self._values["profile"] = profile
         if pull_requests is not None:
             self._values["pull_requests"] = pull_requests
-        if repository_announcement_banners is not None:
-            self._values["repository_announcement_banners"] = repository_announcement_banners
         if repository_custom_properties is not None:
             self._values["repository_custom_properties"] = repository_custom_properties
         if repository_hooks is not None:
@@ -666,16 +660,6 @@ class AppPermissions:
         :stability: experimental
         '''
         result = self._values.get("pull_requests")
-        return typing.cast(typing.Optional["AppPermission"], result)
-
-    @builtins.property
-    def repository_announcement_banners(self) -> typing.Optional["AppPermission"]:
-        '''
-        :deprecated: removed by GitHub
-
-        :stability: deprecated
-        '''
-        result = self._values.get("repository_announcement_banners")
         return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
@@ -2409,7 +2393,6 @@ class JobPermission(enum.Enum):
         "packages": "packages",
         "pages": "pages",
         "pull_requests": "pullRequests",
-        "repository_projects": "repositoryProjects",
         "security_events": "securityEvents",
         "statuses": "statuses",
     },
@@ -2430,7 +2413,6 @@ class JobPermissions:
         packages: typing.Optional["JobPermission"] = None,
         pages: typing.Optional["JobPermission"] = None,
         pull_requests: typing.Optional["JobPermission"] = None,
-        repository_projects: typing.Optional["JobPermission"] = None,
         security_events: typing.Optional["JobPermission"] = None,
         statuses: typing.Optional["JobPermission"] = None,
     ) -> None:
@@ -2453,7 +2435,6 @@ class JobPermissions:
         :param packages: 
         :param pages: 
         :param pull_requests: 
-        :param repository_projects: 
         :param security_events: 
         :param statuses: 
 
@@ -2474,7 +2455,6 @@ class JobPermissions:
             check_type(argname="argument packages", value=packages, expected_type=type_hints["packages"])
             check_type(argname="argument pages", value=pages, expected_type=type_hints["pages"])
             check_type(argname="argument pull_requests", value=pull_requests, expected_type=type_hints["pull_requests"])
-            check_type(argname="argument repository_projects", value=repository_projects, expected_type=type_hints["repository_projects"])
             check_type(argname="argument security_events", value=security_events, expected_type=type_hints["security_events"])
             check_type(argname="argument statuses", value=statuses, expected_type=type_hints["statuses"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2502,8 +2482,6 @@ class JobPermissions:
             self._values["pages"] = pages
         if pull_requests is not None:
             self._values["pull_requests"] = pull_requests
-        if repository_projects is not None:
-            self._values["repository_projects"] = repository_projects
         if security_events is not None:
             self._values["security_events"] = security_events
         if statuses is not None:
@@ -2603,16 +2581,6 @@ class JobPermissions:
         :stability: experimental
         '''
         result = self._values.get("pull_requests")
-        return typing.cast(typing.Optional["JobPermission"], result)
-
-    @builtins.property
-    def repository_projects(self) -> typing.Optional["JobPermission"]:
-        '''
-        :deprecated: removed by GitHub
-
-        :stability: deprecated
-        '''
-        result = self._values.get("repository_projects")
         return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
@@ -5927,7 +5895,6 @@ def _typecheckingstub__6e0085e134a87f8de8cb54bc56e329333881c3520710c833f5ed76097
     pages: typing.Optional[AppPermission] = None,
     profile: typing.Optional[AppPermission] = None,
     pull_requests: typing.Optional[AppPermission] = None,
-    repository_announcement_banners: typing.Optional[AppPermission] = None,
     repository_custom_properties: typing.Optional[AppPermission] = None,
     repository_hooks: typing.Optional[AppPermission] = None,
     repository_projects: typing.Optional[AppPermission] = None,
@@ -6101,7 +6068,6 @@ def _typecheckingstub__5f9b6a3fbdc58e402a1aaac55747b5faedde783c61dcd4c97c759406d
     packages: typing.Optional[JobPermission] = None,
     pages: typing.Optional[JobPermission] = None,
     pull_requests: typing.Optional[JobPermission] = None,
-    repository_projects: typing.Optional[JobPermission] = None,
     security_events: typing.Optional[JobPermission] = None,
     statuses: typing.Optional[JobPermission] = None,
 ) -> None:

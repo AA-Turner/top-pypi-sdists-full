@@ -24,6 +24,7 @@ from ouroboros.auto.adapters import (
     HandlerRunStarter,
     HandlerSeedGenerator,
     HandlerSeedQAEvaluator,
+    build_answer_refiner,
     load_seed,
     save_seed,
 )
@@ -50,6 +51,10 @@ from ouroboros.auto.pipeline import AutoPipeline, AutoPipelineResult
 from ouroboros.auto.policies import apply_domain_policy_defaults
 from ouroboros.auto.repo_context import repo_auto_answer_context
 from ouroboros.auto.resume_render import render_resume_lines
+from ouroboros.auto.runtime_routing import (
+    demote_plugin_opencode_mode,
+    resolve_auto_stage_runtime_plan,
+)
 from ouroboros.auto.seed_repairer import SeedRepairer
 from ouroboros.auto.state import (
     DEFAULT_PIPELINE_TIMEOUT_SECONDS,
@@ -139,7 +144,7 @@ class AutoHandler:
                     ToolInputType.INTEGER,
                     "Max interview rounds",
                     required=False,
-                    default=12,
+                    default=50,
                 ),
                 MCPToolParameter(
                     "max_repair_rounds",
@@ -398,7 +403,7 @@ class AutoHandler:
             cwd = str(_resolve_cwd(arguments.get("cwd")))
             runtime_backend = resolve_agent_runtime_backend(self.agent_runtime_backend)
             opencode_mode = _resolved_opencode_mode(runtime_backend, self.opencode_mode)
-            max_interview_rounds = _positive_int_arg(arguments, "max_interview_rounds", 12)
+            max_interview_rounds = _positive_int_arg(arguments, "max_interview_rounds", 50)
             max_repair_rounds = _positive_int_arg(arguments, "max_repair_rounds", 5)
             skip_run = requested_skip_run
             goal_text = goal.strip()
@@ -427,24 +432,29 @@ class AutoHandler:
 
         auto_workspace = ensure_auto_worktree(state)
 
-        authoring_opencode_mode = "subprocess" if opencode_mode == "plugin" else opencode_mode
+        runtime_plan = resolve_auto_stage_runtime_plan(
+            runtime_override=None,
+            fallback_runtime_backend=runtime_backend,
+            fallback_opencode_mode=opencode_mode,
+        )
+        authoring_opencode_mode = demote_plugin_opencode_mode(runtime_plan.interview.opencode_mode)
         interview_handler = _authoring_interview_handler(
             self.interview_handler,
             llm_backend=self.llm_backend,
-            agent_runtime_backend=runtime_backend,
+            agent_runtime_backend=runtime_plan.interview.runtime_backend,
             opencode_mode=authoring_opencode_mode,
         )
         generate_seed_handler = _authoring_seed_handler(
             self.generate_seed_handler,
             llm_backend=self.llm_backend,
-            agent_runtime_backend=runtime_backend,
+            agent_runtime_backend=runtime_plan.interview.runtime_backend,
             opencode_mode=authoring_opencode_mode,
         )
         start_execute = _execution_start_handler(
             self.start_execute_seed_handler,
             llm_backend=self.llm_backend,
-            agent_runtime_backend=runtime_backend,
-            opencode_mode=opencode_mode,
+            agent_runtime_backend=runtime_plan.execute.runtime_backend,
+            opencode_mode=runtime_plan.execute.opencode_mode,
             mcp_manager=self.mcp_manager,
             mcp_tool_prefix=self.mcp_tool_prefix,
         )
@@ -454,16 +464,19 @@ class AutoHandler:
         # Issue #1248 — construct ``lateral_thinker`` ahead of the driver so
         # the safe-default escalation path (interview phase, runs regardless
         # of complete-product mode) has the same lateral handle the
-        # EVALUATE → UNSTUCK_LATERAL path uses below. ``LateralThinkHandler``
-        # is plugin-mode-skipped because it dispatches to OpenCode Task
-        # panes — the synchronous auto pipeline cannot consume that
-        # out-of-band response.
-        opencode_plugin_mode = opencode_mode == "plugin"
+        # EVALUATE → UNSTUCK_LATERAL path uses below. Gate this on the
+        # resolved REFLECT stage rather than the default runtime: a default
+        # OpenCode plugin profile can still route reflect work to an inline
+        # backend that the synchronous auto pipeline can consume.
+        reflect_plugin_mode = should_dispatch_via_plugin(
+            runtime_plan.reflect.runtime_backend,
+            runtime_plan.reflect.opencode_mode,
+        )
         lateral_thinker = None
-        if not opencode_plugin_mode:
+        if not reflect_plugin_mode:
             lateral_handler = LateralThinkHandler(
-                agent_runtime_backend=runtime_backend,
-                opencode_mode=opencode_mode,
+                agent_runtime_backend=runtime_plan.reflect.runtime_backend,
+                opencode_mode=demote_plugin_opencode_mode(runtime_plan.reflect.opencode_mode),
             )
             lateral_thinker = HandlerLateralThinker(lateral_handler)
 
@@ -474,22 +487,30 @@ class AutoHandler:
             timeout_seconds=state.phase_timeout_seconds(AutoPhase.INTERVIEW),
             context_provider=context_provider,
             lateral_thinker=lateral_thinker,
+            # AI answer refiner: concrete goal-specific answers so interview
+            # ambiguity converges. Best-effort; None falls back to deterministic.
+            answer_refiner=build_answer_refiner(),
         )
-        # Q00/ouroboros#782 review-11 BLOCKING #1: pass the un-demoted
-        # ``state.ralph_opencode_mode`` (already populated above at line 251-252,
-        # and preserved across CLI-created sessions where ``state.opencode_mode``
-        # holds the demoted authoring/run-handoff form) so MCP-side resumes of
-        # an OpenCode plugin ``--complete-product`` session take the plugin
-        # ``_subagent`` dispatch path instead of silently downgrading Ralph to
-        # in-process job mode. Mirrors the CLI fix in ``cli/commands/auto.py``.
-        ralph_opencode_mode = state.ralph_opencode_mode or opencode_mode
+        # Complete-product Ralph follows the execute-stage runtime because it
+        # continues product mutation/evaluation after the initial run handoff.
+        # OpenCode plugin mode is intentionally preserved here: unlike
+        # interview/Seed authoring, Ralph can surface a plugin delegation
+        # receipt to the caller.
+        ralph_opencode_mode = (
+            state.ralph_opencode_mode or runtime_plan.execute.opencode_mode
+            if runtime_plan.execute.runtime_backend == "opencode"
+            else None
+        )
         ralph_handler = None
         if complete_product:
             ralph_handler = (
-                self.ralph_handler_factory(runtime_backend, ralph_opencode_mode)
+                self.ralph_handler_factory(
+                    runtime_plan.execute.runtime_backend,
+                    ralph_opencode_mode,
+                )
                 if self.ralph_handler_factory is not None
                 else RalphHandler(
-                    agent_runtime_backend=runtime_backend,
+                    agent_runtime_backend=runtime_plan.execute.runtime_backend,
                     opencode_mode=ralph_opencode_mode,
                 )
             )
@@ -510,27 +531,32 @@ class AutoHandler:
         # RUN/skip-run transitions. For OpenCode plugin sessions, use the same
         # demoted authoring mode as Interview/GenerateSeed so QA executes
         # inline instead of emitting an out-of-band ``_subagent`` envelope that
-        # the synchronous pipeline cannot consume. Keep the optional
-        # complete-product execution evaluator plugin-skipped: that later
-        # EVALUATE-stage advisory path still grades post-run artifacts and
-        # cannot consume plugin Task-pane output.
+        # the synchronous pipeline cannot consume.
         #
         # Issue #1248 — ``lateral_thinker`` is constructed above (before
         # the driver) so it is available to both the driver's
         # safe-default escalation path and the pipeline's
-        # EVALUATE → UNSTUCK_LATERAL path. The EVALUATE side stays gated
-        # by ``evaluator``, which keeps the complete-product invariant
-        # for that callsite without re-instantiating ``lateral_thinker``
-        # here.
+        # EVALUATE → UNSTUCK_LATERAL path. The complete-product evaluator is
+        # plugin-skipped based on the resolved EVALUATE stage, not the default
+        # runtime, so explicit non-plugin stage overrides remain consumable.
         evaluator = None
         seed_qa_handler = QAHandler(
             llm_backend=self.llm_backend,
-            agent_runtime_backend=runtime_backend,
+            agent_runtime_backend=runtime_plan.interview.runtime_backend,
             opencode_mode=authoring_opencode_mode,
         )
         seed_qa_evaluator = HandlerSeedQAEvaluator(seed_qa_handler)
-        if complete_product and not opencode_plugin_mode:
-            evaluator = HandlerEvaluator(seed_qa_handler)
+        evaluate_plugin_mode = should_dispatch_via_plugin(
+            runtime_plan.evaluate.runtime_backend,
+            runtime_plan.evaluate.opencode_mode,
+        )
+        if complete_product and not evaluate_plugin_mode:
+            evaluation_handler = QAHandler(
+                llm_backend=self.llm_backend,
+                agent_runtime_backend=runtime_plan.evaluate.runtime_backend,
+                opencode_mode=demote_plugin_opencode_mode(runtime_plan.evaluate.opencode_mode),
+            )
+            evaluator = HandlerEvaluator(evaluation_handler)
         watchdog_event_store = self.event_store or EventStore()
         await watchdog_event_store.initialize()
         watchdog = Watchdog(
@@ -850,10 +876,11 @@ class StartAutoHandler:
 
         text = (
             "Started background auto session.\n\n"
-            "Status: queued\n\n"
+            "Status: queued\n"
+            f"job_id: {snapshot.job_id}\n"
+            f"auto_session_id: {auto_session_id}\n\n"
             "Track with ouroboros_job_wait / ouroboros_job_status until terminal, "
-            "then fetch ouroboros_job_result. Use response metadata for job_id "
-            "and auto_session_id."
+            "then fetch ouroboros_job_result."
         )
         return Result.ok(
             MCPToolResult(
@@ -883,7 +910,7 @@ class StartAutoHandler:
         cwd = str(_resolve_cwd(arguments.get("cwd")))
         state = AutoPipelineState(goal=goal, cwd=cwd)
         _apply_requested_domain_and_policies(state, arguments)
-        state.max_interview_rounds = _positive_int_arg(arguments, "max_interview_rounds", 12)
+        state.max_interview_rounds = _positive_int_arg(arguments, "max_interview_rounds", 50)
         state.max_repair_rounds = _positive_int_arg(arguments, "max_repair_rounds", 5)
         state.skip_run = bool(arguments.get("skip_run", False))
         state.complete_product = bool(arguments.get("complete_product", False))
@@ -1099,7 +1126,20 @@ def _state_dispatches_via_plugin(
         runtime_backend,
         state.opencode_mode or fallback_opencode_mode,
     )
-    return should_dispatch_via_plugin(runtime_backend, opencode_mode)
+    runtime_plan = resolve_auto_stage_runtime_plan(
+        runtime_override=None,
+        fallback_runtime_backend=runtime_backend,
+        fallback_opencode_mode=opencode_mode,
+    )
+    interview_dispatch = should_dispatch_via_plugin(
+        runtime_plan.interview.runtime_backend,
+        runtime_plan.interview.opencode_mode,
+    )
+    execute_dispatch = (not state.skip_run) and should_dispatch_via_plugin(
+        runtime_plan.execute.runtime_backend,
+        runtime_plan.execute.opencode_mode,
+    )
+    return interview_dispatch or execute_dispatch
 
 
 def _start_auto_lease_token_from_arguments(arguments: dict[str, Any]) -> str | None:

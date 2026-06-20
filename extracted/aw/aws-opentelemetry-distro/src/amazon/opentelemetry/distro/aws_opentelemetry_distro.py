@@ -70,10 +70,10 @@ from amazon.opentelemetry.distro._utils import (
     OTEL_METRICS_ADD_APPLICATION_SIGNALS_DIMENSIONS,
     get_aws_region,
     is_agent_observability_enabled,
-    is_aws_agentic_observability_opt_in,
     is_installed,
 )
 from amazon.opentelemetry.distro.aws_opentelemetry_configurator import APPLICATION_SIGNALS_ENABLED_CONFIG
+from amazon.opentelemetry.distro.debugger.debugger import initialize_debugger
 from amazon.opentelemetry.distro.patches._instrumentation_patch import apply_instrumentation_patches
 from opentelemetry import propagate
 from opentelemetry.distro import OpenTelemetryDistro
@@ -101,22 +101,37 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_PROTOCOL,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
 )
-from opentelemetry.util._importlib_metadata import EntryPoint
+from opentelemetry.trace import get_tracer_provider
+from opentelemetry.util._importlib_metadata import EntryPoint, entry_points
 
 _logger: Logger = getLogger(__name__)
 # Suppress configurator warnings from auto-instrumentation
 _load._logger.setLevel(LEVELS.get(os.environ.get(OTEL_PYTHON_LOG_LEVEL, "error").lower(), ERROR))
 
 
-AGENT_OBSERVABILITY_DISABLED_INSTRUMENTATIONS = (
-    "sqlalchemy,psycopg2,pymysql,sqlite3,aiopg,asyncpg,mysql_connector,"
-    "system_metrics,google-genai,jinja2,aws_crewai,aws_langchain,aws_llama-index,aws_mcp,aws_openai_agents"
-)
+# Controls AWS native agentic instrumentors when AGENT_OBSERVABILITY_ENABLED=true.
+# This switch only governs the aws_* side; third-party instrumentors are never disabled
+# by ADOT — uninstall them or use OTEL_PYTHON_DISABLED_INSTRUMENTATIONS to opt out.
+# Values:
+#   "auto" (default, also when unset): load aws_* unless a same-library third-party is registered.
+#   "enabled" : load all aws_* unconditionally.
+#   "disabled": skip all aws_*.
+AWS_AGENTIC_INSTRUMENTATION = "AWS_AGENTIC_INSTRUMENTATION"
 
-AWS_AGENTIC_OBSERVABILITY_DISABLED_INSTRUMENTATIONS = (
-    "sqlalchemy,psycopg2,pymysql,sqlite3,aiopg,asyncpg,mysql_connector,"
-    "system_metrics,google-genai,jinja2,crewai,langchain,llama-index,llama_index,mcp,openai_agents"
-)
+# Maps third-party instrumentor entry point names to their AWS native equivalents.
+# Used for mutual exclusion: only one side instruments each library at a time.
+_THIRDPARTY_TO_AWS_NATIVE = {
+    "crewai": "aws_crewai",
+    "langchain": "aws_langchain",
+    "llama-index": "aws_llama-index",
+    "llama_index": "aws_llama-index",
+    "mcp": "aws_mcp",
+    "openai_agents": "aws_openai_agents",
+}
+
+# Dist names owned by ADOT that register entry points with the same names as third-party ones.
+# These are excluded from third-party detection to avoid false positives.
+_ADOT_OWNED_DISTS = {"opentelemetry-instrumentation-openai-agents-v2"}
 
 
 class AwsOpenTelemetryDistro(OpenTelemetryDistro):
@@ -192,18 +207,12 @@ class AwsOpenTelemetryDistro(OpenTelemetryDistro):
             OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION, "base2_exponential_bucket_histogram"
         )
 
-        if is_aws_agentic_observability_opt_in():
-            _logger.info("AWS Agentic Observability enabled.")
-            self._configure_common_agent_observability(AWS_AGENTIC_OBSERVABILITY_DISABLED_INSTRUMENTATIONS)
-            os.environ.setdefault(OTEL_METRICS_EXPORTER, "otlp")
-            os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
-        elif is_agent_observability_enabled():
-            # Maintained for backwards compatibility. New users should use AWS_AGENTIC_OBSERVABILITY_OPT_IN instead.
-            _logger.info(
-                "AGENT_OBSERVABILITY_ENABLED is set. Consider using AWS_AGENTIC_OBSERVABILITY_OPT_IN for ADOT Agentic Observability."
-            )
-            self._configure_common_agent_observability(AGENT_OBSERVABILITY_DISABLED_INSTRUMENTATIONS)
+        if is_agent_observability_enabled():
+            os.environ.setdefault(OTEL_TRACES_EXPORTER, "otlp")
+            os.environ.setdefault(OTEL_LOGS_EXPORTER, "otlp")
             os.environ.setdefault(OTEL_METRICS_EXPORTER, "awsemf")
+            os.environ.setdefault("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "true")
+
             region = get_aws_region()
             if not os.environ.get(OTEL_EXPORTER_OTLP_ENDPOINT):
                 if region:
@@ -219,39 +228,81 @@ class AwsOpenTelemetryDistro(OpenTelemetryDistro):
                         "Please set AWS_REGION environment variable or configure OTLP endpoints manually."
                     )
 
+            os.environ.setdefault(
+                OTEL_PYTHON_DISABLED_INSTRUMENTATIONS,
+                "http,sqlalchemy,psycopg2,pymysql,sqlite3,aiopg,asyncpg,mysql_connector,"
+                "urllib3,requests,system_metrics,google-genai,jinja2",
+            )
+            os.environ.setdefault(OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED, "true")
+            os.environ.setdefault(OTEL_PYTHON_LOG_CORRELATION, "true")
+            os.environ.setdefault(APPLICATION_SIGNALS_ENABLED_CONFIG, "false")
+            os.environ.setdefault(OTEL_METRICS_ADD_APPLICATION_SIGNALS_DIMENSIONS, "false")
+            os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
+
         super(AwsOpenTelemetryDistro, self)._configure()
 
         if kwargs.get("apply_patches", True):
             apply_instrumentation_patches()
 
+        # Attempt debugger initialization; no-op unless the user opts in via
+        # OTEL_AWS_DYNAMIC_INSTRUMENTATION_ENABLED=true.
+        AwsOpenTelemetryDistro._initialize_debugger()
+
+    @staticmethod
+    def _initialize_debugger():
+        """Initialize debugger with the configured tracer provider."""
+        try:
+            tracer_provider = get_tracer_provider()
+            initialize_debugger(tracer_provider)
+        except Exception as exception:  # pylint: disable=broad-exception-caught
+            _logger.debug("Debugger initialization skipped: %s", exception)
+
     def load_instrumentor(self, entry_point: EntryPoint, **kwargs):
-        if self._should_skip_instrumentor(entry_point):
+        """Skip AWS native agentic instrumentors that should not load.
+
+        When agent observability is enabled:
+        - Skip ADOT-owned dists that duplicate an aws_* entry point (e.g. openai-agents-v2).
+        - AWS_AGENTIC_INSTRUMENTATION (auto/enabled/disabled) governs the aws_* side only.
+          See the constant docstring for semantics. Third-party instrumentors are never
+          touched here.
+        """
+        if is_agent_observability_enabled() and self._should_skip_instrumentor(entry_point):
             return
         super().load_instrumentor(entry_point, **kwargs)
 
     @staticmethod
-    def _should_skip_instrumentor(entry_point: EntryPoint) -> bool:
-        # Some third-party SDKs register the same entry point name as the upstream
-        # OTel packages that we depend on. For Agentic Observability legacy mode, skip our bundled
-        # OTel instrumentation so that existing third-party setups are not brokens.
-        if (
-            is_agent_observability_enabled()
-            and not is_aws_agentic_observability_opt_in()
-            and entry_point.dist
-            and entry_point.name == "openai_agents"
-            and entry_point.dist.name == "opentelemetry-instrumentation-openai-agents-v2"
-        ):
+    def _should_skip_instrumentor(entry_point):
+        if entry_point.dist and entry_point.dist.name in _ADOT_OWNED_DISTS:
             return True
-        # TODO: add additional skip conditions here as needed
-        return False
 
-    @staticmethod
-    def _configure_common_agent_observability(disabled_instrumentations: str) -> None:
-        os.environ.setdefault("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "true")
-        os.environ.setdefault(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS, disabled_instrumentations)
-        os.environ.setdefault(OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED, "true")
-        os.environ.setdefault(OTEL_PYTHON_LOG_CORRELATION, "true")
-        os.environ.setdefault(APPLICATION_SIGNALS_ENABLED_CONFIG, "false")
-        os.environ.setdefault(OTEL_METRICS_ADD_APPLICATION_SIGNALS_DIMENSIONS, "false")
-        os.environ.setdefault(OTEL_TRACES_EXPORTER, "otlp")
-        os.environ.setdefault(OTEL_LOGS_EXPORTER, "otlp")
+        is_native = entry_point.name in _THIRDPARTY_TO_AWS_NATIVE.values()
+        if not is_native:
+            return False
+
+        raw_mode = os.environ.get(AWS_AGENTIC_INSTRUMENTATION, "auto")
+        mode = raw_mode.lower()
+        if mode not in ("auto", "enabled", "disabled"):
+            _logger.warning(
+                "Unknown %s=%r — falling back to 'auto'. Valid values: auto, enabled, disabled.",
+                AWS_AGENTIC_INSTRUMENTATION,
+                raw_mode,
+            )
+            mode = "auto"
+
+        if mode == "enabled":
+            return False
+        if mode == "disabled":
+            _logger.debug("Skipping %s: AWS_AGENTIC_INSTRUMENTATION=disabled", entry_point.name)
+            return True
+
+        # mode == "auto": skip the native side if a same-library third-party is registered.
+        third_party_names = {
+            ep.name
+            for ep in entry_points(group="opentelemetry_instrumentor")
+            if not (ep.dist and ep.dist.name in _ADOT_OWNED_DISTS)
+        }
+        for tp_name, aws_name in _THIRDPARTY_TO_AWS_NATIVE.items():
+            if entry_point.name == aws_name and tp_name in third_party_names:
+                _logger.debug("Skipping %s: third-party %s is registered", aws_name, tp_name)
+                return True
+        return False

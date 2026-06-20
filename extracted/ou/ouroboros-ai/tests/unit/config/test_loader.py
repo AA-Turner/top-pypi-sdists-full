@@ -27,6 +27,9 @@ from ouroboros.config.loader import (
     get_gjc_cli_path,
     get_kiro_cli_path,
     get_llm_backend,
+    get_llm_backend_for_role,
+    get_llm_backend_for_stage,
+    get_llm_model_for_role,
     get_llm_permission_mode,
     get_max_parallel_workers,
     get_ontology_analysis_model,
@@ -1101,6 +1104,86 @@ class TestLLMHelperLookups:
         ):
             assert get_llm_backend() == "hermes"
 
+    def test_get_llm_backend_for_role_uses_runtime_profile_stage(self) -> None:
+        config = OuroborosConfig(
+            orchestrator=OrchestratorConfig(
+                runtime_backend="claude",
+                runtime_profile=RuntimeProfileConfig(
+                    stages={"evaluate": "codex", "reflect": "gemini"}
+                ),
+            )
+        )
+
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("ouroboros.config.loader.load_config", return_value=config),
+        ):
+            assert get_llm_backend_for_role("qa") == "codex"
+            assert get_llm_backend_for_role("context_compression") == "gemini"
+            assert get_llm_backend_for_stage("interview") == "claude"
+
+    def test_get_llm_backend_for_role_preserves_explicit_override(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert get_llm_backend_for_role("qa", explicit_backend="opencode") == "opencode"
+
+    def test_get_llm_backend_for_role_honors_legacy_llm_backend_config(self) -> None:
+        # No per-stage routing: the documented llm.backend override must win over
+        # the default agent runtime instead of being silently ignored.
+        config = OuroborosConfig(
+            orchestrator=OrchestratorConfig(runtime_backend="claude"),
+            llm=LLMConfig(backend="codex"),
+        )
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("ouroboros.config.loader.load_config", return_value=config),
+        ):
+            assert get_llm_backend_for_role("qa") == "codex"
+            assert get_llm_backend_for_stage("interview") == "codex"
+
+    def test_get_llm_backend_for_role_honors_env_override(self) -> None:
+        config = OuroborosConfig(
+            orchestrator=OrchestratorConfig(runtime_backend="claude"),
+            llm=LLMConfig(backend="claude_code"),
+        )
+        with (
+            patch.dict(os.environ, {"OUROBOROS_LLM_BACKEND": "codex"}, clear=True),
+            patch("ouroboros.config.loader.load_config", return_value=config),
+        ):
+            assert get_llm_backend_for_role("qa") == "codex"
+
+    def test_runtime_profile_stage_beats_legacy_llm_backend(self) -> None:
+        config = OuroborosConfig(
+            orchestrator=OrchestratorConfig(
+                runtime_backend="claude",
+                runtime_profile=RuntimeProfileConfig(stages={"evaluate": "gemini"}),
+            ),
+            llm=LLMConfig(backend="codex"),
+        )
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("ouroboros.config.loader.load_config", return_value=config),
+        ):
+            # Per-stage Agent (evaluate=gemini) wins over the global llm.backend...
+            assert get_llm_backend_for_role("qa") == "gemini"
+            # ...while un-mapped stages still honor the llm.backend override.
+            assert get_llm_backend_for_role("interview") == "codex"
+
+    def test_get_llm_model_for_role_uses_stage_model_fields(self) -> None:
+        config = OuroborosConfig(
+            clarification=ClarificationConfig(default_model="interview-model"),
+            evaluation=EvaluationConfig(semantic_model="evaluate-model"),
+            resilience=ResilienceConfig(reflect_model="reflect-model"),
+        )
+
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("ouroboros.config.loader.load_config", return_value=config),
+        ):
+            assert get_llm_model_for_role("seed_generation") == "interview-model"
+            assert get_llm_model_for_role("qa") == "evaluate-model"
+            assert get_llm_model_for_role("dependency_analysis") == "evaluate-model"
+            assert get_llm_model_for_role("wonder") == "reflect-model"
+
     def test_get_llm_permission_mode_prefers_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Environment variable overrides config for llm permission mode."""
         monkeypatch.setenv("OUROBOROS_LLM_PERMISSION_MODE", "acceptEdits")
@@ -1762,3 +1845,70 @@ def test_get_goose_cli_path_ignores_stale_env_and_config(
         patch("ouroboros.config.loader.shutil.which", return_value=None),
     ):
         assert get_goose_cli_path() is None
+
+
+class TestGetAgentReasoningEffort:
+    """Env/config resolution + validation for the RFC #1405 effort dial."""
+
+    def test_valid_env_overrides_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from ouroboros.config.loader import get_agent_reasoning_effort
+
+        monkeypatch.setenv("OUROBOROS_AGENT_REASONING_EFFORT", "high")
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(orchestrator=OrchestratorConfig(reasoning_effort="low")),
+        ):
+            assert get_agent_reasoning_effort() == "high"
+
+    def test_invalid_env_is_ignored_and_falls_back_to_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Codex-only ``minimal`` is invalid for the native-shared global dial and
+        # must never be forwarded to a runtime; fall through to the config value.
+        from ouroboros.config.loader import get_agent_reasoning_effort
+
+        monkeypatch.setenv("OUROBOROS_AGENT_REASONING_EFFORT", "minimal")
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(
+                orchestrator=OrchestratorConfig(reasoning_effort="medium")
+            ),
+        ):
+            assert get_agent_reasoning_effort() == "medium"
+
+    def test_garbage_env_is_ignored(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from ouroboros.config.loader import get_agent_reasoning_effort
+
+        monkeypatch.setenv("OUROBOROS_AGENT_REASONING_EFFORT", "turbo")
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(orchestrator=OrchestratorConfig()),
+        ):
+            assert get_agent_reasoning_effort() is None
+
+    def test_config_value_used_when_no_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from ouroboros.config.loader import get_agent_reasoning_effort
+
+        monkeypatch.delenv("OUROBOROS_AGENT_REASONING_EFFORT", raising=False)
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(orchestrator=OrchestratorConfig(reasoning_effort="xhigh")),
+        ):
+            assert get_agent_reasoning_effort() == "xhigh"
+
+    def test_dormant_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from ouroboros.config.loader import get_agent_reasoning_effort
+
+        monkeypatch.delenv("OUROBOROS_AGENT_REASONING_EFFORT", raising=False)
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(orchestrator=OrchestratorConfig()),
+        ):
+            assert get_agent_reasoning_effort() is None
+
+    def test_minimal_rejected_by_config_schema(self) -> None:
+        # The global dial is restricted to the native-shared vocabulary.
+        import pydantic
+
+        with pytest.raises(pydantic.ValidationError):
+            OrchestratorConfig(reasoning_effort="minimal")

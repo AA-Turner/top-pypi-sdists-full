@@ -38,12 +38,12 @@
 Based on: openbruker,readbruker, readbrukerheader functions in the opendata
          module of ImageD11 written by Jon Wright, ESRF, Grenoble, France
 
-Writer by Jérôme Kieffer, ESRF, Grenoble, France
+Written by Jérôme Kieffer, ESRF, Grenoble, France
 
 """
 
 __authors__ = ["Henning O. Sorensen", "Erik Knudsen", "Jon Wright", "Jérôme Kieffer"]
-__date__ = "27/10/2025"
+__date__ = "17/06/2026"
 __status__ = "production"
 __copyright__ = "2007-2009 Risoe National Laboratory; 2010-2020 ESRF"
 __licence__ = "MIT"
@@ -67,7 +67,7 @@ class BrukerImage(FabioImage):
 
     TODO: int32 -> float32 conversion according to the "linear" keyword.
     This is done and works but we need to check with other program that we
-    are appliing the right formula and not the reciprocal one.
+    are applying the right formula and not the reciprocal one.
 
     """
 
@@ -145,7 +145,7 @@ class BrukerImage(FabioImage):
         "LUT",  # Recommended display lookup table
         "DISPLIM",  # Recommended display limits
         "PROGRAM",  # Name and version of program writing frame, such as:
-        "ROTATE",  # Non zero if acquired by rotation of phi during scan (or oscilate)
+        "ROTATE",  # Non zero if acquired by rotation of phi during scan (or oscillate)
         "BITMASK",  # File name of active pixel mask associated with this frame or $NULL
         "OCTMASK",  # Octagon mask parameters to use if BITMASK=$null. Min X, Min X+Y, Min Y, Max X-Y, Max X, Max X+Y, Max Y, Max Y-X.
         "ESDCELL",  # Unit cell parameter standard deviations
@@ -248,11 +248,10 @@ class BrukerImage(FabioImage):
                 logger.warning(errmsg)
                 raise RuntimeError(errmsg)
 
-            data = numpy.frombuffer(
-                infile.read(rows * cols * npixelb), dtype=self.bpp_to_numpy[npixelb]
-            ).copy()
-            if not numpy.little_endian and data.dtype.itemsize > 1:
-                data.byteswap(True)
+            stype = self.get_stype(self.bpp_to_numpy[npixelb], "little")
+            data = numpy.frombuffer(infile.read(rows * cols * npixelb),
+                                    dtype=stype
+            ).astype(self.bpp_to_numpy[npixelb])
 
             # handle overflows
             nov = int(self.header["NOVERFL"])
@@ -327,12 +326,10 @@ class BrukerImage(FabioImage):
         bpp = self.calc_bpp(tmp_data)
         self.basic_translate(fname)
         limit = 2 ** (8 * bpp) - 1
-        data = tmp_data.astype(self.bpp_to_numpy[bpp])
+        stype = self.get_stype(self.bpp_to_numpy[bpp], "little")
+        data = tmp_data.astype(stype)
         reset = numpy.where(tmp_data >= limit)
         data[reset] = limit
-        if not numpy.little_endian and bpp > 1:
-            # Bruker enforces little endian
-            data.byteswap(True)
         with self._open(fname, "wb") as bruker:
             bruker.write(self.gen_header().encode("ASCII"))
             if isinstance(bruker, io.BufferedWriter):

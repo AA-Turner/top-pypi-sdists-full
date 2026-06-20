@@ -475,9 +475,13 @@ class AlexaLogin:
                 await self._session._connector.close()
             self._session._connector = None
 
-    async def reset(self) -> None:
+    async def reset(self, *, delete_cookies: bool = True) -> None:
         """Remove data related to existing login."""
-        _LOGGER.debug("Resetting Login for %s - %s", hide_email(self.email), self.url)
+        _LOGGER.debug(
+            "Resetting Login for %s - %s",
+            hide_email(self.email),
+            self.url,
+        )
         await self.close()
         self._session = None
         self._data = None
@@ -489,9 +493,15 @@ class AlexaLogin:
         self._create_session()
         self._close_requested = False
 
-        for cookiefile in self._cookiefile:
-            if (cookiefile) and os.path.exists(cookiefile):
-                await delete_cookie(cookiefile)
+        if delete_cookies:
+            _LOGGER.debug(
+                "Deleting cookies for %s - %s",
+                hide_email(self.email),
+                self.url,
+            )
+            for cookiefile in self._cookiefile:
+                if cookiefile and os.path.exists(cookiefile):
+                    await delete_cookie(cookiefile)
 
     @classmethod
     def get_inputs(cls, soup: BeautifulSoup, searchfield=None) -> dict[str, str]:
@@ -679,7 +689,10 @@ class AlexaLogin:
             _LOGGER.debug("Using cookies to log in")
             if await self.test_loggedin(cookies):
                 return
-            await self.reset()
+            _LOGGER.debug(
+                "Cookie login failed; resetting session without deleting cookies"
+            )
+            await self.reset(delete_cookies=False)
         _LOGGER.debug("Using credentials to log in")
         if not self._site:
             site: URL = self.start_url

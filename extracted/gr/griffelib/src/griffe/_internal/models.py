@@ -120,7 +120,7 @@ class Docstring:
         [`parse`][griffe.Docstring.parse].
         """
 
-        self.parser_options: DocstringOptions = parser_options or {}  # ty:ignore[invalid-assignment]
+        self.parser_options: DocstringOptions = parser_options or {}
         """The configured parsing options.
 
         See also: [`parser`][griffe.Docstring.parser],
@@ -2166,7 +2166,7 @@ class Alias(ObjectAliasMixin):
 
     def _update_target_aliases(self) -> None:
         with suppress(AttributeError, AliasResolutionError, CyclicAliasError):
-            self._target.aliases[self.path] = self   # ty:ignore[unresolved-attribute]
+            self._target.aliases[self.path] = self  # ty:ignore[unresolved-attribute]
 
     @property
     def resolved(self) -> bool:

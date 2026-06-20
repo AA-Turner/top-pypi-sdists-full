@@ -48,14 +48,6 @@ from .tools import (
     ToolsResourceWithStreamingResponse,
     AsyncToolsResourceWithStreamingResponse,
 )
-from .project import (
-    ProjectResource,
-    AsyncProjectResource,
-    ProjectResourceWithRawResponse,
-    AsyncProjectResourceWithRawResponse,
-    ProjectResourceWithStreamingResponse,
-    AsyncProjectResourceWithStreamingResponse,
-)
 from .toolkits import (
     ToolkitsResource,
     AsyncToolkitsResource,
@@ -63,14 +55,6 @@ from .toolkits import (
     AsyncToolkitsResourceWithRawResponse,
     ToolkitsResourceWithStreamingResponse,
     AsyncToolkitsResourceWithStreamingResponse,
-)
-from .migration import (
-    MigrationResource,
-    AsyncMigrationResource,
-    MigrationResourceWithRawResponse,
-    AsyncMigrationResourceWithRawResponse,
-    MigrationResourceWithStreamingResponse,
-    AsyncMigrationResourceWithStreamingResponse,
 )
 from .tool_router import (
     ToolRouterResource,
@@ -168,24 +152,12 @@ __all__ = [
     "AsyncFilesResourceWithRawResponse",
     "FilesResourceWithStreamingResponse",
     "AsyncFilesResourceWithStreamingResponse",
-    "MigrationResource",
-    "AsyncMigrationResource",
-    "MigrationResourceWithRawResponse",
-    "AsyncMigrationResourceWithRawResponse",
-    "MigrationResourceWithStreamingResponse",
-    "AsyncMigrationResourceWithStreamingResponse",
     "CliResource",
     "AsyncCliResource",
     "CliResourceWithRawResponse",
     "AsyncCliResourceWithRawResponse",
     "CliResourceWithStreamingResponse",
     "AsyncCliResourceWithStreamingResponse",
-    "ProjectResource",
-    "AsyncProjectResource",
-    "ProjectResourceWithRawResponse",
-    "AsyncProjectResourceWithRawResponse",
-    "ProjectResourceWithStreamingResponse",
-    "AsyncProjectResourceWithStreamingResponse",
     "LogsResource",
     "AsyncLogsResource",
     "LogsResourceWithRawResponse",

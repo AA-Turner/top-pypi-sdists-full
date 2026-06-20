@@ -8408,6 +8408,22 @@ TEST_CASES = [
         b'',
         b"\x00\x00\x03abc\x00\x00\x05wrong\x00\x01ZInvalid value wrong for type 'Int8' in column 'wrong_value' with jsonpath '$.wrong_value'.\x00\x01\x0bwrong_value\x01\x01",
         0, 1),
+
+    # Non-standard but existing behaviour: on duplicate JSON keys, first occurrence wins
+    (ConversionMode.ALWAYS,
+        [('a', 'String', '$.a', False)],
+        '{"a":"x1","a":"x2"}',
+        b'\x00\x02x1',
+        b'',
+        1, 0),
+
+    # Existing behaviour: JSONPaths do not match their encoded keys
+    (ConversionMode.ALWAYS,
+        [('a', 'String', '$.a', False)],
+        '{"\\u0061":"x1"}',
+        b'',
+        b"\x01\x00\x01\xa7\x01Strict type checking failed. Object does not have column 'a', you should send a value or recreate the table with a Nullable column type. While accessing jsonpath \'$.a\'\x00\x01\x01a\x01\x01",
+        0, 1),
 ]
 
 

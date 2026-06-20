@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloakbrowser
-Version: 0.3.31
+Version: 0.3.32
 Summary: Stealth Chromium that passes every bot detection test. Drop-in Playwright replacement with source-level fingerprint patches.
 Project-URL: Homepage, https://github.com/CloakHQ/CloakBrowser
 Project-URL: Documentation, https://github.com/CloakHQ/CloakBrowser#readme
@@ -190,7 +190,7 @@ Open [http://localhost:8080](http://localhost:8080). Create a profile. Click **L
 
 ---
 
-## Latest: v0.3.31 (Chromium 146.0.7680.177.5)
+## Latest: v0.3.32 (Chromium 146.0.7680.177.5)
 
 - **58 fingerprint patches** — rendering consistency improvements across Linux and Windows, corrected GPU/display/graphics parameters to match stock Chrome 146 profiles
 - **Windows native GPU passthrough** — real hardware values pass through directly instead of being spoofed, matching real browser behavior
@@ -423,6 +423,7 @@ Use this when you need to:
 - **Bypass incognito detection** (some sites flag empty, ephemeral profiles)
 - **Load Chrome extensions** (extensions only work from a real user data dir)
 - **Build natural browsing history** (cached fonts, service workers, IndexedDB accumulate over time, making the profile look more realistic)
+- **Play DRM-protected video** (Widevine) — with a sideloaded CDM, the wrapper enables Widevine on the first launch (see [Widevine / DRM](#widevine--drm))
 
 ```python
 from cloakbrowser import launch_persistent_context
@@ -458,6 +459,26 @@ ctx = launch_persistent_context("./my-profile", args=["--fingerprint-storage-quo
 |---|---|---|
 | Default (auto, ~500MB) | PASS | -10 (flagged as incognito) |
 | `--fingerprint-storage-quota=5000` | May trigger detection | PASS (appears non-incognito) |
+
+### Widevine / DRM
+
+The binary is built with Widevine support, but the Widevine CDM is a proprietary Google component we can't redistribute. Sideload it once by copying a `WidevineCdm/` directory from a real Chrome install next to the binary (full steps in [#96](https://github.com/CloakHQ/CloakBrowser/issues/96)):
+
+```bash
+cp -r /opt/google/chrome/WidevineCdm ~/.cloakbrowser/chromium-<version>/WidevineCdm
+```
+
+With the CDM in place, `launch_persistent_context()` enables Widevine **on the first launch** — the wrapper auto-writes the CDM hint file into the profile, so you don't need the manual two-launch workaround. This lets you play DRM-protected video (e.g. Netflix, Spotify Web) and makes a persistent profile present as a regular Chrome install to detection services that probe for DRM/EME support as a real-browser signal.
+
+```python
+from cloakbrowser import launch_persistent_context
+
+# WidevineCdm sideloaded next to the binary -> Widevine works on first launch
+ctx = launch_persistent_context("./my-profile", headless=False)
+```
+
+- **Linux only.** Chromium's hint-file mechanism is Linux/ChromeOS-specific. On Windows the CDM can't initialise (DRM host verification) and macOS uses a different layout, so seeding is a no-op there.
+- **Auto by presence.** No flag needed — a sideloaded CDM is the opt-in. Point at a CDM in a non-default location with `CLOAKBROWSER_WIDEVINE_CDM=/path/to/WidevineCdm`, or disable seeding entirely with `CLOAKBROWSER_WIDEVINE=0`.
 
 ### CLI
 
@@ -642,6 +663,8 @@ Access the original un-patched Playwright page at `page._original` if you need r
 | `CLOAKBROWSER_AUTO_UPDATE` | `true` | Set to `false` to disable background update checks |
 | `CLOAKBROWSER_SKIP_CHECKSUM` | `false` | Set to `true` to skip SHA-256 verification after download |
 | `CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS` | `5` | Max seconds for GeoIP resolution before continuing without it |
+| `CLOAKBROWSER_WIDEVINE_CDM` | — | Path to a sideloaded `WidevineCdm` directory (overrides auto-detection next to the binary). See [Widevine / DRM](#widevine--drm) |
+| `CLOAKBROWSER_WIDEVINE` | `1` | Set to `0` to disable automatic Widevine hint-file seeding for persistent contexts |
 
 ## Fingerprint Management
 
@@ -879,6 +902,26 @@ print(page.title())
 browser.close()
 ```
 
+If your framework needs a direct WebSocket endpoint, fetch Chrome's discovery document and use the rewritten `webSocketDebuggerUrl`. The URL points back through `cloakserve` so the CDP proxy can keep per-seed routing intact:
+
+```bash
+curl http://localhost:9222/json/version | jq -r .webSocketDebuggerUrl
+# ws://localhost:9222/devtools/browser/<browser-id>
+
+curl 'http://localhost:9222/json/version?fingerprint=11111' | jq -r .webSocketDebuggerUrl
+# ws://localhost:9222/fingerprint/11111/devtools/browser/<browser-id>
+```
+
+When `cloakserve` runs behind a reverse proxy or TLS terminator, forward the public host/protocol headers so generated WebSocket URLs use the address clients can actually reach:
+
+```nginx
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+```
+
+With those headers, `/json/version` returns public endpoints such as `wss://cdp.example.com/fingerprint/11111/devtools/browser/<browser-id>` instead of an internal container host.
+
 Pass extra flags to the browser:
 
 ```bash
@@ -889,6 +932,10 @@ docker run -d --name cloak -p 127.0.0.1:9222:9222 cloakhq/cloakbrowser \
 # Headed mode (renders to Xvfb inside container)
 docker run -d --name cloak -p 127.0.0.1:9222:9222 cloakhq/cloakbrowser \
   cloakserve --headless=false
+
+# Reap disconnected per-seed browser processes after 5 minutes
+docker run -d --name cloak -p 127.0.0.1:9222:9222 cloakhq/cloakbrowser \
+  cloakserve --idle-timeout=300
 ```
 
 Stop the server:
@@ -940,7 +987,9 @@ b4 = pw.chromium.connect_over_cdp(
 )
 ```
 
-Supported query params: `fingerprint`, `timezone`, `locale`, `platform`, `platform-version`, `brand`, `brand-version`, `gpu-vendor`, `gpu-renderer`, `hardware-concurrency`, `device-memory`, `screen-width`, `screen-height`, `proxy`, `geoip`. Same seed reuses the same process (first connection's params win). No seed = shared default process (backward compatible). Check active processes at `GET /` (returns JSON with PIDs, ports, and connection counts).
+Supported query params: `fingerprint`, `timezone`, `locale`, `platform`, `platform-version`, `brand`, `brand-version`, `gpu-vendor`, `gpu-renderer`, `hardware-concurrency`, `device-memory`, `screen-width`, `screen-height`, `proxy`, `geoip`. Same seed reuses the same process (first connection's params win). No seed = shared default process (backward compatible).
+
+By default, per-seed processes stay alive until `cloakserve` exits. If clients create many unique seeds, set `--idle-timeout=SECONDS` or `CLOAKSERVE_IDLE_TIMEOUT=SECONDS` to automatically terminate a seed's Chrome process after its last CDP WebSocket disconnects. `0`, `off`, `false`, `none`, or `disabled` disable idle cleanup. When cleanup runs, the seed's temporary profile directory under `--data-dir` is removed too. Check active processes at `GET /` (returns JSON with PIDs, ports, connection counts, idle timeout, and pending cleanup status).
 
 **Persistent profiles** — mount a volume to keep cookies and sessions across container restarts:
 
@@ -1089,7 +1138,9 @@ const browser = await launch({
 
 For persistent contexts (`launch_persistent_context` / `launchPersistentContext`), also add `--fingerprint-storage-quota=500` to the args.
 
-**Storage quota tradeoff:** The binary normalizes storage quota to ~500MB to pass FPJS, but this makes the session look like incognito to other detection services (e.g. BrowserScan's `notPrivate` check, -10 points). Setting `--fingerprint-storage-quota=5000` passes incognito checks but may trigger FPJS. You can't satisfy both simultaneously — choose based on what your target site checks. See the [storage quota tradeoff table](#launch_persistent_context) for details.
+**Storage quota tradeoff:** The binary normalizes storage quota to ~500MB to pass FPJS, but this makes the session look like incognito to other detection services (e.g. BrowserScan's `notPrivate` check, -10 points). Setting `--fingerprint-storage-quota=5000` passes incognito checks but may trigger FPJS. With quota alone you can't satisfy both — choose based on what your target site checks. See the [storage quota tradeoff table](#launch_persistent_context) for details.
+
+**Resolving the tradeoff (Linux):** Sideloading the Widevine CDM lets a persistent context pass FPJS at a higher quota, so you can satisfy both at once. See [Widevine / DRM](#widevine--drm).
 
 ---
 
@@ -1318,6 +1369,7 @@ Issues and PRs welcome. If something isn't working, [open an issue](https://gith
 - [@aaronjmars](https://github.com/aaronjmars) — security fixes (shell injection, dep bumps)
 - [@Seryiza](https://github.com/Seryiza) — Nix/NixOS flake
 - [@245678000000](https://github.com/245678000000) — package-lock sync
-- [@honor2030](https://github.com/honor2030) — cloakserve WebSocket origin guard, composable JS launch helpers
+- [@honor2030](https://github.com/honor2030) — cloakserve WebSocket origin guard, CDP WebSocket URL rewrite, composable JS launch helpers
 - [@sparanoid](https://github.com/sparanoid) — Docker Xvfb lock cleanup
+- [@Kumario1](https://github.com/Kumario1) — cloakserve idle cleanup for seeded profiles
 - [@0xlally](https://github.com/0xlally) — security reports (cloakserve path traversal, WebSocket origin bypass)

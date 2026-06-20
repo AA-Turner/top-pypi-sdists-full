@@ -5,3 +5,5 @@ export const SUPPORTED_EXTENSIONS_ACCEPT = window.comfyAPI.constants.SUPPORTED_E
 export const SUPPORTED_HDRI_EXTENSIONS = window.comfyAPI.constants.SUPPORTED_HDRI_EXTENSIONS;
 export const SUPPORTED_HDRI_EXTENSIONS_ACCEPT = window.comfyAPI.constants.SUPPORTED_HDRI_EXTENSIONS_ACCEPT;
 export const LOAD3D_NONE_MODEL = window.comfyAPI.constants.LOAD3D_NONE_MODEL;
+export const DIRECT_EXPORT_FORMATS = window.comfyAPI.constants.DIRECT_EXPORT_FORMATS;
+export const getExportFormatOptions = window.comfyAPI.constants.getExportFormatOptions;

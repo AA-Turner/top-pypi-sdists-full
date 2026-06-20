@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inference-models
-Version: 0.29.3
+Version: 0.29.6
 Summary: The new inference engine for Computer Vision models
 Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
@@ -126,9 +126,10 @@ Requires-Dist: mkdocs-git-committers-plugin-2>=2.4.1; (python_version >= "3.9" a
 Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.2.4; extra == "docs"
 Requires-Dist: mkdocs-literate-nav~=0.6.2; extra == "docs"
 Requires-Dist: mkdocs-gen-files~=0.6.0; extra == "docs"
-Requires-Dist: tornado>=6.5.5; extra == "docs"
+Requires-Dist: tornado>=6.5.7; extra == "docs"
 Requires-Dist: mistune<4.0.0,>=3.2.1; extra == "docs"
 Requires-Dist: pymdown-extensions>=10.21.3; extra == "docs"
+Requires-Dist: bleach>=6.4.0; extra == "docs"
 
 # 🚀 What is inference-models?
 

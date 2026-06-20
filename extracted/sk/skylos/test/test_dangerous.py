@@ -137,6 +137,68 @@ def test_requests_verify_false(tmp_path):
     assert "SKY-D210" in _rule_ids(out)
 
 
+def test_ssl_unverified_context_flags_tls_disabled(tmp_path):
+    out = _scan_one(
+        tmp_path,
+        "a_ssl.py",
+        "import ssl\nctx = ssl._create_unverified_context()\n",
+    )
+    assert "SKY-D210" in _rule_ids(out)
+
+
+def test_trojan_source_bidi_control_flags(tmp_path):
+    out = _scan_one(
+        tmp_path,
+        "a_bidi.py",
+        "is_admin = False  # \u202e hidden control\n",
+    )
+    assert "SKY-D344" in _rule_ids(out)
+
+
+def test_flask_debug_mode_flags(tmp_path):
+    out = _scan_one(
+        tmp_path,
+        "a_flask_debug.py",
+        (
+            "from flask import Flask\n"
+            "app = Flask(__name__)\n"
+            "app.run(debug=True)\n"
+        ),
+    )
+    assert "SKY-D346" in _rule_ids(out)
+
+
+def test_flask_debug_false_does_not_flag(tmp_path):
+    out = _scan_one(
+        tmp_path,
+        "a_flask_debug_false.py",
+        (
+            "from flask import Flask\n"
+            "app = Flask(__name__)\n"
+            "app.run(debug=False)\n"
+        ),
+    )
+    assert "SKY-D346" not in _rule_ids(out)
+
+
+def test_logging_config_listen_flags(tmp_path):
+    out = _scan_one(
+        tmp_path,
+        "a_logging_listen.py",
+        "from logging.config import listen\nlisten(9999)\n",
+    )
+    assert "SKY-D347" in _rule_ids(out)
+
+
+def test_tempfile_mktemp_flags(tmp_path):
+    out = _scan_one(
+        tmp_path,
+        "a_mktemp.py",
+        "import tempfile\nname = tempfile.mktemp()\n",
+    )
+    assert "SKY-D348" in _rule_ids(out)
+
+
 def test_symlink_following_write_flags_attacker_controlled_output(tmp_path):
     out = _scan_one(
         tmp_path,
@@ -178,6 +240,50 @@ def load_sidecar(raw_path):
 """,
     )
     assert "SKY-D325" in _rule_ids(out)
+
+
+def test_fixed_base_basename_read_suppresses_symlink_read(tmp_path):
+    out = _scan_one(
+        tmp_path,
+        "a_fixed_base_basename.py",
+        """
+from pathlib import Path
+from flask import request
+
+BASE = Path("/srv/uploads")
+
+def load_upload():
+    safe_name = Path(request.args["name"]).name
+    return (BASE / safe_name).read_text(encoding="utf-8")
+""",
+    )
+    assert "SKY-D215" not in _rule_ids(out)
+    assert "SKY-D325" not in _rule_ids(out)
+
+
+def test_nested_unsanitized_name_does_not_clear_outer_basename_read(tmp_path):
+    out = _scan_one(
+        tmp_path,
+        "a_nested_fixed_base_basename.py",
+        """
+from pathlib import Path
+from flask import request
+
+BASE = Path("/srv/uploads")
+
+def load_upload():
+    safe_name = Path(request.args["name"]).name
+
+    def shadow():
+        safe_name = request.args["other"]
+        return safe_name
+
+    shadow()
+    return (BASE / safe_name).read_text(encoding="utf-8")
+""",
+    )
+    assert "SKY-D215" not in _rule_ids(out)
+    assert "SKY-D325" not in _rule_ids(out)
 
 
 def test_bounded_nofollow_read_is_not_symlink_finding(tmp_path):

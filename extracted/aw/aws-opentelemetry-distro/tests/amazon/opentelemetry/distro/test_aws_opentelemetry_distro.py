@@ -9,10 +9,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 from amazon.opentelemetry.distro.aws_opentelemetry_configurator import APPLICATION_SIGNALS_ENABLED_CONFIG
-from amazon.opentelemetry.distro.aws_opentelemetry_distro import (
-    AGENT_OBSERVABILITY_DISABLED_INSTRUMENTATIONS,
-    AwsOpenTelemetryDistro,
-)
+from amazon.opentelemetry.distro.aws_opentelemetry_distro import AwsOpenTelemetryDistro
 from opentelemetry import propagate
 from opentelemetry.distro import OpenTelemetryDistro
 from opentelemetry.environment_variables import (
@@ -60,7 +57,8 @@ class TestAwsOpenTelemetryDistro(TestCase):
             "DJANGO_SETTINGS_MODULE",
             OTEL_EXPORTER_OTLP_ENDPOINT,
             OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
-            "AWS_AGENTIC_OBSERVABILITY_OPT_IN",
+            "AWS_AGENTIC_INSTRUMENTATION",
+            "CREWAI_DISABLE_TELEMETRY",
         ]
 
         # First, save all current values
@@ -160,10 +158,10 @@ class TestAwsOpenTelemetryDistro(TestCase):
             os.environ.get(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT), "https://logs.us-west-2.amazonaws.com/v1/logs"
         )
 
-        self.assertEqual(
-            os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS),
-            AGENT_OBSERVABILITY_DISABLED_INSTRUMENTATIONS,
-        )
+        disabled = os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS, "")
+        self.assertIn("system_metrics", disabled)
+        self.assertIn("google-genai", disabled)
+        self.assertIn("jinja2", disabled)
         self.assertEqual(os.environ.get(OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED), "true")
         self.assertEqual(os.environ.get(APPLICATION_SIGNALS_ENABLED_CONFIG), "false")
         self.assertEqual(os.environ.get("OTEL_METRICS_ADD_APPLICATION_SIGNALS_DIMENSIONS"), "false")
@@ -272,7 +270,6 @@ class TestAwsOpenTelemetryDistro(TestCase):
 
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.get_aws_region")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_agent_observability_enabled")
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_aws_agentic_observability_opt_in")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_installed")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.apply_instrumentation_patches")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.OpenTelemetryDistro._configure")
@@ -281,13 +278,11 @@ class TestAwsOpenTelemetryDistro(TestCase):
         mock_super_configure,
         mock_apply_patches,
         mock_is_installed,
-        mock_is_aws_agentic_observability_opt_in,
         mock_is_agent_observability,
         mock_get_aws_region,
     ):
-        """Test that AGENT_OBSERVABILITY_ENABLED uses v1 configuration"""
+        """Test that AGENT_OBSERVABILITY_ENABLED uses v0.15 configuration"""
         mock_is_agent_observability.return_value = True
-        mock_is_aws_agentic_observability_opt_in.return_value = False
         mock_get_aws_region.return_value = "us-east-1"
         mock_is_installed.return_value = False
 
@@ -305,58 +300,11 @@ class TestAwsOpenTelemetryDistro(TestCase):
         self.assertEqual(os.environ.get(OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED), "true")
         self.assertEqual(os.environ.get(APPLICATION_SIGNALS_ENABLED_CONFIG), "false")
         self.assertEqual(os.environ.get("OTEL_METRICS_ADD_APPLICATION_SIGNALS_DIMENSIONS"), "false")
+        self.assertEqual(os.environ.get("CREWAI_DISABLE_TELEMETRY"), "true")
         disabled = os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS, "").split(",")
-        self.assertNotIn("crewai", disabled)
-        self.assertNotIn("langchain", disabled)
-        self.assertNotIn("llama-index", disabled)
-        self.assertNotIn("llama_index", disabled)
-        self.assertNotIn("mcp", disabled)
+        self.assertIn("system_metrics", disabled)
+        self.assertIn("google-genai", disabled)
         self.assertIn("jinja2", disabled)
-        self.assertIn("aws_crewai", disabled)
-        self.assertIn("aws_langchain", disabled)
-        self.assertIn("aws_llama-index", disabled)
-        self.assertIn("aws_mcp", disabled)
-
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.get_aws_region")
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_agent_observability_enabled")
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_aws_agentic_observability_opt_in")
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_installed")
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.apply_instrumentation_patches")
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.OpenTelemetryDistro._configure")
-    def test_configure_ai_observability_opt_in(
-        self,
-        mock_super_configure,
-        mock_apply_patches,
-        mock_is_installed,
-        mock_is_aws_agentic_observability_opt_in,
-        mock_is_agent_observability,
-        mock_get_aws_region,
-    ):
-        """Test that AI_OBSERVABILITY_OPT_IN uses v2 collector config and disables 3rd party instrumentations"""
-        mock_is_agent_observability.return_value = False
-        mock_is_aws_agentic_observability_opt_in.return_value = True
-        mock_get_aws_region.return_value = "us-east-1"
-        mock_is_installed.return_value = False
-
-        AwsOpenTelemetryDistro()._configure()
-
-        self.assertEqual(os.environ.get(OTEL_METRICS_EXPORTER), "otlp")
-        self.assertEqual(os.environ.get("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"), "true")
-
-        self.assertEqual(os.environ.get(OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED), "true")
-        self.assertEqual(os.environ.get(APPLICATION_SIGNALS_ENABLED_CONFIG), "false")
-        self.assertEqual(os.environ.get("OTEL_METRICS_ADD_APPLICATION_SIGNALS_DIMENSIONS"), "false")
-        disabled = os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS, "").split(",")
-        self.assertIn("crewai", disabled)
-        self.assertIn("langchain", disabled)
-        self.assertIn("llama-index", disabled)
-        self.assertIn("llama_index", disabled)
-        self.assertIn("mcp", disabled)
-        self.assertIn("jinja2", disabled)
-        self.assertNotIn("aws_crewai", disabled)
-        self.assertNotIn("aws_langchain", disabled)
-        self.assertNotIn("aws_llama-index", disabled)
-        self.assertNotIn("aws_mcp", disabled)
 
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.apply_instrumentation_patches")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.OpenTelemetryDistro._configure")
@@ -541,63 +489,158 @@ class TestAwsOpenTelemetryDistro(TestCase):
     def test_agent_observability_respects_custom_disabled_instrumentations(self):
         os.environ[OTEL_PYTHON_DISABLED_INSTRUMENTATIONS] = "custom_lib"
         self._configure_with_agent_observability()
-        self.assertEqual(os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS), "custom_lib")
+        disabled = os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS, "")
+        self.assertTrue(disabled.startswith("custom_lib"))
 
-    def test_base_otlp_endpoint_prevents_specific_endpoints_v1(self):
+    def test_base_otlp_endpoint_prevents_specific_endpoints(self):
         os.environ[OTEL_EXPORTER_OTLP_ENDPOINT] = "http://my-collector:4318"
         self._configure_with_agent_observability()
         self.assertNotIn(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, os.environ)
         self.assertNotIn(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, os.environ)
 
-    def test_load_instrumentor_skip_behavior(self):
-        cases = [
-            {
-                "env": {"AGENT_OBSERVABILITY_ENABLED": "true"},
-                "entry_name": "openai_agents",
-                "dist_name": "opentelemetry-instrumentation-openai-agents-v2",
-                "should_load": False,
-            },
-            {
-                "env": {"AGENT_OBSERVABILITY_ENABLED": "true"},
-                "entry_name": "openai_agents",
-                "dist_name": "openinference-instrumentation-openai-agents",
-                "should_load": True,
-            },
-            {
-                "env": {"AWS_AGENTIC_OBSERVABILITY_OPT_IN": "true"},
-                "entry_name": "openai_agents",
-                "dist_name": "opentelemetry-instrumentation-openai-agents-v2",
-                "should_load": True,
-            },
-            {
-                "env": {},
-                "entry_name": "openai_agents",
-                "dist_name": "opentelemetry-instrumentation-openai-agents-v2",
-                "should_load": True,
-            },
-        ]
-        for case in cases:
-            with self.subTest(case=case):
-                mock_entry_point = MagicMock()
-                mock_entry_point.name = case["entry_name"]
-                mock_entry_point.dist.name = case["dist_name"]
+    @staticmethod
+    def _make_ep(name, dist_name=None):
+        ep = MagicMock()
+        ep.name = name
+        if dist_name:
+            ep.dist = MagicMock()
+            ep.dist.name = dist_name
+        else:
+            ep.dist = None
+        return ep
 
-                distro = AwsOpenTelemetryDistro()
-                with patch.dict(os.environ, case["env"], clear=False):
-                    with patch.object(OpenTelemetryDistro, "load_instrumentor") as mock_super:
-                        distro.load_instrumentor(mock_entry_point)
-                        if case["should_load"]:
-                            mock_super.assert_called_once_with(mock_entry_point)
-                        else:
-                            mock_super.assert_not_called()
+    def _load_instrumentor_with_agent(self, ep, third_party_eps=None, mode=None):
+        """Helper to test load_instrumentor with agent observability enabled.
+
+        mode: None (unset → auto), "auto", "enabled", or "disabled".
+        """
+        distro = AwsOpenTelemetryDistro()
+        os.environ.pop("AWS_AGENTIC_INSTRUMENTATION", None)
+        if mode is not None:
+            os.environ["AWS_AGENTIC_INSTRUMENTATION"] = mode
+        with patch(
+            "amazon.opentelemetry.distro.aws_opentelemetry_distro.is_agent_observability_enabled", return_value=True
+        ), patch(
+            "amazon.opentelemetry.distro.aws_opentelemetry_distro.entry_points", return_value=third_party_eps or []
+        ), patch.object(
+            OpenTelemetryDistro, "load_instrumentor"
+        ) as mock_super:
+            distro.load_instrumentor(ep)
+            return mock_super
+
+    def test_skip_adot_owned_dist(self):
+        """ADOT-owned v2 package should be skipped when agent observability is enabled."""
+        ep = self._make_ep("openai_agents", "opentelemetry-instrumentation-openai-agents-v2")
+        mock_super = self._load_instrumentor_with_agent(ep)
+        mock_super.assert_not_called()
+
+    def test_load_adot_owned_dist_when_agent_disabled(self):
+        """ADOT-owned v2 package should load when agent observability is disabled."""
+        distro = AwsOpenTelemetryDistro()
+        ep = self._make_ep("openai_agents", "opentelemetry-instrumentation-openai-agents-v2")
+        with patch(
+            "amazon.opentelemetry.distro.aws_opentelemetry_distro.is_agent_observability_enabled", return_value=False
+        ), patch.object(OpenTelemetryDistro, "load_instrumentor") as mock_super:
+            distro.load_instrumentor(ep)
+            mock_super.assert_called_once_with(ep)
+
+    def test_skip_native_when_third_party_registered(self):
+        """aws_langchain should be skipped when OpenInference langchain is registered."""
+        ep = self._make_ep("aws_langchain", "aws-opentelemetry-distro")
+        third_party = [self._make_ep("langchain", "openinference-instrumentation-langchain")]
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party)
+        mock_super.assert_not_called()
+
+    def test_load_native_when_no_third_party(self):
+        """aws_langchain should load when no third-party langchain is registered."""
+        ep = self._make_ep("aws_langchain", "aws-opentelemetry-distro")
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=[])
+        mock_super.assert_called_once_with(ep)
+
+    def test_load_third_party_when_auto_detect(self):
+        """Third-party langchain always loads — ADOT never disables third-party instrumentors."""
+        ep = self._make_ep("langchain", "openinference-instrumentation-langchain")
+        third_party = [self._make_ep("langchain", "openinference-instrumentation-langchain")]
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party)
+        mock_super.assert_called_once_with(ep)
+
+    def test_load_native_when_mode_enabled(self):
+        """aws_langchain should load when AWS_AGENTIC_INSTRUMENTATION=enabled even if third-party registered."""
+        ep = self._make_ep("aws_langchain", "aws-opentelemetry-distro")
+        third_party = [self._make_ep("langchain", "openinference-instrumentation-langchain")]
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party, mode="enabled")
+        mock_super.assert_called_once_with(ep)
+
+    def test_load_third_party_when_mode_enabled(self):
+        """Third-party langchain still loads under mode=enabled — only the aws_* side is governed."""
+        ep = self._make_ep("langchain", "openinference-instrumentation-langchain")
+        third_party = [self._make_ep("langchain", "openinference-instrumentation-langchain")]
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party, mode="enabled")
+        mock_super.assert_called_once_with(ep)
+
+    def test_skip_native_when_mode_disabled(self):
+        """aws_langchain should be skipped when AWS_AGENTIC_INSTRUMENTATION=disabled, even with no third-party."""
+        ep = self._make_ep("aws_langchain", "aws-opentelemetry-distro")
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=[], mode="disabled")
+        mock_super.assert_not_called()
+
+    def test_load_third_party_when_mode_disabled(self):
+        """Third-party langchain should load when AWS_AGENTIC_INSTRUMENTATION=disabled."""
+        ep = self._make_ep("langchain", "openinference-instrumentation-langchain")
+        third_party = [self._make_ep("langchain", "openinference-instrumentation-langchain")]
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party, mode="disabled")
+        mock_super.assert_called_once_with(ep)
+
+    def test_unknown_mode_falls_back_to_auto(self):
+        """An unrecognized value should warn (with the raw casing) and behave like auto."""
+        ep = self._make_ep("aws_langchain", "aws-opentelemetry-distro")
+        third_party = [self._make_ep("langchain", "openinference-instrumentation-langchain")]
+        with self.assertLogs("amazon.opentelemetry.distro.aws_opentelemetry_distro", level="WARNING") as cm:
+            mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party, mode="BoGuS")
+        mock_super.assert_not_called()
+        self.assertTrue(any("'BoGuS'" in line for line in cm.output), cm.output)
+
+    def test_mode_value_is_case_insensitive(self):
+        """Values like ENABLED / Disabled / Auto should be accepted."""
+        ep = self._make_ep("aws_langchain", "aws-opentelemetry-distro")
+        third_party = [self._make_ep("langchain", "openinference-instrumentation-langchain")]
+
+        # ENABLED — load aws_* even with same-library third-party present
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party, mode="ENABLED")
+        mock_super.assert_called_once_with(ep)
+
+        # Disabled — skip aws_*
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=[], mode="Disabled")
+        mock_super.assert_not_called()
+
+        # Auto — same as unset, skip native because third-party covers it
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party, mode="Auto")
+        mock_super.assert_not_called()
+
+    def test_load_regular_instrumentor(self):
+        """Regular instrumentors should always be loaded."""
+        ep = self._make_ep("flask", "opentelemetry-instrumentation-flask")
+        mock_super = self._load_instrumentor_with_agent(ep)
+        mock_super.assert_called_once_with(ep)
+
+    def test_openinference_openai_agents_skips_native(self):
+        """When OpenInference openai_agents is registered, aws_openai_agents should be skipped."""
+        ep = self._make_ep("aws_openai_agents", "aws-opentelemetry-distro")
+        third_party = [self._make_ep("openai_agents", "openinference-instrumentation-openai-agents")]
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party)
+        mock_super.assert_not_called()
+
+    def test_adot_v2_openai_agents_not_treated_as_third_party(self):
+        """ADOT v2 openai_agents should not cause aws_openai_agents to be skipped."""
+        ep = self._make_ep("aws_openai_agents", "aws-opentelemetry-distro")
+        third_party = [self._make_ep("openai_agents", "opentelemetry-instrumentation-openai-agents-v2")]
+        mock_super = self._load_instrumentor_with_agent(ep, third_party_eps=third_party)
+        mock_super.assert_called_once_with(ep)
 
     def _configure_with_agent_observability(self, region="us-west-2"):
         with patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.OpenTelemetryDistro._configure"), patch(
             "amazon.opentelemetry.distro.aws_opentelemetry_distro.apply_instrumentation_patches"
         ), patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_installed", return_value=False), patch(
-            "amazon.opentelemetry.distro.aws_opentelemetry_distro.is_aws_agentic_observability_opt_in",
-            return_value=False,
-        ), patch(
             "amazon.opentelemetry.distro.aws_opentelemetry_distro.is_agent_observability_enabled", return_value=True
         ), patch(
             "amazon.opentelemetry.distro.aws_opentelemetry_distro.get_aws_region", return_value=region
@@ -731,7 +774,7 @@ class TestVersionCompatibilityCheck(TestCase):
             f"{self.MODULE_PATH}._get_version"
         ) as mock_version:
             mock_requires.return_value = [
-                'opentelemetry-api == 1.40.0 ; python_version >= "3.9"',
+                'opentelemetry-api == 1.40.0 ; python_version >= "3.10"',
                 "opentelemetry-sdk == 1.40.0",
             ]
             mock_version.side_effect = lambda pkg: "1.33.1"

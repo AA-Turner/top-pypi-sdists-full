@@ -1,5 +1,5 @@
 import types
-from typing import Any, Final, Generic, Literal, Never, Self, SupportsIndex, TypeAlias, overload
+from typing import Any, Final, Generic, Literal, Never, Self, SupportsIndex, overload
 from typing_extensions import TypeVar, deprecated
 
 import numpy as np
@@ -10,16 +10,17 @@ from ._polyint import _Interpolator1D
 
 __all__ = ["BPoly", "NdPPoly", "PPoly", "interp1d", "interp2d", "lagrange"]
 
-_NumberT = TypeVar("_NumberT", bound=npc.number, default=np.float64)
+###
+
 _CT_co = TypeVar("_CT_co", bound=np.float64 | np.complex128, default=np.float64, covariant=True)
 
-_ToAxis: TypeAlias = int | npc.integer
-_Extrapolate: TypeAlias = Literal["periodic"] | bool
+type _ToAxis = int | npc.integer
+type _Extrapolate = Literal["periodic"] | bool
 
-_Interp1dKind: TypeAlias = Literal["linear", "nearest", "nearest-up", "zero", "slinear", "quadratic", "cubic", "previous", "next"]
-_Interp1dFillValue: TypeAlias = onp.ToFloat | onp.ToFloatND | tuple[onp.ToFloat | onp.ToFloatND, onp.ToFloat | onp.ToFloatND]
+type _Interp1dKind = Literal["linear", "nearest", "nearest-up", "zero", "slinear", "quadratic", "cubic", "previous", "next"]
+type _Interp1dFillValue = onp.ToFloat | onp.ToFloatND | tuple[onp.ToFloat | onp.ToFloatND, onp.ToFloat | onp.ToFloatND]
 
-_Array2ND: TypeAlias = onp.Array[tuple[int, int, *tuple[Any, ...]], _NumberT]
+type _Array2ND[NumberT: npc.number] = onp.Array[tuple[int, int, *tuple[Any, ...]], NumberT]
 
 ###
 
@@ -56,7 +57,7 @@ class interp1d(_Interpolator1D):  # legacy
     copy: bool
     bounds_error: bool
     axis: int
-    x: onp.Array1D[npc.floating | npc.integer | np.bool_]
+    x: onp.Array1D[npc.floating | npc.integer | np.bool]
     y: onp.ArrayND[npc.inexact]
     x_bds: onp.Array1D[npc.floating]  # only set if `kind in {"nearest", "nearest-up"}`
 
@@ -80,7 +81,7 @@ class interp1d(_Interpolator1D):  # legacy
     ) -> None: ...
 
 class _PPolyBase(Generic[_CT_co]):
-    __slots__ = "_asarray", "_c", "_x", "axis", "extrapolate"
+    __slots__ = "_c", "_x", "axis", "extrapolate"
 
     _c: _Array2ND[_CT_co]
     _x: onp.Array1D[np.float64]
@@ -160,7 +161,7 @@ class PPoly(_PPolyBase[_CT_co], Generic[_CT_co]):
     def antiderivative(self, /, nu: _ToAxis = 1) -> Self: ...
     def integrate(self, /, a: onp.ToFloat, b: onp.ToFloat, extrapolate: _Extrapolate | None = None) -> onp.ArrayND[_CT_co]: ...
     def solve(
-        self, /, y: onp.ToFloat = 0.0, discontinuity: bool = True, extrapolate: _Extrapolate | None = None
+        self, /, y: onp.ToFloat = 0, discontinuity: bool = True, extrapolate: _Extrapolate | None = None
     ) -> onp.ArrayND[_CT_co]: ...
     def roots(self, /, discontinuity: bool = True, extrapolate: _Extrapolate | None = None) -> onp.ArrayND[_CT_co]: ...
 
@@ -205,6 +206,7 @@ class BPoly(_PPolyBase[_CT_co], Generic[_CT_co]):
 class NdPPoly(Generic[_CT_co]):
     c: _Array2ND[_CT_co]
     x: tuple[onp.Array1D[np.float64], ...]
+    extrapolate: bool
 
     @classmethod
     def construct_fast(
@@ -248,4 +250,7 @@ class NdPPoly(Generic[_CT_co]):
     ) -> onp.ArrayND[_CT_co]: ...
 
 #
+@deprecated(
+    "This function is deprecated and will be removed in SciPy 1.20.0. Use `scipy.interpolate.BarycentricInterpolator` instead."
+)
 def lagrange(x: onp.ToComplex1D, w: onp.ToComplex1D) -> np.poly1d: ...

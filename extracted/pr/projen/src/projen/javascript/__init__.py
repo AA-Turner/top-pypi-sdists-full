@@ -30,7 +30,6 @@ from .. import (
     LoggerOptions as _LoggerOptions_eb0f6309,
     ObjectFile as _ObjectFile_a34b4727,
     Project as _Project_57d89203,
-    ProjectType as _ProjectType_fd80c725,
     ProjenrcFile as _ProjenrcFile_50432c7e,
     ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
     ReleasableCommits as _ReleasableCommits_d481ce10,
@@ -53,7 +52,6 @@ from ..github import (
     GitIdentity as _GitIdentity_6effc3de,
     GithubCredentials as _GithubCredentials_ae257072,
     GithubWorkflow as _GithubWorkflow_a1772357,
-    MergifyOptions as _MergifyOptions_a6faaab3,
     StaleOptions as _StaleOptions_929db764,
 )
 from ..github.workflows import (
@@ -65,7 +63,6 @@ from ..github.workflows import (
 )
 from ..release import (
     BranchOptions as _BranchOptions_13663d08,
-    Publisher as _Publisher_4a29b2cd,
     Release as _Release_30ee2d91,
     ReleaseProjectOptions as _ReleaseProjectOptions_929803c8,
     ReleaseTrigger as _ReleaseTrigger_e4dc221f,
@@ -930,7 +927,6 @@ class Bundler(
         self,
         project: "_Project_57d89203",
         *,
-        add_to_pre_compile: typing.Optional[builtins.bool] = None,
         assets_dir: typing.Optional[builtins.str] = None,
         esbuild_version: typing.Optional[builtins.str] = None,
         loaders: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -939,7 +935,6 @@ class Bundler(
         '''(experimental) Creates a ``Bundler``.
 
         :param project: -
-        :param add_to_pre_compile: (deprecated) Install the ``bundle`` command as a pre-compile phase. Default: true
         :param assets_dir: (experimental) Output directory for all bundles. Default: "assets"
         :param esbuild_version: (experimental) The semantic version requirement for ``esbuild``. Default: - no specific version (implies latest)
         :param loaders: (experimental) Map of file extensions (without dot) and loaders to use for this file type. Loaders are appended to the esbuild command by ``--loader:.extension=loader``
@@ -951,7 +946,6 @@ class Bundler(
             type_hints = typing.get_type_hints(_typecheckingstub__b39a2a4441a612906ad5a7b87f1a6c53ed88fb86f4e31bd1a7283a06a2e9ebf7)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = BundlerOptions(
-            add_to_pre_compile=add_to_pre_compile,
             assets_dir=assets_dir,
             esbuild_version=esbuild_version,
             loaders=loaders,
@@ -1100,7 +1094,6 @@ class Bundler(
     jsii_type="projen.javascript.BundlerOptions",
     jsii_struct_bases=[],
     name_mapping={
-        "add_to_pre_compile": "addToPreCompile",
         "assets_dir": "assetsDir",
         "esbuild_version": "esbuildVersion",
         "loaders": "loaders",
@@ -1111,7 +1104,6 @@ class BundlerOptions:
     def __init__(
         self,
         *,
-        add_to_pre_compile: typing.Optional[builtins.bool] = None,
         assets_dir: typing.Optional[builtins.str] = None,
         esbuild_version: typing.Optional[builtins.str] = None,
         loaders: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1119,7 +1111,6 @@ class BundlerOptions:
     ) -> None:
         '''(experimental) Options for ``Bundler``.
 
-        :param add_to_pre_compile: (deprecated) Install the ``bundle`` command as a pre-compile phase. Default: true
         :param assets_dir: (experimental) Output directory for all bundles. Default: "assets"
         :param esbuild_version: (experimental) The semantic version requirement for ``esbuild``. Default: - no specific version (implies latest)
         :param loaders: (experimental) Map of file extensions (without dot) and loaders to use for this file type. Loaders are appended to the esbuild command by ``--loader:.extension=loader``
@@ -1129,14 +1120,11 @@ class BundlerOptions:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10a14ca8f2b867bbbf0d45b5661abe92e6975540f78ea16f7ed21f5f213c4913)
-            check_type(argname="argument add_to_pre_compile", value=add_to_pre_compile, expected_type=type_hints["add_to_pre_compile"])
             check_type(argname="argument assets_dir", value=assets_dir, expected_type=type_hints["assets_dir"])
             check_type(argname="argument esbuild_version", value=esbuild_version, expected_type=type_hints["esbuild_version"])
             check_type(argname="argument loaders", value=loaders, expected_type=type_hints["loaders"])
             check_type(argname="argument run_bundle_task", value=run_bundle_task, expected_type=type_hints["run_bundle_task"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if add_to_pre_compile is not None:
-            self._values["add_to_pre_compile"] = add_to_pre_compile
         if assets_dir is not None:
             self._values["assets_dir"] = assets_dir
         if esbuild_version is not None:
@@ -1145,19 +1133,6 @@ class BundlerOptions:
             self._values["loaders"] = loaders
         if run_bundle_task is not None:
             self._values["run_bundle_task"] = run_bundle_task
-
-    @builtins.property
-    def add_to_pre_compile(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Install the ``bundle`` command as a pre-compile phase.
-
-        :default: true
-
-        :deprecated: Use ``runBundleTask`` instead.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("add_to_pre_compile")
-        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def assets_dir(self) -> typing.Optional[builtins.str]:
@@ -1829,8 +1804,6 @@ class Eslint(
         devdirs: typing.Optional[typing.Sequence[builtins.str]] = None,
         file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        lint_projen_rc: typing.Optional[builtins.bool] = None,
-        lint_projen_rc_file: typing.Optional[builtins.str] = None,
         prettier: typing.Optional[builtins.bool] = None,
         sort_extends: typing.Optional["_ICompareString_f119e19c"] = None,
         ts_always_try_types: typing.Optional[builtins.bool] = None,
@@ -1846,8 +1819,6 @@ class Eslint(
         :param devdirs: (experimental) Files or glob patterns or directories with source files that include tests and build tools. These sources are linted but may also import packages from ``devDependencies``. Default: []
         :param file_extensions: (experimental) File types that should be linted (e.g. [ ".js", ".ts" ]). Default: [".ts"]
         :param ignore_patterns: (experimental) List of file patterns that should not be linted, using the same syntax as .gitignore patterns. Default: [ '*.js', '*.d.ts', 'node_modules/', '*.generated.ts', 'coverage' ]
-        :param lint_projen_rc: (deprecated) Should we lint .projenrc.js. Default: true
-        :param lint_projen_rc_file: (deprecated) Projenrc file to lint. Use empty string to disable. Default: "projenrc.js"
         :param prettier: (experimental) Enable prettier for code formatting. Default: false
         :param sort_extends: (experimental) The extends array in eslint is order dependent. This option allows to sort the extends array in any way seen fit. Default: - Use known ESLint best practices to place "prettier" plugins at the end of the array
         :param ts_always_try_types: (experimental) Always try to resolve types under ``<root>@types`` directory even it doesn't contain any source code. This prevents ``import/no-unresolved`` eslint errors when importing a ``@types/*`` module that would otherwise remain unresolved. Default: true
@@ -1867,8 +1838,6 @@ class Eslint(
             devdirs=devdirs,
             file_extensions=file_extensions,
             ignore_patterns=ignore_patterns,
-            lint_projen_rc=lint_projen_rc,
-            lint_projen_rc_file=lint_projen_rc_file,
             prettier=prettier,
             sort_extends=sort_extends,
             ts_always_try_types=ts_always_try_types,
@@ -2138,8 +2107,6 @@ class EslintCommandOptions:
         "devdirs": "devdirs",
         "file_extensions": "fileExtensions",
         "ignore_patterns": "ignorePatterns",
-        "lint_projen_rc": "lintProjenRc",
-        "lint_projen_rc_file": "lintProjenRcFile",
         "prettier": "prettier",
         "sort_extends": "sortExtends",
         "ts_always_try_types": "tsAlwaysTryTypes",
@@ -2158,8 +2125,6 @@ class EslintOptions:
         devdirs: typing.Optional[typing.Sequence[builtins.str]] = None,
         file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        lint_projen_rc: typing.Optional[builtins.bool] = None,
-        lint_projen_rc_file: typing.Optional[builtins.str] = None,
         prettier: typing.Optional[builtins.bool] = None,
         sort_extends: typing.Optional["_ICompareString_f119e19c"] = None,
         ts_always_try_types: typing.Optional[builtins.bool] = None,
@@ -2174,8 +2139,6 @@ class EslintOptions:
         :param devdirs: (experimental) Files or glob patterns or directories with source files that include tests and build tools. These sources are linted but may also import packages from ``devDependencies``. Default: []
         :param file_extensions: (experimental) File types that should be linted (e.g. [ ".js", ".ts" ]). Default: [".ts"]
         :param ignore_patterns: (experimental) List of file patterns that should not be linted, using the same syntax as .gitignore patterns. Default: [ '*.js', '*.d.ts', 'node_modules/', '*.generated.ts', 'coverage' ]
-        :param lint_projen_rc: (deprecated) Should we lint .projenrc.js. Default: true
-        :param lint_projen_rc_file: (deprecated) Projenrc file to lint. Use empty string to disable. Default: "projenrc.js"
         :param prettier: (experimental) Enable prettier for code formatting. Default: false
         :param sort_extends: (experimental) The extends array in eslint is order dependent. This option allows to sort the extends array in any way seen fit. Default: - Use known ESLint best practices to place "prettier" plugins at the end of the array
         :param ts_always_try_types: (experimental) Always try to resolve types under ``<root>@types`` directory even it doesn't contain any source code. This prevents ``import/no-unresolved`` eslint errors when importing a ``@types/*`` module that would otherwise remain unresolved. Default: true
@@ -2195,8 +2158,6 @@ class EslintOptions:
             check_type(argname="argument devdirs", value=devdirs, expected_type=type_hints["devdirs"])
             check_type(argname="argument file_extensions", value=file_extensions, expected_type=type_hints["file_extensions"])
             check_type(argname="argument ignore_patterns", value=ignore_patterns, expected_type=type_hints["ignore_patterns"])
-            check_type(argname="argument lint_projen_rc", value=lint_projen_rc, expected_type=type_hints["lint_projen_rc"])
-            check_type(argname="argument lint_projen_rc_file", value=lint_projen_rc_file, expected_type=type_hints["lint_projen_rc_file"])
             check_type(argname="argument prettier", value=prettier, expected_type=type_hints["prettier"])
             check_type(argname="argument sort_extends", value=sort_extends, expected_type=type_hints["sort_extends"])
             check_type(argname="argument ts_always_try_types", value=ts_always_try_types, expected_type=type_hints["ts_always_try_types"])
@@ -2217,10 +2178,6 @@ class EslintOptions:
             self._values["file_extensions"] = file_extensions
         if ignore_patterns is not None:
             self._values["ignore_patterns"] = ignore_patterns
-        if lint_projen_rc is not None:
-            self._values["lint_projen_rc"] = lint_projen_rc
-        if lint_projen_rc_file is not None:
-            self._values["lint_projen_rc_file"] = lint_projen_rc_file
         if prettier is not None:
             self._values["prettier"] = prettier
         if sort_extends is not None:
@@ -2307,34 +2264,6 @@ class EslintOptions:
         '''
         result = self._values.get("ignore_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def lint_projen_rc(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Should we lint .projenrc.js.
-
-        :default: true
-
-        :deprecated: set to ``false`` to remove any automatic rules and add manually
-
-        :stability: deprecated
-        '''
-        result = self._values.get("lint_projen_rc")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def lint_projen_rc_file(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) Projenrc file to lint.
-
-        Use empty string to disable.
-
-        :default: "projenrc.js"
-
-        :deprecated: provide as ``devdirs``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("lint_projen_rc_file")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prettier(self) -> typing.Optional[builtins.bool]:
@@ -2775,10 +2704,8 @@ class Jest(
         scope: "_constructs_77d1e7e8.IConstruct",
         *,
         config_file_path: typing.Optional[builtins.str] = None,
-        coverage: typing.Optional[builtins.bool] = None,
         coverage_text: typing.Optional[builtins.bool] = None,
         extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest_config: typing.Optional[typing.Union["JestConfigOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         jest_version: typing.Optional[builtins.str] = None,
         junit_reporting: typing.Optional[builtins.bool] = None,
@@ -2789,10 +2716,8 @@ class Jest(
         '''
         :param scope: -
         :param config_file_path: (experimental) Path to JSON config file for Jest. Default: - No separate config file, jest settings are stored in package.json
-        :param coverage: (deprecated) Collect coverage. Deprecated Default: true
         :param coverage_text: (experimental) Include the ``text`` coverage reporter, which means that coverage summary is printed at the end of the jest execution. Default: true
         :param extra_cli_options: (experimental) Additional options to pass to the Jest CLI invocation. Default: - no extra options
-        :param ignore_patterns: (deprecated) Defines ``testPathIgnorePatterns`` and ``coveragePathIgnorePatterns``. Default: ["/node_modules/"]
         :param jest_config: (experimental) Jest configuration. Default: - default jest configuration
         :param jest_version: (experimental) The version of jest to use. Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those. With Jest 30 ts-jest version 29 is used (if Typescript in use) Default: - installs the latest jest version
         :param junit_reporting: (experimental) Result processing with jest-junit. Output directory is ``test-reports/``. Default: true
@@ -2807,10 +2732,8 @@ class Jest(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = JestOptions(
             config_file_path=config_file_path,
-            coverage=coverage,
             coverage_text=coverage_text,
             extra_cli_options=extra_cli_options,
-            ignore_patterns=ignore_patterns,
             jest_config=jest_config,
             jest_version=jest_version,
             junit_reporting=junit_reporting,
@@ -4375,10 +4298,8 @@ class JestDiscoverTestMatchPatternsForDirsOptions:
     jsii_struct_bases=[],
     name_mapping={
         "config_file_path": "configFilePath",
-        "coverage": "coverage",
         "coverage_text": "coverageText",
         "extra_cli_options": "extraCliOptions",
-        "ignore_patterns": "ignorePatterns",
         "jest_config": "jestConfig",
         "jest_version": "jestVersion",
         "junit_reporting": "junitReporting",
@@ -4392,10 +4313,8 @@ class JestOptions:
         self,
         *,
         config_file_path: typing.Optional[builtins.str] = None,
-        coverage: typing.Optional[builtins.bool] = None,
         coverage_text: typing.Optional[builtins.bool] = None,
         extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest_config: typing.Optional[typing.Union["JestConfigOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         jest_version: typing.Optional[builtins.str] = None,
         junit_reporting: typing.Optional[builtins.bool] = None,
@@ -4405,10 +4324,8 @@ class JestOptions:
     ) -> None:
         '''
         :param config_file_path: (experimental) Path to JSON config file for Jest. Default: - No separate config file, jest settings are stored in package.json
-        :param coverage: (deprecated) Collect coverage. Deprecated Default: true
         :param coverage_text: (experimental) Include the ``text`` coverage reporter, which means that coverage summary is printed at the end of the jest execution. Default: true
         :param extra_cli_options: (experimental) Additional options to pass to the Jest CLI invocation. Default: - no extra options
-        :param ignore_patterns: (deprecated) Defines ``testPathIgnorePatterns`` and ``coveragePathIgnorePatterns``. Default: ["/node_modules/"]
         :param jest_config: (experimental) Jest configuration. Default: - default jest configuration
         :param jest_version: (experimental) The version of jest to use. Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those. With Jest 30 ts-jest version 29 is used (if Typescript in use) Default: - installs the latest jest version
         :param junit_reporting: (experimental) Result processing with jest-junit. Output directory is ``test-reports/``. Default: true
@@ -4423,10 +4340,8 @@ class JestOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6fea73c8bcc51e881c3829384cb90956e3310a1a08296d32da54fc51bd1b0872)
             check_type(argname="argument config_file_path", value=config_file_path, expected_type=type_hints["config_file_path"])
-            check_type(argname="argument coverage", value=coverage, expected_type=type_hints["coverage"])
             check_type(argname="argument coverage_text", value=coverage_text, expected_type=type_hints["coverage_text"])
             check_type(argname="argument extra_cli_options", value=extra_cli_options, expected_type=type_hints["extra_cli_options"])
-            check_type(argname="argument ignore_patterns", value=ignore_patterns, expected_type=type_hints["ignore_patterns"])
             check_type(argname="argument jest_config", value=jest_config, expected_type=type_hints["jest_config"])
             check_type(argname="argument jest_version", value=jest_version, expected_type=type_hints["jest_version"])
             check_type(argname="argument junit_reporting", value=junit_reporting, expected_type=type_hints["junit_reporting"])
@@ -4436,14 +4351,10 @@ class JestOptions:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if config_file_path is not None:
             self._values["config_file_path"] = config_file_path
-        if coverage is not None:
-            self._values["coverage"] = coverage
         if coverage_text is not None:
             self._values["coverage_text"] = coverage_text
         if extra_cli_options is not None:
             self._values["extra_cli_options"] = extra_cli_options
-        if ignore_patterns is not None:
-            self._values["ignore_patterns"] = ignore_patterns
         if jest_config is not None:
             self._values["jest_config"] = jest_config
         if jest_version is not None:
@@ -4469,21 +4380,6 @@ class JestOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def coverage(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Collect coverage.
-
-        Deprecated
-
-        :default: true
-
-        :deprecated: use jestConfig.collectCoverage
-
-        :stability: deprecated
-        '''
-        result = self._values.get("coverage")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def coverage_text(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Include the ``text`` coverage reporter, which means that coverage summary is printed at the end of the jest execution.
 
@@ -4503,19 +4399,6 @@ class JestOptions:
         :stability: experimental
         '''
         result = self._values.get("extra_cli_options")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def ignore_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Defines ``testPathIgnorePatterns`` and ``coveragePathIgnorePatterns``.
-
-        :default: ["/node_modules/"]
-
-        :deprecated: use jestConfig.coveragePathIgnorePatterns or jestConfig.testPathIgnorePatterns respectively
-
-        :stability: deprecated
-        '''
-        result = self._values.get("ignore_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
@@ -4841,7 +4724,6 @@ class NodePackage(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["NpmAccess"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -4853,7 +4735,6 @@ class NodePackage(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["ScopedPackagesOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["YarnBerryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -4886,7 +4767,6 @@ class NodePackage(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -4898,7 +4778,6 @@ class NodePackage(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
 
@@ -4935,7 +4814,6 @@ class NodePackage(
             min_node_version=min_node_version,
             npm_access=npm_access,
             npm_provenance=npm_provenance,
-            npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
@@ -4947,7 +4825,6 @@ class NodePackage(
             repository=repository,
             repository_directory=repository_directory,
             scoped_packages_options=scoped_packages_options,
-            scripts=scripts,
             stability=stability,
             yarn_berry_options=yarn_berry_options,
         )
@@ -5110,21 +4987,6 @@ class NodePackage(
             type_hints = typing.get_type_hints(_typecheckingstub__6d456bed502e180a081411555ef7dae9f59ac8b07e536f2a144d134c8593a095)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         return typing.cast(None, jsii.invoke(self, "addVersion", [version]))
-
-    @jsii.member(jsii_name="hasScript")
-    def has_script(self, name: builtins.str) -> builtins.bool:
-        '''(deprecated) Indicates if a script by the given name is defined.
-
-        :param name: The name of the script.
-
-        :deprecated: Use ``project.tasks.tryFind(name)``
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b12c7fbb63b42bcfe1afac4c97478186870515282ad2fec02e2dfe5256265514)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        return typing.cast(builtins.bool, jsii.invoke(self, "hasScript", [name]))
 
     @jsii.member(jsii_name="installDependencies")
     def _install_dependencies(
@@ -5363,17 +5225,6 @@ class NodePackage(
         return typing.cast(builtins.str, jsii.get(self, "packageName"))
 
     @builtins.property
-    @jsii.member(jsii_name="projenCommand")
-    def projen_command(self) -> builtins.str:
-        '''(deprecated) The command which executes "projen".
-
-        :deprecated: use ``project.projenCommand`` instead.
-
-        :stability: deprecated
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "projenCommand"))
-
-    @builtins.property
     @jsii.member(jsii_name="bunVersion")
     def bun_version(self) -> typing.Optional[builtins.str]:
         '''(experimental) The version of Bun to use if using Bun as a package manager.
@@ -5554,7 +5405,6 @@ class NodePackageManager(enum.Enum):
         "min_node_version": "minNodeVersion",
         "npm_access": "npmAccess",
         "npm_provenance": "npmProvenance",
-        "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
@@ -5566,7 +5416,6 @@ class NodePackageManager(enum.Enum):
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
         "scoped_packages_options": "scopedPackagesOptions",
-        "scripts": "scripts",
         "stability": "stability",
         "yarn_berry_options": "yarnBerryOptions",
     },
@@ -5602,7 +5451,6 @@ class NodePackageOptions:
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["NpmAccess"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -5614,7 +5462,6 @@ class NodePackageOptions:
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["ScopedPackagesOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["YarnBerryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -5646,7 +5493,6 @@ class NodePackageOptions:
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -5658,7 +5504,6 @@ class NodePackageOptions:
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
 
@@ -5701,7 +5546,6 @@ class NodePackageOptions:
             check_type(argname="argument min_node_version", value=min_node_version, expected_type=type_hints["min_node_version"])
             check_type(argname="argument npm_access", value=npm_access, expected_type=type_hints["npm_access"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
@@ -5713,7 +5557,6 @@ class NodePackageOptions:
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
             check_type(argname="argument scoped_packages_options", value=scoped_packages_options, expected_type=type_hints["scoped_packages_options"])
-            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
             check_type(argname="argument yarn_berry_options", value=yarn_berry_options, expected_type=type_hints["yarn_berry_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5771,8 +5614,6 @@ class NodePackageOptions:
             self._values["npm_access"] = npm_access
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
-        if npm_registry is not None:
-            self._values["npm_registry"] = npm_registry
         if npm_registry_url is not None:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
@@ -5795,8 +5636,6 @@ class NodePackageOptions:
             self._values["repository_directory"] = repository_directory
         if scoped_packages_options is not None:
             self._values["scoped_packages_options"] = scoped_packages_options
-        if scripts is not None:
-            self._values["scripts"] = scripts
         if stability is not None:
             self._values["stability"] = stability
         if yarn_berry_options is not None:
@@ -6170,19 +6009,6 @@ class NodePackageOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_registry(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The host name of the npm registry to publish to.
-
-        Cannot be set together with ``npmRegistryUrl``.
-
-        :deprecated: use ``npmRegistryUrl`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npm_registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
@@ -6320,23 +6146,6 @@ class NodePackageOptions:
         return typing.cast(typing.Optional[typing.List["ScopedPackagesOptions"]], result)
 
     @builtins.property
-    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(deprecated) npm scripts to include.
-
-        If a script has the same name as a standard script,
-        the standard script will be overwritten.
-        Also adds the script as a task.
-
-        :default: {}
-
-        :deprecated: use ``project.addTask()`` or ``package.setScript()``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("scripts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
     def stability(self) -> typing.Optional[builtins.str]:
         '''(experimental) Package's Stability.
 
@@ -6382,7 +6191,6 @@ class NodeProject(
     def __init__(
         self,
         *,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["AuditOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6391,13 +6199,13 @@ class NodeProject(
         biome_options: typing.Optional[typing.Union["BiomeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["BuildWorkflowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["BundlerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["LicenseCheckerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -6405,8 +6213,6 @@ class NodeProject(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["JestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -6420,7 +6226,6 @@ class NodeProject(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -6433,11 +6238,7 @@ class NodeProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6469,7 +6270,6 @@ class NodeProject(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["NpmAccess"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -6481,7 +6281,6 @@ class NodeProject(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["ScopedPackagesOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["YarnBerryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -6497,10 +6296,8 @@ class NodeProject(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -6525,7 +6322,6 @@ class NodeProject(
         renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -6534,13 +6330,13 @@ class NodeProject(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -6548,8 +6344,6 @@ class NodeProject(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -6563,7 +6357,6 @@ class NodeProject(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -6576,11 +6369,7 @@ class NodeProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -6612,7 +6401,6 @@ class NodeProject(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -6624,7 +6412,6 @@ class NodeProject(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -6640,10 +6427,8 @@ class NodeProject(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -6670,7 +6455,6 @@ class NodeProject(
         :stability: experimental
         '''
         options = NodeProjectOptions(
-            default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             audit_deps=audit_deps,
             audit_deps_options=audit_deps_options,
@@ -6679,13 +6463,13 @@ class NodeProject(
             biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
-            build_workflow_triggers=build_workflow_triggers,
             bundler_options=bundler_options,
             check_licenses=check_licenses,
             code_cov=code_cov,
             code_cov_token_secret=code_cov_token_secret,
             copyright_owner=copyright_owner,
             copyright_period=copyright_period,
+            default_release_branch=default_release_branch,
             dependabot=dependabot,
             dependabot_options=dependabot_options,
             deps_upgrade=deps_upgrade,
@@ -6693,8 +6477,6 @@ class NodeProject(
             gitignore=gitignore,
             jest=jest,
             jest_options=jest_options,
-            mutable_build=mutable_build,
-            npmignore=npmignore,
             npmignore_enabled=npmignore_enabled,
             npm_ignore_options=npm_ignore_options,
             package=package,
@@ -6708,7 +6490,6 @@ class NodeProject(
             pull_request_template_contents=pull_request_template_contents,
             release=release,
             release_to_npm=release_to_npm,
-            release_workflow=release_workflow,
             workflow_bootstrap_steps=workflow_bootstrap_steps,
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
@@ -6721,11 +6502,7 @@ class NodeProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -6757,7 +6534,6 @@ class NodeProject(
             min_node_version=min_node_version,
             npm_access=npm_access,
             npm_provenance=npm_provenance,
-            npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
@@ -6769,7 +6545,6 @@ class NodeProject(
             repository=repository,
             repository_directory=repository_directory,
             scoped_packages_options=scoped_packages_options,
-            scripts=scripts,
             stability=stability,
             yarn_berry_options=yarn_berry_options,
             bump_package=bump_package,
@@ -6785,10 +6560,8 @@ class NodeProject(
             releasable_commits=releasable_commits,
             release_branches=release_branches,
             release_environment=release_environment,
-            release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
-            release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
             release_workflow_env=release_workflow_env,
@@ -6842,21 +6615,6 @@ class NodeProject(
             type_hints = typing.get_type_hints(_typecheckingstub__2b1ff4594cefe0f3ab31e92f5ac8583fbe3df4f5ba62df16850e03b36a3c4161)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addBundledDeps", [*deps]))
-
-    @jsii.member(jsii_name="addCompileCommand")
-    def add_compile_command(self, *commands: builtins.str) -> None:
-        '''(deprecated) DEPRECATED.
-
-        :param commands: -
-
-        :deprecated: use ``project.compileTask.exec()``
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b059cfc104068a0054d877fddb1a1af37e0a7e039d5c911c34d1119017de502e)
-            check_type(argname="argument commands", value=commands, expected_type=typing.Tuple[type_hints["commands"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(None, jsii.invoke(self, "addCompileCommand", [*commands]))
 
     @jsii.member(jsii_name="addDeps")
     def add_deps(self, *deps: builtins.str) -> None:
@@ -6954,36 +6712,6 @@ class NodeProject(
             check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
         return typing.cast(None, jsii.invoke(self, "addScripts", [scripts]))
 
-    @jsii.member(jsii_name="addTestCommand")
-    def add_test_command(self, *commands: builtins.str) -> None:
-        '''(deprecated) DEPRECATED.
-
-        :param commands: -
-
-        :deprecated: use ``project.testTask.exec()``
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__260e615a7142e436fcdeda572a6911528eb33c495f725efeb25c208eed3d88a0)
-            check_type(argname="argument commands", value=commands, expected_type=typing.Tuple[type_hints["commands"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(None, jsii.invoke(self, "addTestCommand", [*commands]))
-
-    @jsii.member(jsii_name="hasScript")
-    def has_script(self, name: builtins.str) -> builtins.bool:
-        '''(deprecated) Indicates if a script by the name name is defined.
-
-        :param name: The name of the script.
-
-        :deprecated: Use ``project.tasks.tryFind(name)``
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a96d563d99caecd8428704d41d3b4f2d83e16d8cf2c5b251709f03f0482f5d8)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        return typing.cast(builtins.bool, jsii.invoke(self, "hasScript", [name]))
-
     @jsii.member(jsii_name="removeScript")
     def remove_script(self, name: builtins.str) -> None:
         '''(experimental) Removes the npm script (always successful).
@@ -7051,16 +6779,6 @@ class NodeProject(
         return typing.cast(None, jsii.invoke(self, "setScript", [name, command]))
 
     @builtins.property
-    @jsii.member(jsii_name="allowLibraryDependencies")
-    def allow_library_dependencies(self) -> builtins.bool:
-        '''
-        :deprecated: use ``package.allowLibraryDependencies``
-
-        :stability: deprecated
-        '''
-        return typing.cast(builtins.bool, jsii.get(self, "allowLibraryDependencies"))
-
-    @builtins.property
     @jsii.member(jsii_name="artifactsDirectory")
     def artifacts_directory(self) -> builtins.str:
         '''(experimental) The build output directory.
@@ -7091,26 +6809,6 @@ class NodeProject(
         return typing.cast("Bundler", jsii.get(self, "bundler"))
 
     @builtins.property
-    @jsii.member(jsii_name="entrypoint")
-    def entrypoint(self) -> builtins.str:
-        '''
-        :deprecated: use ``package.entrypoint``
-
-        :stability: deprecated
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "entrypoint"))
-
-    @builtins.property
-    @jsii.member(jsii_name="manifest")
-    def manifest(self) -> typing.Any:
-        '''
-        :deprecated: use ``package.addField(x, y)``
-
-        :stability: deprecated
-        '''
-        return typing.cast(typing.Any, jsii.get(self, "manifest"))
-
-    @builtins.property
     @jsii.member(jsii_name="npmrc")
     def npmrc(self) -> "NpmConfig":
         '''(experimental) The .npmrc file.
@@ -7127,17 +6825,6 @@ class NodeProject(
         :stability: experimental
         '''
         return typing.cast("NodePackage", jsii.get(self, "package"))
-
-    @builtins.property
-    @jsii.member(jsii_name="packageManager")
-    def package_manager(self) -> "NodePackageManager":
-        '''(deprecated) The package manager to use.
-
-        :deprecated: use ``package.packageManager``
-
-        :stability: deprecated
-        '''
-        return typing.cast("NodePackageManager", jsii.get(self, "packageManager"))
 
     @builtins.property
     @jsii.member(jsii_name="runScriptCommand")
@@ -7258,20 +6945,6 @@ class NodeProject(
         return typing.cast(typing.Optional["Prettier"], jsii.get(self, "prettier"))
 
     @builtins.property
-    @jsii.member(jsii_name="publisher")
-    def publisher(self) -> typing.Optional["_Publisher_4a29b2cd"]:
-        '''(deprecated) Package publisher.
-
-        This will be ``undefined`` if the project does not have a
-        release workflow.
-
-        :deprecated: use ``release.publisher``.
-
-        :stability: deprecated
-        '''
-        return typing.cast(typing.Optional["_Publisher_4a29b2cd"], jsii.get(self, "publisher"))
-
-    @builtins.property
     @jsii.member(jsii_name="release")
     def release(self) -> typing.Optional["_Release_30ee2d91"]:
         '''(experimental) Release management.
@@ -7319,11 +6992,7 @@ class NodeProject(
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -7355,7 +7024,6 @@ class NodeProject(
         "min_node_version": "minNodeVersion",
         "npm_access": "npmAccess",
         "npm_provenance": "npmProvenance",
-        "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
@@ -7367,7 +7035,6 @@ class NodeProject(
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
         "scoped_packages_options": "scopedPackagesOptions",
-        "scripts": "scripts",
         "stability": "stability",
         "yarn_berry_options": "yarnBerryOptions",
         "bump_package": "bumpPackage",
@@ -7383,10 +7050,8 @@ class NodeProject(
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -7396,7 +7061,6 @@ class NodeProject(
         "workflow_container_image": "workflowContainerImage",
         "workflow_runs_on": "workflowRunsOn",
         "workflow_runs_on_group": "workflowRunsOnGroup",
-        "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "audit_deps": "auditDeps",
         "audit_deps_options": "auditDepsOptions",
@@ -7405,13 +7069,13 @@ class NodeProject(
         "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
-        "build_workflow_triggers": "buildWorkflowTriggers",
         "bundler_options": "bundlerOptions",
         "check_licenses": "checkLicenses",
         "code_cov": "codeCov",
         "code_cov_token_secret": "codeCovTokenSecret",
         "copyright_owner": "copyrightOwner",
         "copyright_period": "copyrightPeriod",
+        "default_release_branch": "defaultReleaseBranch",
         "dependabot": "dependabot",
         "dependabot_options": "dependabotOptions",
         "deps_upgrade": "depsUpgrade",
@@ -7419,8 +7083,6 @@ class NodeProject(
         "gitignore": "gitignore",
         "jest": "jest",
         "jest_options": "jestOptions",
-        "mutable_build": "mutableBuild",
-        "npmignore": "npmignore",
         "npmignore_enabled": "npmignoreEnabled",
         "npm_ignore_options": "npmIgnoreOptions",
         "package": "package",
@@ -7434,7 +7096,6 @@ class NodeProject(
         "pull_request_template_contents": "pullRequestTemplateContents",
         "release": "release",
         "release_to_npm": "releaseToNpm",
-        "release_workflow": "releaseWorkflow",
         "workflow_bootstrap_steps": "workflowBootstrapSteps",
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
@@ -7470,11 +7131,7 @@ class NodeProjectOptions(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7506,7 +7163,6 @@ class NodeProjectOptions(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["NpmAccess"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -7518,7 +7174,6 @@ class NodeProjectOptions(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["ScopedPackagesOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["YarnBerryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -7534,10 +7189,8 @@ class NodeProjectOptions(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -7547,7 +7200,6 @@ class NodeProjectOptions(
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["AuditOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7556,13 +7208,13 @@ class NodeProjectOptions(
         biome_options: typing.Optional[typing.Union["BiomeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["BuildWorkflowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["BundlerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["LicenseCheckerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -7570,8 +7222,6 @@ class NodeProjectOptions(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["JestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -7585,7 +7235,6 @@ class NodeProjectOptions(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -7613,11 +7262,7 @@ class NodeProjectOptions(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -7649,7 +7294,6 @@ class NodeProjectOptions(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -7661,7 +7305,6 @@ class NodeProjectOptions(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -7677,10 +7320,8 @@ class NodeProjectOptions(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -7690,7 +7331,6 @@ class NodeProjectOptions(
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
         :param workflow_runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -7699,13 +7339,13 @@ class NodeProjectOptions(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -7713,8 +7353,6 @@ class NodeProjectOptions(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -7728,7 +7366,6 @@ class NodeProjectOptions(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -7752,8 +7389,6 @@ class NodeProjectOptions(
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -7774,8 +7409,6 @@ class NodeProjectOptions(
             biome_options = BiomeOptions(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = BuildWorkflowOptions(**build_workflow_options)
-        if isinstance(build_workflow_triggers, dict):
-            build_workflow_triggers = _Triggers_e9ae7617(**build_workflow_triggers)
         if isinstance(bundler_options, dict):
             bundler_options = BundlerOptions(**bundler_options)
         if isinstance(check_licenses, dict):
@@ -7817,11 +7450,7 @@ class NodeProjectOptions(
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -7853,7 +7482,6 @@ class NodeProjectOptions(
             check_type(argname="argument min_node_version", value=min_node_version, expected_type=type_hints["min_node_version"])
             check_type(argname="argument npm_access", value=npm_access, expected_type=type_hints["npm_access"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
@@ -7865,7 +7493,6 @@ class NodeProjectOptions(
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
             check_type(argname="argument scoped_packages_options", value=scoped_packages_options, expected_type=type_hints["scoped_packages_options"])
-            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
             check_type(argname="argument yarn_berry_options", value=yarn_berry_options, expected_type=type_hints["yarn_berry_options"])
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
@@ -7881,10 +7508,8 @@ class NodeProjectOptions(
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -7894,7 +7519,6 @@ class NodeProjectOptions(
             check_type(argname="argument workflow_container_image", value=workflow_container_image, expected_type=type_hints["workflow_container_image"])
             check_type(argname="argument workflow_runs_on", value=workflow_runs_on, expected_type=type_hints["workflow_runs_on"])
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
-            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
             check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
@@ -7903,13 +7527,13 @@ class NodeProjectOptions(
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
-            check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
             check_type(argname="argument bundler_options", value=bundler_options, expected_type=type_hints["bundler_options"])
             check_type(argname="argument check_licenses", value=check_licenses, expected_type=type_hints["check_licenses"])
             check_type(argname="argument code_cov", value=code_cov, expected_type=type_hints["code_cov"])
             check_type(argname="argument code_cov_token_secret", value=code_cov_token_secret, expected_type=type_hints["code_cov_token_secret"])
             check_type(argname="argument copyright_owner", value=copyright_owner, expected_type=type_hints["copyright_owner"])
             check_type(argname="argument copyright_period", value=copyright_period, expected_type=type_hints["copyright_period"])
+            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument dependabot", value=dependabot, expected_type=type_hints["dependabot"])
             check_type(argname="argument dependabot_options", value=dependabot_options, expected_type=type_hints["dependabot_options"])
             check_type(argname="argument deps_upgrade", value=deps_upgrade, expected_type=type_hints["deps_upgrade"])
@@ -7917,8 +7541,6 @@ class NodeProjectOptions(
             check_type(argname="argument gitignore", value=gitignore, expected_type=type_hints["gitignore"])
             check_type(argname="argument jest", value=jest, expected_type=type_hints["jest"])
             check_type(argname="argument jest_options", value=jest_options, expected_type=type_hints["jest_options"])
-            check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
-            check_type(argname="argument npmignore", value=npmignore, expected_type=type_hints["npmignore"])
             check_type(argname="argument npmignore_enabled", value=npmignore_enabled, expected_type=type_hints["npmignore_enabled"])
             check_type(argname="argument npm_ignore_options", value=npm_ignore_options, expected_type=type_hints["npm_ignore_options"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -7932,14 +7554,12 @@ class NodeProjectOptions(
             check_type(argname="argument pull_request_template_contents", value=pull_request_template_contents, expected_type=type_hints["pull_request_template_contents"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
             check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
-            check_type(argname="argument release_workflow", value=release_workflow, expected_type=type_hints["release_workflow"])
             check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_package_cache", value=workflow_package_cache, expected_type=type_hints["workflow_package_cache"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "default_release_branch": default_release_branch,
         }
         if commit_generated is not None:
             self._values["commit_generated"] = commit_generated
@@ -7981,16 +7601,8 @@ class NodeProjectOptions(
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -8053,8 +7665,6 @@ class NodeProjectOptions(
             self._values["npm_access"] = npm_access
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
-        if npm_registry is not None:
-            self._values["npm_registry"] = npm_registry
         if npm_registry_url is not None:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
@@ -8077,8 +7687,6 @@ class NodeProjectOptions(
             self._values["repository_directory"] = repository_directory
         if scoped_packages_options is not None:
             self._values["scoped_packages_options"] = scoped_packages_options
-        if scripts is not None:
-            self._values["scripts"] = scripts
         if stability is not None:
             self._values["stability"] = stability
         if yarn_berry_options is not None:
@@ -8109,14 +7717,10 @@ class NodeProjectOptions(
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -8151,8 +7755,6 @@ class NodeProjectOptions(
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
             self._values["build_workflow_options"] = build_workflow_options
-        if build_workflow_triggers is not None:
-            self._values["build_workflow_triggers"] = build_workflow_triggers
         if bundler_options is not None:
             self._values["bundler_options"] = bundler_options
         if check_licenses is not None:
@@ -8165,6 +7767,8 @@ class NodeProjectOptions(
             self._values["copyright_owner"] = copyright_owner
         if copyright_period is not None:
             self._values["copyright_period"] = copyright_period
+        if default_release_branch is not None:
+            self._values["default_release_branch"] = default_release_branch
         if dependabot is not None:
             self._values["dependabot"] = dependabot
         if dependabot_options is not None:
@@ -8179,10 +7783,6 @@ class NodeProjectOptions(
             self._values["jest"] = jest
         if jest_options is not None:
             self._values["jest_options"] = jest_options
-        if mutable_build is not None:
-            self._values["mutable_build"] = mutable_build
-        if npmignore is not None:
-            self._values["npmignore"] = npmignore
         if npmignore_enabled is not None:
             self._values["npmignore_enabled"] = npmignore_enabled
         if npm_ignore_options is not None:
@@ -8209,8 +7809,6 @@ class NodeProjectOptions(
             self._values["release"] = release
         if release_to_npm is not None:
             self._values["release_to_npm"] = release_to_npm
-        if release_workflow is not None:
-            self._values["release_workflow"] = release_workflow
         if workflow_bootstrap_steps is not None:
             self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
         if workflow_git_identity is not None:
@@ -8464,45 +8062,6 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -8512,22 +8071,6 @@ class NodeProjectOptions(
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -8951,19 +8494,6 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_registry(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The host name of the npm registry to publish to.
-
-        Cannot be set together with ``npmRegistryUrl``.
-
-        :deprecated: use ``npmRegistryUrl`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npm_registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
@@ -9099,23 +8629,6 @@ class NodeProjectOptions(
         '''
         result = self._values.get("scoped_packages_options")
         return typing.cast(typing.Optional[typing.List["ScopedPackagesOptions"]], result)
-
-    @builtins.property
-    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(deprecated) npm scripts to include.
-
-        If a script has the same name as a standard script,
-        the standard script will be overwritten.
-        Also adds the script as a task.
-
-        :default: {}
-
-        :deprecated: use ``project.addTask()`` or ``package.setScript()``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("scripts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def stability(self) -> typing.Optional[builtins.str]:
@@ -9334,19 +8847,6 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -9368,19 +8868,6 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -9496,18 +8983,6 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def default_release_branch(self) -> builtins.str:
-        '''(experimental) The name of the main release branch.
-
-        :default: "main"
-
-        :stability: experimental
-        '''
-        result = self._values.get("default_release_branch")
-        assert result is not None, "Required property 'default_release_branch' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
         '''(experimental) A directory which will contain build artifacts.
 
@@ -9600,19 +9075,6 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional["BuildWorkflowOptions"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
-        '''(deprecated) Build workflow triggers.
-
-        :default: "{ pullRequest: {}, workflowDispatch: {} }"
-
-        :deprecated: - Use ``buildWorkflowOptions.workflowTriggers``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
-
-    @builtins.property
     def bundler_options(self) -> typing.Optional["BundlerOptions"]:
         '''(experimental) Options for ``Bundler``.
 
@@ -9676,6 +9138,18 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("copyright_period")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_release_branch(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the main release branch.
+
+        :default: "main"
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("default_release_branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -9756,36 +9230,6 @@ class NodeProjectOptions(
         '''
         result = self._values.get("jest_options")
         return typing.cast(typing.Optional["JestOptions"], result)
-
-    @builtins.property
-    def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically update files modified during builds to pull-request branches.
-
-        This means
-        that any files synthesized by projen or e.g. test snapshots will always be up-to-date
-        before a PR is merged.
-
-        Implies that PR builds do not have anti-tamper checks.
-
-        :default: true
-
-        :deprecated: - Use ``buildWorkflowOptions.mutableBuild``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mutable_build")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def npmignore(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Additional entries to .npmignore.
-
-        :deprecated: - use ``project.addPackageIgnore``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npmignore")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def npmignore_enabled(self) -> typing.Optional[builtins.bool]:
@@ -9928,19 +9372,6 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_to_npm")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def release_workflow(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) DEPRECATED: renamed to ``release``.
-
-        :default: - true if not a subproject
-
-        :deprecated: see ``release``.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_workflow")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -11251,7 +10682,6 @@ class RunBundleTask(enum.Enum):
        // to go to the "lib" directory:
        const project = new TypeScriptProject({
          name: "test",
-         defaultReleaseBranch: "main",
          tsconfig: {
            compilerOptions: {
              outDir: "lib",
@@ -14103,7 +13533,6 @@ class YarnLogFilterLevel(enum.Enum):
     jsii_type="projen.javascript.YarnNetworkSetting",
     jsii_struct_bases=[],
     name_mapping={
-        "ca_file_path": "caFilePath",
         "enable_network": "enableNetwork",
         "http_proxy": "httpProxy",
         "https_ca_file_path": "httpsCaFilePath",
@@ -14116,7 +13545,6 @@ class YarnNetworkSetting:
     def __init__(
         self,
         *,
-        ca_file_path: typing.Optional[builtins.str] = None,
         enable_network: typing.Optional[builtins.bool] = None,
         http_proxy: typing.Optional[builtins.str] = None,
         https_ca_file_path: typing.Optional[builtins.str] = None,
@@ -14126,7 +13554,6 @@ class YarnNetworkSetting:
     ) -> None:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#networkSettings.
 
-        :param ca_file_path: 
         :param enable_network: 
         :param http_proxy: 
         :param https_ca_file_path: 
@@ -14138,7 +13565,6 @@ class YarnNetworkSetting:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c1b2fbcdc0866622114f6a99950c878e71074738b9644f167e0ac34219a62eb)
-            check_type(argname="argument ca_file_path", value=ca_file_path, expected_type=type_hints["ca_file_path"])
             check_type(argname="argument enable_network", value=enable_network, expected_type=type_hints["enable_network"])
             check_type(argname="argument http_proxy", value=http_proxy, expected_type=type_hints["http_proxy"])
             check_type(argname="argument https_ca_file_path", value=https_ca_file_path, expected_type=type_hints["https_ca_file_path"])
@@ -14146,8 +13572,6 @@ class YarnNetworkSetting:
             check_type(argname="argument https_key_file_path", value=https_key_file_path, expected_type=type_hints["https_key_file_path"])
             check_type(argname="argument https_proxy", value=https_proxy, expected_type=type_hints["https_proxy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if ca_file_path is not None:
-            self._values["ca_file_path"] = ca_file_path
         if enable_network is not None:
             self._values["enable_network"] = enable_network
         if http_proxy is not None:
@@ -14160,16 +13584,6 @@ class YarnNetworkSetting:
             self._values["https_key_file_path"] = https_key_file_path
         if https_proxy is not None:
             self._values["https_proxy"] = https_proxy
-
-    @builtins.property
-    def ca_file_path(self) -> typing.Optional[builtins.str]:
-        '''
-        :deprecated: - use httpsCaFilePath in Yarn v4 and newer
-
-        :stability: deprecated
-        '''
-        result = self._values.get("ca_file_path")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enable_network(self) -> typing.Optional[builtins.bool]:
@@ -14789,7 +14203,6 @@ class Yarnrc(
     def __init__(
         self,
         project: "_Project_57d89203",
-        version: builtins.str,
         *,
         cache_folder: typing.Optional[builtins.str] = None,
         cache_migration_mode: typing.Optional["YarnCacheMigrationMode"] = None,
@@ -14830,14 +14243,12 @@ class Yarnrc(
         https_key_file_path: typing.Optional[builtins.str] = None,
         https_proxy: typing.Optional[builtins.str] = None,
         http_timeout: typing.Optional[jsii.Number] = None,
-        ignore_cwd: typing.Optional[builtins.bool] = None,
         ignore_path: typing.Optional[builtins.bool] = None,
         immutable_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         init_fields: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         init_scope: typing.Optional[builtins.str] = None,
         inject_environment_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         install_state_path: typing.Optional[builtins.str] = None,
-        lockfile_filename: typing.Optional[builtins.str] = None,
         log_filters: typing.Optional[typing.Sequence[typing.Union["YarnLogFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_concurrency: typing.Optional[jsii.Number] = None,
         network_settings: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNetworkSetting", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -14858,7 +14269,6 @@ class Yarnrc(
         npm_scopes: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNpmScope", typing.Dict[builtins.str, typing.Any]]]] = None,
         package_extensions: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnPackageExtension", typing.Dict[builtins.str, typing.Any]]]] = None,
         patch_folder: typing.Optional[builtins.str] = None,
-        pnp_data_path: typing.Optional[builtins.str] = None,
         pnp_enable_esm_loader: typing.Optional[builtins.bool] = None,
         pnp_enable_inlining: typing.Optional[builtins.bool] = None,
         pnp_fallback_mode: typing.Optional["YarnPnpFallbackMode"] = None,
@@ -14866,7 +14276,6 @@ class Yarnrc(
         pnp_mode: typing.Optional["YarnPnpMode"] = None,
         pnp_shebang: typing.Optional[builtins.str] = None,
         pnp_unplugged_folder: typing.Optional[builtins.str] = None,
-        prefer_aggregate_cache_info: typing.Optional[builtins.bool] = None,
         prefer_deferred_versions: typing.Optional[builtins.bool] = None,
         prefer_interactive: typing.Optional[builtins.bool] = None,
         prefer_reuse: typing.Optional[builtins.bool] = None,
@@ -14886,7 +14295,6 @@ class Yarnrc(
     ) -> None:
         '''
         :param project: -
-        :param version: -
         :param cache_folder: (experimental) https://yarnpkg.com/configuration/yarnrc#cacheFolder.
         :param cache_migration_mode: (experimental) https://yarnpkg.com/configuration/yarnrc#cacheMigrationMode.
         :param changeset_base_refs: (experimental) https://yarnpkg.com/configuration/yarnrc#changesetBaseRefs.
@@ -14926,14 +14334,12 @@ class Yarnrc(
         :param https_key_file_path: (experimental) https://yarnpkg.com/configuration/yarnrc#httpsKeyFilePath.
         :param https_proxy: (experimental) https://yarnpkg.com/configuration/yarnrc#httpsProxy.
         :param http_timeout: (experimental) https://yarnpkg.com/configuration/yarnrc#httpTimeout.
-        :param ignore_cwd: (deprecated) https://v3.yarnpkg.com/configuration/yarnrc#ignoreCwd.
         :param ignore_path: (experimental) https://yarnpkg.com/configuration/yarnrc#ignorePath.
         :param immutable_patterns: (experimental) https://yarnpkg.com/configuration/yarnrc#immutablePatterns.
         :param init_fields: (experimental) https://yarnpkg.com/configuration/yarnrc#initFields.
         :param init_scope: (experimental) https://yarnpkg.com/configuration/yarnrc#initScope.
         :param inject_environment_files: (experimental) https://yarnpkg.com/configuration/yarnrc#injectEnvironmentFiles.
         :param install_state_path: (experimental) https://yarnpkg.com/configuration/yarnrc#installStatePath.
-        :param lockfile_filename: (deprecated) https://v3.yarnpkg.com/configuration/yarnrc#lockfileFilename.
         :param log_filters: (experimental) https://yarnpkg.com/configuration/yarnrc#logFilters.
         :param network_concurrency: (experimental) https://yarnpkg.com/configuration/yarnrc#networkConcurrency.
         :param network_settings: (experimental) https://yarnpkg.com/configuration/yarnrc#networkSettings.
@@ -14954,7 +14360,6 @@ class Yarnrc(
         :param npm_scopes: (experimental) https://yarnpkg.com/configuration/yarnrc#npmScopes.
         :param package_extensions: (experimental) https://yarnpkg.com/configuration/yarnrc#packageExtensions.
         :param patch_folder: (experimental) https://yarnpkg.com/configuration/yarnrc#patchFolder.
-        :param pnp_data_path: (deprecated) https://v3.yarnpkg.com/configuration/yarnrc#pnpDataPath.
         :param pnp_enable_esm_loader: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpEnableEsmLoader.
         :param pnp_enable_inlining: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpEnableInlining.
         :param pnp_fallback_mode: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpFallbackMode.
@@ -14962,7 +14367,6 @@ class Yarnrc(
         :param pnp_mode: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpMode.
         :param pnp_shebang: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpShebang.
         :param pnp_unplugged_folder: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpUnpluggedFolder.
-        :param prefer_aggregate_cache_info: (deprecated) https://v3.yarnpkg.com/configuration/yarnrc#preferAggregateCacheInfo.
         :param prefer_deferred_versions: (experimental) https://yarnpkg.com/configuration/yarnrc#preferDeferredVersions.
         :param prefer_interactive: (experimental) https://yarnpkg.com/configuration/yarnrc#preferInteractive.
         :param prefer_reuse: (experimental) https://yarnpkg.com/configuration/yarnrc#preferReuse.
@@ -14985,7 +14389,6 @@ class Yarnrc(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b92a48df0fb86c0bb0ca2fc52f77733ece6a12ab360c8248f866d7bc1270b9b0)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         options = YarnrcOptions(
             cache_folder=cache_folder,
             cache_migration_mode=cache_migration_mode,
@@ -15026,14 +14429,12 @@ class Yarnrc(
             https_key_file_path=https_key_file_path,
             https_proxy=https_proxy,
             http_timeout=http_timeout,
-            ignore_cwd=ignore_cwd,
             ignore_path=ignore_path,
             immutable_patterns=immutable_patterns,
             init_fields=init_fields,
             init_scope=init_scope,
             inject_environment_files=inject_environment_files,
             install_state_path=install_state_path,
-            lockfile_filename=lockfile_filename,
             log_filters=log_filters,
             network_concurrency=network_concurrency,
             network_settings=network_settings,
@@ -15054,7 +14455,6 @@ class Yarnrc(
             npm_scopes=npm_scopes,
             package_extensions=package_extensions,
             patch_folder=patch_folder,
-            pnp_data_path=pnp_data_path,
             pnp_enable_esm_loader=pnp_enable_esm_loader,
             pnp_enable_inlining=pnp_enable_inlining,
             pnp_fallback_mode=pnp_fallback_mode,
@@ -15062,7 +14462,6 @@ class Yarnrc(
             pnp_mode=pnp_mode,
             pnp_shebang=pnp_shebang,
             pnp_unplugged_folder=pnp_unplugged_folder,
-            prefer_aggregate_cache_info=prefer_aggregate_cache_info,
             prefer_deferred_versions=prefer_deferred_versions,
             prefer_interactive=prefer_interactive,
             prefer_reuse=prefer_reuse,
@@ -15081,7 +14480,7 @@ class Yarnrc(
             yarn_path=yarn_path,
         )
 
-        jsii.create(self.__class__, self, [project, version, options])
+        jsii.create(self.__class__, self, [project, options])
 
 
 @jsii.data_type(
@@ -15127,14 +14526,12 @@ class Yarnrc(
         "https_key_file_path": "httpsKeyFilePath",
         "https_proxy": "httpsProxy",
         "http_timeout": "httpTimeout",
-        "ignore_cwd": "ignoreCwd",
         "ignore_path": "ignorePath",
         "immutable_patterns": "immutablePatterns",
         "init_fields": "initFields",
         "init_scope": "initScope",
         "inject_environment_files": "injectEnvironmentFiles",
         "install_state_path": "installStatePath",
-        "lockfile_filename": "lockfileFilename",
         "log_filters": "logFilters",
         "network_concurrency": "networkConcurrency",
         "network_settings": "networkSettings",
@@ -15155,7 +14552,6 @@ class Yarnrc(
         "npm_scopes": "npmScopes",
         "package_extensions": "packageExtensions",
         "patch_folder": "patchFolder",
-        "pnp_data_path": "pnpDataPath",
         "pnp_enable_esm_loader": "pnpEnableEsmLoader",
         "pnp_enable_inlining": "pnpEnableInlining",
         "pnp_fallback_mode": "pnpFallbackMode",
@@ -15163,7 +14559,6 @@ class Yarnrc(
         "pnp_mode": "pnpMode",
         "pnp_shebang": "pnpShebang",
         "pnp_unplugged_folder": "pnpUnpluggedFolder",
-        "prefer_aggregate_cache_info": "preferAggregateCacheInfo",
         "prefer_deferred_versions": "preferDeferredVersions",
         "prefer_interactive": "preferInteractive",
         "prefer_reuse": "preferReuse",
@@ -15225,14 +14620,12 @@ class YarnrcOptions:
         https_key_file_path: typing.Optional[builtins.str] = None,
         https_proxy: typing.Optional[builtins.str] = None,
         http_timeout: typing.Optional[jsii.Number] = None,
-        ignore_cwd: typing.Optional[builtins.bool] = None,
         ignore_path: typing.Optional[builtins.bool] = None,
         immutable_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         init_fields: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         init_scope: typing.Optional[builtins.str] = None,
         inject_environment_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         install_state_path: typing.Optional[builtins.str] = None,
-        lockfile_filename: typing.Optional[builtins.str] = None,
         log_filters: typing.Optional[typing.Sequence[typing.Union["YarnLogFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_concurrency: typing.Optional[jsii.Number] = None,
         network_settings: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNetworkSetting", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15253,7 +14646,6 @@ class YarnrcOptions:
         npm_scopes: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNpmScope", typing.Dict[builtins.str, typing.Any]]]] = None,
         package_extensions: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnPackageExtension", typing.Dict[builtins.str, typing.Any]]]] = None,
         patch_folder: typing.Optional[builtins.str] = None,
-        pnp_data_path: typing.Optional[builtins.str] = None,
         pnp_enable_esm_loader: typing.Optional[builtins.bool] = None,
         pnp_enable_inlining: typing.Optional[builtins.bool] = None,
         pnp_fallback_mode: typing.Optional["YarnPnpFallbackMode"] = None,
@@ -15261,7 +14653,6 @@ class YarnrcOptions:
         pnp_mode: typing.Optional["YarnPnpMode"] = None,
         pnp_shebang: typing.Optional[builtins.str] = None,
         pnp_unplugged_folder: typing.Optional[builtins.str] = None,
-        prefer_aggregate_cache_info: typing.Optional[builtins.bool] = None,
         prefer_deferred_versions: typing.Optional[builtins.bool] = None,
         prefer_interactive: typing.Optional[builtins.bool] = None,
         prefer_reuse: typing.Optional[builtins.bool] = None,
@@ -15320,14 +14711,12 @@ class YarnrcOptions:
         :param https_key_file_path: (experimental) https://yarnpkg.com/configuration/yarnrc#httpsKeyFilePath.
         :param https_proxy: (experimental) https://yarnpkg.com/configuration/yarnrc#httpsProxy.
         :param http_timeout: (experimental) https://yarnpkg.com/configuration/yarnrc#httpTimeout.
-        :param ignore_cwd: (deprecated) https://v3.yarnpkg.com/configuration/yarnrc#ignoreCwd.
         :param ignore_path: (experimental) https://yarnpkg.com/configuration/yarnrc#ignorePath.
         :param immutable_patterns: (experimental) https://yarnpkg.com/configuration/yarnrc#immutablePatterns.
         :param init_fields: (experimental) https://yarnpkg.com/configuration/yarnrc#initFields.
         :param init_scope: (experimental) https://yarnpkg.com/configuration/yarnrc#initScope.
         :param inject_environment_files: (experimental) https://yarnpkg.com/configuration/yarnrc#injectEnvironmentFiles.
         :param install_state_path: (experimental) https://yarnpkg.com/configuration/yarnrc#installStatePath.
-        :param lockfile_filename: (deprecated) https://v3.yarnpkg.com/configuration/yarnrc#lockfileFilename.
         :param log_filters: (experimental) https://yarnpkg.com/configuration/yarnrc#logFilters.
         :param network_concurrency: (experimental) https://yarnpkg.com/configuration/yarnrc#networkConcurrency.
         :param network_settings: (experimental) https://yarnpkg.com/configuration/yarnrc#networkSettings.
@@ -15348,7 +14737,6 @@ class YarnrcOptions:
         :param npm_scopes: (experimental) https://yarnpkg.com/configuration/yarnrc#npmScopes.
         :param package_extensions: (experimental) https://yarnpkg.com/configuration/yarnrc#packageExtensions.
         :param patch_folder: (experimental) https://yarnpkg.com/configuration/yarnrc#patchFolder.
-        :param pnp_data_path: (deprecated) https://v3.yarnpkg.com/configuration/yarnrc#pnpDataPath.
         :param pnp_enable_esm_loader: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpEnableEsmLoader.
         :param pnp_enable_inlining: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpEnableInlining.
         :param pnp_fallback_mode: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpFallbackMode.
@@ -15356,7 +14744,6 @@ class YarnrcOptions:
         :param pnp_mode: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpMode.
         :param pnp_shebang: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpShebang.
         :param pnp_unplugged_folder: (experimental) https://yarnpkg.com/configuration/yarnrc#pnpUnpluggedFolder.
-        :param prefer_aggregate_cache_info: (deprecated) https://v3.yarnpkg.com/configuration/yarnrc#preferAggregateCacheInfo.
         :param prefer_deferred_versions: (experimental) https://yarnpkg.com/configuration/yarnrc#preferDeferredVersions.
         :param prefer_interactive: (experimental) https://yarnpkg.com/configuration/yarnrc#preferInteractive.
         :param prefer_reuse: (experimental) https://yarnpkg.com/configuration/yarnrc#preferReuse.
@@ -15419,14 +14806,12 @@ class YarnrcOptions:
             check_type(argname="argument https_key_file_path", value=https_key_file_path, expected_type=type_hints["https_key_file_path"])
             check_type(argname="argument https_proxy", value=https_proxy, expected_type=type_hints["https_proxy"])
             check_type(argname="argument http_timeout", value=http_timeout, expected_type=type_hints["http_timeout"])
-            check_type(argname="argument ignore_cwd", value=ignore_cwd, expected_type=type_hints["ignore_cwd"])
             check_type(argname="argument ignore_path", value=ignore_path, expected_type=type_hints["ignore_path"])
             check_type(argname="argument immutable_patterns", value=immutable_patterns, expected_type=type_hints["immutable_patterns"])
             check_type(argname="argument init_fields", value=init_fields, expected_type=type_hints["init_fields"])
             check_type(argname="argument init_scope", value=init_scope, expected_type=type_hints["init_scope"])
             check_type(argname="argument inject_environment_files", value=inject_environment_files, expected_type=type_hints["inject_environment_files"])
             check_type(argname="argument install_state_path", value=install_state_path, expected_type=type_hints["install_state_path"])
-            check_type(argname="argument lockfile_filename", value=lockfile_filename, expected_type=type_hints["lockfile_filename"])
             check_type(argname="argument log_filters", value=log_filters, expected_type=type_hints["log_filters"])
             check_type(argname="argument network_concurrency", value=network_concurrency, expected_type=type_hints["network_concurrency"])
             check_type(argname="argument network_settings", value=network_settings, expected_type=type_hints["network_settings"])
@@ -15447,7 +14832,6 @@ class YarnrcOptions:
             check_type(argname="argument npm_scopes", value=npm_scopes, expected_type=type_hints["npm_scopes"])
             check_type(argname="argument package_extensions", value=package_extensions, expected_type=type_hints["package_extensions"])
             check_type(argname="argument patch_folder", value=patch_folder, expected_type=type_hints["patch_folder"])
-            check_type(argname="argument pnp_data_path", value=pnp_data_path, expected_type=type_hints["pnp_data_path"])
             check_type(argname="argument pnp_enable_esm_loader", value=pnp_enable_esm_loader, expected_type=type_hints["pnp_enable_esm_loader"])
             check_type(argname="argument pnp_enable_inlining", value=pnp_enable_inlining, expected_type=type_hints["pnp_enable_inlining"])
             check_type(argname="argument pnp_fallback_mode", value=pnp_fallback_mode, expected_type=type_hints["pnp_fallback_mode"])
@@ -15455,7 +14839,6 @@ class YarnrcOptions:
             check_type(argname="argument pnp_mode", value=pnp_mode, expected_type=type_hints["pnp_mode"])
             check_type(argname="argument pnp_shebang", value=pnp_shebang, expected_type=type_hints["pnp_shebang"])
             check_type(argname="argument pnp_unplugged_folder", value=pnp_unplugged_folder, expected_type=type_hints["pnp_unplugged_folder"])
-            check_type(argname="argument prefer_aggregate_cache_info", value=prefer_aggregate_cache_info, expected_type=type_hints["prefer_aggregate_cache_info"])
             check_type(argname="argument prefer_deferred_versions", value=prefer_deferred_versions, expected_type=type_hints["prefer_deferred_versions"])
             check_type(argname="argument prefer_interactive", value=prefer_interactive, expected_type=type_hints["prefer_interactive"])
             check_type(argname="argument prefer_reuse", value=prefer_reuse, expected_type=type_hints["prefer_reuse"])
@@ -15551,8 +14934,6 @@ class YarnrcOptions:
             self._values["https_proxy"] = https_proxy
         if http_timeout is not None:
             self._values["http_timeout"] = http_timeout
-        if ignore_cwd is not None:
-            self._values["ignore_cwd"] = ignore_cwd
         if ignore_path is not None:
             self._values["ignore_path"] = ignore_path
         if immutable_patterns is not None:
@@ -15565,8 +14946,6 @@ class YarnrcOptions:
             self._values["inject_environment_files"] = inject_environment_files
         if install_state_path is not None:
             self._values["install_state_path"] = install_state_path
-        if lockfile_filename is not None:
-            self._values["lockfile_filename"] = lockfile_filename
         if log_filters is not None:
             self._values["log_filters"] = log_filters
         if network_concurrency is not None:
@@ -15607,8 +14986,6 @@ class YarnrcOptions:
             self._values["package_extensions"] = package_extensions
         if patch_folder is not None:
             self._values["patch_folder"] = patch_folder
-        if pnp_data_path is not None:
-            self._values["pnp_data_path"] = pnp_data_path
         if pnp_enable_esm_loader is not None:
             self._values["pnp_enable_esm_loader"] = pnp_enable_esm_loader
         if pnp_enable_inlining is not None:
@@ -15623,8 +15000,6 @@ class YarnrcOptions:
             self._values["pnp_shebang"] = pnp_shebang
         if pnp_unplugged_folder is not None:
             self._values["pnp_unplugged_folder"] = pnp_unplugged_folder
-        if prefer_aggregate_cache_info is not None:
-            self._values["prefer_aggregate_cache_info"] = prefer_aggregate_cache_info
         if prefer_deferred_versions is not None:
             self._values["prefer_deferred_versions"] = prefer_deferred_versions
         if prefer_interactive is not None:
@@ -16014,17 +15389,6 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def ignore_cwd(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) https://v3.yarnpkg.com/configuration/yarnrc#ignoreCwd.
-
-        :deprecated: - removed in Yarn v4 and newer
-
-        :stability: deprecated
-        '''
-        result = self._values.get("ignore_cwd")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def ignore_path(self) -> typing.Optional[builtins.bool]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#ignorePath.
 
@@ -16076,17 +15440,6 @@ class YarnrcOptions:
         :stability: experimental
         '''
         result = self._values.get("install_state_path")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def lockfile_filename(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) https://v3.yarnpkg.com/configuration/yarnrc#lockfileFilename.
-
-        :deprecated: - removed in Yarn v4 and newer
-
-        :stability: deprecated
-        '''
-        result = self._values.get("lockfile_filename")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -16278,17 +15631,6 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def pnp_data_path(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) https://v3.yarnpkg.com/configuration/yarnrc#pnpDataPath.
-
-        :deprecated: - removed in Yarn v4 and newer
-
-        :stability: deprecated
-        '''
-        result = self._values.get("pnp_data_path")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def pnp_enable_esm_loader(self) -> typing.Optional[builtins.bool]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#pnpEnableEsmLoader.
 
@@ -16350,17 +15692,6 @@ class YarnrcOptions:
         '''
         result = self._values.get("pnp_unplugged_folder")
         return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def prefer_aggregate_cache_info(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) https://v3.yarnpkg.com/configuration/yarnrc#preferAggregateCacheInfo.
-
-        :deprecated: - removed in Yarn v4 and newer
-
-        :stability: deprecated
-        '''
-        result = self._values.get("prefer_aggregate_cache_info")
-        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def prefer_deferred_versions(self) -> typing.Optional[builtins.bool]:
@@ -17243,7 +16574,6 @@ def _typecheckingstub__61e51544f8a1488a41b14a0ee08df5b86eb83b8852c5ea8c95747007b
 def _typecheckingstub__b39a2a4441a612906ad5a7b87f1a6c53ed88fb86f4e31bd1a7283a06a2e9ebf7(
     project: _Project_57d89203,
     *,
-    add_to_pre_compile: typing.Optional[builtins.bool] = None,
     assets_dir: typing.Optional[builtins.str] = None,
     esbuild_version: typing.Optional[builtins.str] = None,
     loaders: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -17290,7 +16620,6 @@ def _typecheckingstub__5b3fe067eb8c7b6b184c855eea4d40743f016f5de6e522e14523a7e76
 
 def _typecheckingstub__10a14ca8f2b867bbbf0d45b5661abe92e6975540f78ea16f7ed21f5f213c4913(
     *,
-    add_to_pre_compile: typing.Optional[builtins.bool] = None,
     assets_dir: typing.Optional[builtins.str] = None,
     esbuild_version: typing.Optional[builtins.str] = None,
     loaders: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -17358,8 +16687,6 @@ def _typecheckingstub__41d20792db723180b2558eb351d1b15e6cc51985fdc95dd8481c5fae7
     devdirs: typing.Optional[typing.Sequence[builtins.str]] = None,
     file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    lint_projen_rc: typing.Optional[builtins.bool] = None,
-    lint_projen_rc_file: typing.Optional[builtins.str] = None,
     prettier: typing.Optional[builtins.bool] = None,
     sort_extends: typing.Optional[_ICompareString_f119e19c] = None,
     ts_always_try_types: typing.Optional[builtins.bool] = None,
@@ -17428,8 +16755,6 @@ def _typecheckingstub__26892c968b7bf4d64dd2597bbdabf1f1e9ced92002225a4eedfae6cbe
     devdirs: typing.Optional[typing.Sequence[builtins.str]] = None,
     file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    lint_projen_rc: typing.Optional[builtins.bool] = None,
-    lint_projen_rc_file: typing.Optional[builtins.str] = None,
     prettier: typing.Optional[builtins.bool] = None,
     sort_extends: typing.Optional[_ICompareString_f119e19c] = None,
     ts_always_try_types: typing.Optional[builtins.bool] = None,
@@ -17475,10 +16800,8 @@ def _typecheckingstub__7f22158e02967239263c228b0eadfa82f5edd4d7b172b8506a5b32bc4
     scope: _constructs_77d1e7e8.IConstruct,
     *,
     config_file_path: typing.Optional[builtins.str] = None,
-    coverage: typing.Optional[builtins.bool] = None,
     coverage_text: typing.Optional[builtins.bool] = None,
     extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest_config: typing.Optional[typing.Union[JestConfigOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     jest_version: typing.Optional[builtins.str] = None,
     junit_reporting: typing.Optional[builtins.bool] = None,
@@ -17645,10 +16968,8 @@ def _typecheckingstub__987ab5c64454683ddeb28bad78f44cdd78a2099af6a0e44ff92f50bc4
 def _typecheckingstub__6fea73c8bcc51e881c3829384cb90956e3310a1a08296d32da54fc51bd1b0872(
     *,
     config_file_path: typing.Optional[builtins.str] = None,
-    coverage: typing.Optional[builtins.bool] = None,
     coverage_text: typing.Optional[builtins.bool] = None,
     extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest_config: typing.Optional[typing.Union[JestConfigOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     jest_version: typing.Optional[builtins.str] = None,
     junit_reporting: typing.Optional[builtins.bool] = None,
@@ -17719,7 +17040,6 @@ def _typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[NpmAccess] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -17731,7 +17051,6 @@ def _typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[ScopedPackagesOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[YarnBerryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -17806,12 +17125,6 @@ def _typecheckingstub__6d456bed502e180a081411555ef7dae9f59ac8b07e536f2a144d134c8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b12c7fbb63b42bcfe1afac4c97478186870515282ad2fec02e2dfe5256265514(
-    name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__cfa2462931cf54e94ef49bfaf6682ca11a2539f8cdd625d39c838f78b350e770(
     name: builtins.str,
 ) -> None:
@@ -17860,7 +17173,6 @@ def _typecheckingstub__32555a77b63910142de45100c4a6d74880ddece00a3cbae9c27803467
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[NpmAccess] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -17872,7 +17184,6 @@ def _typecheckingstub__32555a77b63910142de45100c4a6d74880ddece00a3cbae9c27803467
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[ScopedPackagesOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[YarnBerryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -17887,12 +17198,6 @@ def _typecheckingstub__fd0850dc1bf763fca52fa1a885d8979a0b159e53cb34c36ec7df070d3
 
 def _typecheckingstub__2b1ff4594cefe0f3ab31e92f5ac8583fbe3df4f5ba62df16850e03b36a3c4161(
     *deps: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b059cfc104068a0054d877fddb1a1af37e0a7e039d5c911c34d1119017de502e(
-    *commands: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17939,18 +17244,6 @@ def _typecheckingstub__e67b7bc6c222da42e565aff91a82f7ebf8f7da5dfb913473bab135974
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__260e615a7142e436fcdeda572a6911528eb33c495f725efeb25c208eed3d88a0(
-    *commands: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3a96d563d99caecd8428704d41d3b4f2d83e16d8cf2c5b251709f03f0482f5d8(
-    name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__224de74cc912dc2ec9fe8eebc20f7a52b63c2e04ee88bb72ef9f775a2d8b33ab(
     name: builtins.str,
 ) -> None:
@@ -17993,11 +17286,7 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -18029,7 +17318,6 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[NpmAccess] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -18041,7 +17329,6 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[ScopedPackagesOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[YarnBerryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     bump_package: typing.Optional[builtins.str] = None,
@@ -18057,10 +17344,8 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -18070,7 +17355,6 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     workflow_container_image: typing.Optional[builtins.str] = None,
     workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-    default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     audit_deps: typing.Optional[builtins.bool] = None,
     audit_deps_options: typing.Optional[typing.Union[AuditOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -18079,13 +17363,13 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     biome_options: typing.Optional[typing.Union[BiomeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[BuildWorkflowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     bundler_options: typing.Optional[typing.Union[BundlerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     check_licenses: typing.Optional[typing.Union[LicenseCheckerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     code_cov: typing.Optional[builtins.bool] = None,
     code_cov_token_secret: typing.Optional[builtins.str] = None,
     copyright_owner: typing.Optional[builtins.str] = None,
     copyright_period: typing.Optional[builtins.str] = None,
+    default_release_branch: typing.Optional[builtins.str] = None,
     dependabot: typing.Optional[builtins.bool] = None,
     dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
     deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -18093,8 +17377,6 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest: typing.Optional[builtins.bool] = None,
     jest_options: typing.Optional[typing.Union[JestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    mutable_build: typing.Optional[builtins.bool] = None,
-    npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     npmignore_enabled: typing.Optional[builtins.bool] = None,
     npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
     package: typing.Optional[builtins.bool] = None,
@@ -18108,7 +17390,6 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
     release: typing.Optional[builtins.bool] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
-    release_workflow: typing.Optional[builtins.bool] = None,
     workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
@@ -18509,7 +17790,6 @@ def _typecheckingstub__abb7099331319918bbaec723c4a498aea8baf412ea3f195b3a83dfbee
 
 def _typecheckingstub__3c1b2fbcdc0866622114f6a99950c878e71074738b9644f167e0ac34219a62eb(
     *,
-    ca_file_path: typing.Optional[builtins.str] = None,
     enable_network: typing.Optional[builtins.bool] = None,
     http_proxy: typing.Optional[builtins.str] = None,
     https_ca_file_path: typing.Optional[builtins.str] = None,
@@ -18567,7 +17847,6 @@ def _typecheckingstub__9602b94dde7b19c12fda87da7ba816314ccf15910d8899b1a960aa8b7
 
 def _typecheckingstub__b92a48df0fb86c0bb0ca2fc52f77733ece6a12ab360c8248f866d7bc1270b9b0(
     project: _Project_57d89203,
-    version: builtins.str,
     *,
     cache_folder: typing.Optional[builtins.str] = None,
     cache_migration_mode: typing.Optional[YarnCacheMigrationMode] = None,
@@ -18608,14 +17887,12 @@ def _typecheckingstub__b92a48df0fb86c0bb0ca2fc52f77733ece6a12ab360c8248f866d7bc1
     https_key_file_path: typing.Optional[builtins.str] = None,
     https_proxy: typing.Optional[builtins.str] = None,
     http_timeout: typing.Optional[jsii.Number] = None,
-    ignore_cwd: typing.Optional[builtins.bool] = None,
     ignore_path: typing.Optional[builtins.bool] = None,
     immutable_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     init_fields: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     init_scope: typing.Optional[builtins.str] = None,
     inject_environment_files: typing.Optional[typing.Sequence[builtins.str]] = None,
     install_state_path: typing.Optional[builtins.str] = None,
-    lockfile_filename: typing.Optional[builtins.str] = None,
     log_filters: typing.Optional[typing.Sequence[typing.Union[YarnLogFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_concurrency: typing.Optional[jsii.Number] = None,
     network_settings: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNetworkSetting, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18636,7 +17913,6 @@ def _typecheckingstub__b92a48df0fb86c0bb0ca2fc52f77733ece6a12ab360c8248f866d7bc1
     npm_scopes: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNpmScope, typing.Dict[builtins.str, typing.Any]]]] = None,
     package_extensions: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnPackageExtension, typing.Dict[builtins.str, typing.Any]]]] = None,
     patch_folder: typing.Optional[builtins.str] = None,
-    pnp_data_path: typing.Optional[builtins.str] = None,
     pnp_enable_esm_loader: typing.Optional[builtins.bool] = None,
     pnp_enable_inlining: typing.Optional[builtins.bool] = None,
     pnp_fallback_mode: typing.Optional[YarnPnpFallbackMode] = None,
@@ -18644,7 +17920,6 @@ def _typecheckingstub__b92a48df0fb86c0bb0ca2fc52f77733ece6a12ab360c8248f866d7bc1
     pnp_mode: typing.Optional[YarnPnpMode] = None,
     pnp_shebang: typing.Optional[builtins.str] = None,
     pnp_unplugged_folder: typing.Optional[builtins.str] = None,
-    prefer_aggregate_cache_info: typing.Optional[builtins.bool] = None,
     prefer_deferred_versions: typing.Optional[builtins.bool] = None,
     prefer_interactive: typing.Optional[builtins.bool] = None,
     prefer_reuse: typing.Optional[builtins.bool] = None,
@@ -18706,14 +17981,12 @@ def _typecheckingstub__9ba41709eede66f73795f63493ccbdc1c1f0a5864300b00ac0050c78c
     https_key_file_path: typing.Optional[builtins.str] = None,
     https_proxy: typing.Optional[builtins.str] = None,
     http_timeout: typing.Optional[jsii.Number] = None,
-    ignore_cwd: typing.Optional[builtins.bool] = None,
     ignore_path: typing.Optional[builtins.bool] = None,
     immutable_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     init_fields: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     init_scope: typing.Optional[builtins.str] = None,
     inject_environment_files: typing.Optional[typing.Sequence[builtins.str]] = None,
     install_state_path: typing.Optional[builtins.str] = None,
-    lockfile_filename: typing.Optional[builtins.str] = None,
     log_filters: typing.Optional[typing.Sequence[typing.Union[YarnLogFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_concurrency: typing.Optional[jsii.Number] = None,
     network_settings: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNetworkSetting, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18734,7 +18007,6 @@ def _typecheckingstub__9ba41709eede66f73795f63493ccbdc1c1f0a5864300b00ac0050c78c
     npm_scopes: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNpmScope, typing.Dict[builtins.str, typing.Any]]]] = None,
     package_extensions: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnPackageExtension, typing.Dict[builtins.str, typing.Any]]]] = None,
     patch_folder: typing.Optional[builtins.str] = None,
-    pnp_data_path: typing.Optional[builtins.str] = None,
     pnp_enable_esm_loader: typing.Optional[builtins.bool] = None,
     pnp_enable_inlining: typing.Optional[builtins.bool] = None,
     pnp_fallback_mode: typing.Optional[YarnPnpFallbackMode] = None,
@@ -18742,7 +18014,6 @@ def _typecheckingstub__9ba41709eede66f73795f63493ccbdc1c1f0a5864300b00ac0050c78c
     pnp_mode: typing.Optional[YarnPnpMode] = None,
     pnp_shebang: typing.Optional[builtins.str] = None,
     pnp_unplugged_folder: typing.Optional[builtins.str] = None,
-    prefer_aggregate_cache_info: typing.Optional[builtins.bool] = None,
     prefer_deferred_versions: typing.Optional[builtins.bool] = None,
     prefer_interactive: typing.Optional[builtins.bool] = None,
     prefer_reuse: typing.Optional[builtins.bool] = None,

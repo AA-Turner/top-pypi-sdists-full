@@ -34,6 +34,7 @@ Functions:
 """
 
 import ast
+from collections.abc import Callable
 import math
 import os
 from pathlib import Path
@@ -60,6 +61,15 @@ from ouroboros.config.models import (  # noqa: E402
     get_default_credentials,
 )
 from ouroboros.core.errors import ConfigError  # noqa: E402
+from ouroboros.orchestrator_stage import (  # noqa: E402
+    Stage,
+    UnknownLLMRoleError,
+    normalize_llm_role,
+    parse_stage,
+    resolve_runtime_for_llm_role,
+    resolve_runtime_for_stage,
+    stage_for_llm_role,
+)
 
 _CODEX_LLM_BACKENDS = frozenset({"codex", "codex_cli", "opencode", "opencode_cli"})
 _KIRO_LLM_BACKENDS = frozenset({"kiro", "kiro_cli"})
@@ -238,8 +248,19 @@ _UNTRUSTED_ENV_DENYLIST = frozenset(
         # is therefore an approval-gate-bypass sink — same class as the
         # permission-mode overrides above.
         "OUROBOROS_TOOL_CAPABILITIES",
+        # Execution-cost/behavior dial — an untrusted repo .env must not be able
+        # to force a higher (or invalid) reasoning-effort level for every AC,
+        # which changes runtime cost and behavior. Follows the same trusted-source
+        # policy as the runtime/permission overrides above (RFC #1405).
+        "OUROBOROS_AGENT_REASONING_EFFORT",
     }
 )
+
+# The reasoning-effort vocabulary every native runtime accepts (mirrors
+# OrchestratorConfig.reasoning_effort). A value outside this set — Codex-only
+# ``minimal``, Claude-only ``max``, or a typo — must never reach a runtime, so the
+# env override is validated against it before use.
+_VALID_REASONING_EFFORT_LEVELS = frozenset({"low", "medium", "high", "xhigh"})
 
 
 def _is_untrusted_env_denied_key(key: str) -> bool:
@@ -743,6 +764,31 @@ def get_agent_permission_mode(backend: str | None = None) -> str:
         return config.orchestrator.permission_mode
     except ConfigError:
         return "bypassPermissions" if _uses_opencode_backend(backend) else "acceptEdits"
+
+
+def get_agent_reasoning_effort() -> str | None:
+    """Get the base reasoning-effort level for AC execution (RFC #1405).
+
+    Priority:
+        1. OUROBOROS_AGENT_REASONING_EFFORT environment variable
+        2. config.yaml orchestrator.reasoning_effort
+        3. None (effort routing stays dormant — no behavior change)
+
+    The env override is validated against the native-shared vocabulary; an invalid
+    value is ignored (falls through to config) rather than forwarded to a runtime
+    that would reject it. From an untrusted project ``.env`` the key is denylisted
+    entirely, so it is only honored from a trusted source.
+    """
+    env_effort = os.environ.get("OUROBOROS_AGENT_REASONING_EFFORT", "").strip()
+    if env_effort in _VALID_REASONING_EFFORT_LEVELS:
+        return env_effort
+    # A set but invalid env value (Codex-only ``minimal``, Claude-only ``max``, or a
+    # typo) is dropped rather than forwarded to a runtime that would reject it; fall
+    # through to the schema-validated config value.
+    try:
+        return load_config().orchestrator.reasoning_effort
+    except ConfigError:
+        return None
 
 
 def _parse_max_parallel_workers(value: Any, *, config_key: str) -> int:
@@ -1322,6 +1368,232 @@ def get_llm_backend() -> str:
         return "claude_code"
 
 
+def _runtime_profile_stage_map(config: OuroborosConfig) -> dict[Stage, str] | None:
+    profile = config.orchestrator.runtime_profile
+    if profile is None:
+        return None
+    return {parse_stage(stage): backend for stage, backend in profile.stages.items()}
+
+
+def _runtime_profile_default(config: OuroborosConfig) -> str | None:
+    profile = config.orchestrator.runtime_profile
+    return profile.default if profile is not None else None
+
+
+def _explicit_llm_backend_override() -> str | None:
+    """Return an explicitly-configured LLM-only backend override, or ``None``.
+
+    Preserves the documented LLM-only contract — ``OUROBOROS_LLM_BACKEND``, an
+    LLM-capable ``OUROBOROS_RUNTIME``, or ``config.llm.backend`` set away from the
+    shipped ``"claude_code"`` default — so existing operator overrides keep
+    steering internal-LLM roles. Returns ``None`` when nothing is explicitly set,
+    letting per-stage routing fall through to the default agent runtime.
+    """
+    env_backend = os.environ.get("OUROBOROS_LLM_BACKEND", "").strip().lower()
+    if env_backend:
+        return env_backend
+
+    env_runtime = os.environ.get("OUROBOROS_RUNTIME", "").strip().lower()
+    runtime_capability = get_backend_capability(env_runtime)
+    if runtime_capability is not None and runtime_capability.supports_llm:
+        return "claude_code" if env_runtime == "claude_code" else runtime_capability.name
+
+    try:
+        configured = load_config().llm.backend
+    except ConfigError:
+        return None
+    if configured and configured != "claude_code":
+        return configured
+    return None
+
+
+def _internal_llm_fallback_backend(fallback_runtime_backend: str | None) -> str:
+    """Fallback backend for stages/roles with no per-stage routing.
+
+    Precedence: explicit legacy ``llm.backend`` / ``OUROBOROS_LLM_BACKEND``
+    override (the documented LLM-only contract) → the caller-provided default
+    agent runtime (e.g. ``create_ouroboros_server(runtime_backend=...)``) → the
+    orchestrator's configured default agent runtime. The LLM-only override wins
+    over the default agent so an explicit ``llm.backend`` is honored, while an
+    un-configured override still inherits the caller/config default agent.
+    """
+    return (
+        _explicit_llm_backend_override() or fallback_runtime_backend or get_agent_runtime_backend()
+    )
+
+
+def get_llm_backend_for_stage(
+    stage: Stage | str,
+    *,
+    explicit_backend: str | None = None,
+    fallback_runtime_backend: str | None = None,
+) -> str:
+    """Resolve the internal-LLM backend for a configured workflow stage.
+
+    Precedence: ``explicit_backend`` (direct API/CLI) → ``runtime_profile.stages``
+    (per-stage Agent) → ``runtime_profile.default`` → explicit legacy
+    ``llm.backend`` / ``OUROBOROS_LLM_BACKEND`` override → orchestrator default
+    agent runtime. Per-stage routing stays authoritative while existing LLM-only
+    overrides remain honored for un-mapped stages.
+    """
+    if explicit_backend:
+        return explicit_backend
+
+    parsed_stage = stage if isinstance(stage, Stage) else parse_stage(stage)
+    try:
+        config = load_config()
+        return resolve_runtime_for_stage(
+            parsed_stage,
+            stages=_runtime_profile_stage_map(config),
+            default=_runtime_profile_default(config),
+            fallback=_internal_llm_fallback_backend(fallback_runtime_backend),
+        )
+    except ConfigError:
+        # Config unreadable: still honor an env-level LLM override and the
+        # caller's default agent before the documented get_llm_backend() default.
+        return _explicit_llm_backend_override() or fallback_runtime_backend or get_llm_backend()
+
+
+def get_llm_backend_for_role(
+    role: str,
+    *,
+    explicit_backend: str | None = None,
+    fallback_runtime_backend: str | None = None,
+) -> str:
+    """Resolve the internal-LLM backend for a logical task role.
+
+    Same precedence as :func:`get_llm_backend_for_stage`: per-stage routing wins,
+    then the explicit legacy ``llm.backend`` / ``OUROBOROS_LLM_BACKEND`` override,
+    then the default agent runtime.
+    """
+    if explicit_backend:
+        return explicit_backend
+
+    try:
+        config = load_config()
+        return resolve_runtime_for_llm_role(
+            role,
+            stages=_runtime_profile_stage_map(config),
+            default=_runtime_profile_default(config),
+            fallback=_internal_llm_fallback_backend(fallback_runtime_backend),
+        )
+    except ConfigError:
+        # Config unreadable: still honor an env-level LLM override and the
+        # caller's default agent before the documented get_llm_backend() default.
+        return _explicit_llm_backend_override() or fallback_runtime_backend or get_llm_backend()
+
+
+# Legacy per-role model fields kept for backward compatibility. The stage
+# model is the default, but a user who explicitly pinned one of these (env var,
+# or a config field set away from its shipped default) still has it honored
+# instead of silently dropped. Maps role -> (env var, field accessor, shipped
+# default, dedicated getter name). The getter — resolved lazily because it is
+# defined later in this module — applies the role's own backend normalization
+# (e.g. snapping an opus pin to the "default" sentinel on codex backends).
+# ``mechanical_detection`` reuses the assertion-extraction getter (its historical
+# model source) to avoid recursing through ``get_mechanical_detector_model``.
+_LEGACY_ROLE_MODEL_FIELDS: dict[str, tuple[str, Callable[["OuroborosConfig"], str], str, str]] = {
+    "qa": ("OUROBOROS_QA_MODEL", lambda c: c.llm.qa_model, DEFAULT_SONNET_MODEL, "get_qa_model"),
+    "assertion_extraction": (
+        "OUROBOROS_ASSERTION_EXTRACTION_MODEL",
+        lambda c: c.evaluation.assertion_extraction_model,
+        DEFAULT_SONNET_MODEL,
+        "get_assertion_extraction_model",
+    ),
+    "mechanical_detection": (
+        "OUROBOROS_DETECTOR_MODEL",
+        lambda c: c.evaluation.assertion_extraction_model,
+        DEFAULT_SONNET_MODEL,
+        "get_assertion_extraction_model",
+    ),
+    "dependency_analysis": (
+        "OUROBOROS_DEPENDENCY_ANALYSIS_MODEL",
+        lambda c: c.llm.dependency_analysis_model,
+        DEFAULT_SONNET_MODEL,
+        "get_dependency_analysis_model",
+    ),
+    "ontology_analysis": (
+        "OUROBOROS_ONTOLOGY_ANALYSIS_MODEL",
+        lambda c: c.llm.ontology_analysis_model,
+        DEFAULT_SONNET_MODEL,
+        "get_ontology_analysis_model",
+    ),
+    "context_compression": (
+        "OUROBOROS_CONTEXT_COMPRESSION_MODEL",
+        lambda c: c.llm.context_compression_model,
+        "gpt-4",
+        "get_context_compression_model",
+    ),
+    "wonder": (
+        "OUROBOROS_WONDER_MODEL",
+        lambda c: c.resilience.wonder_model,
+        DEFAULT_OPUS_MODEL,
+        "get_wonder_model",
+    ),
+}
+
+
+def _explicit_legacy_role_model(role: str, backend: str | None) -> str | None:
+    """Return an explicitly-set legacy per-role model override, or ``None``.
+
+    "Explicit" means the role's env var is set, or its dedicated config field
+    differs from the shipped default. This preserves pre-existing configs that
+    pinned a per-role model before the stage-model consolidation. Resolution is
+    delegated to the role's dedicated getter so backend normalization stays
+    identical to the legacy path.
+    """
+    entry = _LEGACY_ROLE_MODEL_FIELDS.get(normalize_llm_role(role))
+    if entry is None:
+        return None
+    env_var, field_getter, shipped_default, getter_name = entry
+    # Env var wins and is returned raw, matching the legacy getters.
+    if os.environ.get(env_var, "").strip():
+        return os.environ[env_var].strip()
+    try:
+        config = load_config()
+    except ConfigError:
+        return None
+    if field_getter(config) != shipped_default:
+        getter: Callable[[str | None], str] = globals()[getter_name]
+        return getter(backend)
+    return None
+
+
+def get_llm_model_for_role(
+    role: str,
+    *,
+    backend: str | None = None,
+    explicit_model: str | None = None,
+) -> str:
+    """Resolve the configured model for a logical internal-LLM role.
+
+    Stage model fields are the default source of truth: interview roles use
+    ``clarification.default_model``, evaluate/execute roles use
+    ``evaluation.semantic_model``, and reflect roles use
+    ``resilience.reflect_model``. An explicitly-pinned legacy per-role field
+    (e.g. ``llm.qa_model``) still takes precedence for backward compatibility,
+    and an unmapped role degrades to the evaluate model rather than raising.
+    """
+    if explicit_model:
+        return explicit_model
+
+    resolved_backend = backend or get_llm_backend_for_role(role)
+
+    legacy_override = _explicit_legacy_role_model(role, resolved_backend)
+    if legacy_override is not None:
+        return legacy_override
+
+    try:
+        stage = stage_for_llm_role(role)
+    except UnknownLLMRoleError:
+        return get_semantic_model(resolved_backend)
+    if stage == Stage.INTERVIEW:
+        return get_clarification_model(resolved_backend)
+    if stage == Stage.REFLECT:
+        return get_reflect_model(resolved_backend)
+    return get_semantic_model(resolved_backend)
+
+
 def get_llm_permission_mode(backend: str | None = None) -> str:
     """Get default LLM permission mode from environment variable or config.
 
@@ -1617,15 +1889,13 @@ def get_assertion_extraction_model(backend: str | None = None) -> str:
 def get_mechanical_detector_model(backend: str | None = None) -> str:
     """Resolve the model used by the mechanical.toml AI detector.
 
-    Mirrors the assertion-extraction model resolution: env var override,
-    then ``OuroborosConfig.evaluation.assertion_extraction_model`` with
-    backend-safe fallback to the Codex ``"default"`` sentinel for
-    Codex/OpenCode backends.
+    The public helper remains for legacy imports, but the configured model
+    source is now the Evaluate stage model (``evaluation.semantic_model``).
     """
     env_model = os.environ.get("OUROBOROS_DETECTOR_MODEL", "").strip()
     if env_model:
         return env_model
-    return get_assertion_extraction_model(backend=backend)
+    return get_llm_model_for_role("mechanical_detection", backend=backend)
 
 
 def get_consensus_models(backend: str | None = None) -> tuple[str, ...]:

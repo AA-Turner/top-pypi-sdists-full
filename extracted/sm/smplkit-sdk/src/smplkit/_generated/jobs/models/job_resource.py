@@ -32,16 +32,19 @@ class JobResource:
             'http'}, 'id': 'nightly-cache-warm', 'type': 'job'}
 
     Attributes:
-        attributes (Job): A scheduled unit of work: an HTTP request run on a schedule.
+        attributes (Job): A unit of work: an HTTP request, run on a schedule or triggered on demand.
 
             The job is the definition; each time it fires the service records a run
             capturing the request, response, timing, and outcome. A job runs per
-            environment: set `environments[<env>].enabled` to schedule runs there, and
-            optionally give that environment its own `schedule` or `configuration`. A
-            recurring (cron) job may be enabled in several environments at once and
-            fires once per enabled environment, each on its own next-fire schedule; a
-            one-off (`now` or future datetime) job runs a single time in the environment
-            it was created in.
+            environment: set `environments[<env>].enabled` to enable it there, and
+            optionally give that environment its own `schedule` or `configuration`.
+
+            A job's `kind` follows from its `schedule`: a **recurring** (cron) job may
+            be enabled in several environments at once and fires once per enabled
+            environment, each on its own next-fire schedule; a **manual** job (no
+            schedule) is permanent and never auto-fires — it runs only when triggered;
+            a **one-off** (`now` or a future datetime) job runs a single time in the
+            environment it was created in and is then spent.
         id (None | str | Unset):
         type_ (str | Unset):  Default: 'job'.
     """

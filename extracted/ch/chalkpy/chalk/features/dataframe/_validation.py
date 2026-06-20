@@ -3,14 +3,13 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, Union, cast
 
-from chalk_rs import parse_iso_date as _parse_iso_date
-from chalk_rs import parse_iso_duration as _parse_iso_duration
-from chalk_rs import parse_iso_time as _parse_iso_time
-
 from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features.feature_field import Feature, FeatureNotFoundException
 from chalk.utils.collections import get_unique_item
 from chalk.utils.pl_helpers import apply_compat, schema_compat, str_json_decode_compat
+from chalk_rs import parse_iso_date as _parse_iso_date
+from chalk_rs import parse_iso_duration as _parse_iso_duration
+from chalk_rs import parse_iso_time as _parse_iso_time
 
 if TYPE_CHECKING:
     import polars as pl

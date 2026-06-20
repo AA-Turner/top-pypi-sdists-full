@@ -442,7 +442,6 @@ class _API:
                 "minAgents": deploy_config.scaling.min_agents,
                 "maxAgents": deploy_config.scaling.max_agents,
             },
-            "enableKrisp": deploy_config.enable_krisp,
             "agentProfile": deploy_config.agent_profile,
             "krispViva": {
                 "audioFilter": deploy_config.krisp_viva.audio_filter,
@@ -694,6 +693,40 @@ class _API:
             Updated properties dict
         """
         return self.create_api_method(self._properties_update)
+
+    # Spend Limit
+
+    async def _spend_limit_get(self, org: str) -> dict | None:
+        url = self.construct_api_url("spend_limit_path").format(org=org)
+        return await self._base_request("GET", url, not_found_is_empty=True)
+
+    @property
+    def spend_limit_get(self):
+        """Get the current spend limit and usage for an organization.
+
+        Args:
+            org: Organization ID
+        Returns:
+            Dict with limitCents, currentSpendCents, periodStart, periodEnd,
+            blocked, blockedAt. Returns None if the endpoint reports 404.
+        """
+        return self.create_api_method(self._spend_limit_get)
+
+    async def _spend_limit_update(self, org: str, limit_cents: int | None) -> dict | None:
+        url = self.construct_api_url("spend_limit_path").format(org=org)
+        return await self._base_request("PUT", url, json={"limitCents": limit_cents})
+
+    @property
+    def spend_limit_update(self):
+        """Set or clear the organization spend limit.
+
+        Args:
+            org: Organization ID
+            limit_cents: New limit in cents, or None to clear the limit.
+        Returns:
+            The updated spend-limit response (same shape as spend_limit_get).
+        """
+        return self.create_api_method(self._spend_limit_update)
 
     # Builds
 

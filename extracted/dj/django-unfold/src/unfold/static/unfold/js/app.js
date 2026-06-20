@@ -1,4 +1,4 @@
-window.addEventListener("load", (e) => {
+window.addEventListener("load", () => {
 	fileInputUpdatePath();
 
 	dateTimeShortcutsOverlay();
@@ -275,45 +275,6 @@ function searchForm() {
 				event.preventDefault();
 				this.$refs.searchInput.focus();
 			}
-		},
-	};
-}
-
-/*************************************************************
- * Search dropdown
- *************************************************************/
-function searchDropdown() {
-	return {
-		openSearchResults: false,
-		currentIndex: 0,
-		applyShortcut(event) {
-			if (
-				event.key === "t" &&
-				document.activeElement.tagName.toLowerCase() !== "input" &&
-				document.activeElement.tagName.toLowerCase() !== "textarea" &&
-				!document.activeElement.isContentEditable
-			) {
-				event.preventDefault();
-				this.$refs.searchInput.focus();
-			}
-		},
-		nextItem() {
-			if (this.currentIndex < this.maxItem()) {
-				this.currentIndex++;
-			}
-		},
-		prevItem() {
-			if (this.currentIndex > 1) {
-				this.currentIndex--;
-			}
-		},
-		maxItem() {
-			return document.getElementById("search-results").querySelectorAll("li")
-				.length;
-		},
-		selectItem() {
-			const href = this.items[this.currentIndex - 1].querySelector("a").href;
-			window.location = href;
 		},
 	};
 }

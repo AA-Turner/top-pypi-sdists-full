@@ -28,6 +28,7 @@ import os
 import pathlib
 import platform
 import posixpath
+import re
 import sys
 import time as _time
 import zlib
@@ -319,6 +320,7 @@ def remove_trailing_slash(path: str) -> str:
 def canonical_path(target: pathlib.Path) -> pathlib.Path:
     """Return a canonical path of target argument."""
     stack: list[str] = []
+    anchor = target.anchor  # preserves POSIX '/' and Windows 'C:\\' or UNC share
     for p in target.parts:
         if p != ".." or len(stack) == 0:
             stack.append(p)
@@ -326,8 +328,8 @@ def canonical_path(target: pathlib.Path) -> pathlib.Path:
         # treat '..'
         if stack[-1] == "..":
             stack.append(p)  # '../' + '../' -> '../../'
-        elif stack[-1] == "/":
-            pass  # '/' + '../' -> '/'
+        elif anchor and stack[-1] == anchor:
+            pass  # don't walk above the anchor/drive/share
         else:
             stack.pop()  # 'foo/boo/' + '..' -> 'foo/'
     return pathlib.Path(*stack)
@@ -335,9 +337,16 @@ def canonical_path(target: pathlib.Path) -> pathlib.Path:
 
 def is_relative_to(my: pathlib.Path, *other) -> bool:
     """Return True when path is relative to other path, otherwise False."""
+    base = canonical_path(*other)
     try:
-        my.relative_to(canonical_path(*other))
-    except ValueError:
+        # resolve symlinks to catch Zip-Slip style vulnerability
+        my_resolved = my.resolve(strict=False)
+        base_resolved = base.resolve(strict=False)
+        if my_resolved == base_resolved:
+            # don't allow paths to be equal to base
+            return False
+        my_resolved.relative_to(base_resolved)
+    except (ValueError, RuntimeError):
         return False
     return True
 
@@ -347,6 +356,11 @@ def get_sanitized_output_path(fname: str, path: pathlib.Path | None) -> pathlib.
     check f.filename has invalid directory traversals
     When condition is not satisfied, raise Bad7zFile
     """
+    # Check for Windows drive letter (e.g., C:\, D:\)
+    # This is a security risk even on non-Windows systems
+    if re.match(r"^[A-Za-z]:", fname):
+        raise Bad7zFile(f"Specified path is bad: {fname}")
+
     if fname.startswith("/"):
         fname = fname.lstrip("/")
 
@@ -378,16 +392,21 @@ def check_archive_path(arcname: str) -> bool:
     return is_path_valid(path.joinpath(arcname), path)
 
 
-def is_path_valid(target: pathlib.Path, parent: pathlib.Path) -> bool:
+def is_path_valid(target: pathlib.Path, parent: pathlib.Path | None) -> bool:
     """
     Check if target path is valid against parent path.
-    It returns False when target path has '..' and point out of parent path.
+    It returns False when resolved target path has '..', or point out of a parent path.
     Otherwise, returns True.
     """
+    if parent is None:
+        parent = pathlib.Path.cwd()
+    cpath = canonical_path(target)
+    if ".." in cpath.parts:
+        return False
     if parent.is_absolute():
-        return is_relative_to(canonical_path(target), parent)
+        return is_relative_to(cpath, parent)
     else:
-        return is_relative_to(canonical_path(target), pathlib.Path.cwd().joinpath(parent))
+        return is_relative_to(cpath, pathlib.Path.cwd().joinpath(parent))
 
 
 def check_win32_file_namespace(pathname: pathlib.Path) -> pathlib.Path:

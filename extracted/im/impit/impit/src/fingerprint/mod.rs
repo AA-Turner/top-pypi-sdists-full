@@ -6,6 +6,8 @@
 pub mod database;
 mod types;
 
+use rand::Rng;
+
 pub use types::*;
 
 /// A complete browser fingerprint containing TLS, HTTP/2, and HTTP header configurations.
@@ -34,6 +36,36 @@ impl BrowserFingerprint {
             headers,
         }
     }
+
+    pub fn generate_multipart_boundary(&self) -> String {
+        match self.name.as_str() {
+            "Chrome" => {
+                const CHARS: &[u8] =
+                    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+                let mut rng = rand::rng();
+                let suffix: String = (0..16)
+                    .map(|_| CHARS[rng.random_range(0..CHARS.len())] as char)
+                    .collect();
+                format!("----WebKitFormBoundary{suffix}")
+            }
+            "Firefox" => {
+                let mut rng = rand::rng();
+                let a: u64 = rng.random();
+                let b: u64 = rng.random();
+                format!("----geckoformboundary{a:x}{b:x}")
+            }
+            "OkHttp" => uuid::Uuid::new_v4().to_string(),
+            _ => default_multipart_boundary(),
+        }
+    }
+}
+
+pub fn default_multipart_boundary() -> String {
+    let mut rng = rand::rng();
+    let suffix: String = (0..16)
+        .map(|_| rng.random_range(0u8..10).to_string())
+        .collect();
+    format!("----formdata-impit-{suffix}")
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -255,6 +287,15 @@ impl TlsFingerprint {
                 CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA => {
                     FingerprintCipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA
                 }
+                CipherSuite::TLS_RSA_WITH_3DES_EDE_CBC_SHA => {
+                    FingerprintCipherSuite::TLS_RSA_WITH_3DES_EDE_CBC_SHA
+                }
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA => {
+                    FingerprintCipherSuite::TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA
+                }
+                CipherSuite::TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA => {
+                    FingerprintCipherSuite::TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
+                }
                 CipherSuite::Grease => FingerprintCipherSuite::Grease,
             })
             .collect();
@@ -318,6 +359,48 @@ impl TlsFingerprint {
             .iter()
             .any(|e| matches!(e, ExtensionType::Grease));
 
+        use rustls::internal::msgs::enums::ExtensionType as RustlsExtType;
+
+        let extension_order: Vec<RustlsExtType> = self
+            .extensions
+            .extension_order
+            .iter()
+            .filter_map(|ext| {
+                match ext {
+                    ExtensionType::ServerName => Some(RustlsExtType::ServerName),
+                    ExtensionType::StatusRequest => Some(RustlsExtType::StatusRequest),
+                    ExtensionType::SupportedGroups => Some(RustlsExtType::EllipticCurves),
+                    ExtensionType::EcPointFormats => Some(RustlsExtType::ECPointFormats),
+                    ExtensionType::SignatureAlgorithms => Some(RustlsExtType::SignatureAlgorithms),
+                    ExtensionType::ApplicationLayerProtocolNegotiation => {
+                        Some(RustlsExtType::ALProtocolNegotiation)
+                    }
+                    ExtensionType::SignedCertificateTimestamp => Some(RustlsExtType::SCT),
+                    ExtensionType::KeyShare => Some(RustlsExtType::KeyShare),
+                    ExtensionType::PskKeyExchangeModes => Some(RustlsExtType::PSKKeyExchangeModes),
+                    ExtensionType::SupportedVersions => Some(RustlsExtType::SupportedVersions),
+                    ExtensionType::CompressCertificate => Some(RustlsExtType::CompressCertificate),
+                    ExtensionType::ApplicationSettings => Some(RustlsExtType::ApplicationSettings),
+                    ExtensionType::ExtendedMasterSecret => {
+                        Some(RustlsExtType::ExtendedMasterSecret)
+                    }
+                    ExtensionType::SessionTicket => Some(RustlsExtType::SessionTicket),
+                    ExtensionType::RenegotiationInfo => Some(RustlsExtType::RenegotiationInfo),
+                    ExtensionType::Padding => Some(RustlsExtType::Padding),
+                    ExtensionType::Grease => Some(RustlsExtType::ReservedGrease),
+                    ExtensionType::EarlyData => Some(RustlsExtType::EarlyData),
+                    ExtensionType::PostHandshakeAuth => Some(RustlsExtType::PostHandshakeAuth),
+                    ExtensionType::SignatureAlgorithmsCert => {
+                        Some(RustlsExtType::SignatureAlgorithmsCert)
+                    }
+                    // PreSharedKey and ECH are handled separately by rustls (always last)
+                    ExtensionType::PreSharedKey => None,
+                    // Skip types that don't map cleanly
+                    _ => None,
+                }
+            })
+            .collect();
+
         let extensions_config = TlsExtensionsConfig {
             grease: has_grease,
             signed_certificate_timestamp: self.extensions.signed_certificate_timestamp,
@@ -327,6 +410,8 @@ impl TlsFingerprint {
             record_size_limit: self.extensions.record_size_limit,
             renegotiation_info: true, // Common for both browsers
             padding: self.extensions.padding,
+            supported_versions: self.extensions.supported_versions,
+            extension_order,
         };
 
         let cert_compression = self.extensions.compress_certificate.clone().map(|algos| {

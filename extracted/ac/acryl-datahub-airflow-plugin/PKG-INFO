@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub-airflow-plugin
-Version: 1.6.0.4
+Version: 1.6.0.5
 Summary: Datahub Airflow plugin to capture executions and send to Datahub
 Home-page: https://docs.datahub.com/
 License: Apache-2.0
@@ -22,58 +22,58 @@ Classifier: Topic :: Software Development
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: apache-airflow<4.0.0,>=3.0.0
-Requires-Dist: apache-airflow-providers-openlineage>=2.1.0
-Requires-Dist: acryl-datahub[datahub-rest]==1.6.0.4
+Requires-Dist: acryl-datahub[datahub-rest]==1.6.0.5
 Requires-Dist: pydantic>=2.4.0
-Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.6.0.4
+Requires-Dist: apache-airflow-providers-openlineage>=2.1.0
+Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.6.0.5
 Provides-Extra: ignore
 Provides-Extra: airflow3
 Provides-Extra: datahub-rest
-Requires-Dist: acryl-datahub[datahub-rest]==1.6.0.4; extra == "datahub-rest"
+Requires-Dist: acryl-datahub[datahub-rest]==1.6.0.5; extra == "datahub-rest"
 Provides-Extra: datahub-kafka
-Requires-Dist: acryl-datahub[datahub-kafka]==1.6.0.4; extra == "datahub-kafka"
+Requires-Dist: acryl-datahub[datahub-kafka]==1.6.0.5; extra == "datahub-kafka"
 Provides-Extra: datahub-file
-Requires-Dist: acryl-datahub[sync-file-emitter]==1.6.0.4; extra == "datahub-file"
+Requires-Dist: acryl-datahub[sync-file-emitter]==1.6.0.5; extra == "datahub-file"
 Provides-Extra: dev
-Requires-Dist: apache-airflow-providers-openlineage>=2.1.0; extra == "dev"
-Requires-Dist: coverage>=5.1; extra == "dev"
-Requires-Dist: twine; extra == "dev"
-Requires-Dist: types-six; extra == "dev"
-Requires-Dist: build; extra == "dev"
-Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: types-python-dateutil; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
-Requires-Dist: pytest-cov>=2.8.1; extra == "dev"
-Requires-Dist: tox-uv; extra == "dev"
-Requires-Dist: pydantic>=2.4.0; extra == "dev"
-Requires-Dist: types-cachetools; extra == "dev"
-Requires-Dist: packaging; extra == "dev"
-Requires-Dist: types-click==0.1.12; extra == "dev"
 Requires-Dist: apache-airflow<4.0.0,>=3.0.0; extra == "dev"
-Requires-Dist: tenacity; extra == "dev"
-Requires-Dist: types-PyYAML; extra == "dev"
-Requires-Dist: acryl-datahub[datahub-rest]==1.6.0.4; extra == "dev"
-Requires-Dist: deepdiff!=8.0.0; extra == "dev"
-Requires-Dist: types-toml; extra == "dev"
-Requires-Dist: mypy==1.17.1; extra == "dev"
-Requires-Dist: pytest>=6.2.2; extra == "dev"
-Requires-Dist: ruff==0.11.7; extra == "dev"
-Requires-Dist: sqlalchemy-stubs; extra == "dev"
+Requires-Dist: acryl-datahub[datahub-rest]==1.6.0.5; extra == "dev"
+Requires-Dist: pytest-cov>=2.8.1; extra == "dev"
+Requires-Dist: pydantic>=2.4.0; extra == "dev"
 Requires-Dist: types-tabulate; extra == "dev"
-Requires-Dist: tox; extra == "dev"
+Requires-Dist: ruff==0.11.7; extra == "dev"
+Requires-Dist: deepdiff!=8.0.0; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
+Requires-Dist: tenacity; extra == "dev"
 Requires-Dist: types-dataclasses; extra == "dev"
-Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.6.0.4; extra == "dev"
+Requires-Dist: coverage>=5.1; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: packaging; extra == "dev"
+Requires-Dist: types-python-dateutil; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: tox-uv; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: types-six; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: sqlalchemy-stubs; extra == "dev"
+Requires-Dist: types-toml; extra == "dev"
+Requires-Dist: types-cachetools; extra == "dev"
+Requires-Dist: pytest>=6.2.2; extra == "dev"
+Requires-Dist: apache-airflow-providers-openlineage>=2.1.0; extra == "dev"
+Requires-Dist: types-click==0.1.12; extra == "dev"
+Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.6.0.5; extra == "dev"
+Requires-Dist: twine; extra == "dev"
 Provides-Extra: integration-tests
 Requires-Dist: snowflake-connector-python>=2.7.10; extra == "integration-tests"
-Requires-Dist: virtualenv; extra == "integration-tests"
-Requires-Dist: acryl-datahub[sync-file-emitter]==1.6.0.4; extra == "integration-tests"
-Requires-Dist: apache-airflow-providers-snowflake; extra == "integration-tests"
 Requires-Dist: apache-airflow-providers-sqlite; extra == "integration-tests"
-Requires-Dist: acryl-datahub[testing-utils]==1.6.0.4; extra == "integration-tests"
-Requires-Dist: apache-airflow-providers-teradata; extra == "integration-tests"
-Requires-Dist: apache-airflow-providers-amazon; extra == "integration-tests"
-Requires-Dist: acryl-datahub[datahub-kafka]==1.6.0.4; extra == "integration-tests"
+Requires-Dist: acryl-datahub[testing-utils]==1.6.0.5; extra == "integration-tests"
 Requires-Dist: apache-airflow-providers-google; extra == "integration-tests"
+Requires-Dist: apache-airflow-providers-teradata; extra == "integration-tests"
+Requires-Dist: apache-airflow-providers-snowflake; extra == "integration-tests"
+Requires-Dist: apache-airflow-providers-amazon; extra == "integration-tests"
+Requires-Dist: virtualenv; extra == "integration-tests"
+Requires-Dist: acryl-datahub[datahub-kafka]==1.6.0.5; extra == "integration-tests"
+Requires-Dist: acryl-datahub[sync-file-emitter]==1.6.0.5; extra == "integration-tests"
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type

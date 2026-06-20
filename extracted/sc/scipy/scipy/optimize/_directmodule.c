@@ -37,7 +37,8 @@ direct(PyObject *self, PyObject *args)
     dimension = PyArray_DIMS((PyArrayObject*)lb)[0];
     x = (double *) malloc(sizeof(double) * (dimension + 1));
     if (!x) {
-        ret_code = DIRECT_OUT_OF_MEMORY;
+        PyErr_NoMemory();
+        return NULL;
     }
     PyObject *x_seq = PyList_New(dimension);
     lower_bounds = (double*)PyArray_DATA((PyArrayObject*)lb);
@@ -55,6 +56,16 @@ direct(PyObject *self, PyObject *args)
         Py_DECREF(x_seq);
         if (x)
             free(x);
+        /* Some failure paths inside direct_direct_ return NULL without
+           setting a Python exception. Surface those here so CPython does not
+           raise SystemError for "returned NULL without setting an error". */
+        if (!PyErr_Occurred()) {
+            if (ret_code == DIRECT_OUT_OF_MEMORY)
+                PyErr_NoMemory();
+            else
+                PyErr_Format(PyExc_RuntimeError,
+                    "DIRECT optimization failed (code %d)", (int) ret_code);
+        }
         return NULL;
     }
     /* DECREF the return value from direct_optimize - we only needed it for error checking */
@@ -93,9 +104,7 @@ static int module_exec(PyObject *module) {
 
 static struct PyModuleDef_Slot direct_slots[] = {
     {Py_mod_exec, module_exec},
-#if PY_VERSION_HEX >= 0x030c00f0
     {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
-#endif
 #if PY_VERSION_HEX >= 0x030d00f0  /* Python 3.13+ */
     /* signal that this module supports running without an active GIL */
     {Py_mod_gil, Py_MOD_GIL_NOT_USED},

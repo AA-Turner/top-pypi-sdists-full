@@ -62,7 +62,7 @@ from .paginator import (
     ListTriggersPaginator,
     ListUsageProfilesPaginator,
     ListWorkflowsPaginator,
-    SearchPaginator,
+    SearchAssetsPaginator,
 )
 from .type_defs import (
     AssociateGlossaryTermsRequestTypeDef,
@@ -491,8 +491,8 @@ from .type_defs import (
     ResumeWorkflowRunResponseTypeDef,
     RunStatementRequestTypeDef,
     RunStatementResponseTypeDef,
-    SearchInputTypeDef,
-    SearchOutputTypeDef,
+    SearchAssetsInputTypeDef,
+    SearchAssetsOutputTypeDef,
     SearchTablesRequestTypeDef,
     SearchTablesResponseTypeDef,
     StartBlueprintRunRequestTypeDef,
@@ -3012,13 +3012,15 @@ class GlueClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#run_statement)
         """
 
-    def search(self, **kwargs: Unpack[SearchInputTypeDef]) -> SearchOutputTypeDef:
+    def search_assets(
+        self, **kwargs: Unpack[SearchAssetsInputTypeDef]
+    ) -> SearchAssetsOutputTypeDef:
         """
         Searches for assets in Glue Data Catalog using full-text search, filters,
         sorting, and aggregations.
 
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/search.html)
-        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#search)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/search_assets.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#search_assets)
         """
 
     def search_tables(
@@ -3966,8 +3968,8 @@ class GlueClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
-        self, operation_name: Literal["search"]
-    ) -> SearchPaginator:
+        self, operation_name: Literal["search_assets"]
+    ) -> SearchAssetsPaginator:
         """
         Create a paginator for an operation.
 

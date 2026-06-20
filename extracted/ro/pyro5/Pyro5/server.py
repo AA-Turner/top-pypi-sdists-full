@@ -241,7 +241,7 @@ class Daemon(object):
         natport_for_loc = natport
         if natport == 0:
             # expose internal port number as NAT port as well. (don't use port because it could be 0 and will be chosen by the OS)
-            natport_for_loc = int(self.locationStr.split(":")[1])
+            natport_for_loc = int(self.locationStr.rsplit(":", 1)[1])
         # The NAT-location (str of the form ``nathost:natportnumber``) on which the Daemon is exposed for use with NAT-routing
         self.natLocationStr = "%s:%d" % (nathost, natport_for_loc) if nathost else None
         if self.natLocationStr:
@@ -250,10 +250,11 @@ class Daemon(object):
         pyroObject._pyroId = core.DAEMON_NAME
         # Dictionary from Pyro object id to the actual Pyro object registered by this id
         self.objectsById = {pyroObject._pyroId: pyroObject}
-        log.debug("pyro protocol version: %d" % protocol.PROTOCOL_VERSION)
+        log.debug("pyro protocol version: %d", protocol.PROTOCOL_VERSION)
         self._pyroInstances = {}   # pyro objects for instance_mode=single (singletons, just one per daemon)
         self.streaming_responses = {}   # stream_id -> (client, creation_timestamp, linger_timestamp, stream)
         self.housekeeper_lock = threading.Lock()
+        self._disconnect_lock = threading.Lock()
         self.create_single_instance_lock = threading.Lock()
         self.__mustshutdown.clear()
         self.methodcall_error_handler = _default_methodcall_error_handler
@@ -524,19 +525,20 @@ class Daemon(object):
                 raise  # re-raise if flagged as callback, communication or security error.
 
     def _clientDisconnect(self, conn):
-        if config.ITER_STREAM_LINGER > 0:
-            # client goes away, keep streams around for a bit longer (allow reconnect)
-            for streamId in list(self.streaming_responses):
-                info = self.streaming_responses.get(streamId, None)
-                if info and info[0] is conn:
-                    _, timestamp, _, stream = info
-                    self.streaming_responses[streamId] = (None, timestamp, time.time(), stream)
-        else:
-            # client goes away, close any streams it had open as well
-            for streamId in list(self.streaming_responses):
-                info = self.streaming_responses.get(streamId, None)
-                if info and info[0] is conn:
-                    del self.streaming_responses[streamId]
+        with self._disconnect_lock:
+            if config.ITER_STREAM_LINGER > 0:
+                # client goes away, keep streams around for a bit longer (allow reconnect)
+                for streamId in list(self.streaming_responses):
+                    info = self.streaming_responses.get(streamId, None)
+                    if info and info[0] is conn:
+                        _, timestamp, _, stream = info
+                        self.streaming_responses[streamId] = (None, timestamp, time.time(), stream)
+            else:
+                # client goes away, close any streams it had open as well
+                for streamId in list(self.streaming_responses):
+                    info = self.streaming_responses.get(streamId, None)
+                    if info and info[0] is conn:
+                        del self.streaming_responses[streamId]
         self.clientDisconnect(conn)  # user overridable hook
 
     def _housekeeping(self):
@@ -667,7 +669,7 @@ class Daemon(object):
                 raise errors.DaemonError("an object or class is already registered with that id")
         # set some pyro attributes
         obj_or_class._pyroId = objectId
-        obj_or_class._pyroDaemon = self
+        obj_or_class._pyroDaemon = weakref.proxy(self)
         # register a custom serializer for the type to automatically return proxies
         # we need to do this for all known serializers
         for ser in serializers.serializers.values():
@@ -859,8 +861,8 @@ def _default_methodcall_error_handler(daemon: Daemon, client_sock: socketutil.So
                                       method: Callable, vargs: Sequence[Any], kwargs: Dict[str, Any],
                                       exception: Exception) -> None:
     """The default routine called to process a exception raised in the user code of a method call"""
-    log.debug("exception occurred in method call user code: client={} method={} exception={}"
-              .format(client_sock, method.__qualname__, repr(exception)))
+    log.debug("exception occurred in method call user code: client=%s method=%s exception=%r",
+              client_sock, method.__qualname__, exception)
 
 
 # register the special serializers for the pyro objects

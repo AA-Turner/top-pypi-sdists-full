@@ -17,8 +17,11 @@ from __future__ import annotations
 from esphome.storage_json import StorageJSON
 
 from ._generation import (
+    NETWORK_PROVIDER_COMPONENT_IDS,
     _has_native_wifi,
     _infer_native_wifi,
+    board_provides_network,
+    board_requires_wifi,
     generate_device_yaml,
     generate_minimal_stub_yaml,
 )
@@ -28,6 +31,7 @@ from ._loading import (
     load_device_yaml,
 )
 from ._parsing import (
+    DEFAULT_API_PORT,
     EsphomeMeta,
     _parse_inline_value,
     config_has_top_level_block,
@@ -38,6 +42,7 @@ from ._parsing import (
     extract_esphome_meta_from_config,
     get_api_encryption_block,
     get_api_encryption_key,
+    get_api_port,
     parse_esphome_meta,
     parse_platform_from_yaml,
     yaml_has_api_encryption,
@@ -45,11 +50,15 @@ from ._parsing import (
 )
 
 __all__ = [
+    "DEFAULT_API_PORT",
+    "NETWORK_PROVIDER_COMPONENT_IDS",
     "EsphomeMeta",
     "StorageJSON",
     "_has_native_wifi",
     "_infer_native_wifi",
     "_parse_inline_value",
+    "board_provides_network",
+    "board_requires_wifi",
     "compute_has_pending_changes",
     "config_has_top_level_block",
     "configuration_stem",
@@ -61,6 +70,7 @@ __all__ = [
     "generate_minimal_stub_yaml",
     "get_api_encryption_block",
     "get_api_encryption_key",
+    "get_api_port",
     "load_device_from_storage",
     "load_device_yaml",
     "parse_esphome_meta",

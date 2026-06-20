@@ -18,16 +18,12 @@ from .._jsii import *
 
 from .. import (
     Component as _Component_2b0ad27f,
-    FileBase as _FileBase_aff596dc,
-    FileBaseOptions as _FileBaseOptions_1a6c26d7,
     GitOptions as _GitOptions_a65916a3,
     GroupRunnerOptions as _GroupRunnerOptions_148c59c1,
-    IResolver as _IResolver_0b7d1958,
     IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
     JsonFile as _JsonFile_fa8164db,
     LoggerOptions as _LoggerOptions_eb0f6309,
     Project as _Project_57d89203,
-    ProjectType as _ProjectType_fd80c725,
     ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
     ReleasableCommits as _ReleasableCommits_d481ce10,
     RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
@@ -40,12 +36,9 @@ from ..github import (
     GitHubOptions as _GitHubOptions_21553699,
     GitIdentity as _GitIdentity_6effc3de,
     GithubCredentials as _GithubCredentials_ae257072,
-    MergifyOptions as _MergifyOptions_a6faaab3,
     StaleOptions as _StaleOptions_929db764,
 )
-from ..github.workflows import (
-    JobStep as _JobStep_c3287c05, Triggers as _Triggers_e9ae7617
-)
+from ..github.workflows import JobStep as _JobStep_c3287c05
 from ..javascript import (
     AuditOptions as _AuditOptions_429c62df,
     BiomeOptions as _BiomeOptions_452ab984,
@@ -256,7 +249,6 @@ class NextJsProject(
         srcdir: typing.Optional[builtins.str] = None,
         assetsdir: typing.Optional[builtins.str] = None,
         tailwind: typing.Optional[builtins.bool] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -265,13 +257,13 @@ class NextJsProject(
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -279,8 +271,6 @@ class NextJsProject(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -294,7 +284,6 @@ class NextJsProject(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -307,11 +296,7 @@ class NextJsProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -343,7 +328,6 @@ class NextJsProject(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -355,7 +339,6 @@ class NextJsProject(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -371,10 +354,8 @@ class NextJsProject(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -403,7 +384,6 @@ class NextJsProject(
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
         :param assetsdir: (experimental) Assets directory. Default: "public"
         :param tailwind: (experimental) Setup Tailwind CSS as a PostCSS plugin. Default: true
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -412,13 +392,13 @@ class NextJsProject(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -426,8 +406,6 @@ class NextJsProject(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -441,7 +419,6 @@ class NextJsProject(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -454,11 +431,7 @@ class NextJsProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -490,7 +463,6 @@ class NextJsProject(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -502,7 +474,6 @@ class NextJsProject(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -518,10 +489,8 @@ class NextJsProject(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -552,7 +521,6 @@ class NextJsProject(
             srcdir=srcdir,
             assetsdir=assetsdir,
             tailwind=tailwind,
-            default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             audit_deps=audit_deps,
             audit_deps_options=audit_deps_options,
@@ -561,13 +529,13 @@ class NextJsProject(
             biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
-            build_workflow_triggers=build_workflow_triggers,
             bundler_options=bundler_options,
             check_licenses=check_licenses,
             code_cov=code_cov,
             code_cov_token_secret=code_cov_token_secret,
             copyright_owner=copyright_owner,
             copyright_period=copyright_period,
+            default_release_branch=default_release_branch,
             dependabot=dependabot,
             dependabot_options=dependabot_options,
             deps_upgrade=deps_upgrade,
@@ -575,8 +543,6 @@ class NextJsProject(
             gitignore=gitignore,
             jest=jest,
             jest_options=jest_options,
-            mutable_build=mutable_build,
-            npmignore=npmignore,
             npmignore_enabled=npmignore_enabled,
             npm_ignore_options=npm_ignore_options,
             package=package,
@@ -590,7 +556,6 @@ class NextJsProject(
             pull_request_template_contents=pull_request_template_contents,
             release=release,
             release_to_npm=release_to_npm,
-            release_workflow=release_workflow,
             workflow_bootstrap_steps=workflow_bootstrap_steps,
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
@@ -603,11 +568,7 @@ class NextJsProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -639,7 +600,6 @@ class NextJsProject(
             min_node_version=min_node_version,
             npm_access=npm_access,
             npm_provenance=npm_provenance,
-            npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
@@ -651,7 +611,6 @@ class NextJsProject(
             repository=repository,
             repository_directory=repository_directory,
             scoped_packages_options=scoped_packages_options,
-            scripts=scripts,
             stability=stability,
             yarn_berry_options=yarn_berry_options,
             bump_package=bump_package,
@@ -667,10 +626,8 @@ class NextJsProject(
             releasable_commits=releasable_commits,
             release_branches=release_branches,
             release_environment=release_environment,
-            release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
-            release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
             release_workflow_env=release_workflow_env,
@@ -753,11 +710,7 @@ class NextJsProject(
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -789,7 +742,6 @@ class NextJsProject(
         "min_node_version": "minNodeVersion",
         "npm_access": "npmAccess",
         "npm_provenance": "npmProvenance",
-        "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
@@ -801,7 +753,6 @@ class NextJsProject(
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
         "scoped_packages_options": "scopedPackagesOptions",
-        "scripts": "scripts",
         "stability": "stability",
         "yarn_berry_options": "yarnBerryOptions",
         "bump_package": "bumpPackage",
@@ -817,10 +768,8 @@ class NextJsProject(
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -830,7 +779,6 @@ class NextJsProject(
         "workflow_container_image": "workflowContainerImage",
         "workflow_runs_on": "workflowRunsOn",
         "workflow_runs_on_group": "workflowRunsOnGroup",
-        "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "audit_deps": "auditDeps",
         "audit_deps_options": "auditDepsOptions",
@@ -839,13 +787,13 @@ class NextJsProject(
         "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
-        "build_workflow_triggers": "buildWorkflowTriggers",
         "bundler_options": "bundlerOptions",
         "check_licenses": "checkLicenses",
         "code_cov": "codeCov",
         "code_cov_token_secret": "codeCovTokenSecret",
         "copyright_owner": "copyrightOwner",
         "copyright_period": "copyrightPeriod",
+        "default_release_branch": "defaultReleaseBranch",
         "dependabot": "dependabot",
         "dependabot_options": "dependabotOptions",
         "deps_upgrade": "depsUpgrade",
@@ -853,8 +801,6 @@ class NextJsProject(
         "gitignore": "gitignore",
         "jest": "jest",
         "jest_options": "jestOptions",
-        "mutable_build": "mutableBuild",
-        "npmignore": "npmignore",
         "npmignore_enabled": "npmignoreEnabled",
         "npm_ignore_options": "npmIgnoreOptions",
         "package": "package",
@@ -868,7 +814,6 @@ class NextJsProject(
         "pull_request_template_contents": "pullRequestTemplateContents",
         "release": "release",
         "release_to_npm": "releaseToNpm",
-        "release_workflow": "releaseWorkflow",
         "workflow_bootstrap_steps": "workflowBootstrapSteps",
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
@@ -904,11 +849,7 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -940,7 +881,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -952,7 +892,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -968,10 +907,8 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -981,7 +918,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -990,13 +926,13 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -1004,8 +940,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -1019,7 +953,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -1051,11 +984,7 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -1087,7 +1016,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -1099,7 +1027,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -1115,10 +1042,8 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -1128,7 +1053,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
         :param workflow_runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -1137,13 +1061,13 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -1151,8 +1075,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -1166,7 +1088,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -1192,8 +1113,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -1214,8 +1133,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
-        if isinstance(build_workflow_triggers, dict):
-            build_workflow_triggers = _Triggers_e9ae7617(**build_workflow_triggers)
         if isinstance(bundler_options, dict):
             bundler_options = _BundlerOptions_d60b85ed(**bundler_options)
         if isinstance(check_licenses, dict):
@@ -1259,11 +1176,7 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -1295,7 +1208,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument min_node_version", value=min_node_version, expected_type=type_hints["min_node_version"])
             check_type(argname="argument npm_access", value=npm_access, expected_type=type_hints["npm_access"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
@@ -1307,7 +1219,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
             check_type(argname="argument scoped_packages_options", value=scoped_packages_options, expected_type=type_hints["scoped_packages_options"])
-            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
             check_type(argname="argument yarn_berry_options", value=yarn_berry_options, expected_type=type_hints["yarn_berry_options"])
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
@@ -1323,10 +1234,8 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -1336,7 +1245,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument workflow_container_image", value=workflow_container_image, expected_type=type_hints["workflow_container_image"])
             check_type(argname="argument workflow_runs_on", value=workflow_runs_on, expected_type=type_hints["workflow_runs_on"])
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
-            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
             check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
@@ -1345,13 +1253,13 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
-            check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
             check_type(argname="argument bundler_options", value=bundler_options, expected_type=type_hints["bundler_options"])
             check_type(argname="argument check_licenses", value=check_licenses, expected_type=type_hints["check_licenses"])
             check_type(argname="argument code_cov", value=code_cov, expected_type=type_hints["code_cov"])
             check_type(argname="argument code_cov_token_secret", value=code_cov_token_secret, expected_type=type_hints["code_cov_token_secret"])
             check_type(argname="argument copyright_owner", value=copyright_owner, expected_type=type_hints["copyright_owner"])
             check_type(argname="argument copyright_period", value=copyright_period, expected_type=type_hints["copyright_period"])
+            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument dependabot", value=dependabot, expected_type=type_hints["dependabot"])
             check_type(argname="argument dependabot_options", value=dependabot_options, expected_type=type_hints["dependabot_options"])
             check_type(argname="argument deps_upgrade", value=deps_upgrade, expected_type=type_hints["deps_upgrade"])
@@ -1359,8 +1267,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument gitignore", value=gitignore, expected_type=type_hints["gitignore"])
             check_type(argname="argument jest", value=jest, expected_type=type_hints["jest"])
             check_type(argname="argument jest_options", value=jest_options, expected_type=type_hints["jest_options"])
-            check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
-            check_type(argname="argument npmignore", value=npmignore, expected_type=type_hints["npmignore"])
             check_type(argname="argument npmignore_enabled", value=npmignore_enabled, expected_type=type_hints["npmignore_enabled"])
             check_type(argname="argument npm_ignore_options", value=npm_ignore_options, expected_type=type_hints["npm_ignore_options"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -1374,7 +1280,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument pull_request_template_contents", value=pull_request_template_contents, expected_type=type_hints["pull_request_template_contents"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
             check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
-            check_type(argname="argument release_workflow", value=release_workflow, expected_type=type_hints["release_workflow"])
             check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
@@ -1383,7 +1288,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "default_release_branch": default_release_branch,
         }
         if assetsdir is not None:
             self._values["assetsdir"] = assetsdir
@@ -1429,16 +1333,8 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -1501,8 +1397,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             self._values["npm_access"] = npm_access
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
-        if npm_registry is not None:
-            self._values["npm_registry"] = npm_registry
         if npm_registry_url is not None:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
@@ -1525,8 +1419,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             self._values["repository_directory"] = repository_directory
         if scoped_packages_options is not None:
             self._values["scoped_packages_options"] = scoped_packages_options
-        if scripts is not None:
-            self._values["scripts"] = scripts
         if stability is not None:
             self._values["stability"] = stability
         if yarn_berry_options is not None:
@@ -1557,14 +1449,10 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -1599,8 +1487,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
             self._values["build_workflow_options"] = build_workflow_options
-        if build_workflow_triggers is not None:
-            self._values["build_workflow_triggers"] = build_workflow_triggers
         if bundler_options is not None:
             self._values["bundler_options"] = bundler_options
         if check_licenses is not None:
@@ -1613,6 +1499,8 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             self._values["copyright_owner"] = copyright_owner
         if copyright_period is not None:
             self._values["copyright_period"] = copyright_period
+        if default_release_branch is not None:
+            self._values["default_release_branch"] = default_release_branch
         if dependabot is not None:
             self._values["dependabot"] = dependabot
         if dependabot_options is not None:
@@ -1627,10 +1515,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             self._values["jest"] = jest
         if jest_options is not None:
             self._values["jest_options"] = jest_options
-        if mutable_build is not None:
-            self._values["mutable_build"] = mutable_build
-        if npmignore is not None:
-            self._values["npmignore"] = npmignore
         if npmignore_enabled is not None:
             self._values["npmignore_enabled"] = npmignore_enabled
         if npm_ignore_options is not None:
@@ -1657,8 +1541,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
             self._values["release"] = release
         if release_to_npm is not None:
             self._values["release_to_npm"] = release_to_npm
-        if release_workflow is not None:
-            self._values["release_workflow"] = release_workflow
         if workflow_bootstrap_steps is not None:
             self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
         if workflow_git_identity is not None:
@@ -1940,45 +1822,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -1988,22 +1831,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -2427,19 +2254,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_registry(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The host name of the npm registry to publish to.
-
-        Cannot be set together with ``npmRegistryUrl``.
-
-        :deprecated: use ``npmRegistryUrl`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npm_registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
@@ -2577,23 +2391,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         '''
         result = self._values.get("scoped_packages_options")
         return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
-
-    @builtins.property
-    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(deprecated) npm scripts to include.
-
-        If a script has the same name as a standard script,
-        the standard script will be overwritten.
-        Also adds the script as a task.
-
-        :default: {}
-
-        :deprecated: use ``project.addTask()`` or ``package.setScript()``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("scripts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def stability(self) -> typing.Optional[builtins.str]:
@@ -2812,19 +2609,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -2846,19 +2630,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -2974,18 +2745,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def default_release_branch(self) -> builtins.str:
-        '''(experimental) The name of the main release branch.
-
-        :default: "main"
-
-        :stability: experimental
-        '''
-        result = self._values.get("default_release_branch")
-        assert result is not None, "Required property 'default_release_branch' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
         '''(experimental) A directory which will contain build artifacts.
 
@@ -3080,19 +2839,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
-        '''(deprecated) Build workflow triggers.
-
-        :default: "{ pullRequest: {}, workflowDispatch: {} }"
-
-        :deprecated: - Use ``buildWorkflowOptions.workflowTriggers``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
-
-    @builtins.property
     def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
@@ -3156,6 +2902,18 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         :stability: experimental
         '''
         result = self._values.get("copyright_period")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_release_branch(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the main release branch.
+
+        :default: "main"
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("default_release_branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -3238,36 +2996,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         '''
         result = self._values.get("jest_options")
         return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
-
-    @builtins.property
-    def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically update files modified during builds to pull-request branches.
-
-        This means
-        that any files synthesized by projen or e.g. test snapshots will always be up-to-date
-        before a PR is merged.
-
-        Implies that PR builds do not have anti-tamper checks.
-
-        :default: true
-
-        :deprecated: - Use ``buildWorkflowOptions.mutableBuild``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mutable_build")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def npmignore(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Additional entries to .npmignore.
-
-        :deprecated: - use ``project.addPackageIgnore``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npmignore")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def npmignore_enabled(self) -> typing.Optional[builtins.bool]:
@@ -3413,19 +3141,6 @@ class NextJsProjectOptions(NextJsCommonProjectOptions, _NodeProjectOptions_d12f6
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def release_workflow(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) DEPRECATED: renamed to ``release``.
-
-        :default: - true if not a subproject
-
-        :deprecated: see ``release``.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_workflow")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def workflow_bootstrap_steps(
         self,
     ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
@@ -3541,7 +3256,6 @@ class NextJsTypeScriptProject(
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
         ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3550,13 +3264,13 @@ class NextJsTypeScriptProject(
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -3564,8 +3278,6 @@ class NextJsTypeScriptProject(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -3579,7 +3291,6 @@ class NextJsTypeScriptProject(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -3592,11 +3303,7 @@ class NextJsTypeScriptProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3628,7 +3335,6 @@ class NextJsTypeScriptProject(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -3640,7 +3346,6 @@ class NextJsTypeScriptProject(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -3656,10 +3361,8 @@ class NextJsTypeScriptProject(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -3704,7 +3407,6 @@ class NextJsTypeScriptProject(
         :param tsconfig_dev_file: (experimental) The name of the development tsconfig.json file. Default: "tsconfig.dev.json"
         :param ts_jest_options: (experimental) Options for ts-jest.
         :param typescript_version: (experimental) TypeScript version to use. NOTE: Typescript is not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~1.2.3``). Default: "latest"
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -3713,13 +3415,13 @@ class NextJsTypeScriptProject(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -3727,8 +3429,6 @@ class NextJsTypeScriptProject(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -3742,7 +3442,6 @@ class NextJsTypeScriptProject(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -3755,11 +3454,7 @@ class NextJsTypeScriptProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -3791,7 +3486,6 @@ class NextJsTypeScriptProject(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -3803,7 +3497,6 @@ class NextJsTypeScriptProject(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -3819,10 +3512,8 @@ class NextJsTypeScriptProject(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -3869,7 +3560,6 @@ class NextJsTypeScriptProject(
             tsconfig_dev_file=tsconfig_dev_file,
             ts_jest_options=ts_jest_options,
             typescript_version=typescript_version,
-            default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             audit_deps=audit_deps,
             audit_deps_options=audit_deps_options,
@@ -3878,13 +3568,13 @@ class NextJsTypeScriptProject(
             biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
-            build_workflow_triggers=build_workflow_triggers,
             bundler_options=bundler_options,
             check_licenses=check_licenses,
             code_cov=code_cov,
             code_cov_token_secret=code_cov_token_secret,
             copyright_owner=copyright_owner,
             copyright_period=copyright_period,
+            default_release_branch=default_release_branch,
             dependabot=dependabot,
             dependabot_options=dependabot_options,
             deps_upgrade=deps_upgrade,
@@ -3892,8 +3582,6 @@ class NextJsTypeScriptProject(
             gitignore=gitignore,
             jest=jest,
             jest_options=jest_options,
-            mutable_build=mutable_build,
-            npmignore=npmignore,
             npmignore_enabled=npmignore_enabled,
             npm_ignore_options=npm_ignore_options,
             package=package,
@@ -3907,7 +3595,6 @@ class NextJsTypeScriptProject(
             pull_request_template_contents=pull_request_template_contents,
             release=release,
             release_to_npm=release_to_npm,
-            release_workflow=release_workflow,
             workflow_bootstrap_steps=workflow_bootstrap_steps,
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
@@ -3920,11 +3607,7 @@ class NextJsTypeScriptProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -3956,7 +3639,6 @@ class NextJsTypeScriptProject(
             min_node_version=min_node_version,
             npm_access=npm_access,
             npm_provenance=npm_provenance,
-            npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
@@ -3968,7 +3650,6 @@ class NextJsTypeScriptProject(
             repository=repository,
             repository_directory=repository_directory,
             scoped_packages_options=scoped_packages_options,
-            scripts=scripts,
             stability=stability,
             yarn_berry_options=yarn_berry_options,
             bump_package=bump_package,
@@ -3984,10 +3665,8 @@ class NextJsTypeScriptProject(
             releasable_commits=releasable_commits,
             release_branches=release_branches,
             release_environment=release_environment,
-            release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
-            release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
             release_workflow_env=release_workflow_env,
@@ -4070,11 +3749,7 @@ class NextJsTypeScriptProject(
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -4106,7 +3781,6 @@ class NextJsTypeScriptProject(
         "min_node_version": "minNodeVersion",
         "npm_access": "npmAccess",
         "npm_provenance": "npmProvenance",
-        "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
@@ -4118,7 +3792,6 @@ class NextJsTypeScriptProject(
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
         "scoped_packages_options": "scopedPackagesOptions",
-        "scripts": "scripts",
         "stability": "stability",
         "yarn_berry_options": "yarnBerryOptions",
         "bump_package": "bumpPackage",
@@ -4134,10 +3807,8 @@ class NextJsTypeScriptProject(
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -4147,7 +3818,6 @@ class NextJsTypeScriptProject(
         "workflow_container_image": "workflowContainerImage",
         "workflow_runs_on": "workflowRunsOn",
         "workflow_runs_on_group": "workflowRunsOnGroup",
-        "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "audit_deps": "auditDeps",
         "audit_deps_options": "auditDepsOptions",
@@ -4156,13 +3826,13 @@ class NextJsTypeScriptProject(
         "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
-        "build_workflow_triggers": "buildWorkflowTriggers",
         "bundler_options": "bundlerOptions",
         "check_licenses": "checkLicenses",
         "code_cov": "codeCov",
         "code_cov_token_secret": "codeCovTokenSecret",
         "copyright_owner": "copyrightOwner",
         "copyright_period": "copyrightPeriod",
+        "default_release_branch": "defaultReleaseBranch",
         "dependabot": "dependabot",
         "dependabot_options": "dependabotOptions",
         "deps_upgrade": "depsUpgrade",
@@ -4170,8 +3840,6 @@ class NextJsTypeScriptProject(
         "gitignore": "gitignore",
         "jest": "jest",
         "jest_options": "jestOptions",
-        "mutable_build": "mutableBuild",
-        "npmignore": "npmignore",
         "npmignore_enabled": "npmignoreEnabled",
         "npm_ignore_options": "npmIgnoreOptions",
         "package": "package",
@@ -4185,7 +3853,6 @@ class NextJsTypeScriptProject(
         "pull_request_template_contents": "pullRequestTemplateContents",
         "release": "release",
         "release_to_npm": "releaseToNpm",
-        "release_workflow": "releaseWorkflow",
         "workflow_bootstrap_steps": "workflowBootstrapSteps",
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
@@ -4240,11 +3907,7 @@ class NextJsTypeScriptProjectOptions(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4276,7 +3939,6 @@ class NextJsTypeScriptProjectOptions(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -4288,7 +3950,6 @@ class NextJsTypeScriptProjectOptions(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -4304,10 +3965,8 @@ class NextJsTypeScriptProjectOptions(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -4317,7 +3976,6 @@ class NextJsTypeScriptProjectOptions(
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4326,13 +3984,13 @@ class NextJsTypeScriptProjectOptions(
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -4340,8 +3998,6 @@ class NextJsTypeScriptProjectOptions(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -4355,7 +4011,6 @@ class NextJsTypeScriptProjectOptions(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -4403,11 +4058,7 @@ class NextJsTypeScriptProjectOptions(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -4439,7 +4090,6 @@ class NextJsTypeScriptProjectOptions(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -4451,7 +4101,6 @@ class NextJsTypeScriptProjectOptions(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -4467,10 +4116,8 @@ class NextJsTypeScriptProjectOptions(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -4480,7 +4127,6 @@ class NextJsTypeScriptProjectOptions(
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
         :param workflow_runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -4489,13 +4135,13 @@ class NextJsTypeScriptProjectOptions(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -4503,8 +4149,6 @@ class NextJsTypeScriptProjectOptions(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -4518,7 +4162,6 @@ class NextJsTypeScriptProjectOptions(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -4560,8 +4203,6 @@ class NextJsTypeScriptProjectOptions(
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -4582,8 +4223,6 @@ class NextJsTypeScriptProjectOptions(
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
-        if isinstance(build_workflow_triggers, dict):
-            build_workflow_triggers = _Triggers_e9ae7617(**build_workflow_triggers)
         if isinstance(bundler_options, dict):
             bundler_options = _BundlerOptions_d60b85ed(**bundler_options)
         if isinstance(check_licenses, dict):
@@ -4637,11 +4276,7 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -4673,7 +4308,6 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument min_node_version", value=min_node_version, expected_type=type_hints["min_node_version"])
             check_type(argname="argument npm_access", value=npm_access, expected_type=type_hints["npm_access"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
@@ -4685,7 +4319,6 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
             check_type(argname="argument scoped_packages_options", value=scoped_packages_options, expected_type=type_hints["scoped_packages_options"])
-            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
             check_type(argname="argument yarn_berry_options", value=yarn_berry_options, expected_type=type_hints["yarn_berry_options"])
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
@@ -4701,10 +4334,8 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -4714,7 +4345,6 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument workflow_container_image", value=workflow_container_image, expected_type=type_hints["workflow_container_image"])
             check_type(argname="argument workflow_runs_on", value=workflow_runs_on, expected_type=type_hints["workflow_runs_on"])
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
-            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
             check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
@@ -4723,13 +4353,13 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
-            check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
             check_type(argname="argument bundler_options", value=bundler_options, expected_type=type_hints["bundler_options"])
             check_type(argname="argument check_licenses", value=check_licenses, expected_type=type_hints["check_licenses"])
             check_type(argname="argument code_cov", value=code_cov, expected_type=type_hints["code_cov"])
             check_type(argname="argument code_cov_token_secret", value=code_cov_token_secret, expected_type=type_hints["code_cov_token_secret"])
             check_type(argname="argument copyright_owner", value=copyright_owner, expected_type=type_hints["copyright_owner"])
             check_type(argname="argument copyright_period", value=copyright_period, expected_type=type_hints["copyright_period"])
+            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument dependabot", value=dependabot, expected_type=type_hints["dependabot"])
             check_type(argname="argument dependabot_options", value=dependabot_options, expected_type=type_hints["dependabot_options"])
             check_type(argname="argument deps_upgrade", value=deps_upgrade, expected_type=type_hints["deps_upgrade"])
@@ -4737,8 +4367,6 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument gitignore", value=gitignore, expected_type=type_hints["gitignore"])
             check_type(argname="argument jest", value=jest, expected_type=type_hints["jest"])
             check_type(argname="argument jest_options", value=jest_options, expected_type=type_hints["jest_options"])
-            check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
-            check_type(argname="argument npmignore", value=npmignore, expected_type=type_hints["npmignore"])
             check_type(argname="argument npmignore_enabled", value=npmignore_enabled, expected_type=type_hints["npmignore_enabled"])
             check_type(argname="argument npm_ignore_options", value=npm_ignore_options, expected_type=type_hints["npm_ignore_options"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -4752,7 +4380,6 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument pull_request_template_contents", value=pull_request_template_contents, expected_type=type_hints["pull_request_template_contents"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
             check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
-            check_type(argname="argument release_workflow", value=release_workflow, expected_type=type_hints["release_workflow"])
             check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
@@ -4777,7 +4404,6 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument typescript_version", value=typescript_version, expected_type=type_hints["typescript_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "default_release_branch": default_release_branch,
         }
         if assetsdir is not None:
             self._values["assetsdir"] = assetsdir
@@ -4823,16 +4449,8 @@ class NextJsTypeScriptProjectOptions(
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -4895,8 +4513,6 @@ class NextJsTypeScriptProjectOptions(
             self._values["npm_access"] = npm_access
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
-        if npm_registry is not None:
-            self._values["npm_registry"] = npm_registry
         if npm_registry_url is not None:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
@@ -4919,8 +4535,6 @@ class NextJsTypeScriptProjectOptions(
             self._values["repository_directory"] = repository_directory
         if scoped_packages_options is not None:
             self._values["scoped_packages_options"] = scoped_packages_options
-        if scripts is not None:
-            self._values["scripts"] = scripts
         if stability is not None:
             self._values["stability"] = stability
         if yarn_berry_options is not None:
@@ -4951,14 +4565,10 @@ class NextJsTypeScriptProjectOptions(
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -4993,8 +4603,6 @@ class NextJsTypeScriptProjectOptions(
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
             self._values["build_workflow_options"] = build_workflow_options
-        if build_workflow_triggers is not None:
-            self._values["build_workflow_triggers"] = build_workflow_triggers
         if bundler_options is not None:
             self._values["bundler_options"] = bundler_options
         if check_licenses is not None:
@@ -5007,6 +4615,8 @@ class NextJsTypeScriptProjectOptions(
             self._values["copyright_owner"] = copyright_owner
         if copyright_period is not None:
             self._values["copyright_period"] = copyright_period
+        if default_release_branch is not None:
+            self._values["default_release_branch"] = default_release_branch
         if dependabot is not None:
             self._values["dependabot"] = dependabot
         if dependabot_options is not None:
@@ -5021,10 +4631,6 @@ class NextJsTypeScriptProjectOptions(
             self._values["jest"] = jest
         if jest_options is not None:
             self._values["jest_options"] = jest_options
-        if mutable_build is not None:
-            self._values["mutable_build"] = mutable_build
-        if npmignore is not None:
-            self._values["npmignore"] = npmignore
         if npmignore_enabled is not None:
             self._values["npmignore_enabled"] = npmignore_enabled
         if npm_ignore_options is not None:
@@ -5051,8 +4657,6 @@ class NextJsTypeScriptProjectOptions(
             self._values["release"] = release
         if release_to_npm is not None:
             self._values["release_to_npm"] = release_to_npm
-        if release_workflow is not None:
-            self._values["release_workflow"] = release_workflow
         if workflow_bootstrap_steps is not None:
             self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
         if workflow_git_identity is not None:
@@ -5366,45 +4970,6 @@ class NextJsTypeScriptProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -5414,22 +4979,6 @@ class NextJsTypeScriptProjectOptions(
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -5853,19 +5402,6 @@ class NextJsTypeScriptProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_registry(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The host name of the npm registry to publish to.
-
-        Cannot be set together with ``npmRegistryUrl``.
-
-        :deprecated: use ``npmRegistryUrl`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npm_registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
@@ -6003,23 +5539,6 @@ class NextJsTypeScriptProjectOptions(
         '''
         result = self._values.get("scoped_packages_options")
         return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
-
-    @builtins.property
-    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(deprecated) npm scripts to include.
-
-        If a script has the same name as a standard script,
-        the standard script will be overwritten.
-        Also adds the script as a task.
-
-        :default: {}
-
-        :deprecated: use ``project.addTask()`` or ``package.setScript()``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("scripts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def stability(self) -> typing.Optional[builtins.str]:
@@ -6238,19 +5757,6 @@ class NextJsTypeScriptProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -6272,19 +5778,6 @@ class NextJsTypeScriptProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -6400,18 +5893,6 @@ class NextJsTypeScriptProjectOptions(
         return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def default_release_branch(self) -> builtins.str:
-        '''(experimental) The name of the main release branch.
-
-        :default: "main"
-
-        :stability: experimental
-        '''
-        result = self._values.get("default_release_branch")
-        assert result is not None, "Required property 'default_release_branch' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
         '''(experimental) A directory which will contain build artifacts.
 
@@ -6506,19 +5987,6 @@ class NextJsTypeScriptProjectOptions(
         return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
-        '''(deprecated) Build workflow triggers.
-
-        :default: "{ pullRequest: {}, workflowDispatch: {} }"
-
-        :deprecated: - Use ``buildWorkflowOptions.workflowTriggers``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
-
-    @builtins.property
     def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
@@ -6582,6 +6050,18 @@ class NextJsTypeScriptProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("copyright_period")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_release_branch(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the main release branch.
+
+        :default: "main"
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("default_release_branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -6664,36 +6144,6 @@ class NextJsTypeScriptProjectOptions(
         '''
         result = self._values.get("jest_options")
         return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
-
-    @builtins.property
-    def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically update files modified during builds to pull-request branches.
-
-        This means
-        that any files synthesized by projen or e.g. test snapshots will always be up-to-date
-        before a PR is merged.
-
-        Implies that PR builds do not have anti-tamper checks.
-
-        :default: true
-
-        :deprecated: - Use ``buildWorkflowOptions.mutableBuild``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mutable_build")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def npmignore(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Additional entries to .npmignore.
-
-        :deprecated: - use ``project.addPackageIgnore``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npmignore")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def npmignore_enabled(self) -> typing.Optional[builtins.bool]:
@@ -6836,19 +6286,6 @@ class NextJsTypeScriptProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_to_npm")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def release_workflow(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) DEPRECATED: renamed to ``release``.
-
-        :default: - true if not a subproject
-
-        :deprecated: see ``release``.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_workflow")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -7298,7 +6735,6 @@ class ReactProject(
         *,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7307,13 +6743,13 @@ class ReactProject(
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -7321,8 +6757,6 @@ class ReactProject(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -7336,7 +6770,6 @@ class ReactProject(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -7350,11 +6783,7 @@ class ReactProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7386,7 +6815,6 @@ class ReactProject(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -7398,7 +6826,6 @@ class ReactProject(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -7414,10 +6841,8 @@ class ReactProject(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -7444,7 +6869,6 @@ class ReactProject(
         '''
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``public/`` if there are no files there. Default: true
         :param srcdir: (experimental) Source directory. Default: "src"
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -7453,13 +6877,13 @@ class ReactProject(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -7467,8 +6891,6 @@ class ReactProject(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -7482,7 +6904,6 @@ class ReactProject(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -7496,11 +6917,7 @@ class ReactProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -7532,7 +6949,6 @@ class ReactProject(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -7544,7 +6960,6 @@ class ReactProject(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -7560,10 +6975,8 @@ class ReactProject(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -7592,7 +7005,6 @@ class ReactProject(
         options = ReactProjectOptions(
             sample_code=sample_code,
             srcdir=srcdir,
-            default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             audit_deps=audit_deps,
             audit_deps_options=audit_deps_options,
@@ -7601,13 +7013,13 @@ class ReactProject(
             biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
-            build_workflow_triggers=build_workflow_triggers,
             bundler_options=bundler_options,
             check_licenses=check_licenses,
             code_cov=code_cov,
             code_cov_token_secret=code_cov_token_secret,
             copyright_owner=copyright_owner,
             copyright_period=copyright_period,
+            default_release_branch=default_release_branch,
             dependabot=dependabot,
             dependabot_options=dependabot_options,
             deps_upgrade=deps_upgrade,
@@ -7615,8 +7027,6 @@ class ReactProject(
             gitignore=gitignore,
             jest=jest,
             jest_options=jest_options,
-            mutable_build=mutable_build,
-            npmignore=npmignore,
             npmignore_enabled=npmignore_enabled,
             npm_ignore_options=npm_ignore_options,
             package=package,
@@ -7630,7 +7040,6 @@ class ReactProject(
             pull_request_template_contents=pull_request_template_contents,
             release=release,
             release_to_npm=release_to_npm,
-            release_workflow=release_workflow,
             workflow_bootstrap_steps=workflow_bootstrap_steps,
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
@@ -7644,11 +7053,7 @@ class ReactProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -7680,7 +7085,6 @@ class ReactProject(
             min_node_version=min_node_version,
             npm_access=npm_access,
             npm_provenance=npm_provenance,
-            npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
@@ -7692,7 +7096,6 @@ class ReactProject(
             repository=repository,
             repository_directory=repository_directory,
             scoped_packages_options=scoped_packages_options,
-            scripts=scripts,
             stability=stability,
             yarn_berry_options=yarn_berry_options,
             bump_package=bump_package,
@@ -7708,10 +7111,8 @@ class ReactProject(
             releasable_commits=releasable_commits,
             release_branches=release_branches,
             release_environment=release_environment,
-            release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
-            release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
             release_workflow_env=release_workflow_env,
@@ -7817,192 +7218,6 @@ class ReactRewireOptions:
         )
 
 
-class ReactTypeDef(
-    _FileBase_aff596dc,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="projen.web.ReactTypeDef",
-):
-    '''
-    :deprecated: No longer used.
-
-    :stability: deprecated
-    '''
-
-    def __init__(
-        self,
-        project: "ReactTypeScriptProject",
-        file_path: builtins.str,
-        *,
-        committed: typing.Optional[builtins.bool] = None,
-        edit_gitignore: typing.Optional[builtins.bool] = None,
-        executable: typing.Optional[builtins.bool] = None,
-        marker: typing.Optional[builtins.bool] = None,
-        readonly: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''
-        :param project: -
-        :param file_path: -
-        :param committed: (experimental) Indicates whether this file should be committed to git or ignored. By default, all generated files are committed and anti-tamper is used to protect against manual modifications. Default: true
-        :param edit_gitignore: (experimental) Update the project's .gitignore file. Default: true
-        :param executable: (experimental) Whether the generated file should be marked as executable. Default: false
-        :param marker: (experimental) Adds the projen marker to the file. Default: - marker will be included as long as the project is not ejected
-        :param readonly: (experimental) Whether the generated file should be readonly. Default: true
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38c1b48b67ccf151df3bd09816438ced5cbd325bb5b0ad2d6bc8bc8a7240fdb2)
-            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
-            check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        options = ReactTypeDefOptions(
-            committed=committed,
-            edit_gitignore=edit_gitignore,
-            executable=executable,
-            marker=marker,
-            readonly=readonly,
-        )
-
-        jsii.create(self.__class__, self, [project, file_path, options])
-
-    @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(
-        self,
-        _: "_IResolver_0b7d1958",
-    ) -> typing.Optional[builtins.str]:
-        '''(deprecated) Implemented by derived classes and returns the contents of the file to emit.
-
-        :param _: -
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51a7782dc2cca3e68e7c66abca481a352007bf36fc5900b4c8c437a3a53a69e5)
-            check_type(argname="argument _", value=_, expected_type=type_hints["_"])
-        return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [_]))
-
-
-@jsii.data_type(
-    jsii_type="projen.web.ReactTypeDefOptions",
-    jsii_struct_bases=[_FileBaseOptions_1a6c26d7],
-    name_mapping={
-        "committed": "committed",
-        "edit_gitignore": "editGitignore",
-        "executable": "executable",
-        "marker": "marker",
-        "readonly": "readonly",
-    },
-)
-class ReactTypeDefOptions(_FileBaseOptions_1a6c26d7):
-    def __init__(
-        self,
-        *,
-        committed: typing.Optional[builtins.bool] = None,
-        edit_gitignore: typing.Optional[builtins.bool] = None,
-        executable: typing.Optional[builtins.bool] = None,
-        marker: typing.Optional[builtins.bool] = None,
-        readonly: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''
-        :param committed: (experimental) Indicates whether this file should be committed to git or ignored. By default, all generated files are committed and anti-tamper is used to protect against manual modifications. Default: true
-        :param edit_gitignore: (experimental) Update the project's .gitignore file. Default: true
-        :param executable: (experimental) Whether the generated file should be marked as executable. Default: false
-        :param marker: (experimental) Adds the projen marker to the file. Default: - marker will be included as long as the project is not ejected
-        :param readonly: (experimental) Whether the generated file should be readonly. Default: true
-
-        :deprecated: No longer used.
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6362df2a6f0ec06b4b030c8e2d7d55c460cd3f984d30ea01937a83aca559899)
-            check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
-            check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
-            check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
-            check_type(argname="argument marker", value=marker, expected_type=type_hints["marker"])
-            check_type(argname="argument readonly", value=readonly, expected_type=type_hints["readonly"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if committed is not None:
-            self._values["committed"] = committed
-        if edit_gitignore is not None:
-            self._values["edit_gitignore"] = edit_gitignore
-        if executable is not None:
-            self._values["executable"] = executable
-        if marker is not None:
-            self._values["marker"] = marker
-        if readonly is not None:
-            self._values["readonly"] = readonly
-
-    @builtins.property
-    def committed(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether this file should be committed to git or ignored.
-
-        By
-        default, all generated files are committed and anti-tamper is used to
-        protect against manual modifications.
-
-        :default: true
-
-        :stability: experimental
-        '''
-        result = self._values.get("committed")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def edit_gitignore(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Update the project's .gitignore file.
-
-        :default: true
-
-        :stability: experimental
-        '''
-        result = self._values.get("edit_gitignore")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def executable(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether the generated file should be marked as executable.
-
-        :default: false
-
-        :stability: experimental
-        '''
-        result = self._values.get("executable")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def marker(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Adds the projen marker to the file.
-
-        :default: - marker will be included as long as the project is not ejected
-
-        :stability: experimental
-        '''
-        result = self._values.get("marker")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def readonly(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether the generated file should be readonly.
-
-        :default: true
-
-        :stability: experimental
-        '''
-        result = self._values.get("readonly")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReactTypeDefOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 class ReactTypeScriptProject(
     _TypeScriptAppProject_2c1a7e1f,
     metaclass=jsii.JSIIMeta,
@@ -8036,7 +7251,6 @@ class ReactTypeScriptProject(
         ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         rewire: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8045,13 +7259,13 @@ class ReactTypeScriptProject(
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -8059,8 +7273,6 @@ class ReactTypeScriptProject(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -8074,7 +7286,6 @@ class ReactTypeScriptProject(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -8087,11 +7298,7 @@ class ReactTypeScriptProject(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8123,7 +7330,6 @@ class ReactTypeScriptProject(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -8135,7 +7341,6 @@ class ReactTypeScriptProject(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -8151,10 +7356,8 @@ class ReactTypeScriptProject(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -8198,7 +7401,6 @@ class ReactTypeScriptProject(
         :param ts_jest_options: (experimental) Options for ts-jest.
         :param typescript_version: (experimental) TypeScript version to use. NOTE: Typescript is not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~1.2.3``). Default: "latest"
         :param rewire: (experimental) Rewire webpack configuration. Use this property to override webpack configuration properties provided by create-react-app, without needing to eject. This property will create a ``config-overrides.js`` file in your root directory, which will contain the desired rewiring code. To **override** the configuration, you can provide simple key value pairs. Keys take the form of js code directives that traverse to the desired property. Values should be JSON serializable objects. For example, the following config:: rewire: { "module.unknownContextCritical": false } Will translate to the following ``config-overrides.js`` file:: module.exports = function override(config, env) { config.module.unknownContextCritical = false; } Default: - No rewired config.
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -8207,13 +7409,13 @@ class ReactTypeScriptProject(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -8221,8 +7423,6 @@ class ReactTypeScriptProject(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -8236,7 +7436,6 @@ class ReactTypeScriptProject(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -8249,11 +7448,7 @@ class ReactTypeScriptProject(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -8285,7 +7480,6 @@ class ReactTypeScriptProject(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -8297,7 +7491,6 @@ class ReactTypeScriptProject(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -8313,10 +7506,8 @@ class ReactTypeScriptProject(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -8362,7 +7553,6 @@ class ReactTypeScriptProject(
             ts_jest_options=ts_jest_options,
             typescript_version=typescript_version,
             rewire=rewire,
-            default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             audit_deps=audit_deps,
             audit_deps_options=audit_deps_options,
@@ -8371,13 +7561,13 @@ class ReactTypeScriptProject(
             biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
-            build_workflow_triggers=build_workflow_triggers,
             bundler_options=bundler_options,
             check_licenses=check_licenses,
             code_cov=code_cov,
             code_cov_token_secret=code_cov_token_secret,
             copyright_owner=copyright_owner,
             copyright_period=copyright_period,
+            default_release_branch=default_release_branch,
             dependabot=dependabot,
             dependabot_options=dependabot_options,
             deps_upgrade=deps_upgrade,
@@ -8385,8 +7575,6 @@ class ReactTypeScriptProject(
             gitignore=gitignore,
             jest=jest,
             jest_options=jest_options,
-            mutable_build=mutable_build,
-            npmignore=npmignore,
             npmignore_enabled=npmignore_enabled,
             npm_ignore_options=npm_ignore_options,
             package=package,
@@ -8400,7 +7588,6 @@ class ReactTypeScriptProject(
             pull_request_template_contents=pull_request_template_contents,
             release=release,
             release_to_npm=release_to_npm,
-            release_workflow=release_workflow,
             workflow_bootstrap_steps=workflow_bootstrap_steps,
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
@@ -8413,11 +7600,7 @@ class ReactTypeScriptProject(
             github=github,
             github_options=github_options,
             gitpod=gitpod,
-            mergify=mergify,
-            mergify_options=mergify_options,
-            project_type=project_type,
             projen_credentials=projen_credentials,
-            projen_token_secret=projen_token_secret,
             readme=readme,
             stale=stale,
             stale_options=stale_options,
@@ -8449,7 +7632,6 @@ class ReactTypeScriptProject(
             min_node_version=min_node_version,
             npm_access=npm_access,
             npm_provenance=npm_provenance,
-            npm_registry=npm_registry,
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
@@ -8461,7 +7643,6 @@ class ReactTypeScriptProject(
             repository=repository,
             repository_directory=repository_directory,
             scoped_packages_options=scoped_packages_options,
-            scripts=scripts,
             stability=stability,
             yarn_berry_options=yarn_berry_options,
             bump_package=bump_package,
@@ -8477,10 +7658,8 @@ class ReactTypeScriptProject(
             releasable_commits=releasable_commits,
             release_branches=release_branches,
             release_environment=release_environment,
-            release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
-            release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
             release_workflow_env=release_workflow_env,
@@ -8542,11 +7721,7 @@ class ReactTypeScriptProject(
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -8578,7 +7753,6 @@ class ReactTypeScriptProject(
         "min_node_version": "minNodeVersion",
         "npm_access": "npmAccess",
         "npm_provenance": "npmProvenance",
-        "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
@@ -8590,7 +7764,6 @@ class ReactTypeScriptProject(
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
         "scoped_packages_options": "scopedPackagesOptions",
-        "scripts": "scripts",
         "stability": "stability",
         "yarn_berry_options": "yarnBerryOptions",
         "bump_package": "bumpPackage",
@@ -8606,10 +7779,8 @@ class ReactTypeScriptProject(
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -8619,7 +7790,6 @@ class ReactTypeScriptProject(
         "workflow_container_image": "workflowContainerImage",
         "workflow_runs_on": "workflowRunsOn",
         "workflow_runs_on_group": "workflowRunsOnGroup",
-        "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "audit_deps": "auditDeps",
         "audit_deps_options": "auditDepsOptions",
@@ -8628,13 +7798,13 @@ class ReactTypeScriptProject(
         "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
-        "build_workflow_triggers": "buildWorkflowTriggers",
         "bundler_options": "bundlerOptions",
         "check_licenses": "checkLicenses",
         "code_cov": "codeCov",
         "code_cov_token_secret": "codeCovTokenSecret",
         "copyright_owner": "copyrightOwner",
         "copyright_period": "copyrightPeriod",
+        "default_release_branch": "defaultReleaseBranch",
         "dependabot": "dependabot",
         "dependabot_options": "dependabotOptions",
         "deps_upgrade": "depsUpgrade",
@@ -8642,8 +7812,6 @@ class ReactTypeScriptProject(
         "gitignore": "gitignore",
         "jest": "jest",
         "jest_options": "jestOptions",
-        "mutable_build": "mutableBuild",
-        "npmignore": "npmignore",
         "npmignore_enabled": "npmignoreEnabled",
         "npm_ignore_options": "npmIgnoreOptions",
         "package": "package",
@@ -8657,7 +7825,6 @@ class ReactTypeScriptProject(
         "pull_request_template_contents": "pullRequestTemplateContents",
         "release": "release",
         "release_to_npm": "releaseToNpm",
-        "release_workflow": "releaseWorkflow",
         "workflow_bootstrap_steps": "workflowBootstrapSteps",
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
@@ -8711,11 +7878,7 @@ class ReactTypeScriptProjectOptions(
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8747,7 +7910,6 @@ class ReactTypeScriptProjectOptions(
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -8759,7 +7921,6 @@ class ReactTypeScriptProjectOptions(
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -8775,10 +7936,8 @@ class ReactTypeScriptProjectOptions(
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -8788,7 +7947,6 @@ class ReactTypeScriptProjectOptions(
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8797,13 +7955,13 @@ class ReactTypeScriptProjectOptions(
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -8811,8 +7969,6 @@ class ReactTypeScriptProjectOptions(
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -8826,7 +7982,6 @@ class ReactTypeScriptProjectOptions(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -8873,11 +8028,7 @@ class ReactTypeScriptProjectOptions(
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -8909,7 +8060,6 @@ class ReactTypeScriptProjectOptions(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -8921,7 +8071,6 @@ class ReactTypeScriptProjectOptions(
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -8937,10 +8086,8 @@ class ReactTypeScriptProjectOptions(
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -8950,7 +8097,6 @@ class ReactTypeScriptProjectOptions(
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
         :param workflow_runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -8959,13 +8105,13 @@ class ReactTypeScriptProjectOptions(
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -8973,8 +8119,6 @@ class ReactTypeScriptProjectOptions(
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -8988,7 +8132,6 @@ class ReactTypeScriptProjectOptions(
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -9031,8 +8174,6 @@ class ReactTypeScriptProjectOptions(
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -9053,8 +8194,6 @@ class ReactTypeScriptProjectOptions(
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
-        if isinstance(build_workflow_triggers, dict):
-            build_workflow_triggers = _Triggers_e9ae7617(**build_workflow_triggers)
         if isinstance(bundler_options, dict):
             bundler_options = _BundlerOptions_d60b85ed(**bundler_options)
         if isinstance(check_licenses, dict):
@@ -9106,11 +8245,7 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -9142,7 +8277,6 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument min_node_version", value=min_node_version, expected_type=type_hints["min_node_version"])
             check_type(argname="argument npm_access", value=npm_access, expected_type=type_hints["npm_access"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
@@ -9154,7 +8288,6 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
             check_type(argname="argument scoped_packages_options", value=scoped_packages_options, expected_type=type_hints["scoped_packages_options"])
-            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
             check_type(argname="argument yarn_berry_options", value=yarn_berry_options, expected_type=type_hints["yarn_berry_options"])
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
@@ -9170,10 +8303,8 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -9183,7 +8314,6 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument workflow_container_image", value=workflow_container_image, expected_type=type_hints["workflow_container_image"])
             check_type(argname="argument workflow_runs_on", value=workflow_runs_on, expected_type=type_hints["workflow_runs_on"])
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
-            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
             check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
@@ -9192,13 +8322,13 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
-            check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
             check_type(argname="argument bundler_options", value=bundler_options, expected_type=type_hints["bundler_options"])
             check_type(argname="argument check_licenses", value=check_licenses, expected_type=type_hints["check_licenses"])
             check_type(argname="argument code_cov", value=code_cov, expected_type=type_hints["code_cov"])
             check_type(argname="argument code_cov_token_secret", value=code_cov_token_secret, expected_type=type_hints["code_cov_token_secret"])
             check_type(argname="argument copyright_owner", value=copyright_owner, expected_type=type_hints["copyright_owner"])
             check_type(argname="argument copyright_period", value=copyright_period, expected_type=type_hints["copyright_period"])
+            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument dependabot", value=dependabot, expected_type=type_hints["dependabot"])
             check_type(argname="argument dependabot_options", value=dependabot_options, expected_type=type_hints["dependabot_options"])
             check_type(argname="argument deps_upgrade", value=deps_upgrade, expected_type=type_hints["deps_upgrade"])
@@ -9206,8 +8336,6 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument gitignore", value=gitignore, expected_type=type_hints["gitignore"])
             check_type(argname="argument jest", value=jest, expected_type=type_hints["jest"])
             check_type(argname="argument jest_options", value=jest_options, expected_type=type_hints["jest_options"])
-            check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
-            check_type(argname="argument npmignore", value=npmignore, expected_type=type_hints["npmignore"])
             check_type(argname="argument npmignore_enabled", value=npmignore_enabled, expected_type=type_hints["npmignore_enabled"])
             check_type(argname="argument npm_ignore_options", value=npm_ignore_options, expected_type=type_hints["npm_ignore_options"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -9221,7 +8349,6 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument pull_request_template_contents", value=pull_request_template_contents, expected_type=type_hints["pull_request_template_contents"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
             check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
-            check_type(argname="argument release_workflow", value=release_workflow, expected_type=type_hints["release_workflow"])
             check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
@@ -9247,7 +8374,6 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument rewire", value=rewire, expected_type=type_hints["rewire"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "default_release_branch": default_release_branch,
         }
         if commit_generated is not None:
             self._values["commit_generated"] = commit_generated
@@ -9289,16 +8415,8 @@ class ReactTypeScriptProjectOptions(
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -9361,8 +8479,6 @@ class ReactTypeScriptProjectOptions(
             self._values["npm_access"] = npm_access
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
-        if npm_registry is not None:
-            self._values["npm_registry"] = npm_registry
         if npm_registry_url is not None:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
@@ -9385,8 +8501,6 @@ class ReactTypeScriptProjectOptions(
             self._values["repository_directory"] = repository_directory
         if scoped_packages_options is not None:
             self._values["scoped_packages_options"] = scoped_packages_options
-        if scripts is not None:
-            self._values["scripts"] = scripts
         if stability is not None:
             self._values["stability"] = stability
         if yarn_berry_options is not None:
@@ -9417,14 +8531,10 @@ class ReactTypeScriptProjectOptions(
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -9459,8 +8569,6 @@ class ReactTypeScriptProjectOptions(
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
             self._values["build_workflow_options"] = build_workflow_options
-        if build_workflow_triggers is not None:
-            self._values["build_workflow_triggers"] = build_workflow_triggers
         if bundler_options is not None:
             self._values["bundler_options"] = bundler_options
         if check_licenses is not None:
@@ -9473,6 +8581,8 @@ class ReactTypeScriptProjectOptions(
             self._values["copyright_owner"] = copyright_owner
         if copyright_period is not None:
             self._values["copyright_period"] = copyright_period
+        if default_release_branch is not None:
+            self._values["default_release_branch"] = default_release_branch
         if dependabot is not None:
             self._values["dependabot"] = dependabot
         if dependabot_options is not None:
@@ -9487,10 +8597,6 @@ class ReactTypeScriptProjectOptions(
             self._values["jest"] = jest
         if jest_options is not None:
             self._values["jest_options"] = jest_options
-        if mutable_build is not None:
-            self._values["mutable_build"] = mutable_build
-        if npmignore is not None:
-            self._values["npmignore"] = npmignore
         if npmignore_enabled is not None:
             self._values["npmignore_enabled"] = npmignore_enabled
         if npm_ignore_options is not None:
@@ -9517,8 +8623,6 @@ class ReactTypeScriptProjectOptions(
             self._values["release"] = release
         if release_to_npm is not None:
             self._values["release_to_npm"] = release_to_npm
-        if release_workflow is not None:
-            self._values["release_workflow"] = release_workflow
         if workflow_bootstrap_steps is not None:
             self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
         if workflow_git_identity is not None:
@@ -9810,45 +8914,6 @@ class ReactTypeScriptProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -9858,22 +8923,6 @@ class ReactTypeScriptProjectOptions(
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -10297,19 +9346,6 @@ class ReactTypeScriptProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_registry(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The host name of the npm registry to publish to.
-
-        Cannot be set together with ``npmRegistryUrl``.
-
-        :deprecated: use ``npmRegistryUrl`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npm_registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
@@ -10447,23 +9483,6 @@ class ReactTypeScriptProjectOptions(
         '''
         result = self._values.get("scoped_packages_options")
         return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
-
-    @builtins.property
-    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(deprecated) npm scripts to include.
-
-        If a script has the same name as a standard script,
-        the standard script will be overwritten.
-        Also adds the script as a task.
-
-        :default: {}
-
-        :deprecated: use ``project.addTask()`` or ``package.setScript()``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("scripts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def stability(self) -> typing.Optional[builtins.str]:
@@ -10682,19 +9701,6 @@ class ReactTypeScriptProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -10716,19 +9722,6 @@ class ReactTypeScriptProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -10844,18 +9837,6 @@ class ReactTypeScriptProjectOptions(
         return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def default_release_branch(self) -> builtins.str:
-        '''(experimental) The name of the main release branch.
-
-        :default: "main"
-
-        :stability: experimental
-        '''
-        result = self._values.get("default_release_branch")
-        assert result is not None, "Required property 'default_release_branch' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
         '''(experimental) A directory which will contain build artifacts.
 
@@ -10950,19 +9931,6 @@ class ReactTypeScriptProjectOptions(
         return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
-        '''(deprecated) Build workflow triggers.
-
-        :default: "{ pullRequest: {}, workflowDispatch: {} }"
-
-        :deprecated: - Use ``buildWorkflowOptions.workflowTriggers``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
-
-    @builtins.property
     def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
@@ -11026,6 +9994,18 @@ class ReactTypeScriptProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("copyright_period")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_release_branch(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the main release branch.
+
+        :default: "main"
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("default_release_branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -11108,36 +10088,6 @@ class ReactTypeScriptProjectOptions(
         '''
         result = self._values.get("jest_options")
         return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
-
-    @builtins.property
-    def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically update files modified during builds to pull-request branches.
-
-        This means
-        that any files synthesized by projen or e.g. test snapshots will always be up-to-date
-        before a PR is merged.
-
-        Implies that PR builds do not have anti-tamper checks.
-
-        :default: true
-
-        :deprecated: - Use ``buildWorkflowOptions.mutableBuild``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mutable_build")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def npmignore(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Additional entries to .npmignore.
-
-        :deprecated: - use ``project.addPackageIgnore``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npmignore")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def npmignore_enabled(self) -> typing.Optional[builtins.bool]:
@@ -11280,19 +10230,6 @@ class ReactTypeScriptProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_to_npm")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def release_workflow(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) DEPRECATED: renamed to ``release``.
-
-        :default: - true if not a subproject
-
-        :deprecated: see ``release``.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_workflow")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -11785,11 +10722,7 @@ class ReactComponentOptions(ReactRewireOptions):
         "github": "github",
         "github_options": "githubOptions",
         "gitpod": "gitpod",
-        "mergify": "mergify",
-        "mergify_options": "mergifyOptions",
-        "project_type": "projectType",
         "projen_credentials": "projenCredentials",
-        "projen_token_secret": "projenTokenSecret",
         "readme": "readme",
         "stale": "stale",
         "stale_options": "staleOptions",
@@ -11821,7 +10754,6 @@ class ReactComponentOptions(ReactRewireOptions):
         "min_node_version": "minNodeVersion",
         "npm_access": "npmAccess",
         "npm_provenance": "npmProvenance",
-        "npm_registry": "npmRegistry",
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
@@ -11833,7 +10765,6 @@ class ReactComponentOptions(ReactRewireOptions):
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
         "scoped_packages_options": "scopedPackagesOptions",
-        "scripts": "scripts",
         "stability": "stability",
         "yarn_berry_options": "yarnBerryOptions",
         "bump_package": "bumpPackage",
@@ -11849,10 +10780,8 @@ class ReactComponentOptions(ReactRewireOptions):
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
         "release_environment": "releaseEnvironment",
-        "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
-        "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
         "release_workflow_env": "releaseWorkflowEnv",
@@ -11862,7 +10791,6 @@ class ReactComponentOptions(ReactRewireOptions):
         "workflow_container_image": "workflowContainerImage",
         "workflow_runs_on": "workflowRunsOn",
         "workflow_runs_on_group": "workflowRunsOnGroup",
-        "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "audit_deps": "auditDeps",
         "audit_deps_options": "auditDepsOptions",
@@ -11871,13 +10799,13 @@ class ReactComponentOptions(ReactRewireOptions):
         "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
-        "build_workflow_triggers": "buildWorkflowTriggers",
         "bundler_options": "bundlerOptions",
         "check_licenses": "checkLicenses",
         "code_cov": "codeCov",
         "code_cov_token_secret": "codeCovTokenSecret",
         "copyright_owner": "copyrightOwner",
         "copyright_period": "copyrightPeriod",
+        "default_release_branch": "defaultReleaseBranch",
         "dependabot": "dependabot",
         "dependabot_options": "dependabotOptions",
         "deps_upgrade": "depsUpgrade",
@@ -11885,8 +10813,6 @@ class ReactComponentOptions(ReactRewireOptions):
         "gitignore": "gitignore",
         "jest": "jest",
         "jest_options": "jestOptions",
-        "mutable_build": "mutableBuild",
-        "npmignore": "npmignore",
         "npmignore_enabled": "npmignoreEnabled",
         "npm_ignore_options": "npmIgnoreOptions",
         "package": "package",
@@ -11900,7 +10826,6 @@ class ReactComponentOptions(ReactRewireOptions):
         "pull_request_template_contents": "pullRequestTemplateContents",
         "release": "release",
         "release_to_npm": "releaseToNpm",
-        "release_workflow": "releaseWorkflow",
         "workflow_bootstrap_steps": "workflowBootstrapSteps",
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
@@ -11935,11 +10860,7 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         github: typing.Optional[builtins.bool] = None,
         github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
         projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        projen_token_secret: typing.Optional[builtins.str] = None,
         readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -11971,7 +10892,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         min_node_version: typing.Optional[builtins.str] = None,
         npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
-        npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -11983,7 +10903,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
         scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
-        scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
         yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
@@ -11999,10 +10918,8 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
-        release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
-        release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -12012,7 +10929,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
-        default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -12021,13 +10937,13 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
         check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
+        default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
         dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -12035,8 +10951,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
-        mutable_build: typing.Optional[builtins.bool] = None,
-        npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
         npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -12050,7 +10964,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        release_workflow: typing.Optional[builtins.bool] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
@@ -12081,11 +10994,7 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :param github: (experimental) Enable GitHub integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param github_options: (experimental) Options for GitHub integration. Default: - see GitHubOptions
         :param gitpod: (experimental) Add a Gitpod development environment. Default: false
-        :param mergify: (deprecated) Whether mergify should be enabled on this repository or not. Default: true
-        :param mergify_options: (deprecated) Options for mergify. Default: - default options
-        :param project_type: (deprecated) Which type of project this is (library/app). Default: ProjectType.UNKNOWN
         :param projen_credentials: (experimental) Choose a method of providing GitHub API access for projen workflows. Default: - use a personal access token named PROJEN_GITHUB_TOKEN
-        :param projen_token_secret: (deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows. This token needs to have the ``repo``, ``workflows`` and ``packages`` scope. Default: "PROJEN_GITHUB_TOKEN"
         :param readme: (experimental) The README setup. Default: - { filename: 'README.md', contents: '# replace this' }
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
@@ -12117,7 +11026,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry: (deprecated) The host name of the npm registry to publish to. Cannot be set together with ``npmRegistryUrl``.
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
@@ -12129,7 +11037,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
-        :param scripts: (deprecated) npm scripts to include. If a script has the same name as a standard script, the standard script will be overwritten. Also adds the script as a task. Default: {}
         :param stability: (experimental) Package's Stability.
         :param yarn_berry_options: (experimental) Options for Yarn Berry. Default: - Yarn Berry v4 with all default options
         :param bump_package: (experimental) The ``commit-and-tag-version`` compatible package used to bump the package version, as a dependency string. This can be any compatible package version, including the deprecated ``standard-version@9``. Default: - A recent version of "commit-and-tag-version"
@@ -12145,10 +11052,8 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
         :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
-        :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
-        :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
         :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
@@ -12158,7 +11063,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :param workflow_container_image: (experimental) Container image to use for GitHub workflows. Default: - default image
         :param workflow_runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
-        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
         :param audit_deps_options: (experimental) Security audit options. Default: - default options
@@ -12167,13 +11071,13 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
-        :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param bundler_options: (experimental) Options for ``Bundler``.
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
         :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
         :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
@@ -12181,8 +11085,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
         :param jest_options: (experimental) Jest options. Default: - default options
-        :param mutable_build: (deprecated) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
-        :param npmignore: (deprecated) Additional entries to .npmignore.
         :param npmignore_enabled: (experimental) Defines an .npmignore file. Normally this is only needed for libraries that are packaged as tarballs. Default: true
         :param npm_ignore_options: (experimental) Configuration options for .npmignore file.
         :param package: (experimental) Defines a ``package`` task that will produce an npm tarball under the artifacts directory (e.g. ``dist``). Default: true
@@ -12196,7 +11098,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :param pull_request_template_contents: (experimental) The contents of the pull request template. Default: - default content
         :param release: (experimental) Add release management to this project. Default: - true (false for subprojects)
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
-        :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
@@ -12223,8 +11124,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
         if isinstance(github_options, dict):
             github_options = _GitHubOptions_21553699(**github_options)
-        if isinstance(mergify_options, dict):
-            mergify_options = _MergifyOptions_a6faaab3(**mergify_options)
         if isinstance(readme, dict):
             readme = _SampleReadmeProps_3518b03b(**readme)
         if isinstance(stale_options, dict):
@@ -12245,8 +11144,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
-        if isinstance(build_workflow_triggers, dict):
-            build_workflow_triggers = _Triggers_e9ae7617(**build_workflow_triggers)
         if isinstance(bundler_options, dict):
             bundler_options = _BundlerOptions_d60b85ed(**bundler_options)
         if isinstance(check_licenses, dict):
@@ -12288,11 +11185,7 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
             check_type(argname="argument github_options", value=github_options, expected_type=type_hints["github_options"])
             check_type(argname="argument gitpod", value=gitpod, expected_type=type_hints["gitpod"])
-            check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
-            check_type(argname="argument mergify_options", value=mergify_options, expected_type=type_hints["mergify_options"])
-            check_type(argname="argument project_type", value=project_type, expected_type=type_hints["project_type"])
             check_type(argname="argument projen_credentials", value=projen_credentials, expected_type=type_hints["projen_credentials"])
-            check_type(argname="argument projen_token_secret", value=projen_token_secret, expected_type=type_hints["projen_token_secret"])
             check_type(argname="argument readme", value=readme, expected_type=type_hints["readme"])
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
@@ -12324,7 +11217,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument min_node_version", value=min_node_version, expected_type=type_hints["min_node_version"])
             check_type(argname="argument npm_access", value=npm_access, expected_type=type_hints["npm_access"])
             check_type(argname="argument npm_provenance", value=npm_provenance, expected_type=type_hints["npm_provenance"])
-            check_type(argname="argument npm_registry", value=npm_registry, expected_type=type_hints["npm_registry"])
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
@@ -12336,7 +11228,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
             check_type(argname="argument scoped_packages_options", value=scoped_packages_options, expected_type=type_hints["scoped_packages_options"])
-            check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
             check_type(argname="argument yarn_berry_options", value=yarn_berry_options, expected_type=type_hints["yarn_berry_options"])
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
@@ -12352,10 +11243,8 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
             check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
-            check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
-            check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
             check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
@@ -12365,7 +11254,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument workflow_container_image", value=workflow_container_image, expected_type=type_hints["workflow_container_image"])
             check_type(argname="argument workflow_runs_on", value=workflow_runs_on, expected_type=type_hints["workflow_runs_on"])
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
-            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
             check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
@@ -12374,13 +11262,13 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
-            check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
             check_type(argname="argument bundler_options", value=bundler_options, expected_type=type_hints["bundler_options"])
             check_type(argname="argument check_licenses", value=check_licenses, expected_type=type_hints["check_licenses"])
             check_type(argname="argument code_cov", value=code_cov, expected_type=type_hints["code_cov"])
             check_type(argname="argument code_cov_token_secret", value=code_cov_token_secret, expected_type=type_hints["code_cov_token_secret"])
             check_type(argname="argument copyright_owner", value=copyright_owner, expected_type=type_hints["copyright_owner"])
             check_type(argname="argument copyright_period", value=copyright_period, expected_type=type_hints["copyright_period"])
+            check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument dependabot", value=dependabot, expected_type=type_hints["dependabot"])
             check_type(argname="argument dependabot_options", value=dependabot_options, expected_type=type_hints["dependabot_options"])
             check_type(argname="argument deps_upgrade", value=deps_upgrade, expected_type=type_hints["deps_upgrade"])
@@ -12388,8 +11276,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument gitignore", value=gitignore, expected_type=type_hints["gitignore"])
             check_type(argname="argument jest", value=jest, expected_type=type_hints["jest"])
             check_type(argname="argument jest_options", value=jest_options, expected_type=type_hints["jest_options"])
-            check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
-            check_type(argname="argument npmignore", value=npmignore, expected_type=type_hints["npmignore"])
             check_type(argname="argument npmignore_enabled", value=npmignore_enabled, expected_type=type_hints["npmignore_enabled"])
             check_type(argname="argument npm_ignore_options", value=npm_ignore_options, expected_type=type_hints["npm_ignore_options"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -12403,7 +11289,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument pull_request_template_contents", value=pull_request_template_contents, expected_type=type_hints["pull_request_template_contents"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
             check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
-            check_type(argname="argument release_workflow", value=release_workflow, expected_type=type_hints["release_workflow"])
             check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
@@ -12413,7 +11298,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "default_release_branch": default_release_branch,
         }
         if commit_generated is not None:
             self._values["commit_generated"] = commit_generated
@@ -12455,16 +11339,8 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             self._values["github_options"] = github_options
         if gitpod is not None:
             self._values["gitpod"] = gitpod
-        if mergify is not None:
-            self._values["mergify"] = mergify
-        if mergify_options is not None:
-            self._values["mergify_options"] = mergify_options
-        if project_type is not None:
-            self._values["project_type"] = project_type
         if projen_credentials is not None:
             self._values["projen_credentials"] = projen_credentials
-        if projen_token_secret is not None:
-            self._values["projen_token_secret"] = projen_token_secret
         if readme is not None:
             self._values["readme"] = readme
         if stale is not None:
@@ -12527,8 +11403,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             self._values["npm_access"] = npm_access
         if npm_provenance is not None:
             self._values["npm_provenance"] = npm_provenance
-        if npm_registry is not None:
-            self._values["npm_registry"] = npm_registry
         if npm_registry_url is not None:
             self._values["npm_registry_url"] = npm_registry_url
         if npm_token_secret is not None:
@@ -12551,8 +11425,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             self._values["repository_directory"] = repository_directory
         if scoped_packages_options is not None:
             self._values["scoped_packages_options"] = scoped_packages_options
-        if scripts is not None:
-            self._values["scripts"] = scripts
         if stability is not None:
             self._values["stability"] = stability
         if yarn_berry_options is not None:
@@ -12583,14 +11455,10 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             self._values["release_branches"] = release_branches
         if release_environment is not None:
             self._values["release_environment"] = release_environment
-        if release_every_commit is not None:
-            self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
             self._values["release_failure_issue"] = release_failure_issue
         if release_failure_issue_label is not None:
             self._values["release_failure_issue_label"] = release_failure_issue_label
-        if release_schedule is not None:
-            self._values["release_schedule"] = release_schedule
         if release_tag_prefix is not None:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
@@ -12625,8 +11493,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
             self._values["build_workflow_options"] = build_workflow_options
-        if build_workflow_triggers is not None:
-            self._values["build_workflow_triggers"] = build_workflow_triggers
         if bundler_options is not None:
             self._values["bundler_options"] = bundler_options
         if check_licenses is not None:
@@ -12639,6 +11505,8 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             self._values["copyright_owner"] = copyright_owner
         if copyright_period is not None:
             self._values["copyright_period"] = copyright_period
+        if default_release_branch is not None:
+            self._values["default_release_branch"] = default_release_branch
         if dependabot is not None:
             self._values["dependabot"] = dependabot
         if dependabot_options is not None:
@@ -12653,10 +11521,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             self._values["jest"] = jest
         if jest_options is not None:
             self._values["jest_options"] = jest_options
-        if mutable_build is not None:
-            self._values["mutable_build"] = mutable_build
-        if npmignore is not None:
-            self._values["npmignore"] = npmignore
         if npmignore_enabled is not None:
             self._values["npmignore_enabled"] = npmignore_enabled
         if npm_ignore_options is not None:
@@ -12683,8 +11547,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
             self._values["release"] = release
         if release_to_npm is not None:
             self._values["release_to_npm"] = release_to_npm
-        if release_workflow is not None:
-            self._values["release_workflow"] = release_workflow
         if workflow_bootstrap_steps is not None:
             self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
         if workflow_git_identity is not None:
@@ -12944,45 +11806,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Whether mergify should be enabled on this repository or not.
-
-        :default: true
-
-        :deprecated: use ``githubOptions.mergify`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
-        '''(deprecated) Options for mergify.
-
-        :default: - default options
-
-        :deprecated: use ``githubOptions.mergifyOptions`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
-
-    @builtins.property
-    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
-        '''(deprecated) Which type of project this is (library/app).
-
-        :default: ProjectType.UNKNOWN
-
-        :deprecated: no longer supported at the base project level
-
-        :stability: deprecated
-        '''
-        result = self._values.get("project_type")
-        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
-
-    @builtins.property
     def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
@@ -12992,22 +11815,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         '''
         result = self._values.get("projen_credentials")
         return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
-
-    @builtins.property
-    def projen_token_secret(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The name of a secret which includes a GitHub Personal Access Token to be used by projen workflows.
-
-        This token needs to have the ``repo``, ``workflows``
-        and ``packages`` scope.
-
-        :default: "PROJEN_GITHUB_TOKEN"
-
-        :deprecated: use ``projenCredentials``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("projen_token_secret")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
@@ -13431,19 +12238,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_registry(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The host name of the npm registry to publish to.
-
-        Cannot be set together with ``npmRegistryUrl``.
-
-        :deprecated: use ``npmRegistryUrl`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npm_registry")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
@@ -13581,23 +12375,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         '''
         result = self._values.get("scoped_packages_options")
         return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
-
-    @builtins.property
-    def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(deprecated) npm scripts to include.
-
-        If a script has the same name as a standard script,
-        the standard script will be overwritten.
-        Also adds the script as a task.
-
-        :default: {}
-
-        :deprecated: use ``project.addTask()`` or ``package.setScript()``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("scripts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def stability(self) -> typing.Optional[builtins.str]:
@@ -13816,19 +12593,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_every_commit(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
-
-        :default: true
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.continuous()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_every_commit")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def release_failure_issue(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Create a github issue on every failed publishing task.
 
@@ -13850,19 +12614,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :stability: experimental
         '''
         result = self._values.get("release_failure_issue_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def release_schedule(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) CRON schedule to trigger new releases.
-
-        :default: - no scheduled releases
-
-        :deprecated: Use ``releaseTrigger: ReleaseTrigger.scheduled()`` instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -13978,18 +12729,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def default_release_branch(self) -> builtins.str:
-        '''(experimental) The name of the main release branch.
-
-        :default: "main"
-
-        :stability: experimental
-        '''
-        result = self._values.get("default_release_branch")
-        assert result is not None, "Required property 'default_release_branch' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
         '''(experimental) A directory which will contain build artifacts.
 
@@ -14084,19 +12823,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
-        '''(deprecated) Build workflow triggers.
-
-        :default: "{ pullRequest: {}, workflowDispatch: {} }"
-
-        :deprecated: - Use ``buildWorkflowOptions.workflowTriggers``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
-
-    @builtins.property
     def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
@@ -14160,6 +12886,18 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         :stability: experimental
         '''
         result = self._values.get("copyright_period")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_release_branch(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the main release branch.
+
+        :default: "main"
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("default_release_branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -14242,36 +12980,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         '''
         result = self._values.get("jest_options")
         return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
-
-    @builtins.property
-    def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) Automatically update files modified during builds to pull-request branches.
-
-        This means
-        that any files synthesized by projen or e.g. test snapshots will always be up-to-date
-        before a PR is merged.
-
-        Implies that PR builds do not have anti-tamper checks.
-
-        :default: true
-
-        :deprecated: - Use ``buildWorkflowOptions.mutableBuild``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("mutable_build")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def npmignore(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) Additional entries to .npmignore.
-
-        :deprecated: - use ``project.addPackageIgnore``
-
-        :stability: deprecated
-        '''
-        result = self._values.get("npmignore")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def npmignore_enabled(self) -> typing.Optional[builtins.bool]:
@@ -14417,19 +13125,6 @@ class ReactProjectOptions(_NodeProjectOptions_d12f6f3b, ReactRewireOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def release_workflow(self) -> typing.Optional[builtins.bool]:
-        '''(deprecated) DEPRECATED: renamed to ``release``.
-
-        :default: - true if not a subproject
-
-        :deprecated: see ``release``.
-
-        :stability: deprecated
-        '''
-        result = self._values.get("release_workflow")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def workflow_bootstrap_steps(
         self,
     ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
@@ -14558,8 +13253,6 @@ __all__ = [
     "ReactProject",
     "ReactProjectOptions",
     "ReactRewireOptions",
-    "ReactTypeDef",
-    "ReactTypeDefOptions",
     "ReactTypeScriptProject",
     "ReactTypeScriptProjectOptions",
     "TailwindConfig",
@@ -14618,11 +13311,7 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -14654,7 +13343,6 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[_NpmAccess_134fa228] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -14666,7 +13354,6 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
     bump_package: typing.Optional[builtins.str] = None,
@@ -14682,10 +13369,8 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -14695,7 +13380,6 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     workflow_container_image: typing.Optional[builtins.str] = None,
     workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-    default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     audit_deps: typing.Optional[builtins.bool] = None,
     audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -14704,13 +13388,13 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-    build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
     check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
     code_cov: typing.Optional[builtins.bool] = None,
     code_cov_token_secret: typing.Optional[builtins.str] = None,
     copyright_owner: typing.Optional[builtins.str] = None,
     copyright_period: typing.Optional[builtins.str] = None,
+    default_release_branch: typing.Optional[builtins.str] = None,
     dependabot: typing.Optional[builtins.bool] = None,
     dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
     deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -14718,8 +13402,6 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest: typing.Optional[builtins.bool] = None,
     jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
-    mutable_build: typing.Optional[builtins.bool] = None,
-    npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     npmignore_enabled: typing.Optional[builtins.bool] = None,
     npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
     package: typing.Optional[builtins.bool] = None,
@@ -14733,7 +13415,6 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
     release: typing.Optional[builtins.bool] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
-    release_workflow: typing.Optional[builtins.bool] = None,
     workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
@@ -14769,11 +13450,7 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -14805,7 +13482,6 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[_NpmAccess_134fa228] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -14817,7 +13493,6 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
     bump_package: typing.Optional[builtins.str] = None,
@@ -14833,10 +13508,8 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -14846,7 +13519,6 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     workflow_container_image: typing.Optional[builtins.str] = None,
     workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-    default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     audit_deps: typing.Optional[builtins.bool] = None,
     audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -14855,13 +13527,13 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-    build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
     check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
     code_cov: typing.Optional[builtins.bool] = None,
     code_cov_token_secret: typing.Optional[builtins.str] = None,
     copyright_owner: typing.Optional[builtins.str] = None,
     copyright_period: typing.Optional[builtins.str] = None,
+    default_release_branch: typing.Optional[builtins.str] = None,
     dependabot: typing.Optional[builtins.bool] = None,
     dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
     deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -14869,8 +13541,6 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest: typing.Optional[builtins.bool] = None,
     jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
-    mutable_build: typing.Optional[builtins.bool] = None,
-    npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     npmignore_enabled: typing.Optional[builtins.bool] = None,
     npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
     package: typing.Optional[builtins.bool] = None,
@@ -14884,7 +13554,6 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
     release: typing.Optional[builtins.bool] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
-    release_workflow: typing.Optional[builtins.bool] = None,
     workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
@@ -14946,36 +13615,6 @@ def _typecheckingstub__2f5eda5b0d2c35d39ea3591040187e0f614e806819ff91add68cbaa16
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__38c1b48b67ccf151df3bd09816438ced5cbd325bb5b0ad2d6bc8bc8a7240fdb2(
-    project: ReactTypeScriptProject,
-    file_path: builtins.str,
-    *,
-    committed: typing.Optional[builtins.bool] = None,
-    edit_gitignore: typing.Optional[builtins.bool] = None,
-    executable: typing.Optional[builtins.bool] = None,
-    marker: typing.Optional[builtins.bool] = None,
-    readonly: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__51a7782dc2cca3e68e7c66abca481a352007bf36fc5900b4c8c437a3a53a69e5(
-    _: _IResolver_0b7d1958,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e6362df2a6f0ec06b4b030c8e2d7d55c460cd3f984d30ea01937a83aca559899(
-    *,
-    committed: typing.Optional[builtins.bool] = None,
-    edit_gitignore: typing.Optional[builtins.bool] = None,
-    executable: typing.Optional[builtins.bool] = None,
-    marker: typing.Optional[builtins.bool] = None,
-    readonly: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772eba49f0e(
     *,
     name: builtins.str,
@@ -14999,11 +13638,7 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15035,7 +13670,6 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[_NpmAccess_134fa228] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -15047,7 +13681,6 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
     bump_package: typing.Optional[builtins.str] = None,
@@ -15063,10 +13696,8 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -15076,7 +13707,6 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     workflow_container_image: typing.Optional[builtins.str] = None,
     workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-    default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     audit_deps: typing.Optional[builtins.bool] = None,
     audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15085,13 +13715,13 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-    build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
     check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
     code_cov: typing.Optional[builtins.bool] = None,
     code_cov_token_secret: typing.Optional[builtins.str] = None,
     copyright_owner: typing.Optional[builtins.str] = None,
     copyright_period: typing.Optional[builtins.str] = None,
+    default_release_branch: typing.Optional[builtins.str] = None,
     dependabot: typing.Optional[builtins.bool] = None,
     dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
     deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -15099,8 +13729,6 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest: typing.Optional[builtins.bool] = None,
     jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
-    mutable_build: typing.Optional[builtins.bool] = None,
-    npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     npmignore_enabled: typing.Optional[builtins.bool] = None,
     npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
     package: typing.Optional[builtins.bool] = None,
@@ -15114,7 +13742,6 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
     release: typing.Optional[builtins.bool] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
-    release_workflow: typing.Optional[builtins.bool] = None,
     workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
@@ -15188,11 +13815,7 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     github: typing.Optional[builtins.bool] = None,
     github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    mergify: typing.Optional[builtins.bool] = None,
-    mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-    project_type: typing.Optional[_ProjectType_fd80c725] = None,
     projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    projen_token_secret: typing.Optional[builtins.str] = None,
     readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15224,7 +13847,6 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     min_node_version: typing.Optional[builtins.str] = None,
     npm_access: typing.Optional[_NpmAccess_134fa228] = None,
     npm_provenance: typing.Optional[builtins.bool] = None,
-    npm_registry: typing.Optional[builtins.str] = None,
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
@@ -15236,7 +13858,6 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
     scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     stability: typing.Optional[builtins.str] = None,
     yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
     bump_package: typing.Optional[builtins.str] = None,
@@ -15252,10 +13873,8 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
-    release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
-    release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -15265,7 +13884,6 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     workflow_container_image: typing.Optional[builtins.str] = None,
     workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-    default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     audit_deps: typing.Optional[builtins.bool] = None,
     audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15274,13 +13892,13 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-    build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
     check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
     code_cov: typing.Optional[builtins.bool] = None,
     code_cov_token_secret: typing.Optional[builtins.str] = None,
     copyright_owner: typing.Optional[builtins.str] = None,
     copyright_period: typing.Optional[builtins.str] = None,
+    default_release_branch: typing.Optional[builtins.str] = None,
     dependabot: typing.Optional[builtins.bool] = None,
     dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
     deps_upgrade: typing.Optional[builtins.bool] = None,
@@ -15288,8 +13906,6 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest: typing.Optional[builtins.bool] = None,
     jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
-    mutable_build: typing.Optional[builtins.bool] = None,
-    npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     npmignore_enabled: typing.Optional[builtins.bool] = None,
     npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
     package: typing.Optional[builtins.bool] = None,
@@ -15303,7 +13919,6 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
     release: typing.Optional[builtins.bool] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
-    release_workflow: typing.Optional[builtins.bool] = None,
     workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,

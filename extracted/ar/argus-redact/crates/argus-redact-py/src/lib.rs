@@ -12,6 +12,7 @@ mod display_marker;
 mod reserved_range;
 mod replace;
 mod redact_l1;
+mod risk;
 mod shake_rng;
 mod seed;
 mod masks;
@@ -26,6 +27,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(patterns::match_patterns, m)?)?;
     m.add_function(wrap_pyfunction!(patterns::builtin_patterns, m)?)?;
     m.add_function(wrap_pyfunction!(merger::merge_entities, m)?)?;
+    m.add_function(wrap_pyfunction!(merger::merge_entities_with_text, m)?)?;
     m.add_function(wrap_pyfunction!(restore::restore, m)?)?;
     m.add_function(wrap_pyfunction!(restore::check_restore_safety, m)?)?;
     m.add_class::<pseudonym::PyPseudonymGenerator>()?;
@@ -48,6 +50,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(redact_l1::produce_hints_l1, m)?)?;
     m.add_function(wrap_pyfunction!(redact_l1::get_person_threshold, m)?)?;
     m.add_function(wrap_pyfunction!(redact_l1::filter_self_reference, m)?)?;
+    m.add_function(wrap_pyfunction!(risk::assess_risk, m)?)?;
     m.add_class::<crate::shake_rng::PyShakeRng>()?;
     m.add_function(wrap_pyfunction!(shake_rng::seed_from_value, m)?)?;
     m.add_function(wrap_pyfunction!(seed::resolve_salt, m)?)?;
