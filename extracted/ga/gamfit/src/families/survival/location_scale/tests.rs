@@ -26,13 +26,11 @@ struct SurvivalLsLocationScaleNllProgram<'a> {
 fn survival_ls_log_survival_stack(
     inverse_link: &InverseLink,
     eta: f64,
-    deriv_log_scale: f64,
 ) -> Result<[f64; 5], String> {
     let (log_s, r, dr, ddr, dddr) =
         SurvivalLocationScaleFamily::exact_survival_neglog_derivatives_fourth_rescaled(
             inverse_link,
             eta,
-            deriv_log_scale,
         )?;
     Ok([log_s, -r, -dr, -ddr, -dddr])
 }
@@ -142,8 +140,7 @@ impl crate::families::jet_tower::RowNllProgram<2> for SurvivalLsLocationScaleNll
         let q_exit = (self.row.exit_index - eta_location.v) * inv_sigma.v;
         let g = self.row.exit_index_derivative * inv_sigma.v;
 
-        let stack_entry =
-            survival_ls_log_survival_stack(self.inverse_link, q_entry, self.deriv_log_scale)?;
+        let stack_entry = survival_ls_log_survival_stack(self.inverse_link, q_entry)?;
         let mut kernel = SurvivalExactRowKernel {
             w: self.row.weight,
             d: self.row.event,
@@ -171,8 +168,7 @@ impl crate::families::jet_tower::RowNllProgram<2> for SurvivalLsLocationScaleNll
 
         let censored_weight = self.row.weight * (1.0 - self.row.event);
         if censored_weight != 0.0 {
-            let stack_exit =
-                survival_ls_log_survival_stack(self.inverse_link, q_exit, self.deriv_log_scale)?;
+            let stack_exit = survival_ls_log_survival_stack(self.inverse_link, q_exit)?;
             kernel.log_s1 = stack_exit[0];
             kernel.r1 = -stack_exit[1];
             kernel.dr1 = -stack_exit[2];
@@ -457,7 +453,7 @@ fn survival_exact_newton_test_family() -> SurvivalLocationScaleFamily {
         wiggle_knots: None,
         wiggle_degree: None,
         location_log_time: None,
-        policy: crate::solver::resource::ResourcePolicy::default_library(),
+        policy: crate::resource::ResourcePolicy::default_library(),
     }
 }
 
@@ -771,7 +767,7 @@ fn survival_ls_exact_row_kernel(
         wiggle_knots: None,
         wiggle_degree: None,
         location_log_time: None,
-        policy: crate::solver::resource::ResourcePolicy::default_library(),
+        policy: crate::resource::ResourcePolicy::default_library(),
     };
     let inv_sigma = (-row.eta_logscale).exp();
     let state = family.row_predictor_state(
@@ -806,7 +802,7 @@ fn hand_survival_ls_channels(
     let mut channels = SlsHandWitnessChannels::zero();
     channels.add_unary(
         &q_entry,
-        survival_ls_log_survival_stack(inverse_link, q_entry.v, 0.0)
+        survival_ls_log_survival_stack(inverse_link, q_entry.v)
             .expect("survival witness log-survival stack"),
         row.weight,
     );
@@ -814,7 +810,7 @@ fn hand_survival_ls_channels(
     if censored_weight != 0.0 {
         channels.add_unary(
             &q_exit,
-            survival_ls_log_survival_stack(inverse_link, q_exit.v, 0.0)
+            survival_ls_log_survival_stack(inverse_link, q_exit.v)
                 .expect("survival witness log-survival stack"),
             -censored_weight,
         );
@@ -986,22 +982,14 @@ impl crate::families::jet_tower::RowNllProgram<SLS_ROW_K> for SurvivalLsJointNll
         // log_likelihood` / `nll_index_tower` (left truncation divides the
         // likelihood by S(u0), so its log ADDS to the NLL).
         let mut nll = u0
-            .compose_unary(survival_ls_log_survival_stack(
-                self.inverse_link,
-                u0.v,
-                0.0,
-            )?)
+            .compose_unary(survival_ls_log_survival_stack(self.inverse_link, u0.v)?)
             .scale(w);
 
         let censored_weight = w * (1.0 - d);
         if censored_weight != 0.0 {
             nll = nll
-                + u1.compose_unary(survival_ls_log_survival_stack(
-                    self.inverse_link,
-                    u1.v,
-                    0.0,
-                )?)
-                .scale(-censored_weight);
+                + u1.compose_unary(survival_ls_log_survival_stack(self.inverse_link, u1.v)?)
+                    .scale(-censored_weight);
         }
 
         let event_weight = w * d;
@@ -1054,7 +1042,7 @@ fn survival_ls_joint_oracle_family(
         wiggle_knots: None,
         wiggle_degree: None,
         location_log_time: None,
-        policy: crate::solver::resource::ResourcePolicy::default_library(),
+        policy: crate::resource::ResourcePolicy::default_library(),
     }
 }
 
@@ -1257,6 +1245,92 @@ fn survival_ls_joint_jet_tower_oracle_body() {
                          #932 jet-tower truth: {e}"
                 )
             });
+        }
+    }
+}
+
+/// The hand-derived analytic joint-Hessian directional derivative
+/// (`exact_newton_joint_hessian_directional_derivative_from_parts`, the path
+/// that is always taken because `row_kernel_directional_supported()` is
+/// hard-disabled) must agree with the jet-tower-certified generic row-kernel
+/// directional derivative on a FULLY TIME-VARYING family — i.e. with the
+/// derivative threshold/log-sigma channels (the velocity / `qdot` coordinate)
+/// live. The pre-existing FD coverage only exercises non-time-varying
+/// fixtures, where the velocity coordinate is inert, so it cannot witness a
+/// dropped `qdot` third-order contribution.
+#[test]
+fn survival_ls_joint_directional_derivative_matches_tower_time_varying() {
+    let join_result = std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(survival_ls_joint_directional_derivative_time_varying_body)
+        .expect("spawn wide-stack directional-derivative thread")
+        .join();
+    assert!(
+        join_result.is_ok(),
+        "survival LS joint directional-derivative time-varying oracle thread must complete"
+    );
+}
+
+fn survival_ls_joint_directional_derivative_time_varying_body() {
+    use crate::families::row_kernel::{RowSet, row_kernel_directional_derivative_generic};
+
+    let primaries: Vec<[f64; SLS_ROW_K]> = vec![
+        [0.2, 0.9, 1.3, 0.6, 0.4, 0.25, 0.3, 0.1, -0.2],
+        [-0.4, 0.5, 0.9, -0.8, -0.5, 0.4, -0.25, 0.35, 0.3],
+        [1.4, 2.1, 0.8, -1.1, -0.9, 0.2, 0.45, 0.55, 0.35],
+        [0.1, 0.6, 1.0, 0.3, 0.2, -0.3, -0.2, 0.15, 0.25],
+    ];
+    let event = [1.0, 1.0, 1.0, 0.35];
+    let weight = [1.0, 1.2, 1.1, 1.3];
+
+    for distribution in [
+        ResidualDistribution::Gaussian,
+        ResidualDistribution::Gumbel,
+        ResidualDistribution::Logistic,
+    ] {
+        let inverse_link = residual_distribution_inverse_link(distribution);
+        let family = survival_ls_joint_oracle_family(&inverse_link, &primaries, &event, &weight);
+        let states = survival_ls_joint_oracle_states(&primaries);
+        let q = family
+            .collect_joint_quantities(&states)
+            .expect("collect joint quantities");
+        let dynamic = family
+            .build_dynamic_geometry(&states)
+            .expect("dynamic geometry");
+        let kernel = SurvivalLsRowKernel {
+            family: &family,
+            q: &q,
+            dynamic: &dynamic,
+            deriv_log_scale: 0.0,
+            offsets: family.joint_block_offsets(),
+        };
+        for direction in [
+            array![0.7, -0.5, 0.9],
+            array![-1.1, 0.8, 0.3],
+            array![0.4, 1.2, -0.6],
+            array![1.0, 0.0, 0.0],
+            array![0.0, 1.0, 0.0],
+            array![0.0, 0.0, 1.0],
+        ] {
+            let dir_slice = direction.as_slice().expect("contiguous direction");
+            let reference =
+                row_kernel_directional_derivative_generic(&kernel, &RowSet::All, dir_slice)
+                    .expect("tower-certified directional derivative");
+            let hand = family
+                .exact_newton_joint_hessian_directional_derivative_rescaled_from_parts(
+                    &direction, &q, &dynamic, 0.0,
+                )
+                .expect("hand directional derivative")
+                .expect("hand directional derivative present");
+            assert_eq!(reference.dim(), hand.dim(), "directional dH shape");
+            for ((a, b), &want) in reference.indexed_iter() {
+                let got = hand[[a, b]];
+                assert!(
+                    (got - want).abs() <= 1e-7 * (1.0 + want.abs()),
+                    "{distribution:?} dir={direction} joint directional dH[{a}][{b}] mismatch: \
+                     hand={got} tower-reference={want}"
+                );
+            }
         }
     }
 }
@@ -3164,7 +3238,7 @@ fn survival_log_survival_and_pdf_stacks_match_independent_fd_witness() {
         // log S(eta): value = slot 0; analytic derivatives are -r, -dr, -ddr, -dddr.
         let log_s_value = |eta: f64| {
             SurvivalLocationScaleFamily::exact_survival_neglog_derivatives_fourth_rescaled(
-                link, eta, 0.0,
+                link, eta,
             )
             .expect("log-survival stack")
             .0
@@ -3178,7 +3252,7 @@ fn survival_log_survival_and_pdf_stacks_match_independent_fd_witness() {
         for &eta in &etas {
             let (_, r, dr, ddr, dddr) =
                 SurvivalLocationScaleFamily::exact_survival_neglog_derivatives_fourth_rescaled(
-                    link, eta, 0.0,
+                    link, eta,
                 )
                 .expect("log-survival stack");
             let log_s_analytic = [-r, -dr, -ddr, -dddr];
@@ -3272,7 +3346,6 @@ fn exact_survival_neglog_derivatives_rescaled_do_not_scale_cloglog_ratio() {
         SurvivalLocationScaleFamily::exact_survival_neglog_derivatives_fourth_rescaled(
             &InverseLink::Standard(StandardLink::CLogLog),
             eta,
-            log_scale,
         )
         .expect("rescaled cloglog survival derivatives");
 
@@ -3309,7 +3382,6 @@ fn exact_survival_neglog_derivatives_match_identity_closed_form() {
         SurvivalLocationScaleFamily::exact_survival_neglog_derivatives_fourth_rescaled(
             &InverseLink::Standard(StandardLink::Identity),
             eta,
-            0.0,
         )
         .expect("exact identity survival derivatives");
     assert!((log_s - s.ln()).abs() <= 1e-15);
@@ -5049,7 +5121,7 @@ fn heart_failure_structural_time_small() {
         wiggle_knots: None,
         wiggle_degree: None,
         location_log_time: None,
-        policy: crate::solver::resource::ResourcePolicy::default_library(),
+        policy: crate::resource::ResourcePolicy::default_library(),
     };
 
     // Build initial states with beta=0 and a feasible positive derivative offset.
@@ -5178,7 +5250,7 @@ fn evaluate_survival_location_scale_rejects_non_finite_d_eta_dt() {
         wiggle_knots: None,
         wiggle_degree: None,
         location_log_time: None,
-        policy: crate::solver::resource::ResourcePolicy::default_library(),
+        policy: crate::resource::ResourcePolicy::default_library(),
     };
 
     let mut eta_time = Array1::<f64>::zeros(3 * n);

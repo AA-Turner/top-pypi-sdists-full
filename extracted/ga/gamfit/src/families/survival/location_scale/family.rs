@@ -37,7 +37,7 @@ pub(crate) struct SurvivalLocationScaleFamily {
     /// time-derivative `−1/t`, so `u = inv_sigma·(log t − η_t) = (log t − μ)/σ`
     /// and the event Jacobian gains `−log σ − log t`. `None` everywhere else.
     pub(crate) location_log_time: Option<LocationLogTimeOffset>,
-    pub(crate) policy: crate::solver::resource::ResourcePolicy,
+    pub(crate) policy: crate::resource::ResourcePolicy,
 }
 
 /// The σ-scaled log-t AFT location baseline (issue #892), applied to the `q`
@@ -106,4 +106,32 @@ pub(crate) struct SurvivalRowDerivatives {
     pub(crate) d_h_h0: f64,
     pub(crate) d_h_h1: f64,
     pub(crate) d_h_d: f64,
+}
+
+impl SurvivalRowDerivatives {
+    /// NLL gradient w.r.t. the three time channels `(h0, h1, d_raw)`.
+    ///
+    /// The stored `grad_time_eta_*` are log-likelihood partials `∂ℓ/∂·`; the
+    /// NLL gradient is `-∂ℓ/∂·`, applied uniformly so the three channels can
+    /// never disagree on sign.
+    #[inline]
+    pub(crate) fn time_channel_nll_gradient(&self) -> [f64; 3] {
+        [
+            -self.grad_time_eta_h0,
+            -self.grad_time_eta_h1,
+            -self.grad_time_eta_d,
+        ]
+    }
+
+    /// NLL Hessian diagonal in time-channel space `(h0, h1, d_raw)`.
+    ///
+    /// The row likelihood factors through the functionally independent indices
+    /// `(u0, u1, g)`, so the time-channel Hessian is diagonal. All three stored
+    /// `h_time_*` hold `+∂²ℓ/∂·²` (`= -tower.h[i][i]` of the NLL jet), so the
+    /// NLL curvature `-∂²ℓ` negates each uniformly. Owning the sign here keeps
+    /// the per-channel signs locked together (gam#1396).
+    #[inline]
+    pub(crate) fn time_channel_nll_curvature_diag(&self) -> [f64; 3] {
+        [-self.h_time_h0, -self.h_time_h1, -self.h_time_d]
+    }
 }

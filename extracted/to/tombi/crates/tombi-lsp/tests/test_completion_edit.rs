@@ -1,0 +1,1565 @@
+use tombi_extension::CompletionTextEdit;
+use tombi_test_lib::{
+    project_root_path, today_local_date, today_local_date_time, today_local_time,
+    today_offset_date_time,
+};
+
+mod completion_edit {
+    use super::*;
+    use unicode_segmentation::UnicodeSegmentation;
+
+    fn line_column_to_byte_offset(line: &str, column: usize) -> usize {
+        line.graphemes(true).take(column).map(str::len).sum()
+    }
+
+    fn apply_text_edit(text: &str, text_edit: &tombi_extension::TextEdit) -> String {
+        let mut new_text = String::new();
+        let mut cursor = text.split('\n').enumerate();
+        let start_line = text_edit.range.start.line as usize;
+        let end_line = text_edit.range.end.line as usize;
+
+        while let Some((index, line)) = cursor.next() {
+            if index != 0 {
+                new_text.push('\n');
+            }
+
+            if start_line == index {
+                let start_column =
+                    line_column_to_byte_offset(line, text_edit.range.start.column as usize);
+                new_text.push_str(&line[..start_column]);
+                new_text.push_str(&text_edit.new_text);
+                if index == end_line {
+                    let end_column =
+                        line_column_to_byte_offset(line, text_edit.range.end.column as usize);
+                    new_text.push_str(&line[end_column..]);
+                    continue;
+                }
+                for (index, line) in cursor.by_ref() {
+                    if index == end_line {
+                        let end_column =
+                            line_column_to_byte_offset(line, text_edit.range.end.column as usize);
+                        new_text.push_str(&line[end_column..]);
+                        break;
+                    }
+                }
+            } else {
+                new_text.push_str(line);
+            }
+        }
+
+        new_text
+    }
+
+    #[test]
+    fn apply_text_edit_uses_grapheme_columns_for_unicode() {
+        let text = r#"lsp = { "日本語" = "値", comp }"#;
+        let start = text.find("comp").unwrap();
+        let end = start + "comp".len();
+        let text_edit = tombi_extension::TextEdit {
+            range: tombi_text::Range::new(
+                tombi_text::Position::default() + tombi_text::RelativePosition::of(&text[..start]),
+                tombi_text::Position::default() + tombi_text::RelativePosition::of(&text[..end]),
+            ),
+            new_text: "completion".to_string(),
+        };
+
+        pretty_assertions::assert_eq!(
+            apply_text_edit(text, &text_edit),
+            r#"lsp = { "日本語" = "値", completion }"#
+        );
+    }
+
+    mod tombi_schema {
+        use tombi_test_lib::tombi_schema_path;
+
+        use super::*;
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn tombi_lsp_completion_dot(
+                r#"
+                [lsp]
+                completion.█
+                "#,
+                Select("enabled"),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [lsp]
+                completion.enabled
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn tombi_lsp_completion_dot_with_trailing_space(
+                r#"
+                [lsp]
+                completion. █
+                "#,
+                Select("enabled"),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [lsp]
+                completion.enabled
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn tombi_lsp_completion_equal(
+                r#"
+                [lsp]
+                completion=█
+                "#,
+                Select("enabled"),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [lsp]
+                completion = { enabled$1 }$0
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn tombi_lsp_completion_equal_with_trailing_space(
+                r#"
+                [lsp]
+                completion = █
+                "#,
+                Select("enabled"),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [lsp]
+                completion = { enabled$1 }$0
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn tombi_extensions_key_is_quoted(
+                r#"
+                [extensions]
+                █
+                "#,
+                Select("tombi-toml/cargo"),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [extensions]
+                "tombi-toml/cargo"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn tombi_extensions_inline_table_partial_key_is_replaced(
+                r#"
+                [extensions]
+                "tombi-toml/tombi" = {
+                    lsp = {
+                        comp█
+                    },
+                }
+                "#,
+                Select("completion"),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [extensions]
+                "tombi-toml/tombi" = {
+                    lsp = {
+                        completion
+                    },
+                }
+                "#
+            );
+        }
+    }
+
+    mod cargo_schema {
+        use tombi_test_lib::cargo_schema_path;
+
+        use super::*;
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_package_version(
+                r#"
+                [package]
+                version=█
+                "#,
+                Select("\"0.1.0\""),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [package]
+                version = "0.1.0"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_serde_dot_work(
+                r#"
+                [dependencies]
+                serde.work█
+                "#,
+                Select("workspace = true"),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_serde_dot_work_with_trailing_space(
+                r#"
+                [dependencies]
+                serde. work█
+                "#,
+                Select("workspace = true"),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_serde_eq_work(
+                r#"
+                [dependencies]
+                serde=work█
+                "#,
+                Select("workspace = true"),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_serde_eq_work_with_trailing_space(
+                r#"
+                [dependencies]
+                serde = work█
+                "#,
+                Select("workspace = true"),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_serde_dot_optional(
+                r#"
+                [dependencies]
+                serde.█
+                "#,
+                Select("optional = true"),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.optional = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_serde_workspace_dot(
+                r#"
+                [dependencies]
+                serde = { workspace.█ }
+                "#,
+                Select("true"),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_lib_proc_macro_equal_with_trailing_space(
+                r#"
+                [lib]
+                proc-macro = █
+                "#,
+                Select("true"),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [lib]
+                proc-macro = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate(
+                r#"
+                [dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate_on_empty_line(
+                r#"
+                [dependencies]
+                █
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate_replaces_full_key(
+                r#"
+                [dependencies]
+                ser█de
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_num_chrono_duration_equal(
+                r#"
+                [dependencies]
+                num-chrono-duration=█
+                "#,
+                Select("\"0.1.0\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                num-chrono-duration = "0.1.0"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_num_chrono_duration_dot(
+                r#"
+                [dependencies]
+                num-chrono-duration.█
+                "#,
+                Select("\"0.1.0\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                num-chrono-duration = "0.1.0"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_num_chrono_duration_equal_string(
+                r#"
+                [dependencies]
+                num-chrono-duration = "█"
+                "#,
+                Select("\"0.1.0\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                num-chrono-duration = "0.1.0"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_num_chrono_duration_equal_string_with_comment(
+                r#"
+                [dependencies]
+                num-chrono-duration = "█"  \# comment
+                "#,
+                Select("\"0.1.0\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                num-chrono-duration = "0.1.0"  \# comment
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_num_chrono_duration_equal_version(
+                r#"
+                [dependencies]
+                num-chrono-duration = { version█ }
+                "#,
+                Select("\"0.1.0\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                num-chrono-duration = { version = "0.1.0" }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_num_chrono_duration_equal_version_dot(
+                r#"
+                [dependencies]
+                num-chrono-duration = { version.█ }
+                "#,
+                Select("\"0.1.0\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                num-chrono-duration = { version = "0.1.0" }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_num_chrono_duration_equal_version_equal(
+                r#"
+                [dependencies]
+                num-chrono-duration = { version=█ }
+                "#,
+                Select("\"0.1.0\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                num-chrono-duration = { version = "0.1.0" }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_num_chrono_duration_equal_version_equal_string(
+                r#"
+                [dependencies]
+                num-chrono-duration = { version = "█" }
+                "#,
+                Select("\"0.1.0\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                num-chrono-duration = { version = "0.1.0" }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_workspace_dependencies_addr_not_nested_under_previous_key(
+                r#"
+                [workspace.dependencies]
+                addr= █
+                anyhow = "1.0.98"
+                "#,
+                Select("\"0.15.6\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [workspace.dependencies]
+                addr  = "0.15.6"
+                anyhow = "1.0.98"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_target_dependencies_workspace_inheritance_candidate(
+                r#"
+                [target.'cfg(unix)'.dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [target.'cfg(unix)'.dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dev_dependencies_workspace_inheritance_candidate(
+                r#"
+                [dev-dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dev-dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_build_dependencies_workspace_inheritance_candidate(
+                r#"
+                [build-dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [build-dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_target_build_dependencies_workspace_inheritance_candidate(
+                r#"
+                [target.'cfg(unix)'.build-dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [target.'cfg(unix)'.build-dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+    }
+
+    mod pyproject_schema {
+        use tombi_test_lib::pyproject_schema_path;
+
+        use super::*;
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_project_authors_dot(
+                r#"
+                [project]
+                authors.█
+                "#,
+                Select("[]"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                authors = [$1]$0
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_project_authors_equal(
+                r#"
+                [project]
+                authors=█
+                "#,
+                Select("[]"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                authors = [$1]$0
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_project_name_eq_tombi_comment_directive_lint_dot(
+                r#"
+                [project]
+                name = "tombi"  # tombi: lint.█
+                "#,
+                Select("rules"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "tombi"  # tombi: lint.rules
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_select_single_quote(
+                r#"
+                [dependency-groups]
+                dev=[█]
+                "#,
+                Select("''"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=['$1'$0]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[█]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[{ include-group$1 }$0]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_after_pydantic_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[
+                  █
+                  "pydantic"
+                ]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[
+                  { include-group$1 },$0
+                  "pydantic"
+                ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_after_comma_pydantic_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[
+                  █
+                  ,"pydantic"
+                ]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[
+                  { include-group$1 }$0
+                  ,"pydantic"
+                ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_after_comma_pyright_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[█,"pyright"]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[{ include-group$1 }$0,"pyright"]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_after_comma_include_group_ci_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[█,{ include-group = "ci" }]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[{ include-group$1 }$0,{ include-group = "ci" }]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_pyright_and_comma_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=["pyright", █]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=["pyright", { include-group$1 }$0]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_pyright_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=["pyright" █]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=["pyright", { include-group$1 }$0]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_pyright_and_newline_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[
+                  "pyright"
+                  █
+                ]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[
+                  "pyright",
+                  { include-group$1 }$0
+                ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_pydantic_and_pyright_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[
+                  "pydantic"
+                  █
+                  "pyright"
+                ]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[
+                  "pydantic",
+                  { include-group$1 },$0
+                  "pyright"
+                ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_pydantic_comma_and_pyright_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[
+                  "pydantic",
+                  █
+                  "pyright"
+                ]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[
+                  "pydantic",
+                  { include-group$1 },$0
+                  "pyright"
+                ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_tool_mytool_key_select_dot(
+                r#"
+                [tool.mytool]
+                key█
+                "#,
+                Select("."),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [tool.mytool]
+                key.
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_tool_mytool_key_select_equal(
+                r#"
+                [tool.mytool]
+                key█
+                "#,
+                Select("="),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [tool.mytool]
+                key=
+                "#
+            );
+        }
+    }
+
+    mod without_schema {
+        use super::*;
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_true(
+                "key.█",
+                Select("true"),
+            ) -> Ok(
+                "key = true"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_true_with_trailing_space(
+                "key. █",
+                Select("true"),
+            ) -> Ok(
+                "key = true"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_false(
+                "key.█",
+                Select("false"),
+            ) -> Ok(
+                "key = false"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_integer(
+                "key.█",
+                Select("42"),
+            ) -> Ok(
+                "key = ${0:42}"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_float(
+                "key.█",
+                Select("3.14"),
+            ) -> Ok(
+                "key = ${0:3.14}"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_basic_string(
+                "key.█",
+                Select("\"\""),
+            ) -> Ok(
+                "key = \"$1\"$0"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_basic_string_with_trailing_space(
+                "key. █",
+                Select("\"\""),
+            ) -> Ok(
+                "key = \"$1\"$0"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_today_offset_date_time(
+                "key.█",
+                Select(today_offset_date_time()),
+            ) -> Ok(
+                &format!("key = ${{0:{}}}", today_offset_date_time())
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_today_local_date_time(
+                "key.█",
+                Select(today_local_date_time()),
+            ) -> Ok(
+                &format!("key = ${{0:{}}}", today_local_date_time())
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_today_local_date(
+                "key.█",
+                Select(today_local_date()),
+            ) -> Ok(
+                &format!("key = ${{0:{}}}", today_local_date())
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_today_local_time(
+                "key.█",
+                Select(today_local_time()),
+            ) -> Ok(
+                &format!("key = ${{0:{}}}", today_local_time())
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_array(
+                "key.█",
+                Select("[]"),
+            ) -> Ok(
+                "key = [$1]$0"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_select_array_with_trailing_space(
+                "key. █",
+                Select("[]"),
+            ) -> Ok(
+                "key = [$1]$0"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_true(
+                "key=█",
+                Select("true"),
+            ) -> Ok(
+                "key = true"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_false(
+                "key=█",
+                Select("false"),
+            ) -> Ok(
+                "key = false"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_false_with_trailing_space(
+                "key = █",
+                Select("false"),
+            ) -> Ok(
+                "key = false"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_integer(
+                "key=█",
+                Select("42"),
+            ) -> Ok(
+                "key = ${0:42}"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_float(
+                "key=█",
+                Select("3.14"),
+            ) -> Ok(
+                "key = ${0:3.14}"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_basic_string(
+                "key=█",
+                Select("\"\""),
+            ) -> Ok(
+                "key = \"$1\"$0"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_today_offset_date_time(
+                "key=█",
+                Select(today_offset_date_time()),
+            ) -> Ok(
+                &format!("key = ${{0:{}}}", today_offset_date_time())
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_today_local_date_time(
+                "key=█",
+                Select(today_local_date_time()),
+            ) -> Ok(
+                &format!("key = ${{0:{}}}", today_local_date_time())
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_today_local_date(
+                "key=█",
+                Select(today_local_date()),
+            ) -> Ok(
+                &format!("key = ${{0:{}}}", today_local_date())
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_today_local_time(
+                "key=█",
+                Select(today_local_time()),
+            ) -> Ok(
+                &format!("key = ${{0:{}}}", today_local_time())
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_select_array(
+                "key=█",
+                Select("[]"),
+            ) -> Ok(
+                "key = [$1]$0"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_dot_abc(
+                "key.abc█",
+                Select("$key"),
+            ) -> Ok(
+                "key.abc"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_abc(
+                "key=abc█",
+                Select("$key"),
+            ) -> Ok(
+                "key = { abc$1 }$0"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_array(
+                "key=[█]",
+                Select("$key"),
+            ) -> Ok(
+                "key=[${0:key}]"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_array_abc(
+                "key=[abc█]",
+                Select("$key"),
+            ) -> Ok(
+                "key=[{ abc$1 }$0]"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_array_bra_abc_dot_def_ket(
+                "key=[{ abc.def█ }]",
+                Select("$key"),
+            ) -> Ok(
+                "key=[{ abc.def }]"
+            );
+        }
+    }
+
+    #[macro_export]
+    macro_rules! test_completion_edit {
+        (
+            #[tokio::test]
+            async fn $name:ident($source:expr $(, $arg:expr )* $(,)?) -> Ok(source);
+        ) => {
+            test_completion_edit! {
+                #[tokio::test]
+                async fn $name($source $(, $arg)*) -> Ok($source);
+            }
+        };
+
+        (
+            #[tokio::test]
+            async fn $name:ident($source:expr $(, $arg:expr )* $(,)?) -> Ok($expected:expr);
+        ) => {
+            #[tokio::test]
+            async fn $name() -> Result<(), Box<dyn std::error::Error>> {
+                use tombi_lsp::handler::handle_did_open;
+                use tombi_lsp::Backend;
+                use std::io::Write;
+                use tower_lsp::{
+                    lsp_types::{
+                        CompletionParams, DidOpenTextDocumentParams, PartialResultParams,
+                        TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
+                        Url, WorkDoneProgressParams,
+                    },
+                    LspService,
+                };
+                use tombi_text::IntoLsp;
+                tombi_test_lib::init_log();
+
+                #[allow(unused)]
+                #[derive(Default)]
+                struct TestArgs {
+                    select: Option<String>,
+                    source_file_path: Option<std::path::PathBuf>,
+                    schema_file_path: Option<std::path::PathBuf>,
+                    backend_options: tombi_lsp::backend::Options,
+                }
+
+                #[allow(unused)]
+                trait ApplyTestArg {
+                    fn apply(self, args: &mut TestArgs);
+                }
+
+                #[allow(unused)]
+                struct Select<T>(T);
+
+                impl<T: ToString> ApplyTestArg for Select<T> {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.select = Some(self.0.to_string());
+                    }
+                }
+
+                #[allow(unused)]
+                struct SchemaPath(std::path::PathBuf);
+
+                #[allow(unused)]
+                struct SourcePath(std::path::PathBuf);
+
+                impl ApplyTestArg for SourcePath {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.source_file_path = Some(self.0);
+                    }
+                }
+
+                impl ApplyTestArg for SchemaPath {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.schema_file_path = Some(self.0);
+                    }
+                }
+
+                impl ApplyTestArg for tombi_lsp::backend::Options {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.backend_options = self;
+                    }
+                }
+
+                #[allow(unused_mut)]
+                let mut args = TestArgs::default();
+                $(ApplyTestArg::apply($arg, &mut args);)*
+
+                let (service, _) = LspService::new(|client| {
+                    Backend::new(client, &args.backend_options)
+                });
+
+                let backend = service.inner();
+                let mut schema_items = Vec::new();
+
+                if let Some(schema_file_path) = args.schema_file_path.as_ref() {
+                    let schema_uri = tombi_schema_store::SchemaUri::from_file_path(schema_file_path)
+                        .expect(
+                            format!(
+                                "failed to convert schema path to URL: {}",
+                                schema_file_path.display()
+                            )
+                            .as_str(),
+                        );
+                    schema_items.push(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                        toml_version: None,
+                        path: schema_uri.to_string(),
+                        include: vec!["*.toml".into()],
+                        exclude: None,
+                        lint: None,
+                        format: None,
+                        overrides: None,
+                    }));
+                }
+
+                let Ok(temp_file) = tempfile::NamedTempFile::with_suffix_in(
+                    ".toml",
+                    std::env::current_dir().expect("failed to get current directory"),
+                ) else {
+                    return Err("failed to create a temporary file for the test data".into());
+                };
+
+                let mut toml_text = textwrap::dedent($source).trim().to_string();
+
+                let Some(index) = toml_text.as_str().find("█") else {
+                    return Err(
+                        "failed to find completion position marker (█) in the test data".into()
+                    );
+                };
+
+                toml_text.remove(index);
+                if temp_file.as_file().write_all(toml_text.as_bytes()).is_err() {
+                    return Err(
+                        "failed to write test data to the temporary file, which is used as a text document"
+                            .into(),
+                    );
+                }
+                let line_index =
+                tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+
+                let source_path = args.source_file_path.as_deref().unwrap_or(temp_file.path());
+                let toml_file_url = Url::from_file_path(source_path)
+                    .map_err(|_| "failed to convert file path to URL")?;
+
+                if !schema_items.is_empty() {
+                    let config_schema_store = backend
+                        .config_manager
+                        .config_schema_store_for_file(&source_path)
+                        .await;
+
+                    let mut test_config = config_schema_store.config;
+                    let mut existing_schemas = test_config.schemas.take().unwrap_or_default();
+                    existing_schemas.extend(schema_items);
+                    test_config.schemas = Some(existing_schemas);
+
+                    if let Some(config_path) = config_schema_store.config_path {
+                        backend
+                            .config_manager
+                            .update_config_with_path(test_config, &config_path)
+                            .await
+                            .map_err(|e| {
+                                format!(
+                                    "failed to update config {}: {}",
+                                    config_path.display(),
+                                    e
+                                )
+                            })?;
+                    } else {
+                        backend.config_manager.update_editor_config(test_config).await;
+                    }
+                }
+
+                handle_did_open(
+                    backend,
+                    DidOpenTextDocumentParams {
+                        text_document: TextDocumentItem {
+                            uri: toml_file_url.clone(),
+                            language_id: "toml".to_string(),
+                            version: 0,
+                            text: toml_text.clone(),
+                        },
+                    },
+                )
+                .await;
+
+                let cursor_position = tombi_text::Position::default()
+                    + tombi_text::RelativePosition::of(&toml_text[..index]);
+
+                let Ok(Some(completion_contents)) = tombi_lsp::handler::handle_completion(
+                    &backend,
+                    CompletionParams {
+                        text_document_position: TextDocumentPositionParams {
+                            text_document: TextDocumentIdentifier {
+                                uri: toml_file_url,
+                            },
+                            position: cursor_position.into_lsp(&line_index),
+                        },
+                        work_done_progress_params: WorkDoneProgressParams::default(),
+                        partial_result_params: PartialResultParams {
+                            partial_result_token: None,
+                        },
+                        context: None,
+                    },
+                )
+                .await
+                else {
+                    return Err("failed to handle completion".into());
+                };
+
+                let Some(selected) = args.select.as_ref() else {
+                    return Err("no completion item selection provided via Select(..)".into());
+                };
+
+                let Some(completion_content) = completion_contents
+                    .clone()
+                    .into_iter()
+                    .find(|content| content.label == *selected)
+                else {
+                    return Err(
+                        format!(
+                            "failed to find the selected completion item \"{}\" in [{}]",
+                            selected,
+                            completion_contents
+                                .iter()
+                                .map(|content| content.label.as_str())
+                                .collect::<Vec<&str>>()
+                                .join(", ")
+                        )
+                        .into(),
+                    );
+                };
+
+                let Some(completion_edit) = completion_content.edit else {
+                    return Err(format!(
+                        "failed to get the edit of the selected completion item {}",
+                        selected
+                    )
+                    .into());
+                };
+
+                let mut new_text = match completion_edit.text_edit {
+                    CompletionTextEdit::Edit(text_edit) => {
+                        let pre_cursor_text = {
+                            let start_line = text_edit.range.start.line as usize;
+                            let start_col = text_edit.range.start.column as usize;
+                            let cursor_line = cursor_position.line as usize;
+                            let cursor_col = cursor_position.column as usize;
+                            if (start_line, start_col) >= (cursor_line, cursor_col) {
+                                None
+                            } else {
+                                // `column` is a grapheme count (see
+                                // `tombi_text::RelativePosition::of`), so convert it to a
+                                // byte offset via the same grapheme iteration instead of
+                                // treating it as a byte index.
+                                let before_cursor = &toml_text[..index];
+                                let line_start = std::iter::once(0)
+                                    .chain(
+                                        before_cursor
+                                            .char_indices()
+                                            .filter_map(|(i, c)| (c == '\n').then_some(i + 1)),
+                                    )
+                                    .nth(start_line)
+                                    .unwrap_or(before_cursor.len());
+                                let byte_offset_in_line: usize = before_cursor[line_start..]
+                                    .graphemes(true)
+                                    .take(start_col)
+                                    .map(str::len)
+                                    .sum();
+                                let byte_start =
+                                    (line_start + byte_offset_in_line).min(before_cursor.len());
+                                Some(&before_cursor[byte_start..])
+                            }
+                        };
+                        if let Some(pre_cursor_text) = pre_cursor_text {
+                            let filter_text = completion_content
+                                .filter_text
+                                .as_deref()
+                                .unwrap_or(completion_content.label.as_str());
+                            assert!(
+                                filter_text.starts_with(pre_cursor_text),
+                                "text_edit.range covers text {:?} before the cursor that is not a \
+                                 prefix of the completion's filter_text/label ({:?}).\n\
+                                 \n\
+                                 VSCode hides completion candidates whose `text_edit` range spans \
+                                 pre-cursor text that is not a prefix of the completion's \
+                                 `filterText` (or `label`, when `filterText` is unset). Such items \
+                                 never reach the suggestion list, so the completion silently stops \
+                                 working in the editor — even though tests that apply edits directly \
+                                 (like this one) still produce the expected output.\n\
+                                 \n\
+                                 Keep `text_edit.range` scoped to either the cursor position \
+                                 (`Range::at(position)`) or the exact range of the word prefix being \
+                                 completed (so the pre-cursor slice is a prefix of the filter_text). \
+                                 Any pre-cursor cleanup — deleting trigger characters like `.` / `=`, \
+                                 trailing whitespace, partial keys that are NOT the filter prefix, \
+                                 etc. — MUST be expressed via `additional_text_edits`.\n\
+                                 \n\
+                                 See `CompletionEdit` in \
+                                 `crates/tombi-extension/src/completion/completion_edit.rs` for examples.",
+                                pre_cursor_text,
+                                filter_text,
+                            );
+                        }
+
+                        super::apply_text_edit(&toml_text, &text_edit)
+                    }
+                    CompletionTextEdit::InsertAndReplace(_) => {
+                        return Err(
+                            "InsertAndReplace completion edits are not currently produced by the \
+                             completion pipeline under test. Add a focused fixture before \
+                             extending this harness."
+                                .into(),
+                        );
+                    }
+                };
+
+                if let Some(text_edits) = completion_edit.additional_text_edits {
+                    for text_edit in text_edits {
+                        new_text = super::apply_text_edit(&new_text, &text_edit);
+                    }
+                }
+
+                backend.abort_background_tasks();
+
+                pretty_assertions::assert_eq!(new_text, textwrap::dedent($expected).trim());
+
+                Ok(())
+            }
+        };
+    }
+}

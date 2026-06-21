@@ -8,6 +8,7 @@ one cohesive orchestrator, because reasoning/tool/sanitize are tightly coupled.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from typing import TYPE_CHECKING
@@ -48,6 +49,120 @@ def _find_json_start(text: str) -> int:
             return i
         i += 1
     return -1
+
+
+def _find_json_fence_opener(text: str) -> int:
+    """Return the index of the OPENING JSON fence in ``text``, or -1.
+
+    Used by the H-07 scan phase to anchor the JSON-start search past
+    any preamble fences. The OPENING JSON fence is the last
+    triple-backtick whose payload starts (after an optional ``json``
+    language tag and whitespace) with ``{`` or ``[`` — i.e., the
+    fence whose body is actual JSON.
+
+    Codex r7 BLOCKING: a preamble may include NON-JSON fenced
+    examples (``\\n```python\\nx=1\\n``` ``) before the actual JSON
+    fence; the earlier ``buf.find("```")`` anchored on the python
+    fence and skipped the real ``` ```json `` opener. Scanning for
+    a fence whose payload begins with a JSON delimiter eliminates
+    that ambiguity — language-tagged code blocks (python, bash,
+    etc.) and string-content fences don't match.
+
+    Codex r10 BLOCKING: the scan must NOT look past the
+    matching CLOSING fence of a NON-JSON block. Otherwise a preamble
+    like ``\\n```python\\nx\\n```\\n{"k":1}`` would treat the python
+    block's closing ``` ``` `` (followed by ``\\n{`` in the next text)
+    as an opening JSON fence. We pair each ``` ``` `` with its
+    matching closer and skip past the closer before scanning the
+    next fence — only the OPENING fences can win, and only those
+    whose immediately-following payload begins with a JSON delimiter.
+
+    Returns the index of the first backtick of the chosen fence,
+    or -1 if no JSON-bearing fence is found. Multiple matches: the
+    LAST one wins (preferring the most recent fence — the model is
+    most likely to wrap the FINAL answer).
+    """
+    best = -1
+    i = 0
+    n = len(text)
+    while i < n:
+        pos = text.find("```", i)
+        if pos < 0:
+            break
+        # Skip past the fence + optional ``json`` tag + whitespace.
+        cur = pos + 3
+        is_json_tagged = text[cur : cur + 4].lower() == "json"
+        if is_json_tagged:
+            cur += 4
+        while cur < n and text[cur] in " \t\r\n":
+            cur += 1
+        # If the next non-whitespace char is a JSON delimiter, this
+        # fence opens a JSON block — eligible as the opener.
+        if cur < n and text[cur] in "{[":
+            best = pos
+        # Codex r10 BLOCKING: advance past the matching CLOSING
+        # fence so we don't treat its trailing whitespace + a later
+        # JSON delimiter as a fresh opener. If no closer exists yet
+        # (streaming: closer hasn't arrived), advance one char past
+        # the opener so we don't loop forever on the same position.
+        closer = text.find("```", pos + 3)
+        i = closer + 3 if closer >= 0 else pos + 3
+    return best
+
+
+def _json_fence_suffix_hold_len(text: str) -> int:
+    """Return how many trailing bytes of ``text`` MIGHT start a ``` fence.
+
+    Used by the H-07 streaming fence-strip state machine in
+    ``StreamingPostProcessor._guard_closing_fence``. A closing fence on
+    the wire is one of ``\\n```\\n``, ```\\n``, or ``` ``` `` alone; the
+    longest legitimate fence-prefix this function recognizes at a
+    chunk boundary is ``\\n`` + up to two backticks (the next chunk
+    would carry the third backtick to complete the fence).
+
+    Returns ``0`` (release everything) on the bare-JSON fast path —
+    chunks ending in ``}``, a digit, a quote, etc. flush immediately.
+    Only chunks ending in ``\\n``, ``\\r``, or ``` ` `` pay a one-chunk
+    delay so the state machine can decide whether the suffix becomes
+    a fence.
+
+    Codex r2 BLOCKING: when the trailing suffix is ``\\n```` ``,
+    ``\\n```` ``, or ``\\n``` ``, the hold MUST include the leading
+    ``\\n`` together with the backticks. Otherwise the next chunk's
+    closing-fence completion swallows the backticks but the ``\\n``
+    is already on the wire, leaving the stream output ``...}\\n``
+    instead of the bare ``...}`` the non-stream path produces — a
+    deviation that breaks byte-identical equality with the non-stream
+    response shape.
+    """
+    if not text:
+        return 0
+
+    # Walk from the right counting trailing backticks (up to 3).
+    trailing_backticks = 0
+    while trailing_backticks < 3 and trailing_backticks < len(text):
+        if text[-(trailing_backticks + 1)] == "`":
+            trailing_backticks += 1
+        else:
+            break
+
+    if trailing_backticks > 0:
+        # Hold ``trailing_backticks`` backticks AND any immediately
+        # preceding newline. The newline is part of the canonical
+        # closing fence ``\\n``` `` and must not slip onto the wire
+        # before the rest of the fence arrives.
+        pre = len(text) - trailing_backticks
+        if pre > 0 and text[pre - 1] in "\r\n":
+            return trailing_backticks + 1
+        return trailing_backticks
+
+    # No trailing backticks. A lone ``\\n`` at the end could be the
+    # start of ``\\n```\\n``; hold ONE byte. The next chunk's ``` ` ``
+    # will trigger the combined re-scan, and we'll re-evaluate the
+    # hold above with the backtick(s) appended.
+    if text[-1] in "\r\n":
+        return 1
+    return 0
 
 
 class StreamingPostProcessor:
@@ -220,6 +335,84 @@ class StreamingPostProcessor:
         self._json_preamble_stripped = False
         self._json_preamble_buffer = ""
 
+        # JSON mode: ```json markdown-fence strip (H-07).
+        # The non-streaming chat response builder calls
+        # ``extract_json_from_response`` to peel a ```json\n{...}\n```
+        # wrapper off the model output when ``response_format`` is set so
+        # downstream clients see bare JSON. The streaming path concatenated
+        # raw model tokens without the same scrub — joined SSE deltas
+        # decoded as ```json\n{...}\n``` and ``json.loads`` failed for any
+        # SDK consumer assembling ``delta.content`` into a string.
+        #
+        # State machine (driven by ``_apply_json_fence_strip``) swallows an
+        # opening fence (with any leading whitespace / pre-JSON think
+        # content), passes the JSON body through, and suppresses a trailing
+        # closing fence. Active only when ``json_mode=True``; absent or
+        # ``"text"`` ``response_format`` leaves these fields cold and the
+        # state machine is a pass-through.
+        #
+        # ``_json_fence_state`` values:
+        #   "scan"   — pre-JSON: buffering until we see ``{``/``[`` or a
+        #              ``` fence. Holds bytes in ``_json_fence_buffer``.
+        #   "inside" — JSON body streaming. Holds a small tail in
+        #              ``_json_fence_tail`` to defer emission of bytes that
+        #              might be the start of a closing ``\n``` ``.
+        #   "done"   — closing fence consumed; suppress all further bytes.
+        self._json_fence_state: str = "scan"
+        self._json_fence_buffer: str = ""
+        self._json_fence_tail: str = ""
+        # Lightweight JSON-string awareness for fence detection.
+        # Tracks whether the cursor (running over emitted JSON body
+        # bytes only) is currently INSIDE a JSON ``"..."`` string
+        # literal — backticks inside a string literal are content, not
+        # fence markers, so we MUST skip them when looking for the
+        # closing ``` ``` ``. The flag flips on every unescaped ``"``
+        # we see in the streamed payload. The escape flag handles
+        # ``\\"`` so the next ``"`` does NOT flip the state.
+        #
+        # Codex r1 BLOCKING #1: without this, a valid JSON value like
+        # ``{"text": "```"}`` would be truncated by the leftmost-find
+        # behavior of the original ``_guard_closing_fence``.
+        self._json_fence_in_string: bool = False
+        self._json_fence_string_escape: bool = False
+        # Bracket-depth tracker (running over emitted JSON body bytes
+        # only). Increments on ``{``/``[`` outside string literals,
+        # decrements on ``}``/``]``. The closing fence ``` ``` `` is
+        # only recognized when ``depth == 0`` — i.e. AFTER the
+        # top-level JSON root has fully closed. Without this, a
+        # response like
+        # ``{"k": 1}\nHere is code:\n```python\nx = 1\n``` ``
+        # would truncate at the FIRST triple-backtick after the JSON
+        # root and emit ``...\nHere is code:`` as content; with this,
+        # the fence still fires only at depth 0 (after ``}``) and the
+        # trailing markdown still gets suppressed AS the wrapper that
+        # json_mode promises to strip. The state lives on the
+        # instance because the walker re-scans ``combined`` from
+        # index 0 on every call and must resume with the depth value
+        # snapshotted at the start of the held tail. Codex r5
+        # BLOCKING.
+        self._json_fence_bracket_depth: int = 0
+        # Whether the scan phase actually consumed an opening
+        # ``` ```json `` (or bare ``` ``` `` wrapping JSON) fence.
+        # Codex r8 BLOCKING #2: ``_guard_closing_fence`` only
+        # suppresses a closing ``` ``` `` when an opening fence was
+        # consumed; bare-JSON streams (model returned ``{...}`` straight
+        # with no markdown wrapper) pass markdown content after the
+        # root close THROUGH UNCHANGED, mirroring the non-stream
+        # ``extract_json_from_response`` which leaves unfenced text
+        # alone. Without this gate, a model that legitimately
+        # continues with prose containing ``` ``` `` after the JSON
+        # would have the prose truncated.
+        self._json_fence_opener_consumed: bool = False
+        # Codex r9 BLOCKING #1: persistent flag — has the JSON root
+        # closed (depth returned to 0 from >0 at some point)? Once
+        # this latches in fenced mode, every byte after that point
+        # is wrapper/prose/whitespace/fence; we suppress all of it
+        # until the closing ``` ``` `` fence is confirmed. Without
+        # this latch a chunk boundary between root-close and the
+        # fence leaks the intervening bytes onto the wire.
+        self._json_root_closed: bool = False
+
         # Forced ``tool_choice`` assistant-prefix replay swallow (PR #716
         # codex r9 BLOCKING #1). When the route layer forces a function via
         # the OpenAI ``tool_choice`` contract (#673), the chat-template
@@ -280,6 +473,562 @@ class StreamingPostProcessor:
         # that look at ``delta_text`` boundaries it leaks).
         self.tool_accumulated_text = prefix
         self._forced_prefix_pending = prefix
+
+    # ------------------------------------------------------------------
+    # H-07: ```json markdown-fence strip for streaming json_mode
+    # ------------------------------------------------------------------
+    #
+    # Mirrors the non-streaming ``extract_json_from_response`` behaviour
+    # (vllm_mlx/api/utils.py) on the SSE delta path. The non-stream
+    # response calls that helper after assembling the full text; the
+    # stream path concatenated raw tokens without any fence scrub, so
+    # joined ``delta.content`` parsed as ```json\n{...}\n``` and clients
+    # had to de-fence manually (H-07 / Marisol repro).
+    #
+    # Design: a per-instance state machine, NOT a post-join regex. Two
+    # constraints forced the state-machine shape:
+    #
+    # 1. Fence tokens are split across delta chunks. Tokenizers fragment
+    #    ``\n``` `` arbitrarily ("``", "`json", "\n"); a post-emission
+    #    regex would not help because we need to SUPPRESS bytes BEFORE
+    #    they reach the wire.
+    # 2. The bare-JSON path (model returns ``{...}`` with no fence at
+    #    all) must pass through unchanged — we can't unconditionally
+    #    buffer.
+    #
+    # No-op when ``json_mode`` is False (``response_format`` absent or
+    # ``"text"``); the gate sits inside ``_apply_json_fence_strip`` so
+    # all call sites can call it unconditionally.
+    #
+    # ``_json_fence_state`` transitions:
+    #   "scan"   → "inside"  when the first JSON delimiter (``{``/``[``)
+    #                        is seen, with any preceding ``` ```json ``` /
+    #                        ``` ``` `` / whitespace / think-content
+    #                        bytes suppressed.
+    #   "inside" → "done"    when a closing ``` ``` `` is detected (with
+    #                        the preceding ``\n`` also dropped).
+    #
+    # Bounded buffers: ``_json_fence_buffer`` is capped at 4096 bytes.
+    # Codex r9 NIT: when the cap is exceeded the implementation TRIMS
+    # the buffer to the trailing ``_JSON_FENCE_SCAN_KEEP_SUFFIX`` bytes
+    # (just enough for a split opening fence to still be detected on
+    # the next chunk) and KEEPS scanning. Older preamble bytes are
+    # dropped from memory but NEVER released onto the wire — the
+    # json-mode contract is "suppress everything before the first
+    # ``{``/``[``" and runaway preambles do not relax that contract
+    # (codex r3 BLOCKING).
+
+    # Max bytes to accumulate while scanning for the JSON start. Past
+    # this point the buffer is trimmed to the last
+    # ``_JSON_FENCE_SCAN_KEEP_SUFFIX`` bytes — JUST enough to detect
+    # an opening fence split across the trim boundary — while older
+    # preamble bytes are dropped from the buffer. We never RELEASE the
+    # preamble onto the wire (codex r3 BLOCKING: doing so would leak
+    # the wrapper that the non-stream path strips); we just stop
+    # holding the entire history in memory.
+    _JSON_FENCE_SCAN_CAP = 4096
+    # When the scan cap is hit, retain this many trailing bytes so
+    # a split ``...\\n``` `` opening fence can still be detected on
+    # the next chunk. ``"```json\n"`` is 8 bytes; 32 gives slack for
+    # rare opener variants like ``` ```json   \n ``` and is still
+    # negligible vs. the dropped 4KB.
+    _JSON_FENCE_SCAN_KEEP_SUFFIX = 32
+
+    def _apply_json_fence_strip(self, content: str) -> str:
+        """Strip ```json...``` markdown fence from streaming content.
+
+        See block comment above for design rationale. Returns the
+        bytes that are safe to emit on the wire RIGHT NOW; any
+        deferred tail bytes are held in ``self._json_fence_tail`` and
+        flushed by ``_flush_json_fence_tail`` at stream end.
+
+        No-op when ``json_mode`` is False — the call sites pass content
+        through unchanged in that case.
+        """
+        if not self.json_mode or not content:
+            return content
+
+        state = self._json_fence_state
+
+        if state == "done":
+            # Closing fence already consumed; any trailing model bytes
+            # (often a stray newline / whitespace before EOS) are
+            # suppressed so the joined stream stays parseable JSON.
+            return ""
+
+        if state == "scan":
+            self._json_fence_buffer += content
+            buf = self._json_fence_buffer
+            # Codex r6 BLOCKING #2: when an opening fence is present
+            # in the preamble, the REAL JSON answer starts AFTER the
+            # fence, not at the first ``{``/``[`` we see. A preamble
+            # like ``Example shape: {"k":...}\n```json\n{"answer":42}\n``` ``
+            # has TWO JSON delimiters; the first is illustrative
+            # content. Prefer the JSON delimiter that appears after
+            # the LAST opening fence in the preamble.
+            # Find the first JSON delimiter AND the first ``` ``` ``.
+            # The order matters: a fence BEFORE the JSON delimiter
+            # is the OPENING fence (we anchor search after it to
+            # skip an illustrative-example JSON in the preamble —
+            # codex r6 BLOCKING #2); a fence AFTER the first JSON
+            # delimiter (or no fence at all) is irrelevant to the
+            # scan-phase anchor — that's the closing fence (the
+            # ``_guard_closing_fence`` walker handles it later).
+            json_start = _find_json_start(buf)
+            fence_pos = _find_json_fence_opener(buf)
+            # Codex r8 BLOCKING #1: re-anchor whenever a JSON-bearing
+            # fence opener exists ANYWHERE in the buffer — not only
+            # when ``fence_pos < json_start``. A preamble like
+            # ``Example: {"k":1}\n```json\n{"answer":42}\n``` `` has
+            # the example JSON BEFORE the fence; without unconditional
+            # re-anchoring we'd land on the example. ``_find_json_fence_opener``
+            # already requires the fence's payload to start with
+            # ``{``/``[``, so the candidate is reliable.
+            if fence_pos >= 0:
+                # Opening fence in preamble. Re-anchor the JSON
+                # search to after the fence + optional ``json`` tag
+                # + whitespace, so an illustrative example JSON
+                # before the fence does NOT win.
+                #
+                # Codex r7 BLOCKING: ``_find_json_fence_opener`` looks
+                # for the LAST ``` ```json `` (case-insensitive) before
+                # the first JSON delimiter, then falls back to a bare
+                # ``` ``` ``. This handles preambles that include
+                # NON-JSON fenced examples (``\\n```python\\n...\\n``` ``)
+                # before the real JSON fence — those earlier fences
+                # don't anchor the search.
+                search_from = fence_pos + 3
+                if buf[search_from : search_from + 4].lower() == "json":
+                    search_from += 4
+                while search_from < len(buf) and buf[search_from] in " \t\r\n":
+                    search_from += 1
+                rel_start = _find_json_start(buf[search_from:])
+                if rel_start < 0:
+                    # Opener seen but no JSON delimiter yet — keep
+                    # scanning. Apply the scan-cap trim if needed.
+                    if len(buf) > self._JSON_FENCE_SCAN_CAP:
+                        self._json_fence_buffer = buf[
+                            -self._JSON_FENCE_SCAN_KEEP_SUFFIX :
+                        ]
+                    return ""
+                json_start = search_from + rel_start
+                # Codex r8 BLOCKING #2: record that an opening fence
+                # was actually consumed in the scan phase. The
+                # closing-fence walker uses this flag to decide
+                # whether to suppress a later ``` `` ``` — a bare-JSON
+                # stream (no opening fence) must pass markdown after
+                # the JSON root through unchanged.
+                self._json_fence_opener_consumed = True
+            elif json_start < 0:
+                # No JSON delimiter AND no opening fence yet. Keep
+                # scanning. If the buffer grew past the cap, drop
+                # the OLD bytes — but keep enough of the suffix to
+                # catch a fence-opener split across the boundary.
+                # Codex r3 BLOCKING: the earlier draft RELEASED
+                # the entire >4KB buffer raw, which leaked the
+                # preamble + opening fence onto the wire (the
+                # opposite of what response_format=json_* requires).
+                # The contract for json_mode is "suppress everything
+                # before the first ``{``/``[``", and that contract
+                # must hold regardless of preamble length.
+                if len(buf) > self._JSON_FENCE_SCAN_CAP:
+                    self._json_fence_buffer = buf[-self._JSON_FENCE_SCAN_KEEP_SUFFIX :]
+                return ""
+            # else: json_start is set; fence (if any) was AFTER the
+            # JSON delimiter — the ``_guard_closing_fence`` walker
+            # will suppress it. Found the JSON start. Strip everything
+            # before it (preamble + opening fence). Symmetric with the
+            # non-stream ``extract_json_from_response``'s
+            # ``rfind('{') ... endswith('}')`` peel: bytes BEFORE the
+            # first ``{``/``[`` are the wrapper, and we are done
+            # with them.
+            payload = buf[json_start:]
+            self._json_fence_state = "inside"
+            self._json_fence_buffer = ""
+            return self._guard_closing_fence(payload)
+
+        # state == "inside" — pass content through, guarding against the
+        # closing fence.
+        return self._guard_closing_fence(content)
+
+    def _guard_closing_fence(self, content: str) -> str:
+        """Hold back the last few bytes that might start a closing ``` fence.
+
+        The streaming wire MUST suppress the trailing ``\\n```\\n``
+        before it lands in the SSE delta. Bytes that COULD be the
+        beginning of such a fence are held in ``_json_fence_tail`` and
+        only released once we know they are not a fence.
+
+        Tail-hold size is ``_JSON_FENCE_TAIL_HOLD`` so the typical
+        ``\\n```\\n`` / ``\\r\\n```\\r\\n`` patterns fit entirely in
+        the deferred buffer.
+
+        Bare-JSON streams pay no latency: ``_json_fence_suffix_hold_len``
+        returns 0 when the chunk does not end in a fence-prefix
+        character (``\\n`` / ``\\r`` / ``` ` ``), so a stream of
+        ``{"k": 1}`` chunks flushes immediately. Only chunks whose
+        last byte LOOKS like the start of a closing fence are
+        deferred — that one chunk's bytes are held until the next
+        chunk arrives or ``_flush_json_fence_tail`` runs in
+        ``finalize()``.
+        """
+        # Prepend any previously-held tail so we re-examine the full
+        # suffix as a single string.
+        combined = self._json_fence_tail + content
+        self._json_fence_tail = ""
+
+        # Codex r8 BLOCKING #2: bare-JSON streams (no opening fence
+        # consumed in the scan phase) must not have closing-fence
+        # detection or fence-tail hold applied. The non-stream
+        # ``extract_json_from_response`` leaves unfenced text alone;
+        # streaming has to match. Without this fast-path, a model
+        # that returns ``{...}\n\nHere's how I did it:\n```python...```
+        # would get truncated at the first ``` ``` ``. Flush any held
+        # tail and pass the rest through unchanged.
+        if not self._json_fence_opener_consumed:
+            return combined
+
+        # Walk the buffer character-by-character, tracking JSON-string
+        # state, so the FIRST ``` `` ` ``` we treat as a closing fence
+        # is actually OUTSIDE a string literal. Codex r1 BLOCKING #1:
+        # the previous leftmost-``find("```")`` truncated valid JSON
+        # whose VALUES happened to contain triple-backticks (e.g.
+        # ``{"markdown": "```python\\nx\\n```"}``).
+        #
+        # The walker starts from the per-instance snapshot of the
+        # (in_string, escape) flags taken at the held-tail boundary on
+        # the previous call. ``combined`` is structured as
+        # ``[previously-held tail] + [fresh content]`` and the snapshot
+        # is exactly the flag state AT the start of that previously-
+        # held tail — so the walker over ``combined`` from index 0
+        # produces the correct flag state at every position.
+        in_string = self._json_fence_in_string
+        escape = self._json_fence_string_escape
+        depth = self._json_fence_bracket_depth
+        # ``json_root_closed_at`` records the index IMMEDIATELY AFTER
+        # the brace/bracket that closed the JSON root (depth returned
+        # to 0 from > 0). For json_mode the contract is "emit ONLY the
+        # JSON object", matching the non-stream
+        # ``extract_json_from_response`` shape. Everything after the
+        # closing brace is wrapper/explanation/fence/whitespace and
+        # gets suppressed — whether or not a triple-backtick follows.
+        # Codex r5 BLOCKING: the earlier draft only suppressed AT the
+        # first ``` ``` ``, leaving trailing prose like
+        # ``\nHere is code:`` on the wire.
+        # Walker tracks JSON-root close AND the closing ``` ``` ``
+        # fence. ``json_root_closed_at`` is the index of the brace
+        # that returned depth to 0 (top-level close). ``fence_idx``
+        # is the index of the FIRST ``` ``` `` that appears OUTSIDE
+        # a JSON string literal AND AT depth==0 (i.e. after the JSON
+        # root has fully closed). For the saw-open-fence path we
+        # truncate at fence_idx; if the buffer contains a root-close
+        # but no fence yet, we MUST continue holding (the model may
+        # still be emitting whitespace between root-close and the
+        # closing fence — that whitespace is suppressed regardless,
+        # but truncating at root-close would lose the chance to
+        # recognise a JSON value that contains a literal terminating
+        # ``}`` followed by more content the model still wants to
+        # emit, e.g. the codex r6 #1 multi-value concern). The
+        # contract: opening fence seen => terminator is the closing
+        # fence, not the root close.
+        # Codex r9 BLOCKING #1: track the FIRST index at which the JSON
+        # root closes (depth returns from 1 to 0). For fenced-mode
+        # streams the contract is "emit the JSON object only" — bytes
+        # between the root close and the closing fence are
+        # wrapper / explanation that the non-stream
+        # ``extract_json_from_response`` strips along with the fence.
+        # We must NOT emit those bytes onto the wire as they arrive in
+        # an earlier chunk than the closing ``` ``` ``. Track the
+        # ROOT_CLOSE position so we can suppress everything from it
+        # onward when no fence is found in this chunk (the next chunk
+        # might carry both extra prose AND the fence — we hold both).
+        fence_idx = -1
+        # Codex r9 BLOCKING #1: ``root_close_at`` tracks the FIRST
+        # index in ``combined`` at which the JSON root closed. When
+        # the persistent ``_json_root_closed`` latch is already set
+        # (from a PRIOR call's walker), every byte of ``combined`` is
+        # post-root-close — root_close_at = 0 so we suppress from the
+        # start. Otherwise we scan for the first depth-1→0
+        # transition and record its position+1 (the byte AFTER the
+        # closing brace/bracket).
+        root_close_at = 0 if self._json_root_closed else -1
+        i = 0
+        n = len(combined)
+        while i < n:
+            c = combined[i]
+            if escape:
+                escape = False
+                i += 1
+                continue
+            if c == "\\" and in_string:
+                escape = True
+                i += 1
+                continue
+            if c == '"':
+                in_string = not in_string
+                i += 1
+                continue
+            if not in_string:
+                if c in "{[":
+                    depth += 1
+                    i += 1
+                    continue
+                if c in "}]":
+                    # Defensive clamp on negative depth (malformed
+                    # unbalanced output).
+                    prev_depth = depth
+                    depth = max(depth - 1, 0)
+                    if prev_depth == 1 and depth == 0 and root_close_at < 0:
+                        # First top-level close — record the position
+                        # right AFTER this closing brace/bracket.
+                        root_close_at = i + 1
+                    i += 1
+                    continue
+                # Triple-backtick OUTSIDE a JSON string AND OUTSIDE
+                # the JSON body (depth==0). Codex r1 + r5 + r6
+                # combined: a backtick inside a string literal is
+                # value content, a backtick inside the structural
+                # body (between matched braces) is also content
+                # (e.g. JSON containing a stringified code block);
+                # the ONLY position that means "closing fence" is
+                # at depth 0 after the root has closed.
+                if c == "`" and depth == 0 and combined[i : i + 3] == "```":
+                    fence_idx = i
+                    break
+            i += 1
+
+        if fence_idx >= 0:
+            # Closing fence found at depth 0. Trim payload at the
+            # FIRST root close (codex r9 BLOCKING #1: drop any
+            # explanation prose between the JSON root and the fence,
+            # symmetric with the non-stream
+            # ``_strip_markdown_code_block`` peel), then drop the
+            # newline whitespace.
+            cut = root_close_at if 0 <= root_close_at <= fence_idx else fence_idx
+            payload = combined[:cut].rstrip("\r\n")
+            self._json_fence_state = "done"
+            return payload
+
+        # Codex r9 BLOCKING #1: in fenced mode, once the JSON root has
+        # closed we MUST suppress every byte after the close until the
+        # closing fence arrives. Otherwise a chunk-boundary like
+        # ``{"k":1}\nextra`` (chunk N) + ``` ``` `` (chunk N+1) leaks
+        # ``\nextra`` onto the wire before the fence terminator is
+        # seen — the joined stream would be ``{"k":1}\nextra``,
+        # invalid JSON for any client that runs ``json.loads`` on
+        # the assembled deltas. Emit only the bytes UP TO root close
+        # (the JSON object itself) and HOLD all post-close bytes as
+        # tail. The next call's walker re-examines the full
+        # tail+content buffer for the fence; the tail is bounded by
+        # one chunk's worth of post-close bytes per call.
+        if root_close_at >= 0:
+            head = combined[:root_close_at]
+            self._json_fence_tail = combined[root_close_at:]
+            # Snapshot flags AT the root-close boundary. ``head`` ends
+            # at depth 0 outside any string, so reset the snapshot to
+            # that baseline. The persistent ``_json_root_closed`` latch
+            # ensures the next call's walker treats ``combined``'s very
+            # first byte as already past the close — so any new
+            # post-close bytes are also held until the fence arrives.
+            self._json_fence_in_string = False
+            self._json_fence_string_escape = False
+            self._json_fence_bracket_depth = 0
+            self._json_root_closed = True
+            return head
+
+        # No complete fence yet. Compute the minimum suffix-hold so the
+        # NEXT chunk can still detect a fence that straddles the chunk
+        # boundary. A closing fence on the wire is one of:
+        #
+        #   ``\\n```\\n``  (canonical)
+        #   ```\\n``       (no trailing newline; ``` could land at EOS)
+        #   ```            (fence-only line, no newlines)
+        #
+        # The longest prefix that could legitimately appear at the END
+        # of a non-fence emission is 4 bytes: ``\\n`` followed by up to
+        # two backticks (the next chunk would carry the third backtick
+        # to complete the fence). Anything longer than that we KNOW is
+        # real JSON body and can release immediately. Anything shorter
+        # that ends in ``\\n`` / ``` ` `` / ``` `` `` we hold; anything
+        # else we release wholesale.
+        #
+        # Codex r1 BLOCKING #1 redux: when the trailing fence-prefix
+        # chars are INSIDE a JSON string literal (the running
+        # ``in_string`` flag from the walker says so), they can't be
+        # the start of a closing fence — release them too.
+        # At this point the walker advanced ``in_string`` / ``escape``
+        # to the END of the entire ``combined`` buffer (no fence found).
+        # We need to snapshot the flags as they were at the START of
+        # the soon-to-be-held tail (so the next chunk's walker can
+        # resume there). The held-tail length depends on whether we're
+        # inside a string literal: a trailing ``` ` `` / ``\\n`` inside
+        # a string can't begin a fence and should flush immediately.
+        if in_string:
+            hold_len = 0
+        else:
+            hold_len = _json_fence_suffix_hold_len(combined)
+
+        if hold_len == 0:
+            # Snapshot the END-of-buffer flags (== start of next chunk).
+            self._json_fence_in_string = in_string
+            self._json_fence_string_escape = escape
+            self._json_fence_bracket_depth = depth
+            return combined
+        if hold_len >= len(combined):
+            # The whole buffer is suspicious tail. The flags at the
+            # start of this tail are the snapshot we entered with —
+            # leave instance fields untouched (they already reflect
+            # that boundary).
+            self._json_fence_tail = combined
+            return ""
+        emit = combined[:-hold_len]
+        self._json_fence_tail = combined[-hold_len:]
+        # Snapshot the flags AT the start of the held tail by
+        # re-walking from the prior snapshot through ``emit``. Held
+        # tail will never include a quote / brace (the hold chars
+        # are ``\\n`` / ``\\r`` / ``` ` ``), so this is a defensive
+        # replay rather than load-bearing — but it keeps the
+        # next-chunk walker mechanically correct.
+        prior_in_string, prior_escape, prior_depth = (
+            self._json_fence_in_string,
+            self._json_fence_string_escape,
+            self._json_fence_bracket_depth,
+        )
+        for c in emit:
+            if prior_escape:
+                prior_escape = False
+                continue
+            if c == "\\" and prior_in_string:
+                prior_escape = True
+                continue
+            if c == '"':
+                prior_in_string = not prior_in_string
+                continue
+            if not prior_in_string:
+                if c in "{[":
+                    prior_depth += 1
+                elif c in "}]":
+                    prior_depth = max(prior_depth - 1, 0)
+        self._json_fence_in_string = prior_in_string
+        self._json_fence_string_escape = prior_escape
+        self._json_fence_bracket_depth = prior_depth
+        return emit
+
+    def _filter_events_for_json_fence(
+        self, events: list[StreamEvent], *, drain_tail: bool = False
+    ) -> list[StreamEvent]:
+        """Run ``_apply_json_fence_strip`` over a list of StreamEvents.
+
+        Walks the event list and rewrites every ``content`` field
+        (whether on a ``type="content"`` event or on a ``type="finish"``
+        event with merged content). When the strip pass empties the
+        content of a plain ``type="content"`` event, the event is
+        dropped — pristine ``content`` deltas with empty payload would
+        otherwise emit an empty SSE chunk.
+
+        Codex r4 BLOCKING #1: rewrites use ``dataclasses.replace`` so
+        all other ``StreamEvent`` fields the inner processors may have
+        attached (``metadata``, ``finish_reason``, ``tool_calls_detected``,
+        future fields) are preserved. The earlier draft constructed a
+        minimal ``StreamEvent(type=..., content=...)`` and dropped the
+        rest.
+
+        Codex r4 BLOCKING #2: when ``drain_tail=True`` (set by
+        ``finalize()``), any held tail bytes are merged into the
+        LAST emitted content/finish event in a single pass — avoids
+        emitting tail content AFTER a finish marker. When no such
+        event exists, the tail is appended as its own content event
+        at the END of the list (still before any terminal-finish
+        chunk the caller will assemble).
+
+        No-op fast path when ``json_mode`` is False — caller treats the
+        list as already-filtered.
+        """
+        if not self.json_mode:
+            return events
+
+        from dataclasses import replace as _dc_replace
+
+        filtered: list[StreamEvent] = []
+        for ev in events:
+            if ev.type == "content":
+                stripped = self._apply_json_fence_strip(ev.content or "")
+                if stripped:
+                    filtered.append(_dc_replace(ev, content=stripped))
+                # else: fully suppressed (fence/preamble/closer) — drop.
+            elif ev.type == "finish":
+                # Finish events can carry merged content (the route's
+                # buffered-finish merge path). Strip it the same way.
+                # Tail draining happens BELOW (after the walk) so we
+                # don't double-drain if the caller also passed
+                # ``drain_tail=True``.
+                terminal = ev.content or ""
+                if terminal:
+                    terminal = self._apply_json_fence_strip(terminal)
+                filtered.append(_dc_replace(ev, content=terminal or None))
+            else:
+                # reasoning / tool_call / other event types: pass through.
+                filtered.append(ev)
+
+        if drain_tail:
+            tail = self._flush_json_fence_tail()
+            if tail:
+                # Merge into the LAST content-bearing event in one pass
+                # (codex r4 BLOCKING #2 — avoid ordering finalize tail
+                # AFTER a finish event the inner branch emitted). Walk
+                # from the right; prefer ``finish`` (merges into the
+                # terminal SSE chunk), fall back to ``content`` (extends
+                # the last content delta), else append a new content
+                # event at the END.
+                merged = False
+                for i in range(len(filtered) - 1, -1, -1):
+                    if filtered[i].type in ("finish", "content"):
+                        prev = filtered[i].content or ""
+                        filtered[i] = _dc_replace(filtered[i], content=prev + tail)
+                        merged = True
+                        break
+                if not merged:
+                    filtered.append(StreamEvent(type="content", content=tail))
+
+        return filtered
+
+    def _flush_json_fence_tail(self) -> str:
+        """Release any deferred tail bytes at stream end.
+
+        Called from ``finalize()`` so the bare-JSON path (model returned
+        ``{...}`` with NO closing fence) still flushes the final few
+        bytes that were held back in case they were the start of a
+        fence. Idempotent: clears the tail.
+
+        Codex r1 BLOCKING #2: flush the tail UNCHANGED unless the state
+        machine has already transitioned to ``"done"`` (closing fence
+        detected). The earlier draft rstripped backticks at EOS, which
+        would corrupt a valid bare JSON whose final string value
+        legitimately ends with backticks (``{"text":"```"}`` streamed
+        with the trailing ``\\"}`` arriving in the same chunk as a
+        leading ``` ` `` in the value). When ``state == "done"`` the
+        closing fence was already structurally detected and the tail
+        is dead bytes — we still drop them.
+        """
+        if not self.json_mode:
+            return ""
+        if self._json_fence_state == "done":
+            # Closing fence detected; whatever sat in the tail belongs
+            # AFTER the fence and is suppressed.
+            self._json_fence_tail = ""
+            return ""
+        # Codex r9 BLOCKING #1: in fenced mode, if the JSON root has
+        # closed but the closing ``` ``` `` never arrived (truncated
+        # stream / model stopped mid-fence), the held tail is
+        # post-root-close prose that the non-stream
+        # ``extract_json_from_response`` would have peeled. Drop it
+        # so the streaming bytes match the non-stream shape.
+        if self._json_fence_opener_consumed and self._json_root_closed:
+            self._json_fence_tail = ""
+            return ""
+        tail = self._json_fence_tail
+        self._json_fence_tail = ""
+        return tail
 
     @staticmethod
     def _create_reasoning_parser(cfg: ServerConfig):
@@ -424,6 +1173,199 @@ class StreamingPostProcessor:
         # next body bytes. The caller flips ``_reasoning_close_injected``
         # only after the parser call succeeds.
         return "</think>" + delta_text
+
+    def _forced_tool_choice_name(self) -> str | None:
+        """Return the forced ``tool_choice`` function name, if any.
+
+        OpenAI spec: ``tool_choice={"type":"function","function":
+        {"name":"X"}}`` forces the model to call exactly the named
+        function — no other tool may appear in ``tool_calls[*]``.
+
+        F-200 (2026-06-20): reasoning models that share the hermes
+        tool parser (qwen3-thinking, phi-4-mini-reasoning, …)
+        speculatively emit scratch ``<tool_call>...</tool_call>``
+        blocks INSIDE ``<think>`` while planning. The MiniMax tool-
+        markup redirect (load-bearing for the forced-prefix-in-think
+        path) promotes those scratch blocks to content + tool_call
+        detection, which then ship as schema-violating tool_calls
+        with non-JSON ``arguments`` (e.g. bare ``"1234567890"``).
+        Filtering on the forced name at delta-emission time keeps
+        ONLY the spec-compliant call on the wire.
+
+        Returns ``None`` when ``tool_choice`` is unset, ``"auto"`` /
+        ``"none"`` / ``"required"``, or a non-string-named function
+        shape — i.e. only the unambiguous named-function form gates
+        the filter. ``"required"`` (no name) is intentionally NOT
+        gated here: the model may legitimately choose any of the
+        submitted tools.
+        """
+        req = self.request
+        if req is None:
+            return None
+        if isinstance(req, dict):
+            tc = req.get("tool_choice")
+        else:
+            tc = getattr(req, "tool_choice", None)
+        if tc is None:
+            return None
+
+        # Production routes call ``request.model_dump(exclude_none=True)``
+        # before constructing the postprocessor so ``tool_choice`` is a
+        # plain dict here. Codex r4 BLOCKING: a typed-request callpath
+        # (test fixtures, future refactors that thread the model
+        # object directly) would leave ``tc`` as a Pydantic model with
+        # ``.type`` / ``.function.name`` attributes — the dict-only
+        # gate silently disabled the filter on that path. Read both
+        # shapes via a tiny shape-agnostic accessor so future drift
+        # cannot reopen the leak.
+        def _get(obj, key):
+            if isinstance(obj, dict):
+                return obj.get(key)
+            return getattr(obj, key, None)
+
+        if _get(tc, "type") != "function":
+            return None
+        fn = _get(tc, "function")
+        if fn is None:
+            return None
+        name = _get(fn, "name")
+        return name if isinstance(name, str) and name else None
+
+    @staticmethod
+    def _forced_tool_choice_arguments_violate_object_root(args_str: str | None) -> bool:
+        """Return True when a finalized anchor's ``arguments`` value
+        violates the OpenAI spec.
+
+        OpenAI spec: ``tool_calls[i].function.arguments`` is a string
+        encoding a JSON object — every declared tool schema is
+        ``{"type":"object","properties":{…}}``. A finalized anchor
+        whose ``arguments`` is not a JSON-object-encoded string can
+        never satisfy the contract, so it is always the model's
+        scratch:
+
+          * Bare integer (``"1234567890"``) — valid JSON, non-object.
+          * JSON-quoted string (``'"☉ Paris output"'``) — valid JSON,
+            non-object.
+          * Bare unquoted text (``"☉ Paris output"``) — NOT valid
+            JSON at all (codex r2 BLOCKING #1; observed when phi-4-
+            mini-reasoning panics inside ``<think>`` and emits prose
+            where a JSON body should be).
+          * Array root (``"[1,2]"``) — valid JSON, non-object.
+
+        Codex r3 BLOCKING #1: a hypothetical future parser could emit
+        a single delta carrying ``name`` PLUS the first PARTIAL JSON
+        fragment (``'{"city":"Pa'``). The current rapid-mlx parsers
+        don't do this (hermes / qwen3coder finalize args before
+        emitting them with ``name``, or emit ``name`` with empty args
+        and stream fragments WITHOUT ``name``), but defending against
+        it costs only one extra check: when ``json.loads`` raises AND
+        the braces are unbalanced (``{`` count > ``}`` count), treat
+        the body as a partial fragment in progress and pass it
+        through — the cap + tool-call merge will accumulate the rest
+        across subsequent deltas. Only when the JSON is well-formed
+        AND non-object, OR when it's syntactically broken with
+        balanced braces, do we drop the anchor.
+
+        Returns False when ``args_str`` is missing / empty /
+        whitespace — that's an anchor delta carrying just
+        ``name`` + ``id`` with the body deferred to subsequent
+        argument-fragment deltas.
+        """
+        if not args_str or not args_str.strip():
+            return False
+        try:
+            parsed = json.loads(args_str)
+        except (ValueError, TypeError):
+            # Non-JSON: distinguish "partial fragment in progress"
+            # (unclosed object → keep) from "finalized non-JSON
+            # scratch" (balanced or no braces → drop).
+            # ``{`` count > ``}`` count means the JSON object is mid-
+            # stream and hasn't finished closing — pass through so
+            # subsequent fragments can complete it. Otherwise it's
+            # genuine non-JSON (bare prose / mis-escaped) — drop.
+            open_braces = args_str.count("{")
+            close_braces = args_str.count("}")
+            if open_braces > close_braces:
+                return False
+            return True
+        return not isinstance(parsed, dict)
+
+    def _apply_forced_tool_choice_filter(self, tool_calls: list[dict]) -> list[dict]:
+        """Suppress streaming tool_calls deltas that violate a forced
+        ``tool_choice`` named-function contract.
+
+        Two drop conditions, both required by the OpenAI spec:
+
+        1. **Wrong function**: an anchor delta naming a function other
+           than the forced choice. This catches harmony / gemma4
+           channel-routed calls to other tools the model speculated
+           on but the client never requested.
+
+        2. **Schema-violating arguments**: an anchor whose
+           ``arguments`` is non-empty AND does not parse as a JSON
+           OBJECT. The OpenAI spec mandates ``arguments`` be a JSON-
+           encoded string and tool schemas are object-shaped
+           (``{"type":"object","properties":{…}}``); a bare integer
+           ``"1234567890"`` or string ``"☉ Paris output"`` is the
+           model's scratch-pad — not a real call. Captures the
+           F-200 reasoning-model scratch leak that the MiniMax tool-
+           markup redirect promoted into structured deltas.
+
+        Argument-fragment continuation deltas (no name, no id) pass
+        through unconditionally — the parallel-cap layer already
+        tracks ``_no_index_last_dropped`` so fragments routed to a
+        dropped anchor are suppressed.
+
+        No-op when no forced ``tool_choice`` name is set: the request
+        is in auto / required / unset mode, and multi-tool and
+        flexible-argument flows must keep working.
+        """
+        forced_name = self._forced_tool_choice_name()
+        if not forced_name:
+            return tool_calls
+        filtered: list[dict] = []
+        for tc in tool_calls:
+            if not isinstance(tc, dict):
+                filtered.append(tc)
+                continue
+            fn = tc.get("function") if isinstance(tc.get("function"), dict) else None
+            wrapped_name = (
+                fn.get("name") if fn and isinstance(fn.get("name"), str) else None
+            )
+            flat_name = tc.get("name") if isinstance(tc.get("name"), str) else None
+            anchor_name = wrapped_name or flat_name
+            if anchor_name is None:
+                # Continuation fragment — defer to cap-layer routing.
+                filtered.append(tc)
+                continue
+            if anchor_name != forced_name:
+                # Wrong function — suppress this anchor and tell the
+                # cap layer to drop its fragment continuations.
+                self._no_index_last_dropped = True
+                continue
+            # Right function: validate the (so-far complete) arguments
+            # field. ``arguments`` can be absent on an anchor that
+            # only carries name (the JSON body streams in later
+            # fragments); pass those through. When arguments IS
+            # present and is non-empty, require it to parse as a
+            # JSON object.
+            wrapped_args = (
+                fn.get("arguments")
+                if fn and isinstance(fn.get("arguments"), str)
+                else None
+            )
+            flat_args = (
+                tc.get("arguments") if isinstance(tc.get("arguments"), str) else None
+            )
+            args_str = wrapped_args if wrapped_args is not None else flat_args
+            if self._forced_tool_choice_arguments_violate_object_root(args_str):
+                # F-200 root case: ``arguments`` parsed as JSON but
+                # the root type is not ``object``. Schema-violating —
+                # drop the anchor and route fragments to drop.
+                self._no_index_last_dropped = True
+                continue
+            filtered.append(tc)
+        return filtered
 
     def _parallel_tool_calls_allowed(self) -> bool:
         """Return False iff the request explicitly opted out of
@@ -669,6 +1611,19 @@ class StreamingPostProcessor:
         self._think_prefix_sent = False
         self._json_preamble_stripped = False
         self._json_preamble_buffer = ""
+        # H-07: ```json fence-strip state machine — reset to baseline.
+        # ``_apply_json_fence_strip`` is a no-op when ``json_mode`` is
+        # False, but clearing the buffers keeps a reused processor
+        # instance (legacy singleton path) from carrying tail bytes into
+        # the next request.
+        self._json_fence_state = "scan"
+        self._json_fence_buffer = ""
+        self._json_fence_tail = ""
+        self._json_fence_in_string = False
+        self._json_fence_string_escape = False
+        self._json_fence_bracket_depth = 0
+        self._json_fence_opener_consumed = False
+        self._json_root_closed = False
         # Forced-prefix swallow buffer reset to baseline. The route layer
         # re-seeds via ``seed_forced_assistant_prefix`` after ``reset()``
         # when the request carries ``forced_assistant_prefix``; without
@@ -749,14 +1704,28 @@ class StreamingPostProcessor:
 
         # Step 1: Separate content from reasoning
         if output.channel is not None:
-            return self._process_channel_routed(delta_text, output)
-        if self.reasoning_parser and self.enable_thinking is not False:
+            events = self._process_channel_routed(delta_text, output)
+        elif self.reasoning_parser and self.enable_thinking is not False:
             # When enable_thinking is explicitly False, the model is told to
             # skip thinking and answer directly. Bypass the reasoning parser
             # so its implicit-think heuristic doesn't reroute the answer to
             # reasoning_content.
-            return self._process_with_reasoning(delta_text, output)
-        return self._process_standard(delta_text, output)
+            events = self._process_with_reasoning(delta_text, output)
+        else:
+            events = self._process_standard(delta_text, output)
+
+        # H-07: ```json markdown-fence strip for streaming json_mode.
+        # The non-stream chat response builder peels the fence via
+        # ``extract_json_from_response`` AFTER assembling the full
+        # text; the stream path concatenated raw tokens without the
+        # same scrub. Filter content here, AFTER all reasoning / tool /
+        # sanitize passes have run so we only see the bytes that would
+        # land on the wire as ``delta.content``. No-op when
+        # ``json_mode`` is False — call sites in ``_filter_events_for_json_fence``
+        # short-circuit there. Tool-call deltas and reasoning_content
+        # are untouched (the fence only ever shows up in plain content
+        # for json_mode requests).
+        return self._filter_events_for_json_fence(events)
 
     def _process_channel_routed(
         self, delta_text: str, output: GenerationOutput
@@ -772,6 +1741,20 @@ class StreamingPostProcessor:
         # literal harmony sentinels were corrupted by sentinel-
         # anchored regex parsing).
         engine_tool_calls = getattr(output, "tool_calls", None) or []
+        # F-200: when ``tool_choice`` forces a named function, route
+        # the channel-routed structured calls through the SHARED
+        # filter so the wire-shape variants (flat
+        # ``{"name":"X","arguments":...}`` for HarmonyStreamableParser,
+        # wrapped ``{"function":{"name":...}}`` for any future
+        # router) are handled identically to the text-parser path.
+        # Codex r3 BLOCKING #2: the earlier inline filter accepted
+        # only the flat shape and would have silently dropped a
+        # wrapped-shape channel emission. Reusing the helper also
+        # picks up the JSON-object-root validation for free, which
+        # closes the same scratch-with-primitive-args leak on the
+        # channel-routed path.
+        if engine_tool_calls:
+            engine_tool_calls = self._apply_forced_tool_choice_filter(engine_tool_calls)
         if output.channel == "tool_call" and engine_tool_calls:
             # ``parallel_tool_calls=false`` is a hard external contract:
             # the non-streaming path caps the parsed list at one
@@ -920,7 +1903,18 @@ class StreamingPostProcessor:
                 # BLOCKING: admit by ``index`` so continuation deltas
                 # (incremental argument fragments for the same call)
                 # don't each consume a slot.
-                allowed_tcs = self._apply_parallel_cap(result["tool_calls"])
+                # F-200: forced ``tool_choice`` name filter MUST run
+                # before the parallel cap — otherwise a scratch-call
+                # delta inside ``<think>`` (qwen3-thinking / phi-4-
+                # mini-reasoning hit the MiniMax tool-markup redirect
+                # which promotes those scratch ``<tool_call>`` bodies
+                # to content + tool_call detection) takes the only
+                # cap slot and the real forced call is dropped as
+                # ``parallel_tool_calls=false`` overflow. The forced-
+                # name filter drops the scratch anchor first so the
+                # cap admits the legitimate forced call.
+                _tc_list = self._apply_forced_tool_choice_filter(result["tool_calls"])
+                allowed_tcs = self._apply_parallel_cap(_tc_list)
                 if not allowed_tcs:
                     self.tool_calls_detected = True
                     if output.finished:
@@ -1151,7 +2145,13 @@ class StreamingPostProcessor:
         if reasoning:
             self.accumulated_reasoning += reasoning
 
-        # MiniMax redirect: tool calls wrapped in <think> blocks
+        # MiniMax redirect: tool calls wrapped in <think> blocks.
+        # Also load-bearing for hermes / qwen3-thinking when the chat
+        # template pre-injects ``<think>`` AND a forced ``tool_choice``
+        # prefix lands the model inside an in-think tool envelope —
+        # the reasoning parser would otherwise leave the model's
+        # continuation of the prefix in the reasoning channel and the
+        # tool_call would never surface.
         if self.tool_parser and reasoning:
             _check = self.tool_accumulated_text + reasoning
             if (
@@ -1205,7 +2205,18 @@ class StreamingPostProcessor:
                 # BLOCKING: admit by ``index`` so continuation deltas
                 # (incremental argument fragments for the same call)
                 # don't each consume a slot.
-                allowed_tcs = self._apply_parallel_cap(result["tool_calls"])
+                # F-200: forced ``tool_choice`` name filter MUST run
+                # before the parallel cap — otherwise a scratch-call
+                # delta inside ``<think>`` (qwen3-thinking / phi-4-
+                # mini-reasoning hit the MiniMax tool-markup redirect
+                # which promotes those scratch ``<tool_call>`` bodies
+                # to content + tool_call detection) takes the only
+                # cap slot and the real forced call is dropped as
+                # ``parallel_tool_calls=false`` overflow. The forced-
+                # name filter drops the scratch anchor first so the
+                # cap admits the legitimate forced call.
+                _tc_list = self._apply_forced_tool_choice_filter(result["tool_calls"])
+                allowed_tcs = self._apply_parallel_cap(_tc_list)
                 if not allowed_tcs:
                     self.tool_calls_detected = True
                     if output.finished:
@@ -1292,6 +2303,23 @@ class StreamingPostProcessor:
                 json_start = _find_json_start(self._json_preamble_buffer)
                 if json_start >= 0:
                     self._json_preamble_stripped = True
+                    # Codex r8 BLOCKING #2: if the preamble we're about
+                    # to strip ends in an opening ``` ```json `` /
+                    # ``` ``` `` fence (whose payload IS the JSON we
+                    # just landed on), the downstream fence-walker
+                    # must know an opening fence WAS consumed so it
+                    # will suppress the matching closing fence.
+                    # Without this signal the bare-JSON pass-through
+                    # fast-path fires and the closing ``` ``` `` leaks
+                    # onto the wire. ``_find_json_fence_opener`` needs
+                    # the JSON delimiter visible to recognise the
+                    # fence's payload, so we run it over the FULL
+                    # buffer (preamble + JSON) and check whether the
+                    # found fence sits inside the about-to-be-stripped
+                    # preamble.
+                    fence_in_full = _find_json_fence_opener(self._json_preamble_buffer)
+                    if 0 <= fence_in_full < json_start:
+                        self._json_fence_opener_consumed = True
                     content = self._json_preamble_buffer[json_start:]
                 else:
                     return []
@@ -1340,7 +2368,18 @@ class StreamingPostProcessor:
                 # incremental argument fragments don't each consume a
                 # cap slot (qwen3_coder pattern — header delta + N
                 # argument-fragment deltas all share the same index).
-                allowed_tcs = self._apply_parallel_cap(result["tool_calls"])
+                # F-200: forced ``tool_choice`` name filter MUST run
+                # before the parallel cap — otherwise a scratch-call
+                # delta inside ``<think>`` (qwen3-thinking / phi-4-
+                # mini-reasoning hit the MiniMax tool-markup redirect
+                # which promotes those scratch ``<tool_call>`` bodies
+                # to content + tool_call detection) takes the only
+                # cap slot and the real forced call is dropped as
+                # ``parallel_tool_calls=false`` overflow. The forced-
+                # name filter drops the scratch anchor first so the
+                # cap admits the legitimate forced call.
+                _tc_list = self._apply_forced_tool_choice_filter(result["tool_calls"])
+                allowed_tcs = self._apply_parallel_cap(_tc_list)
                 if not allowed_tcs:
                     self.tool_calls_detected = True
                     if output.finished:
@@ -1521,17 +2560,39 @@ class StreamingPostProcessor:
                 _fallback_text, request=self.request
             )
             if result.tools_called:
-                events.append(
-                    self._build_tool_call_event(
-                        {
-                            "id": tc["id"],
-                            "name": tc["name"],
-                            "arguments": tc["arguments"],
-                        }
+                # F-200: forced ``tool_choice`` filter on the finalize
+                # ``extract_tool_calls`` recovery path. The parser
+                # may return multiple calls (a scratch
+                # ``<tool_call>`` inside ``<think>`` with bare int /
+                # string ``arguments`` PLUS the real call) — drop
+                # any whose name does not match the forced choice
+                # OR whose ``arguments`` parses as a JSON non-object
+                # (codex r1 BLOCKING: filtering by name alone leaks
+                # a same-name scratch call with primitive args).
+                _forced_name = self._forced_tool_choice_name()
+                if _forced_name:
+                    _filtered_calls = [
+                        tc
                         for tc in result.tool_calls
+                        if tc.get("name") == _forced_name
+                        and not self._forced_tool_choice_arguments_violate_object_root(
+                            tc.get("arguments")
+                        )
+                    ]
+                else:
+                    _filtered_calls = list(result.tool_calls)
+                if _filtered_calls:
+                    events.append(
+                        self._build_tool_call_event(
+                            {
+                                "id": tc["id"],
+                                "name": tc["name"],
+                                "arguments": tc["arguments"],
+                            }
+                            for tc in _filtered_calls
+                        )
                     )
-                )
-                self.tool_calls_detected = True
+                    self.tool_calls_detected = True
             else:
                 # Cross-format fallback. The configured streaming parser is bound to
                 # ONE wire format; ``parse_tool_calls`` in ``api/tool_calling.py``
@@ -1550,6 +2611,23 @@ class StreamingPostProcessor:
                         "finalize cross-format fallback parser raised: %s", e
                     )
                     fb_tcs = None
+                if fb_tcs:
+                    # F-200: forced ``tool_choice`` filter on the
+                    # cross-format fallback recovery path. Apply BOTH
+                    # name AND arguments-root-object validation —
+                    # codex r1 BLOCKING: name-only filtering let
+                    # same-name scratch calls with primitive / list
+                    # ``arguments`` leak through.
+                    _forced_name = self._forced_tool_choice_name()
+                    if _forced_name:
+                        fb_tcs = [
+                            tc
+                            for tc in fb_tcs
+                            if tc.function.name == _forced_name
+                            and not self._forced_tool_choice_arguments_violate_object_root(
+                                tc.function.arguments
+                            )
+                        ]
                 if fb_tcs:
                     logger.info(
                         "[finalize] cross-format fallback recovered %d tool_call(s); "
@@ -1592,6 +2670,17 @@ class StreamingPostProcessor:
             # downstream.
             if isinstance(held, str) and held:
                 events.append(StreamEvent(type="content", content=held))
+
+        # H-07: ```json fence-strip on the finalize event list AND
+        # drain any held tail in the SAME pass. The route's
+        # "buffered_finish" merge path concatenates
+        # ``finalize()``-produced content events into the terminal
+        # SSE chunk; without the strip here the closing fence would
+        # survive on the last few bytes of the stream. The single-
+        # pass drain (``drain_tail=True``) merges any held tail into
+        # the LAST content/finish event in this batch so JSON bytes
+        # never sit after a terminal marker (codex r4 BLOCKING #2).
+        events = self._filter_events_for_json_fence(events, drain_tail=True)
 
         return events
 

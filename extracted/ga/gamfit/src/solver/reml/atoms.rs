@@ -993,11 +993,7 @@ impl SoftRhoGuardPriorAtom {
     /// so this module needs no cross-crate const import); `anchor` is the
     /// `rho_weight_anchor` shift. A single `tanh` per coordinate feeds all three
     /// emissions, so value/gradient/Hessian are projections of one computation.
-    pub fn evaluate(rho: &Array1<f64>, weight: f64, sharpness: f64, bound: f64) -> Self {
-        Self::evaluate_anchored(rho, weight, sharpness, bound, 0.0)
-    }
-
-    /// As [`evaluate`](Self::evaluate) but with an explicit weight anchor
+    /// Evaluate the soft guard prior with an explicit weight anchor
     /// (issue #877): the prior is evaluated at `ρ_i − anchor`.
     pub fn evaluate_anchored(
         rho: &Array1<f64>,
@@ -1175,10 +1171,6 @@ impl ThetaOnlyCorrectionAtom {
         }
     }
 
-    pub fn cost(&self) -> f64 {
-        self.value
-    }
-
     pub fn gradient(&self) -> Option<&Array1<f64>> {
         self.gradient.as_ref()
     }
@@ -1311,7 +1303,7 @@ impl CriterionAtom for ThetaOnlyCorrectionAtom {
 // general-direction `dir` and staged `s_dot` channels stay unbuilt until a
 // consumer reads them. Folding `fill_direction` into the deeply-cached
 // `gradient_hessian.rs` per-consumer Ḣ assemblies (deleting them) is the
-// per-pass MSI-FD-verified step against the iso-κ suite, not done here.
+// per-pass cluster-FD-verified step against the iso-κ suite, not done here.
 //
 // LANDED (pass 4 start, ledger item "TK/Jeffreys/prior atoms"):
 // `JeffreysLogdetAtom` ports the universal Jeffreys/Firth term
@@ -2002,10 +1994,16 @@ mod tests {
         }
 
         // Degenerate guards: zero weight and empty ρ contribute nothing.
-        let zero_w = SoftRhoGuardPriorAtom::evaluate(&rho, 0.0, sharp, bound);
+        let zero_w = SoftRhoGuardPriorAtom::evaluate_anchored(&rho, 0.0, sharp, bound, 0.0);
         assert_eq!(zero_w.value(), 0.0);
         assert!(zero_w.hessian().is_none());
-        let empty = SoftRhoGuardPriorAtom::evaluate(&Array1::<f64>::zeros(0), w, sharp, bound);
+        let empty = SoftRhoGuardPriorAtom::evaluate_anchored(
+            &Array1::<f64>::zeros(0),
+            w,
+            sharp,
+            bound,
+            0.0,
+        );
         assert_eq!(empty.value(), 0.0);
         assert!(empty.hessian().is_none());
 

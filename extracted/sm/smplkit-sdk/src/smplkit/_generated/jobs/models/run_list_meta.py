@@ -12,7 +12,7 @@ T = TypeVar("T", bound="RunListMeta")
 
 @_attrs_define
 class RunListMeta:
-    """Cursor-pagination meta for the runs list (ADR-014 high-cardinality exception).
+    """Cursor-pagination meta for the runs list.
 
     Attributes:
         page_size (int): Number of runs returned per page.

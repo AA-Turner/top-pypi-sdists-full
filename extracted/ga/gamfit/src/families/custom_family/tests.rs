@@ -1308,6 +1308,20 @@ pub(crate) fn direct_joint_hyper_inner_tolerance_follows_outer_target() {
     let (rho_only, _) = derivative_quality_options_and_warm_start(&tighter_options, None, false);
     assert_eq!(rho_only.inner_tol, tighter_options.inner_tol);
     assert_eq!(rho_only.inner_max_cycles, tighter_options.inner_max_cycles);
+
+    let explicitly_tight_options = BlockwiseFitOptions {
+        inner_tol: 1e-12,
+        outer_tol: 1e-10,
+        inner_max_cycles: 100,
+        ..BlockwiseFitOptions::default()
+    };
+    let (explicitly_tight, _) =
+        derivative_quality_options_and_warm_start(&explicitly_tight_options, None, true);
+    assert_eq!(
+        explicitly_tight.inner_tol, 1e-12,
+        "an explicitly sub-default inner tolerance should be honored down to the explicit direct joint-hyper floor instead of being loosened to outer_tol"
+    );
+    assert_eq!(explicitly_tight.inner_max_cycles, 100);
 }
 
 #[test]
@@ -1422,7 +1436,7 @@ pub(crate) fn binomial_location_scale_wiggle_outer_fixture()
         log_sigma_design: Some(base.log_sigma_design),
         wiggle_knots: knots,
         wiggle_degree: 3,
-        policy: crate::solver::resource::ResourcePolicy::default_library(),
+        policy: crate::resource::ResourcePolicy::default_library(),
     };
     BinomialLocationScaleWiggleOuterFixture {
         family,
@@ -3871,6 +3885,7 @@ pub(crate) fn objective_includes_solverridge_quadratic_term() {
         outer_max_iter: 1,
         outer_tol: 1e-8,
         outer_rel_cost_tol: None,
+        rho_lower_bound: -10.0,
         minweight: CUSTOM_FAMILY_WEIGHT_FLOOR,
         ridge_floor: 1e-4,
         ridge_policy: RidgePolicy::explicit_stabilization_pospart(),
@@ -3925,6 +3940,7 @@ pub(crate) fn inner_block_accepts_penalty_improving_step_even_if_loglik_drops() 
         outer_max_iter: 1,
         outer_tol: 1e-8,
         outer_rel_cost_tol: None,
+        rho_lower_bound: -10.0,
         minweight: CUSTOM_FAMILY_WEIGHT_FLOOR,
         ridge_floor: 0.0,
         ridge_policy: RidgePolicy::explicit_stabilization_pospart(),
@@ -3982,6 +3998,7 @@ pub(crate) fn exact_newton_backtracking_descent_includes_explicit_ridge() {
         outer_max_iter: 1,
         outer_tol: 1e-8,
         outer_rel_cost_tol: None,
+        rho_lower_bound: -10.0,
         minweight: CUSTOM_FAMILY_WEIGHT_FLOOR,
         ridge_floor: 1.0,
         ridge_policy: RidgePolicy::explicit_stabilization_pospart(),
@@ -4427,11 +4444,11 @@ pub(crate) fn ridge_stabilization_gap_produces_exact_rho_two_in_null_direction()
     let joint_mode_diagonal_ridge = 0.0_f64; // policy: ridge NOT in objective
     // `stabilized_joint_solver_diagonal_ridge` consults the family only
     // for `use_exact_newton_strict_spd`, which defaults to false; we
-    // simulate that branch by computing the shift directly via
-    // `exact_newton_stabilizing_shift`.
+    // simulate that branch by computing the live PSD-penalized shift with
+    // the same source matrix.
     let mut lhs = h_nll.clone();
     add_joint_penalty_to_matrix(&mut lhs, &ranges, &s_lambdas, base, None);
-    let shift = exact_newton_stabilizing_shift(&lhs, ridge_floor)
+    let shift = exact_newton_stabilizing_shift_psd_penalized(&lhs, &lhs, ridge_floor)
         .expect("indefinite Hessian must yield a positive stabilizing shift");
     assert!(
         shift > 0.9,
@@ -4650,8 +4667,10 @@ pub(crate) fn joint_feasibility_alpha_gate_discriminates_healthy_from_crush() {
     impl CustomFamily for AlphaFamily {
         fn evaluate(
             &self,
-            _block_states: &[ParameterBlockState],
+            block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
+            // Single-block fixture: the engine always passes exactly one block.
+            assert_eq!(block_states.len(), 1);
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
                 blockworking_sets: vec![BlockWorkingSet::ExactNewton {
@@ -4662,10 +4681,14 @@ pub(crate) fn joint_feasibility_alpha_gate_discriminates_healthy_from_crush() {
         }
         fn max_feasible_step_size(
             &self,
-            _block_states: &[ParameterBlockState],
-            _idx: usize,
-            _arr: &Array1<f64>,
+            block_states: &[ParameterBlockState],
+            idx: usize,
+            arr: &Array1<f64>,
         ) -> Result<Option<f64>, String> {
+            // The configured α is returned regardless of the proposed step;
+            // assert the engine hands us a well-formed single-block query.
+            assert!(idx < block_states.len());
+            assert!(!arr.is_empty());
             Ok(self.alpha)
         }
     }
@@ -5362,7 +5385,7 @@ pub(crate) fn binomial_location_scale_outer_fixture(
         link_kind: crate::types::InverseLink::Standard(crate::types::StandardLink::Probit),
         threshold_design: Some(threshold_design),
         log_sigma_design: Some(log_sigma_design),
-        policy: crate::solver::resource::ResourcePolicy::default_library(),
+        policy: crate::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![thresholdspec, log_sigmaspec];
     let penalty_counts = vec![1usize, 1usize];

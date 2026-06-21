@@ -411,11 +411,29 @@ class MLLMScheduler:
             request_id: The request ID to abort
 
         Returns:
-            True (abort is always enqueued)
+            True when an active/queued request was enqueued for abort, False
+            when ``request_id`` is unknown to this scheduler. F-151
+            hardening: previously this method returned True unconditionally,
+            so the route layer would respond ``{"cancelled": true}`` for any
+            attacker-supplied string. The route uses the False return as the
+            404 signal.
         """
-        self._pending_abort_ids.add(request_id)
-        logger.debug(f"Enqueued abort for request {request_id}")
-        return True
+        # Match the text scheduler's notion of "known": currently admitted
+        # (``requests``), in a live batch (``request_id_to_uid``), currently
+        # running, or already pending abort (idempotent double-cancel). We
+        # do NOT count ``finished_req_ids`` — the route contract is
+        # "404 when already finished".
+        if (
+            request_id in self.requests
+            or request_id in self.request_id_to_uid
+            or request_id in self.running
+            or request_id in self._pending_abort_ids
+        ):
+            self._pending_abort_ids.add(request_id)
+            logger.debug(f"Enqueued abort for request {request_id}")
+            return True
+        logger.debug("Rejected abort for unknown MLLM request_id")
+        return False
 
     def _process_pending_aborts(self) -> None:
         """Drain and execute pending abort requests.
@@ -562,6 +580,23 @@ class MLLMScheduler:
             if request is None:
                 continue
 
+            # Stamp prompt-token count on the request once the batch
+            # generator has actually preprocessed the prompt (vision
+            # encoding includes image-patch token expansion, so the
+            # count can only be known AFTER ``_process_prompts``). Pre-
+            # fix this field was never assigned, so MLLM responses always
+            # reported ``usage.prompt_tokens=0``. The check is "only set
+            # once" semantics: the first response carries the real count
+            # and we memoise it on the ``MLLMRequest`` so every later
+            # streaming chunk + the final response inherit it. ``> 0``
+            # filters out the default-zero responses from corner cases
+            # (text-only fallback that somehow lands here with no
+            # preprocessing) so we don't overwrite a real count with 0.
+            if request.num_prompt_tokens == 0:
+                resp_pt = getattr(response, "prompt_tokens", 0) or 0
+                if resp_pt > 0:
+                    request.num_prompt_tokens = resp_pt
+
             # Append token to request
             request.output_tokens.append(response.token)
             request.num_output_tokens = len(request.output_tokens)
@@ -621,6 +656,14 @@ class MLLMScheduler:
                 for stop_str in request.stop:
                     if stop_str and stop_str in decoded_so_far:
                         finish_reason = "stop"
+                        # H-03: pin WHICH user-supplied stop fired so
+                        # the Anthropic adapter can surface
+                        # ``stop_reason="stop_sequence"`` +
+                        # ``stop_sequence: <str>`` per the public spec.
+                        # Mirrors the text-scheduler companion change so
+                        # MLLM-backed ``/v1/messages`` traffic gets the
+                        # same surface as the text path.
+                        output.matched_stop = stop_str
                         # Trim output at stop string
                         idx = decoded_so_far.index(stop_str)
                         request.output_text = decoded_so_far[:idx]

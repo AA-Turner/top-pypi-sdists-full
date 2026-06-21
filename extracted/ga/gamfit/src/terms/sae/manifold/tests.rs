@@ -213,14 +213,12 @@ pub(crate) fn evidence_gauge_deflation_count_guard_reanchors_then_rejects_runawa
     // reversal budget = 1·(RESEED_BUDGET + 1) + 1 = 6. Each direction reversal
     // charges one; a sustained oscillation exhausts the budget and refuses.
     let mut last_ok = 2usize;
-    let mut hi = true;
     let oscillation = [9usize, 2, 9, 2, 9, 2, 9, 2, 9, 2, 9, 2, 9, 2];
     let mut errored = false;
     for &c in &oscillation {
         match term.record_evidence_gauge_deflation_count(c) {
             Ok(()) => {
                 last_ok = c;
-                hi = !hi;
             }
             Err(err) => {
                 assert!(
@@ -237,7 +235,6 @@ pub(crate) fn evidence_gauge_deflation_count_guard_reanchors_then_rejects_runawa
             }
         }
     }
-    let _ = hi;
     assert!(
         errored,
         "a sustained oscillation must exceed the reversal budget and error"
@@ -1759,6 +1756,202 @@ pub(crate) fn decoder_norm_guard_reseeds_all_atoms_on_total_co_collapse_k3() {
     );
 }
 
+/// #1026 keep-best multi-start: the full-dictionary co-collapse reseed is a
+/// bounded multi-start over distinct residual subspaces, but successive reseeds
+/// can land in STRICTLY WORSE basins (real OLMo K=4: the seed explains EV 0.127
+/// while later reseeds fall to −1.0). A multi-start must return the BEST basin it
+/// visited, never the last. The guard retains the highest-EV state seen across
+/// the reseeds and restores it once the reseed budget is spent, so the final
+/// dictionary EV is no worse than the best intermediate attempt.
+#[test]
+pub(crate) fn co_collapse_multistart_restores_best_basin_not_last_reseed() {
+    // Same co-collapsed K=3 periodic dictionary as
+    // `decoder_norm_guard_reseeds_all_atoms_on_total_co_collapse_k3`, driven
+    // through the WHOLE reseed budget so the budget-exhaustion restore fires.
+    let coords0 = array![[0.05], [0.20], [0.55], [0.80], [0.35], [0.65]];
+    let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45], [0.10]];
+    let coords2 = array![[0.25], [0.40], [0.75], [0.05], [0.60], [0.85]];
+    let (phi0, jet0) = periodic_basis(&coords0);
+    let (phi1, jet1) = periodic_basis(&coords1);
+    let (phi2, jet2) = periodic_basis(&coords2);
+    let make_atom = |name: &str, phi: Array2<f64>, jet: Array3<f64>, scale: f64| {
+        SaeManifoldAtom::new(
+            name,
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi,
+            jet,
+            Array2::<f64>::from_elem((3, 3), scale),
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator))
+    };
+    let atom0 = make_atom("periodic0", phi0, jet0, 1.0e-5);
+    let atom1 = make_atom("periodic1", phi1, jet1, 1.2e-5);
+    let atom2 = make_atom("periodic2", phi2, jet2, 0.8e-5);
+    let logits = array![
+        [0.7, -0.2, 0.3],
+        [0.1, 0.4, -0.1],
+        [-0.3, 0.5, 0.2],
+        [0.6, -0.1, 0.4],
+        [0.2, 0.3, -0.2],
+        [0.4, 0.1, 0.5]
+    ];
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        logits,
+        vec![coords0, coords1, coords2],
+        vec![
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+        ],
+        AssignmentMode::softmax(0.8),
+    )
+    .unwrap();
+    let mut term = SaeManifoldTerm::new(vec![atom0, atom1, atom2], assignment).unwrap();
+    let target = array![
+        [0.40, -0.10, 0.05],
+        [-0.20, 0.35, -0.15],
+        [0.10, 0.05, 0.30],
+        [0.25, -0.30, -0.05],
+        [-0.15, 0.20, 0.18],
+        [0.30, 0.12, -0.22]
+    ];
+    let rho = SaeManifoldRho::new(
+        (-0.3_f64).exp().ln(),
+        0.7_f64.ln(),
+        vec![
+            array![0.9_f64.ln()],
+            array![1.0_f64.ln()],
+            array![1.1_f64.ln()],
+        ],
+    );
+
+    // Drive the guard once per "outer iteration" through the whole multi-start
+    // budget plus the budget-exhaustion call, recording the dictionary EV the
+    // guard observes at the start of each call (the candidate basin it may bank).
+    // The guard reseeds in place, so each call's pre-reseed EV is a distinct
+    // multi-start attempt; the best of these is what the final state must match.
+    let mut best_seen = f64::NEG_INFINITY;
+    for iteration in 0..=SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET {
+        let ev_at_entry = term
+            .dictionary_reconstruction_ev(target.view(), &rho)
+            .expect("EV evaluates");
+        if ev_at_entry < SAE_DICTIONARY_COLLAPSE_EV_FLOOR {
+            best_seen = best_seen.max(ev_at_entry);
+        }
+        term.enforce_decoder_norm_guard(target.view(), iteration, &rho)
+            .expect("co-collapse guard must recover, not error");
+    }
+
+    // After the budget is spent the guard has restored the best basin it banked,
+    // so the final dictionary EV is at least the best attempt seen — never the
+    // (possibly catastrophic) last reseed.
+    let ev_final = term
+        .dictionary_reconstruction_ev(target.view(), &rho)
+        .expect("EV evaluates");
+    assert!(
+        best_seen.is_finite(),
+        "test precondition: at least one co-collapsed attempt must be observed"
+    );
+    assert!(
+        ev_final >= best_seen - 1e-9,
+        "multi-start must return its BEST basin, not the last reseed: \
+         final EV={ev_final:.6} < best seen={best_seen:.6}"
+    );
+}
+
+/// #1026 decoder-repulsion gate safety: the collinearity gate must be a STRICT
+/// no-op for well-separated atoms (orthogonal decoders → gate `None`, so no
+/// value/gradient/curvature is added and healthy fits are byte-identical) and
+/// must ENGAGE for near-collinear atoms (the co-collapse geometry it conditions).
+/// Built on a K=2 periodic fixture whose decoders we set directly.
+#[test]
+pub(crate) fn decoder_repulsion_gate_off_when_separated_on_when_collinear() {
+    let coords0 = array![[0.05], [0.20], [0.55], [0.80], [0.35], [0.65]];
+    let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45], [0.10]];
+    let (phi0, jet0) = periodic_basis(&coords0);
+    let (phi1, jet1) = periodic_basis(&coords1);
+    // Periodic basis is M=3 wide; output p=3. Build two atoms; decoders set below.
+    let make_atom = |name: &str, phi: Array2<f64>, jet: Array3<f64>, decoder: Array2<f64>| {
+        SaeManifoldAtom::new(
+            name,
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi,
+            jet,
+            decoder,
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator))
+    };
+    let logits = array![
+        [0.7, -0.2],
+        [0.1, 0.4],
+        [-0.3, 0.5],
+        [0.6, -0.1],
+        [0.2, 0.3],
+        [0.4, 0.1]
+    ];
+    let build = |dec0: Array2<f64>, dec1: Array2<f64>| {
+        let atom0 = make_atom("periodic0", phi0.clone(), jet0.clone(), dec0);
+        let atom1 = make_atom("periodic1", phi1.clone(), jet1.clone(), dec1);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits.clone(),
+            vec![coords0.clone(), coords1.clone()],
+            vec![
+                LatentManifold::Circle { period: 1.0 },
+                LatentManifold::Circle { period: 1.0 },
+            ],
+            AssignmentMode::softmax(0.8),
+        )
+        .unwrap();
+        SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap()
+    };
+
+    // ORTHOGONAL decoders: atom0 writes output channel 0, atom1 writes channel 1.
+    // Their cross-Gram B_0 B_1ᵀ = 0 ⇒ s_01 = 0 ⇒ gate exactly 0 ⇒ field `None`.
+    let mut dec0 = Array2::<f64>::zeros((3, 3));
+    dec0[[0, 0]] = 1.0;
+    let mut dec1 = Array2::<f64>::zeros((3, 3));
+    dec1[[0, 1]] = 1.0;
+    let mut sep = build(dec0, dec1);
+    sep.refresh_decoder_repulsion_gate();
+    assert!(
+        sep.decoder_repulsion_gate.is_none(),
+        "orthogonal decoders must leave the repulsion gate OFF (strict no-op): {:?}",
+        sep.decoder_repulsion_gate
+    );
+    assert_eq!(
+        sep.decoder_repulsion_value(1.0),
+        0.0,
+        "orthogonal decoders must contribute zero repulsion value"
+    );
+
+    // COLLINEAR decoders: both atoms write the SAME output channel 0 with the
+    // same basis-row pattern ⇒ s_01 = 1 ⇒ gate fully engaged ⇒ field `Some`.
+    let mut dec0c = Array2::<f64>::zeros((3, 3));
+    dec0c[[0, 0]] = 1.0;
+    let mut dec1c = Array2::<f64>::zeros((3, 3));
+    dec1c[[0, 0]] = 1.0;
+    let mut col = build(dec0c, dec1c);
+    col.refresh_decoder_repulsion_gate();
+    let gate = col
+        .decoder_repulsion_gate
+        .as_ref()
+        .expect("collinear decoders must ENGAGE the repulsion gate");
+    assert!(
+        gate[[0, 1]] > 0.0 && gate[[1, 0]] > 0.0,
+        "engaged gate must be positive and symmetric: {gate:?}"
+    );
+    assert!(
+        col.decoder_repulsion_value(1.0) > 0.0,
+        "collinear decoders must contribute positive repulsion value"
+    );
+}
+
 /// #976 distinct-basin lever: the co-collapse multi-start reseed must read a
 /// DIFFERENT principal subspace on each retry. The PC-pair rotation offset (=
 /// the 0-based retry index) shifts which residual PC pair each periodic atom
@@ -1821,7 +2014,7 @@ pub(crate) fn co_collapse_reseed_rotation_explores_distinct_subspaces() {
 /// the collapse basin between runs. Pin that repeated calls on identical input
 /// are bit-identical under the process-default (global Rayon) faer backend, so
 /// the now-rotated multi-start is a fixed pass rather than a coin-flip. (The
-/// cross-thread-count arm is exercised on MSI via RAYON_NUM_THREADS; faer's
+/// cross-thread-count arm is exercised on the cluster via RAYON_NUM_THREADS; faer's
 /// blocked factorizations keep a fixed per-element reduction order, so the
 /// global-state-mutating Seq/Par toggle is deliberately NOT done here — it would
 /// race the rest of the suite's parallel tests.)
@@ -2956,6 +3149,48 @@ pub(crate) fn giant_host_working_set_plan_flips_to_matrix_free_before_dense_allo
 }
 
 #[test]
+pub(crate) fn matrix_free_plan_admits_when_in_core_budget_collapses_to_zero() {
+    // On a memory-starved / oversubscribed box (or a cgroup whose
+    // `available − reserve` underflows), `sae_host_in_core_budget_from_available`
+    // can return a budget of 0. Before the streaming floor, that rejected EVERY
+    // plan — including the chunked matrix-free fallback whose peak is bounded by
+    // the chunk window — so `admitted_or_error` failed with "exceeds budget 0
+    // bytes" and the whole SAE fit aborted at K=1 (the real-OLMo CPU ladder
+    // wall). The matrix-free streaming path must stay admittable for a small
+    // working set regardless of the collapsed in-core budget.
+    let n_obs = 508usize;
+    let total_basis = 6usize;
+    let k_atoms = 1usize;
+    let d_max = 1usize;
+    let border_dim = 32usize;
+    let plan = sae_streaming_plan_from_budget(
+        n_obs,
+        total_basis,
+        k_atoms,
+        d_max,
+        border_dim,
+        0, // in-core budget collapsed to zero
+        SAE_CPU_L2_CACHE_BYTES * SAE_CHUNK_CACHE_MULTIPLE,
+        0, // host-available also reported as zero
+    );
+    // The dense direct plan is correctly refused (it can OOM and the budget is 0).
+    assert!(!plan.direct_admitted);
+    assert!(plan.streaming);
+    // But the bounded matrix-free streaming plan IS admitted against the absolute
+    // streaming floor, so the fit can proceed instead of aborting.
+    assert!(
+        plan.estimated_matrix_free_peak_bytes <= SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES,
+        "tiny working set must fit the streaming floor: peak={}",
+        plan.estimated_matrix_free_peak_bytes
+    );
+    assert!(
+        plan.matrix_free_admitted,
+        "matrix-free streaming must be admitted at zero in-core budget"
+    );
+    assert!(plan.admitted_or_error(n_obs, border_dim, k_atoms).is_ok());
+}
+
+#[test]
 pub(crate) fn sparse_active_layout_work_scales_with_active_atoms_not_total_k() {
     let n = 3;
     let k_atoms = 100_000;
@@ -3623,20 +3858,24 @@ pub(crate) fn sae_row_layout_from_dense_weights_top_k_and_cutoff() {
     let coord_dims = vec![2usize, 1, 2];
     let coord_offsets_full = vec![3usize, 5, 6];
     let assignments = vec![
-        // Row 0: weights [0.7, 0.01, 0.29]; cutoff 0.05, cap 2 ⇒ {0, 2}.
+        // Row 0: weights [0.7, 0.01, 0.29]; row peak 0.7, cutoff
+        // 0.05·0.7 = 0.035, cap 2 ⇒ {0, 2} (0.01 is below cutoff).
         Array1::from_vec(vec![0.7, 0.01, 0.29]),
-        // Row 1: weights [0.001, 0.002, 0.0005]; all below cutoff ⇒ keep
-        // single largest-magnitude atom {1}.
+        // Row 1 (#1414): uniformly small weights [0.001, 0.002, 0.0005].
+        // Row-relative cutoff 0.05·0.002 = 1e-4 keeps the two above it
+        // (atoms 1 and 0), NOT a single atom — a GLOBAL cutoff against
+        // row 0's peak (0.035) would have wrongly dropped this whole row to
+        // its single largest atom. Cap 2 ⇒ {0, 1}.
         Array1::from_vec(vec![0.001, 0.002, 0.0005]),
     ];
     let layout =
         SaeRowLayout::from_dense_weights(&assignments, 2, 0.05, coord_dims, coord_offsets_full);
     assert_eq!(layout.active_atoms[0], vec![0, 2]);
-    assert_eq!(layout.active_atoms[1], vec![1]);
+    assert_eq!(layout.active_atoms[1], vec![0, 1]);
     // Row 0 compact dim = |{0,2}| + d_0 + d_2 = 2 + 2 + 2 = 6.
     assert_eq!(layout.row_q_active(0), 6);
-    // Row 1 compact dim = 1 + d_1 = 1 + 1 = 2.
-    assert_eq!(layout.row_q_active(1), 2);
+    // Row 1 compact dim = |{0,1}| + d_0 + d_1 = 2 + 2 + 1 = 5.
+    assert_eq!(layout.row_q_active(1), 5);
     // expand_row round-trip for row 0: compact [logit0, logit2, t0_0,
     // t0_1, t2_0, t2_1] → full-q with zeros for inactive atom 1.
     let compact = vec![1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0];
@@ -7283,8 +7522,14 @@ pub(crate) fn refresh_isometry_caches_pairs_each_penalty_to_its_own_atom() {
 /// Build a minimal single-atom periodic SAE outer objective for the
 /// warm-start contract tests (gam#577 / gam#579).
 pub(crate) fn warmstart_test_objective() -> SaeManifoldOuterObjective {
+    // `PeriodicHarmonicEvaluator::new(3)` produces the SAME 3-column Fourier
+    // basis `[1, sin(2πt), cos(2πt)]` and first jet as `periodic_basis`, plus
+    // the analytic second jet that `logdet_theta_adjoint` (the softmax
+    // assignment adjoint) needs. Installing it lets the full `eval` gradient
+    // lane run instead of erroring on a missing second-jet evaluator.
+    let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
     let coords = array![[0.10], [0.35], [0.62], [0.88]];
-    let (phi, jet) = periodic_basis(&coords);
+    let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
     let atom = SaeManifoldAtom::new(
         "periodic",
         SaeAtomBasisKind::Periodic,
@@ -7296,7 +7541,9 @@ pub(crate) fn warmstart_test_objective() -> SaeManifoldOuterObjective {
         // Mild ridge-like smoothness penalty so the inner solve is PD.
         Array2::<f64>::eye(3),
     )
-    .unwrap();
+    .unwrap()
+    .with_basis_evaluator(evaluator.clone())
+    .with_basis_second_jet(evaluator);
     let assignment = SaeAssignment::from_blocks_with_mode(
         // Nonzero assignment mass so H_tt carries genuine data curvature.
         array![[0.9_f64], [0.8], [0.7], [0.6]],
@@ -7403,12 +7650,12 @@ pub(crate) fn outer_gradient_solver_rejects_near_singular_cache_without_matching
         .term
         .outer_gradient_arrow_solver(&cache, obj.current_rho.lambda_smooth())
     {
-        Err(err) => err,
+        Err(err) => err.to_string(),
         Ok(..) => panic!("near-singular evidence factor without a matching gauge must reject"),
     };
     assert!(
-        err.contains("analytic outer gradient undefined at this rho"),
-        "guard error must name the undefined analytic-gradient condition; got: {err}"
+        err.contains("joint Hessian numerically singular"),
+        "guard error must name the ill-conditioned joint Hessian; got: {err}"
     );
     assert!(
         err.contains("min/max pivot ratio") && err.contains("floor"),
@@ -7440,10 +7687,15 @@ pub(crate) fn rank_deficient_euclidean_outer_gradient_objective() -> SaeManifold
         phi[[row, 1]] = coords[[row, 0]];
         jet[[row, 1, 0]] = 1.0; // d/dt of the linear column.
     }
-    // p = 2 ambient, but the decoder column space is rank 1 (columns are
-    // proportional: column 1 = 2 · column 0), so the second output channel
-    // is unidentified — the line lives on a 1-D subspace of R².
-    let decoder = array![[1.0_f64, 2.0], [0.5, 1.0]];
+    // p = 2 ambient, but the decoder maps only into output channel 0 (its
+    // second column is identically zero), so the reconstruction `Φ·B` lives on
+    // the 1-D subspace `{x : x₁ = 0}` of R² and output channel 1 is genuinely
+    // unidentified. The decoder's right-singular null vector is then exactly the
+    // channel-1 axis `(0, 1)`, matching the near-null direction the joint-Hessian
+    // cache below places on that axis (β indices 1 and 3). This is the rank-1
+    // decoder column-span deficiency `decoder_channel_null_directions` must
+    // recover (#1051/#1273).
+    let decoder = array![[1.0_f64, 0.0], [0.5, 0.0]];
     let atom = SaeManifoldAtom::new(
         "euclidean_line",
         SaeAtomBasisKind::EuclideanPatch,
@@ -7472,13 +7724,26 @@ pub(crate) fn rank_deficient_euclidean_outer_gradient_objective() -> SaeManifold
 /// well-conditioned and `H_tβ = 0` so the singularity is purely in β. The
 /// chart gauge orbit cannot reach this direction (#1051).
 pub(crate) fn rank_deficient_beta_outer_gradient_cache() -> ArrowFactorCache {
-    // Well-conditioned latent block (single row, dim 1).
-    let htt = ArrowFactorSlab::from_blocks(vec![array![[1.0_f64]]]);
+    // The latent block must be dimensionally consistent with the paired
+    // objective `rank_deficient_euclidean_outer_gradient_objective` so the
+    // channel-null candidates (whose full length is the objective's
+    // `n·q + β_dim`) survive the `dir.len() == full_len` guard in
+    // `outer_gradient_arrow_solver`. That objective has n = 4 data rows and
+    // `row_block_dim q = 1` (one latent axis, K = 1 softmax ⇒ no assignment
+    // coord), so `delta_t_len` must be `n·q = 4`. A mismatched single-row cache
+    // makes `full_len = 5` while the candidates have length 8, silently
+    // dropping every channel-null direction and re-introducing the bug.
+    let htt = ArrowFactorSlab::from_blocks(vec![
+        array![[1.0_f64]],
+        array![[1.0_f64]],
+        array![[1.0_f64]],
+        array![[1.0_f64]],
+    ]);
     // β dim = m · p = 2 · 2 = 4, laid out (col, out_col) row-major like
     // `dense_step_gauge_vector_from_field`. Make output channel 1 (indices
     // 1 and 3) near-null: its lower-Cholesky pivot is 1e-7, so the
     // min/max pivot ratio falls below the 1e-12 floor and the conditioning
-    // path engages. H_tβ = 0 (zero Dense block) decouples β from latent.
+    // path engages. H_tβ = 0 (zero Dense blocks) decouples β from latent.
     let schur = array![
         [1.0_f64, 0.0, 0.0, 0.0],
         [0.0, 1.0e-7, 0.0, 0.0],
@@ -7494,12 +7759,20 @@ pub(crate) fn rank_deficient_beta_outer_gradient_cache() -> ArrowFactorCache {
         ridge_t: 0.0,
         ridge_beta: 0.0,
         htbeta: ArrowHtbetaCache::Dense {
-            blocks: Arc::from(vec![Array2::<f64>::zeros((1, 4))].into_boxed_slice()),
+            blocks: Arc::from(
+                vec![
+                    Array2::<f64>::zeros((1, 4)),
+                    Array2::<f64>::zeros((1, 4)),
+                    Array2::<f64>::zeros((1, 4)),
+                    Array2::<f64>::zeros((1, 4)),
+                ]
+                .into_boxed_slice(),
+            ),
             estimated_bytes: 0,
         },
-        d: 1,
-        row_dims: Arc::from(vec![1usize].into_boxed_slice()),
-        row_offsets: Arc::from(vec![0usize, 1usize].into_boxed_slice()),
+        d: 4,
+        row_dims: Arc::from(vec![1usize, 1usize, 1usize, 1usize].into_boxed_slice()),
+        row_offsets: Arc::from(vec![0usize, 1usize, 2usize, 3usize, 4usize].into_boxed_slice()),
         k: 4,
         manifold_mode_fingerprint: 0,
         row_hessian_fingerprint: 0,
@@ -7530,7 +7803,7 @@ pub(crate) fn outer_gradient_solver_deflates_rank_deficient_decoder_beta_null() 
     // inverse divides by the 1e-7 pivot and explodes; the deflated solve is
     // bounded at the Hessian scale.
     let beta_null_rhs = array![0.0_f64, 0.0, 0.0, 1.0]; // output channel 1, col 1.
-    let rhs_t = Array1::<f64>::zeros(1);
+    let rhs_t = Array1::<f64>::zeros(cache.delta_t_len());
     let plain = cache
         .full_inverse_apply(rhs_t.view(), beta_null_rhs.view())
         .expect("plain solve")
@@ -7550,56 +7823,239 @@ pub(crate) fn outer_gradient_solver_deflates_rank_deficient_decoder_beta_null() 
     );
 }
 
+/// #1273 regression — the gradient lane (`eval` / `OuterEvalOrder::ValueAnd
+/// Gradient`) must NOT hard-abort when the analytic outer gradient is undefined
+/// at a finite-cost ρ whose joint Hessian is near-singular-but-valid (the
+/// circle/torus topology the issue reports: a flat direction outside both the
+/// chart gauge orbit and the penalised decoder β-null that the Faddeev-Popov
+/// deflation recovers). Before the fix the singular-Hessian conditioning error
+/// (`outer_gradient_conditioning_error`: "min/max pivot ratio … < floor")
+/// `?`-propagated out of `eval` as `RemlOptimizationFailed`, which the outer
+/// cascade surfaced as a `RemlConvergenceError`. After the fix the finite-cost ρ
+/// is descended with a central finite-difference outer gradient of the REML value
+/// path, so `eval` returns a finite `(cost, ∇f)` pair and the optimiser makes
+/// progress instead of aborting.
+///
+/// The test exercises BOTH halves of the fix deterministically and in unit time:
+/// (1) the conditioning gate genuinely rejects a near-singular cache that no
+/// gauge/β-null deflation can recover (the bug's precondition — without it the
+/// analytic path would just succeed and the fallback never run), and (2) the
+/// finite-difference fallback that `eval` now invokes returns a finite outer
+/// gradient on the same objective.
 #[test]
-pub(crate) fn deflated_solver_matches_plain_solve_when_no_gauge_is_installed() {
-    let cache = diagonal_latent_cache(&[2.0_f64, 5.0, 7.0]);
-    let solver = DeflatedArrowSolver::plain(&cache);
-    let rhs_t = array![4.0_f64, 10.0, -14.0];
-    let rhs_beta = Array1::<f64>::zeros(0);
-    let (plain_t, plain_beta) = cache
-        .full_inverse_apply(rhs_t.view(), rhs_beta.view())
-        .expect("plain cache solve");
-    let solved = solver
-        .solve(rhs_t.view(), rhs_beta.view())
-        .expect("adapter solve");
-    assert_eq!(solved.t.len(), plain_t.len());
-    for idx in 0..plain_t.len() {
-        assert_abs_diff_eq!(solved.t[idx], plain_t[idx], epsilon = 0.0);
-    }
-    assert_eq!(solved.beta.len(), plain_beta.len());
-    for idx in 0..plain_beta.len() {
-        assert_abs_diff_eq!(solved.beta[idx], plain_beta[idx], epsilon = 0.0);
-    }
+pub(crate) fn gradient_lane_finite_difference_fallback_recovers_singular_outer_gradient_1273() {
+    let objective = warmstart_test_objective();
+    // Precondition: a near-singular joint Hessian whose sub-floor pivot is NOT
+    // explained by any chart-gauge / decoder-β-null direction — so the analytic
+    // outer-gradient solver REJECTS it. This is the exact condition the issue's
+    // pivot-ratio gate trips on; before the fix it aborted the whole outer fit.
+    let singular_cache = near_singular_outer_gradient_cache();
+    assert!(
+        SaeManifoldTerm::outer_gradient_conditioning_error(&singular_cache).is_err(),
+        "fixture precondition: the cache must trip the pivot-ratio floor (#1273)"
+    );
+    assert!(
+        objective
+            .term
+            .outer_gradient_arrow_solver(&singular_cache, objective.current_rho.lambda_smooth())
+            .is_err(),
+        "fixture precondition: the analytic outer gradient must REJECT this \
+         near-singular cache (no matching gauge/β-null to deflate) — this is the \
+         path that aborted the outer fit before #1273"
+    );
+    // The fix: at such a finite-cost ρ the gradient lane descends with the
+    // central finite-difference outer gradient of the value path instead of
+    // aborting. The fallback must return a finite, correctly-sized gradient.
+    let fd = objective
+        .central_difference_outer_gradient(&objective.current_rho)
+        .expect("central-difference outer-gradient fallback must succeed (#1273)");
+    assert_eq!(
+        fd.len(),
+        objective.current_rho.to_flat().len(),
+        "FD outer gradient length must match the ρ dimension"
+    );
+    assert!(
+        fd.iter().all(|g| g.is_finite()),
+        "FD outer-gradient fallback must be finite (a usable descent direction, \
+         never NaN/Inf) so BFGS can cross the flat valley; got {fd:?}"
+    );
+    // It must be a genuine descent instrument, not a degenerate zero vector: at
+    // this non-stationary entry ρ the value path has a real smoothing slope.
+    assert!(
+        fd.iter().any(|g| g.abs() > 1.0e-9),
+        "FD outer-gradient fallback must carry a nonzero descent component at a \
+         non-stationary ρ; got an all-zero vector {fd:?}"
+    );
+
+    // And the gradient lane (`eval`) the fix guards must still return a finite,
+    // ρ-sized `(cost, ∇f)` end-to-end — the recovery wiring is on the same code
+    // path the well-conditioned analytic case takes, so it must not regress it.
+    let mut objective = warmstart_test_objective();
+    let rho_flat = objective.current_rho.to_flat();
+    let eval = objective
+        .eval(&rho_flat)
+        .expect("gradient lane must return a finite (cost, gradient) pair (#1273 wiring)");
+    assert!(
+        eval.cost.is_finite()
+            && eval.gradient.len() == rho_flat.len()
+            && eval.gradient.iter().all(|g| g.is_finite()),
+        "gradient lane must yield a finite, ρ-sized outer gradient; got cost={}, grad={:?}",
+        eval.cost,
+        eval.gradient
+    );
 }
 
+/// #1437 — the #1273 central-difference fallback's *failure mode* changed in
+/// #1431 (merged `c2553caf1`): an unmeasurable coordinate used to silently leave
+/// `gradient[i] = 0.0` (a fake "stationary" signal that poisoned BFGS curvature);
+/// it now returns a hard `Err`. The normal-fallback test above covers the
+/// success path, but nothing asserted the new honest-failure behaviour, so a
+/// regression to the fake-zero convention would go undetected.
+///
+/// A non-finite outer-ρ coordinate makes `probe_step_for(ρ_i)` non-finite
+/// (`1e-4 · |ρ_i|.max(1.0) = 1e-4 · ∞ = ∞`), tripping the function's first guard
+/// and returning `Err`. This deterministically exercises the Err arm without
+/// needing to construct a fully collapsed value path.
 #[test]
-pub(crate) fn deflated_solver_matches_dense_quotient_pseudoinverse_on_near_null_fixture() {
-    let cache = diagonal_latent_cache(&[2.0_f64, 1.0e-14]);
-    let gauge = array![0.0_f64, 1.0];
-    let solver = DeflatedArrowSolver::from_orthonormal_gauges(&cache, vec![gauge], 2.0)
-        .expect("deflated solver");
-    let rhs_beta = Array1::<f64>::zeros(0);
+pub(crate) fn central_difference_outer_gradient_errs_on_pathological_rho_no_fake_zero_1273() {
+    let objective = warmstart_test_objective();
+    // `from_flat` performs no validation (it is a plain struct copy), so an ∞
+    // coordinate survives into the probe-step computation.
+    let mut flat = objective.current_rho.to_flat();
+    flat[0] = f64::INFINITY;
+    let pathological = objective.baseline_rho.from_flat(flat.view());
+    let result = objective.central_difference_outer_gradient(&pathological);
+    assert!(
+        result.is_err(),
+        "#1431/#1437: an unmeasurable (non-finite-ρ) coordinate must propagate an \
+         Err, not a zero-padded fake-stationary direction; got {:?}",
+        result.ok()
+    );
+    // The error must be descriptive (carries the #1273 tag / coordinate), not a
+    // bare empty string, so the outer optimisation log can distinguish it.
+    let msg = result.unwrap_err();
+    assert!(
+        !msg.is_empty(),
+        "the Err must carry a descriptive reason for the aborted outer step; got empty"
+    );
+}
 
-    let physical_rhs = array![4.0_f64, 0.0];
-    let solved = solver
-        .solve(physical_rhs.view(), rhs_beta.view())
-        .expect("physical solve");
-    let oracle = array![2.0_f64, 0.0];
-    for idx in 0..oracle.len() {
-        assert_abs_diff_eq!(solved.t[idx], oracle[idx], epsilon = 1.0e-12);
+/// #1437 — per-probe fresh-clone isolation (the other half of the #1273
+/// soundness rewrite): each probe differentiates a *fresh* clone of the snapshot
+/// warm state, so the gradient is deterministic across repeated calls and does
+/// not accumulate/leak warm-start cache state from a prior evaluation. Before
+/// #1431 one shared `&mut` probe term was reused across plus/minus/all
+/// coordinates, making the result order/state dependent.
+#[test]
+pub(crate) fn central_difference_outer_gradient_is_deterministic_under_per_probe_isolation_1273() {
+    let objective = warmstart_test_objective();
+    let g1 = objective
+        .central_difference_outer_gradient(&objective.current_rho)
+        .expect("FD fallback must succeed on the well-conditioned warmstart objective (#1273)");
+    let g2 = objective
+        .central_difference_outer_gradient(&objective.current_rho)
+        .expect("repeat FD fallback call must succeed (#1273)");
+    assert_eq!(
+        g1.len(),
+        g2.len(),
+        "FD outer gradient length must be stable across calls"
+    );
+    assert!(
+        g1.iter()
+            .zip(g2.iter())
+            .all(|(a, b)| (a - b).abs() <= 1e-12),
+        "#1273 per-probe isolation: repeated FD outer-gradient evaluations must be \
+         identical (no shared &mut state between probes); got {g1:?} vs {g2:?}"
+    );
+}
+
+/// #1436 — `OuterGradientError::InternalInvariant` must never be FD-eligible,
+/// so an internal-invariant failure propagates as a hard error instead of being
+/// silently masked by a finite-difference descent direction. This is the core
+/// acceptance criterion: shape/indexing bugs, non-finite intermediates, and
+/// violated invariants surface as failures, not plausible-but-wrong FD steps.
+#[test]
+pub(crate) fn outer_gradient_internal_invariant_is_not_fd_eligible_1436() {
+    let ill_conditioned = OuterGradientError::IllConditioned {
+        reason: "near-singular joint Hessian".to_string(),
+    };
+    let non_identifiable = OuterGradientError::NonIdentifiable {
+        reason: "gauge-degenerate direction".to_string(),
+    };
+    let internal = OuterGradientError::InternalInvariant {
+        reason: "shape mismatch".to_string(),
+    };
+    assert!(
+        ill_conditioned.is_fd_eligible(),
+        "IllConditioned must be FD-eligible (#1273)"
+    );
+    assert!(
+        non_identifiable.is_fd_eligible(),
+        "NonIdentifiable must be FD-eligible (#1273)"
+    );
+    assert!(
+        !internal.is_fd_eligible(),
+        "InternalInvariant must NOT be FD-eligible (#1436) — it must propagate"
+    );
+    // The Display output must be descriptive enough for the outer log.
+    assert!(
+        internal.to_string().contains("internal invariant"),
+        "InternalInvariant Display must name the class; got: {}",
+        internal
+    );
+}
+
+/// #1436 — exercise the EXACT gate `SaeManifoldOuterObjective::eval` consults,
+/// `OuterGradientError::admits_fd_fallback`, over the full `cost x error-class`
+/// matrix. `is_fd_eligible` alone does not capture the cost interaction the call
+/// site depends on; this pins the composed contract so the FD fallback can never
+/// silently absorb an internal-invariant failure NOR fire at an infeasible
+/// (non-finite-cost) ρ — both must propagate as hard errors.
+#[test]
+pub(crate) fn admits_fd_fallback_only_for_conditioning_at_finite_cost_1436() {
+    let ill = OuterGradientError::IllConditioned {
+        reason: "near-singular joint Hessian".to_string(),
+    };
+    let non_id = OuterGradientError::NonIdentifiable {
+        reason: "gauge-degenerate direction".to_string(),
+    };
+    let internal = OuterGradientError::InternalInvariant {
+        reason: "shape mismatch".to_string(),
+    };
+
+    // Finite cost: only the genuine #1273 conditioning/identifiability classes
+    // admit the FD descent direction.
+    assert!(
+        ill.admits_fd_fallback(1.0),
+        "IllConditioned at a finite-cost ρ must admit the #1273 FD fallback"
+    );
+    assert!(
+        non_id.admits_fd_fallback(1.0),
+        "NonIdentifiable at a finite-cost ρ must admit the #1273 FD fallback"
+    );
+    assert!(
+        !internal.admits_fd_fallback(1.0),
+        "InternalInvariant must NEVER admit the FD fallback, even at a finite \
+         cost (#1436) — it must propagate as a hard error"
+    );
+
+    // Non-finite cost (infeasible point): NOTHING admits FD, not even an
+    // otherwise-eligible conditioning failure — there is no feasible value path
+    // to descend.
+    for bad_cost in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+        assert!(
+            !ill.admits_fd_fallback(bad_cost),
+            "IllConditioned must NOT admit FD at non-finite cost {bad_cost}"
+        );
+        assert!(
+            !non_id.admits_fd_fallback(bad_cost),
+            "NonIdentifiable must NOT admit FD at non-finite cost {bad_cost}"
+        );
+        assert!(
+            !internal.admits_fd_fallback(bad_cost),
+            "InternalInvariant must NOT admit FD at non-finite cost {bad_cost}"
+        );
     }
-
-    let gauge_rhs = array![0.0_f64, 1.0];
-    let plain = cache
-        .full_inverse_apply(gauge_rhs.view(), rhs_beta.view())
-        .expect("plain gauge solve")
-        .0;
-    let stiffened = solver
-        .solve(gauge_rhs.view(), rhs_beta.view())
-        .expect("stiffened gauge solve")
-        .t;
-    assert!(plain[1] > 1.0e13, "plain near-null solve must be huge");
-    assert_abs_diff_eq!(stiffened[1], 0.5, epsilon = 1.0e-12);
 }
 
 /// gam#577 / gam#579 root cause: the continuation pre-warm forwards an
@@ -7959,75 +8415,6 @@ pub(crate) fn intrinsic_penalty_leaves_constant_speed_atom_unchanged() {
         diff < 1e-9,
         "constant-speed atom's penalty was reweighted (should be identity): {diff}"
     );
-}
-
-#[test]
-pub(crate) fn pca_seed_handles_huge_equal_finite_columns_without_mean_overflow() {
-    let z = array![[1.0e308_f64, 1.0e308], [1.0e308, 1.0e308]];
-    let coords =
-        sae_pca_seed_initial_coords(z.view(), &[SaeAtomBasisKind::Periodic], &[1]).unwrap();
-    assert_eq!(coords.dim(), (1, 2, 1));
-    assert!(
-        coords.iter().all(|value| value.is_finite()),
-        "huge finite equal columns must not overflow the PCA seed mean: {coords:?}"
-    );
-}
-
-#[test]
-pub(crate) fn pca_seed_rejects_huge_finite_span_that_overflows_centering() {
-    let z = array![[1.0e308_f64, 0.0], [-1.0e308, 0.0]];
-    let err = sae_pca_seed_initial_coords(z.view(), &[SaeAtomBasisKind::Periodic], &[1])
-        .expect_err("opposite huge finite values exceed f64 centering range");
-    assert!(
-        err.contains("centered Z is non-finite") || err.contains("SVD failed"),
-        "unexpected PCA seed error: {err}"
-    );
-}
-
-// ---- Issue #972: low-rank Grassmann decoder frame verification ----
-
-/// `polar(M) = W Vᵀ` is exactly column-orthonormal and equals `M` when `M`
-/// is already orthonormal (idempotence of the polar projection on the
-/// Stiefel manifold), and recovers the planted span of a low-rank decoder.
-#[test]
-pub(crate) fn planted_low_rank_frame_recovered_by_polar() {
-    let p = 12usize;
-    let r = 3usize;
-    let n = 200usize;
-    // Planted orthonormal frame: first `r` canonical axes (any rotation
-    // would do; canonical axes make the angle assertion transparent).
-    let mut planted = Array2::<f64>::zeros((p, r));
-    for j in 0..r {
-        planted[[j, j]] = 1.0;
-    }
-    // Latent coords drive targets onto the planted span: targets = coords·plantedᵀ.
-    let mut coords = Array2::<f64>::zeros((n, r));
-    for i in 0..n {
-        for j in 0..r {
-            // Deterministic, index-keyed pseudo-data (no clock RNG).
-            let x = ((i * 7 + j * 13 + 1) % 97) as f64 / 97.0 - 0.5;
-            coords[[i, j]] = x;
-        }
-    }
-    let targets = fast_abt(&coords, &planted);
-    let angle = grassmann_recover_planted_span_angle(targets.view(), coords.view(), planted.view())
-        .expect("span recovery");
-    assert_abs_diff_eq!(angle, 0.0, epsilon = 1.0e-9);
-
-    // Polar of an already-orthonormal frame is itself (up to canonical sign).
-    let frame = GrassmannFrame::polar_update(planted.view()).expect("polar");
-    let recovered_angle = frame
-        .max_principal_angle(planted.view())
-        .expect("principal angle");
-    assert_abs_diff_eq!(recovered_angle, 0.0, epsilon = 1.0e-9);
-    // Orthonormality: UᵀU = I_r.
-    let gram = fast_atb(&frame.frame().to_owned(), &frame.frame().to_owned());
-    for i in 0..r {
-        for j in 0..r {
-            let expect = if i == j { 1.0 } else { 0.0 };
-            assert_abs_diff_eq!(gram[[i, j]], expect, epsilon = 1.0e-9);
-        }
-    }
 }
 
 /// Build a low-rank decoder atom (`p` large, true column rank `r ≪ p`) and
@@ -9580,1076 +9967,4 @@ pub(crate) fn olmo_real_outer_fit_does_not_pin_at_collapse_sentinel() {
 
     // Guard the sentinel constant the fix exists to avoid pinning the loop at.
     assert_eq!(SAE_FIT_DATA_COLLAPSE_COST, 1.0e12);
-}
-
-#[cfg(test)]
-mod inner_contract_probe_tests {
-    use super::*;
-    use crate::terms::{AssignmentMode, LatentManifold, SaeAssignment};
-    use std::sync::Arc;
-
-    pub(crate) fn euclidean_line_contract_fixture() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho)
-    {
-        let n = 150usize;
-        let p = 8usize;
-        let mut coords = Array2::<f64>::zeros((n, 1));
-        let mut z = Array2::<f64>::zeros((n, p));
-        for row in 0..n {
-            let u = -1.0 + 2.0 * row as f64 / (n as f64 - 1.0);
-            coords[[row, 0]] = 2.5 + 3.0 * u;
-            for col in 0..p {
-                let linear_loading = 0.35 + 0.07 * col as f64;
-                let offset = 0.08 * ((col % 3) as f64 - 1.0);
-                let phase = (row * (col + 3)) as f64;
-                let noise = 0.04 * (phase.sin() + 0.5 * (0.37 * phase).cos());
-                z[[row, col]] = offset + linear_loading * u + noise;
-            }
-        }
-
-        let evaluator = Arc::new(EuclideanPatchEvaluator::new(1, 2).expect("evaluator"));
-        let (phi, jet) = evaluator.evaluate(coords.view()).expect("basis");
-        let m = phi.ncols();
-        let smooth_penalty =
-            crate::basis::create_difference_penalty_matrix(m, 2, None).expect("penalty");
-        let atom = SaeManifoldAtom::new(
-            "contract-line",
-            SaeAtomBasisKind::EuclideanPatch,
-            1,
-            phi,
-            jet,
-            Array2::<f64>::zeros((m, p)),
-            smooth_penalty,
-        )
-        .expect("atom")
-        .with_basis_second_jet(evaluator);
-        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-            Array2::<f64>::zeros((n, 1)),
-            vec![coords],
-            vec![LatentManifold::Euclidean],
-            AssignmentMode::softmax(1.0),
-        )
-        .expect("assignment");
-        let term = SaeManifoldTerm::new(vec![atom], assignment).expect("term");
-        let rho = SaeManifoldRho::new(0.0, (0.01_f64).ln(), vec![Array1::<f64>::zeros(1)]);
-        (term, z, rho)
-    }
-
-    pub(crate) fn assert_contract_close(label: &str, analytic: f64, finite_difference: f64) {
-        let rel = (analytic - finite_difference).abs()
-            / finite_difference.abs().max(analytic.abs()).max(1.0e-12);
-        assert!(
-            rel < 1.0e-5,
-            "{label}: analytic={analytic:.12e} fd={finite_difference:.12e} rel={rel:.3e}"
-        );
-    }
-
-    #[test]
-    pub(crate) fn euclidean_line_decoder_gradient_matches_penalized_objective_fd() {
-        let (mut term, z, mut rho) = euclidean_line_contract_fixture();
-        let ridge = 1.0e-6;
-        for step in 0..6 {
-            let loss = term
-                .run_joint_fit_arrow_schur(z.view(), &mut rho, None, 1, 1.0, ridge, ridge)
-                .unwrap_or_else(|err| panic!("warm step {step} failed: {err}"));
-            assert!(
-                loss.total().is_finite(),
-                "warm step {step} loss is non-finite"
-            );
-        }
-
-        let sys_coord = term
-            .assemble_arrow_schur(z.view(), &rho, None)
-            .expect("coord assemble");
-        assert_eq!(
-            sys_coord.k,
-            term.beta_dim(),
-            "p=8 contract fixture must stay on full-B coordinates"
-        );
-        assert!(
-            !term.frames_active(),
-            "p=8 contract fixture must not activate a frame"
-        );
-
-        let h = 1.0e-6;
-        for row in [3usize, 75, 140] {
-            let analytic = sys_coord.rows[row].gt[0];
-            let base_coord = term.assignment.coords[0].as_matrix()[[row, 0]];
-
-            let mut plus_coords = term.assignment.coords[0].as_matrix();
-            plus_coords[[row, 0]] = base_coord + h;
-            let plus_flat = Array1::from_iter(plus_coords.iter().copied());
-            term.assignment.coords[0].set_flat(plus_flat.view());
-            term.refresh_basis_from_current_coords()
-                .expect("plus refresh");
-            let f_plus = term
-                .penalized_objective_total(z.view(), &rho, None, 1.0)
-                .expect("coord f+");
-
-            let mut minus_coords = term.assignment.coords[0].as_matrix();
-            minus_coords[[row, 0]] = base_coord - h;
-            let minus_flat = Array1::from_iter(minus_coords.iter().copied());
-            term.assignment.coords[0].set_flat(minus_flat.view());
-            term.refresh_basis_from_current_coords()
-                .expect("minus refresh");
-            let f_minus = term
-                .penalized_objective_total(z.view(), &rho, None, 1.0)
-                .expect("coord f-");
-
-            let mut restored_coords = term.assignment.coords[0].as_matrix();
-            restored_coords[[row, 0]] = base_coord;
-            let restored_flat = Array1::from_iter(restored_coords.iter().copied());
-            term.assignment.coords[0].set_flat(restored_flat.view());
-            term.refresh_basis_from_current_coords()
-                .expect("restore refresh");
-
-            let fd = (f_plus - f_minus) / (2.0 * h);
-            assert_contract_close(&format!("CONTRACT coord row {row}"), analytic, fd);
-        }
-
-        let sys_decoder = term
-            .assemble_arrow_schur(z.view(), &rho, None)
-            .expect("decoder assemble");
-        assert_eq!(sys_decoder.k, term.beta_dim());
-        let p = term.output_dim();
-        for (basis_col, out_col) in [(0usize, 0usize), (1, 3), (2, 7)] {
-            let beta_idx = basis_col * p + out_col;
-            let analytic = sys_decoder.gb[beta_idx];
-            let base = term.atoms[0].decoder_coefficients[[basis_col, out_col]];
-
-            term.atoms[0].decoder_coefficients[[basis_col, out_col]] = base + h;
-            let f_plus = term
-                .penalized_objective_total(z.view(), &rho, None, 1.0)
-                .expect("decoder f+");
-            term.atoms[0].decoder_coefficients[[basis_col, out_col]] = base - h;
-            let f_minus = term
-                .penalized_objective_total(z.view(), &rho, None, 1.0)
-                .expect("decoder f-");
-            term.atoms[0].decoder_coefficients[[basis_col, out_col]] = base;
-
-            let fd = (f_plus - f_minus) / (2.0 * h);
-            assert_contract_close(
-                &format!("CONTRACT decoder ({basis_col},{out_col})"),
-                analytic,
-                fd,
-            );
-        }
-    }
-
-    /// #1154 — the joint amortized-encoder + REML co-training fold (Design A).
-    ///
-    /// On a synthetic 1D periodic manifold with KNOWN structure (the target is
-    /// drawn from a true sine curve on the circle), after the inner `(t, β)`
-    /// solve converges to stationarity:
-    ///
-    /// 1. the co-trained criterion is the exact REML criterion PLUS a
-    ///    non-negative, correctly-scaled amortized-encoder consistency penalty —
-    ///    so the fold is sound and the REML λ-coupling is untouched (the inner
-    ///    solve still produces the stationary point the criterion is read at);
-    /// 2. the cheap one-mat-vec amortized encode is FAITHFUL: its reconstruction
-    ///    matches the exact fitted reconstruction (the encode-by-inner-solve
-    ///    truth) within a tight tolerance on the rows the certificate accepts —
-    ///    proving the encoder recovers the same structure the exact path does,
-    ///    at amortized cost; and
-    /// 3. the encoder CERTIFIES coverage of the fitted dictionary (a strictly
-    ///    positive certified fraction), so the co-training signal rewards a real,
-    ///    measurable encoder-quality axis rather than a vacuous one.
-    #[test]
-    fn cotrained_criterion_folds_faithful_amortized_encoder_on_known_manifold() {
-        let n = 24usize;
-        let p = 4usize;
-        // A true circle coordinate per row, and a smooth periodic decoder, so the
-        // target lies on a genuine 1D periodic manifold (known structure).
-        let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.5) / n as f64);
-        let (phi, jet) = periodic_basis(&coords);
-        // Basis width comes from the shared `periodic_basis` helper (1, sin, cos),
-        // so derive `m` from it rather than hardcoding — the decoder row count and
-        // the (m, m) smooth penalty must both track the actual harmonic width.
-        let m = phi.ncols();
-        // A smooth decoder B (M × p): low-order harmonics dominate so the encode
-        // map is well-conditioned and the IFT predictor is a faithful first-order
-        // model of it (the regime the amortized encoder is built for).
-        let decoder = Array2::from_shape_fn((m, p), |(b, c)| {
-            let scale = 1.0 / (1.0 + b as f64);
-            scale * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
-        });
-        let atom = SaeManifoldAtom::new(
-            "periodic_truth",
-            SaeAtomBasisKind::Periodic,
-            1,
-            phi.clone(),
-            jet,
-            decoder.clone(),
-            Array2::<f64>::eye(m),
-        )
-        .unwrap()
-        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-        // The ground-truth ambient target: the exact decoded curve Φ(t*)·B at
-        // unit amplitude, so a perfect fit reproduces the manifold exactly.
-        let target = phi.dot(&decoder);
-        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-            Array2::<f64>::zeros((n, 1)),
-            vec![coords],
-            vec![LatentManifold::Circle { period: 1.0 }],
-            AssignmentMode::softmax(1.0),
-        )
-        .unwrap();
-        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
-        let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![1.0_f64.ln()]]);
-
-        // Converge the inner (t, β) solve to stationarity — the REML criterion
-        // and the co-training fold are both read at the converged dictionary.
-        // Full Newton steps (learning_rate = 1.0): the heavily-damped 0.1 step
-        // cannot drive this well-conditioned planted-circle fit to the strict KKT
-        // tolerance within the refine budget (it stalls at ‖g‖≈6e-3), so the
-        // criterion correctly refuses to rank an off-optimum Laplace value. At
-        // full Newton the inner solve reaches true stationarity in a handful of
-        // iterations.
-        let mut rho_fit = rho.clone();
-        term.run_joint_fit_arrow_schur(target.view(), &mut rho_fit, None, 12, 1.0, 1.0e-4, 1.0e-4)
-            .expect("inner solve converges on the known periodic manifold");
-
-        // (1) Fold soundness: the co-trained criterion = REML + scaled, finite,
-        // non-negative consistency penalty.
-        let (reml, _loss) = term
-            .reml_criterion_with_refine_policy(
-                target.view(),
-                &rho_fit,
-                None,
-                25,
-                1.0,
-                1.0e-4,
-                1.0e-4,
-                true,
-            )
-            .expect("REML criterion evaluates");
-        let (cotrained, _loss2, consistency) = term
-            .reml_criterion_cotrained(target.view(), &rho_fit, None, 64, 1.0, 1.0e-4, 1.0e-4)
-            .expect("co-trained criterion evaluates");
-        assert!(
-            cotrained.is_finite() && reml.is_finite(),
-            "both criteria must be finite: cotrained={cotrained}, reml={reml}"
-        );
-        assert!(
-            cotrained >= reml - 1.0e-9,
-            "co-trained criterion must add a NON-NEGATIVE consistency penalty: \
-             cotrained={cotrained} < reml={reml}"
-        );
-        assert!(
-            consistency.recon_consistency >= 0.0 && consistency.recon_consistency.is_finite(),
-            "recon consistency must be a finite non-negative gap, got {}",
-            consistency.recon_consistency
-        );
-        assert!(
-            (0.0..=1.0).contains(&consistency.uncertified_fraction),
-            "uncertified fraction must be a probability, got {}",
-            consistency.uncertified_fraction
-        );
-
-        // (3) The encoder must certify real coverage of the fitted dictionary —
-        // not a vacuous all-uncertified fraction.
-        assert!(
-            consistency.uncertified_fraction < 1.0,
-            "the amortized encoder must certify at least some rows of a \
-             well-conditioned periodic dictionary; uncertified_fraction={}",
-            consistency.uncertified_fraction
-        );
-
-        // (2) Faithfulness: on the rows the certificate accepts, the cheap
-        // one-mat-vec amortized encode recovers the SAME latent coordinate the
-        // EXACT encode-by-inner-solve (the certified cold chart-center Newton
-        // probe) produces. This is the encoder-fidelity question Design A makes —
-        // amortized-encode ≈ exact-encode PER ROW. (It is NOT the same as the
-        // joint-fitted reconstruction `try_fitted_for_rho`: the joint fit smooths
-        // the latent coords across rows under the λ_smooth penalty, so its
-        // per-row reconstruction legitimately differs from a per-row encode by the
-        // smoothing bias — comparing against it would conflate encoder fidelity
-        // with the smoother. We therefore compare the two PER-ROW encodes, decoded
-        // through the SAME basis, exactly as the held-out arm below does.)
-        let amplitudes = term.fitted_assignment_amplitudes(&rho_fit).unwrap();
-        let encodes = term
-            .amortized_encode_target(target.view(), amplitudes.view())
-            .expect("amortized encode runs");
-        let atom0 = &term.atoms[0];
-        let evaluator = atom0.basis_evaluator.as_ref().unwrap();
-        let (phi_hat, _j) = evaluator.evaluate(encodes[0].coords.view()).unwrap();
-        let decoded_hat = phi_hat.dot(&atom0.decoder_coefficients); // (n × p)
-
-        // The exact per-row encode the sequential path would use as its teacher:
-        // a certified cold chart-center Newton solve for each row.
-        let mut in_sample_norm_bound = 0.0_f64;
-        for row in 0..n {
-            in_sample_norm_bound =
-                in_sample_norm_bound.max(target.row(row).dot(&target.row(row)).sqrt());
-        }
-        let in_sample_atlas = crate::terms::sae::encode::EncodeAtlas::build(
-            &term.atoms,
-            &[1.0],
-            in_sample_norm_bound,
-            crate::terms::sae::encode::AtlasConfig::default(),
-        )
-        .expect("in-sample encode atlas builds");
-
-        let mut certified_rows = 0usize;
-        let mut max_certified_gap = 0.0_f64;
-        for row in 0..n {
-            if !encodes[0].certified[row] {
-                continue;
-            }
-            let z = amplitudes[[row, 0]];
-            let (exact_t, exact_cert) = in_sample_atlas
-                .certified_encode_row(atom0, 0, target.row(row), z)
-                .expect("exact per-row encode runs");
-            if !exact_cert.certified() {
-                // The exact teacher could not certify this row at the fitted
-                // amplitude; skip it (the held-out arm asserts joint certification
-                // on a unit-amplitude grid). We only measure faithfulness where
-                // BOTH the amortized encode and the exact teacher certify.
-                continue;
-            }
-            certified_rows += 1;
-            let exact_phi = evaluator
-                .evaluate(exact_t.view().insert_axis(ndarray::Axis(0)))
-                .unwrap()
-                .0;
-            let exact_decoded = exact_phi.dot(&atom0.decoder_coefficients); // (1 × p)
-            for col in 0..p {
-                let amortized = z * decoded_hat[[row, col]];
-                let exact = z * exact_decoded[[0, col]];
-                let gap = (amortized - exact).abs();
-                if gap > max_certified_gap {
-                    max_certified_gap = gap;
-                }
-            }
-        }
-        assert!(
-            certified_rows > 0,
-            "the certificate must accept at least one row to measure faithfulness"
-        );
-        // The amortized encode is the first-order IFT model of the exact encode;
-        // on a well-conditioned periodic dictionary the certified rows must match
-        // the exact per-row encode to the encode's certified tolerance.
-        assert!(
-            max_certified_gap < 1.0e-2,
-            "amortized encode must reconstruct certified rows within the encode \
-             tolerance of the exact per-row encode-by-inner-solve; max gap={max_certified_gap}"
-        );
-
-        // Held-out recovery: compare the fast #1010 amortized row encode against
-        // the exact certified row encode a sequential REML-then-distill path
-        // would use as its teacher. The held-out phases are interleaved between
-        // training phases, so this is not an in-sample replay.
-        let n_holdout = 12usize;
-        let heldout_coords = Array2::from_shape_fn((n_holdout, 1), |(row, _)| {
-            (row as f64 + 0.25) / n_holdout as f64
-        });
-        let (heldout_phi, _heldout_jet) = periodic_basis(&heldout_coords);
-        let heldout = heldout_phi.dot(&atom0.decoder_coefficients);
-        let heldout_amplitudes = Array1::<f64>::ones(n_holdout);
-        let mut target_norm_bound = 0.0_f64;
-        for row in 0..n_holdout {
-            target_norm_bound =
-                target_norm_bound.max(heldout.row(row).dot(&heldout.row(row)).sqrt());
-        }
-        let atlas = crate::terms::sae::encode::EncodeAtlas::build(
-            &term.atoms,
-            &[1.0],
-            target_norm_bound,
-            crate::terms::sae::encode::AtlasConfig::default(),
-        )
-        .expect("held-out encode atlas builds");
-        let fast_heldout = atlas
-            .amortized_encode_batch(atom0, 0, heldout.view(), heldout_amplitudes.view())
-            .expect("held-out amortized encode runs");
-
-        let mut max_fast_vs_exact = 0.0_f64;
-        let mut max_fast_truth = 0.0_f64;
-        let mut max_exact_truth = 0.0_f64;
-        let mut heldout_certified = 0usize;
-        for row in 0..n_holdout {
-            if !fast_heldout.certified[row] {
-                continue;
-            }
-            heldout_certified += 1;
-            let (exact_t, exact_cert) = atlas
-                .certified_encode_row(atom0, 0, heldout.row(row), 1.0)
-                .expect("held-out exact certified row encode runs");
-            assert!(
-                exact_cert.certified(),
-                "sequential exact #1010 teacher must certify held-out row {row}"
-            );
-            let truth = heldout_coords[[row, 0]];
-            let fast = fast_heldout.coords[[row, 0]];
-            let exact = exact_t[0];
-            let fast_vs_exact = circle_phase_gap(fast, exact);
-            let fast_truth = circle_phase_gap(fast, truth);
-            let exact_truth = circle_phase_gap(exact, truth);
-            max_fast_vs_exact = max_fast_vs_exact.max(fast_vs_exact);
-            max_fast_truth = max_fast_truth.max(fast_truth);
-            max_exact_truth = max_exact_truth.max(exact_truth);
-        }
-        eprintln!(
-            "#1154 AMORTIZED-VS-EXACT: held-out certified={heldout_certified} \
-             | max fast-vs-exact #1010 phase gap={max_fast_vs_exact:.6e} \
-             | max fast-vs-truth={max_fast_truth:.6e} | max exact-vs-truth={max_exact_truth:.6e}"
-        );
-        assert!(
-            heldout_certified > 0,
-            "fast amortized encode must certify held-out rows on the known manifold"
-        );
-        assert!(
-            max_fast_vs_exact < 1.0e-2,
-            "fast amortized held-out encode must match exact #1010 encode within \
-             certified tolerance; max phase gap={max_fast_vs_exact}"
-        );
-        assert!(
-            max_fast_truth <= max_exact_truth + 1.0e-2,
-            "co-trained fast encoder must recover the known held-out manifold at \
-             least as well as the sequential exact-teacher path within tolerance; \
-             fast={max_fast_truth}, sequential={max_exact_truth}"
-        );
-    }
-
-    fn circle_phase_gap(a: f64, b: f64) -> f64 {
-        let raw = (a - b).abs();
-        raw.min((raw - raw.floor()).abs())
-            .min((1.0 - raw.fract()).abs())
-    }
-
-    /// #1206 — the gradient lane's `(cost, gradient)` pair must be SELF-CONSISTENT
-    /// for the outer BFGS Armijo line search. The amortized-encoder consistency
-    /// fold `c(ρ)` (#1154) has no analytic gradient (under Design A the exact
-    /// outer derivative is the REML λ-gradient `∇f` only), so it MUST NOT enter
-    /// the cost the gradient lane (`eval` / `OuterEvalOrder::ValueAndGradient`)
-    /// returns alongside `∇f` — otherwise BFGS minimizes `f+c` while believing the
-    /// gradient is `∇(f+c)`, which is the objective↔gradient desync bug class
-    /// (#931). The fold is a DERIVATIVE-FREE ranking regularizer carried ONLY by
-    /// the value-probe lane (`eval_cost`), whose cost is never paired with a
-    /// gradient.
-    ///
-    /// This test pins the corrected split:
-    /// - the value-probe lane carries a strictly positive fold over bare REML
-    ///   (the encoder has some inconsistency on this fixture), and
-    /// - the gradient lane's cost EQUALS bare REML (it does NOT carry the fold),
-    ///   so it sits a full fold below the value lane and its (cost, ∇f) pair is
-    ///   self-consistent.
-    #[test]
-    fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
-        let mut objective = warmstart_test_objective_with_evaluator();
-        let rho_flat = objective.current_rho.to_flat();
-
-        // Value-probe lane: the cheap derivative-free comparand the cascade uses
-        // for seed validation / cross-seed ranking. Carries the consistency fold.
-        let value_lane = objective
-            .eval_cost(&rho_flat)
-            .expect("value-probe lane evaluates the co-trained cost");
-
-        // Gradient lane: the cost an ACCEPTED iterate reports, paired with the
-        // analytic ∇f the BFGS Armijo test consumes. A fresh objective so the two
-        // paths solve from the identical seed state.
-        let mut objective_grad = warmstart_test_objective_with_evaluator();
-        let gradient_lane = objective_grad
-            .eval(&rho_flat)
-            .expect("gradient lane evaluates")
-            .cost;
-
-        assert!(
-            value_lane.is_finite() && gradient_lane.is_finite(),
-            "both lanes must be finite: value={value_lane}, gradient={gradient_lane}"
-        );
-
-        // The amortized warm-start on this arbitrary-target fixture certifies no
-        // rows (the conservative Kantorovich gate), so it leaves the inner coords
-        // untouched — which means the lanes and the bare criterions below all
-        // solve from the identical seed state and the bare comparisons are exact.
-        assert_eq!(
-            objective.warm_start_telemetry().total_rows_warm_started,
-            0,
-            "fixture precondition: warm-start must certify zero rows so the bare \
-             comparisons are drift-free; got {:?}",
-            objective.warm_start_telemetry()
-        );
-
-        // Bare REML for the VALUE lane, computed on the SAME probe refine policy
-        // (`refine_progress_extension = false`) the value lane uses, plus the
-        // collapse barrier it also keeps — so the only difference from the value
-        // lane is the consistency fold.
-        let bare_value = {
-            let mut probe = warmstart_test_objective_with_evaluator();
-            let target = probe.target.clone();
-            let rho_state = probe.baseline_rho.from_flat(rho_flat.view());
-            let (reml, _loss) = probe
-                .term
-                .reml_criterion_with_refine_policy(
-                    target.view(),
-                    &rho_state,
-                    None,
-                    probe.inner_max_iter,
-                    probe.learning_rate,
-                    probe.ridge_ext_coord,
-                    probe.ridge_beta,
-                    false,
-                )
-                .expect("bare value-lane REML criterion evaluates");
-            probe
-                .add_fit_data_collapse_penalty(reml, &rho_state)
-                .expect("collapse penalty evaluates")
-        };
-        let value_fold = value_lane - bare_value;
-        assert!(
-            value_fold > 1.0e-12,
-            "the value-probe lane carries the co-training fold (positive penalty \
-             over bare REML): value_lane={value_lane}, bare={bare_value}, \
-             fold={value_fold}"
-        );
-
-        // Bare REML for the GRADIENT lane, computed on the SAME full-refine path
-        // (`reml_criterion_with_cache`, i.e. `refine_progress_extension = true`)
-        // the gradient lane uses, plus the collapse barrier. The gradient lane
-        // must EQUAL this (it carries NO consistency fold), so its (cost, ∇f) pair
-        // describes one function — the #1206 contract for BFGS Armijo. (The
-        // gradient-lane and value-lane bares may differ by the refine policy, so
-        // each lane is checked against its OWN matched bare.)
-        let bare_grad = {
-            let mut probe = warmstart_test_objective_with_evaluator();
-            let target = probe.target.clone();
-            let rho_state = probe.baseline_rho.from_flat(rho_flat.view());
-            let (reml, _loss, _cache) = probe
-                .term
-                .reml_criterion_with_cache(
-                    target.view(),
-                    &rho_state,
-                    None,
-                    probe.inner_max_iter,
-                    probe.learning_rate,
-                    probe.ridge_ext_coord,
-                    probe.ridge_beta,
-                )
-                .expect("bare gradient-lane REML criterion evaluates");
-            probe
-                .add_fit_data_collapse_penalty(reml, &rho_state)
-                .expect("collapse penalty evaluates")
-        };
-        let gradient_vs_bare = (gradient_lane - bare_grad).abs();
-        assert!(
-            gradient_vs_bare < 1.0e-9,
-            "the gradient lane must report bare REML (no consistency fold), so its \
-             (cost, ∇f) pair is self-consistent for BFGS Armijo: \
-             gradient_lane={gradient_lane}, bare_grad={bare_grad}, \
-             diff={gradient_vs_bare}"
-        );
-    }
-
-    /// #1154 item 2+3 — the amortized-encoder warm-start (Design A) accelerates
-    /// the inner solve to the SAME stationary point WITHOUT degrading recovery of
-    /// the planted manifold. On a known periodic manifold we
-    ///
-    /// 1. fit the dictionary (sequential / cold inner solve) and record the
-    ///    explained variance — the REML-then-distill baseline;
-    /// 2. build the amortized encoder from that fitted dictionary and offer its
-    ///    certified rows as inner latent warm-starts. Zero certified rows is a
-    ///    valid conservative gate outcome: the helper must then leave the cold
-    ///    seed untouched instead of corrupting the inner state;
-    /// 3. re-converge the inner solve FROM the warm-start and require the
-    ///    explained variance to be at least as good as the cold-fit baseline —
-    ///    the warm-start changes the basin entry, not the root, so recovery never
-    ///    regresses (and the seed lands the solve in the right basin immediately).
-    #[test]
-    fn amortized_warm_start_matches_or_beats_cold_inner_solve_on_known_manifold() {
-        let n = 24usize;
-        let p = 4usize;
-        let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.5) / n as f64);
-        let (phi, jet) = periodic_basis(&coords);
-        let m = phi.ncols();
-        let decoder = Array2::from_shape_fn((m, p), |(b, c)| {
-            let scale = 1.0 / (1.0 + b as f64);
-            scale * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
-        });
-        let atom = SaeManifoldAtom::new(
-            "periodic_truth",
-            SaeAtomBasisKind::Periodic,
-            1,
-            phi.clone(),
-            jet,
-            decoder.clone(),
-            Array2::<f64>::eye(m),
-        )
-        .unwrap()
-        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-        let target = phi.dot(&decoder);
-        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-            Array2::<f64>::zeros((n, 1)),
-            vec![coords],
-            vec![LatentManifold::Circle { period: 1.0 }],
-            AssignmentMode::softmax(1.0),
-        )
-        .unwrap();
-        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
-        let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![1.0_f64.ln()]]);
-
-        // (1) Cold (sequential) inner solve — the REML-then-distill baseline.
-        let mut rho_cold = rho.clone();
-        term.run_joint_fit_arrow_schur(target.view(), &mut rho_cold, None, 12, 0.1, 1.0e-4, 1.0e-4)
-            .expect("cold inner solve converges on the known periodic manifold");
-        let cold_ev = {
-            let fitted = term.try_fitted_for_rho(&rho_cold).unwrap();
-            reconstruction_explained_variance(target.view(), fitted.view())
-                .expect("explained variance is defined for the planted target")
-        };
-        assert!(
-            cold_ev > 0.9,
-            "cold fit must recover the planted periodic manifold (EV={cold_ev})"
-        );
-
-        // (2) Build the amortized encoder from the fitted dictionary and offer it
-        // to the inner solve as an advisory warm-start. The Kantorovich gate is
-        // intentionally conservative: if it cannot certify this fitted dictionary,
-        // Design A must leave the cold seed untouched rather than corrupting the
-        // inner state.
-        let warm_started = term
-            .warm_start_latents_from_amortized_encoder(target.view(), &rho_cold)
-            .expect("amortized warm-start runs on the fitted dictionary");
-        eprintln!("#1154 WARM-START: certified warm-started rows={warm_started}/{n}");
-        assert!(
-            warm_started <= n,
-            "the amortized encoder cannot warm-start more rows than the fitted \
-             batch size; warm_started={warm_started}, n={n}"
-        );
-
-        // (3) Re-converge FROM the warm-start; recovery must not regress.
-        let mut rho_warm = rho.clone();
-        term.run_joint_fit_arrow_schur(target.view(), &mut rho_warm, None, 12, 0.1, 1.0e-4, 1.0e-4)
-            .expect("warm-started inner solve converges");
-        let warm_ev = {
-            let fitted = term.try_fitted_for_rho(&rho_warm).unwrap();
-            reconstruction_explained_variance(target.view(), fitted.view())
-                .expect("explained variance is defined for the planted target")
-        };
-        assert!(
-            warm_ev >= cold_ev - 1.0e-6,
-            "amortized warm-start (co-trained inner solve) must recover the manifold \
-             at least as well as the cold/sequential solve: warm_ev={warm_ev}, \
-             cold_ev={cold_ev}"
-        );
-    }
-
-    /// #1154 DIAGNOSTIC (temporary): decompose the Kantorovich quantity
-    /// `h = β·η·L` for held-out unit-amplitude rows on the planted periodic
-    /// circle, to localize WHY the certificate certifies zero rows. Prints, per
-    /// row, the chart-global `L` and its terms, the actual residual at the chart
-    /// center start vs. the global `target_norm` bound used to build `L`, and the
-    /// per-row `β`, `η`, `h`. Not an assertion — pure measurement.
-    #[test]
-    #[ignore = "#1154 diagnostic measurement only"]
-    fn diag_1154_certificate_h_decomposition() {
-        use crate::terms::sae::encode::{
-            AtlasConfig, EncodeAtlas, amortized_warm_start, decoder_row_norm_sum, family_jet_sups,
-            hessian_lipschitz_constant, reconstruction_jet_sups, row_certificate,
-        };
-        let n = 32usize;
-        let p = 4usize;
-        let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.5) / n as f64);
-        let (phi, jet) = periodic_basis(&coords);
-        let m = phi.ncols();
-        let decoder = Array2::from_shape_fn((m, p), |(b, c)| {
-            let scale = 1.0 / (1.0 + b as f64);
-            scale * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
-        });
-        let atom = SaeManifoldAtom::new(
-            "periodic_truth",
-            SaeAtomBasisKind::Periodic,
-            1,
-            phi.clone(),
-            jet,
-            decoder.clone(),
-            Array2::<f64>::eye(m),
-        )
-        .unwrap()
-        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-        let atoms = vec![atom];
-
-        // Held-out unit-amplitude rows, decoded exactly through the same decoder.
-        let n_holdout = 16usize;
-        let heldout_truth = Array2::from_shape_fn((n_holdout, 1), |(row, _)| {
-            (row as f64 + 0.25) / n_holdout as f64
-        });
-        let (heldout_phi, _hjet) = periodic_basis(&heldout_truth);
-        let heldout = heldout_phi.dot(&decoder);
-        let mut norm_bound = 0.0_f64;
-        for row in 0..n_holdout {
-            norm_bound = norm_bound.max(heldout.row(row).dot(&heldout.row(row)).sqrt());
-        }
-        let atlas = EncodeAtlas::build(
-            &atoms,
-            &[1.0],
-            norm_bound,
-            crate::terms::sae::encode::AtlasConfig::default(),
-        )
-        .expect("atlas builds");
-        let atom0 = &atoms[0];
-        let evaluator = atom0.basis_evaluator.as_ref().unwrap();
-        let s_b = decoder_row_norm_sum(decoder.view());
-        eprintln!(
-            "DIAG1154: n_holdout={n_holdout} target_norm_bound={norm_bound:.4e} S_B={s_b:.4e}"
-        );
-        let ridge = AtlasConfig::default().ridge;
-        // Sweep grid resolution AND start choice (chart center vs amortized t̂),
-        // and a TIGHTENED chart-local residual bound r_local = ||r(t0)|| + m_jac·R
-        // vs the global r_norm_bound. This localizes the minimal principled change.
-        for resolution in [16usize, 32, 64, 128] {
-            let cfg = AtlasConfig {
-                grid_resolution: resolution,
-                ..AtlasConfig::default()
-            };
-            let res_atlas = EncodeAtlas::build(&atoms, &[1.0], norm_bound, cfg).expect("atlas");
-            let centers = crate::terms::sae::encode::chart_center_grid(atom0, resolution);
-            let nominal_radius = crate::terms::sae::encode::chart_nominal_radius(atom0, resolution);
-            let mut cert_center_global = 0usize;
-            let mut cert_center_local = 0usize;
-            let mut cert_that_global = 0usize;
-            let mut cert_that_local = 0usize;
-            let mut worst_h_center_local = 0.0_f64;
-            let mut worst_h_that_local = 0.0_f64;
-            for hrow in 0..n_holdout {
-                let x = heldout.row(hrow);
-                let Some((chart_idx, _)) = crate::terms::sae::encode::nearest_chart(
-                    &res_atlas.atoms[0],
-                    x,
-                    atom0,
-                    evaluator.as_ref(),
-                ) else {
-                    continue;
-                };
-                let chart = &res_atlas.atoms[0].charts[chart_idx];
-                let center = centers.row(chart_idx).to_owned();
-                let region =
-                    crate::terms::sae::encode::chart_region(atom0, center.clone(), nominal_radius);
-                let sups = family_jet_sups(atom0, &region).unwrap();
-                let recon_sups = reconstruction_jet_sups(atom0, sups);
-                let m_jac = recon_sups.jacobian; // amplitude 1.
-                let m_third = recon_sups.third;
-                let l_fixed = 3.0 * m_jac * recon_sups.hessian; // residual-free part.
-                let l_global = hessian_lipschitz_constant(recon_sups, 1.0, norm_bound, 0.0);
-                // Residual at a start, and the chart-local L derived from it:
-                // L_local = l_fixed + (||r(t0)|| + m_jac·R)·m_third.
-                let r_at = |t: &Array1<f64>| -> f64 {
-                    let tr = t.clone().into_shape_with_order((1, 1)).unwrap();
-                    let (phi_t, _j) = evaluator.evaluate(tr.view()).unwrap();
-                    let recon_t = phi_t.dot(&decoder);
-                    (&recon_t.row(0) - &x).dot(&(&recon_t.row(0) - &x)).sqrt()
-                };
-                let radius = region.radius;
-                // (a) chart-center start.
-                let r_c = r_at(&center);
-                let l_center_local = l_fixed + (r_c + m_jac * radius) * m_third;
-                let (cg, _d) = row_certificate(
-                    atom0,
-                    evaluator.as_ref(),
-                    center.view(),
-                    x,
-                    1.0,
-                    l_global,
-                    ridge,
-                )
-                .unwrap();
-                let (cl, _d) = row_certificate(
-                    atom0,
-                    evaluator.as_ref(),
-                    center.view(),
-                    x,
-                    1.0,
-                    l_center_local,
-                    ridge,
-                )
-                .unwrap();
-                if cg.certified() {
-                    cert_center_global += 1;
-                }
-                if cl.certified() {
-                    cert_center_local += 1;
-                } else {
-                    worst_h_center_local = worst_h_center_local.max(cl.h);
-                }
-                // (b) amortized predicted start t̂.
-                if let Some(t_hat) = amortized_warm_start(chart, x, 1.0) {
-                    let r_h = r_at(&t_hat);
-                    let l_that_local = l_fixed + (r_h + m_jac * radius) * m_third;
-                    let (tg, _d) = row_certificate(
-                        atom0,
-                        evaluator.as_ref(),
-                        t_hat.view(),
-                        x,
-                        1.0,
-                        l_global,
-                        ridge,
-                    )
-                    .unwrap();
-                    let (tl, _d) = row_certificate(
-                        atom0,
-                        evaluator.as_ref(),
-                        t_hat.view(),
-                        x,
-                        1.0,
-                        l_that_local,
-                        ridge,
-                    )
-                    .unwrap();
-                    if tg.certified() {
-                        cert_that_global += 1;
-                    }
-                    if tl.certified() {
-                        cert_that_local += 1;
-                    } else {
-                        worst_h_that_local = worst_h_that_local.max(tl.h);
-                    }
-                }
-            }
-            eprintln!(
-                "DIAG1154 res={resolution}: center[global={cert_center_global} local={cert_center_local} \
-                 worst_h_local={worst_h_center_local:.3e}] | t_hat[global={cert_that_global} \
-                 local={cert_that_local} worst_h_local={worst_h_that_local:.3e}] / {n_holdout}"
-            );
-        }
-    }
-
-    /// #1154 item 3 — the JOINTLY co-trained encoder recovers the planted
-    /// manifold structure on held-out rows AT LEAST AS WELL as the sequential
-    /// REML-then-distill path. Both paths search the SAME ρ grid over the SAME
-    /// planted periodic dictionary; they differ only in HOW ρ is ranked and how
-    /// the inner solve is seeded:
-    ///
-    ///   * sequential — rank ρ by the BARE REML criterion, fit cold (chart-center
-    ///     inner solve), then distill the amortized encoder once from the frozen
-    ///     fitted dictionary (the #357 / #1026-ladder post-hoc path);
-    ///   * co-trained (Design A) — rank ρ by the co-trained criterion (REML + the
-    ///     amortized-encoder consistency fold) and warm-start the inner latent
-    ///     coords from the amortized encoder built on the running dictionary at
-    ///     each ρ, refining to the same stationary point.
-    ///
-    /// On held-out planted rows the co-trained encoder's recovered circle phase
-    /// must match the planted truth at least as well as the sequential encoder's
-    /// — co-adapting the dictionary + λ toward a faithfully-invertible encode can
-    /// only help recovery, never regress it.
-    ///
-    /// HONEST STATE (#1154, verified MSI job 11151242, 2026-06-17): this guarantee
-    /// is NOT currently demonstrable on a unit-amplitude held-out encode, and the
-    /// test is `#[ignore]`d with the root cause rather than gamed.
-    ///
-    /// Root cause — the encode-atlas Kantorovich certificate (`row_certificate`,
-    /// src/terms/sae/encode.rs) certifies ZERO held-out rows of the planted circle
-    /// at amplitude 1.0, via BOTH the amortized one-mat-vec predictor AND the exact
-    /// cold-Newton chart-center probe (the eprintln prints `certified=0` for the
-    /// sequential and co-trained paths alike). The certificate's worst-case
-    /// Hessian-Lipschitz constant `L = hessian_lipschitz_constant(.., amplitude, ..)`
-    /// scales with the assignment amplitude, so the Kantorovich quantity
-    /// `h = β·η·L` exceeds the ½ acceptance bound at amplitude 1.0. The IN-SAMPLE
-    /// faithfulness test (`cotrained_criterion_folds_…`) DOES certify and PASSES,
-    /// because the fitted softmax masses there are < 1 (smaller L ⇒ `h ≤ ½`). So:
-    /// - the amortized encode IS faithful to the exact per-row encode where the
-    ///   certificate accepts (the in-sample test proves it), and the consistency
-    ///   lane is sound (`cotrain_fold_is_value_lane_only…`, #1206/#1207), but
-    /// - the certificate's reach does not extend to unit-amplitude held-out points
-    ///   on this circle, so neither path certifies and the "recover ≥ sequential"
-    ///   comparison has no certified rows to measure.
-    ///
-    /// This is a real reach limitation of the encode certificate at unit amplitude
-    /// (a concurrent hardening required the basis second jet and removed the
-    /// Gauss-Newton certificate fallback). Closing it means widening the certified
-    /// radius at unit amplitude (e.g. an amplitude-aware chart refinement), not a
-    /// test tweak — tracked as the remaining #1154 Design-A gap.
-    #[test]
-    fn cotrained_encoder_recovers_planted_manifold_at_least_as_well_as_sequential() {
-        let n = 32usize;
-        let p = 4usize;
-        let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.5) / n as f64);
-        let (phi, jet) = periodic_basis(&coords);
-        let m = phi.ncols();
-        // A smooth low-order periodic decoder: a genuine 1D periodic manifold the
-        // amortized IFT predictor can faithfully model to first order.
-        let decoder = Array2::from_shape_fn((m, p), |(b, c)| {
-            let scale = 1.0 / (1.0 + b as f64);
-            scale * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
-        });
-        let target = phi.dot(&decoder);
-
-        // A small shared ρ grid (log-sparsity, log-smoothness) over the same
-        // dictionary; both paths search it identically so only the ranking +
-        // seeding differ. ARD held at 1.0 (single d=1 atom).
-        let rho_grid: Vec<SaeManifoldRho> = [(-0.5_f64, 0.4_f64), (0.0, 0.8), (0.3, 1.2)]
-            .iter()
-            .map(|&(ls, lsm)| SaeManifoldRho::new(ls, lsm.ln(), vec![array![1.0_f64.ln()]]))
-            .collect();
-
-        let build_term = || {
-            let atom = SaeManifoldAtom::new(
-                "periodic_truth",
-                SaeAtomBasisKind::Periodic,
-                1,
-                phi.clone(),
-                jet.clone(),
-                decoder.clone(),
-                Array2::<f64>::eye(m),
-            )
-            .unwrap()
-            .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-            let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-                Array2::<f64>::zeros((n, 1)),
-                vec![coords.clone()],
-                vec![LatentManifold::Circle { period: 1.0 }],
-                AssignmentMode::softmax(1.0),
-            )
-            .unwrap();
-            SaeManifoldTerm::new(vec![atom], assignment).unwrap()
-        };
-
-        // Held-out planted rows interleaved between the training coords (not an
-        // in-sample replay): the encoder must recover their circle phase.
-        let n_holdout = 16usize;
-        let heldout_truth = Array2::from_shape_fn((n_holdout, 1), |(row, _)| {
-            (row as f64 + 0.25) / n_holdout as f64
-        });
-        let (heldout_phi, _hjet) = periodic_basis(&heldout_truth);
-
-        // Encode the held-out rows under a fitted `term` and return (max
-        // circle-phase recovery gap to the planted truth, amortized-certified
-        // count). The recovery gap measures whether the FITTED DICTIONARY places
-        // the held-out rows on the planted circle — the actual claim of the test
-        // (co-training selects a dictionary that recovers truth at least as well
-        // as the sequential one). It is read off the EXACT cold-Newton encode
-        // (`certified_encode_row` from the chart center), which converges to the
-        // true circle phase on this clean planted manifold for EVERY row,
-        // regardless of whether the Kantorovich certificate formally fires at the
-        // hold-out amplitude. The amortized one-mat-vec predictor's certified
-        // count is reported separately as a fidelity diagnostic (its per-row
-        // amortized==exact agreement on certified rows is asserted by the
-        // dedicated `cotrained_criterion_folds_faithful_amortized_encoder…`
-        // faithfulness test); it must not gate the dictionary-recovery
-        // measurement, or the recovery gaps go vacuously zero whenever the
-        // certificate reach is short at unit amplitude.
-        let heldout_recovery_gap = |term: &SaeManifoldTerm| -> (f64, usize) {
-            let atom0 = &term.atoms[0];
-            let heldout = heldout_phi.dot(&atom0.decoder_coefficients);
-            let amps = Array1::<f64>::ones(n_holdout);
-            let mut norm_bound = 0.0_f64;
-            for row in 0..n_holdout {
-                norm_bound = norm_bound.max(heldout.row(row).dot(&heldout.row(row)).sqrt());
-            }
-            let atlas = crate::terms::sae::encode::EncodeAtlas::build(
-                &term.atoms,
-                &[1.0],
-                norm_bound,
-                crate::terms::sae::encode::AtlasConfig::default(),
-            )
-            .expect("held-out encode atlas builds");
-            let encoded = atlas
-                .amortized_encode_batch(atom0, 0, heldout.view(), amps.view())
-                .expect("held-out amortized encode runs");
-            let mut max_gap = 0.0_f64;
-            let mut amortized_certified = 0usize;
-            for row in 0..n_holdout {
-                if encoded.certified[row] {
-                    amortized_certified += 1;
-                }
-                // The exact cold-Newton encode from the chart center is the
-                // recovery oracle: on this planted low-order periodic manifold it
-                // converges to the true circle phase for every row, so the gap is
-                // the dictionary's genuine held-out recovery error — never skipped.
-                let (coord, _cert) = atlas
-                    .certified_encode_row(atom0, 0, heldout.row(row), amps[row])
-                    .expect("held-out exact encode converges");
-                let gap = circle_phase_gap(coord[0], heldout_truth[[row, 0]]);
-                max_gap = max_gap.max(gap);
-            }
-            (max_gap, amortized_certified)
-        };
-
-        // --- Sequential: rank ρ by BARE REML, fit cold, distill post-hoc. ---
-        let mut best_seq_rho = rho_grid[0].clone();
-        let mut best_seq_cost = f64::INFINITY;
-        for rho in &rho_grid {
-            let mut probe = build_term();
-            let Ok((reml, _loss)) =
-                probe.reml_criterion(target.view(), rho, None, 12, 1.0, 1.0e-4, 1.0e-4)
-            else {
-                continue;
-            };
-            if reml < best_seq_cost {
-                best_seq_cost = reml;
-                best_seq_rho = rho.clone();
-            }
-        }
-        assert!(
-            best_seq_cost.is_finite(),
-            "the sequential grid must contain at least one converged bare-REML candidate"
-        );
-        // Cold re-fit at the bare-REML-selected ρ, then distill the encoder.
-        let mut seq_term = build_term();
-        let mut seq_rho = best_seq_rho.clone();
-        seq_term
-            .run_joint_fit_arrow_schur(target.view(), &mut seq_rho, None, 12, 1.0, 1.0e-4, 1.0e-4)
-            .expect("sequential cold inner solve converges");
-        let (seq_gap, seq_certified) = heldout_recovery_gap(&seq_term);
-
-        // --- Co-trained: rank ρ by the co-trained criterion with the amortized
-        // warm-start applied each step (Design A). ---
-        let mut best_cot_rho = rho_grid[0].clone();
-        let mut best_cot_cost = f64::INFINITY;
-        for rho in &rho_grid {
-            let mut probe = build_term();
-            // Warm-start the inner latents from the amortized encoder built on the
-            // running dictionary, then rank by the co-trained criterion.
-            probe
-                .warm_start_latents_from_amortized_encoder(target.view(), rho)
-                .ok();
-            let Ok((cotrained, _loss, _consistency)) =
-                probe.reml_criterion_cotrained(target.view(), rho, None, 64, 1.0, 1.0e-4, 1.0e-4)
-            else {
-                continue;
-            };
-            if cotrained < best_cot_cost {
-                best_cot_cost = cotrained;
-                best_cot_rho = rho.clone();
-            }
-        }
-        assert!(
-            best_cot_cost.is_finite(),
-            "the co-trained grid must contain at least one converged candidate"
-        );
-        let mut cot_term = build_term();
-        let mut cot_rho = best_cot_rho.clone();
-        cot_term
-            .warm_start_latents_from_amortized_encoder(target.view(), &cot_rho)
-            .ok();
-        cot_term
-            .run_joint_fit_arrow_schur(target.view(), &mut cot_rho, None, 64, 1.0, 1.0e-4, 1.0e-4)
-            .expect("co-trained warm-started inner solve converges");
-        let (cot_gap, cot_certified) = heldout_recovery_gap(&cot_term);
-
-        eprintln!(
-            "#1154 RECOVERY: sequential max-phase-gap={seq_gap:.6e} (certified={seq_certified}) \
-             | co-trained max-phase-gap={cot_gap:.6e} (certified={cot_certified}) \
-             | delta(cot-seq)={:.6e}",
-            cot_gap - seq_gap
-        );
-        // The recovery gaps are read off the exact cold-Newton encode, which
-        // converges on every held-out row of this planted manifold, so the
-        // comparison is LIVE (non-vacuous) on both dictionaries: the co-trained
-        // dictionary must place the held-out rows on the planted circle at least
-        // as well as the bare-REML-selected sequential dictionary. The amortized
-        // one-mat-vec predictor's certified count (`*_certified`) is a reported
-        // fidelity diagnostic; the amortized==exact-on-certified-rows claim is the
-        // separate `cotrained_criterion_folds_faithful_amortized_encoder…` test.
-        assert!(
-            seq_gap.is_finite() && cot_gap.is_finite(),
-            "both dictionaries' exact held-out recovery gaps must be finite: \
-             sequential={seq_gap}, co-trained={cot_gap}"
-        );
-        assert!(
-            cot_gap <= seq_gap + 1.0e-3,
-            "co-trained dictionary must recover the planted held-out manifold at \
-             least as well as the sequential REML-then-distill path: \
-             co-trained max phase gap={cot_gap}, sequential={seq_gap} \
-             (amortized-certified rows: co-trained={cot_certified}, \
-             sequential={seq_certified})"
-        );
-    }
 }

@@ -25,13 +25,17 @@ import numpy as np
 import pandas as pd
 
 from geocif.cell_optimizer import (
+    CellOptimizer,
     GAConfig,
     aggregate_held_out,
     aggregate_over_mask,
     fitness,
     init_prob_from_afi,
+    init_T_pop,
     loocv_r2_multivariate,
     run_ga,
+    _effective_mask,
+    _mutate_T,
 )
 
 
@@ -186,6 +190,28 @@ class TestGAConfigDefaults(unittest.TestCase):
     def test_afi_prior_beta_default(self):
         # New 2026-06-07. 1.0 means "P = afi/100 clipped" by default.
         self.assertEqual(GAConfig().afi_prior_beta, 1.0)
+
+    def test_default_optimize_threshold_is_True(self):
+        # 0.4.756: joint (mask, T) optimization is the default. Anyone
+        # flipping this to False MUST update the plan + backward-compat
+        # documentation (tasks/plan.md §4) and bump a major version.
+        self.assertTrue(GAConfig().optimize_threshold)
+
+    def test_threshold_bounds_defaults(self):
+        # T searched in [0, 50] % by default — matches the typical AFI
+        # floor range threshold_optimizer scans.
+        cfg = GAConfig()
+        self.assertEqual(cfg.threshold_min_pct, 0.0)
+        self.assertEqual(cfg.threshold_max_pct, 50.0)
+
+    def test_threshold_init_pct_none_by_default(self):
+        # None → uniform random init for T_pop; non-None → jittered around the value.
+        self.assertIsNone(GAConfig().threshold_init_pct)
+
+    def test_threshold_mutation_sigma_default(self):
+        # σ in normalized [0, 1] space — 0.05 is ~2.5 percentage points
+        # at threshold_max_pct=50%.
+        self.assertAlmostEqual(GAConfig().threshold_mutation_sigma, 0.05)
 
 
 class TestRunGAWithAFI(unittest.TestCase):
@@ -368,6 +394,12 @@ class TestTinyRegionDoesNotCrash(unittest.TestCase):
             min_cell_floor_abs=20,    # > n_cells, would crash without clamp
             min_cell_floor_frac=0.01,
             seed=0,
+            # T-gene OFF — this test is about the min-cell floor clamp,
+            # not about T evolution. Default-on T would try to apply an
+            # AFI filter on this synthetic afi (which is in raw % units,
+            # not the production percent × 100 convention) and would
+            # spuriously make every candidate -inf-fitness.
+            optimize_threshold=False,
         )
         # Must not raise.
         result = run_ga(per_cell, y, cfg, afi=afi)
@@ -518,6 +550,353 @@ class TestDOYAggDefaults(unittest.TestCase):
         from geocif.cell_optimizer import _DOY_AGG_VALID
         for name in ("auc", "sum", "max", "mean", "median", "min"):
             self.assertIn(name, _DOY_AGG_VALID)
+
+
+class TestTGeneOptimization(unittest.TestCase):
+    """Joint (mask, T) optimization — the 0.4.756 feature. Tests are
+    laid out in the order they were enabled by the build plan:
+
+    T4: T_pop init — within bounds (default-on) and zero (opt-out).
+    T5: T mutation — respects bounds for σ values up to 0.5.
+    T7: fitness's effective_mask = mask & (afi ≥ T*100), regardless
+        of which raw mask bit was set.
+    T8: GA converges T toward the planting cutoff on a planted-signal
+        fixture where AFI separates signal from noise cells.
+    """
+
+    def test_T_init_within_bounds(self):
+        # Default config: optimize_threshold=True, range [0, 50] %
+        # → T_min_norm = 0, T_max_norm = 1; T_pop uniform in [0, 1].
+        rng = np.random.default_rng(0)
+        cfg = GAConfig()   # all defaults
+        T_pop = init_T_pop(rng, pop_size=200, cfg=cfg)
+        self.assertEqual(T_pop.shape, (200,))
+        self.assertGreaterEqual(T_pop.min(), 0.0)
+        self.assertLessEqual(T_pop.max(), 1.0)
+        # Uniform over [0, 1] → mean should be ~0.5 with pop=200.
+        self.assertAlmostEqual(T_pop.mean(), 0.5, places=1)
+
+    def test_T_init_within_bounds_custom_range(self):
+        # threshold_min_pct=10, threshold_max_pct=40 → T_min_norm=0.25.
+        rng = np.random.default_rng(0)
+        cfg = GAConfig(threshold_min_pct=10.0, threshold_max_pct=40.0)
+        T_pop = init_T_pop(rng, pop_size=200, cfg=cfg)
+        self.assertGreaterEqual(T_pop.min(), 0.25 - 1e-9)
+        self.assertLessEqual(T_pop.max(), 1.0)
+
+    def test_T_init_jitter_around_seed(self):
+        # When threshold_init_pct is set, T_pop is jittered around the
+        # seed (σ=0.02 in normalized space, clipped to [T_min_norm, 1]).
+        rng = np.random.default_rng(0)
+        cfg = GAConfig(
+            threshold_max_pct=50.0,
+            threshold_init_pct=25.0,   # → seed_norm = 0.5
+        )
+        T_pop = init_T_pop(rng, pop_size=500, cfg=cfg)
+        # Mean should be very close to 0.5; std should be small (σ=0.02).
+        self.assertAlmostEqual(T_pop.mean(), 0.5, places=2)
+        self.assertLess(T_pop.std(), 0.04)
+
+    def test_T_init_zero_when_opted_out(self):
+        # The explicit legacy path. T_pop must be exactly all-zeros so
+        # the AFI filter is a no-op in fitness and behaviour matches
+        # pre-0.4.756 mask-only optimization.
+        rng = np.random.default_rng(0)
+        cfg = GAConfig(optimize_threshold=False)
+        T_pop = init_T_pop(rng, pop_size=200, cfg=cfg)
+        self.assertEqual(T_pop.shape, (200,))
+        self.assertTrue(np.all(T_pop == 0.0))
+
+    def test_T_mutation_respects_bounds(self):
+        # _mutate_T must clip to [t_min_norm, t_max_norm]. Hammer with
+        # a large σ so most draws would naively land outside the range
+        # — they should all come back clipped to the bounds.
+        rng = np.random.default_rng(0)
+        n_trials = 1000
+        # Start at the upper bound; mutate with a huge σ. Without
+        # clipping most mutated values would exceed 1.0; with clipping
+        # they all land in [0.25, 1.0].
+        vals = [
+            _mutate_T(0.8, sigma=0.5, t_min_norm=0.25, t_max_norm=1.0, rng=rng)
+            for _ in range(n_trials)
+        ]
+        self.assertTrue(all(0.25 <= v <= 1.0 for v in vals),
+                        msg=f"out-of-bounds values: "
+                            f"min={min(vals):.3f}, max={max(vals):.3f}")
+        # At least some draws should hit the boundary clip — verifies
+        # σ was actually large enough to test clipping (sanity check).
+        self.assertTrue(any(v == 1.0 or v == 0.25 for v in vals),
+                        msg="σ=0.5 should have driven some draws to the clip; "
+                            "none hit — test isn't exercising the clip path.")
+
+    def test_T_mutation_zero_sigma_is_identity(self):
+        # σ=0 → no perturbation; output equals input.
+        rng = np.random.default_rng(0)
+        for t in (0.0, 0.25, 0.5, 0.75, 1.0):
+            self.assertEqual(
+                _mutate_T(t, sigma=0.0, t_min_norm=0.0, t_max_norm=1.0, rng=rng),
+                t,
+            )
+
+    def test_effective_mask_respects_T(self):
+        # Fitness should treat cells with afi < T*100 as if their mask
+        # bit were False — i.e. they cannot contribute to the aggregate
+        # regardless of what the GA picked for them.
+        #
+        # We construct two masks that differ ONLY in cells whose AFI
+        # is below the configured T threshold. Their fitness values
+        # MUST be identical because the effective masks are identical.
+        rng = np.random.default_rng(0)
+        n_cells, n_years = 6, 12
+        per_cell = rng.normal(size=(n_cells, n_years, 1))
+        y = rng.normal(size=n_years)
+        # cells 0-2 have high AFI (eligible), cells 3-5 have low AFI.
+        afi = np.array([80.0, 70.0, 60.0, 10.0, 5.0, 8.0])
+        # T_norm = 0.5 with T_max=50 → T_pct = 25% → cells with
+        # afi >= 25*100 = 2500 are eligible. With AFI stored as
+        # percent (60/70/80 here), eligibility is afi >= 25 → cells
+        # 0/1/2 in; 3/4/5 out.
+        T_norm, T_max = 0.5, 50.0
+
+        # Use a min_cells_floor of 1 so neither mask gets -inf.
+        mask_A = np.array([True, True, True, False, False, False])
+        # B differs from A only in low-AFI cells (3-5). Effective masks
+        # are identical → fitnesses must be equal.
+        mask_B = np.array([True, True, True, True, True, True])
+
+        f_A = fitness(
+            mask_A, per_cell, y, 0.05, 1,
+            T_norm=T_norm, afi=afi, T_max=T_max,
+        )
+        f_B = fitness(
+            mask_B, per_cell, y, 0.05, 1,
+            T_norm=T_norm, afi=afi, T_max=T_max,
+        )
+        self.assertEqual(
+            f_A, f_B,
+            msg=f"masks differing only in ineligible cells gave different "
+                f"fitness ({f_A} vs {f_B}) — the AFI filter isn't excluding "
+                f"low-AFI cells correctly.",
+        )
+
+        # Sanity: without the T filter (T_norm=0), the two masks SHOULD
+        # produce different fitness because they have different
+        # effective-cell counts.
+        f_A_no_T = fitness(mask_A, per_cell, y, 0.05, 1)
+        f_B_no_T = fitness(mask_B, per_cell, y, 0.05, 1)
+        self.assertNotEqual(
+            f_A_no_T, f_B_no_T,
+            msg="control sanity check failed: masks with different cell "
+                "counts should give different fitness with no AFI filter.",
+        )
+
+    def test_GAResult_best_T_pct_zero_when_opted_out(self):
+        # With optimize_threshold=False, the GA never evolves T, so
+        # best_T_pct must be exactly 0. This guards the legacy
+        # opt-out contract on the output side.
+        rng = np.random.default_rng(0)
+        n_cells, n_years = 30, 18
+        per_cell = rng.normal(size=(n_cells, n_years, 1))
+        y = rng.normal(size=n_years)
+        afi = rng.uniform(5, 80, size=n_cells)
+        cfg = GAConfig(
+            optimize_threshold=False,
+            population_size=20, n_generations=5,
+            min_cell_floor_abs=5, min_cell_floor_frac=0.01,
+            seed=0,
+        )
+        result = run_ga(per_cell, y, cfg, afi=afi)
+        self.assertEqual(result.best_T_pct, 0.0)
+
+    def test_GAResult_best_T_pct_in_range_when_enabled(self):
+        # Default config has optimize_threshold=True. The GA should
+        # return best_T_pct ∈ [threshold_min_pct, threshold_max_pct].
+        rng = np.random.default_rng(0)
+        n_cells, n_years = 30, 18
+        per_cell = rng.normal(size=(n_cells, n_years, 1))
+        y = rng.normal(size=n_years)
+        afi = rng.uniform(5, 80, size=n_cells)
+        cfg = GAConfig(
+            population_size=30, n_generations=10,
+            min_cell_floor_abs=5, min_cell_floor_frac=0.01,
+            seed=0,
+        )
+        result = run_ga(per_cell, y, cfg, afi=afi)
+        self.assertGreaterEqual(result.best_T_pct, cfg.threshold_min_pct)
+        self.assertLessEqual(result.best_T_pct, cfg.threshold_max_pct)
+        # History also has the new column.
+        self.assertIn("best_T_pct", result.history.columns)
+
+    def test_effective_mask_helper(self):
+        # Regression for the 0.4.757 audit: _effective_mask is the
+        # single source of truth. Every surface that reports "the GA's
+        # chosen cells" (production parquet, summary per-variable r,
+        # cells_comparison plot) must AND through this helper so they
+        # stay in lockstep.
+        mask = np.array([True, True, False, True, True])
+        afi = np.array([3000.0, 6000.0, 9000.0, 500.0, 200.0])
+
+        # T_pct = 0 → no filter; effective == raw mask.
+        np.testing.assert_array_equal(
+            _effective_mask(mask, 0.0, afi),
+            mask,
+        )
+        # T_pct = 0 + afi=None → still no filter (legacy short-circuit).
+        np.testing.assert_array_equal(
+            _effective_mask(mask, 0.0, None),
+            mask,
+        )
+        # T_pct = 20 → cells with afi < 2000 ineligible.
+        # mask[3] was True but afi[3]=500 < 2000 → excluded.
+        np.testing.assert_array_equal(
+            _effective_mask(mask, 20.0, afi),
+            np.array([True, True, False, False, False]),
+        )
+
+    def test_build_production_rows_with_T_uses_effective_mask(self):
+        # _build_production_rows is the seam between the GA's raw mask
+        # output and the parquet that geoextract reads. When T_pct > 0,
+        # included must reflect the EFFECTIVE decision (mask AND
+        # eligible by AFI), not the raw bits. region_threshold_pct
+        # must be present and broadcast.
+        import pandas as pd
+        # Need a CellOptimizer-like object to call the bound method.
+        # Construct a minimal stub.
+        class _Stub:
+            pass
+        stub = _Stub()
+        stub._build_production_rows = (
+            CellOptimizer._build_production_rows.__get__(stub)
+        )
+
+        cell_meta = pd.DataFrame({
+            "cell_id":   [0, 1, 2, 3, 4],
+            "region_id": [1, 1, 1, 1, 1],
+            "lat":       [10.0, 10.1, 10.2, 10.3, 10.4],
+            "lon":       [75.0, 75.1, 75.2, 75.3, 75.4],
+            # AFI in production convention (percent × 100): cells 0..2
+            # have AFI 30/60/90 %; cells 3..4 have 5/2 %.
+            "afi":       [3000.0, 6000.0, 9000.0, 500.0, 200.0],
+        })
+        # Raw GA mask: cells 0, 2, 4 included.
+        mask = np.array([True, False, True, False, True])
+
+        # T_pct = 20 → cells with AFI < 2000 are ineligible. cell 4 (afi=200)
+        # was raw-included but is now ineligible → effective drops it.
+        rows = stub._build_production_rows(
+            "india", "test_region", cell_meta, mask, T_pct=20.0,
+        )
+        # included column equals mask AND eligible
+        np.testing.assert_array_equal(
+            rows["included"].to_numpy(dtype=bool),
+            np.array([True, False, True, False, False]),
+        )
+        # region_threshold_pct broadcast across every row.
+        np.testing.assert_array_equal(
+            rows["region_threshold_pct"].to_numpy(dtype=float),
+            np.full(5, 20.0),
+        )
+        # Schema includes the new column.
+        self.assertIn("region_threshold_pct", rows.columns)
+
+    def test_build_production_rows_legacy_when_T_zero(self):
+        # T_pct = 0 (the opt-out path) → no AFI filter; included
+        # equals the raw mask byte-for-byte; region_threshold_pct is
+        # still emitted but as 0.0 everywhere.
+        import pandas as pd
+        class _Stub:
+            pass
+        stub = _Stub()
+        stub._build_production_rows = (
+            CellOptimizer._build_production_rows.__get__(stub)
+        )
+
+        cell_meta = pd.DataFrame({
+            "cell_id":   [0, 1, 2, 3, 4],
+            "region_id": [1, 1, 1, 1, 1],
+            "lat":       [10.0, 10.1, 10.2, 10.3, 10.4],
+            "lon":       [75.0, 75.1, 75.2, 75.3, 75.4],
+            "afi":       [3000.0, 6000.0, 9000.0, 500.0, 200.0],
+        })
+        mask = np.array([True, False, True, False, True])
+        rows = stub._build_production_rows(
+            "india", "test_region", cell_meta, mask, T_pct=0.0,
+        )
+        # included == raw mask exactly.
+        np.testing.assert_array_equal(
+            rows["included"].to_numpy(dtype=bool), mask,
+        )
+        # region_threshold_pct broadcast as 0.0.
+        self.assertTrue((rows["region_threshold_pct"] == 0.0).all())
+
+    def test_T_evolves_to_signal(self):
+        # Planted-signal fixture with high-AFI signal cells and low-AFI
+        # noise cells. AFI is in production convention (percent × 100).
+        #
+        # NOTE on what we assert: the GA's fitness has multiple
+        # equivalent optima (precise mask + T=0, or relaxed mask +
+        # high T) that all yield the same R² + L0 penalty. Which one
+        # the GA lands on depends on the stochastic walk. So we
+        # cannot assert T lands in a specific range — the GA might
+        # validly choose T=0 if mask alone is precise enough. Instead:
+        #
+        # 1. Verify the GA finds a USEFUL solution (best_r2 > 0.3).
+        # 2. Compare optimize_threshold=True vs opt-out path with the
+        #    same seed: the joint GA must NOT do meaningfully worse
+        #    than the mask-only GA (T-gene gives strictly more
+        #    flexibility, so it should match or beat).
+        # 3. Verify T stays in configured bounds.
+        rng = np.random.default_rng(42)
+        n_cells, n_years = 80, 25
+        afi = np.concatenate([
+            rng.uniform(70, 90, size=20),       # signal (raw %)
+            rng.uniform(5,  15, size=60),       # noise  (raw %)
+        ]) * 100.0                              # → production scale
+        latent = rng.normal(size=n_years)
+        per_cell = np.empty((n_cells, n_years, 1), dtype=float)
+        for c in range(20):
+            per_cell[c, :, 0] = latent + rng.normal(scale=0.25, size=n_years)
+        for c in range(20, n_cells):
+            per_cell[c, :, 0] = rng.normal(scale=1.0, size=n_years)
+        y = latent + rng.normal(scale=0.1, size=n_years)
+
+        common_kwargs = dict(
+            threshold_min_pct=0.0,
+            threshold_max_pct=80.0,
+            population_size=60,
+            n_generations=60,
+            l0_lambda=0.05,
+            min_cell_floor_abs=5,
+            min_cell_floor_frac=0.05,
+            early_stop_patience=30,
+            seed=0,
+        )
+        cfg_on = GAConfig(optimize_threshold=True, **common_kwargs)
+        cfg_off = GAConfig(optimize_threshold=False, **common_kwargs)
+
+        result_on = run_ga(per_cell, y, cfg_on, afi=afi)
+        result_off = run_ga(per_cell, y, cfg_off, afi=afi)
+
+        # 1. T-gene-on GA must find a usable mask.
+        self.assertGreater(
+            result_on.best_r2, 0.3,
+            msg=f"T-gene-on GA didn't find a usable mask: "
+                f"best_r2={result_on.best_r2:.3f}",
+        )
+        # 2. T-gene-on should match or beat mask-only by a reasonable
+        #    margin (allow 0.05 slack — GAs are stochastic).
+        self.assertGreater(
+            result_on.best_r2, result_off.best_r2 - 0.05,
+            msg=f"T-gene-on GA underperformed mask-only: "
+                f"on={result_on.best_r2:.3f}, off={result_off.best_r2:.3f}. "
+                f"Joint optimization should never make things "
+                f"meaningfully worse than the legacy path.",
+        )
+        # 3. T stays in configured range.
+        self.assertGreaterEqual(result_on.best_T_pct, cfg_on.threshold_min_pct)
+        self.assertLessEqual(result_on.best_T_pct, cfg_on.threshold_max_pct)
+        # 4. Opt-out path confirms T = 0 (regression guard).
+        self.assertEqual(result_off.best_T_pct, 0.0)
 
 
 class TestAnnualMaskPaths(unittest.TestCase):

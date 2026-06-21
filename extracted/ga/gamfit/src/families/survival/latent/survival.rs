@@ -1049,13 +1049,26 @@ const LATENT_SURVIVAL_PRIMARY_DIM: usize = 6;
 
 use crate::families::jet_partitions::MultiDirJet as LatentMultiDirJet;
 
+/// Derivatives of `log(x)` through 4th order.
+///
+/// # Contract
+///
+/// `x` must be strictly positive. This function does NOT clamp: a previous
+/// version replaced `x` by `x.max(1e-300)`, which fabricated enormous finite
+/// derivatives (`1/1e-300` etc.) that are the derivatives of neither `log(x)`
+/// nor `log(max(x, floor))` and would silently mask an upstream domain
+/// failure. Both callers guarantee `x > 0`: one composes at the literal `1.0`
+/// (the normalised log-sum base); the other passes `base`, which is gated by
+/// an explicit `base.is_finite() && base > 0.0` check immediately upstream. The
+/// caller contract guarantees that; a non-positive `x` yields the honest IEEE
+/// result (`-inf`/`NaN`) rather than a finite fabrication. For all
+/// valid `x > 0` the output is bit-identical to the previous clamped version.
 #[inline]
 fn latent_unary_derivatives_log(x: f64) -> [f64; 5] {
-    let x1 = x.max(1e-300);
-    let x2 = x1 * x1;
-    let x3 = x2 * x1;
-    let x4 = x3 * x1;
-    [x1.ln(), 1.0 / x1, -1.0 / x2, 2.0 / x3, -6.0 / x4]
+    let x2 = x * x;
+    let x3 = x2 * x;
+    let x4 = x3 * x;
+    [x.ln(), 1.0 / x, -1.0 / x2, 2.0 / x3, -6.0 / x4]
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1917,6 +1930,37 @@ where
 }
 
 impl LatentSurvivalFamily {
+    /// Assemble the per-row [`LatentSurvivalRow`] for `row_idx` from the family's
+    /// unloaded-mass/hazard fields and the supplied per-row time quantiles.
+    ///
+    /// Shared by every per-row reduction (log-likelihood, gradient, Hessian,
+    /// directional third derivatives): each previously inlined an identical
+    /// `event_type` lookup followed by the same 12-argument
+    /// `build_latent_survival_row` call. Behavior is unchanged.
+    fn build_row_at(
+        &self,
+        row_idx: usize,
+        q_entry: f64,
+        q_exit: f64,
+        qdot_exit: f64,
+        q_right: f64,
+    ) -> Result<LatentSurvivalRow, LatentSurvivalError> {
+        let event_type = latent_survival_event_type_for(self.event_target[row_idx]);
+        build_latent_survival_row(
+            row_idx,
+            self.hazard_loading,
+            event_type,
+            q_entry,
+            q_exit,
+            qdot_exit,
+            q_right,
+            self.unloaded_mass_entry[row_idx],
+            self.unloaded_mass_exit[row_idx],
+            self.unloaded_mass_right[row_idx],
+            self.unloaded_hazard_exit[row_idx],
+        )
+    }
+
     fn joint_slices(&self) -> LatentSurvivalJointSlices {
         let p_time = self.x_time_exit.ncols();
         let p_mean = self.x_mean.ncols();
@@ -2227,19 +2271,12 @@ impl LatentSurvivalFamily {
                 if wi <= MIN_WEIGHT {
                     return Ok(());
                 }
-                let event_type = latent_survival_event_type_for(self.event_target[row_idx]);
-                let row = build_latent_survival_row(
+                let row = self.build_row_at(
                     row_idx,
-                    self.hazard_loading,
-                    event_type,
                     q_entry[row_idx],
                     q_exit[row_idx],
                     qdot_exit[row_idx],
                     q_right[row_idx],
-                    self.unloaded_mass_entry[row_idx],
-                    self.unloaded_mass_exit[row_idx],
-                    self.unloaded_mass_right[row_idx],
-                    self.unloaded_hazard_exit[row_idx],
                 )?;
                 let (row_ll, primary_gradient, _) = latent_survival_row_primary_gradient_hessian(
                     &self.quadctx,
@@ -2332,19 +2369,12 @@ impl LatentSurvivalFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let event_type = latent_survival_event_type_for(self.event_target[row_idx]);
-            let row = build_latent_survival_row(
+            let row = self.build_row_at(
                 row_idx,
-                self.hazard_loading,
-                event_type,
                 q_entry[row_idx],
                 q_exit[row_idx],
                 qdot_exit[row_idx],
                 q_right[row_idx],
-                self.unloaded_mass_entry[row_idx],
-                self.unloaded_mass_exit[row_idx],
-                self.unloaded_mass_right[row_idx],
-                self.unloaded_hazard_exit[row_idx],
             )?;
             let (_, primary_gradient, _) = latent_survival_row_primary_gradient_hessian(
                 &self.quadctx,
@@ -2528,19 +2558,12 @@ impl LatentSurvivalFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let event_type = latent_survival_event_type_for(self.event_target[row_idx]);
-            let row = build_latent_survival_row(
+            let row = self.build_row_at(
                 row_idx,
-                self.hazard_loading,
-                event_type,
                 q_entry[row_idx],
                 q_exit[row_idx],
                 qdot_exit[row_idx],
                 q_right[row_idx],
-                self.unloaded_mass_entry[row_idx],
-                self.unloaded_mass_exit[row_idx],
-                self.unloaded_mass_right[row_idx],
-                self.unloaded_hazard_exit[row_idx],
             )?;
             let (row_ll, primary_gradient, primary_hessian) =
                 latent_survival_row_primary_gradient_hessian(
@@ -2595,19 +2618,12 @@ impl LatentSurvivalFamily {
                 if wi <= MIN_WEIGHT {
                     return Ok(());
                 }
-                let event_type = latent_survival_event_type_for(self.event_target[row_idx]);
-                let row = build_latent_survival_row(
+                let row = self.build_row_at(
                     row_idx,
-                    self.hazard_loading,
-                    event_type,
                     q_entry[row_idx],
                     q_exit[row_idx],
                     qdot_exit[row_idx],
                     q_right[row_idx],
-                    self.unloaded_mass_entry[row_idx],
-                    self.unloaded_mass_exit[row_idx],
-                    self.unloaded_mass_right[row_idx],
-                    self.unloaded_hazard_exit[row_idx],
                 )?;
                 let (row_ll, primary_gradient, primary_hessian) =
                     latent_survival_row_primary_gradient_hessian(
@@ -2674,19 +2690,12 @@ impl LatentSurvivalFamily {
                 if wi <= MIN_WEIGHT {
                     return Ok(());
                 }
-                let event_type = latent_survival_event_type_for(self.event_target[row_idx]);
-                let row = build_latent_survival_row(
+                let row = self.build_row_at(
                     row_idx,
-                    self.hazard_loading,
-                    event_type,
                     q_entry[row_idx],
                     q_exit[row_idx],
                     qdot_exit[row_idx],
                     q_right[row_idx],
-                    self.unloaded_mass_entry[row_idx],
-                    self.unloaded_mass_exit[row_idx],
-                    self.unloaded_mass_right[row_idx],
-                    self.unloaded_hazard_exit[row_idx],
                 )?;
                 let direction = self.row_primary_direction_from_flat(row_idx, &slices, d_beta_flat);
                 let third = latent_survival_row_primary_third_contracted(
@@ -2746,19 +2755,12 @@ impl LatentSurvivalFamily {
                 if wi <= MIN_WEIGHT {
                     return Ok(());
                 }
-                let event_type = latent_survival_event_type_for(self.event_target[row_idx]);
-                let row = build_latent_survival_row(
+                let row = self.build_row_at(
                     row_idx,
-                    self.hazard_loading,
-                    event_type,
                     q_entry[row_idx],
                     q_exit[row_idx],
                     qdot_exit[row_idx],
                     q_right[row_idx],
-                    self.unloaded_mass_entry[row_idx],
-                    self.unloaded_mass_exit[row_idx],
-                    self.unloaded_mass_right[row_idx],
-                    self.unloaded_hazard_exit[row_idx],
                 )?;
                 let direction_u =
                     self.row_primary_direction_from_flat(row_idx, &slices, d_beta_u_flat);
@@ -3247,6 +3249,32 @@ fn binary_from_log_survival(
 }
 
 impl LatentBinaryFamily {
+    /// Assemble the per-row [`LatentSurvivalRow`] for a row treated as a pure
+    /// right-censored survival contribution (exit time is the censoring
+    /// boundary, unit exit-hazard derivative, no right / post-exit unloaded
+    /// mass). Shared by every per-row binary-from-survival pullback reduction;
+    /// behavior is identical to the previously inlined `RightCensored` call.
+    fn build_right_censored_row_at(
+        &self,
+        row_idx: usize,
+        q_entry: f64,
+        q_exit: f64,
+    ) -> Result<LatentSurvivalRow, LatentSurvivalError> {
+        build_latent_survival_row(
+            row_idx,
+            self.hazard_loading,
+            LatentSurvivalEventType::RightCensored,
+            q_entry,
+            q_exit,
+            1.0,
+            q_exit,
+            self.unloaded_mass_entry[row_idx],
+            self.unloaded_mass_exit[row_idx],
+            0.0,
+            0.0,
+        )
+    }
+
     fn joint_slices(&self) -> LatentSurvivalJointSlices {
         let p_time = self.x_time_exit.ncols();
         let p_mean = self.x_mean.ncols();
@@ -3427,19 +3455,8 @@ impl LatentBinaryFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let row = build_latent_survival_row(
-                row_idx,
-                self.hazard_loading,
-                LatentSurvivalEventType::RightCensored,
-                q_entry[row_idx],
-                q_exit[row_idx],
-                1.0,
-                q_exit[row_idx],
-                self.unloaded_mass_entry[row_idx],
-                self.unloaded_mass_exit[row_idx],
-                0.0,
-                0.0,
-            )?;
+            let row =
+                self.build_right_censored_row_at(row_idx, q_entry[row_idx], q_exit[row_idx])?;
             let (row_log_survival, survival_gradient, survival_hessian) =
                 latent_survival_row_primary_gradient_hessian(
                     &self.quadctx,
@@ -3515,19 +3532,8 @@ impl LatentBinaryFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let row = build_latent_survival_row(
-                row_idx,
-                self.hazard_loading,
-                LatentSurvivalEventType::RightCensored,
-                q_entry[row_idx],
-                q_exit[row_idx],
-                1.0,
-                q_exit[row_idx],
-                self.unloaded_mass_entry[row_idx],
-                self.unloaded_mass_exit[row_idx],
-                0.0,
-                0.0,
-            )?;
+            let row =
+                self.build_right_censored_row_at(row_idx, q_entry[row_idx], q_exit[row_idx])?;
             let (row_log_survival, survival_gradient, _) =
                 latent_survival_row_primary_gradient_hessian(
                     &self.quadctx,
@@ -3577,19 +3583,8 @@ impl LatentBinaryFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let row = build_latent_survival_row(
-                row_idx,
-                self.hazard_loading,
-                LatentSurvivalEventType::RightCensored,
-                q_entry[row_idx],
-                q_exit[row_idx],
-                1.0,
-                q_exit[row_idx],
-                self.unloaded_mass_entry[row_idx],
-                self.unloaded_mass_exit[row_idx],
-                0.0,
-                0.0,
-            )?;
+            let row =
+                self.build_right_censored_row_at(row_idx, q_entry[row_idx], q_exit[row_idx])?;
             let (row_log_survival, survival_gradient, survival_hessian) =
                 latent_survival_row_primary_gradient_hessian(
                     &self.quadctx,
@@ -3657,19 +3652,8 @@ impl LatentBinaryFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let row = build_latent_survival_row(
-                row_idx,
-                self.hazard_loading,
-                LatentSurvivalEventType::RightCensored,
-                q_entry[row_idx],
-                q_exit[row_idx],
-                1.0,
-                q_exit[row_idx],
-                self.unloaded_mass_entry[row_idx],
-                self.unloaded_mass_exit[row_idx],
-                0.0,
-                0.0,
-            )?;
+            let row =
+                self.build_right_censored_row_at(row_idx, q_entry[row_idx], q_exit[row_idx])?;
             let (row_log_survival, survival_gradient, survival_hessian) =
                 latent_survival_row_primary_gradient_hessian(
                     &self.quadctx,
@@ -3856,19 +3840,12 @@ impl LatentJointHessianFamily for LatentSurvivalFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let event_type = latent_survival_event_type_for(self.event_target[row_idx]);
-            let row = build_latent_survival_row(
+            let row = self.build_row_at(
                 row_idx,
-                self.hazard_loading,
-                event_type,
                 q_entry[row_idx],
                 q_exit[row_idx],
                 qdot_exit[row_idx],
                 q_right[row_idx],
-                self.unloaded_mass_entry[row_idx],
-                self.unloaded_mass_exit[row_idx],
-                self.unloaded_mass_right[row_idx],
-                self.unloaded_hazard_exit[row_idx],
             )?;
             let (_, _, primary_hessian) = latent_survival_row_primary_gradient_hessian(
                 &self.quadctx,
@@ -3939,19 +3916,8 @@ impl LatentJointHessianFamily for LatentBinaryFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let row = build_latent_survival_row(
-                row_idx,
-                self.hazard_loading,
-                LatentSurvivalEventType::RightCensored,
-                q_entry[row_idx],
-                q_exit[row_idx],
-                1.0,
-                q_exit[row_idx],
-                self.unloaded_mass_entry[row_idx],
-                self.unloaded_mass_exit[row_idx],
-                0.0,
-                0.0,
-            )?;
+            let row =
+                self.build_right_censored_row_at(row_idx, q_entry[row_idx], q_exit[row_idx])?;
             let (row_log_survival, survival_gradient, survival_hessian) =
                 latent_survival_row_primary_gradient_hessian(
                     &self.quadctx,
@@ -4148,20 +4114,7 @@ impl CustomFamily for LatentSurvivalFamily {
                 if wi <= MIN_WEIGHT {
                     return Ok(0.0);
                 }
-                let event_type = latent_survival_event_type_for(self.event_target[i]);
-                let row = build_latent_survival_row(
-                    i,
-                    self.hazard_loading,
-                    event_type,
-                    q_entry[i],
-                    q_exit[i],
-                    qdot_exit[i],
-                    q_right[i],
-                    self.unloaded_mass_entry[i],
-                    self.unloaded_mass_exit[i],
-                    self.unloaded_mass_right[i],
-                    self.unloaded_hazard_exit[i],
-                )?;
+                let row = self.build_row_at(i, q_entry[i], q_exit[i], qdot_exit[i], q_right[i])?;
                 let jet = LatentSurvivalRowJet::evaluate(&self.quadctx, &row, mu[i], latent_sd)
                     .map_err(|e| format!("LatentSurvivalFamily row {i}: {e}"))?;
                 Ok(wi * jet.log_lik)
@@ -4301,19 +4254,7 @@ impl CustomFamily for LatentBinaryFamily {
                     q_entry[i], q_exit[i], mu[i]
                 ));
             }
-            let row = build_latent_survival_row(
-                i,
-                self.hazard_loading,
-                LatentSurvivalEventType::RightCensored,
-                q_entry[i],
-                q_exit[i],
-                1.0,
-                q_exit[i],
-                self.unloaded_mass_entry[i],
-                self.unloaded_mass_exit[i],
-                0.0,
-                0.0,
-            )?;
+            let row = self.build_right_censored_row_at(i, q_entry[i], q_exit[i])?;
             let survival_jet =
                 LatentSurvivalRowJet::evaluate(&self.quadctx, &row, mu[i], self.latent_sd)
                     .map_err(|e| format!("LatentBinaryFamily row {i}: {e}"))?;
@@ -4395,19 +4336,7 @@ impl CustomFamily for LatentBinaryFamily {
             if wi <= MIN_WEIGHT {
                 continue;
             }
-            let row = build_latent_survival_row(
-                i,
-                self.hazard_loading,
-                LatentSurvivalEventType::RightCensored,
-                q_entry[i],
-                q_exit[i],
-                1.0,
-                q_exit[i],
-                self.unloaded_mass_entry[i],
-                self.unloaded_mass_exit[i],
-                0.0,
-                0.0,
-            )?;
+            let row = self.build_right_censored_row_at(i, q_entry[i], q_exit[i])?;
             let survival_jet =
                 LatentSurvivalRowJet::evaluate(&self.quadctx, &row, mu[i], self.latent_sd)
                     .map_err(|e| format!("LatentBinaryFamily row {i}: {e}"))?;

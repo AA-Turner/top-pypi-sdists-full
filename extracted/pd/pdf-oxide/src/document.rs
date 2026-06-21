@@ -5753,10 +5753,41 @@ impl PdfDocument {
             // row-aware (y,x) sort interleaves. The gate (substantial, text-dense,
             // dominant side-by-side blocks) rejects single-column pages, tables,
             // TOCs and forms; it de-interleaves real two-column bodies and
-            // sidebar+body layouts. Opt-in via PDFOXIDE_TOPO_ORDER until one
-            // pathological case remains (a parallel diagram/table whose header
-            // fragments under union-find); default OFF keeps production
-            // byte-identical.
+            // sidebar+body layouts. topological_block_order runs unconditionally;
+            // it self-gates to None unless the page has dominant side-by-side
+            // text-dense blocks (see its side_by_side gate), so single-column,
+            // table, and TOC pages are byte-identical.
+            //
+            // Item 2 (M2): first lift a narrow, sparse, body-aligned marginalia
+            // rail (manuscript line numbers / a folio rail) OUT of the body, so
+            // the column dispatch below sees a clean body. A rail otherwise
+            // injects a spurious second corridor (disqualifying prose detection)
+            // and a sparse block (defeating the topological side-by-side gate),
+            // and a flat (y,x) sort then weaves its numerals into the prose. The
+            // rail is re-appended at the end of the reading order after the
+            // ladder, before the artifact retain. No-op (None) on ordinary pages
+            // → byte-identical.
+            let marginalia_trailing: Vec<crate::layout::TextSpan> =
+                if let Some(idx) = Self::lift_marginalia_column(&spans) {
+                    let idxset: std::collections::HashSet<usize> = idx.into_iter().collect();
+                    let mut keep = Vec::with_capacity(spans.len());
+                    let mut marg = Vec::new();
+                    for (i, s) in std::mem::take(&mut spans).into_iter().enumerate() {
+                        if idxset.contains(&i) {
+                            marg.push(s);
+                        } else {
+                            keep.push(s);
+                        }
+                    }
+                    marg.sort_by(|a, b| {
+                        crate::utils::row_aware_span_cmp(a.bbox.y, a.bbox.x, b.bbox.y, b.bbox.x)
+                    });
+                    spans = keep;
+                    marg
+                } else {
+                    Vec::new()
+                };
+
             let mut topo_applied = false;
             if let Some(reordered) = Self::topological_block_order(&spans) {
                 spans = reordered;
@@ -5764,7 +5795,62 @@ impl PdfDocument {
             }
             if topo_applied {
                 // Topological block order replaced the row-aware sort.
-            } else if !Self::is_multi_column_page(&spans) {
+            } else if let Some(ordered) = Self::sidebar_body_reading_order(&spans) {
+                // Narrow metadata SIDEBAR + wide body (e.g. an MDPI first page
+                // whose left rail carries Citation:/Received:/Accepted:/Copyright
+                // furniture). The row-aware (y,x) sort otherwise threads that rail
+                // INTO the body paragraphs at matching Y-bands; segregating it so
+                // each region reads contiguously matches a block-based extractor
+                // and stops the rail-into-body interleave. Already used by the
+                // md/html/structured paths; this wires the SAME ordering into the
+                // plain-text path. Tightly gated (≥30 spans, narrow sidebar with
+                // ≥2 furniture labels), so it is a no-op (None) on ordinary pages.
+                spans = ordered;
+            } else if let Some(gutter_x) = Self::prose_two_column_gutter(&spans)
+                .or_else(|| Self::classifier_column_gutter(&spans))
+            {
+                // Genuine two-column prose (content-balance gated — forms /
+                // TOC / tables / figures are rejected), OR a ragged
+                // reference list / dense results body that the clean corridor
+                // sweep and `is_multi_column_page` MISS but the per-column region
+                // classifier confirms (`classifier_column_gutter`). Both read
+                // column-major with band separation: full-width rows (titles,
+                // mid-body section headings, footers — spans crossing the gutter)
+                // are emitted at their vertical position, between the column runs
+                // around them, so they are never split across the gutter
+                // (§14.8.3). This branch is tried BEFORE the single-column
+                // row-aware path so a 2-column reference page (which fails
+                // `is_multi_column_page`) is reordered instead of interleaved;
+                // both gutter detectors return None on single-column pages, which
+                // then fall through to the row-aware branch unchanged.
+                Self::reorder_column_major_with_bands(&mut spans, gutter_x);
+                // NB: do NOT run reorder_same_line_runs here. The column emit
+                // already orders each column by (y desc, x asc); a same-line
+                // X-sort would re-merge vertically-adjacent lines whenever the
+                // body leading (e.g. ~9pt) is tighter than same_line_threshold
+                // (min_fs·1.2 ≈ 10.8pt), pulling a new left-margin reference
+                // ahead of the previous reference's indented continuation
+                // (bibliography interleave) or shattering wrapped hyphenated
+                // lines in dense two-column bodies.
+            } else if !Self::is_multi_column_page(&spans)
+                || (!tables.is_empty() && Self::multicol_signal_is_tabular(&spans, &tables))
+            {
+                // Either a genuine single-column page, OR a single-column page
+                // whose only multi-column geometric signal comes from a TABLE
+                // (a data grid whose column-aligned cells trip
+                // `is_multi_column_page`). In the latter case the genuine
+                // two-column branches (topological / prose-gutter / classifier)
+                // above all declined, so the page is NOT a two-column body; the
+                // multi-column false positive is purely tabular. The correct
+                // reading order is then the row-aware (y desc, x asc) band sort
+                // — it linearises both the surrounding prose AND the table rows.
+                // Without it the page keeps raw content-stream order, which on
+                // these journal pages interleaves the table's column-major cell
+                // stream INTO the prose paragraph (PMC8078162 §3.1). Gated on a
+                // detected table whose region accounts for the multi-column
+                // signal (`multicol_signal_is_tabular`), so genuine two-column
+                // pages — which the column branches catch first, and which carry
+                // no page-dominating table — are unaffected.
                 spans.sort_by(|a, b| {
                     let cmp =
                         crate::utils::row_aware_span_cmp(a.bbox.y, a.bbox.x, b.bbox.y, b.bbox.x);
@@ -5783,23 +5869,12 @@ impl PdfDocument {
                 // Off-baseline glyphs (e.g. superscripts/subscripts) can land in
                 // adjacent bands and be emitted out of X order; fix that per line.
                 Self::reorder_same_line_runs(&mut spans);
-            } else if let Some(gutter_x) = Self::prose_two_column_gutter(&spans) {
-                // #734: genuine two-column prose (content-balance gated — forms /
-                // TOC / tables / figures are rejected). Read column-major with
-                // band separation: full-width rows (titles, mid-body section
-                // headings, footers — spans crossing the gutter) are emitted at
-                // their vertical position, between the column runs around them,
-                // so they are never split across the gutter (§14.8.3).
-                Self::reorder_column_major_with_bands(&mut spans, gutter_x);
-                // NB: do NOT run reorder_same_line_runs here. The column emit
-                // already orders each column by (y desc, x asc); a same-line
-                // X-sort would re-merge vertically-adjacent lines whenever the
-                // body leading (e.g. ~9pt) is tighter than same_line_threshold
-                // (min_fs·1.2 ≈ 10.8pt), pulling a new left-margin reference
-                // ahead of the previous reference's indented continuation
-                // (bibliography interleave) or shattering wrapped hyphenated
-                // lines in dense two-column bodies.
             }
+
+            // Re-append the lifted marginalia rail at the end of the body
+            // reading order (Item 2 / M2). Done before the artifact retain so
+            // any artifact-marked rail spans are still dropped.
+            spans.extend(marginalia_trailing);
 
             // OCR fallback for scanned PDFs
             #[cfg(feature = "ocr")]
@@ -7511,6 +7586,20 @@ impl PdfDocument {
             return;
         }
 
+        // Item 5b (M4): an INDEX CLUSTER is a comma-joined run of digits that the
+        // producer set as a single subscript/superscript — an F-statistic's
+        // degrees of freedom (`4,176` in `F4,176`) or a multi-affiliation marker
+        // (`1,2`). These exceed the 3-char limit and contain a comma, so the plain
+        // sub-char gate rejected them, stranding `F`, `4`, `176` as separate
+        // tokens. Recognised here so the comma cluster merges back into its base.
+        let is_index_cluster = |t: &str| -> bool {
+            t.chars().count() >= 3
+                && t.contains(',')
+                && t.chars().all(|c| c.is_ascii_digit() || c == ',')
+                && !t.starts_with(',')
+                && !t.ends_with(',')
+        };
+
         // For each candidate sub/superscript span, record which base span to merge into.
         let mut to_merge: Vec<(usize, usize)> = Vec::new(); // (base_idx, sub_idx)
         let mut already_sub: std::collections::HashSet<usize> = std::collections::HashSet::new();
@@ -7521,7 +7610,8 @@ impl PdfDocument {
             // UTF-8 sequences and U+2070..U+209F are 3-byte, so the
             // earlier byte-length check would have dropped a legitimate
             // 3-digit Unicode subscript like "₁₂₃" (9 bytes).
-            if sub.text.is_empty() || sub.text.chars().count() > 3 {
+            if sub.text.is_empty() || (sub.text.chars().count() > 3 && !is_index_cluster(&sub.text))
+            {
                 continue;
             }
             // Accept the raw ASCII the extractor produces AND the
@@ -7535,16 +7625,40 @@ impl PdfDocument {
                     || matches!(c, '\u{00B2}' | '\u{00B3}' | '\u{00B9}')
                     || ('\u{2070}'..='\u{209F}').contains(&c)
             };
-            if !sub.text.chars().all(is_sub_char) {
+            // M4 (item 5c): a span the producer explicitly raised/lowered with the
+            // Text Rise operator (ISO 32000-1 §9.3.7 `Ts`) is an authoritative
+            // sub/superscript even when it is NOT shrunk and is not in the ASCII /
+            // Unicode sub-glyph set (e.g. a math operator superscript). `text_rise`
+            // is stored as the Ts/font-size ratio, so |ratio| ≥ 0.10 marks a real
+            // shift. Such a span bypasses the charset and font-size gates below; the
+            // x/y proximity gates in the base search still apply, so a genuinely
+            // detached different-row marker is not over-merged.
+            let ts_flagged = sub.text_rise.abs() >= 0.10;
+            if !ts_flagged && !sub.text.chars().all(is_sub_char) && !is_index_cluster(&sub.text) {
                 continue;
             }
-            // Must be clearly smaller than the dominant font on this page.
-            if sub.font_size >= max_fs * 0.80 {
+            // Must be clearly smaller than the dominant font on this page (unless
+            // the producer flagged it via Ts).
+            if !ts_flagged && sub.font_size >= max_fs * 0.80 {
                 continue;
             }
             let sub_fs = sub.font_size;
             let sub_x = sub.bbox.x;
             let sub_y = sub.bbox.y;
+
+            // A purely NUMERIC sub-run (digits, optionally comma-joined) at a
+            // base's advance edge is an inline super/subscript even when its
+            // bbox shares the base's baseline. Some producers raise a glyph with
+            // a small font but emit it on the SAME text-line baseline (the
+            // visual rise lives in the glyph's own bbox, not the line's), so the
+            // extractor records y_diff_abs ≈ 0. The 12 %-of-em vertical lower
+            // bound (which screens out same-line small caps) would then strand
+            // the marker — e.g. the isotope label `123` in `[123I]FP-CIT`, or an
+            // author-affiliation marker `1,2`. Small caps are never bare digits,
+            // so dropping the lower bound for numeric subs is safe; the smaller-
+            // font, x-edge, valid-base, and upper-y gates still apply.
+            let sub_is_numeric =
+                sub.text.chars().all(|c| c.is_ascii_digit() || c == ',') && !ts_flagged;
 
             // Search backwards for the best-matching base span.
             let search_limit = 30.min(i);
@@ -7555,22 +7669,45 @@ impl PdfDocument {
                     continue;
                 }
                 let base = &spans[j];
-                // Base must be at least 25 % larger than the sub (sub_fs ≤ 0.80×base_fs).
-                if base.font_size < sub_fs * 1.25 {
+                // Base must be at least 25 % larger than the sub (sub_fs ≤ 0.80×base_fs),
+                // UNLESS the producer flagged the sub via Ts (then it may be the same
+                // size as its base — the rise itself, not the size, marks it).
+                if !ts_flagged && base.font_size < sub_fs * 1.25 {
                     continue;
                 }
                 // Base span must be a valid subscript host:
                 //   • 1-char bases (single math variable: k, γ, ρ, H, ∆, …)
                 //   • 2-char bases that are NOT two lowercase-ASCII letters
                 //     (accepts "Pr", "εp", "ρε" but rejects "of", "to")
+                //   • longer bases ENDING in an acronym — a run of ≥2 trailing
+                //     uppercase ASCII letters (e.g. a wide body span
+                //     "…activation of VPAC", or "CA1"'s "CA"). Receptor/region
+                //     names (VPAC, CA, PAC, GABA, NMDA, …) carry a subscript on
+                //     their trailing acronym, but the producer emits the whole
+                //     wrapped line as one span, so the ≤2-char gate stranded the
+                //     subscript and the row-band sort glued it onto a later word
+                //     ("…of VPAC receptors … pyramidal1"). The subscript text is
+                //     appended to the base's END, which is exactly the acronym, so
+                //     it reconstructs "VPAC1". The x-edge gate below still requires
+                //     the sub to sit at the base's advance edge, and the trailing
+                //     run being UPPERCASE keeps ordinary prose (which ends in a
+                //     lowercase letter or punctuation) from ever matching.
                 // Multi-char lowercase-only strings like "and", "let", "sup"
                 // are English words or common operators; their adjacent digit
                 // spans are handled by the assembly loop and char_widths_boundary_split.
                 let chars: Vec<char> = base.text.chars().collect();
+                let ends_in_acronym = || {
+                    let trailing_upper = chars
+                        .iter()
+                        .rev()
+                        .take_while(|c| c.is_ascii_uppercase())
+                        .count();
+                    trailing_upper >= 2
+                };
                 let is_valid_base = match chars.len() {
                     1 => true,
                     2 => chars.iter().any(|c| !c.is_ascii_lowercase()),
-                    _ => false,
+                    _ => ends_in_acronym(),
                 };
                 if !is_valid_base {
                     continue;
@@ -7592,7 +7729,14 @@ impl PdfDocument {
                 // Lower bound 12 % of base_fs ensures same-line small caps are excluded.
                 // Upper bound 75 % excludes large line-to-line y differences (e.g.
                 // author affiliation numbers on a different baseline row).
-                if y_diff_abs < base.font_size * 0.12 || y_diff_abs > base.font_size * 0.75 {
+                // Numeric subs (digits/commas) may sit on the base baseline, so
+                // skip the small-caps lower bound for them; all other subs keep it.
+                let y_lo = if sub_is_numeric {
+                    0.0
+                } else {
+                    base.font_size * 0.12
+                };
+                if y_diff_abs < y_lo || y_diff_abs > base.font_size * 0.75 {
                     continue;
                 }
                 let score = x_dist.abs();
@@ -8361,6 +8505,7 @@ impl PdfDocument {
                 heading_level: None,
                 rotation_degrees: 0.0,
                 wmode: 0,
+                text_rise: 0.0,
             });
         }
 
@@ -8528,6 +8673,7 @@ impl PdfDocument {
                 heading_level: None,
                 rotation_degrees: 0.0,
                 wmode: 0,
+                text_rise: 0.0,
             });
         }
 
@@ -11837,6 +11983,389 @@ impl PdfDocument {
     /// (`label:value`), TOCs (`title…page#`), tables and N-up — all of which
     /// share a clean gutter but must read row-wise. A real two-column body has
     /// full-length text on both sides of the gutter.
+    /// Measure a single central vertical gutter (a column-separating whitespace
+    /// corridor) as a PURE geometric read. Returns the gutter's mid-X when the
+    /// page has EXACTLY ONE corridor ≥ `MIN_GUTTER_PT` wide near mid-page
+    /// (`0.30..=0.70` of content width); `None` for single-column, multi-corridor
+    /// (grid/table/form), off-centre, or too-narrow pages — so a caller that
+    /// gates on `Some` is byte-identical on all of those.
+    ///
+    /// Shared by the marginalia pre-filter (Item 2) and the topological
+    /// union-find gutter veto (Item 4). Deliberately NOT a refactor of
+    /// `prose_two_column_gutter` / `has_clean_column_gutter`: those use different
+    /// corridor thresholds (12 / 18) and additional structural guards, and
+    /// unifying them is high blast radius for no benefit. This is a separate,
+    /// conservative 18 pt central-corridor probe.
+    #[allow(dead_code)] // wired by Items 2 (P3) and 4 (P4)
+    fn measure_single_central_gutter(spans: &[crate::layout::TextSpan]) -> Option<f32> {
+        const MIN_GUTTER_PT: f32 = 18.0;
+        let body: Vec<&crate::layout::TextSpan> = spans
+            .iter()
+            .filter(|s| {
+                !s.text.trim().is_empty()
+                    && s.bbox.width > 0.0
+                    && s.bbox.x.is_finite()
+                    && s.bbox.width.is_finite()
+            })
+            .collect();
+        if body.len() < 8 {
+            return None;
+        }
+        let cmin = body.iter().map(|s| s.bbox.x).fold(f32::INFINITY, f32::min);
+        let cmax = body
+            .iter()
+            .map(|s| s.bbox.x + s.bbox.width)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let content_w = cmax - cmin;
+        if content_w < 100.0 {
+            return None;
+        }
+        // Exclude full-width spanning rows (headings/footers) so they don't mask
+        // the corridor (same exclusion as the prose/clean-gutter sweeps).
+        let mut boxes: Vec<(f32, f32)> = body
+            .iter()
+            .filter(|s| s.bbox.width <= 0.6 * content_w)
+            .map(|s| (s.bbox.x, s.bbox.x + s.bbox.width))
+            .collect();
+        if boxes.len() < 8 {
+            return None;
+        }
+        boxes.sort_by(|a, b| crate::utils::safe_float_cmp(a.0, b.0));
+        let mut cover = boxes[0].1;
+        let (mut corridors, mut gutter_x) = (0usize, 0.0f32);
+        for &(l, r) in &boxes[1..] {
+            if l - cover >= MIN_GUTTER_PT {
+                corridors += 1;
+                gutter_x = (cover + l) * 0.5;
+            }
+            cover = cover.max(r);
+        }
+        if corridors != 1 || !(0.30..=0.70).contains(&((gutter_x - cmin) / content_w)) {
+            return None;
+        }
+        Some(gutter_x)
+    }
+
+    /// Valley-DEPTH central gutter probe. Like `measure_single_central_gutter`,
+    /// returns the mid-X of a single central column-separating corridor, but uses
+    /// a 2-D span-PROJECTION density (the emptiest vertical channel over the whole
+    /// Y-extent) instead of a 1-D running-cover scan. This finds gutters that the
+    /// cover scan misses because a full-width header/footer that is NOT quite wide
+    /// enough to be band-excluded (it spans, say, 0.55 of the content width) jumps
+    /// the running cover past the corridor; the projection only counts spans that
+    /// actually straddle a given x, so a single bridging line is absorbed by the
+    /// tolerance. It also catches the TIGHT (≈ 10–14 pt) real gutters of dense
+    /// two-column journal bodies, below the conservative 18 pt cover threshold.
+    ///
+    /// A true gutter is a vertical band of near-zero straddle density; a phantom
+    /// word/indent gap has moderate density (many lines carry text there). Returns
+    /// the gutter mid-X only when EXACTLY ONE such near-empty central corridor of
+    /// real width exists; `None` otherwise. Used (OR-ed with the cover scan) as
+    /// the topological union-find gutter veto, so it can only PREVENT a
+    /// cross-gutter union — never create one — keeping non-2-column pages
+    /// byte-identical.
+    fn density_central_gutter(spans: &[crate::layout::TextSpan]) -> Option<f32> {
+        let finite = |s: &crate::layout::TextSpan| {
+            !s.text.trim().is_empty()
+                && s.bbox.width > 0.0
+                && s.bbox.x.is_finite()
+                && s.bbox.width.is_finite()
+        };
+        let body: Vec<&crate::layout::TextSpan> = spans.iter().filter(|s| finite(s)).collect();
+        if body.len() < 12 {
+            return None;
+        }
+        let cmin = body.iter().map(|s| s.bbox.x).fold(f32::INFINITY, f32::min);
+        let cmax = body
+            .iter()
+            .map(|s| s.bbox.x + s.bbox.width)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let content_w = cmax - cmin;
+        if !content_w.is_finite() || content_w < 100.0 {
+            return None;
+        }
+        // Column-content spans only (exclude true full-width bands). A real
+        // gutter is invisible under titles/abstracts/footers, so they must not
+        // count toward straddle density.
+        let band_w = 0.6 * content_w;
+        let cols: Vec<(f32, f32)> = body
+            .iter()
+            .filter(|s| s.bbox.width <= band_w)
+            .map(|s| (s.bbox.x, s.bbox.x + s.bbox.width))
+            .collect();
+        if cols.len() < 12 {
+            return None;
+        }
+        // Scan the central band; "empty" tolerates ~1 % stray straddlers (a rare
+        // long token or a header just under the band-exclusion width).
+        let lo = cmin + 0.30 * content_w;
+        let hi = cmin + 0.70 * content_w;
+        let step = (content_w / 400.0).clamp(0.5, 3.0);
+        let empty_max = (0.01 * cols.len() as f32).ceil() as usize;
+        let straddle_at = |x: f32| -> usize {
+            cols.iter()
+                .filter(|(l, r)| *l + 2.0 < x && *r - 2.0 > x)
+                .count()
+        };
+        // Find ALL near-empty corridors and the widest one; require EXACTLY ONE
+        // (a 3-column grid has two, and must stay row-aware).
+        let (mut corridors, mut best_w, mut best_mid) = (0usize, 0.0f32, f32::NAN);
+        let (mut run_start, mut in_run) = (lo, false);
+        let mut x = lo;
+        let close = |run_start: f32,
+                     end: f32,
+                     corridors: &mut usize,
+                     best_w: &mut f32,
+                     best_mid: &mut f32| {
+            let w = end - run_start;
+            if w >= 6.0 {
+                *corridors += 1;
+                if w > *best_w {
+                    *best_w = w;
+                    *best_mid = (run_start + end) * 0.5;
+                }
+            }
+        };
+        while x <= hi {
+            if straddle_at(x) <= empty_max {
+                if !in_run {
+                    run_start = x;
+                    in_run = true;
+                }
+            } else if in_run {
+                close(run_start, x, &mut corridors, &mut best_w, &mut best_mid);
+                in_run = false;
+            }
+            x += step;
+        }
+        if in_run {
+            close(run_start, hi, &mut corridors, &mut best_w, &mut best_mid);
+        }
+        if corridors != 1 || !best_mid.is_finite() {
+            return None;
+        }
+        // Balanced columns: each side carries a real share of the column spans
+        // (rejects a single column beside a sparse margin rail).
+        let (mut left, mut right) = (0usize, 0usize);
+        for (l, r) in &cols {
+            if (l + r) * 0.5 < best_mid {
+                left += 1;
+            } else {
+                right += 1;
+            }
+        }
+        let n = left + right;
+        if n == 0 || (left * 4 < n) || (right * 4 < n) {
+            return None;
+        }
+        Some(best_mid)
+    }
+
+    /// Characters-per-text-line density for a set of spans (≈ chars per line).
+    /// Lines are counted by clustering span upper edges (`bbox.bottom()`, larger
+    /// y) with a `med_h * 0.6` gap. A page-number rail or a form's value column
+    /// is text-SPARSE (a few chars per line); genuine prose columns and metadata
+    /// sidebars are text-DENSE. Shared by the topological side-by-side gate
+    /// (Item 1) and the marginalia sparsity gate (Item 2) — same formula the
+    /// `topological_block_order` `char_density` closure uses.
+    #[allow(dead_code)] // wired by Items 1 (P4) and 2 (P3)
+    fn block_char_density(spans: &[&crate::layout::TextSpan], med_h: f32) -> f32 {
+        if spans.is_empty() {
+            return 0.0;
+        }
+        let med_h = med_h.max(1.0);
+        let mut ys: Vec<f32> = spans.iter().map(|s| s.bbox.bottom()).collect();
+        ys.sort_by(|p, q| crate::utils::safe_float_cmp(*p, *q));
+        let mut lines = 1usize;
+        for w in ys.windows(2) {
+            if (w[1] - w[0]).abs() > med_h * 0.6 {
+                lines += 1;
+            }
+        }
+        let chars: usize = spans.iter().map(|s| s.text.trim().chars().count()).sum();
+        chars as f32 / lines as f32
+    }
+
+    /// Detect a marginalia column (Item 2 / M2): a narrow, sparse, body-aligned
+    /// numeric rail at the extreme left or right of the page — manuscript line
+    /// numbers (`118 119 120 …`), a folio rail. Returns the indices of the rail
+    /// spans (into `spans`) so the caller can lift them OUT of the body before
+    /// geometric column dispatch (a rail otherwise injects a spurious second
+    /// corridor / sparse block that disqualifies prose/topo detection) and
+    /// re-append them at the end of the reading order.
+    ///
+    /// Tight 7-gate conjunction so it is a strict no-op (`None`) on ordinary
+    /// pages and never lifts a genuine narrow first column (which is text-DENSE
+    /// and multi-word → fails the sparsity + numeric-shape gates). `None` keeps
+    /// the caller byte-identical.
+    fn lift_marginalia_column(spans: &[crate::layout::TextSpan]) -> Option<Vec<usize>> {
+        use crate::utils::safe_float_cmp;
+        // Gate 1: a substantial multi-span body page.
+        let texties: Vec<usize> = (0..spans.len())
+            .filter(|&i| {
+                !spans[i].text.trim().is_empty()
+                    && spans[i].bbox.x.is_finite()
+                    && spans[i].bbox.width.is_finite()
+                    && spans[i].bbox.width > 0.0
+            })
+            .collect();
+        if texties.len() < 12 {
+            return None;
+        }
+        let median = |mut v: Vec<f32>| -> Option<f32> {
+            if v.is_empty() {
+                return None;
+            }
+            v.sort_by(|a, b| safe_float_cmp(*a, *b));
+            Some(v[v.len() / 2].max(1.0))
+        };
+        let med_fs = median(
+            texties
+                .iter()
+                .filter(|&&i| spans[i].text.trim().chars().count() >= 2 && spans[i].font_size > 0.0)
+                .map(|&i| spans[i].font_size)
+                .collect(),
+        )?;
+        let med_h = median(
+            texties
+                .iter()
+                .map(|&i| spans[i].bbox.height.abs())
+                .filter(|h| h.is_finite() && *h > 0.0)
+                .collect(),
+        )?;
+        let cmin = texties
+            .iter()
+            .map(|&i| spans[i].bbox.x)
+            .fold(f32::INFINITY, f32::min);
+        let cmax = texties
+            .iter()
+            .map(|&i| spans[i].bbox.x + spans[i].bbox.width)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let content_w = cmax - cmin;
+        if content_w < 100.0 {
+            return None;
+        }
+        let xband = 3.0 * med_fs; // Gate 2: narrow strip width.
+
+        // M2 targets LEFT-margin manuscript line-number rails (the documented
+        // mechanism — "narrow left-margin numerals woven into the prose stream").
+        // A right-margin narrow numeric column is predominantly a TOC/table-of-
+        // contents PAGE-NUMBER reference that pairs 1:1 with its entry row;
+        // lifting it would regroup the page numbers away from their entries (a
+        // reorder that hurts TOC pages, observed on CFR Title 36). So only the
+        // left rail is considered. The symmetric right-side geometry below is
+        // retained so a future TOC-discriminating gate can re-enable it safely.
+        for left_side in core::iter::once(true) {
+            let in_band = |i: usize| -> bool {
+                let l = spans[i].bbox.x;
+                let r = spans[i].bbox.x + spans[i].bbox.width;
+                if left_side {
+                    r <= cmin + xband
+                } else {
+                    l >= cmax - xband
+                }
+            };
+            let strip: Vec<usize> = texties.iter().copied().filter(|&i| in_band(i)).collect();
+            if strip.len() < 3 {
+                continue;
+            }
+            let strip_set: std::collections::HashSet<usize> = strip.iter().copied().collect();
+            let body: Vec<usize> = texties
+                .iter()
+                .copied()
+                .filter(|i| !strip_set.contains(i))
+                .collect();
+            if body.len() < 8 {
+                continue; // need a real body to order around the rail
+            }
+
+            // Gate 3: SPARSE (few chars per line).
+            let strip_refs: Vec<&crate::layout::TextSpan> =
+                strip.iter().map(|&i| &spans[i]).collect();
+            if Self::block_char_density(&strip_refs, med_h) >= 4.0 {
+                continue;
+            }
+
+            // Gate 7: at least 3 rail lines (a recurring rail, not a stray number).
+            let mut ys: Vec<f32> = strip.iter().map(|&i| spans[i].bbox.bottom()).collect();
+            ys.sort_by(|p, q| safe_float_cmp(*p, *q));
+            let lines = 1 + ys
+                .windows(2)
+                .filter(|w| (w[1] - w[0]).abs() > med_h * 0.6)
+                .count();
+            if lines < 3 {
+                continue;
+            }
+
+            // Gate 6: NUMERIC-SHAPE — ≥70% pure digits or ≤3-char tokens. This is
+            // the discriminator vs a real narrow prose column (multi-word lines).
+            let numeric = strip
+                .iter()
+                .filter(|&&i| {
+                    let t = spans[i].text.trim();
+                    (!t.is_empty() && t.chars().all(|c| c.is_ascii_digit()))
+                        || t.chars().count() <= 3
+                })
+                .count();
+            if (numeric as f32) < 0.70 * strip.len() as f32 {
+                continue;
+            }
+
+            // Gate 4: DETACHED — a clear ≥18 pt empty gutter between the rail's
+            // inner edge and the body's outer edge (the rail is geometrically
+            // separate, not just the first words of body lines).
+            let (strip_inner, body_outer) = if left_side {
+                (
+                    strip
+                        .iter()
+                        .map(|&i| spans[i].bbox.x + spans[i].bbox.width)
+                        .fold(f32::NEG_INFINITY, f32::max),
+                    body.iter()
+                        .map(|&i| spans[i].bbox.x)
+                        .fold(f32::INFINITY, f32::min),
+                )
+            } else {
+                (
+                    strip
+                        .iter()
+                        .map(|&i| spans[i].bbox.x)
+                        .fold(f32::INFINITY, f32::min),
+                    body.iter()
+                        .map(|&i| spans[i].bbox.x + spans[i].bbox.width)
+                        .fold(f32::NEG_INFINITY, f32::max),
+                )
+            };
+            let gutter = if left_side {
+                body_outer - strip_inner
+            } else {
+                strip_inner - body_outer
+            };
+            if gutter < 18.0 {
+                continue;
+            }
+
+            // Gate 5: BODY-ALIGNED — the rail runs ALONGSIDE the body (Y-overlap
+            // > half the rail height), not above/below it.
+            let (sy0, sy1) = strip
+                .iter()
+                .fold((f32::INFINITY, f32::NEG_INFINITY), |(a, b), &i| {
+                    (a.min(spans[i].bbox.y), b.max(spans[i].bbox.y + spans[i].bbox.height))
+                });
+            let (by0, by1) = body
+                .iter()
+                .fold((f32::INFINITY, f32::NEG_INFINITY), |(a, b), &i| {
+                    (a.min(spans[i].bbox.y), b.max(spans[i].bbox.y + spans[i].bbox.height))
+                });
+            let overlap = sy1.min(by1) - sy0.max(by0);
+            if overlap <= 0.5 * (sy1 - sy0).max(1.0) {
+                continue;
+            }
+
+            return Some(strip);
+        }
+        None
+    }
+
     fn prose_two_column_gutter(spans: &[crate::layout::TextSpan]) -> Option<f32> {
         let body: Vec<&crate::layout::TextSpan> = spans
             .iter()
@@ -11915,9 +12444,64 @@ impl PdfDocument {
                 return None;
             }
         }
-        // Content balance of spanning rows: full text on BOTH sides ⇒ prose;
-        // short right-hand value/page-number ⇒ form/TOC (reject).
-        let mut ordered: Vec<&crate::layout::TextSpan> = body.clone();
+        // Per-column region classification. The genuine discriminator between a
+        // two-column PROSE/REFERENCE body (read column-major) and a table / form /
+        // TOC that merely has one central gap (read row-wise) is the STRUCTURE of
+        // each column, not a cross-gutter row-balance ratio. A cross-gutter
+        // row-alignment gate measures alignment that ragged reference lists and
+        // dense results columns do not have, so those were wrongly rejected and
+        // fell to a row-major interleave. Classifying each half on its own
+        // structure admits them while still rejecting tables/forms (which classify
+        // as Table/Form). See `examples/classify_probe.rs`.
+        let body_side = |want_left: bool| -> Vec<usize> {
+            spans
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| {
+                    !s.text.trim().is_empty()
+                        && s.bbox.width > 0.0
+                        && s.bbox.x.is_finite()
+                        && s.bbox.width.is_finite()
+                        && ((s.bbox.x + s.bbox.width * 0.5 < gutter_x) == want_left)
+                })
+                .map(|(i, _)| i)
+                .collect()
+        };
+        let left_class = crate::layout::classify_region(spans, &body_side(true));
+        let right_class = crate::layout::classify_region(spans, &body_side(false));
+        if left_class.is_reorderable_column() && right_class.is_reorderable_column() {
+            return Some(gutter_x);
+        }
+        // Fallback: the v0.3.66 cross-gutter content-balance test. The per-column
+        // classifier (above) admits ragged reference lists / dense results columns
+        // the balance test rejected, but it also REJECTS some genuine balanced
+        // two-column PROSE the balance test accepted — short, ragged verse/body
+        // lines on a narrow-gutter page (a reference-Bible / two-column page with a
+        // full-width title, issue #734). Without this they fall off the
+        // column-major path and the first row interleaves across the gutter. Tried
+        // only AFTER the classifier (academic pages keep the classifier path) and
+        // behind the same corridor + two-column-start preamble, so single-column /
+        // grid / N-up pages never reach it.
+        if Self::two_column_rows_balanced(spans, gutter_x) {
+            return Some(gutter_x);
+        }
+        None
+    }
+
+    /// v0.3.66 cross-gutter content-balance test: true when spanning rows carry
+    /// substantial text on BOTH sides of `gutter_x` (prose), not a short
+    /// right-hand value / page number (form / TOC). Fallback for
+    /// `prose_two_column_gutter` after the per-column classifier declines.
+    fn two_column_rows_balanced(spans: &[crate::layout::TextSpan], gutter_x: f32) -> bool {
+        let mut ordered: Vec<&crate::layout::TextSpan> = spans
+            .iter()
+            .filter(|s| {
+                !s.text.trim().is_empty()
+                    && s.bbox.width > 0.0
+                    && s.bbox.x.is_finite()
+                    && s.bbox.width.is_finite()
+            })
+            .collect();
         ordered.sort_by(|a, b| crate::utils::safe_float_cmp(b.bbox.y, a.bbox.y));
         let (mut total, mut spanning, mut short_r) = (0usize, 0usize, 0usize);
         let (mut lefts, mut rights): (Vec<usize>, Vec<usize>) = (Vec::new(), Vec::new());
@@ -11946,20 +12530,191 @@ impl PdfDocument {
             }
         }
         if total < 6 || spanning == 0 || (spanning as f32) < 0.60 * total as f32 {
-            return None;
+            return false;
         }
         if (short_r as f32) > 0.30 * spanning as f32 {
-            return None;
+            return false;
         }
         let med = |v: &mut [usize]| -> f32 {
             v.sort_unstable();
             v[v.len() / 2] as f32
         };
         let (ml, mr) = (med(&mut lefts), med(&mut rights));
-        if mr < 25.0 || !(0.45..=2.2).contains(&(mr / ml.max(1.0))) {
+        mr >= 25.0 && (0.45..=2.2).contains(&(mr / ml.max(1.0)))
+    }
+
+    /// Robust classifier-gated two-column detector for bodies the clean corridor
+    /// sweep (`prose_two_column_gutter`) and `is_multi_column_page`
+    /// MISS — ragged reference lists and dense results columns. Their lines do
+    /// not leave the single perfectly-clean empty corridor those detectors
+    /// require (long entries occasionally bridge, ragged tails create extra
+    /// gaps), so the page currently reads row-major (interleaved). This is the
+    /// real-academic M1/M3 deficit.
+    ///
+    /// Strategy: find the emptiest vertical corridor in the central band, require
+    /// it to be near-empty (a genuine gutter), require BALANCED + TALL columns on
+    /// both sides (rejects single-column + margin note, and short side captions),
+    /// and accept ONLY when both halves classify as reorderable (Prose/Reference)
+    /// — so tables, forms, and single-column pages are rejected. Proven on the 5
+    /// corpus discriminator PDFs (see `examples/classify_probe.rs`). Returns the
+    /// gutter X on accept, else `None` (caller keeps prior behaviour).
+    fn classifier_column_gutter(spans: &[crate::layout::TextSpan]) -> Option<f32> {
+        let finite = |s: &crate::layout::TextSpan| {
+            !s.text.trim().is_empty()
+                && s.bbox.width > 0.0
+                && s.bbox.x.is_finite()
+                && s.bbox.width.is_finite()
+                && s.bbox.y.is_finite()
+        };
+        let body: Vec<&crate::layout::TextSpan> = spans.iter().filter(|s| finite(s)).collect();
+        if body.len() < 16 {
             return None;
         }
-        Some(gutter_x)
+        let cmin = body.iter().map(|s| s.bbox.x).fold(f32::INFINITY, f32::min);
+        let cmax = body
+            .iter()
+            .map(|s| s.bbox.x + s.bbox.width)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let content_w = cmax - cmin;
+        if !content_w.is_finite() || content_w < 100.0 {
+            return None;
+        }
+        let ymin = body.iter().map(|s| s.bbox.y).fold(f32::INFINITY, f32::min);
+        let ymax = body
+            .iter()
+            .map(|s| s.bbox.y)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let body_h = (ymax - ymin).max(1.0);
+
+        // COLUMN-CONTENT spans = those NOT spanning most of the content width.
+        // Full-width spans (titles, the abstract block, section headings, running
+        // footers) are BANDS, excluded from gutter detection and classification:
+        // counting them would (a) hide the corridor on a mixed page whose top is a
+        // full-width title/abstract and bottom is two columns (every paper's
+        // page 1), and (b) pollute the per-column class. The corridor, balance,
+        // height, and class gates all operate on column-content spans;
+        // `reorder_column_major_with_bands` re-emits the bands at their own Y.
+        let band_w = 0.6 * content_w;
+        let col_idx: Vec<usize> = (0..spans.len())
+            .filter(|&i| finite(&spans[i]) && spans[i].bbox.width <= band_w)
+            .collect();
+        if col_idx.len() < 16 {
+            return None;
+        }
+
+        // Scan the central band [0.30, 0.70] at fine resolution and find the
+        // WIDEST near-empty vertical corridor — the real inter-column gutter —
+        // then place the gutter at its midpoint. Picking the widest run (not just
+        // any minimal-straddle point) is load-bearing for hanging-indent
+        // reference columns: a ragged-ref page has TWO empty corridors — the true
+        // gutter between the columns, and a narrow decoy between the right
+        // column's hanging entry numbers and its indented text. The decoy is
+        // narrower, so the widest-run rule lands the gutter correctly between the
+        // columns (otherwise the entry numbers fall into the left column). A
+        // single-column body has NO wide empty central corridor (its lines are
+        // full-width → excluded above → too few column spans), so it returns None.
+        let lo = cmin + 0.30 * content_w;
+        let hi = cmin + 0.70 * content_w;
+        let step = (content_w / 400.0).clamp(0.5, 3.0);
+        // "Empty" tolerates a few stray straddlers (noise / a rare long token).
+        let empty_max = (0.01 * col_idx.len() as f32).ceil() as usize;
+        let straddle_at = |x: f32| -> usize {
+            col_idx
+                .iter()
+                .filter(|&&i| {
+                    spans[i].bbox.x + 2.0 < x && spans[i].bbox.x + spans[i].bbox.width - 2.0 > x
+                })
+                .count()
+        };
+        let (mut best_lo, mut best_hi) = (f32::NAN, f32::NAN);
+        let (mut run_start, mut in_run, mut best_w) = (lo, false, 0.0f32);
+        let mut x = lo;
+        while x <= hi {
+            if straddle_at(x) <= empty_max {
+                if !in_run {
+                    run_start = x;
+                    in_run = true;
+                }
+            } else if in_run {
+                let w = x - run_start;
+                if w > best_w {
+                    best_w = w;
+                    best_lo = run_start;
+                    best_hi = x;
+                }
+                in_run = false;
+            }
+            x += step;
+        }
+        if in_run {
+            let w = hi - run_start;
+            if w > best_w {
+                best_w = w;
+                best_lo = run_start;
+                best_hi = hi;
+            }
+        }
+        // Require a corridor of real width (a genuine gutter, not a glyph gap).
+        if !best_lo.is_finite() || best_w < 6.0 {
+            return None;
+        }
+        let gutter = (best_lo + best_hi) * 0.5;
+
+        // Balanced, tall columns on both sides of the gutter (column-content only).
+        let (mut left_idx, mut right_idx): (Vec<usize>, Vec<usize>) = (Vec::new(), Vec::new());
+        let (mut ly0, mut ly1) = (f32::INFINITY, f32::NEG_INFINITY);
+        let (mut ry0, mut ry1) = (f32::INFINITY, f32::NEG_INFINITY);
+        for &i in &col_idx {
+            let s = &spans[i];
+            if s.bbox.x + s.bbox.width * 0.5 < gutter {
+                left_idx.push(i);
+                ly0 = ly0.min(s.bbox.y);
+                ly1 = ly1.max(s.bbox.y);
+            } else {
+                right_idx.push(i);
+                ry0 = ry0.min(s.bbox.y);
+                ry1 = ry1.max(s.bbox.y);
+            }
+        }
+        let nb = left_idx.len() + right_idx.len();
+        if nb == 0 {
+            return None;
+        }
+        // Each side carries a real share of the column content (rejects
+        // 1 col + margin note).
+        if (left_idx.len() as f32) < 0.30 * nb as f32 || (right_idx.len() as f32) < 0.30 * nb as f32
+        {
+            return None;
+        }
+        // Both columns must be tall and of comparable height — they sit BESIDE
+        // each other. This rejects a short side-caption/figure-label beside a tall
+        // body column, while allowing a mixed page where the columns occupy only
+        // the lower portion below a full-width title/abstract (so the floor is
+        // 0.4·body_h, not 0.5). `body_h` spans the whole page (title included).
+        let (lext, rext) = (ly1 - ly0, ry1 - ry0);
+        if lext < 0.4 * body_h || rext < 0.4 * body_h || lext.min(rext) < 0.5 * lext.max(rext) {
+            return None;
+        }
+        // Class gate (load-bearing). NEITHER half may be Table/Form — that is the
+        // hard table/form rejection (tables classify Table via mean_chars<10,
+        // label/value pages classify Form). AND at least one half must be clearly
+        // Prose/Reference, to anchor that this really is a text body. A `Mixed`
+        // half is admitted alongside a Prose/Reference half: a dense results
+        // column often classifies Mixed (figures, equations, and inline-citation
+        // fragments lower its wide-line ratio below the Prose threshold), but it
+        // is NOT a table (those are Table, not Mixed), so column-major reading is
+        // still correct. Two Mixed halves (no clear prose anchor) stay rejected.
+        use crate::layout::RegionClass;
+        let lc = crate::layout::classify_region(spans, &left_idx);
+        let rc = crate::layout::classify_region(spans, &right_idx);
+        let is_table_or_form = |c| matches!(c, RegionClass::Table | RegionClass::Form);
+        if is_table_or_form(lc) || is_table_or_form(rc) {
+            return None;
+        }
+        if !(lc.is_reorderable_column() || rc.is_reorderable_column()) {
+            return None;
+        }
+        Some(gutter)
     }
 
     /// B1: merge a contiguous same-line run of spans that *crosses the page
@@ -12205,12 +12960,27 @@ impl PdfDocument {
     /// block position, so a mid-body heading is NOT split across the gutter.
     fn reorder_column_major_with_bands(spans: &mut Vec<crate::layout::TextSpan>, gutter_x: f32) {
         use crate::layout::TextSpan;
-        let crosses = |s: &TextSpan| s.bbox.x < gutter_x && s.bbox.x + s.bbox.width > gutter_x;
+        // A genuine full-width BAND (title/heading/footer that spans both
+        // columns) extends meaningfully on BOTH sides of the gutter. Require an
+        // 8pt overhang each side so a column item whose bbox merely *clips* the
+        // gutter by a few points — e.g. a hanging reference number ("42.") at the
+        // right column's left edge, or a wrapped line reaching just past the
+        // gutter — is NOT mistaken for a band and pulled out of its column.
+        let crosses =
+            |s: &TextSpan| s.bbox.x < gutter_x - 8.0 && s.bbox.x + s.bbox.width > gutter_x + 8.0;
         let mut src = std::mem::take(spans);
-        // Top→bottom, then left→right within a row.
+        // Top→bottom, then left→right within a row. Quantize Y to the row band
+        // (`row_aware_span_cmp`) so sub-point baseline jitter between spans on
+        // the SAME visual line (font-metric rounding, a superscript citation's
+        // slightly different Y) cannot invert their X order: a 0.001pt Y
+        // difference under a raw `safe_float_cmp` would sort a mid-line span
+        // ahead of the line's left-edge span, scrambling the line
+        // (PMC8129076 "phase and amplitude of clock-controlled genes83. Thus,
+        // it is clear" — the "83" citation lifts ". Thus" onto a 0.001pt-higher
+        // baseline). The downstream row grouping already uses a 3pt tolerance;
+        // matching it here keeps the two consistent.
         src.sort_by(|a, b| {
-            crate::utils::safe_float_cmp(b.bbox.y, a.bbox.y)
-                .then_with(|| crate::utils::safe_float_cmp(a.bbox.x, b.bbox.x))
+            crate::utils::row_aware_span_cmp(a.bbox.y, a.bbox.x, b.bbox.y, b.bbox.x)
         });
         let mut out: Vec<TextSpan> = Vec::with_capacity(src.len());
         let mut col_buf: Vec<TextSpan> = Vec::new();
@@ -12231,9 +13001,11 @@ impl PdfDocument {
             let (mut left, mut right): (Vec<TextSpan>, Vec<TextSpan>) = std::mem::take(buf)
                 .into_iter()
                 .partition(|s| s.bbox.x + s.bbox.width * 0.5 < gutter_x);
+            // Row-banded (Y quantized to ROW_BAND_TOLERANCE_PT) so sub-point
+            // baseline jitter on a single visual line cannot invert the X order
+            // within that line; see the pre-sort note above.
             let by_yx = |a: &TextSpan, b: &TextSpan| {
-                crate::utils::safe_float_cmp(b.bbox.y, a.bbox.y)
-                    .then_with(|| crate::utils::safe_float_cmp(a.bbox.x, b.bbox.x))
+                crate::utils::row_aware_span_cmp(a.bbox.y, a.bbox.x, b.bbox.y, b.bbox.x)
             };
             // Trailing-block peel: a block lying a full line-height BELOW the
             // entire opposite column is a bottom-spanning block (e.g. a
@@ -12294,6 +13066,88 @@ impl PdfDocument {
         }
         flush(&mut col_buf, &mut out);
         *spans = out;
+    }
+
+    /// True when the page's multi-column geometric signal is explained by a
+    /// detected TABLE rather than a genuine two-column text body.
+    ///
+    /// Used by the geometric reading-order dispatch: when the genuine
+    /// two-column branches (topological / prose-gutter / classifier) all
+    /// declined yet `is_multi_column_page` is still true, the page is either a
+    /// single-column body with a data table (whose column-aligned cells trip the
+    /// detector) or a two-column body the column branches missed. We only want
+    /// to override the multi-column gate (and apply the row-aware band sort) in
+    /// the FIRST case.
+    ///
+    /// Discriminator: cluster the per-line left edges of the spans OUTSIDE the
+    /// detected table regions (the surrounding prose). A single-column body has
+    /// ONE dominant left edge there; a genuine two-column body has two. We
+    /// require a strong single dominant left-edge cluster (≥ 70% of non-table
+    /// lines), so a two-column page — whose non-table prose still splits into two
+    /// left-edge clusters — is rejected. Spans inside the table contribute their
+    /// own column-aligned left edges and are deliberately excluded.
+    fn multicol_signal_is_tabular(
+        spans: &[crate::layout::TextSpan],
+        tables: &[crate::structure::table_extractor::Table],
+    ) -> bool {
+        // Expand each table bbox slightly upward to absorb header rows the
+        // spatial extractor often leaves just above the captured cell grid.
+        let in_table = |s: &crate::layout::TextSpan| -> bool {
+            let cx = s.bbox.x + s.bbox.width * 0.5;
+            let cy = s.bbox.y + s.bbox.height * 0.5;
+            tables.iter().any(|t| {
+                t.bbox.is_some_and(|b| {
+                    cx >= b.x - 2.0
+                        && cx <= b.x + b.width + 2.0
+                        && cy >= b.y - 2.0
+                        && cy <= b.y + b.height + 14.0
+                })
+            })
+        };
+        let outside: Vec<&crate::layout::TextSpan> = spans
+            .iter()
+            .filter(|s| !s.text.trim().is_empty() && s.bbox.width > 0.0 && !in_table(s))
+            .collect();
+        if outside.len() < 8 {
+            // The table is essentially the whole page; the row-aware band sort
+            // linearises it correctly, so treat the signal as tabular.
+            return true;
+        }
+        // Per-line (Y-band) minimum left edge.
+        let mut by_band: std::collections::BTreeMap<i32, f32> = std::collections::BTreeMap::new();
+        for s in &outside {
+            let band = (s.bbox.y / 2.0).round() as i32;
+            let e = by_band.entry(band).or_insert(f32::INFINITY);
+            *e = e.min(s.bbox.x);
+        }
+        let mut lefts: Vec<f32> = by_band
+            .values()
+            .copied()
+            .filter(|v| v.is_finite())
+            .collect();
+        if lefts.len() < 6 {
+            return true;
+        }
+        lefts.sort_by(|a, b| crate::utils::safe_float_cmp(*a, *b));
+        // Cluster left edges with a 12pt gap (≈ one indent); the largest cluster
+        // is the body's left margin.
+        let mut clusters: Vec<usize> = Vec::new();
+        let mut run = 1usize;
+        let mut prev = lefts[0];
+        for &v in &lefts[1..] {
+            if v - prev > 12.0 {
+                clusters.push(run);
+                run = 0;
+            }
+            run += 1;
+            prev = v;
+        }
+        clusters.push(run);
+        let total = lefts.len();
+        let top = *clusters.iter().max().unwrap_or(&0);
+        // Strong single dominant left edge ⇒ single-column prose ⇒ the
+        // multi-column signal came from the table.
+        top as f32 >= 0.70 * total as f32
     }
 
     fn is_multi_column_page(spans: &[crate::layout::TextSpan]) -> bool {
@@ -12766,19 +13620,86 @@ impl PdfDocument {
             return None;
         }
 
+        // A full-width TITLE/heading row is typeset as many narrow word spans, so
+        // no single span satisfies the per-span band test below; its leftmost words
+        // (right edge ≤ gutter) would be miswept into the SIDEBAR and emitted last,
+        // shattering the title (e.g. an MDPI first page where the title sits in a
+        // large font across the full width, above the metadata sidebar + body).
+        // Detect these per LINE: a baseline line whose member words FLOW
+        // CONTINUOUSLY across the gutter (collective extent crosses it, ≥40% of the
+        // page width, and no large internal gap straddling the gutter) is a true
+        // full-width band — its words are evenly spaced, unlike a sidebar-label +
+        // body-line that merely SHARE a baseline (e.g. "Accepted: 1 March 2021"
+        // next to "1. Introduction"), which leaves a wide empty gutter corridor
+        // between the two columns. Members of such band lines are forced into the
+        // BAND group so the whole title row stays together at its vertical slot.
+        // The straddling-gap gate keeps shared sidebar/body baselines split.
+        let mut band_line_members: std::collections::HashSet<usize> =
+            std::collections::HashSet::new();
+        const MAX_STRADDLE_GAP_FRAC: f32 = 0.06; // ≈ gutter-corridor width
+                                                 // The title/author band sits ABOVE the body column (the body starts at the
+                                                 // affiliations/abstract). Restrict band promotion to lines above the
+                                                 // topmost PURE-BODY line (a line whose words all begin at/right of the
+                                                 // gutter, with no left-of-gutter member). Below that Y the page is the
+                                                 // two-column sidebar+body region, where a wide crossing line is a
+                                                 // sidebar-label + body-line sharing a baseline (e.g. "Switzerland." next to
+                                                 // "cancer, atrial fibrillation…") whose tight gutter corridor would
+                                                 // otherwise pass the straddle-gap gate and wrongly glue the sidebar inline.
+                                                 // Larger bottom-y == higher on the page (PDF user space).
+        let body_top_y = lines
+            .iter()
+            .filter(|l| l.min_left >= gutter)
+            .map(|l| l.top_y)
+            .fold(f32::NEG_INFINITY, f32::max);
+        for line in &lines {
+            if !(line.min_left < gutter
+                && line.max_right > gutter
+                && (line.max_right - line.min_left) > width * 0.40)
+            {
+                continue;
+            }
+            // Only the top-of-page title/author band, above the body column.
+            if body_top_y.is_finite() && line.top_y < body_top_y {
+                continue;
+            }
+            // Largest gap between consecutive members that straddles the gutter.
+            let mut xs: Vec<(f32, f32)> = line
+                .members
+                .iter()
+                .map(|&i| (spans[i].bbox.left(), spans[i].bbox.right()))
+                .collect();
+            xs.sort_by(|a, b| safe_float_cmp(a.0, b.0));
+            let mut max_straddle_gap = 0.0f32;
+            let mut prev_right = f32::NEG_INFINITY;
+            for &(l, r) in &xs {
+                if prev_right.is_finite() && prev_right < gutter && l > gutter {
+                    max_straddle_gap = max_straddle_gap.max(l - prev_right);
+                }
+                prev_right = prev_right.max(r);
+            }
+            if max_straddle_gap < width * MAX_STRADDLE_GAP_FRAC {
+                for &i in &line.members {
+                    band_line_members.insert(i);
+                }
+            }
+        }
+
         // Classify each SPAN by the gutter. A publisher-metadata sidebar and the
         // body usually SHARE baselines (the metadata column interleaves with body
         // lines by Y), so a per-line cluster would fuse them into one full-width
         // line and hide the sidebar — classify per span instead. BAND = a span
-        // genuinely spanning the gutter (a wide full-width title/heading). SIDEBAR
-        // = a span entirely left of the gutter. BODY = everything at/right of it.
+        // genuinely spanning the gutter (a wide full-width title/heading), or a
+        // member of a continuous full-width band LINE (above). SIDEBAR = a span
+        // entirely left of the gutter. BODY = everything at/right of it.
         let mut band: Vec<usize> = Vec::new();
         let mut sidebar: Vec<usize> = Vec::new();
         let mut body: Vec<usize> = Vec::new();
         for (i, s) in spans.iter().enumerate() {
             let l = s.bbox.left();
             let r = s.bbox.right();
-            if l < gutter && r > gutter && (r - l) > width * 0.40 {
+            if band_line_members.contains(&i)
+                || (l < gutter && r > gutter && (r - l) > width * 0.40)
+            {
                 band.push(i);
             } else if r <= gutter {
                 sidebar.push(i);
@@ -12905,6 +13826,16 @@ impl PdfDocument {
             hs[hs.len() / 2].max(1.0)
         };
 
+        // Item 4 (M3): measure the page's single central column gutter (if any).
+        // Used below to forbid a same-line union ACROSS the gutter regardless of
+        // the measured gap: on dense two-column pages with tight leading, an
+        // over-wide advance can make a cross-gutter gap < med_h, fusing the two
+        // columns into one block so the side_by_side gate then declines and the
+        // page falls to a row-major interleave. `None` (single-column /
+        // multi-corridor / off-centre) ⇒ the predicate is byte-identical.
+        let gutter_x = Self::measure_single_central_gutter(spans)
+            .or_else(|| Self::density_central_gutter(spans));
+
         // --- Union-find: connect spans in the same text region. Two spans join
         // iff they are on the same line and horizontally adjacent (a normal word
         // gap, NOT a column gutter), OR vertically stacked with overlapping X and
@@ -12940,7 +13871,17 @@ impl PdfDocument {
                     // Horizontal neighbour: gap below ~1 em (word space), not a gutter.
                     let gap = (si.bbox.left().max(sj.bbox.left()))
                         - (si.bbox.right().min(sj.bbox.right()));
-                    gap < med_h * 1.0
+                    // Item 4 (M3): never join two spans that straddle the measured
+                    // central gutter (one wholly left of it, the other wholly
+                    // right), independent of `gap` — a tight-leading over-wide
+                    // advance can otherwise make the cross-gutter gap < med_h and
+                    // fuse the columns. Purely subtractive: it can only PREVENT a
+                    // union, never create one, so `gutter_x == None` is byte-identical.
+                    let crosses_gutter = gutter_x.is_some_and(|gx| {
+                        (si.bbox.right() <= gx && sj.bbox.left() >= gx)
+                            || (sj.bbox.right() <= gx && si.bbox.left() >= gx)
+                    });
+                    !crosses_gutter && gap < med_h * 1.0
                 } else {
                     // Vertical neighbour: overlap in X and a small inter-line gap.
                     let vgap = (lo(si).min(lo(sj)) - hi(si).max(hi(sj))).abs();
@@ -13011,6 +13952,43 @@ impl PdfDocument {
             return None;
         }
 
+        // Item 4 follow-up (M3): if the page has a clean central column gutter but
+        // the union-find STILL produced a block that fuses the two columns across
+        // it, the topological emit would interleave them (the block's spans get
+        // sorted row-aware within the block). This happens on dense two-column
+        // bodies where a producer-malformed full-width fragment, or a chain of
+        // vertical unions through a wide line, bridges the columns despite the
+        // same-line cross-gutter veto. A correct two-column block decomposition
+        // has NO block straddling the gutter with substantial content on BOTH
+        // sides. When one exists, bail to None so the dispatch falls through to
+        // the band-aware column-major reader (`classifier_column_gutter` /
+        // `reorder_column_major_with_bands`), which separates the columns and
+        // re-emits full-width bands at their own Y. Gated on a measured gutter, so
+        // pages without one (the common case) are byte-identical.
+        if let Some(gx) = gutter_x {
+            let fused = blocks.iter().any(|b| {
+                if b.x0 >= gx - med_h || b.x1 <= gx + med_h {
+                    return false; // does not straddle the gutter
+                }
+                // Count this block's members clearly on each side of the gutter.
+                let mut l = 0usize;
+                let mut r = 0usize;
+                for &i in &b.members {
+                    let s = &spans[i];
+                    if s.bbox.right() <= gx {
+                        l += 1;
+                    } else if s.bbox.left() >= gx {
+                        r += 1;
+                    }
+                }
+                // Substantial content on BOTH sides ⇒ fused columns, not a band.
+                l >= 4 && r >= 4
+            });
+            if fused {
+                return None;
+            }
+        }
+
         // --- GATE: require ≥2 blocks that are horizontally DISJOINT yet overlap
         // in Y (genuine side-by-side regions). Single-column / stacked layouts
         // have none, so they return None and stay byte-identical. ---
@@ -13037,6 +14015,18 @@ impl PdfDocument {
                 .sum();
             chars as f32 / lines as f32
         };
+        // Number of baseline rows a block spans (same Y-clustering as char_density).
+        let block_lines = |b: &Block| -> usize {
+            let mut ys: Vec<f32> = b.members.iter().map(|&i| hi(&spans[i])).collect();
+            ys.sort_by(|p, q| safe_float_cmp(*p, *q));
+            let mut lines = 1usize;
+            for w in ys.windows(2) {
+                if (w[1] - w[0]).abs() > med_h * 0.6 {
+                    lines += 1;
+                }
+            }
+            lines
+        };
 
         // Both side-by-side blocks must be SUBSTANTIAL, text-DENSE, multi-line
         // regions that overlap over several lines — a genuine 2-column body/footer
@@ -13051,6 +14041,15 @@ impl PdfDocument {
                     && a.members.len() >= 8
                     && b.members.len() >= 8
                     && (a.y_hi.min(b.y_hi) - a.y_lo.max(b.y_lo)) > med_h * 3.0
+                    // Each side must be a genuine MULTI-LINE column (≥ 4 rows). A
+                    // single-column page whose body happens to end in just a
+                    // couple of lines can have a wide intra-line word gap (a
+                    // sentence space after a period) split those lines into two
+                    // x-disjoint blocks that otherwise pass this gate and emit as
+                    // fake columns (alice_old "Looking-Glass House" p.226). A real
+                    // two-column body / sidebar spans many rows.
+                    && block_lines(a) >= 4
+                    && block_lines(b) >= 4
                     && char_density(a) >= 12.0
                     && char_density(b) >= 12.0
                     // The two side-by-side blocks must be the page's DOMINANT
@@ -13278,6 +14277,35 @@ impl PdfDocument {
         out.trim().to_string()
     }
 
+    /// Item 6B (M5): does a running-band literal look like a CONSTANT-text
+    /// pagination / citation string — a DOI, a journal volume/issue/article
+    /// reference, or a journal URL host — accompanied by a digit? Such strings
+    /// recur identically on every page (so the varying-literal gate never catches
+    /// them) yet are furniture that leaks into the body. The gate is deliberately
+    /// narrow: it requires a recognised citation/URL token AND a digit, so a
+    /// repeated facility name, document title, or ordinary sentence is NEVER
+    /// matched (miss-rather-than-drop — a false positive deletes real content).
+    fn looks_like_stable_pagination(literal: &str) -> bool {
+        let l = literal.to_ascii_lowercase();
+        if !l.chars().any(|c| c.is_ascii_digit()) {
+            return false;
+        }
+        if l.contains("doi.org") || l.contains("doi:") || l.contains("/doi/") {
+            return true;
+        }
+        // Journal volume/issue/article reference. NB: "no." is deliberately
+        // EXCLUDED — it also matches government-form control numbers like
+        // "OMB No. 1545-0115", which are form content, not running furniture.
+        if ["volume", "vol.", "article", "issue"]
+            .iter()
+            .any(|kw| l.contains(kw))
+        {
+            return true;
+        }
+        // Journal URL host in a running footer, e.g. "www.frontiersin.org 1".
+        l.contains("www.") && (l.contains(".org") || l.contains(".com") || l.contains(".net"))
+    }
+
     /// Ensure running-artifact signatures are computed (once) and return a
     /// clone for matching. The computation scans every page's raw spans,
     /// collects normalized text that appears in the top or bottom 12% of
@@ -13390,16 +14418,28 @@ impl PdfDocument {
         let signatures: std::collections::HashMap<String, usize> = occurrences
             .into_iter()
             .filter(|(sig, (count, _))| {
-                if *count < threshold.max(2) {
-                    return false;
-                }
-                // Only suppress if the literal text varied across pages — i.e., the
-                // digits changed, indicating a page number or date that updates per page.
-                // Signatures where all occurrences have the same literal text are
-                // substantive content (facility names, document IDs, etc.) that pdftotext
-                // and pdfium both preserve; suppressing them hurts word-F1 scores.
                 let variants = literal_variants.get(sig).map(|s| s.len()).unwrap_or(0);
-                variants >= 2
+                // Varying-literal path (page numbers / dates): the digits change per
+                // page. Recurs on >=50% of body pages.
+                if *count >= threshold.max(2) && variants >= 2 {
+                    return true;
+                }
+                // Item 6B (M5): CONSTANT-literal pagination/citation (DOI, volume/
+                // article, journal URL + digit). The literal never changes, so the
+                // varying-literal gate above misses it. Require a STRICTER >=60%
+                // recurrence AND the narrow citation/URL shape gate, so substantive
+                // repeated content (facility names, titles) is never suppressed.
+                let strict = (page_count as f32 * 0.6).ceil() as usize;
+                if *count >= strict.max(2)
+                    && variants < 2
+                    && literal_variants
+                        .get(sig)
+                        .and_then(|s| s.iter().next())
+                        .is_some_and(|lit| Self::looks_like_stable_pagination(lit))
+                {
+                    return true;
+                }
+                false
             })
             .map(|(sig, _)| {
                 // Use the earliest page the signature appeared on — which
@@ -15606,6 +16646,7 @@ impl PdfDocument {
                 heading_level: None,
                 rotation_degrees: 0.0,
                 wmode: 0,
+                text_rise: 0.0,
             })
             .collect();
 
@@ -17346,6 +18387,7 @@ impl PdfDocument {
                 heading_level: None,
                 rotation_degrees: 0.0,
                 wmode: 0,
+                text_rise: 0.0,
             })
             .collect();
 
@@ -22108,6 +23150,7 @@ mod tests {
 
     fn make_test_span(text: &str, x: f32, y: f32, width: f32, font_size: f32) -> TextSpan {
         TextSpan {
+            text_rise: 0.0,
             artifact_type: None,
             text: text.to_string(),
             bbox: crate::geometry::Rect {
@@ -22184,6 +23227,39 @@ mod tests {
         let first_right = texts.iter().position(|t| t.starts_with("right")).unwrap();
         // Whole left column before whole right column (de-interleaved).
         assert!(last_left < first_right, "columns interleaved: {texts:?}");
+    }
+
+    #[test]
+    fn topo_tight_leading_two_columns_stay_separate() {
+        // Two dense columns whose gutter (18 pt) is NARROWER than med_h (font
+        // size 20): the same-row gap (18) is below med_h*1.0 (20), so WITHOUT the
+        // Item 4 gutter veto the union-find fuses left+right into one block and
+        // the side_by_side gate then declines → None → row-major interleave. With
+        // the veto the two columns stay separate and read column-major.
+        let mut spans = Vec::new();
+        for k in 0..8 {
+            let y = 200.0 - k as f32 * 24.0;
+            spans.push(make_test_span(
+                &format!("left column body sentence number {k} here"),
+                0.0,
+                y,
+                90.0,
+                20.0,
+            )); // →90
+            spans.push(make_test_span(
+                &format!("right column body sentence number {k} here"),
+                108.0,
+                y,
+                90.0,
+                20.0,
+            )); // gutter 108-90 = 18 (< med_h 20)
+        }
+        let out = PdfDocument::topological_block_order(&spans)
+            .expect("tight-gutter two columns must stay separate and reorder");
+        let texts: Vec<&str> = out.iter().map(|s| s.text.as_str()).collect();
+        let last_left = texts.iter().rposition(|t| t.starts_with("left")).unwrap();
+        let first_right = texts.iter().position(|t| t.starts_with("right")).unwrap();
+        assert!(last_left < first_right, "tight-gutter columns fused: {texts:?}");
     }
 
     #[test]
@@ -22315,6 +23391,72 @@ mod tests {
     }
 
     #[test]
+    fn merge_sub_superscript_accepts_fstatistic() {
+        // Item 5b (M4): an F-statistic `F4,176` — the comma-bearing degrees-of-
+        // freedom cluster `4,176` is a single subscript that must merge into `F`.
+        let mut spans = vec![
+            make_test_span("F", 0.0, 100.0, 8.0, 12.0),
+            make_test_span("4,176", 8.0, 98.0, 12.0, 8.0),
+        ];
+        PdfDocument::merge_sub_superscript_spans(&mut spans);
+        assert_eq!(spans.len(), 1, "index cluster must merge into base");
+        assert_eq!(spans[0].text, "F4,176");
+    }
+
+    #[test]
+    fn merge_sub_superscript_accepts_text_rise_flagged() {
+        // M4 (item 5c): a Ts-raised glyph (e.g. a math superscript) that is NOT
+        // shrunk and not in the ASCII/Unicode sub-glyph set must still merge into
+        // its base because the producer flagged it via Text Rise (§9.3.7).
+        let mut base = make_test_span("M", 0.0, 100.0, 10.0, 12.0);
+        base.text_rise = 0.0;
+        let mut sup = make_test_span("\u{22C6}", 10.5, 103.0, 6.0, 12.0); // ⋆, same size
+        sup.text_rise = 0.30; // Ts/font-size ratio
+        let mut spans = vec![base, sup];
+        PdfDocument::merge_sub_superscript_spans(&mut spans);
+        assert_eq!(spans.len(), 1, "Ts-flagged superscript must merge into base");
+        assert_eq!(spans[0].text, "M\u{22C6}");
+    }
+
+    #[test]
+    fn merge_sub_superscript_accepts_same_baseline_numeric() {
+        // An isotope/footnote-style numeric superscript whose bbox shares the
+        // base's baseline (y_diff_abs ≈ 0) — e.g. the `123` in `[123I]`. The
+        // smaller font + advance-edge x are the only super/superscript cues;
+        // the 12 %-of-em vertical lower bound is skipped for purely numeric subs.
+        let base = make_test_span("[", 0.0, 100.0, 6.0, 18.0);
+        let sup = make_test_span("123", 6.0, 100.0, 20.0, 13.0); // same y, smaller fs
+        let mut spans = vec![base, sup];
+        PdfDocument::merge_sub_superscript_spans(&mut spans);
+        assert_eq!(spans.len(), 1, "same-baseline numeric superscript must merge");
+        assert_eq!(spans[0].text, "[123");
+    }
+
+    #[test]
+    fn merge_sub_superscript_rejects_same_baseline_alpha() {
+        // Guard: a same-baseline SMALLER non-numeric run (e.g. small caps) must
+        // still be rejected by the vertical lower bound — the relaxation is
+        // numeric-only, so this preserves the small-caps screen.
+        let base = make_test_span("A", 0.0, 100.0, 12.0, 18.0);
+        let sub = make_test_span("bc", 12.0, 100.0, 8.0, 13.0); // same y, smaller, alpha
+        let mut spans = vec![base, sub];
+        PdfDocument::merge_sub_superscript_spans(&mut spans);
+        assert_eq!(spans.len(), 2, "same-baseline alpha run must not merge");
+    }
+
+    #[test]
+    fn merge_sub_superscript_keeps_table_number_separate() {
+        // Guard: a bare figure/table number after a WORD base is not an index
+        // cluster (no comma) and the word base is invalid — stays separate.
+        let mut spans = vec![
+            make_test_span("Table", 0.0, 100.0, 30.0, 12.0),
+            make_test_span("3", 31.0, 100.0, 6.0, 12.0),
+        ];
+        PdfDocument::merge_sub_superscript_spans(&mut spans);
+        assert_eq!(spans.len(), 2, "Table 3 must not merge");
+    }
+
+    #[test]
     fn test_order_rotated_blocks_groups_by_rotation() {
         let mk = |t: &str, x: f32, y: f32, rot: f32| {
             let mut s = make_test_span(t, x, y, 10.0, 10.0);
@@ -22435,6 +23577,7 @@ mod tests {
         font_size: f32,
     ) -> TextSpan {
         TextSpan {
+            text_rise: 0.0,
             text: text.to_string(),
             bbox: crate::geometry::Rect {
                 x: 0.0,
@@ -23354,6 +24497,35 @@ mod tests {
             "", "0", "10000", "12345", "1a", "iv", "Page", "1.2", "-1", "1,2",
         ] {
             assert!(!PdfDocument::is_bare_page_number_text(no), "{no:?} must NOT be a page number");
+        }
+    }
+
+    #[test]
+    fn test_looks_like_stable_pagination() {
+        for yes in [
+            "https://doi.org/10.1234/abcd",
+            "doi:10.1000/xyz",
+            "Volume 14 | Article 153",
+            "Vol. 7, No. 3",
+            "www.frontiersin.org 1",
+        ] {
+            assert!(
+                PdfDocument::looks_like_stable_pagination(yes),
+                "{yes:?} should be stable pagination furniture"
+            );
+        }
+        for no in [
+            "Acme Regional Hospital",
+            "Donna J. Calu",
+            "Introduction",
+            "Table 3",
+            "Department of Neuroscience 2024",
+            "volume of distribution", // citation keyword but NO digit
+        ] {
+            assert!(
+                !PdfDocument::looks_like_stable_pagination(no),
+                "{no:?} must NOT be classified as furniture"
+            );
         }
     }
 
@@ -26245,6 +27417,7 @@ mod tests {
 
         fn make_span(label: &str, x: f32, y: f32) -> TextSpan {
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: label.to_string(),
                 bbox: Rect::new(x, y, 80.0, 12.0),
@@ -26310,6 +27483,7 @@ mod tests {
         use crate::geometry::Rect;
         use crate::layout::{Color, FontWeight, TextSpan};
         TextSpan {
+            text_rise: 0.0,
             artifact_type: None,
             text: text.to_string(),
             bbox: Rect::new(x, y, w, 10.0),
@@ -26450,6 +27624,184 @@ mod tests {
             PdfDocument::has_persistent_gutter_corridor(&spans, 300.0, 10_000.0),
             "two-column prose with a minority of full-width display rows must hold"
         );
+    }
+
+    // ========================================================================
+    // P2 shared helpers: measure_single_central_gutter / block_char_density
+    // ========================================================================
+
+    #[test]
+    fn measure_gutter_accepts_centered_two_columns() {
+        // Left col →170, right col 300→450: a wide central corridor at ~235,
+        // which is 0.46 of the [50,450] content width (inside 0.30..=0.70).
+        let mut spans = Vec::new();
+        for i in 0..8 {
+            let y = 700.0 - i as f32 * 14.0;
+            spans.push(corridor_span("Lorem ipsum dolor", 50.0, y, 120.0));
+            spans.push(corridor_span("sit amet consectetur", 300.0, y, 150.0));
+        }
+        let g = PdfDocument::measure_single_central_gutter(&spans);
+        assert!(g.is_some(), "centered two columns must yield a gutter");
+        assert!((g.unwrap() - 235.0).abs() < 5.0, "gutter mid-x ≈ 235, got {g:?}");
+    }
+
+    #[test]
+    fn measure_gutter_rejects_single_column() {
+        // One full-width column → no corridor → None (byte-identical caller).
+        let mut spans = Vec::new();
+        for i in 0..10 {
+            let y = 700.0 - i as f32 * 14.0;
+            spans.push(corridor_span("Full width single column line", 50.0, y, 400.0));
+        }
+        assert!(PdfDocument::measure_single_central_gutter(&spans).is_none());
+    }
+
+    #[test]
+    fn measure_gutter_rejects_three_column_grid() {
+        // Three columns ⇒ two corridors ⇒ not a single central gutter ⇒ None
+        // (grids/tables stay on their existing row-aware/structural path).
+        let mut spans = Vec::new();
+        for i in 0..6 {
+            let y = 700.0 - i as f32 * 14.0;
+            spans.push(corridor_span("colA", 50.0, y, 60.0)); // →110
+            spans.push(corridor_span("colB", 140.0, y, 60.0)); // →200
+            spans.push(corridor_span("colC", 230.0, y, 60.0)); // →290
+        }
+        assert!(PdfDocument::measure_single_central_gutter(&spans).is_none());
+    }
+
+    #[test]
+    fn density_gutter_finds_tight_gutter_under_bridging_header() {
+        // Dense two columns separated by a TIGHT ~12 pt gutter (left →291,
+        // right 304→552), below the 18 pt cover-scan threshold, PLUS one
+        // full-width header line that bridges the gutter (43→308). The 1-D cover
+        // scan jumps its running max past the corridor and misses it; the 2-D
+        // projection only counts spans that actually straddle a given x, so the
+        // lone header is absorbed by the tolerance and the gutter at ~297 is
+        // found. This is the PMC8129076 defect-2 case.
+        let mut spans = Vec::new();
+        // Bridging full-width header at the top.
+        spans.push(corridor_span("NATURE COMMUNICATIONS header line", 43.0, 760.0, 265.0));
+        for i in 0..16 {
+            let y = 740.0 - i as f32 * 12.0;
+            spans.push(corridor_span("left column body text here ok", 43.0, y, 248.0)); // →291
+            spans.push(corridor_span("right column body text here ok", 304.0, y, 248.0));
+            // 304→552
+        }
+        let g = PdfDocument::density_central_gutter(&spans);
+        assert!(g.is_some(), "tight gutter under a bridging header must be found");
+        assert!((g.unwrap() - 297.5).abs() < 8.0, "gutter mid-x ≈ 297, got {g:?}");
+        // The conservative cover scan misses this (gutter < 18 pt and a header
+        // bridges it), confirming the density probe adds genuinely new coverage.
+        assert!(PdfDocument::measure_single_central_gutter(&spans).is_none());
+    }
+
+    #[test]
+    fn density_gutter_rejects_single_column() {
+        let mut spans = Vec::new();
+        for i in 0..16 {
+            let y = 700.0 - i as f32 * 12.0;
+            spans.push(corridor_span("Full width single column line of text", 50.0, y, 400.0));
+        }
+        assert!(PdfDocument::density_central_gutter(&spans).is_none());
+    }
+
+    #[test]
+    fn density_gutter_rejects_three_column_grid() {
+        // Three columns ⇒ two central corridors ⇒ not a single gutter ⇒ None.
+        let mut spans = Vec::new();
+        for i in 0..12 {
+            let y = 700.0 - i as f32 * 12.0;
+            spans.push(corridor_span("colA", 50.0, y, 60.0)); // →110
+            spans.push(corridor_span("colB", 140.0, y, 60.0)); // →200
+            spans.push(corridor_span("colC", 230.0, y, 60.0)); // →290
+        }
+        assert!(PdfDocument::density_central_gutter(&spans).is_none());
+    }
+
+    #[test]
+    fn block_char_density_separates_dense_from_sparse() {
+        // 5 lines of prose (~21 chars/line) is DENSE; 5 lines of bare numbers
+        // (~2 chars/line) is SPARSE. med_h = 10 (corridor_span height).
+        let dense: Vec<_> = (0..5)
+            .map(|i| corridor_span("twenty chars of text!", 50.0, 700.0 - i as f32 * 14.0, 120.0))
+            .collect();
+        let sparse: Vec<_> = (0..5)
+            .map(|i| corridor_span("12", 50.0, 700.0 - i as f32 * 14.0, 12.0))
+            .collect();
+        let dref: Vec<&_> = dense.iter().collect();
+        let sref: Vec<&_> = sparse.iter().collect();
+        let dd = PdfDocument::block_char_density(&dref, 10.0);
+        let sd = PdfDocument::block_char_density(&sref, 10.0);
+        assert!(dd > 15.0, "dense density should be high, got {dd}");
+        assert!(sd < 4.0, "sparse density should be low, got {sd}");
+        assert!(dd > sd * 4.0, "dense must clearly exceed sparse");
+    }
+
+    // ========================================================================
+    // P3 / Item 2: marginalia rail lift (lift_marginalia_column)
+    // ========================================================================
+
+    #[test]
+    fn lift_marginalia_column_lifts_left_line_numbers() {
+        // A wide body column at x=100→400, plus a detached narrow numeric rail
+        // at x=50→65 (manuscript line numbers 118..131). The rail must be lifted.
+        let mut spans = Vec::new();
+        for i in 0..14 {
+            let y = 700.0 - i as f32 * 14.0;
+            spans.push(corridor_span("Body prose line of real text here", 100.0, y, 300.0));
+            spans.push(corridor_span(&format!("{}", 118 + i), 50.0, y, 15.0));
+        }
+        let lifted = PdfDocument::lift_marginalia_column(&spans).expect("rail must be lifted");
+        assert_eq!(lifted.len(), 14, "all 14 line numbers lifted");
+        // Every lifted span is a bare numeral (never a body word).
+        for &i in &lifted {
+            assert!(
+                spans[i].text.trim().chars().all(|c| c.is_ascii_digit()),
+                "lifted span must be a numeral: {:?}",
+                spans[i].text
+            );
+        }
+    }
+
+    #[test]
+    fn lift_marginalia_column_skips_dense_first_column() {
+        // Genuine two-column prose: both columns are wide + multi-word, so
+        // neither sits inside the narrow outer strip → no lift (byte-identical).
+        let mut spans = Vec::new();
+        for i in 0..14 {
+            let y = 700.0 - i as f32 * 14.0;
+            spans.push(corridor_span("Lorem ipsum dolor sit", 50.0, y, 120.0)); // →170
+            spans.push(corridor_span("amet consectetur elit", 300.0, y, 150.0));
+            // →450
+        }
+        assert!(PdfDocument::lift_marginalia_column(&spans).is_none());
+    }
+
+    #[test]
+    fn lift_marginalia_column_skips_abutting_label_column() {
+        // A narrow short-token left column whose gutter to the body is < 18 pt
+        // (an abutting table label column, not a detached rail) → no lift.
+        let mut spans = Vec::new();
+        for i in 0..10 {
+            let y = 700.0 - i as f32 * 14.0;
+            spans.push(corridor_span("AB", 50.0, y, 15.0)); // →65
+            spans.push(corridor_span("Body prose text here long", 70.0, y, 200.0));
+            // gutter 5pt
+        }
+        assert!(PdfDocument::lift_marginalia_column(&spans).is_none());
+    }
+
+    #[test]
+    fn lift_marginalia_column_skips_single_page_number() {
+        // A single stray numeral (1 rail line) fails the ≥3-line gate → no lift.
+        let mut spans = Vec::new();
+        for i in 0..12 {
+            let y = 700.0 - i as f32 * 14.0;
+            spans.push(corridor_span("Body prose line of real text", 100.0, y, 300.0));
+        }
+        spans.push(corridor_span("7", 50.0, 500.0, 12.0));
+        assert!(PdfDocument::lift_marginalia_column(&spans).is_none());
     }
 
     // ========================================================================
@@ -26702,6 +28054,7 @@ mod tests {
 
         fn mk(text: &str, x: f32, y: f32, w: f32) -> TextSpan {
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: text.to_string(),
                 bbox: crate::geometry::Rect::new(x, y, w, 10.0),
@@ -26773,6 +28126,7 @@ mod tests {
 
         fn mk(text: &str, x: f32, y: f32) -> TextSpan {
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: text.to_string(),
                 bbox: crate::geometry::Rect::new(x, y, 80.0, 10.0),
@@ -26843,6 +28197,7 @@ mod tests {
 
         fn mk(text: &str, x: f32, y: f32, w: f32) -> TextSpan {
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: text.to_string(),
                 bbox: crate::geometry::Rect::new(x, y, w, 10.0),

@@ -204,6 +204,37 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         # refuses ``--submit`` while it's set so a scoped sweep can't
         # silently produce a schema-incomplete community-bench payload.
         "RAPID_MLX_HARNESS_PROFILES_FILTER",
+        # F-070 SSE keepalive interval (seconds, float). Mapped to
+        # ``ServerConfig.sse_keepalive_seconds`` and consumed by
+        # ``_disconnect_guard`` to emit ``: keepalive\n\n`` SSE comments
+        # while the upstream generator is silent (prevents EventSource /
+        # nginx / Cloudflare idle-timeouts on long prefills). 0 disables.
+        # Pure connection-keepalive knob — never selects a model, parser,
+        # or routing tier.
+        "RAPID_MLX_SSE_KEEPALIVE_SECONDS",
+        # F-072 slow-DoS body-receive idle timeout (seconds, float).
+        # Mapped to ``ServerConfig.body_receive_timeout_seconds`` and
+        # consumed by ``RequestBodyLimitMiddleware`` to bound each
+        # ``receive()`` ASGI call in ``asyncio.wait_for`` until the body
+        # is fully on the wire. 0 disables. Pure wire-level DoS gate
+        # paired with ``RAPID_MLX_MAX_REQUEST_BYTES`` — never selects a
+        # model, parser, or routing tier; it only decides whether a
+        # slow-shipping client is bounced with 408 vs allowed to stall
+        # the worker indefinitely.
+        "RAPID_MLX_BODY_RECEIVE_TIMEOUT_SECONDS",
+        # F-090 + F-091 CORS env-var family. None of these select a
+        # model, parser, or routing tier — they only decide whether the
+        # CORS middleware is registered and, if so, what the
+        # ``Access-Control-*`` response headers look like. Pure
+        # wire-level browser-security knobs paired with the existing
+        # ``--cors-origins`` CLI flag. See
+        # ``vllm_mlx/server.py::configure_cors_from_env`` for the
+        # default-deny stance (unset → no middleware, preflight 405).
+        "RAPID_MLX_CORS_ALLOW_ORIGINS",
+        "RAPID_MLX_CORS_ALLOW_METHODS",
+        "RAPID_MLX_CORS_ALLOW_HEADERS",
+        "RAPID_MLX_CORS_MAX_AGE",
+        "RAPID_MLX_CORS_ALLOW_CREDENTIALS",
     }
 )
 

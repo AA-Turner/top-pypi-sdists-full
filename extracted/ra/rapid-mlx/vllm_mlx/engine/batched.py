@@ -1043,6 +1043,9 @@ class BatchedEngine(BaseEngine):
                 prompt_tokens=output.prompt_tokens,
                 completion_tokens=output.completion_tokens,
                 finish_reason=output.finish_reason,
+                # H-03: MLLM non-stream parity — propagate the matched
+                # stop string for the Anthropic adapter.
+                matched_stop=getattr(output, "matched_stop", None),
             )
 
         # Use LLM engine for text-only (non-MLLM models)
@@ -1062,6 +1065,13 @@ class BatchedEngine(BaseEngine):
                 "repetition_penalty",
                 "presence_penalty",
                 "frequency_penalty",
+                # H-11: forward the per-request seed onto SamplingParams
+                # so the scheduler can build a fresh seeded sampler. Without
+                # this, the seed field on the request model is parsed,
+                # validated, and silently dropped — Tomek r3's reproduced
+                # failure mode (five calls with seed=42 → five different
+                # outputs).
+                "seed",
             )
             if k in kwargs
         }
@@ -1128,6 +1138,13 @@ class BatchedEngine(BaseEngine):
             finish_reason=output.finish_reason,
             tool_calls=structured_tool_calls,
             cached_tokens=output.cached_tokens,
+            # H-03: propagate the scheduler-pinned stop string so the
+            # Anthropic ``/v1/messages`` adapter can surface
+            # ``stop_reason="stop_sequence"`` + ``stop_sequence: <str>``.
+            # ``None`` for EOS / length / no-stop and harmless to ignore
+            # on the OpenAI surface (it already lumps stop+EOS under
+            # ``finish_reason="stop"``).
+            matched_stop=getattr(output, "matched_stop", None),
         )
 
     async def stream_generate(
@@ -1152,13 +1169,33 @@ class BatchedEngine(BaseEngine):
             stop: Stop sequences
             images: Optional image URLs/paths (for MLLM)
             videos: Optional video URLs/paths (for MLLM)
-            **kwargs: Additional model-specific parameters
+            **kwargs: Additional model-specific parameters. C-01:
+                ``request_id_holder`` (``list[str | None]``) — when
+                provided, the engine writes the admitted scheduler
+                ``request_id`` into ``holder[0]`` the moment
+                ``add_request`` returns. The route layer's
+                ``_disconnect_guard`` reads the same holder so it can
+                force-call ``scheduler.abort_request`` on client
+                disconnect WITHOUT relying solely on the
+                generator-close cascade (which can stall in production
+                when Starlette's ``is_disconnected()`` never reports
+                True — Astrid r3 saw ``disconnect_guard`` poll 70+
+                times before the runaway generation finally hit its
+                token cap). When ``None`` (default) this is a no-op —
+                preserves the pre-C-01 contract for callers that don't
+                need force-abort.
 
         Yields:
             GenerationOutput with incremental text
         """
         if not self._loaded:
             await self.start()
+
+        # C-01: extract optional request_id holder so the route's
+        # disconnect_guard can force-abort the scheduler on client
+        # disconnect. Popped from kwargs so it never reaches the
+        # scheduler's add_request (which would reject unknown kwargs).
+        request_id_holder = kwargs.pop("request_id_holder", None)
 
         if self._is_mllm and self._mllm_scheduler:
             # Use MLLM scheduler for all streaming when model is multimodal
@@ -1173,6 +1210,16 @@ class BatchedEngine(BaseEngine):
                 video_fps=kwargs.pop("video_fps", None),
                 video_max_frames=kwargs.pop("video_max_frames", None),
             )
+            # C-01 force-abort: publish the scheduler request id so the
+            # route's disconnect_guard can call abort_request directly.
+            if request_id_holder is not None:
+                try:
+                    request_id_holder[0] = request_id
+                except Exception:
+                    logger.debug(
+                        "[stream_generate] request_id_holder publish failed",
+                        exc_info=True,
+                    )
 
             async for output in self._mllm_scheduler.stream_outputs(request_id):
                 # ``logprobs`` is now wired through from
@@ -1193,6 +1240,9 @@ class BatchedEngine(BaseEngine):
                     finished=output.finished,
                     finish_reason=output.finish_reason,
                     logprobs=output.logprobs,
+                    # H-03: MLLM stream parity — propagate the matched
+                    # stop string for the Anthropic adapter.
+                    matched_stop=getattr(output, "matched_stop", None),
                 )
             return
 
@@ -1208,6 +1258,13 @@ class BatchedEngine(BaseEngine):
                 "repetition_penalty",
                 "presence_penalty",
                 "frequency_penalty",
+                # H-11: forward the per-request seed onto SamplingParams
+                # so the scheduler can build a fresh seeded sampler. Without
+                # this, the seed field on the request model is parsed,
+                # validated, and silently dropped — Tomek r3's reproduced
+                # failure mode (five calls with seed=42 → five different
+                # outputs).
+                "seed",
             )
             if k in kwargs
         }
@@ -1230,21 +1287,92 @@ class BatchedEngine(BaseEngine):
             has_tools=has_tools,
             requires_prompt_integrity=requires_prompt_integrity,
         )
+        # C-01 force-abort: publish the scheduler request id (text path)
+        # so the route's disconnect_guard can call abort_request directly
+        # on client disconnect.
+        if request_id_holder is not None:
+            try:
+                request_id_holder[0] = request_id
+            except Exception:
+                logger.debug(
+                    "[stream_generate] request_id_holder publish failed",
+                    exc_info=True,
+                )
 
-        async for output in self._engine.stream_outputs(request_id):
-            text = clean_output_text(output.output_text)
+        # F-012 belt-and-suspenders: ``stream_outputs.finally`` already
+        # aborts on any abnormal exit AFTER it enters its ``try`` block.
+        # But there is a narrow window between ``add_request`` returning
+        # (request is in the scheduler) and ``stream_outputs.try``
+        # actually starting (the implicit ``await __anext__`` on the
+        # async generator) where a propagated ``GeneratorExit`` /
+        # ``CancelledError`` would skip the inner ``finally`` entirely,
+        # leaving the request alive in the scheduler with no consumer.
+        # The window is one implicit ``await`` deep but real under
+        # storm conditions — cancellations triggered by the
+        # ``StreamingResponse`` task group can land between the two
+        # yields here. The outer ``try/finally`` below ensures we
+        # ALWAYS abort once ``add_request`` has succeeded, no matter
+        # how this generator unwinds. The deferred-abort scheduler
+        # path (``_pending_abort_ids`` set processed by the next
+        # ``step()``) is idempotent, so the common case where
+        # ``stream_outputs.finally`` also aborts cannot corrupt
+        # anything — the second abort just no-ops on a request that
+        # was already finished.
+        try:
+            async for output in self._engine.stream_outputs(request_id):
+                text = clean_output_text(output.output_text)
 
-            yield GenerationOutput(
-                text=text,
-                new_text=output.new_text,
-                tokens=output.new_token_ids,
-                prompt_tokens=output.prompt_tokens,
-                completion_tokens=output.completion_tokens,
-                finished=output.finished,
-                finish_reason=output.finish_reason,
-                logprobs=output.logprobs,
-                cached_tokens=output.cached_tokens,
-            )
+                yield GenerationOutput(
+                    text=text,
+                    new_text=output.new_text,
+                    tokens=output.new_token_ids,
+                    prompt_tokens=output.prompt_tokens,
+                    completion_tokens=output.completion_tokens,
+                    finished=output.finished,
+                    finish_reason=output.finish_reason,
+                    logprobs=output.logprobs,
+                    cached_tokens=output.cached_tokens,
+                    # H-03: text stream parity — propagate the matched
+                    # stop string for the Anthropic adapter.
+                    matched_stop=getattr(output, "matched_stop", None),
+                )
+        finally:
+            # Best-effort defensive abort. Codex r2 P1 #2 concern: this
+            # runs on the asyncio event-loop thread (we're inside an
+            # async generator's finally), while scheduler.add_request
+            # is dispatched through the MLX executor. The thread-safety
+            # contract that makes this safe is documented on
+            # ``Scheduler.abort_request`` itself ("Queue request for
+            # abort. Thread-safe, called from any thread. The actual
+            # abort is deferred to the executor thread (inside step())
+            # to avoid race conditions with in-flight Metal GPU
+            # operations.") — it is a one-line ``set.add`` + log, NOT
+            # the executor-thread ``_do_abort_request`` which the
+            # scheduler's own ``_process_pending_aborts`` will run on
+            # the next ``step()``. So the event loop is never blocked
+            # here, and the executor-thread invariant is preserved.
+            # ``_cleanup_request`` is also non-blocking — just dict
+            # pops + a ``scheduler.remove_finished_request`` ``pop``.
+            #
+            # Idempotent against double-abort from
+            # ``stream_outputs.finally``: adds the same id to
+            # ``_pending_abort_ids`` twice, and ``_do_abort_request``
+            # is itself idempotent for the already-finished case.
+            try:
+                eng = self._engine
+                if eng is not None and hasattr(eng, "scheduler"):
+                    # Thread-safe non-blocking enqueue — see
+                    # docstring on ``Scheduler.abort_request``.
+                    eng.scheduler.abort_request(request_id)
+                if eng is not None and hasattr(eng, "_cleanup_request"):
+                    # Non-blocking dict pops + idempotent.
+                    eng._cleanup_request(request_id)
+            except Exception:
+                logger.debug(
+                    "[stream_generate] best-effort cleanup raised for %s",
+                    request_id,
+                    exc_info=True,
+                )
 
     async def chat(
         self,
@@ -1595,6 +1723,10 @@ class BatchedEngine(BaseEngine):
             channel=_channel_name(event.channel),
             tool_calls=tool_calls,
             cached_tokens=source.cached_tokens,
+            # H-03: preserve matched_stop through the router-wrapped
+            # streaming chunks so the terminal chunk still carries it
+            # for /v1/messages stop_sequence surfacing.
+            matched_stop=source.matched_stop,
         )
 
     def _routed_finish_sentinel(self, source: GenerationOutput) -> GenerationOutput:
@@ -1609,6 +1741,10 @@ class BatchedEngine(BaseEngine):
             logprobs=source.logprobs,
             channel=None,
             cached_tokens=source.cached_tokens,
+            # H-03: preserve matched_stop on the terminal sentinel so
+            # /v1/messages stop_sequence surfacing works on router-led
+            # streams (harmony / gemma4).
+            matched_stop=source.matched_stop,
         )
 
     def _finalize_output_router(

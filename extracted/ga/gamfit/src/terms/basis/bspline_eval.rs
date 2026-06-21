@@ -286,12 +286,35 @@ pub(crate) fn apply_dense_bspline_extrapolation(
     if num_basis_functions == 0 {
         return Ok(());
     }
-    if !has_clamped_bspline_boundaries(knotview, degree) {
-        return Ok(());
-    }
 
     let left = knotview[degree];
     let right = knotview[num_basis_functions];
+    if !(left.is_finite() && right.is_finite() && left < right) {
+        return Ok(());
+    }
+
+    // Open (unclamped) knots: the value evaluator clamps the eval point to the
+    // modeling interval `[knots[degree], knots[num_basis]]` (constant extension —
+    // there is no linear extension because `has_clamped_bspline_boundaries` is
+    // false). A constant function has zero derivative, so BOTH the first and
+    // second derivative must be zero in the exterior spans. Without this, the
+    // dense derivative path leaves the raw mathematical B-spline derivative in the
+    // boundary spans (nonzero), which no longer matches a finite difference of the
+    // constant-extended value basis (gam#1348). The genuine cyclic basis never
+    // reaches here (it pre-wraps its input into the base period).
+    if !has_clamped_bspline_boundaries(knotview, degree) {
+        if matches!(
+            eval_kind,
+            BasisEvalKind::FirstDerivative | BasisEvalKind::SecondDerivative
+        ) {
+            for (i, &x) in data.iter().enumerate() {
+                if x < left || x > right {
+                    basis_matrix.row_mut(i).fill(0.0);
+                }
+            }
+        }
+        return Ok(());
+    }
 
     if matches!(eval_kind, BasisEvalKind::FirstDerivative) {
         let num_basis_lower = knotview.len().saturating_sub(degree);
@@ -361,43 +384,71 @@ pub(crate) fn has_clamped_bspline_boundaries(knotview: ArrayView1<f64>, degree: 
     left_clamped && right_clamped
 }
 
+/// Clamp a B-spline derivative evaluation point to the modeling interval
+/// `[knots[degree], knots[num_basis]]`, mirroring the value evaluator's clamp
+/// (`evaluate_splines_at_point_into`). Outside that interval the non-periodic
+/// value basis is a linear extension, so its derivative is the constant boundary
+/// derivative — which is exactly what evaluating at the clamped endpoint yields.
+/// Keeping the derivative's boundary semantics identical to the value's is what
+/// makes the analytic derivative equal a finite difference of the value (gam#1348).
 #[inline]
-pub(crate) fn periodic_unclamped_derivative_eval_point(
+pub(crate) fn clamp_eval_point_to_modeling_interval(
     x: f64,
     knotview: ArrayView1<f64>,
     degree: usize,
 ) -> f64 {
-    if has_clamped_bspline_boundaries(knotview, degree) {
-        return x;
-    }
     let num_basis = knotview.len().saturating_sub(degree + 1);
-    let Some(periodic_cols) = num_basis.checked_sub(degree) else {
-        return x;
-    };
-    if periodic_cols == 0 || knotview.len() < 2 {
+    if num_basis == 0 {
         return x;
     }
+    let left = knotview[degree];
+    let right = knotview[num_basis];
+    if !left.is_finite() || !right.is_finite() || left >= right {
+        return x;
+    }
+    x.clamp(left, right)
+}
 
-    let h = knotview[1] - knotview[0];
-    if !(h.is_finite() && h > KNOT_SPAN_DEGENERACY_FLOOR) {
-        return x;
+/// True when `x` lies strictly outside the modeling interval of an *open*
+/// (non-clamped) knot vector, where the analytic B-spline derivative of every
+/// order must be zero.
+///
+/// The boundary extension differs by knot geometry, and the derivative has to
+/// follow whatever the value basis does so that it equals a finite difference of
+/// the value (gam#1348):
+///
+/// * **Open / unclamped** knots — the value evaluator clamps its argument to
+///   `[t[degree], t[num_basis]]` and holds the value *constant* outside it
+///   (`has_clamped_bspline_boundaries` is false, so the dense builder applies no
+///   linear extension). A constant has zero derivative, so the exterior
+///   derivative is zero — this returns `true`.
+/// * **Clamped** knots — the value is extended *linearly* past the boundary, so
+///   the exterior derivative is the nonzero boundary slope obtained by evaluating
+///   at the clamped endpoint. This returns `false`, leaving the existing
+///   clamp-and-evaluate path in charge.
+///
+/// The dense builder already zeroes the open-knot exterior in
+/// [`apply_dense_bspline_extrapolation`]; this predicate lets the *per-point*
+/// sparse, scalar, and recurrence evaluators do the same, so every derivative
+/// path agrees with the value basis — not just the dense one the public
+/// `bspline_basis_derivative` happens to use. (Genuinely cyclic bases pre-wrap
+/// their input into the base period and never reach here.)
+#[inline]
+pub(crate) fn open_knot_derivative_exterior_is_zero(
+    x: f64,
+    knotview: ArrayView1<f64>,
+    degree: usize,
+) -> bool {
+    let num_basis = knotview.len().saturating_sub(degree + 1);
+    if num_basis == 0 {
+        return false;
     }
-    let scale = (knotview[knotview.len() - 1] - knotview[0]).abs().max(1.0);
-    let tol = KNOT_SPAN_DEGENERACY_FLOOR * scale;
-    if knotview
-        .iter()
-        .zip(knotview.iter().skip(1))
-        .any(|(&left, &right)| ((right - left) - h).abs() > tol)
-    {
-        return x;
+    let left = knotview[degree];
+    let right = knotview[num_basis];
+    if !(left.is_finite() && right.is_finite() && left < right) {
+        return false;
     }
-
-    let start = knotview[degree];
-    let period = h * periodic_cols as f64;
-    if !(start.is_finite() && period.is_finite() && period > 0.0) {
-        return x;
-    }
-    wrap_to_period(x, start, period)
+    (x < left || x > right) && !has_clamped_bspline_boundaries(knotview, degree)
 }
 
 #[inline]
@@ -596,11 +647,23 @@ pub(crate) fn evaluate_splines_derivative_sparse_intowith_lower(
     }
     lowervalues[..num_basis_lower].fill(0.0);
 
-    let x_eval = one_sided_derivative_eval_point(
-        periodic_unclamped_derivative_eval_point(x, knotview, degree),
-        knotview,
-        degree,
-    );
+    // Non-periodic (open/clamped) B-spline derivative, kept consistent with the
+    // value basis so it equals a finite difference of the value (gam#1348). On an
+    // *open* knot vector the value is held constant outside the modeling interval,
+    // so the exterior derivative is zero — the dense builder enforces this in
+    // `apply_dense_bspline_extrapolation`, and the per-point sparse path (used
+    // directly for open knots, which never take the clamped extrapolation
+    // fallback in `SparseStorage::build`) must do the same or a P-spline
+    // derivative design disagrees with its own value in the boundary spans.
+    // Clamped knots extend linearly and keep their nonzero boundary slope, so the
+    // guard intentionally fires only for the open-knot exterior. No periodic wrap:
+    // wrapping moved boundary-span points onto unrelated interior columns;
+    // genuinely cyclic bases pre-wrap their input into the base period upstream.
+    if open_knot_derivative_exterior_is_zero(x, knotview, degree) {
+        values.fill(0.0);
+        return 0;
+    }
+    let x_eval = one_sided_derivative_eval_point(x, knotview, degree);
     internal::evaluate_splines_at_point_full_support_into(
         x_eval,
         degree - 1,
@@ -995,8 +1058,23 @@ pub fn create_difference_penalty_matrix(
 
         // If using non-uniform knots, apply divided difference scaling:
         // D^{(o)}_i = D^{(o)}_i / (xi_{i+o} - xi_i)
+        //
+        // The raw divided-difference divisor `g[i+o] - g[i]` carries the units
+        // of the covariate, so a pure rescaling `g -> c*g` (a change of physical
+        // units for `x`) would multiply every divisor by `c` and hence scale the
+        // resulting penalty `S = DᵀD` by `c^(-2*order)`. That makes the smooth
+        // NOT scale-equivariant: REML would select a different `lambda` and the
+        // fit would drift purely from the abscissa magnitude (#1364). The
+        // divided difference's *purpose* is to weight each row by the relative
+        // local span (so non-uniform knots approximate a derivative penalty),
+        // which is an inherently dimensionless notion. We therefore normalize
+        // each order's spans by their geometric-mean span at that order, so the
+        // divisor is a unitless local/typical-span ratio: invariant to a global
+        // rescaling of `x` and identically `1` for uniform knots (recovering the
+        // plain integer-difference penalty).
         if let Some(g) = greville_abscissae {
             let nrows = d.nrows();
+            let mut log_span_sum = 0.0_f64;
             for i in 0..nrows {
                 let span = g[i + o] - g[i];
                 if span.abs() <= KNOT_SPAN_DEGENERACY_FLOOR {
@@ -1007,6 +1085,13 @@ pub fn create_difference_penalty_matrix(
                         g[i]
                     )));
                 }
+                log_span_sum += span.abs().ln();
+            }
+            // Geometric mean of the spans at this order; scales as `c` under
+            // `g -> c*g`, so dividing each span by it cancels the units exactly.
+            let ref_span = (log_span_sum / nrows as f64).exp();
+            for i in 0..nrows {
+                let span = (g[i + o] - g[i]) / ref_span;
                 let mut row = d.row_mut(i);
                 row /= span;
             }

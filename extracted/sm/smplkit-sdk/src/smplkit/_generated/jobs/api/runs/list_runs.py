@@ -17,10 +17,12 @@ def _get_kwargs(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
@@ -49,6 +51,13 @@ def _get_kwargs(
         json_filterenvironment = filterenvironment
     params["filter[environment]"] = json_filterenvironment
 
+    json_filtertrigger: None | str | Unset
+    if isinstance(filtertrigger, Unset):
+        json_filtertrigger = UNSET
+    else:
+        json_filtertrigger = filtertrigger
+    params["filter[trigger]"] = json_filtertrigger
+
     json_filtercreated_at: None | str | Unset
     if isinstance(filtercreated_at, Unset):
         json_filtercreated_at = UNSET
@@ -76,6 +85,8 @@ def _get_kwargs(
     else:
         json_filterscheduled_for = filterscheduled_for
     params["filter[scheduled_for]"] = json_filterscheduled_for
+
+    params["last_run_only"] = last_run_only
 
     json_pagesize: int | None | Unset
     if isinstance(pagesize, Unset):
@@ -135,15 +146,17 @@ def sync_detailed(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
 ) -> Response[RunListResponse]:
-    """List Runs
+    r"""List Runs
 
      List runs for this account (cursor paginated).
 
@@ -159,11 +172,21 @@ def sync_detailed(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+      or a comma-separated list of them (any-of).
     - `filter[environment]` — one environment key or a comma-separated list
       (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
+
+    Set `last_run_only=true` to collapse the result to the last completed run
+    for each job-and-environment combination. \"Completed\" means a terminal state
+    — succeeded, failed, or canceled; in-flight runs (pending or running) are
+    not included, so a job that is mid-run still surfaces its previous completed
+    result and a combination with no completed run yet returns nothing. The
+    filters above still apply, evaluated before the collapse, so each row is the
+    most recent completed run in its group that also satisfies them.
 
     Args:
         filterjob (None | str | Unset):
@@ -173,6 +196,9 @@ def sync_detailed(
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
             results to (e.g. `production,staging`). When omitted, results cover every environment you
             can access.
+        filtertrigger (None | str | Unset): Restrict to runs with the given trigger. One of
+            `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any
+            (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -194,6 +220,12 @@ def sync_detailed(
             is `]` (inclusive) or `)` (exclusive). Example:
             `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June;
             `[2026-06-01T00:00:00Z,*)` is everything from then onward.
+        last_run_only (bool | Unset): Return only the last completed run for each job-and-
+            environment combination. "Completed" means a terminal state — succeeded, failed, or
+            canceled; runs still in flight (pending or running) are not included, so a job that is
+            currently running still shows its previous completed result. The other filters and date
+            ranges apply first, then the results collapse, so each row is the most recent completed
+            run in its group that also matches them. Defaults to `false`. Default: False.
         pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
             omitted. Must be between `1` and `1000` inclusive — requests outside that range are
             rejected with a 400 error.
@@ -216,10 +248,12 @@ def sync_detailed(
         filterjob=filterjob,
         filterstatus=filterstatus,
         filterenvironment=filterenvironment,
+        filtertrigger=filtertrigger,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
         filterscheduled_for=filterscheduled_for,
+        last_run_only=last_run_only,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -238,15 +272,17 @@ def sync(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
 ) -> RunListResponse | None:
-    """List Runs
+    r"""List Runs
 
      List runs for this account (cursor paginated).
 
@@ -262,11 +298,21 @@ def sync(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+      or a comma-separated list of them (any-of).
     - `filter[environment]` — one environment key or a comma-separated list
       (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
+
+    Set `last_run_only=true` to collapse the result to the last completed run
+    for each job-and-environment combination. \"Completed\" means a terminal state
+    — succeeded, failed, or canceled; in-flight runs (pending or running) are
+    not included, so a job that is mid-run still surfaces its previous completed
+    result and a combination with no completed run yet returns nothing. The
+    filters above still apply, evaluated before the collapse, so each row is the
+    most recent completed run in its group that also satisfies them.
 
     Args:
         filterjob (None | str | Unset):
@@ -276,6 +322,9 @@ def sync(
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
             results to (e.g. `production,staging`). When omitted, results cover every environment you
             can access.
+        filtertrigger (None | str | Unset): Restrict to runs with the given trigger. One of
+            `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any
+            (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -297,6 +346,12 @@ def sync(
             is `]` (inclusive) or `)` (exclusive). Example:
             `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June;
             `[2026-06-01T00:00:00Z,*)` is everything from then onward.
+        last_run_only (bool | Unset): Return only the last completed run for each job-and-
+            environment combination. "Completed" means a terminal state — succeeded, failed, or
+            canceled; runs still in flight (pending or running) are not included, so a job that is
+            currently running still shows its previous completed result. The other filters and date
+            ranges apply first, then the results collapse, so each row is the most recent completed
+            run in its group that also matches them. Defaults to `false`. Default: False.
         pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
             omitted. Must be between `1` and `1000` inclusive — requests outside that range are
             rejected with a 400 error.
@@ -320,10 +375,12 @@ def sync(
         filterjob=filterjob,
         filterstatus=filterstatus,
         filterenvironment=filterenvironment,
+        filtertrigger=filtertrigger,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
         filterscheduled_for=filterscheduled_for,
+        last_run_only=last_run_only,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -336,15 +393,17 @@ async def asyncio_detailed(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
 ) -> Response[RunListResponse]:
-    """List Runs
+    r"""List Runs
 
      List runs for this account (cursor paginated).
 
@@ -360,11 +419,21 @@ async def asyncio_detailed(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+      or a comma-separated list of them (any-of).
     - `filter[environment]` — one environment key or a comma-separated list
       (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
+
+    Set `last_run_only=true` to collapse the result to the last completed run
+    for each job-and-environment combination. \"Completed\" means a terminal state
+    — succeeded, failed, or canceled; in-flight runs (pending or running) are
+    not included, so a job that is mid-run still surfaces its previous completed
+    result and a combination with no completed run yet returns nothing. The
+    filters above still apply, evaluated before the collapse, so each row is the
+    most recent completed run in its group that also satisfies them.
 
     Args:
         filterjob (None | str | Unset):
@@ -374,6 +443,9 @@ async def asyncio_detailed(
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
             results to (e.g. `production,staging`). When omitted, results cover every environment you
             can access.
+        filtertrigger (None | str | Unset): Restrict to runs with the given trigger. One of
+            `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any
+            (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -395,6 +467,12 @@ async def asyncio_detailed(
             is `]` (inclusive) or `)` (exclusive). Example:
             `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June;
             `[2026-06-01T00:00:00Z,*)` is everything from then onward.
+        last_run_only (bool | Unset): Return only the last completed run for each job-and-
+            environment combination. "Completed" means a terminal state — succeeded, failed, or
+            canceled; runs still in flight (pending or running) are not included, so a job that is
+            currently running still shows its previous completed result. The other filters and date
+            ranges apply first, then the results collapse, so each row is the most recent completed
+            run in its group that also matches them. Defaults to `false`. Default: False.
         pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
             omitted. Must be between `1` and `1000` inclusive — requests outside that range are
             rejected with a 400 error.
@@ -417,10 +495,12 @@ async def asyncio_detailed(
         filterjob=filterjob,
         filterstatus=filterstatus,
         filterenvironment=filterenvironment,
+        filtertrigger=filtertrigger,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
         filterscheduled_for=filterscheduled_for,
+        last_run_only=last_run_only,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -437,15 +517,17 @@ async def asyncio(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
 ) -> RunListResponse | None:
-    """List Runs
+    r"""List Runs
 
      List runs for this account (cursor paginated).
 
@@ -461,11 +543,21 @@ async def asyncio(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+      or a comma-separated list of them (any-of).
     - `filter[environment]` — one environment key or a comma-separated list
       (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
+
+    Set `last_run_only=true` to collapse the result to the last completed run
+    for each job-and-environment combination. \"Completed\" means a terminal state
+    — succeeded, failed, or canceled; in-flight runs (pending or running) are
+    not included, so a job that is mid-run still surfaces its previous completed
+    result and a combination with no completed run yet returns nothing. The
+    filters above still apply, evaluated before the collapse, so each row is the
+    most recent completed run in its group that also satisfies them.
 
     Args:
         filterjob (None | str | Unset):
@@ -475,6 +567,9 @@ async def asyncio(
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
             results to (e.g. `production,staging`). When omitted, results cover every environment you
             can access.
+        filtertrigger (None | str | Unset): Restrict to runs with the given trigger. One of
+            `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any
+            (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -496,6 +591,12 @@ async def asyncio(
             is `]` (inclusive) or `)` (exclusive). Example:
             `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June;
             `[2026-06-01T00:00:00Z,*)` is everything from then onward.
+        last_run_only (bool | Unset): Return only the last completed run for each job-and-
+            environment combination. "Completed" means a terminal state — succeeded, failed, or
+            canceled; runs still in flight (pending or running) are not included, so a job that is
+            currently running still shows its previous completed result. The other filters and date
+            ranges apply first, then the results collapse, so each row is the most recent completed
+            run in its group that also matches them. Defaults to `false`. Default: False.
         pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
             omitted. Must be between `1` and `1000` inclusive — requests outside that range are
             rejected with a 400 error.
@@ -520,10 +621,12 @@ async def asyncio(
             filterjob=filterjob,
             filterstatus=filterstatus,
             filterenvironment=filterenvironment,
+            filtertrigger=filtertrigger,
             filtercreated_at=filtercreated_at,
             filterstarted_at=filterstarted_at,
             filterfinished_at=filterfinished_at,
             filterscheduled_for=filterscheduled_for,
+            last_run_only=last_run_only,
             pagesize=pagesize,
             pageafter=pageafter,
             sort=sort,

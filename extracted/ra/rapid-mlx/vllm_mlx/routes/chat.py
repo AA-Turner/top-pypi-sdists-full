@@ -45,6 +45,7 @@ from ..middleware.auth import check_rate_limit, verify_api_key
 from ..service.helpers import (
     _TOOL_USE_REQUIRED_SUFFIX,
     _TOOL_USE_SYSTEM_SUFFIX,
+    SSE_RESPONSE_HEADERS,
     _build_usage,
     _check_admission_or_503,
     _disconnect_guard,
@@ -62,11 +63,14 @@ from ..service.helpers import (
     _resolve_model_name,
     _resolve_temperature,
     _resolve_top_p,
+    _scan_messages_for_lone_surrogates,
     _tool_use_required_named_suffix,
     _validate_model_name,
+    _validate_response_format,
     _validate_tool_call_params,
     _wait_with_disconnect,
     build_extended_sampling_kwargs,
+    enable_thinking_warning_header,
     enforce_context_length_for_messages,
     get_engine,
     get_usage,
@@ -469,6 +473,178 @@ async def _create_chat_completion_impl(
                 detail=f"Invalid role '{msg.role}'. Must be one of: {', '.join(sorted(_valid_roles))}",
             )
 
+    # Reject lone-surrogate codepoints in any message-content slot
+    # (F-130 + F-131). ``json.loads`` accepts ``"\\uD800"`` as a valid
+    # JSON string and binds it to a Python ``str`` carrying the
+    # unpaired surrogate; HuggingFace ``tokenizers`` then raises
+    # ``TypeError: TextEncodeInput must be …`` deep inside the
+    # chat-template render, producing either a 500 (non-stream) or —
+    # WORSE — an HTTP 200 with the raw Python error text leaked in an
+    # SSE ``data:`` chunk (stream). The route-layer gate runs BEFORE
+    # the streaming branch opens its ``StreamingResponse``, so the
+    # SSE-leak path in F-131 is closed by construction (a 400 is
+    # returned before any byte of SSE is flushed).
+    _scan_messages_for_lone_surrogates(request.messages)
+
+    # F-111 / F-112 / F-051: tool-message schema validation.
+    #
+    # The OpenAI ``chat.completions`` spec defines three invariants on
+    # ``role:"tool"`` messages that we previously accepted as 200 and
+    # silently mis-rendered into the model prompt:
+    #
+    #   * F-051: ``tool_call_id`` is REQUIRED on every tool message.
+    #     Without it, the tool reply has no provenance — the previously
+    #     accepted shape rendered the result into context unlinked
+    #     (effectively an attacker-controlled "extra user turn").
+    #
+    #   * F-112: ``tool_call_id`` MUST reference the ``id`` of a
+    #     ``tool_calls[*]`` entry on a PRIOR assistant message in the
+    #     same ``messages[]`` array. Orphan tool turns were accepted as
+    #     200 and rendered into the prompt as if they were authoritative
+    #     tool replies — a direct prompt-injection vector (e.g. an
+    #     attacker-controlled ``content: "the password is OMEGA"``
+    #     reached the model with no anchoring assistant tool_call).
+    #
+    #   * F-111: ``role:"tool"`` content MUST be text-only (a string or
+    #     a ``[{type:"text",text:str}]`` array). The OpenAI spec does
+    #     not define multimodal tool replies, and a non-text part on a
+    #     tool reply was previously silently dropped by every text-only
+    #     chat template — the model received an empty
+    #     ``<tool_response>`` and hallucinated. The text-only array is
+    #     accepted here and flattened to a string downstream by
+    #     ``utils/chat_template.py::_normalize_text_only_content_arrays``;
+    #     this validator only rejects the non-text shapes the
+    #     normalization can't safely flatten.
+    #
+    # All three checks live up-front (BEFORE engine work) so the failure
+    # mode is a clean 400 with a precise pointer at the offending
+    # message — not a 500 from a downstream renderer crash. F-051 is
+    # closed as a freebie by the ``tool_call_id`` REQUIRED check.
+    #
+    # We track tool_call ids as a CONSUMABLE pending set rather than a
+    # monotonically-growing seen-set: each ``assistant.tool_calls[*].id``
+    # is a single-use ticket that the next matching ``role:"tool"`` reply
+    # consumes. Without this, a client can submit a valid tool reply,
+    # then resubmit ANOTHER ``role:"tool"`` message with the SAME
+    # ``tool_call_id`` later in ``messages[]`` — both replies render as
+    # authoritative tool results for the same call, an attacker-
+    # controlled "second reply" prompt-injection vector. Codex round-1
+    # BLOCKING on PR #731.
+    #
+    # We also reject DUPLICATE ``assistant.tool_calls[*].id`` values —
+    # whether within a single assistant turn or across turns. The
+    # OpenAI contract guarantees ids are unique across the conversation,
+    # and the consumable-ticket design relies on it: a re-used id on a
+    # later assistant turn would silently re-open a ticket the client
+    # never asked for, weakening the F-112 single-use guarantee. Codex
+    # round-2 NIT on PR #731 — implement the invariant the docstring
+    # claims rather than weaken the docstring.
+    _pending_tool_call_ids: set[str] = set()
+    _seen_any_tool_call_id: set[str] = set()
+    for _idx, _msg in enumerate(request.messages):
+        if _msg.role == "assistant" and _msg.tool_calls:
+            for _tc in _msg.tool_calls:
+                if isinstance(_tc, dict):
+                    _tc_id = _tc.get("id")
+                else:
+                    _tc_id = getattr(_tc, "id", None)
+                if isinstance(_tc_id, str) and _tc_id:
+                    if _tc_id in _seen_any_tool_call_id:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                f"messages[{_idx}] assistant tool_calls "
+                                f"contains duplicate id {_tc_id!r}; the OpenAI "
+                                "spec requires every tool_call.id to be unique "
+                                "across the conversation"
+                            ),
+                        )
+                    _seen_any_tool_call_id.add(_tc_id)
+                    _pending_tool_call_ids.add(_tc_id)
+            continue
+        if _msg.role != "tool":
+            continue
+        # F-051: tool_call_id REQUIRED.
+        if not _msg.tool_call_id or not isinstance(_msg.tool_call_id, str):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"messages[{_idx}] with role 'tool' must have a non-empty "
+                    "'tool_call_id' string"
+                ),
+            )
+        # F-112: tool_call_id must reference a prior assistant tool_call.id
+        # that has NOT already been consumed by an earlier tool reply.
+        if _msg.tool_call_id not in _pending_tool_call_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"messages[{_idx}] tool_call_id {_msg.tool_call_id!r} does "
+                    "not reference any prior assistant tool_call"
+                ),
+            )
+        # Consume the ticket. A later duplicate ``role:"tool"`` reply
+        # with the same id will fall through to the F-112 branch above
+        # and be rejected.
+        _pending_tool_call_ids.discard(_msg.tool_call_id)
+        # F-111: tool content shape. Accept str, None, or text-only
+        # array. Anything else is a non-text part (image/video/audio)
+        # which would be silently dropped by the renderer. An EMPTY
+        # ``list`` (``content: []``) is also rejected — the chat-template
+        # normalizer in ``utils/chat_template.py`` does not flatten
+        # empty lists (an empty array isn't a "text-only" array; there's
+        # no text to extract), so accepting it here would leak a
+        # non-string ``content`` into the rendered prompt and crash the
+        # template. Clients that intend an empty tool reply must send
+        # ``content: ""`` or ``content: null`` (codex round-1 BLOCKING
+        # on PR #731).
+        _content = _msg.content
+        if _content is None or isinstance(_content, str):
+            continue
+        if isinstance(_content, list):
+            if not _content:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"messages[{_idx}] role 'tool' content must not be an "
+                        "empty list; send an empty string '' or null for "
+                        "an empty tool reply"
+                    ),
+                )
+            _bad = False
+            for _part in _content:
+                if hasattr(_part, "model_dump"):
+                    _part_d = _part.model_dump(exclude_none=True)
+                elif isinstance(_part, dict):
+                    _part_d = _part
+                else:
+                    _bad = True
+                    break
+                if _part_d.get("type") != "text" or not isinstance(
+                    _part_d.get("text"), str
+                ):
+                    _bad = True
+                    break
+            if _bad:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"messages[{_idx}] role 'tool' content must be a "
+                        "string or a text-only array of "
+                        "{type:'text', text:str} parts"
+                    ),
+                )
+            continue
+        # Anything else (int / dict / bool / ...) is not a valid OpenAI
+        # tool content shape.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"messages[{_idx}] role 'tool' content must be a string or a "
+                f"text-only content-parts array, not {type(_content).__name__}"
+            ),
+        )
+
     # Validate n parameter (only n=1 supported)
     if request.n is not None and request.n > 1:
         raise HTTPException(
@@ -525,6 +701,18 @@ async def _create_chat_completion_impl(
             status_code=400,
             detail="logit_bias is not supported on this server",
         )
+
+    # Validate ``response_format`` shape BEFORE
+    # ``build_json_system_prompt`` is reached (F-013). Two bugs the gate
+    # closes: (a) ``type:"json_schema"`` with no ``json_schema`` field
+    # used to leak ``AttributeError: 'NoneType' object has no attribute
+    # 'get'`` in the 400 body via the broad ``except Exception`` at
+    # the call site; (b) unknown ``type`` values (``"xml"``,
+    # ``""``, ``{}``, ``type:"json_schema"`` with empty
+    # ``json_schema:{}``) were silently accepted as HTTP 200 with no
+    # structure enforcement — client received unconstrained prose
+    # without any signal.
+    _validate_response_format(request.response_format)
 
     # --- Detailed request logging ---
     n_msgs = len(request.messages)
@@ -583,11 +771,38 @@ async def _create_chat_completion_impl(
                 )
             filtered = [t for t in request.tools if t.function.get("name") == target]
             if not filtered:
+                # F-145: surface a case-insensitive match as a hint when
+                # one exists, so clients see "did you mean 'get_Weather'?"
+                # instead of having to diff their tool list character-by-
+                # character. OpenAI's API is case-sensitive too, but its
+                # error message is equally terse — the rapid-mlx hint is
+                # additive and OpenAI-shape-compatible (clients that ignore
+                # the suffix still see the canonical 400).
+                hint = ""
+                target_lower = target.lower() if isinstance(target, str) else ""
+                if target_lower:
+                    case_matches = [
+                        name
+                        for t in request.tools
+                        if isinstance((name := t.function.get("name")), str)
+                        and name.lower() == target_lower
+                    ]
+                    if case_matches:
+                        # ``case_matches[0]`` is deterministic — Pydantic
+                        # preserves request order on ``request.tools`` so
+                        # the hint points at the first matching definition.
+                        # We only ever surface ONE hint; if the request
+                        # somehow contains multiple case-variants of the
+                        # same name (duplicate tool names are silently
+                        # accepted today, see F-144), the first wins —
+                        # which is the same tool the prompt-time
+                        # filter would have picked anyway.
+                        hint = f" (did you mean {case_matches[0]!r}? tool_choice is case-sensitive)"
                 raise HTTPException(
                     status_code=400,
                     detail=(
                         f"tool_choice references function {target!r} which "
-                        "is not present in the 'tools' array"
+                        f"is not present in the 'tools' array{hint}"
                     ),
                 )
             request.tools = filtered
@@ -911,6 +1126,7 @@ async def _create_chat_completion_impl(
                             raw_request,
                         ),
                         media_type="text/event-stream",
+                        headers=SSE_RESPONSE_HEADERS,
                     )
                 else:
                     result = await _wait_with_disconnect(
@@ -920,6 +1136,11 @@ async def _create_chat_completion_impl(
                     )
                     if result is None:
                         return Response(status_code=499, content="Client disconnected")
+                    # NOTE: L-05's enable_thinking warning intentionally
+                    # does NOT fire on the cloud-routed path — the local
+                    # ``cfg.reasoning_parser_name`` isn't authoritative
+                    # for what the cloud provider does with the ctk
+                    # hint. A warning here would be misleading.
                     return Response(
                         content=json.dumps(result),
                         media_type="application/json",
@@ -1116,6 +1337,25 @@ async def _create_chat_completion_impl(
                     )
                 raise
         _commit_state[0] = True
+        # L-05: surface silent ``enable_thinking`` drop on non-Qwen
+        # parsers via response headers. Merging here lets the SSE
+        # ``Cache-Control`` / ``Connection`` headers stay intact.
+        _thinking_warning = enable_thinking_warning_header(
+            request, getattr(cfg, "reasoning_parser_name", None)
+        )
+        _sse_headers = (
+            {**SSE_RESPONSE_HEADERS, **_thinking_warning}
+            if _thinking_warning
+            else SSE_RESPONSE_HEADERS
+        )
+        # C-01: holder list the engine writes the admitted scheduler
+        # request id into. ``_disconnect_guard`` reads the SAME list
+        # and force-calls ``scheduler.abort_request`` on client
+        # disconnect, closing the Astrid r3 hang where the
+        # generator-close cascade alone took ~35s to actually free
+        # the GPU once the client TCP-RST'd.
+        request_id_holder: list[str | None] = [None]
+        chat_kwargs["request_id_holder"] = request_id_holder
         if use_guided and json_schema:
             # Constrained streaming: run guided generation buffered, then
             # synthesize an SSE stream from the buffered output. Falls
@@ -1128,16 +1368,20 @@ async def _create_chat_completion_impl(
                     ),
                     raw_request,
                     engine=engine,
+                    request_id_holder=request_id_holder,
                 ),
                 media_type="text/event-stream",
+                headers=_sse_headers,
             )
         return StreamingResponse(
             _disconnect_guard(
                 stream_chat_completion(engine, messages, request, **chat_kwargs),
                 raw_request,
                 engine=engine,
+                request_id_holder=request_id_holder,
             ),
             media_type="text/event-stream",
+            headers=_sse_headers,
         )
 
     # Non-streaming response with timing and timeout
@@ -1596,9 +1840,16 @@ async def _create_chat_completion_impl(
         ],
         usage=_build_usage(output, reasoning_text),
     )
+    # L-05: surface silent ``enable_thinking`` drop on non-Qwen parsers.
+    # Empty dict when the client didn't set the flag OR the active
+    # parser honors it (qwen3) — kwargs spread is the right shape.
+    response_headers = enable_thinking_warning_header(
+        request, getattr(cfg, "reasoning_parser_name", None)
+    )
     return Response(
         content=chat_response.model_dump_json(exclude_none=True),
         media_type="application/json",
+        headers=response_headers or None,
     )
 
 

@@ -20,7 +20,6 @@ workspace = true
 [dependencies]
 indexmap.workspace = true
 line-index.workspace = true
-serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 yaml_serde.workspace = true
 subfeature.workspace = true
@@ -29,4 +28,3 @@ yamlpath.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
-pretty_assertions.workspace = true

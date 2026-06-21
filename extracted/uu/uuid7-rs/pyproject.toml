@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin == 1.13.3"]
+requires = ["maturin == 1.14.1"]
 build-backend = "maturin"
 
 [tool.maturin]
@@ -9,9 +9,9 @@ module-name = "uuid7_rs._core"
 [project]
 name = "uuid7-rs"
 dynamic = ["version"]
-requires-python = ">=3.10"
+requires-python = ">= 3.10"
 description = "Fast UUID v7 generator written in Rust"
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
 license = "Unlicense"
 license-files = ["UNLICENSE"]
 authors = [
@@ -22,33 +22,39 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Libraries",
+    "Development Status :: 5 - Production/Stable",
 ]
-urls.Source = "https://github.com/lava-sh/uuid7-rs"
-urls.Homepage = "https://github.com/lava-sh/uuid7-rs"
-urls."Bug Tracker" = "https://github.com/lava-sh/uuid7-rs/issues"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/lava-sh/uuid7-rs"
+Repository = "https://github.com/lava-sh/uuid7-rs"
+Issues = "https://github.com/lava-sh/uuid7-rs/issues"
 
 [dependency-groups]
 typos = ["typos == 1.47.2"]
 zizmor = ["zizmor == 1.25.2"]
-rumdl = ["rumdl == 0.2.10"]
-maturin = ["maturin == 1.13.3"]
-pytest = ["pytest == 9.0.3"]
+rumdl = ["rumdl == 0.2.20"]
+maturin = ["maturin == 1.14.1"]
+pytest = ["pytest == 9.1.1"]
 wasm-test = [
     { include-group = "pytest" },
     "pytest-pyodide == 0.59.2",
     "pytest-httpserver == 1.1.5",
 ]
 ci = [
-    "ty == 0.0.46",
-    "ruff == 0.15.16",
+    "ty == 0.0.51",
+    "ruff == 0.15.18",
     { include-group = "maturin" },
     { include-group = "pytest" },
 ]
@@ -59,7 +65,7 @@ dev = [
     { include-group = "zizmor" },
 ]
 bench = [
-    "uuid_utils == 0.16.0",
+    "uuid_utils == 0.16.2",
     "uuid_v7 == 1.0.0",
     "UUIDv7gen == 1.0.3",
     "uuid6 == 2025.0.1",
@@ -73,4 +79,4 @@ bench = [
 ]
 
 [tool.uv.dependency-groups]
-wasm-test = { requires-python = ">=3.11" }
+wasm-test = { requires-python = ">= 3.13" }

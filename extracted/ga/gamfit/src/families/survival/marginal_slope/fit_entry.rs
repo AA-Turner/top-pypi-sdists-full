@@ -134,7 +134,12 @@ pub fn fit_survival_marginal_slope_terms(
     // `apply_survival_parametric_compile_to_designs` and re-route
     // `make_family` to the compiled triplet — that is the one-line
     // promotion from observability-only to active reduction.
-    {
+    if n < 1_000 {
+        log::debug!(
+            "[smgs phase-4b preflight] skipped for tiny fit n={n}; \
+             budget-sensitive tiny survival fits use the raw parametric design"
+        );
+    } else {
         use crate::identifiability::marginal_slope::{
             SurvivalRowHessian, compile_survival_parametric_designs,
         };
@@ -658,6 +663,18 @@ pub fn fit_survival_marginal_slope_terms(
         ));
         seeds
     };
+    let tiny_fixed_kappa_options = if n < 1_000 && kappa_options.enabled {
+        let mut opts = kappa_options.clone();
+        opts.enabled = false;
+        log::info!(
+            "[survival-marginal-slope/kappa] fixed-bootstrap-kappa tiny-fit policy n={} threshold=1000",
+            n,
+        );
+        Some(opts)
+    } else {
+        None
+    };
+    let kappa_options_effective = tiny_fixed_kappa_options.as_ref().unwrap_or(kappa_options);
     let setup = joint_setup(
         data,
         time_penalties_len,
@@ -669,7 +686,7 @@ pub fn fit_survival_marginal_slope_terms(
         &extra_rho0,
         &pinned_rho_slots,
         initial_sigma,
-        kappa_options,
+        kappa_options_effective,
     );
 
     let hints = RefCell::new(ThetaHints::default());
@@ -780,7 +797,24 @@ pub fn fit_survival_marginal_slope_terms(
         marginal_penalties_vm,
         logslope_penalties_vm,
         recompile_after_accept,
-    ): SmgsCutoverTuple = {
+    ): SmgsCutoverTuple = if n < 1_000 {
+        log::debug!(
+            "[smgs phase-4b active] skipped for tiny fit n={n}; \
+             budget-sensitive tiny survival fits use the raw parametric design"
+        );
+        (
+            spec.time_block.design_entry.clone(),
+            spec.time_block.design_exit.clone(),
+            spec.time_block.design_derivative_exit.clone(),
+            marginal_design.clone(),
+            logslope_design.clone(),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+    } else {
         use crate::identifiability::marginal_slope::{
             CompiledSurvivalDesignsVMExact, apply_compiled_map_to_designs,
             extract_term_partition_from_penalty_ranges,
@@ -1288,14 +1322,14 @@ pub fn fit_survival_marginal_slope_terms(
         .as_ref()
         .map(|timewiggle| time_wiggle_basis_ncols(&timewiggle.knots, timewiggle.degree))
         .transpose()?;
-    // Under `StructuralISpline` the base + wiggle both ride a γ ≥ 0
-    // coordinate cone — the row-wise `D γ + o ≥ guard` generator is
-    // vacuous (I-spline derivatives ≥ 0, offsets already absorb `guard`)
-    // and would duplicate information into the active-set KKT system.
-    // We emit a single `p_total × p_total` identity-cone instead so the
-    // existing active-set machinery treats the whole time block uniformly.
+    // Coordinate-cone time bases already encode monotonicity as β >= 0:
+    // validation proved D >= 0 and offsets absorb the derivative guard. Emitting
+    // row-wise `D β + o >= guard` constraints here duplicates the same condition
+    // as hundreds of dense rows and forces the generic active-set QP path. Use
+    // a single identity cone instead so the custom-family solver recognizes the
+    // simple lower-bound problem.
     let time_linear_constraints = match spec.time_block.time_monotonicity {
-        crate::families::survival::location_scale::TimeBlockMonotonicity::StructuralISpline => {
+        monotonicity if monotonicity.is_coordinate_cone() => {
             let p_total = design_exit.ncols();
             LinearInequalityConstraints::from_per_coordinate_lower_bounds(&Array1::<f64>::zeros(
                 p_total,
@@ -1687,9 +1721,15 @@ pub fn fit_survival_marginal_slope_terms(
         .is_some_and(|loaded| {
             crate::solver::rho_optimizer::cache_entry_would_help_outer(&loaded, setup.rho_dim())
         });
-    if outer_cache_seed_available {
+    if outer_cache_seed_available || n < 1_000 {
+        let reason = if outer_cache_seed_available {
+            "outer-cache-seed-present"
+        } else {
+            "tiny-fit"
+        };
         log::info!(
-            "[survival-marginal-slope/pilot] skip reason=outer-cache-seed-present n={} rho_dim={}",
+            "[survival-marginal-slope/pilot] skip reason={} n={} rho_dim={}",
+            reason,
             n,
             setup.rho_dim(),
         );
@@ -1887,7 +1927,7 @@ pub fn fit_survival_marginal_slope_terms(
         analytic_joint_hessian_available,
         derivative_probe_started.elapsed().as_secs_f64(),
     );
-    let kappa_options_ref: &SpatialLengthScaleOptimizationOptions = kappa_options;
+    let kappa_options_ref: &SpatialLengthScaleOptimizationOptions = kappa_options_effective;
     let derivative_block_cache = RefCell::new(
         None::<(
             Array1<f64>,
@@ -1982,7 +2022,7 @@ pub fn fit_survival_marginal_slope_terms(
         initial_family.outer_derivative_policy(&initial_blocks, psi_dim, options)
     };
     let exact_spatial_outer_tol = kappa_options_ref.rel_tol.max(1e-6);
-    let mut solved = optimize_spatial_length_scale_exact_joint(
+    let solved = optimize_spatial_length_scale_exact_joint(
         data,
         &[marginalspec_boot.clone(), logslopespec_boot.clone()],
         &[marginal_terms.clone(), logslope_terms.clone()],
@@ -2042,8 +2082,10 @@ pub fn fit_survival_marginal_slope_terms(
                 }
             }
             log::info!(
-                "[survival-marginal-slope/outer-inner-fit] end elapsed={:.3}s",
+                "[survival-marginal-slope/outer-inner-fit] end elapsed={:.3}s inner_cycles={} pirls_status={:?}",
                 eval_started.elapsed().as_secs_f64(),
+                fit.inner_cycles,
+                fit.pirls_status,
             );
             Ok(fit)
         },
@@ -2090,8 +2132,6 @@ pub fn fit_survival_marginal_slope_terms(
             }
             let sigma = sigma_from_theta(theta);
             sigma_hint.replace(sigma);
-            let family = make_family(&designs[0], &designs[1], sigma, FlexActivation::On);
-            let derivative_blocks = get_derivative_blocks(theta, specs, designs)?;
             // Preserve ValueOnly probes and request the Hessian exactly when
             // this realized family advertised analytic joint second-order
             // support.
@@ -2100,6 +2140,12 @@ pub fn fit_survival_marginal_slope_terms(
                     EvalMode::ValueAndGradient
                 }
                 other => other,
+            };
+            let family = make_family(&designs[0], &designs[1], sigma, FlexActivation::On);
+            let derivative_blocks = if matches!(effective_mode, EvalMode::ValueOnly) {
+                Arc::new(vec![Vec::new(); blocks.len()])
+            } else {
+                get_derivative_blocks(theta, specs, designs)?
             };
             let eval_id = outer_eval_counter.get();
             outer_eval_counter.set(eval_id.wrapping_add(1));
@@ -2206,10 +2252,26 @@ pub fn fit_survival_marginal_slope_terms(
             Ok(eval.efs_eval)
         },
         crate::families::marginal_slope_shared::make_beta_seed_validator(&pending_beta_seed),
-    )?;
+    );
+    // Log the outer-solve outcome on BOTH paths: the inner-solve non-convergence
+    // abort (#979/#1040) returns Err before the success log below, so without
+    // this the failure stage would be invisible to a `log` backend.
+    let mut solved = match solved {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!(
+                "[survival-marginal-slope/outer] solve FAILED n={n} elapsed={:.3}s reason={e}",
+                fit_started.elapsed().as_secs_f64(),
+            );
+            return Err(e);
+        }
+    };
     log::info!(
-        "[survival-marginal-slope/outer] solve end elapsed={:.3}s",
+        "[survival-marginal-slope/outer] solve end n={n} elapsed={:.3}s outer_iters={} inner_cycles={} outer_converged={}",
         fit_started.elapsed().as_secs_f64(),
+        solved.fit.outer_iterations,
+        solved.fit.inner_cycles,
+        solved.fit.outer_converged,
     );
     // Never-fail outer escalation (#808), mirroring the bernoulli/custom-family
     // path (`fit_custom_family`, src/families/custom_family.rs): when the outer
@@ -2264,7 +2326,12 @@ pub fn fit_survival_marginal_slope_terms(
     // post-cutover bindings (designs, make_family, build_blocks, the
     // outer solve closures), which is outside the surgical scope of this
     // hook; the diagnostic is the principled stop here.
-    if let Some(ref ctx) = recompile_after_accept {
+    if n < 1_000 {
+        log::debug!(
+            "[smgs phase-4b recompile-after-accept] skipped for tiny fit n={n}; \
+             diagnostic-only post-convergence recompile is reserved for larger fits"
+        );
+    } else if let Some(ref ctx) = recompile_after_accept {
         let recompile_started = std::time::Instant::now();
         // Lift compiled β → raw β when the cutover fired. Otherwise the
         // block_states already carry raw-width β.

@@ -1,0 +1,794 @@
+use std::borrow::Cow;
+
+use itertools::Itertools;
+use tombi_comment_directive::value::{TableCommonFormatRules, TableCommonLintRules};
+use tombi_comment_directive_serde::get_comment_directive_content;
+
+use tombi_future::Boxable;
+use tombi_schema_store::{
+    Accessor, Accessors, CurrentSchema, SchemaAccessor, TableSchema, ValueSchema, ValueType,
+};
+
+use crate::{
+    HoverContent,
+    comment_directive::get_table_comment_directive_content_with_schema_uri,
+    hover::{
+        GetHoverContent, HoverValueContent,
+        all_of::get_all_of_hover_content,
+        any_of::get_any_of_hover_content,
+        comment::get_value_comment_directive_hover_content,
+        constraints::{ValueConstraints, build_enum_values},
+        display_value::DisplayValue,
+        one_of::get_one_of_hover_content,
+    },
+    schema_resolver::resolve_table_unevaluated_property_schema,
+};
+
+impl GetHoverContent for tombi_document_tree::Table {
+    fn get_hover_content<'a: 'b, 'b>(
+        &'a self,
+        position: tombi_text::Position,
+        keys: &'a [tombi_document_tree::Key],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        schema_context: &'a tombi_schema_store::SchemaContext,
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>> {
+        log::trace!("self = {:?}", self);
+        log::trace!("keys = {:?}", keys);
+        log::trace!("accessors = {:?}", accessors);
+        log::trace!("current_schema = {:?}", current_schema);
+
+        async move {
+            if let Some((comment_directive_context, schema_uri)) =
+                get_table_comment_directive_content_with_schema_uri(self, position, accessors)
+                && let Some(hover_content) =
+                    get_value_comment_directive_hover_content(comment_directive_context, schema_uri)
+                        .await
+            {
+                return Some(hover_content);
+            }
+
+            if let Some(Ok(document_schema)) = schema_context
+                .get_subschema(accessors, current_schema)
+                .await
+            {
+                let current_schema =
+                    document_schema
+                        .value_schema
+                        .as_ref()
+                        .map(|value_schema| CurrentSchema {
+                            value_schema: value_schema.clone(),
+                            schema_uri: Cow::Borrowed(&document_schema.schema_uri),
+                            definitions: Cow::Borrowed(&document_schema.definitions),
+                        });
+
+                return self
+                    .get_hover_content(
+                        position,
+                        keys,
+                        accessors,
+                        current_schema.as_ref(),
+                        schema_context,
+                    )
+                    .await;
+            }
+
+            if let Some(current_schema) = current_schema {
+                match current_schema.value_schema.as_ref() {
+                    ValueSchema::Table(table_schema) => {
+                        if let Some(key) = keys.first() {
+                            if let Some(value) = self.get(key) {
+                                let accessor = Accessor::Key(key.value.clone());
+                                let key_patterns = match table_schema.pattern_properties.as_ref() {
+                                    Some(pattern_properties) => Some(
+                                        pattern_properties
+                                            .read()
+                                            .await
+                                            .keys()
+                                            .map(ToString::to_string)
+                                            .collect_vec(),
+                                    ),
+                                    None => None,
+                                };
+
+                                if table_schema
+                                    .properties
+                                    .read()
+                                    .await
+                                    .contains_key(&SchemaAccessor::from(&accessor))
+                                {
+                                    let required = table_schema
+                                        .required
+                                        .as_ref()
+                                        .map(|r| r.contains(&key.value))
+                                        .unwrap_or_default();
+
+                                    if let Ok(Some(current_schema)) = table_schema
+                                        .resolve_property_schema(
+                                            &SchemaAccessor::from(&accessor),
+                                            current_schema.schema_uri.clone(),
+                                            current_schema.definitions.clone(),
+                                            schema_context.store,
+                                        )
+                                        .await
+                                    {
+                                        let property_accessors = accessors
+                                            .iter()
+                                            .cloned()
+                                            .chain(std::iter::once(accessor))
+                                            .collect_vec();
+
+                                        if keys.len() == 1
+                                            && !value.contains(position)
+                                            && matches!(
+                                                current_schema.value_schema.as_ref(),
+                                                ValueSchema::Anything(_)
+                                            )
+                                        {
+                                            let mut value_type =
+                                                current_schema.value_schema.value_type().await;
+                                            if !required {
+                                                value_type.set_nullable();
+                                            }
+
+                                            return Some(HoverContent::Value(HoverValueContent {
+                                                title: current_schema
+                                                    .value_schema
+                                                    .title()
+                                                    .map(ToString::to_string),
+                                                description: current_schema
+                                                    .value_schema
+                                                    .description()
+                                                    .map(ToString::to_string),
+                                                accessors: Accessors::from(property_accessors),
+                                                value_type,
+                                                constraints: Some(ValueConstraints {
+                                                    key_patterns,
+                                                    ..Default::default()
+                                                }),
+                                                schema_uri: Some(
+                                                    current_schema.schema_uri.as_ref().clone(),
+                                                ),
+                                                range: None,
+                                            }));
+                                        }
+
+                                        let mut hover_content = value
+                                            .get_hover_content(
+                                                position,
+                                                &keys[1..],
+                                                &property_accessors,
+                                                Some(&current_schema),
+                                                schema_context,
+                                            )
+                                            .await;
+                                        if let Some(HoverContent::Value(hover_value_content)) =
+                                            hover_content.as_mut()
+                                            && keys.len() == 1
+                                        {
+                                            // Check if cursor is not on the value
+                                            if !value.contains(position) {
+                                                // When cursor is on key or equals sign,
+                                                // use the property's title and description
+                                                if let Some(title) =
+                                                    current_schema.value_schema.title()
+                                                {
+                                                    hover_value_content.title =
+                                                        Some(title.to_string());
+                                                }
+                                                if let Some(description) =
+                                                    current_schema.value_schema.description()
+                                                {
+                                                    hover_value_content.description =
+                                                        Some(description.to_string());
+                                                }
+                                            }
+
+                                            if !required
+                                                && hover_value_content
+                                                    .accessors
+                                                    .last()
+                                                    .map(|accessor| accessor.is_key())
+                                                    .unwrap_or_default()
+                                            {
+                                                if let Some(constraints) =
+                                                    &mut hover_value_content.constraints
+                                                {
+                                                    constraints.key_patterns = key_patterns;
+                                                }
+                                                hover_value_content.value_type.set_nullable();
+                                            }
+                                        }
+                                        return hover_content;
+                                    }
+
+                                    let mut hover_content = value
+                                        .get_hover_content(
+                                            position,
+                                            &keys[1..],
+                                            &accessors
+                                                .iter()
+                                                .cloned()
+                                                .chain(std::iter::once(accessor))
+                                                .collect_vec(),
+                                            None,
+                                            schema_context,
+                                        )
+                                        .await;
+
+                                    if let Some(HoverContent::Value(hover_value_content)) =
+                                        hover_content.as_mut()
+                                        && keys.len() == 1
+                                        && !required
+                                        && hover_value_content
+                                            .accessors
+                                            .last()
+                                            .map(|accessor| accessor.is_key())
+                                            .unwrap_or_default()
+                                    {
+                                        if let Some(constraints) =
+                                            &mut hover_value_content.constraints
+                                        {
+                                            constraints.key_patterns = key_patterns;
+                                        }
+                                        hover_value_content.value_type.set_nullable();
+                                    }
+
+                                    return hover_content;
+                                }
+                                if let Some(pattern_properties) = &table_schema.pattern_properties {
+                                    let pattern_keys = pattern_properties
+                                        .read()
+                                        .await
+                                        .keys()
+                                        .cloned()
+                                        .collect_vec();
+                                    for property_key in pattern_keys {
+                                        if let Ok(pattern) = tombi_regex::Regex::new(&property_key)
+                                        {
+                                            if pattern.is_match(&key.value) {
+                                                if let Ok(Some(current_schema)) = table_schema
+                                                    .resolve_pattern_property_schema(
+                                                        &property_key,
+                                                        current_schema.schema_uri.clone(),
+                                                        current_schema.definitions.clone(),
+                                                        schema_context.store,
+                                                    )
+                                                    .await
+                                                {
+                                                    let mut hover_content = value
+                                                        .get_hover_content(
+                                                            position,
+                                                            &keys[1..],
+                                                            &accessors
+                                                                .iter()
+                                                                .cloned()
+                                                                .chain(std::iter::once(accessor))
+                                                                .collect_vec(),
+                                                            Some(&current_schema),
+                                                            schema_context,
+                                                        )
+                                                        .await;
+
+                                                    if let Some(HoverContent::Value(
+                                                        hover_value_content,
+                                                    )) = hover_content.as_mut()
+                                                        && keys.len() == 1
+                                                    {
+                                                        // Check if cursor is not on the value
+                                                        if !value.contains(position) {
+                                                            // When cursor is on key or equals sign,
+                                                            // use the property's title and description
+                                                            if let Some(title) =
+                                                                current_schema.value_schema.title()
+                                                            {
+                                                                hover_value_content.title =
+                                                                    Some(title.to_string());
+                                                            }
+                                                            if let Some(description) =
+                                                                current_schema
+                                                                    .value_schema
+                                                                    .description()
+                                                            {
+                                                                hover_value_content.description =
+                                                                    Some(description.to_string());
+                                                            }
+                                                        }
+
+                                                        if hover_value_content
+                                                            .accessors
+                                                            .last()
+                                                            .map(|accessor| accessor.is_key())
+                                                            .unwrap_or_default()
+                                                        {
+                                                            if let Some(constraints) =
+                                                                &mut hover_value_content.constraints
+                                                            {
+                                                                constraints.key_patterns =
+                                                                    key_patterns;
+                                                            }
+                                                            hover_value_content
+                                                                .value_type
+                                                                .set_nullable();
+                                                        }
+                                                    }
+                                                    return hover_content;
+                                                }
+
+                                                let mut hover_content = value
+                                                    .get_hover_content(
+                                                        position,
+                                                        &keys[1..],
+                                                        &accessors
+                                                            .iter()
+                                                            .cloned()
+                                                            .chain(std::iter::once(accessor))
+                                                            .collect_vec(),
+                                                        None,
+                                                        schema_context,
+                                                    )
+                                                    .await;
+
+                                                if let Some(HoverContent::Value(
+                                                    hover_value_content,
+                                                )) = hover_content.as_mut()
+                                                    && keys.len() == 1
+                                                    && hover_value_content
+                                                        .accessors
+                                                        .last()
+                                                        .map(|accessor| accessor.is_key())
+                                                        .unwrap_or_default()
+                                                {
+                                                    if let Some(constraints) =
+                                                        &mut hover_value_content.constraints
+                                                    {
+                                                        constraints.key_patterns = key_patterns;
+                                                    }
+                                                    hover_value_content.value_type.set_nullable();
+                                                }
+                                                return hover_content;
+                                            }
+                                        } else {
+                                            log::warn!(
+                                                "Invalid regex pattern property: {}",
+                                                property_key
+                                            );
+                                        };
+                                    }
+                                }
+
+                                if let Some((_, referable_additional_property_schema)) =
+                                    &table_schema.additional_property_schema
+                                    && let Ok(Some(current_schema)) =
+                                        tombi_schema_store::resolve_schema_item(
+                                            referable_additional_property_schema,
+                                            current_schema.schema_uri.clone(),
+                                            current_schema.definitions.clone(),
+                                            schema_context.store,
+                                        )
+                                        .await
+                                {
+                                    let mut hover_content = value
+                                        .get_hover_content(
+                                            position,
+                                            &keys[1..],
+                                            &accessors
+                                                .iter()
+                                                .cloned()
+                                                .chain(std::iter::once(accessor.clone()))
+                                                .collect_vec(),
+                                            Some(&current_schema),
+                                            schema_context,
+                                        )
+                                        .await;
+
+                                    if let Some(HoverContent::Value(hover_value_content)) =
+                                        hover_content.as_mut()
+                                        && keys.len() == 1
+                                    {
+                                        // Check if cursor is not on the value
+                                        let cursor_on_value = value.contains(position);
+
+                                        if !cursor_on_value {
+                                            // When cursor is on key or equals sign,
+                                            // use the property's title and description
+                                            if let Some(title) = current_schema.value_schema.title()
+                                            {
+                                                hover_value_content.title = Some(title.to_string());
+                                            }
+                                            if let Some(description) =
+                                                current_schema.value_schema.description()
+                                            {
+                                                hover_value_content.description =
+                                                    Some(description.to_string());
+                                            }
+                                        }
+
+                                        if hover_value_content
+                                            .accessors
+                                            .last()
+                                            .map(|accessor| accessor.is_key())
+                                            .unwrap_or_default()
+                                        {
+                                            hover_value_content.value_type.set_nullable();
+                                        }
+                                    }
+                                    return hover_content;
+                                }
+
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref()
+                                    && let Some(hover_content) = get_one_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        one_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref()
+                                    && let Some(hover_content) = get_any_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        any_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref()
+                                    && let Some(hover_content) = get_all_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        all_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+
+                                if let Some(current_schema) =
+                                    resolve_table_unevaluated_property_schema(
+                                        table_schema,
+                                        current_schema,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    let mut hover_content = value
+                                        .get_hover_content(
+                                            position,
+                                            &keys[1..],
+                                            &accessors
+                                                .iter()
+                                                .cloned()
+                                                .chain(std::iter::once(accessor.clone()))
+                                                .collect_vec(),
+                                            Some(&current_schema),
+                                            schema_context,
+                                        )
+                                        .await;
+
+                                    if let Some(HoverContent::Value(hover_value_content)) =
+                                        hover_content.as_mut()
+                                        && keys.len() == 1
+                                    {
+                                        if !value.contains(position) {
+                                            if let Some(title) = current_schema.value_schema.title()
+                                            {
+                                                hover_value_content.title = Some(title.to_string());
+                                            }
+                                            if let Some(description) =
+                                                current_schema.value_schema.description()
+                                            {
+                                                hover_value_content.description =
+                                                    Some(description.to_string());
+                                            }
+                                        }
+
+                                        if hover_value_content
+                                            .accessors
+                                            .last()
+                                            .map(|accessor| accessor.is_key())
+                                            .unwrap_or_default()
+                                        {
+                                            hover_value_content.value_type.set_nullable();
+                                        }
+                                    }
+                                    return hover_content;
+                                }
+
+                                value
+                                    .get_hover_content(
+                                        position,
+                                        &keys[1..],
+                                        &accessors
+                                            .iter()
+                                            .cloned()
+                                            .chain(std::iter::once(accessor))
+                                            .collect_vec(),
+                                        None,
+                                        schema_context,
+                                    )
+                                    .await
+                            } else {
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref()
+                                    && let Some(hover_content) = get_one_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        one_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref()
+                                    && let Some(hover_content) = get_any_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        any_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref()
+                                    && let Some(hover_content) = get_all_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        all_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+
+                                None
+                            }
+                        } else {
+                            let mut hover_content = table_schema
+                                .get_hover_content(
+                                    position,
+                                    keys,
+                                    accessors,
+                                    Some(current_schema),
+                                    schema_context,
+                                )
+                                .await;
+
+                            if let Some(HoverContent::Value(hover_value_content)) =
+                                hover_content.as_mut()
+                            {
+                                hover_value_content.range = Some(self.range());
+                                if let Some(constraints) = hover_value_content.constraints.as_mut()
+                                {
+                                    constraints.keys_order = schema_context.table_keys_order(
+                                        accessors,
+                                        Some(current_schema),
+                                        comment_directive_table_keys_order(self).as_ref(),
+                                    );
+                                }
+                            } else {
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref()
+                                    && let Some(hover_content) = get_one_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        one_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref()
+                                    && let Some(hover_content) = get_any_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        any_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref()
+                                    && let Some(hover_content) = get_all_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        all_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return Some(hover_content);
+                                }
+                            }
+
+                            hover_content
+                        }
+                    }
+                    ValueSchema::OneOf(one_of_schema) => {
+                        get_one_of_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            one_of_schema,
+                            &current_schema.schema_uri,
+                            &current_schema.definitions,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    ValueSchema::AnyOf(any_of_schema) => {
+                        get_any_of_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            any_of_schema,
+                            &current_schema.schema_uri,
+                            &current_schema.definitions,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    ValueSchema::AllOf(all_of_schema) => {
+                        get_all_of_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            all_of_schema,
+                            &current_schema.schema_uri,
+                            &current_schema.definitions,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    _ => None,
+                }
+            } else {
+                if let Some(key) = keys.first()
+                    && let Some(value) = self.get(key)
+                {
+                    let accessor = Accessor::Key(key.value.clone());
+
+                    return value
+                        .get_hover_content(
+                            position,
+                            &keys[1..],
+                            &accessors
+                                .iter()
+                                .cloned()
+                                .chain(std::iter::once(accessor))
+                                .collect_vec(),
+                            None,
+                            schema_context,
+                        )
+                        .await;
+                }
+                Some(HoverContent::Value(HoverValueContent {
+                    title: None,
+                    description: None,
+                    accessors: Accessors::from(accessors.to_vec()),
+                    value_type: ValueType::Table,
+                    constraints: None,
+                    schema_uri: None,
+                    range: Some(self.range()),
+                }))
+            }
+        }
+        .boxed()
+    }
+}
+
+fn comment_directive_table_keys_order(
+    table: &tombi_document_tree::Table,
+) -> Option<tombi_schema_store::TableOrderOverride> {
+    let comment_directive = get_comment_directive_content::<
+        TableCommonFormatRules,
+        TableCommonLintRules,
+    >(table.comment_directives()?.cloned())?;
+
+    let disabled = comment_directive
+        .table_keys_order_disabled()
+        .unwrap_or_default();
+    let order = comment_directive.table_keys_order().map(Into::into);
+
+    (disabled || order.is_some()).then_some(tombi_schema_store::TableOrderOverride {
+        target: Vec::new(),
+        disabled,
+        order,
+    })
+}
+
+impl GetHoverContent for TableSchema {
+    fn get_hover_content<'a: 'b, 'b>(
+        &'a self,
+        _position: tombi_text::Position,
+        _keys: &'a [tombi_document_tree::Key],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        _schema_context: &'a tombi_schema_store::SchemaContext,
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>> {
+        async move {
+            Some(HoverContent::Value(HoverValueContent {
+                title: self.title.clone(),
+                description: self.description.clone(),
+                accessors: Accessors::from(accessors.to_vec()),
+                value_type: ValueType::Table,
+                constraints: Some(ValueConstraints {
+                    r#enum: build_enum_values(&self.const_value, &self.r#enum, |value| {
+                        DisplayValue::try_from(value).ok()
+                    }),
+                    default: self
+                        .default
+                        .as_ref()
+                        .and_then(|default| DisplayValue::try_from(default).ok()),
+                    examples: self.examples.as_ref().map(|examples| {
+                        examples
+                            .iter()
+                            .filter_map(|example| DisplayValue::try_from(example).ok())
+                            .collect()
+                    }),
+                    required_keys: self.required.clone(),
+                    max_keys: self.max_properties,
+                    min_keys: self.min_properties,
+                    // NOTE: key_patterns are output for keys, not this tables.
+                    key_patterns: None,
+                    additional_keys: self.additional_properties(),
+                    pattern_keys: self.pattern_properties.is_some(),
+                    keys_order: self.keys_order.clone().map(Into::into),
+                    array_values_order_by: self.array_values_order_by.clone(),
+                    ..Default::default()
+                }),
+                schema_uri: current_schema.map(|schema| schema.schema_uri.as_ref().clone()),
+                range: None,
+            }))
+        }
+        .boxed()
+    }
+}

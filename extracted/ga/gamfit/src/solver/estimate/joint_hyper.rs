@@ -290,9 +290,8 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
 
     /// Record the pinning ψ frozen by a slow-path `reset_surface` (#1264): the
     /// single design-moving ψ when `theta` carries one (`theta.len() == rho_dim +
-    /// 1`), else `None` (multi-ψ / no-ψ fits have no single-ψ skip witness). The
-    /// design-revision fast path certifies its skip against this ψ via
-    /// `psi_gram_tensor_covers_skip`.
+    /// 1`), else `None` (multi-ψ / no-ψ fits have no single-ψ witness). The
+    /// #1033 n-free production lane gates on the certified value window.
     fn record_reset_psi(&mut self, theta: &Array1<f64>, rho_dim: usize) {
         self.last_reset_psi = if theta.len() == rho_dim + 1 {
             Some(theta[rho_dim])
@@ -405,12 +404,19 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             psi_hi,
         );
         match tensor {
-            Some(tensor) => {
+            Ok(tensor) => {
                 self.psi_gram_tensor = Some(std::sync::Arc::new(tensor));
                 self.psi_gram_anchor_correction = None;
                 true
             }
-            None => false,
+            Err(why) => {
+                // The n-free ψ-Gram tensor declined to attach; the caller falls
+                // back to the exact per-trial design path. Record WHY so the
+                // fast-path coverage (#1264/#1216) is diagnosable instead of a
+                // silent non-attachment.
+                log::debug!("ψ-Gram tensor not attached over [{psi_lo}, {psi_hi}]: {why}");
+                false
+            }
         }
     }
 
@@ -487,11 +493,11 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
     }
 
     /// True when a certified ψ-Gram tensor is installed AND `psi` lies inside
-    /// its certified GRADIENT sub-window — i.e. the n-free k-space ψ-derivatives
+    /// its certified GRADIENT window — i.e. the n-free k-space ψ-derivatives
     /// `(∂G/∂ψ, ∂b/∂ψ)` will serve the Gaussian gradient HyperCoord, so the
-    /// caller's per-trial n×k ∂X/∂ψ slab is redundant (#1033). The value lane
-    /// (`contains`) spans the full window; the gradient lane is the narrower
-    /// interior where the Chebyshev derivative reconstruction is bit-tight.
+    /// caller's per-trial n×k ∂X/∂ψ slab is redundant (#1033). For the
+    /// sufficient-statistic kappa search this covers the full optimizer window;
+    /// otherwise the caller does not arm the n-free outer loop.
     pub(crate) fn psi_gram_tensor_covers_gradient(&self, psi: f64) -> bool {
         self.psi_gram_tensor
             .as_ref()
@@ -513,45 +519,52 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             .is_some_and(|t| t.contains(psi))
     }
 
-    /// True when a certified ψ-Gram tensor is installed AND the design-revision
-    /// fast-path skip to `psi` is SOUND given the reduced-basis reference surface
-    /// frozen at the last slow-path reset ψ (`last_reset_psi`) (#1264, #1216 item
-    /// 3). The skip re-keys the Gram + penalty on the frozen reference surface;
-    /// it reproduces the exact slow-path β̂ only when the realized reduced basis
-    /// (the range / null split of the conditioned data Gram) at the pinning ψ is
-    /// still valid at `psi`. On the wide standardized window the radial-kernel
-    /// reduced subspace can rotate with ψ; a skip across that rotation pairs a
-    /// stale reduced basis with a re-keyed Gram and yields a wrong β̂. The pairwise
-    /// witness [`PsiGramTensor::reduced_basis_equal`] compares the gauge-invariant
-    /// range projectors at the two ψ's n-free; the skip fires only where they
-    /// span the same subspace. Without a recorded pinning ψ the skip is refused.
+    /// True when the design-realization SKIP to `psi` is β̂-SOUND given the
+    /// reference surface pinned at the last slow-path reset (#1264). Restored
+    /// after the "stale-penalty-not-stale-basis" theory was empirically refuted:
+    /// cluster measured β̂rel≈1.7e-5 (17× the issue's 1e-6 bar) when the n-free κ skip
+    /// fires on production Duchon geometry — EVEN at a ψ the n-free VALUE window
+    /// admits — because the inner penalized solve `(QsᵀGQs+S)β=b` is run in the
+    /// CONDITIONED reduced basis, and that basis ROTATES with ψ on the near-
+    /// singular radial Gram (κ(G)≈9.5e14). The skip installs the Chebyshev-
+    /// interpolated `gram_at(ψ)` (≤1e-10 vs the streamed exact Gram), and when the
+    /// reduced basis at the trial ψ differs from the reference surface's basis the
+    /// κ-amplified round-off moves the shipped κ-optimum past 1e-6.
+    ///
+    /// So the skip is sound ONLY where the reduced basis is provably unchanged:
+    /// the gauge-invariant range-projector witness `reduced_basis_equal(psi_ref,
+    /// psi)` against the pinning ψ recorded at the last slow-path reset. Without a
+    /// recorded pinning ψ (no reset yet) the skip is refused. Value coverage alone
+    /// is NOT sufficient — this is the load-bearing #1264 soundness gate.
     pub(crate) fn psi_gram_tensor_covers_skip(&self, psi: f64) -> bool {
         let Some(tensor) = self.psi_gram_tensor.as_ref() else {
             return false;
         };
-        let Some(psi_ref) = self.last_reset_psi else {
+        if !tensor.contains(psi) {
+            return false;
+        }
+        // The pinning ψ must itself be in-window for its reference projector to be
+        // a valid comparison point; otherwise refuse (forces the exact slow path).
+        let Some(psi_ref) = self.last_reset_psi.filter(|p| tensor.contains(*p)) else {
             return false;
         };
         tensor.reduced_basis_equal(psi_ref, psi)
     }
 
-    /// True when the design-revision fast path of [`Self::prepare_eval_state`]
-    /// would fire for `design_revision` — i.e. a prior eval has already pinned
-    /// `last_canonical_revision` to this exact realizer revision, so the next
-    /// `evaluate_with_order` at this revision will SKIP `reset_surface` (and the
-    /// n×k `apply_to_design` reconditioning) and instead re-install the ψ-keyed
-    /// `GaussianFixedCache` onto the existing surface (#1033).
-    ///
-    /// The spatial κ caller (`SpatialJointContext::eval_full`) consults this
-    /// BEFORE deciding to skip its own `ensure_theta` design re-realization: it
-    /// may only suppress the per-trial O(n·k) design rebuild when the evaluator
-    /// will take that fast path, because the fast path is exactly the lane that
-    /// keeps the (now intentionally stale) reference surface while serving the
-    /// trial's value + gradient n-free from the certified tensor. When this is
-    /// `false` the caller MUST realize the design so the slow path's
-    /// `reset_surface` rebuilds a faithful surface.
-    pub(crate) fn design_revision_fast_path_armed(&self, design_revision: u64) -> bool {
-        self.last_canonical_revision == Some(design_revision)
+    /// Revision of the canonical surface pinned by the last slow-path
+    /// `reset_surface`, if any. The spatial κ caller passes this revision back
+    /// on certified n-free value/gradient probes so [`Self::prepare_eval_state`]
+    /// and [`Self::prepare_eval_state_cost_only`] take their design-revision fast
+    /// paths even if the caller-side realizer revision has since advanced on an
+    /// unrelated miss. The fast path re-keys the Gaussian Gram and `S(ψ)` from
+    /// k-space statistics, so it intentionally reuses this pinned surface rather
+    /// than requiring equality with the current realizer revision (#1033).
+    pub(crate) fn nfree_fast_path_revision(&self) -> Option<u64> {
+        self.last_canonical_revision
+    }
+
+    pub(crate) fn has_psi_gram_tensor(&self) -> bool {
+        self.psi_gram_tensor.is_some()
     }
 
     /// Return the most-recently converged inner β from the last PIRLS solve, if
@@ -647,18 +660,10 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
         );
         // Install the conditioned-frame EXACT ANALYTIC ψ-derivatives so the
         // Gaussian ψ-gradient HyperCoord is assembled from these k×k objects
-        // instead of the n×k ∂X/∂ψ slab — but ONLY on the certified gradient
-        // SUB-window `contains_for_gradient`. Differentiating the Chebyshev value
-        // interpolant AMPLIFIES its interpolation error (`T_d′ ∼ d²`), so near the
-        // large-ψ window edges the analytic ψ-derivative GENUINELY fails the
-        // certification tolerance even though the VALUE reconstruction still
-        // certifies there — this is a real accuracy boundary, not a certification
-        // artifact. Outside the sub-window we return `false` (no tensor derivative
-        // installed): the caller then computes the EXACT STREAMED ψ-gradient from
-        // the realized n×k ∂X/∂ψ slab for that trial (O(n) for the rare edge evals;
-        // most κ trials land interior). Every gradient is therefore EXACT —
-        // analytic in the interior, exact-streamed at the edges — never an
-        // approximation (no finite difference in production).
+        // instead of the n×k ∂X/∂ψ slab. The #1033 sufficient-statistic kappa
+        // search is armed only when this certified gradient window spans the
+        // full optimizer bounds, so measured trials cannot fall back to a
+        // streamed edge-gradient pass.
         if tensor.contains_for_gradient(psi)
             && self.reml_state.install_gaussian_psi_gram_deriv(Arc::new((
                 tensor.dgram_dpsi(psi),
@@ -671,10 +676,9 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             );
             true
         } else {
-            // Outside the certified gradient sub-window (or the derivative shape
-            // refused). Clear any derivative pair left from a prior in-sub-window ψ
-            // so the gradient lane computes the EXACT streamed slab for this trial
-            // rather than reusing a stale derivative carried over on the fast path.
+            // Outside the certified gradient window (or if the derivative shape
+            // refused). Clear any derivative pair left from a prior ψ so a
+            // non-armed exact path does not reuse a stale derivative.
             self.reml_state.clear_gaussian_psi_gram_deriv();
             false
         }

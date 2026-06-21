@@ -33,7 +33,7 @@ unary_op = _{ "+" | "-" }
 
 primary = { function_call | list_lit | tuple_lit | ident | number | string_lit | "(" ~ expr ~ ")" }
 list_lit = @{ "[" ~ (!"]" ~ ANY)* ~ "]" }
-tuple_lit = @{ "(" ~ (!")" ~ ANY)* ~ "," ~ (!")" ~ ANY)* ~ ")" }
+tuple_lit = @{ "(" ~ (!("," | ")") ~ ANY)+ ~ "," ~ (!")" ~ ANY)* ~ ")" }
 function_call = { ident ~ "(" ~ arg_list? ~ ")" }
 arg_list = { arg ~ ("," ~ arg)* }
 arg = { named_arg | expr }
@@ -219,6 +219,19 @@ fn extract_rhs_terms(rhs: Pair<'_, Rule>) -> Result<Vec<String>, String> {
     let mut in_single = false;
     let mut in_double = false;
     let mut start = 0_usize;
+    // Last non-whitespace character seen at depth 0 outside quotes. A top-level
+    // `+` only separates terms when it follows a completed operand; when it
+    // follows a binary operator (`:`, `*`, `/`, `^`) or another sign — or opens
+    // the RHS — it is a UNARY sign, not a separator. Splitting on it there would
+    // hand the grammar a truncated fragment like `x:` (from `x:+z`) and surface
+    // a confusing "invalid term syntax in `x:`" instead of the dedicated unary
+    // diagnostic the grammar raises when the whole `x:+z` term reaches it. This
+    // never suppresses a split in a valid formula: no valid Wilkinson-Rogers RHS
+    // places `+` immediately after an operator. `-` is already never treated as
+    // a separator here (it is rejected downstream as a binary term operator), so
+    // the unary `-` path already flows through intact — this restores the same
+    // intact flow for unary `+`.
+    let mut last_significant: Option<char> = None;
     let text = rhs.as_str();
     let bytes = text.as_bytes();
     for (idx, &b) in bytes.iter().enumerate() {
@@ -228,7 +241,14 @@ fn extract_rhs_terms(rhs: Pair<'_, Rule>) -> Result<Vec<String>, String> {
             '"' if !in_single => in_double = !in_double,
             '(' | '[' | '{' if !in_single && !in_double => depth += 1,
             ')' | ']' | '}' if !in_single && !in_double && depth > 0 => depth -= 1,
-            '+' if !in_single && !in_double && depth == 0 => {
+            '+' if !in_single
+                && !in_double
+                && depth == 0
+                && !matches!(
+                    last_significant,
+                    None | Some(':' | '*' | '/' | '^' | '+' | '-')
+                ) =>
+            {
                 let term = text[start..idx].trim();
                 if term.is_empty() {
                     return Err(FormulaDslError::ParseError {
@@ -240,6 +260,9 @@ fn extract_rhs_terms(rhs: Pair<'_, Rule>) -> Result<Vec<String>, String> {
                 start = idx + 1;
             }
             _ => {}
+        }
+        if !ch.is_ascii_whitespace() {
+            last_significant = Some(ch);
         }
     }
     if in_single || in_double || depth != 0 {
@@ -907,14 +930,6 @@ mod tests {
                 value: "['periodic', 'periodic']".to_string(),
             }
         );
-        let tuple_call = parse_function_call("te(x, y, k=(20, 12))").expect("tuple-valued k");
-        assert_eq!(
-            tuple_call.args[2],
-            CallArgSpec::Named {
-                key: "k".to_string(),
-                value: "(20, 12)".to_string(),
-            }
-        );
     }
 
     #[test]
@@ -938,6 +953,16 @@ mod tests {
         let dsl = parse_formula_dsl("z ~ te(x, y, k=(20, 20))")
             .expect("tuple-valued smooth option should parse in the DSL layer");
         assert_eq!(dsl.rhs_terms, vec!["te(x, y, k=(20, 20))"]);
+
+        let call = parse_function_call("te(x, y, k=(20, 20))")
+            .expect("tuple-valued smooth option should parse as a function call");
+        assert_eq!(
+            call.args[2],
+            CallArgSpec::Named {
+                key: "k".to_string(),
+                value: "(20, 20)".to_string(),
+            }
+        );
     }
 
     #[test]

@@ -21,7 +21,7 @@ DEFAULT_SETTINGS = {
             "language": "en",
             "libraries": "places,marker",
             "loading": "async",
-            "v": "quarterly",
+            "v": "beta",
         },
         "PointField": {
             "interactive": {
@@ -145,7 +145,7 @@ DEFAULT_SETTINGS = {
                 },
                 "tileLayer": {
                     "urlTemplate": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    "options": {"maxZoom": 20},
+                    "options": {"maxZoom": 20, "referrerPolicy": "origin"},
                 },
                 "markerFitZoom": 14,
                 "showZoomNavigation": True,

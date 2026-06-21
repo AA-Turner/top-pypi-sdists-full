@@ -4,6 +4,8 @@ import itertools
 import os
 import re
 import sys
+import tempfile
+import time
 import unittest
 from base64 import b64decode, b64encode
 from concurrent.futures import ThreadPoolExecutor
@@ -13,11 +15,13 @@ from glob import glob
 from xml.etree import ElementTree as stdlibElementTree
 
 import cryptography.exceptions
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import dsa, ec, rsa
-from cryptography.x509 import load_der_x509_certificate, load_pem_x509_certificate
 from lxml import etree
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import signxml.processor as processor  # noqa:E402
 from signxml import (  # noqa:E402
     CanonicalizationMethod,
     DigestAlgorithm,
@@ -67,6 +71,17 @@ def reset_tree(t, method):
             if method == methods.enveloped and s.get("Id") == "placeholder":
                 continue
             s.getparent().remove(s)
+
+
+def get_no_dsig_key_usage_ee_policy_verifier_for_year(year: int):
+    class _Verifier(XMLVerifier):
+        def get_cert_chain_verifier(self, ca_pem_file, ee_policy, ca_policy):
+            ee_policy = x509.verification.ExtensionPolicy.webpki_defaults_ee()
+            verifier = super().get_cert_chain_verifier(ca_pem_file, ee_policy, ca_policy)
+            verifier.verification_time = datetime(year, 1, 1)
+            return verifier
+
+    return _Verifier()
 
 
 def get_verifier_for_year(year: int):
@@ -132,6 +147,46 @@ class TestVerifyXML(unittest.TestCase, LoadExampleKeys):
 
         self.assertIsInstance(res, list)
         self.assertEqual(2, len(res))
+
+    def test_schema_cache_is_scoped_to_processor_subclasses(self):
+        for first, second in ((XMLVerifier, XAdESVerifier), (XAdESVerifier, XMLVerifier)):
+            for cls in (XMLVerifier, XAdESVerifier):
+                if "_schemas" in cls.__dict__:
+                    delattr(cls, "_schemas")
+
+            first_schemas = first.schemas()
+            second_schemas = second.schemas()
+
+            self.assertIsNot(first_schemas, second_schemas)
+            self.assertEqual(len(first_schemas), len(first.schema_files))
+            self.assertEqual(len(second_schemas), len(second.schema_files))
+
+    def test_schema_cache_is_thread_safe_on_first_access(self):
+        class ThreadedProcessor(processor.XMLProcessor):
+            schema_files = ["schema-a.xsd", "schema-b.xsd"]
+
+        original_get_schema = processor.get_schema
+        original_schemas = processor.XMLProcessor._schemas
+        calls = []
+
+        def fake_get_schema(schema_file):
+            time.sleep(0.01)
+            calls.append(schema_file)
+            return schema_file
+
+        processor.XMLProcessor._schemas = []
+        processor.get_schema = fake_get_schema
+        try:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                results = list(executor.map(lambda _: ThreadedProcessor.schemas(), range(8)))
+        finally:
+            processor.get_schema = original_get_schema
+            processor.XMLProcessor._schemas = original_schemas
+            if "_schemas" in ThreadedProcessor.__dict__:
+                delattr(ThreadedProcessor, "_schemas")
+
+        self.assertEqual(ThreadedProcessor.schema_files, calls)
+        self.assertTrue(all(result is results[0] for result in results))
 
 
 class TestSignXML(unittest.TestCase, LoadExampleKeys):
@@ -260,7 +315,7 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             pass
 
     def test_x509_certs(self):
-        verifier = get_verifier_for_year(2015)
+        verifier = get_no_dsig_key_usage_ee_policy_verifier_for_year(2015)
         tree = etree.parse(self.example_xml_files[0])
         ca_pem_file = os.path.join(os.path.dirname(__file__), "example-ca.pem").encode("utf-8")
         crt, key = self.load_example_keys()
@@ -271,7 +326,7 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             signed = signer.sign(data, key=key, cert=crt)
             signed_data = etree.tostring(signed)
             verifier.verify(signed_data, x509_cert=crt)
-            verifier.verify(signed_data, x509_cert=load_pem_x509_certificate(crt))
+            verifier.verify(signed_data, x509_cert=x509.load_pem_x509_certificate(crt))
             verifier.verify(signed_data, x509_cert=crt, cert_subject_name="*.example.com")
 
             with self.assertRaises(ValueError):
@@ -289,10 +344,79 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
 
             # TODO: negative: verify with wrong cert, wrong CA
 
+    def test_x509_cert_chain_requires_digital_signature_key_usage(self):
+        def make_key_usage(digital_signature=False, key_cert_sign=False, crl_sign=False):
+            return x509.KeyUsage(
+                digital_signature=digital_signature,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=key_cert_sign,
+                crl_sign=crl_sign,
+                encipher_only=False,
+                decipher_only=False,
+            )
+
+        verifier = get_verifier_for_year(2027)
+        tree = etree.parse(self.example_xml_files[0])
+        ca_key = ec.generate_private_key(ec.SECP384R1())
+        ca_name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, "SignXML Test CA")])
+        ca_cert = (
+            x509.CertificateBuilder()
+            .subject_name(ca_name)
+            .issuer_name(ca_name)
+            .public_key(ca_key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(datetime(2026, 1, 1))
+            .not_valid_after(datetime(2030, 1, 1))
+            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+            .add_extension(make_key_usage(key_cert_sign=True, crl_sign=True), critical=True)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), critical=False)
+            .sign(ca_key, hashes.SHA384())
+        )
+
+        def make_leaf_cert(digital_signature):
+            leaf_key = ec.generate_private_key(ec.SECP384R1())
+            leaf_cert = (
+                x509.CertificateBuilder()
+                .subject_name(x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, "XML Signature Test")]))
+                .issuer_name(ca_cert.subject)
+                .public_key(leaf_key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(datetime(2026, 1, 1))
+                .not_valid_after(datetime(2030, 1, 1))
+                .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+                .add_extension(make_key_usage(digital_signature=digital_signature), critical=True)
+                .add_extension(x509.SubjectKeyIdentifier.from_public_key(leaf_key.public_key()), critical=False)
+                .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
+                .sign(ca_key, hashes.SHA384())
+            )
+            return leaf_key, leaf_cert
+
+        signer = XMLSigner(method=methods.enveloped, signature_algorithm=SignatureMethod.ECDSA_SHA384)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ca_pem_file = os.path.join(temp_dir, "ca.pem")
+            with open(ca_pem_file, "wb") as fh:
+                fh.write(ca_cert.public_bytes(serialization.Encoding.PEM))
+
+            leaf_key, leaf_cert = make_leaf_cert(digital_signature=True)
+            key_usage = leaf_cert.extensions.get_extension_for_class(x509.KeyUsage).value
+            self.assertTrue(key_usage.digital_signature)
+            signed = signer.sign(tree.getroot(), key=leaf_key, cert=[leaf_cert])
+            verifier.verify(etree.tostring(signed), ca_pem_file=ca_pem_file)
+
+            leaf_key, leaf_cert = make_leaf_cert(digital_signature=False)
+            key_usage = leaf_cert.extensions.get_extension_for_class(x509.KeyUsage).value
+            self.assertFalse(key_usage.digital_signature)
+            signed = signer.sign(etree.parse(self.example_xml_files[0]).getroot(), key=leaf_key, cert=[leaf_cert])
+            with self.assertRaisesRegex(InvalidCertificate, "certificate KeyUsage does not allow digitalSignature"):
+                verifier.verify(etree.tostring(signed), ca_pem_file=ca_pem_file)
+
     def test_xmldsig_interop_examples(self):
         ca_pem_file = os.path.join(os.path.dirname(__file__), "interop", "cacert.pem").encode("utf-8")
 
-        verifier = get_verifier_for_year(2015)
+        verifier = get_no_dsig_key_usage_ee_policy_verifier_for_year(2015)
         for signature_file in glob(os.path.join(os.path.dirname(__file__), "interop", "*.xml")):
             print("Verifying", signature_file)
             with open(signature_file, "rb") as fh:
@@ -303,7 +427,7 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
     def test_xmldsig_interop_TR2012(self):
         def get_x509_cert(**kwargs):
             with open(os.path.join(interop_dir, "TR2012", "rsa-cert.der"), "rb") as fh:
-                return [load_der_x509_certificate(fh.read())]
+                return [x509.load_der_x509_certificate(fh.read())]
 
         signature_files = glob(os.path.join(interop_dir, "TR2012", "signature*.xml"))
         for signature_file in signature_files:
@@ -381,7 +505,9 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             with open(signature_file, "rb") as fh:
                 try:
                     sig = fh.read()
-                    verifier = get_verifier_for_year(2010 if "phaos" in signature_file else 2014)
+                    verifier = get_no_dsig_key_usage_ee_policy_verifier_for_year(
+                        2010 if "phaos" in signature_file else 2014
+                    )
                     verifier.excise_empty_xmlns_declarations = True
                     verifier.verify(
                         sig,

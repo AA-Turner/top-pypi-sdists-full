@@ -39,6 +39,7 @@ from fastapi.testclient import TestClient
 
 from vllm_mlx.config import reset_config
 from vllm_mlx.engine.base import GenerationOutput
+from vllm_mlx.middleware.exception_handlers import install_exception_handlers
 from vllm_mlx.routes.chat import _tool_call_name
 from vllm_mlx.routes.chat import router as chat_router
 
@@ -211,6 +212,80 @@ def test_tool_choice_specific_function_unknown_name_returns_400():
     assert "nonexistent_function" in resp.text
 
 
+def test_tool_choice_case_mismatch_surfaces_did_you_mean_hint():
+    """F-145 regression: a case-mismatched ``tool_choice.function.name``
+    must still 400 (OpenAI-parity, case-sensitive), but the error
+    message now appends a ``(did you mean 'X'? tool_choice is
+    case-sensitive)`` hint pointing at the tool whose name matches
+    case-insensitively. Without the hint, clients see only ``'X' which
+    is not present in the 'tools' array`` and have to diff their tool
+    list character-by-character to spot the case typo.
+    """
+    case_variant_tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_Weather",  # capital W
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                },
+            },
+        },
+    ]
+    engine = _RecordingEngine()
+    client = _make_client(engine)
+    resp = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "test-model",
+            "messages": [{"role": "user", "content": "what's the weather?"}],
+            "tools": case_variant_tools,
+            "tool_choice": {
+                "type": "function",
+                "function": {"name": "get_weather"},  # lowercase w
+            },
+            "max_tokens": 32,
+        },
+    )
+    assert resp.status_code == 400
+    # Canonical OpenAI-shape message preserved.
+    assert "get_weather" in resp.text
+    assert "not present in the 'tools' array" in resp.text
+    # F-145 hint surfaces the case-matching tool name AND explains why.
+    assert "get_Weather" in resp.text, "F-145 hint must name the case-matching tool"
+    assert "case-sensitive" in resp.text, (
+        "F-145 hint must explain the case-sensitivity surface"
+    )
+
+
+def test_tool_choice_no_case_match_omits_hint():
+    """F-145 counterpart: when there is NO case-insensitive match in
+    the tools array, the error message must NOT append a hint (so we
+    don't surface a misleading "did you mean" for an unrelated tool).
+    """
+    engine = _RecordingEngine()
+    client = _make_client(engine)
+    resp = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "test-model",
+            "messages": [{"role": "user", "content": "do something"}],
+            "tools": _TOOLS_FIXTURE,  # get_weather, get_time
+            "tool_choice": {
+                "type": "function",
+                "function": {"name": "completely_unrelated_tool"},
+            },
+            "max_tokens": 32,
+        },
+    )
+    assert resp.status_code == 400
+    assert "completely_unrelated_tool" in resp.text
+    # No "did you mean" suffix when no case-insensitive match exists.
+    assert "did you mean" not in resp.text
+    assert "case-sensitive" not in resp.text
+
+
 def test_tool_choice_function_missing_name_returns_400():
     """``tool_choice: {type: function}`` with no ``function.name`` is
     malformed per OpenAI spec — return 400 explicitly rather than
@@ -331,6 +406,48 @@ def test_tool_choice_function_missing_name_with_no_tools_returns_400():
         },
     )
     assert resp.status_code == 400
+
+
+@pytest.mark.parametrize("tools_field", [None, []])
+def test_tool_choice_required_without_tools_returns_400(tools_field):
+    """F-034: ``tool_choice="required"`` with ``tools`` absent or empty
+    must surface as HTTP 400 — the request is unsatisfiable, since
+    "required" guarantees a tool_call but there is no tool to call.
+    Pre-fix both cases silently 200'd as plain chat completions,
+    masking a client bug.
+
+    Wires the production OpenAI-shape exception middleware via
+    ``install_exception_handlers`` so the assertion pins the SAME wire
+    behavior the real serve binary returns (Pydantic ValidationError
+    -> 400 with ``error.type='invalid_request_error'`` envelope).
+    """
+    engine = _RecordingEngine()
+    cfg = reset_config()
+    cfg.engine = engine
+    cfg.model_name = "test-model"
+    cfg.model_registry = None
+    cfg.no_thinking = True
+    cfg.tool_call_parser = "hermes"
+    app = FastAPI()
+    install_exception_handlers(app)
+    app.include_router(chat_router)
+    client = TestClient(app)
+    payload: dict[str, Any] = {
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "hi"}],
+        "tool_choice": "required",
+        "max_tokens": 32,
+    }
+    if tools_field is not None:
+        payload["tools"] = tools_field
+    resp = client.post("/v1/chat/completions", json=payload)
+    # Production wire contract: middleware rewrites the Pydantic 422
+    # into the OpenAI ``invalid_request_error`` 400 envelope.
+    assert resp.status_code == 400, resp.text
+    body = resp.json()
+    assert body["error"]["type"] == "invalid_request_error"
+    assert "tool_choice='required'" in body["error"]["message"]
+    assert "non-empty 'tools'" in body["error"]["message"]
 
 
 # ──────────────────────────────────────────────────────────────────

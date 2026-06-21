@@ -1,8 +1,5 @@
-use std::sync::LazyLock;
-
 use anyhow::anyhow;
 use github_actions_models::common::Uses;
-use regex::Regex;
 use subfeature::Subfeature;
 use yamlpatch::{Op, Patch};
 
@@ -11,10 +8,11 @@ use crate::{
     config::Config,
     finding::{
         Confidence, Finding, Fix, Persona, Severity,
-        location::{Comment, Feature, Location, Routable},
+        location::{Comment, Feature, Location, Routable as _},
     },
     github,
-    models::{StepCommon, action::CompositeStep, uses::RepositoryUsesExt, workflow::Step},
+    models::{StepCommon, action::CompositeStep, uses::RepositoryUsesExt as _, workflow::Step},
+    utils::once::static_regex,
 };
 
 pub(crate) struct RefVersionMismatch {
@@ -27,17 +25,21 @@ audit_meta!(
     "action's hash pin has mismatched or missing version comment"
 );
 
-#[allow(clippy::unwrap_used)]
-static VERSION_COMMENT_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    vec![
-        // Matches "# tag=v2.8.0", "# tag=v6-beta", or any non-whitespace tag token.
-        Regex::new(r"#\s*tag\s*=\s*(\S+)").unwrap(),
-        // Matches "# v2.8.0" and prerelease forms like "# v1.2.3-rc.1", with or without the `v` suffix.
-        Regex::new(r"#\s*(v?\d+(?:\.\d+)*(?:-[\w.-]+)?)").unwrap(),
-        // More flexible: "# version: 2.8.0"
-        Regex::new(r"#\s*(?:version|ver)\s*[:=]\s*(v?\d+(?:\.\d+)*(?:-[\w.-]+)?)").unwrap(),
-    ]
-});
+static_regex!(
+    VERSION_COMMENT_PATTERN,
+    r#"(?x)                             # verbose mode
+    ^                                   # start of string
+    \#                                  # start of comment
+    \s*                                 # optional whitespace
+    (?:                                 # start non-capturing group for version prefix
+      (?:tag|version|ver)\s*[:=]\s*     # version prefix + `:` or `=`
+    )?                                  # end optional non-capturing group
+    (                                   # start capturing group for version
+      \S+                               # one or more non-whitespace characters
+    )                                   # end capturing group for version
+    $                                   # end of string
+    "#
+);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum CommentVersionState<'doc> {
@@ -49,12 +51,10 @@ enum CommentVersionState<'doc> {
 impl RefVersionMismatch {
     fn extract_version_from_comments<'doc>(comments: &'doc [Comment<'doc>]) -> Option<&'doc str> {
         for comment in comments {
-            for pattern in VERSION_COMMENT_PATTERNS.iter() {
-                if let Some(captures) = pattern.captures(comment.as_ref())
-                    && let Some(version_match) = captures.get(1)
-                {
-                    return Some(version_match.as_str());
-                }
+            if let Some(captures) = VERSION_COMMENT_PATTERN.captures(comment.as_ref())
+                && let Some(version_match) = captures.get(1)
+            {
+                return Some(version_match.as_str());
             }
         }
         None
@@ -272,7 +272,7 @@ mod tests {
 
     #[cfg(feature = "gh-token-tests")]
     fn workflow_from_string(workflow_content: &str, path: &str) -> Workflow {
-        let key = InputKey::local("fakegroup".into(), path, None::<&str>);
+        let key = InputKey::local("fakegroup".into(), path, None, None);
         Workflow::from_string(workflow_content.to_string(), key).unwrap()
     }
 
@@ -292,42 +292,48 @@ mod tests {
     }
 
     #[test]
-    fn test_version_comment_patterns() {
+    fn test_version_comment_pattern() {
         let test_cases = vec![
             ("# tag=v2.8.0", Some("v2.8.0")),
             ("# tag=v6-beta", Some("v6-beta")),
             ("# tag=v1.2.3-rc.1", Some("v1.2.3-rc.1")),
+            ("# tag=v1.2.3rc.1", Some("v1.2.3rc.1")),
             ("# tag=v6-beta-2", Some("v6-beta-2")),
             ("# tag=release-2024-01", Some("release-2024-01")),
             ("# v2.8.0", Some("v2.8.0")),
             ("# v6-beta", Some("v6-beta")),
             ("# v1.2.3-rc.1", Some("v1.2.3-rc.1")),
+            ("# v1.2.3rc1", Some("v1.2.3rc1")),
             ("# v6-beta-2", Some("v6-beta-2")),
             ("# v1.0.0-rc-1", Some("v1.0.0-rc-1")),
             ("# v2.0-preview-3", Some("v2.0-preview-3")),
             ("# tag=2.8.0", Some("2.8.0")),
             ("# version: 2.8.0", Some("2.8.0")),
             ("# version: v1.2.3-rc.1", Some("v1.2.3-rc.1")),
+            ("# version: v1.2.3rc.1", Some("v1.2.3rc.1")),
             ("# version: v6-beta-2", Some("v6-beta-2")),
             ("# version: v1.0.0-rc-1", Some("v1.0.0-rc-1")),
             ("# ver=1.0.0", Some("1.0.0")),
             ("# visit the docs", None),
             ("# some other comment", None),
+            ("# zizmor: ignore[ref-version-mismatch]", None),
         ];
 
         for (comment, expected) in test_cases {
             // Test the pattern matching directly
-            let comment_text = comment;
-            let mut found_version = None;
-            for pattern in VERSION_COMMENT_PATTERNS.iter() {
-                if let Some(captures) = pattern.captures(comment_text) {
-                    if let Some(version_match) = captures.get(1) {
-                        found_version = Some(version_match.as_str());
-                        break;
-                    }
+            match (VERSION_COMMENT_PATTERN.captures(comment), expected) {
+                (None, None) => (),
+                (None, Some(expected)) => {
+                    assert!(
+                        false,
+                        "Got no match in '{comment}', but expected {expected}"
+                    )
                 }
+                (Some(caps), None) => {
+                    assert!(false, "Got unexpected match: {caps:?}")
+                }
+                (Some(_), Some(_)) => (),
             }
-            assert_eq!(found_version, expected, "Failed for comment: {}", comment);
         }
     }
 
@@ -343,7 +349,7 @@ runs:
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # some comment
 "#;
 
-        let key = InputKey::local("fakegroup".into(), "action.yml", None::<&str>);
+        let key = InputKey::local("fakegroup".into(), "action.yml", None, None);
         let action = Action::from_string(action_content.to_string(), key).unwrap();
         let step = action.steps().unwrap().next().unwrap();
         let uses_location = step
@@ -370,7 +376,7 @@ runs:
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 "#;
 
-        let key = InputKey::local("fakegroup".into(), "action.yml", None::<&str>);
+        let key = InputKey::local("fakegroup".into(), "action.yml", None, None);
         let action = Action::from_string(action_content.to_string(), key).unwrap();
         let step = action.steps().unwrap().next().unwrap();
 
@@ -735,7 +741,7 @@ jobs:
                     uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v9.9.9
         "#;
 
-        let key = InputKey::local("fakegroup".into(), "test_nonexistent_ref.yml", None::<&str>);
+        let key = InputKey::local("fakegroup".into(), "test_nonexistent_ref.yml", None, None);
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
 
         let state = crate::state::AuditState::new(

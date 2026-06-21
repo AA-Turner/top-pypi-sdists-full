@@ -154,13 +154,41 @@ class SHCSession:
         self._emma = SHCEmma(self._api, self._shc_information, None)
 
     def _long_poll(self, wait_seconds=10):
+        resubscribed = False
         if self._poll_id is None:
             self._poll_id = self.api.long_polling_subscribe()
             logger.debug(f"Subscribed for long poll. Poll id: {self._poll_id}")
+            resubscribed = True
         try:
             raw_results = self.api.long_polling_poll(self._poll_id, wait_seconds)
             for raw_result in raw_results:
                 self._process_long_polling_poll_result(raw_result)
+
+            if resubscribed:
+                # Refresh all device-service states after a poll-id resubscribe
+                # (#183): the SHC invalidates poll IDs roughly every 24 h; any
+                # device state that changed during the gap is not delivered in the
+                # next long-poll response.  Calling device.update() issues a
+                # short-poll (GET /devices/<id>/services/<svc>) for every
+                # registered service so listeners receive current state.  This
+                # runs on the SHCPollingThread — no event-loop involvement.
+                logger.debug(
+                    "Poll-id resubscribed — refreshing %d device(s) via short-poll (#183)",
+                    len(self._devices_by_id),
+                )
+                for device in list(self._devices_by_id.values()):
+                    try:
+                        # fire_callbacks=True so listeners (HA entity closures)
+                        # are notified of any state that changed during the
+                        # poll-id gap (#183).  The ordinary HA poll path calls
+                        # device.update() without this flag and stays quiet.
+                        device.update(fire_callbacks=True)
+                    except Exception as ex:  # noqa: BLE001
+                        logger.warning(
+                            "Short-poll refresh failed for device %s after resubscribe: %s",
+                            device.id,
+                            ex,
+                        )
 
             return True
         except JSONRPCError as json_rpc_error:
@@ -270,15 +298,15 @@ class SHCSession:
                             time.sleep(1.0)
                     except RuntimeError as err:
                         self._stop_polling_thread = True
-                        logger.info(
+                        logger.debug(
                             "Stopping polling thread after expected runtime error."
                         )
-                        logger.info(f"Error description: {err}. {err.args}")
-                        logger.info(f"Attempting unsubscribe...")
+                        logger.debug(f"Error description: {err}. {err.args}")
+                        logger.debug(f"Attempting unsubscribe...")
                         try:
                             self._maybe_unsubscribe()
                         except Exception as ex:
-                            logger.info(f"Unsubscribe not successful: {ex}")
+                            logger.debug(f"Unsubscribe not successful: {ex}")
 
                     except Exception as ex:
                         logger.error(

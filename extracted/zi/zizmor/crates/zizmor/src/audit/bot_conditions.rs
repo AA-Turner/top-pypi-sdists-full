@@ -1,10 +1,10 @@
-use std::{ops::Deref, sync::LazyLock};
+use std::{ops::Deref as _, sync::LazyLock};
 
 use github_actions_expressions::{
     Expr, SpannedExpr,
     call::Call,
     context::{Context, ContextPattern},
-    op::{BinOp, UnOp},
+    op::{BinExpr, BinOp, UnOp},
 };
 use github_actions_models::{
     common::If,
@@ -15,7 +15,7 @@ use super::{Audit, AuditLoadError, AuditState, audit_meta};
 use crate::{
     audit::AuditError,
     finding::{Confidence, Fix, FixDisposition, Severity, location::Locatable as _},
-    models::workflow::{JobCommon, Workflow},
+    models::workflow::{JobCommon as _, Workflow},
     utils::{self, ExtractedExpr},
 };
 use subfeature::Subfeature;
@@ -278,7 +278,7 @@ impl BotConditions {
                 .reduce(|(bc, _), (bc_next, _)| (bc.or(bc_next), false))
                 .unwrap_or((None, dominating)),
             Expr::Index(expr) => Self::walk_tree_for_bot_condition(expr, dominating),
-            Expr::BinOp { lhs, op, rhs } => match op {
+            Expr::BinExpr(BinExpr { lhs, op, rhs }) => match op {
                 // || is dominating.
                 BinOp::Or => {
                     let (bc_lhs, _) = Self::walk_tree_for_bot_condition(lhs, true);
@@ -323,7 +323,7 @@ impl BotConditions {
                     (bc_lhs.or(bc_rhs), false)
                 }
             },
-            Expr::UnOp { op, expr } => match op {
+            Expr::UnExpr { op, expr } => match op {
                 // We don't really know what we're negating, so naively
                 // assume we're non-dominating.
                 //
@@ -421,7 +421,7 @@ mod tests {
     /// Macro for testing workflow audits with common boilerplate
     macro_rules! test_workflow_audit {
         ($audit_type:ty, $filename:expr, $workflow_content:expr, $test_fn:expr) => {{
-            let key = InputKey::local("fakegroup".into(), $filename, None::<&str>);
+            let key = InputKey::local("fakegroup".into(), $filename, None, None);
             let workflow = Workflow::from_string($workflow_content.to_string(), key).unwrap();
             let audit_state = AuditState::default();
             let audit = <$audit_type>::new(&audit_state).unwrap();

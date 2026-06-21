@@ -1,0 +1,40 @@
+[package]
+name = "tombi-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+description = "TOML Formatter/Linter CLI Tool."
+repository.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[[bin]]
+name = "tombi"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+clap_complete = "4.5.58"
+env_logger.workspace = true
+itertools.workspace = true
+log.workspace = true
+nu-ansi-term.workspace = true
+serde_tombi.workspace = true
+similar = { workspace = true, features = ["inline"] }
+thiserror.workspace = true
+tokio.workspace = true
+tombi-cache.workspace = true
+tombi-cli-options.workspace = true
+tombi-config.workspace = true
+tombi-diagnostic.workspace = true
+tombi-formatter.workspace = true
+tombi-glob.workspace = true
+tombi-linter.workspace = true
+tombi-lsp = { workspace = true, features = ["clap", "native"] }
+tombi-schema-store = { workspace = true, features = ["native"] }
+
+[build-dependencies]
+tombi-regex.workspace = true
+
+[lints]
+workspace = true

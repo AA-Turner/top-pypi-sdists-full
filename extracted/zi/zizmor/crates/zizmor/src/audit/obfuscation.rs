@@ -8,7 +8,7 @@ use crate::{
     config::Config,
     finding::{
         Finding, Fix, FixDisposition, Persona,
-        location::{Feature, Location, Routable},
+        location::{Feature, Location, Routable as _},
     },
     models::{StepCommon, action::CompositeStep, workflow::Step},
     utils::parse_fenced_expressions_from_routable,
@@ -349,7 +349,7 @@ mod tests {
 
     /// Helper function to apply a fix and return the result for snapshot testing
     async fn apply_fix_for_snapshot(workflow_content: &str, _audit_name: &str) -> String {
-        let key = InputKey::local("dummy".into(), "test.yml", None::<&str>);
+        let key = InputKey::local("dummy".into(), "test.yml", None, None);
         let workflow =
             AuditInput::from(Workflow::from_string(workflow_content.to_string(), key).unwrap());
         let audit_state = AuditState {

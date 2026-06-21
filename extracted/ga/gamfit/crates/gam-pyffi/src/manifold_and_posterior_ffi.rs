@@ -1808,6 +1808,91 @@ fn cross_fit_shared_precision_groups_json_impl(request_json: &str) -> Result<Str
         .map_err(|err| format!("failed to serialize shared precision result: {err}"))
 }
 
+/// Collect every column that the frozen spec treats as a CATEGORICAL FACTOR,
+/// together with the exact bit patterns of its frozen levels.
+///
+/// A factor-smooth design (`fs`/`re` → `FactorSumToZero`/`FactorSmooth`, a
+/// factor `by=` → `ByVariable`/`BySmooth`, or a categorical tensor margin) gates
+/// its per-level blocks on `value.to_bits() == level_bits` against the saved
+/// levels: a column value that is not bit-identical to a frozen level matches no
+/// block. The summary's representative data (axis-spanning midpoints) therefore
+/// fabricates illegal factor values, and rebuilding the factor design on it
+/// fails — which is why `summary().smooth_terms` came back empty for ANY model
+/// containing a factor-smooth, dragging co-fitted `s(x)` rows down with it
+/// (#1370). Returning the real frozen levels here lets the caller place valid,
+/// bit-exact levels in those columns so the design rebuilds.
+///
+/// The map is `col -> sorted, de-duplicated level bit patterns`. Only columns
+/// with at least one known frozen level are reported; numeric axes are absent.
+fn frozen_factor_levels_by_col(
+    spec: &gam::terms::smooth::TermCollectionSpec,
+) -> std::collections::BTreeMap<usize, Vec<u64>> {
+    use gam::terms::smooth::{ByVarKind, ByVariableSpec, SmoothBasisSpec};
+
+    let mut levels: std::collections::BTreeMap<usize, std::collections::BTreeSet<u64>> =
+        std::collections::BTreeMap::new();
+    let mut record = |col: usize, bits: &[u64]| {
+        if bits.is_empty() {
+            return;
+        }
+        levels.entry(col).or_default().extend(bits.iter().copied());
+    };
+
+    // Walk the (possibly nested) basis, accumulating factor columns. The DSL
+    // wraps the geometric core in `ByVariable`/`FactorSumToZero`/`BySmooth`
+    // envelopes, so recurse through them exactly like `smooth_basis_feature_cols`.
+    fn walk(
+        basis: &SmoothBasisSpec,
+        record: &mut dyn FnMut(usize, &[u64]),
+    ) {
+        match basis {
+            SmoothBasisSpec::FactorSumToZero {
+                inner,
+                by_col,
+                levels,
+                ..
+            } => {
+                record(*by_col, levels);
+                walk(inner, record);
+            }
+            SmoothBasisSpec::ByVariable {
+                inner, by_col, by, ..
+            } => {
+                if let ByVariableSpec::Level { value_bits, .. } = by {
+                    record(*by_col, &[*value_bits]);
+                }
+                walk(inner, record);
+            }
+            SmoothBasisSpec::BySmooth { smooth, by_kind } => {
+                if let ByVarKind::Factor {
+                    feature_col,
+                    frozen_levels: Some(frozen),
+                    ..
+                } = by_kind
+                {
+                    record(*feature_col, frozen);
+                }
+                walk(smooth, record);
+            }
+            SmoothBasisSpec::FactorSmooth { spec } => {
+                if let Some(frozen) = &spec.group_frozen_levels {
+                    record(spec.group_col, frozen);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for term in &spec.smooth_terms {
+        walk(&term.basis, &mut record);
+    }
+
+    levels
+        .into_iter()
+        .map(|(col, set)| (col, set.into_iter().collect()))
+        .collect()
+}
+
 /// Synthesize a small representative data matrix from saved per-axis training
 /// ranges, used only to rebuild the design *structure* (per-term coefficient
 /// ranges, nullspace dimensions, penalty counts) for the summary smooth-term
@@ -1815,19 +1900,47 @@ fn cross_fit_shared_precision_groups_json_impl(request_json: &str) -> Result<Str
 /// `resolved_termspec`, not by the data values, so axis-spanning midpoints
 /// reproduce the training-time block layout deterministically while remaining
 /// inside the training bounding box (no extrapolation artefacts).
-fn representative_data_from_ranges(ranges: &[(f64, f64)]) -> Array2<f64> {
-    const REP_ROWS: usize = 16;
+///
+/// Columns named in `factor_levels` are categorical factors (a `by=` factor or a
+/// factor-smooth group): their values must be bit-identical to a frozen level or
+/// the design rebuild fails (#1370). Those columns are filled by cycling through
+/// the exact frozen level bit patterns instead of axis midpoints, so every level
+/// (hence every per-level deviation block) is present at least once and the
+/// `fs`/`sz` design rebuilds cleanly. The row count grows to cover the widest
+/// factor so no level is dropped.
+fn representative_data_from_ranges(
+    ranges: &[(f64, f64)],
+    factor_levels: &std::collections::BTreeMap<usize, Vec<u64>>,
+) -> Array2<f64> {
+    const REP_ROWS_MIN: usize = 16;
+    // Enough rows that the widest factor has every level represented.
+    let max_levels = factor_levels
+        .values()
+        .map(|lv| lv.len())
+        .max()
+        .unwrap_or(0);
+    let rep_rows = REP_ROWS_MIN.max(max_levels).max(1);
     let n_cols = ranges.len();
-    let mut data = Array2::<f64>::zeros((REP_ROWS, n_cols));
+    let mut data = Array2::<f64>::zeros((rep_rows, n_cols));
     for (col, &(lo, hi)) in ranges.iter().enumerate() {
+        if let Some(lv) = factor_levels.get(&col) {
+            // Categorical column: cycle through the frozen level bit patterns so
+            // every level appears and each value is a valid, bit-exact level.
+            if !lv.is_empty() {
+                for row in 0..rep_rows {
+                    data[[row, col]] = f64::from_bits(lv[row % lv.len()]);
+                }
+                continue;
+            }
+        }
         let (lo, hi) = if lo.is_finite() && hi.is_finite() && hi >= lo {
             (lo, hi)
         } else {
             (0.0, 1.0)
         };
-        for row in 0..REP_ROWS {
-            let frac = if REP_ROWS > 1 {
-                row as f64 / (REP_ROWS - 1) as f64
+        for row in 0..rep_rows {
+            let frac = if rep_rows > 1 {
+                row as f64 / (rep_rows - 1) as f64
             } else {
                 0.5
             };
@@ -1871,7 +1984,13 @@ fn summary_smooth_terms(
     if ranges.len() != headers.len() {
         return Vec::new();
     }
-    let data = representative_data_from_ranges(ranges);
+    // Categorical columns (factor-smooth groups / factor `by=`) must carry valid
+    // frozen levels or the design rebuild fails — and that failure was being
+    // swallowed to an EMPTY table for the whole model, erasing co-fitted `s(x)`
+    // rows too (#1370). Synthesize the representative data with the real frozen
+    // levels in those columns so `fs`/`sz` designs replay cleanly.
+    let factor_levels = frozen_factor_levels_by_col(spec);
+    let data = representative_data_from_ranges(ranges, &factor_levels);
     let Ok(design) = gam::terms::smooth::build_term_collection_design(data.view(), spec) else {
         return Vec::new();
     };
@@ -1900,8 +2019,27 @@ fn summary_smooth_terms(
     };
 
     let mut out = Vec::<SummarySmoothTermRow>::new();
-    let mut penalty_cursor = 0usize;
-    for (name, range) in &design.random_effect_ranges {
+    // The fit's GLOBAL penalty layout (and thus `penalty_block_trace`) opens with a
+    // single shared `LinearTermRidge` block IFF any linear term has
+    // `double_penalty=true` (`design_construction.rs`). Random-effect and smooth
+    // penalty blocks follow it. Seeding `penalty_cursor` at 0 ignored that leading
+    // block, sliding every per-term trace window off by one whenever a penalized
+    // linear term was present; on this persisted / column-conditioned path `F` is
+    // nulled, so `per_term_edf` falls back to the `penalty_block_trace` window and
+    // the off-by-one corrupts every per-term EDF (#1372). Start the cursor PAST any
+    // leading `LinearTermRidge` block by counting it in the recorded global ordering
+    // rather than re-deriving it.
+    let mut penalty_cursor = design
+        .penaltyinfo
+        .iter()
+        .filter(|info| {
+            matches!(
+                &info.penalty.source,
+                gam::basis::PenaltySource::Other(s) if s == "LinearTermRidge"
+            )
+        })
+        .count();
+    for (re_idx, (name, range)) in design.random_effect_ranges.iter().enumerate() {
         // Per-term EDF as the influence-matrix trace over the term's coefficient
         // block (#1219, #1277) — never the legacy per-block-EDF sum, which
         // double-counts shared coefficients and can exceed the model total.
@@ -1917,6 +2055,16 @@ fn summary_smooth_terms(
             p_value: None,
         });
     }
+    // `SmoothTerm::coeff_range` is block-local; the global coefficient layout is
+    // [intercept | linear | random | smooth], so each block must be shifted by
+    // `smooth_start` before indexing the global `fit.beta` / covariance /
+    // influence matrix. The rebuilt design replays the frozen basis, so its
+    // column counts and `smooth_start` match the trained fit exactly; only this
+    // offset (omitted in the #1360 defect) was missing.
+    let smooth_start = design
+        .design
+        .ncols()
+        .saturating_sub(design.smooth.total_smooth_cols());
     for term in &design.smooth.terms {
         let k = term.penalties_local.len();
         // Per-term EDF as the influence-matrix trace over the term's coefficient
@@ -1926,7 +2074,9 @@ fn summary_smooth_terms(
         // double-counts and reports a per-term EDF exceeding the model total and
         // the design column count (#1219 fixed the in-process summary; #1277 is
         // this persisted-model path the Python API reads via `summary()`).
-        let edf = fit.per_term_edf(term.coeff_range.clone(), penalty_cursor, k);
+        let global_range =
+            (smooth_start + term.coeff_range.start)..(smooth_start + term.coeff_range.end);
+        let edf = fit.per_term_edf(global_range.clone(), penalty_cursor, k);
         penalty_cursor += k;
         let smooth_test = if term.shape == ShapeConstraint::None {
             cov_forwald.and_then(|cov| {
@@ -1936,9 +2086,9 @@ fn summary_smooth_terms(
                     beta: fit.beta.view(),
                     covariance: cov,
                     influence_matrix: fit.coefficient_influence(),
-                    coeff_range: term.coeff_range.clone(),
+                    coeff_range: global_range.clone(),
                     edf,
-                    nullspace_dim: term.nullspace_dims.iter().copied().sum::<usize>(),
+                    nullspace_dim: term.wald_unpenalized_dim(),
                     residual_df,
                     scale,
                 })
@@ -2090,6 +2240,9 @@ fn scan_summary_payload(model: &FittedModel, scan: &ScanIntrospection) -> Summar
         group_metadata: model.payload().group_metadata.clone(),
         deployment_extensions: model.payload().deployment_extensions.clone(),
         deviance: scan.deviance,
+        // Scan-routed models do not retain the λ-comparable log-likelihood, so
+        // leave `log_likelihood` unset.
+        log_likelihood: None,
         // null_dim is left unset: the scan does not compute the penalized-Hessian
         // null-space logdet the TK normalizer needs, so `comparable_reml_score`
         // returns the raw cost unchanged (and `evidence()` stays well-defined).
@@ -2154,6 +2307,7 @@ fn summary_json_impl(model_bytes: &[u8]) -> Result<String, String> {
         group_metadata: model.payload().group_metadata.clone(),
         deployment_extensions: model.payload().deployment_extensions.clone(),
         deviance: fit.deviance,
+        log_likelihood: Some(fit.log_likelihood),
         reml_score,
         raw_reml_score,
         null_space_logdet: fit.artifacts.null_space_logdet,
@@ -3963,7 +4117,15 @@ fn project_frame_to_model_columns(
     // the canonical width validation in `string_records_from_rows` instead of
     // risking an out-of-bounds projection here.
     let width_consistent = rows.iter().all(|row| row.len() == headers.len());
-    if keep.len() == headers.len() || !width_consistent {
+    // Never collapse the frame to zero columns: a covariate-free model
+    // (`y ~ 1`) consumes none of the held-out frame's columns, but the frame
+    // still carries the one thing prediction needs — its row count. Dropping
+    // every column hands `string_records_from_rows` an empty table and aborts
+    // with "table must have at least one column" on a perfectly valid frame
+    // (#1316). Keeping the frame verbatim is safe because every downstream
+    // consumer resolves columns by name and an intercept-only model references
+    // none of them.
+    if keep.is_empty() || keep.len() == headers.len() || !width_consistent {
         return Ok((headers.to_vec(), rows.to_vec()));
     }
     let filtered_headers = keep.iter().map(|&i| headers[i].clone()).collect::<Vec<_>>();
@@ -4001,7 +4163,15 @@ fn string_records_from_rows(
                     headers.len()
                 ));
             }
-            Ok(StringRecord::from(row.clone()))
+            // A typed Python frame marks categorical-dtype cells with a leading
+            // sentinel (forces factor inference at fit time, #1317/#1318). The
+            // saved schema stores clean level labels, so strip the marker here
+            // before the schema-guided encode matches a cell against a level.
+            let cleaned: Vec<&str> = row
+                .iter()
+                .map(|cell| gam::inference::data::strip_categorical_sentinel(cell).0)
+                .collect();
+            Ok(StringRecord::from(cleaned))
         })
         .collect()
 }
@@ -4141,6 +4311,7 @@ fn duchon_basis_1d_impl(
     let data = column_array(t);
     let center_matrix = column_array(centers);
     let spec = DuchonBasisSpec {
+        radial_reparam: None,
         center_strategy: CenterStrategy::UserProvided(center_matrix),
         periodic: None,
         length_scale: None,
@@ -4884,14 +5055,15 @@ fn pyffi_duchon_kernel_constraint_nullspace(
     .map_err(|err| format!("failed to build Duchon kernel constraint nullspace: {err}"))
 }
 
-/// Parse the optional ``nullspace_order`` keyword on the primitive Duchon
-/// bindings. ``None`` falls back to the legacy default derived from ``m``
-/// (so existing call sites stay bit-identical). Accepted strings:
+/// Parse the ``nullspace_order`` keyword on the primitive Duchon bindings.
+/// Accepted strings:
 /// ``"zero"`` (constant nullspace), ``"linear"`` (constant + linear),
 /// or ``"degree<k>"`` for k ≥ 2 (polynomials of total degree ≤ k).
-fn parse_nullspace_order(raw: Option<&str>, m: usize) -> PyResult<DuchonNullspaceOrder> {
+fn parse_nullspace_order(raw: Option<&str>) -> PyResult<DuchonNullspaceOrder> {
     let Some(raw) = raw else {
-        return Ok(duchon_nullspace_from_m(m));
+        return Err(py_value_error(
+            "nullspace_order is required; pass 'zero', 'linear', or 'degree<k>'".to_string(),
+        ));
     };
     let trimmed = raw.trim();
     let lower = trimmed.to_ascii_lowercase();
@@ -4951,13 +5123,12 @@ struct DuchonHybridConfig {
 ///   triplet.
 fn resolve_duchon_hybrid_config(
     dim: usize,
-    m: usize,
     length_scale: Option<f64>,
     nullspace_order: Option<&str>,
     explicit_power: Option<f64>,
     max_op: usize,
 ) -> PyResult<DuchonHybridConfig> {
-    let requested_nullspace = parse_nullspace_order(nullspace_order, m)?;
+    let requested_nullspace = parse_nullspace_order(nullspace_order)?;
     let (resolved_nullspace, auto_power) =
         resolve_duchon_orders(dim, requested_nullspace, max_op, length_scale);
     let power = explicit_power.unwrap_or(auto_power as f64);

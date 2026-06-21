@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -16,11 +18,22 @@ from jsii._type_checking import check_type
 
 from .._jsii import *
 
-from .. import (
-    Component as _Component_2b0ad27f,
-    Project as _Project_57d89203,
-    YamlFile as _YamlFile_909731b0,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import projen as _projen_04054675
+else:
+
+    _projen_04054675 = _LazyImport("projen")
 
 
 @jsii.enum(jsii_type="projen.gitlab.Action")
@@ -548,7 +561,7 @@ class CacheWhen(enum.Enum):
 
 
 class CiConfiguration(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.gitlab.CiConfiguration",
 ):
@@ -562,7 +575,7 @@ class CiConfiguration(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         name: builtins.str,
         *,
         default: typing.Optional[typing.Union["Default", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -738,12 +751,12 @@ class CiConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_YamlFile_909731b0":
+    def file(self) -> "_projen_04054675.YamlFile":
         '''(experimental) The workflow YAML file.
 
         :stability: experimental
         '''
-        return typing.cast("_YamlFile_909731b0", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.YamlFile", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="jobs")
@@ -1737,7 +1750,7 @@ class GitlabConfiguration(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         default: typing.Optional[typing.Union["Default", typing.Dict[builtins.str, typing.Any]]] = None,
         jobs: typing.Optional[typing.Mapping[builtins.str, typing.Union["Job", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3160,7 +3173,7 @@ class NestedConfiguration(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         parent: "GitlabConfiguration",
         name: builtins.str,
         *,
@@ -4642,7 +4655,7 @@ def _typecheckingstub__e8fa76bc1e2253fd95df81fb7b93982051b240cea93ead52d9d95535e
     pass
 
 def _typecheckingstub__231c30bc513f8e09e345dd63392e7c50f479df9f480fc36e03e88fc4a5e8cd68(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     name: builtins.str,
     *,
     default: typing.Optional[typing.Union[Default, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4770,7 +4783,7 @@ def _typecheckingstub__db895e6728876de5be75625df8be94a8c86846327b2443ff1fd7c8c09
     pass
 
 def _typecheckingstub__9b7c22b752837d5c419877611c3664caa886539ab5209465bbfe27372b51e714(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     default: typing.Optional[typing.Union[Default, typing.Dict[builtins.str, typing.Any]]] = None,
     jobs: typing.Optional[typing.Mapping[builtins.str, typing.Union[Job, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4906,7 +4919,7 @@ def _typecheckingstub__c62a8b5d59de20d0811a6eb2ae8ef5a38099d2a9da0ebfd9c9ce8d140
     pass
 
 def _typecheckingstub__23d7f1d8d243fb7e275a0eeba3f1419822bf2c274e47641e553a5675c002a437(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     parent: GitlabConfiguration,
     name: builtins.str,
     *,

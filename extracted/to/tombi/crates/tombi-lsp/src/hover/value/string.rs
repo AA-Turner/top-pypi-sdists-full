@@ -1,0 +1,312 @@
+use tombi_comment_directive::value::{StringCommonFormatRules, StringCommonLintRules};
+use tombi_schema_store::{Accessor, CurrentSchema, StringSchema, ValueSchema};
+use tombi_x_keyword::StringFormat;
+
+use crate::{
+    HoverContent,
+    comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
+    hover::{
+        GetHoverContent, HoverValueContent,
+        all_of::get_all_of_hover_content,
+        any_of::get_any_of_hover_content,
+        comment::get_value_comment_directive_hover_content,
+        constraints::{ValueConstraints, build_enum_values},
+        display_value::DisplayValue,
+        merge_adjacent_hover_content,
+        one_of::get_one_of_hover_content,
+    },
+};
+use tombi_future::Boxable;
+
+impl GetHoverContent for tombi_document_tree::String {
+    fn get_hover_content<'a: 'b, 'b>(
+        &'a self,
+        position: tombi_text::Position,
+        keys: &'a [tombi_document_tree::Key],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        schema_context: &'a tombi_schema_store::SchemaContext,
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>> {
+        async move {
+            if let Some((comment_directive_context, schema_uri)) =
+                get_key_table_value_comment_directive_content_and_schema_uri::<
+                    StringCommonFormatRules,
+                    StringCommonLintRules,
+                >(self.comment_directives(), position, accessors)
+                && let Some(hover_content) =
+                    get_value_comment_directive_hover_content(comment_directive_context, schema_uri)
+                        .await
+            {
+                return Some(hover_content);
+            }
+
+            if let Some(current_schema) = current_schema {
+                match current_schema.value_schema.as_ref() {
+                    ValueSchema::String(string_schema) => {
+                        if let Some(r#enum) = &string_schema.r#enum
+                            && !r#enum.iter().any(|x| x == self.value())
+                        {
+                            return None;
+                        }
+
+                        let mut hover_content = string_schema
+                            .get_hover_content(
+                                position,
+                                keys,
+                                accessors,
+                                Some(current_schema),
+                                schema_context,
+                            )
+                            .await;
+
+                        if let Some(HoverContent::Value(hover_value_content)) =
+                            hover_content.as_mut()
+                        {
+                            hover_value_content.range = Some(self.range());
+                        }
+
+                        merge_adjacent_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            Some(current_schema),
+                            schema_context,
+                            hover_content,
+                            string_schema.one_of.as_deref(),
+                            string_schema.any_of.as_deref(),
+                            string_schema.all_of.as_deref(),
+                        )
+                        .await
+                    }
+                    ValueSchema::OffsetDateTime(offset_date_time_schema)
+                        if schema_context.has_string_format(StringFormat::DateTime) =>
+                    {
+                        let mut hover_content = offset_date_time_schema
+                            .get_hover_content(
+                                position,
+                                keys,
+                                accessors,
+                                Some(current_schema),
+                                schema_context,
+                            )
+                            .await;
+
+                        if let Some(HoverContent::Value(hover_value_content)) =
+                            hover_content.as_mut()
+                        {
+                            hover_value_content.range = Some(self.range());
+                        }
+
+                        merge_adjacent_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            Some(current_schema),
+                            schema_context,
+                            hover_content,
+                            offset_date_time_schema.one_of.as_deref(),
+                            offset_date_time_schema.any_of.as_deref(),
+                            offset_date_time_schema.all_of.as_deref(),
+                        )
+                        .await
+                    }
+                    ValueSchema::LocalDateTime(local_date_time_schema)
+                        if schema_context.has_string_format(StringFormat::DateTimeLocal) =>
+                    {
+                        let mut hover_content = local_date_time_schema
+                            .get_hover_content(
+                                position,
+                                keys,
+                                accessors,
+                                Some(current_schema),
+                                schema_context,
+                            )
+                            .await;
+
+                        if let Some(HoverContent::Value(hover_value_content)) =
+                            hover_content.as_mut()
+                        {
+                            hover_value_content.range = Some(self.range());
+                        }
+
+                        merge_adjacent_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            Some(current_schema),
+                            schema_context,
+                            hover_content,
+                            local_date_time_schema.one_of.as_deref(),
+                            local_date_time_schema.any_of.as_deref(),
+                            local_date_time_schema.all_of.as_deref(),
+                        )
+                        .await
+                    }
+                    ValueSchema::LocalDate(local_date_schema)
+                        if schema_context.has_string_format(StringFormat::Date) =>
+                    {
+                        let mut hover_content = local_date_schema
+                            .get_hover_content(
+                                position,
+                                keys,
+                                accessors,
+                                Some(current_schema),
+                                schema_context,
+                            )
+                            .await;
+
+                        if let Some(HoverContent::Value(hover_value_content)) =
+                            hover_content.as_mut()
+                        {
+                            hover_value_content.range = Some(self.range());
+                        }
+
+                        merge_adjacent_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            Some(current_schema),
+                            schema_context,
+                            hover_content,
+                            local_date_schema.one_of.as_deref(),
+                            local_date_schema.any_of.as_deref(),
+                            local_date_schema.all_of.as_deref(),
+                        )
+                        .await
+                    }
+                    ValueSchema::LocalTime(local_time_schema)
+                        if schema_context.has_string_format(StringFormat::TimeLocal) =>
+                    {
+                        let mut hover_content = local_time_schema
+                            .get_hover_content(
+                                position,
+                                keys,
+                                accessors,
+                                Some(current_schema),
+                                schema_context,
+                            )
+                            .await;
+
+                        if let Some(HoverContent::Value(hover_value_content)) =
+                            hover_content.as_mut()
+                        {
+                            hover_value_content.range = Some(self.range());
+                        }
+
+                        merge_adjacent_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            Some(current_schema),
+                            schema_context,
+                            hover_content,
+                            local_time_schema.one_of.as_deref(),
+                            local_time_schema.any_of.as_deref(),
+                            local_time_schema.all_of.as_deref(),
+                        )
+                        .await
+                    }
+                    ValueSchema::OneOf(one_of_schema) => {
+                        get_one_of_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            one_of_schema,
+                            &current_schema.schema_uri,
+                            &current_schema.definitions,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    ValueSchema::AnyOf(any_of_schema) => {
+                        get_any_of_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            any_of_schema,
+                            &current_schema.schema_uri,
+                            &current_schema.definitions,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    ValueSchema::AllOf(all_of_schema) => {
+                        get_all_of_hover_content(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            all_of_schema,
+                            &current_schema.schema_uri,
+                            &current_schema.definitions,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    _ => None,
+                }
+            } else {
+                Some(HoverContent::Value(HoverValueContent {
+                    title: None,
+                    description: None,
+                    accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
+                    value_type: tombi_schema_store::ValueType::String,
+                    constraints: None,
+                    schema_uri: None,
+                    range: Some(self.range()),
+                }))
+            }
+        }
+        .boxed()
+    }
+}
+
+impl GetHoverContent for StringSchema {
+    fn get_hover_content<'a: 'b, 'b>(
+        &'a self,
+        _position: tombi_text::Position,
+        _keys: &'a [tombi_document_tree::Key],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        _schema_context: &'a tombi_schema_store::SchemaContext,
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>> {
+        async move {
+            Some(HoverContent::Value(HoverValueContent {
+                title: self.title.clone(),
+                description: self.description.clone(),
+                accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
+                value_type: tombi_schema_store::ValueType::String,
+                constraints: Some(ValueConstraints {
+                    r#enum: build_enum_values(&self.const_value, &self.r#enum, |value| {
+                        Some(DisplayValue::String(value.clone()))
+                    }),
+                    default: self
+                        .default
+                        .as_ref()
+                        .map(|value| DisplayValue::String(value.clone())),
+                    examples: self.examples.as_ref().map(|examples| {
+                        examples
+                            .iter()
+                            .map(|example| DisplayValue::String(example.clone()))
+                            .collect()
+                    }),
+                    min_length: self.min_length,
+                    max_length: self.max_length,
+                    format: self.format,
+                    pattern: self.pattern.clone(),
+                    ..Default::default()
+                }),
+                schema_uri: current_schema.map(|schema| schema.schema_uri.as_ref().clone()),
+                range: None,
+            }))
+        }
+        .boxed()
+    }
+}

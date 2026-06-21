@@ -61,7 +61,6 @@ reqwest = { workspace = true, features = ["json", "query", "rustls"] }
 reqwest-middleware = { workspace = true, features = ["query"] }
 schemars = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
-serde-sarif.workspace = true
 serde_json.workspace = true
 yaml_serde.workspace = true
 subfeature.workspace = true
@@ -76,8 +75,10 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tree-sitter.workspace = true
 tree-sitter-bash.workspace = true
 tree-sitter-powershell.workspace = true
+typomania.workspace = true
 yamlpath.workspace = true
 yamlpatch.workspace = true
+zizmor-sarif.workspace = true
 
 [target.'cfg(not(any(target_family = "windows", target_os = "openbsd")))'.dependencies]
 tikv-jemallocator.workspace = true
@@ -89,4 +90,4 @@ fst.workspace = true
 [dev-dependencies]
 assert_cmd.workspace = true
 insta.workspace = true
-serde_json_path.workspace = true
+tempfile.workspace = true

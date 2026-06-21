@@ -644,29 +644,6 @@ impl ExactGaussianFullConformal {
             boundary_margin,
         }
     }
-
-    /// Collapse the exact set to the single outer `[lower, upper]` envelope an
-    /// interval-style predict surface reports. The exact set is a UNION of
-    /// intervals; the smallest interval that contains it is `[min lo, max hi]`,
-    /// and that envelope inherits the set's coverage (it is a superset). When
-    /// the set is empty (no candidate qualifies — pathological tiny α·(n+1))
-    /// the envelope collapses to the point prediction `mu_point`, the only
-    /// honest scalar answer. Infinite endpoints are passed through unchanged:
-    /// an unbounded honest set reports an unbounded interval, exactly as the
-    /// split path reports `±∞` when its multiplier is infinite.
-    pub fn outer_envelope(&self, alpha: f64, mu_point: f64) -> (f64, f64) {
-        let set = self.prediction_set(alpha);
-        if set.intervals.is_empty() {
-            return (mu_point, mu_point);
-        }
-        let mut lo = f64::INFINITY;
-        let mut hi = f64::NEG_INFINITY;
-        for itv in &set.intervals {
-            lo = lo.min(itv.lo);
-            hi = hi.max(itv.hi);
-        }
-        (lo, hi)
-    }
 }
 
 /// The symmetric augmented fitting map the discrete enumeration arm walks.
@@ -1905,7 +1882,6 @@ impl<'a> GlmHomotopyFullConformal<'a> {
                 .cholesky(Side::Lower)
                 .map_err(|e| format!("glm homotopy: augmented Hessian not SPD at z={z}: {e:?}"))?;
             let step = chol.solvevec(&g);
-            let step_norm = vec_norm(&step);
             if self.kkt_converged(&beta, z, GLM_CONVERGENCE_RTOL) {
                 converged = true;
                 break;
@@ -1935,7 +1911,6 @@ impl<'a> GlmHomotopyFullConformal<'a> {
                 // stationary. Stop iterating and let the certified error bound
                 // below decide acceptance (rather than rejecting on an
                 // un-improvable gradient floor).
-                let _ = step_norm;
                 break;
             }
         }

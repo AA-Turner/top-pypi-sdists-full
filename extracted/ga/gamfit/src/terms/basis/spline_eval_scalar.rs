@@ -558,23 +558,15 @@ pub fn evaluate_ispline_scalarwith_scratch(
         let left_local = &mut scratch.left_local[..support];
         left_local.fill(0.0);
         scratch.left_inner.ensure_degree(bs_degree);
-        let left_start = internal::evaluate_splines_sparse_into(
+        let left_offsets = &mut scratch.left_offsets[..num_bspline_basis];
+        internal::cumulative_bspline_offsets_into(
             left,
             bs_degree,
             knot_vector,
             left_local,
             &mut scratch.left_inner,
+            left_offsets,
         );
-        let left_offsets = &mut scratch.left_offsets[..num_bspline_basis];
-        let mut left_running = 0.0_f64;
-        for offset in (0..support).rev() {
-            let j = left_start + offset;
-            if j >= num_bspline_basis {
-                continue;
-            }
-            left_running += left_local[offset];
-            left_offsets[j] = left_running;
-        }
         for j in 1..num_bspline_basis {
             let value = 1.0 - left_offsets[j];
             out[j - 1] = if value.abs() <= 1e-15 { 0.0 } else { value };
@@ -631,23 +623,15 @@ pub fn evaluate_ispline_scalarwith_scratch(
     let left_local = &mut scratch.left_local[..support];
     left_local.fill(0.0);
     scratch.left_inner.ensure_degree(bs_degree);
-    let left_start = internal::evaluate_splines_sparse_into(
+    let left_offsets = &mut scratch.left_offsets[..num_bspline_basis];
+    internal::cumulative_bspline_offsets_into(
         left,
         bs_degree,
         knot_vector,
         left_local,
         &mut scratch.left_inner,
+        left_offsets,
     );
-    let left_offsets = &mut scratch.left_offsets[..num_bspline_basis];
-    let mut left_running = 0.0_f64;
-    for offset in (0..support).rev() {
-        let j = left_start + offset;
-        if j >= num_bspline_basis {
-            continue;
-        }
-        left_running += left_local[offset];
-        left_offsets[j] = left_running;
-    }
     for j in 1..num_bspline_basis {
         let out_idx = j - 1;
         out[out_idx] -= left_offsets[j];
@@ -849,16 +833,26 @@ pub fn evaluate_bspline_derivative_scalar_into(
         *v = 0.0;
     }
 
-    let x_eval = one_sided_derivative_eval_point(
-        periodic_unclamped_derivative_eval_point(x, knot_vector, degree),
-        knot_vector,
-        degree,
-    );
+    // Non-periodic (open/clamped) B-spline derivative, kept consistent with the
+    // value basis so it equals a finite difference of the value (gam#1348). The
+    // exterior boundary treatment follows the value basis and depends on the knot
+    // geometry: an *open* knot vector holds the value constant outside the
+    // modeling interval, so its exterior derivative is zero; a *clamped* knot
+    // vector extends the value linearly, so its exterior derivative is the nonzero
+    // boundary slope obtained by evaluating at the clamped endpoint. Handle the
+    // open-knot exterior explicitly; otherwise clamp to the interval and evaluate
+    // (interior points are unchanged; clamped exterior points get the boundary
+    // slope). The eval point must NOT be wrapped modulo a period for an open basis
+    // — a periodic wrap moved a boundary-span point onto unrelated interior
+    // columns; genuinely cyclic bases pre-wrap their input upstream.
+    if open_knot_derivative_exterior_is_zero(x, knot_vector, degree) {
+        out.fill(0.0);
+        return Ok(());
+    }
+    let x_clamped = clamp_eval_point_to_modeling_interval(x, knot_vector, degree);
+    let x_eval = one_sided_derivative_eval_point(x_clamped, knot_vector, degree);
 
     // Evaluate lower-degree (k-1) basis functions on the full knot support.
-    // Cyclic fold-back constructs intentionally use the exterior support spans
-    // of a uniform knot vector; clamping here collapses `x + period` onto the
-    // right modeling boundary and breaks derivative periodicity.
     internal::evaluate_splines_at_point_full_support_into(
         x_eval,
         degree - 1,
@@ -892,6 +886,18 @@ pub fn evaluate_bspline_derivative_scalar_into(
     Ok(())
 }
 
+/// Per-basis M-spline normalization scales `(degree + 1) / (t_{i+d+1} - t_i)`.
+///
+/// The M-spline is the B-spline rescaled so each basis integrates to one over
+/// its support; this factor is the shared normalization used by both the dense
+/// and sparse builders.
+fn mspline_scales(knot_vector: ArrayView1<f64>, degree: usize, num_basis: usize) -> Vec<f64> {
+    let order = (degree + 1) as f64;
+    (0..num_basis)
+        .map(|i| order / (knot_vector[i + degree + 1] - knot_vector[i]))
+        .collect()
+}
+
 pub(crate) fn create_mspline_dense(
     data: ArrayView1<f64>,
     knot_vector: ArrayView1<f64>,
@@ -906,12 +912,7 @@ pub(crate) fn create_mspline_dense(
     let mut local = vec![0.0; support];
     let left = knot_vector[degree];
     let right = knot_vector[num_basis];
-    let order = (degree + 1) as f64;
-    let mut scales = vec![0.0; num_basis];
-    for i in 0..num_basis {
-        let span = knot_vector[i + degree + 1] - knot_vector[i];
-        scales[i] = order / span;
-    }
+    let scales = mspline_scales(knot_vector, degree, num_basis);
 
     for (row_i, &x) in data.iter().enumerate() {
         if x < left || x > right {
@@ -948,12 +949,7 @@ pub(crate) fn create_mspline_sparse(
     let mut local = vec![0.0; support];
     let left = knot_vector[degree];
     let right = knot_vector[ncols];
-    let order = (degree + 1) as f64;
-    let mut scales = vec![0.0; ncols];
-    for i in 0..ncols {
-        let span = knot_vector[i + degree + 1] - knot_vector[i];
-        scales[i] = order / span;
-    }
+    let scales = mspline_scales(knot_vector, degree, ncols);
 
     let mut triplets: Vec<Triplet<usize, usize, f64>> =
         Vec::with_capacity(nrows.saturating_mul(support));
@@ -1021,23 +1017,15 @@ pub(crate) fn create_ispline_dense(
     // Left-boundary cumulative constants for anchoring I_j(left)=0.
     let mut left_local = vec![0.0_f64; support];
     let mut left_scratch = internal::BsplineScratch::new(bs_degree);
-    let left_start = internal::evaluate_splines_sparse_into(
+    let mut left_offsets = vec![0.0_f64; num_bspline_basis];
+    internal::cumulative_bspline_offsets_into(
         left,
         bs_degree,
         knot_vector,
         &mut left_local,
         &mut left_scratch,
+        &mut left_offsets,
     );
-    let mut left_offsets = vec![0.0_f64; num_bspline_basis];
-    let mut left_running = 0.0_f64;
-    for offset in (0..support).rev() {
-        let j = left_start + offset;
-        if j >= num_bspline_basis {
-            continue;
-        }
-        left_running += left_local[offset];
-        left_offsets[j] = left_running;
-    }
 
     // Outside the knot domain the I-spline saturates: every basis is anchored
     // at 0 at `left` and reaches its right-cumulative mass (≈ 1 minus the
@@ -1170,8 +1158,21 @@ pub(crate) fn evaluate_bspline_derivative_recurrence_into(
             minimum_degree: derivative_order,
         });
     }
+    // Resolve the top-level eval point's boundary treatment once, at `depth == 0`,
+    // matching the value basis so every higher-order derivative agrees with a
+    // finite difference of the value (gam#1348). On an *open* knot vector the value
+    // is constant outside the modeling interval, so every derivative order is zero
+    // there; on a *clamped* vector the value extends linearly, so the order-k
+    // derivative takes its (possibly nonzero) boundary value, obtained by clamping
+    // the eval point to the interval. No periodic wrap for an open/clamped basis:
+    // wrapping is only correct for a cyclic basis (whose evaluator pre-wraps its
+    // input) and corrupted the boundary spans here.
+    if depth == 0 && open_knot_derivative_exterior_is_zero(x, knot_vector, degree) {
+        out.fill(0.0);
+        return Ok(());
+    }
     let x = if depth == 0 {
-        periodic_unclamped_derivative_eval_point(x, knot_vector, degree)
+        clamp_eval_point_to_modeling_interval(x, knot_vector, degree)
     } else {
         x
     };

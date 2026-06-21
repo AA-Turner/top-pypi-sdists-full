@@ -1,6 +1,6 @@
 [package]
 name = "uuid7-rs"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2024"
 build = "build.rs"
 readme = "README.md"
@@ -9,18 +9,11 @@ readme = "README.md"
 name = "_core"
 crate-type = ["cdylib"]
 
-# [build-dependencies]
-# pyo3-build-config = { version = "=0.29.0", features = ["resolve-config"] }
-[build-dependencies.pyo3-build-config]
-git = "https://github.com/PyO3/pyo3"
-rev = "fe0fdd518fb238ebf07480fde3c54a75041a1820"
+[build-dependencies]
+pyo3-build-config = "=0.29.0"
 
 [dependencies.pyo3]
-# version = "=0.29.0"
-git = "https://github.com/PyO3/pyo3"
-rev = "fe0fdd518fb238ebf07480fde3c54a75041a1820"
-# remove after pyo3 0.29.0 release
-features = ["generate-import-lib"]
+version = "=0.29.0"
 
 [target."cfg(windows)".dependencies]
 windows-link = "=0.2.1"
@@ -44,6 +37,7 @@ features = [
 [features]
 default = []
 mimalloc = ["dep:mimalloc"]
+android = ["pyo3/abi3-py310"]
 
 [profile.release]
 opt-level = 3
@@ -56,10 +50,10 @@ codegen-units = 1
 warnings = "deny"
 
 [lints.clippy]
-perf = { level = "deny", priority = 1 }
-style = { level = "deny", priority = -1 }
-pedantic = { level = "deny", priority = -1 }
-nursery = { level = "deny", priority = -1 }
+perf       = { level = "deny", priority = 1 }
+style      = { level = "deny", priority = -1 }
+pedantic   = { level = "deny", priority = -1 }
+nursery    = { level = "deny", priority = -1 }
 complexity = { level = "deny", priority = -1 }
 suspicious = { level = "deny", priority = -1 }
 

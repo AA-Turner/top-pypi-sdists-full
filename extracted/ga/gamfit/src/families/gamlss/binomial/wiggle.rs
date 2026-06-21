@@ -17,7 +17,7 @@ pub struct BinomialLocationScaleWiggleFamily {
     /// per-call materialization decision) made during exact-Newton joint psi
     /// derivative evaluation. Defaults to `ResourcePolicy::default_library()`
     /// when the family is built without an explicit policy.
-    pub policy: crate::solver::resource::ResourcePolicy,
+    pub policy: crate::resource::ResourcePolicy,
 }
 
 impl BinomialLocationScaleWiggleFamily {
@@ -47,6 +47,36 @@ impl BinomialLocationScaleWiggleFamily {
 
     pub(crate) fn exact_joint_supported(&self) -> bool {
         self.threshold_design.is_some() && self.log_sigma_design.is_some()
+    }
+
+    /// Validate that `block_states` carries exactly the three BLS-wiggle blocks
+    /// (threshold, log-sigma, wiggle) with `η` slices all sized to `n = y.len()`
+    /// and matching `weights`, then return `(n, η_t, η_ls, η_w)`.
+    ///
+    /// This is the shared entry guard for every per-row BLS-wiggle evaluator
+    /// (log-likelihood, core, joint psi, directional operators). Hoisting it
+    /// keeps the block-count contract and the dimension-mismatch error message
+    /// identical across all call sites.
+    pub(crate) fn validated_block_etas<'a>(
+        &self,
+        block_states: &'a [ParameterBlockState],
+    ) -> Result<(usize, &'a Array1<f64>, &'a Array1<f64>, &'a Array1<f64>), String> {
+        validate_block_count::<GamlssError>(
+            "BinomialLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
+        let n = self.y.len();
+        let eta_t = &block_states[Self::BLOCK_T].eta;
+        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
+        let etaw = &block_states[Self::BLOCK_WIGGLE].eta;
+        if eta_t.len() != n || eta_ls.len() != n || etaw.len() != n || self.weights.len() != n {
+            return Err(GamlssError::DimensionMismatch {
+                reason: "BinomialLocationScaleWiggleFamily input size mismatch".to_string(),
+            }
+            .into());
+        }
+        Ok((n, eta_t, eta_ls, etaw))
     }
 
     pub fn initializewiggle_knots_from_q(
@@ -296,7 +326,7 @@ impl BinomialLocationScaleWiggleFamily {
         psi_index: usize,
         x_t: &Array2<f64>,
         x_ls: &Array2<f64>,
-        policy: &crate::solver::resource::ResourcePolicy,
+        policy: &crate::resource::ResourcePolicy,
     ) -> Result<Option<LocationScaleJointPsiDirection>, String> {
         let Some(parts) = locscale_joint_psi_direction_parts(
             block_states,
@@ -2189,21 +2219,7 @@ impl BinomialLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
     ) -> Result<BinomialLocationScaleWiggleHessianRowPieces, String> {
-        validate_block_count::<GamlssError>(
-            "BinomialLocationScaleWiggleFamily",
-            3,
-            block_states.len(),
-        )?;
-        let n = self.y.len();
-        let eta_t = &block_states[Self::BLOCK_T].eta;
-        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
-        let etaw = &block_states[Self::BLOCK_WIGGLE].eta;
-        if eta_t.len() != n || eta_ls.len() != n || etaw.len() != n || self.weights.len() != n {
-            return Err(GamlssError::DimensionMismatch {
-                reason: "BinomialLocationScaleWiggleFamily input size mismatch".to_string(),
-            }
-            .into());
-        }
+        let (n, eta_t, eta_ls, etaw) = self.validated_block_etas(block_states)?;
 
         let betaw0 = block_states[Self::BLOCK_WIGGLE].beta.clone();
         let core0 = binomial_location_scale_core(
@@ -2875,21 +2891,7 @@ impl BinomialLocationScaleWiggleFamily {
         x_ls_arc: Arc<Array2<f64>>,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
-        validate_block_count::<GamlssError>(
-            "BinomialLocationScaleWiggleFamily",
-            3,
-            block_states.len(),
-        )?;
-        let n = self.y.len();
-        let eta_t = &block_states[Self::BLOCK_T].eta;
-        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
-        let etaw = &block_states[Self::BLOCK_WIGGLE].eta;
-        if eta_t.len() != n || eta_ls.len() != n || etaw.len() != n || self.weights.len() != n {
-            return Err(GamlssError::DimensionMismatch {
-                reason: "BinomialLocationScaleWiggleFamily input size mismatch".to_string(),
-            }
-            .into());
-        }
+        let (n, eta_t, eta_ls, etaw) = self.validated_block_etas(block_states)?;
         let pt = x_t_arc.ncols();
         let pls = x_ls_arc.ncols();
         let betaw0 = block_states[Self::BLOCK_WIGGLE].beta.clone();
@@ -3037,21 +3039,7 @@ impl BinomialLocationScaleWiggleFamily {
         d_beta_u: &Array1<f64>,
         d_beta_v: &Array1<f64>,
     ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
-        validate_block_count::<GamlssError>(
-            "BinomialLocationScaleWiggleFamily",
-            3,
-            block_states.len(),
-        )?;
-        let n = self.y.len();
-        let eta_t = &block_states[Self::BLOCK_T].eta;
-        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
-        let etaw = &block_states[Self::BLOCK_WIGGLE].eta;
-        if eta_t.len() != n || eta_ls.len() != n || etaw.len() != n || self.weights.len() != n {
-            return Err(GamlssError::DimensionMismatch {
-                reason: "BinomialLocationScaleWiggleFamily input size mismatch".to_string(),
-            }
-            .into());
-        }
+        let (n, eta_t, eta_ls, etaw) = self.validated_block_etas(block_states)?;
         let pt = x_t_arc.ncols();
         let pls = x_ls_arc.ncols();
         let betaw0 = block_states[Self::BLOCK_WIGGLE].beta.clone();

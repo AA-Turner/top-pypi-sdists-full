@@ -410,7 +410,7 @@ class PageContext(BaseModel):
     # the sidebar from this instead of the legacy `nav_items`/`nav_groups`
     # producers (which stay as dead-code fallback until removed in a later
     # task). Typed `Any` (carries a frozen `NavModel` dataclass — see
-    # `dazzle.ui.converters.nav_builder`) to avoid a render→ui import cycle:
+    # `dazzle.page.converters.nav_builder`) to avoid a render→ui import cycle:
     # `nav_builder` transitively imports back into `dazzle.render.context`.
     #
     # MUST stay `Any` — NOT a TYPE_CHECKING string forward-ref. Pydantic
@@ -655,6 +655,6 @@ class SiteAuthContext(BaseModel):
     # (v0.67.34) alongside the deletion of `site/404.html` and
     # `site/403.html`. Marketing-site error pages now render via the
     # typed-Fragment views `build_site_404_view` and `build_site_403_view`
-    # in `dazzle_back.runtime.error_views`.
+    # in `dazzle.http.runtime.error_views`.
 
     message: str = ""

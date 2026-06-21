@@ -839,6 +839,97 @@ impl SmoothTerm {
             &rot.rotation,
         ))
     }
+
+    /// Dimension of the **joint** null space of this term's active penalties:
+    /// the coefficient directions penalized by *no* penalty. The smooth-component
+    /// Wald test ([`crate::inference::smooth_test::wood_smooth_test`]) treats this
+    /// many leading coefficients as genuine unpenalized fixed effects and tests
+    /// them at full rank; the remainder is the penalized sub-block tested with a
+    /// rank-`≈EDF` truncated pseudo-inverse.
+    ///
+    /// Because every penalty block `S_k` is positive semi-definite,
+    /// `vᵀ(Σ_k S_k)v = Σ_k vᵀ S_k v = 0` iff `S_k v = 0` for *every* `k`; the
+    /// joint null space is therefore exactly `null(Σ_k S_k)`, of dimension
+    /// `p_local − rank(Σ_k S_k)`. This is the **intersection** of the per-penalty
+    /// null spaces, not their sum.
+    ///
+    /// Summing the per-penalty `nullspace_dims` instead (the historical defect
+    /// behind #1360) *unions* the null spaces and badly over-counts: a
+    /// double-penalty smooth carries a bending penalty (null space = its
+    /// polynomial part) plus a complementary null-space ridge (which penalizes
+    /// exactly that polynomial part), so the two null spaces are disjoint and the
+    /// joint null space is empty — yet the per-penalty dims sum to nearly
+    /// `p_local`. Feeding that inflated count to the Wald test makes it test
+    /// almost the whole shrunk block at full rank, manufacturing overwhelming
+    /// "significance" for a term the fit drove to ~0 EDF.
+    pub fn wald_unpenalized_dim(&self) -> usize {
+        joint_unpenalized_dim(
+            self.coeff_range.len(),
+            &self.penalties_local,
+            &self.nullspace_dims,
+        )
+    }
+}
+
+/// Numeric core of [`SmoothTerm::wald_unpenalized_dim`]: the dimension of the
+/// joint null space `∩_k null(S_k) = null(Σ_k S_k)` of a term's local penalty
+/// blocks, with a conservative fallback when a penalty is not materialized as a
+/// full `p_local × p_local` matrix (e.g. a Kronecker tensor factor).
+pub(crate) fn joint_unpenalized_dim(
+    p_local: usize,
+    penalties_local: &[Array2<f64>],
+    nullspace_dims: &[usize],
+) -> usize {
+    use crate::faer_ndarray::FaerEigh;
+    if p_local == 0 {
+        return 0;
+    }
+    if penalties_local.is_empty() {
+        // No penalty ⇒ a wholly unpenalized (fixed-effect) block.
+        return p_local;
+    }
+    // Sum the penalties that are materialized as full `p_local × p_local`
+    // blocks (the common smooth case). The covariance block the Wald test
+    // slices lives in this same coefficient basis (post joint-null rotation),
+    // so the rank is computed in the right metric.
+    let mut s_total = Array2::<f64>::zeros((p_local, p_local));
+    let mut materialized = 0usize;
+    for s in penalties_local {
+        if s.nrows() == p_local && s.ncols() == p_local {
+            s_total += s;
+            materialized += 1;
+        }
+    }
+    if materialized == penalties_local.len() {
+        let symmetric = {
+            let transpose = s_total.t().to_owned();
+            (&s_total + &transpose) * 0.5
+        };
+        if let Ok((evals, _)) = symmetric.eigh(faer::Side::Lower) {
+            let max_abs = evals.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+            if max_abs == 0.0 {
+                // All penalties identically zero ⇒ unpenalized block.
+                return p_local;
+            }
+            let tol = max_abs * (p_local as f64) * 1e-12;
+            let rank = evals.iter().filter(|&&v| v > tol).count();
+            return p_local.saturating_sub(rank);
+        }
+    }
+    // Conservative fallback when a penalty is not a materialized full block
+    // (e.g. a Kronecker tensor factor): with ≥2 active penalties the joint
+    // null space is almost always empty (the only over-rejecting direction);
+    // with a single penalty it is exactly that penalty's own null space.
+    if penalties_local.len() >= 2 {
+        0
+    } else {
+        nullspace_dims
+            .iter()
+            .copied()
+            .min()
+            .unwrap_or(0)
+            .min(p_local)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2090,6 +2181,63 @@ impl KroneckerPenaltySystem {
 }
 
 #[cfg(test)]
+mod joint_unpenalized_dim_tests {
+    use super::joint_unpenalized_dim;
+    use ndarray::{Array2, array};
+
+    #[test]
+    fn no_penalty_is_fully_unpenalized() {
+        assert_eq!(joint_unpenalized_dim(4, &[], &[]), 4);
+    }
+
+    #[test]
+    fn single_penalty_returns_its_own_null_space() {
+        // A 3×3 penalty that penalizes only the last coordinate ⇒ 2-dim null
+        // space (the first two coordinates are unpenalized).
+        let s = array![[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 5.0]];
+        assert_eq!(joint_unpenalized_dim(3, std::slice::from_ref(&s), &[2]), 2);
+    }
+
+    #[test]
+    fn complementary_double_penalty_has_empty_joint_null_space() {
+        // The #1360 case in miniature: a "bending" penalty that leaves the
+        // first coordinate (its 2-dim... here 1-dim) null, plus a
+        // complementary "null-space ridge" that penalizes exactly that
+        // coordinate. Per-penalty null dims are {1, 2} and sum to 3 (≈ p),
+        // but the INTERSECTION is empty: every coordinate is penalized by
+        // someone, so the joint unpenalized dim is 0.
+        let bending = array![[0.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]];
+        let ridge = array![[2.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]];
+        assert_eq!(joint_unpenalized_dim(3, &[bending, ridge], &[1, 2]), 0);
+    }
+
+    #[test]
+    fn partial_overlap_keeps_shared_null_direction() {
+        // Two penalties that BOTH leave coordinate 0 unpenalized ⇒ the shared
+        // null direction survives the intersection (joint unpenalized dim 1),
+        // even though naively summing the per-penalty dims would give 4.
+        let a = array![[0.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 0.0]];
+        let b = array![[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 3.0]];
+        assert_eq!(joint_unpenalized_dim(3, &[a, b], &[2, 2]), 1);
+    }
+
+    #[test]
+    fn non_materialized_penalty_falls_back_conservatively() {
+        // A penalty whose stored block is not p_local × p_local (e.g. a
+        // Kronecker tensor factor). With ≥2 penalties the conservative joint
+        // dim is 0 (never over-rejecting).
+        let full: Array2<f64> = array![[0.0, 0.0], [0.0, 1.0]];
+        let factor: Array2<f64> = array![[1.0]]; // wrong shape for p_local=2
+        assert_eq!(
+            joint_unpenalized_dim(2, &[full, factor.clone()], &[1, 0]),
+            0
+        );
+        // With a single non-materialized penalty, fall back to its own null dim.
+        assert_eq!(joint_unpenalized_dim(4, std::slice::from_ref(&factor), &[2]), 2);
+    }
+}
+
+#[cfg(test)]
 mod kronecker_penalty_system_tests {
     use super::KroneckerPenaltySystem;
     use ndarray::array;
@@ -2225,6 +2373,15 @@ pub struct SpatialLengthScaleOptimizationTiming {
     pub eval_total_s: f64,
     pub efs_calls: usize,
     pub efs_total_s: f64,
+    pub slow_path_resets: u64,
+    pub design_revision_delta: u64,
+    pub nfree_miss_shape: u64,
+    pub nfree_miss_value: u64,
+    pub nfree_miss_gradient: u64,
+    pub nfree_miss_penalty: u64,
+    pub nfree_miss_revision: u64,
+    pub nfree_miss_second_order: u64,
+    pub nfree_miss_other: u64,
     pub optim_total_s: f64,
 }
 
@@ -3244,6 +3401,24 @@ const KERNEL_RANGE_MIN_DIAMETER_FRACTION: f64 = 2.0;
 /// capped here to keep the basis geometry well-conditioned.
 const KERNEL_RANGE_MAX_SPACING_MULTIPLE: f64 = 1e2;
 
+/// Matérn-only ceiling on the kernel length scale, as a fraction of the maximum
+/// pairwise distance `r_max` (i.e. the data diameter in the standardized kernel
+/// space). The generic kernel-range floor `KERNEL_RANGE_MIN_DIAMETER_FRACTION`
+/// permits length scales up to `r_max / 2` ≈ half the data diameter, where a
+/// compactly-decaying Matérn kernel (ν ≥ 3/2) is already nearly flat across the
+/// whole point cloud. At that flat corner every kernel column collapses onto the
+/// polynomial nullspace and REML then shrinks the entire smooth onto its
+/// intercept (#1357: EDF → 1, predict returns a constant surface). Unlike the
+/// pure-Duchon path — whose `r²log r` / `r^{2m-d}` head has no intrinsic decay
+/// length and stays informative at large scale — the Matérn radial kernel's
+/// finite range makes a too-large length scale genuinely uninformative. So the
+/// Matérn isotropic-κ outer optimizer caps the length scale at the data-derived
+/// default fraction (mirroring `DEFAULT_MATERN_LENGTH_SCALE_DIAMETER_FRACTION`
+/// in the term builder): κ may sharpen the kernel but can never flatten it past
+/// the informative default, keeping the kernel block from going degenerate while
+/// REML still learns the smoothing penalty on top.
+const MATERN_KERNEL_RANGE_MAX_LENGTH_SCALE_DIAMETER_FRACTION: f64 = 0.15;
+
 /// Returns ψ-space bounds (ψ_lo = ln(κ_lo), ψ_hi = ln(κ_hi)).
 ///
 /// When geometry is unavailable (e.g., fewer than 2 distinct points), falls
@@ -3313,8 +3488,22 @@ fn spatial_term_psi_bounds(
     // The nullspace already carries constant/linear low-frequency structure,
     // so cap the kernel range at the diameter scale instead of letting the
     // optimizer enter a numerically degenerate basis geometry.
-    let psi_lo_data = (KERNEL_RANGE_MIN_DIAMETER_FRACTION / r_max).ln();
+    let mut psi_lo_data = (KERNEL_RANGE_MIN_DIAMETER_FRACTION / r_max).ln();
     let psi_hi_data = (KERNEL_RANGE_MAX_SPACING_MULTIPLE / r_min).ln();
+    // #1357: for the Matérn kernel specifically, do not let the isotropic-κ
+    // optimizer flatten the kernel past the data-derived default length scale.
+    // ψ = log κ = −log(length_scale), so the largest admissible length scale is
+    // the smallest admissible ψ; raise that floor to `1 / (frac · r_max)` so the
+    // kernel range never exceeds `frac · r_max` (the informative default). The
+    // generic floor `2 / r_max` admits length scales up to `r_max / 2`, where the
+    // compactly-decaying Matérn kernel is flat across the whole cloud and REML
+    // collapses the smooth to its intercept. Duchon / TPS keep the generic floor
+    // (their kernels stay informative at large scale).
+    if let SmoothBasisSpec::Matern { .. } = &term.basis {
+        let matern_psi_lo =
+            (1.0 / (MATERN_KERNEL_RANGE_MAX_LENGTH_SCALE_DIAMETER_FRACTION * r_max)).ln();
+        psi_lo_data = psi_lo_data.max(matern_psi_lo);
+    }
     // Intersect with the options window so min/max_length_scale remain hard caps.
     let psi_lo = psi_lo_data.max(fallback.0);
     let psi_hi = psi_hi_data.min(fallback.1);
@@ -4353,6 +4542,7 @@ fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> Basi
             input_scales,
             aniso_log_scales,
             operator_collocation_points,
+            radial_reparam,
         } => BasisMetadata::Duchon {
             centers,
             length_scale,
@@ -4363,6 +4553,7 @@ fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> Basi
             input_scales,
             aniso_log_scales,
             operator_collocation_points,
+            radial_reparam,
         },
         other => other,
     }
@@ -4500,70 +4691,6 @@ fn normalize_penalty_in_constrained_space(matrix: &Array2<f64>) -> (Array2<f64>,
     }
 }
 
-fn build_periodic_fourier_margin(
-    x: ArrayView1<'_, f64>,
-    period: f64,
-    requested_cols: usize,
-    penalty_order: usize,
-) -> Result<(Array2<f64>, Array2<f64>, Array1<f64>), BasisError> {
-    if !period.is_finite() || period <= 0.0 {
-        crate::bail_invalid_basis!(
-            "periodic tensor margin requires finite positive period, got {period}"
-        );
-    }
-    let q = requested_cols.max(3);
-    let harmonics = q / 2;
-    let has_nyquist_cos = q.is_multiple_of(2);
-    let mut basis = Array2::<f64>::zeros((x.len(), q));
-    basis.column_mut(0).fill(1.0);
-    for (i, &xi) in x.iter().enumerate() {
-        let angle = 2.0 * std::f64::consts::PI * xi / period;
-        let mut col = 1usize;
-        for h in 1..=harmonics {
-            if col >= q {
-                break;
-            }
-            basis[[i, col]] = (h as f64 * angle).cos();
-            col += 1;
-            if col >= q {
-                break;
-            }
-            basis[[i, col]] = (h as f64 * angle).sin();
-            col += 1;
-        }
-        if has_nyquist_cos && q > 1 {
-            basis[[i, q - 1]] = (harmonics as f64 * angle).cos();
-        }
-    }
-    let mut penalty = Array2::<f64>::zeros((q, q));
-    let order = penalty_order.max(1) as i32;
-    let mut col = 1usize;
-    for h in 1..=harmonics {
-        let w = (h as f64).powi(2 * order);
-        if col < q {
-            penalty[[col, col]] = w;
-            col += 1;
-        }
-        if col < q {
-            penalty[[col, col]] = w;
-            col += 1;
-        }
-    }
-    if has_nyquist_cos && q > 1 {
-        penalty[[q - 1, q - 1]] = (harmonics as f64).powi(2 * order);
-    }
-    // The Fourier margin has no B-spline knots; this vector is a placeholder
-    // that downstream code (the tensor freeze) treats as carrying the periodic
-    // control-site count in its *length* and the domain start in `[0]`. Its
-    // length MUST equal the basis column count `q` (= `basis.ncols()`): the
-    // freeze records `num_basis = knots.len()` and the predict-time rebuild
-    // re-derives `q` columns from it, so a `q + 1`-length vector reconstructs
-    // one extra column per periodic axis and breaks the frozen identifiability
-    // transform (issue #498).
-    let knots = Array1::linspace(0.0, period, q);
-    Ok((basis, penalty, knots))
-}
-
 fn tensor_product_design_from_sparse_marginals(
     marginal_sparse: &[&SparseColMat<usize, f64>],
 ) -> Result<SparseColMat<usize, f64>, BasisError> {
@@ -4671,6 +4798,24 @@ fn tensor_product_design_from_sparse_marginals(
     })
 }
 
+fn dense_local_margin_to_sparse(
+    dense: &Array2<f64>,
+) -> Result<SparseColMat<usize, f64>, BasisError> {
+    let expected_row_nnz = dense.ncols().min(4);
+    let mut triplets =
+        Vec::<Triplet<usize, usize, f64>>::with_capacity(dense.nrows() * expected_row_nnz);
+    for ((row, col), &value) in dense.indexed_iter() {
+        if value != 0.0 {
+            triplets.push(Triplet::new(row, col, value));
+        }
+    }
+    SparseColMat::try_new_from_triplets(dense.nrows(), dense.ncols(), &triplets).map_err(|e| {
+        BasisError::SparseCreation(format!(
+            "failed to convert tensor marginal design to sparse form: {e:?}"
+        ))
+    })
+}
+
 struct TensorMarginRangeNullProjectors {
     range: Array2<f64>,
     null: Array2<f64>,
@@ -4751,9 +4896,9 @@ fn build_tensor_bspline_basis(
     let mut marginalnum_basis = Vec::<usize>::with_capacity(feature_cols.len());
     let mut marginal_penalties = Vec::<Array2<f64>>::with_capacity(feature_cols.len());
     let mut marginal_designs = Vec::<Array2<f64>>::with_capacity(feature_cols.len());
-    // Per-margin effective period: either user-set via `spec.periods` (forcing
-    // the Fourier path) or implied by a `PeriodicUniform` marginal knotspec
-    // (which the 1D B-spline builder already realizes as a periodic basis).
+    // Per-margin effective period: either user-set via `spec.periods` or
+    // implied by a `PeriodicUniform` marginal knotspec (which the 1D B-spline
+    // builder realizes as a cyclic B-spline basis).
     // Captured here so freeze→reload round-trips both routes back to a
     // `PeriodicUniform` marginal knotspec; otherwise a `PeriodicUniform`
     // margin specified without `spec.periods` would freeze as a plain
@@ -4762,9 +4907,10 @@ fn build_tensor_bspline_basis(
     // Per-marginal sparse representation, populated when the 1D builder returned
     // a `DesignMatrix::Sparse`. Used to assemble the Khatri-Rao tensor product
     // sparsely (only ∏(degree+1) nonzeros per row) instead of densifying to
-    // shape (n, ∏ q_j) up front. When any marginal lacks a sparse form (e.g.
-    // periodic B-splines currently realize a dense Array2), we fall back to the
-    // existing dense Khatri-Rao path.
+    // shape (n, ∏ q_j) up front. Periodic B-spline margins are local-support
+    // bases too; when the 1D builder returns them densely, we convert that
+    // marginal back to sparse form so cylinder/torus tensor products keep the
+    // same scale behavior as open tensor products.
     let mut marginal_sparse =
         Vec::<Option<SparseColMat<usize, f64>>>::with_capacity(feature_cols.len());
 
@@ -4779,100 +4925,76 @@ fn build_tensor_bspline_basis(
         // identifiability constraints here would change marginal penalty sizes
         // without changing the tensor design construction, causing dimension
         // mismatch. Keep marginal builders unconstrained at this stage.
-        if let Some(period) = spec.periods.get(dim).and_then(|p| *p) {
-            let requested_cols = match marginalspec.knotspec {
-                BSplineKnotSpec::Generate {
-                    num_internal_knots, ..
-                } => num_internal_knots + marginalspec.degree + 1,
-                BSplineKnotSpec::Provided(ref knots) => {
-                    knots.len().saturating_sub(marginalspec.degree + 1)
-                }
-                BSplineKnotSpec::Automatic {
-                    num_internal_knots, ..
-                } => {
-                    // Fallback internal-knot count when an automatic marginal has
-                    // not yet resolved its knot count at periodic-margin build
-                    // time; matches the modest default used for a 1-D `s()`.
-                    const DEFAULT_AUTOMATIC_INTERNAL_KNOTS: usize = 8;
-                    num_internal_knots.unwrap_or(DEFAULT_AUTOMATIC_INTERNAL_KNOTS)
-                        + marginalspec.degree
-                        + 1
-                }
-                BSplineKnotSpec::PeriodicUniform { num_basis, .. } => num_basis,
-            };
-            let (basis, penalty, knots) = build_periodic_fourier_margin(
-                data.column(col),
-                period,
-                requested_cols,
-                marginalspec.penalty_order,
-            )?;
-            marginal_knots.push(knots);
-            marginal_degrees.push(marginalspec.degree);
-            marginalnum_basis.push(basis.ncols());
-            marginal_designs.push(basis);
-            marginal_penalties.push(penalty);
-            // Periodic Fourier margins are realized densely; no sparse form
-            // is available, so record `None` and force the dense fall-back
-            // for the tensor product if any dimension is periodic.
-            marginal_sparse.push(None);
-            marginal_effective_periods.push(Some(period));
-        } else {
-            let mut marginal_unconstrained = marginalspec.clone();
-            marginal_unconstrained.identifiability = BSplineIdentifiability::None;
-            let built = build_bspline_basis_1d(data.column(col), &marginal_unconstrained)?;
-            let knots = match built.metadata {
-                BasisMetadata::BSpline1D { knots, .. } => knots,
-                _ => {
-                    crate::bail_invalid_basis!(
-                        "internal TensorBSpline error at dim {dim}: expected BSpline1D metadata"
-                    );
-                }
-            };
-            marginal_knots.push(knots);
-            marginal_degrees.push(marginalspec.degree);
-            marginalnum_basis.push(built.design.ncols());
-            // Capture the sparse representation of this marginal (when the
-            // 1D builder produced one) before densifying for the dense
-            // marginal cache used by `tensor_product_design_from_marginals`
-            // and `TensorProductDesignOperator`.
-            let sparse_view: Option<SparseColMat<usize, f64>> =
-                built.design.as_sparse().map(|sd| {
-                    let inner: &SparseColMat<usize, f64> = sd;
-                    inner.clone()
-                });
-            marginal_sparse.push(sparse_view);
-            marginal_designs.push(built.design.to_dense());
-            marginal_penalties.push(
-                built
-                    .penalties
-                    .first()
-                    .ok_or_else(|| {
-                        BasisError::InvalidInput(format!(
-                            "internal TensorBSpline error at dim {dim}: missing marginal penalty"
-                        ))
-                    })?
-                    .clone(),
-            );
-            built.nullspace_dims.first().ok_or_else(|| {
-                BasisError::InvalidInput(format!(
-                    "internal TensorBSpline error at dim {dim}: missing marginal nullspace dim"
-                ))
-            })?;
-            // A `PeriodicUniform` marginal knotspec implies the margin is
-            // wrap-around: the 1D builder already realized it as a periodic
-            // basis, so the tensor product inherits that periodicity. Record
-            // the period derived from the knotspec's data range so freeze
-            // restores `PeriodicUniform` on the marginal — otherwise the
-            // round-trip downgrades it to `Provided(knots)` (an open spline)
-            // and predict-time wraps disappear.
-            let implied_period = match marginalspec.knotspec {
-                BSplineKnotSpec::PeriodicUniform { data_range, .. } => {
-                    Some(data_range.1 - data_range.0)
+        let mut marginal_unconstrained = marginalspec.clone();
+        marginal_unconstrained.identifiability = BSplineIdentifiability::None;
+        let built = build_bspline_basis_1d(data.column(col), &marginal_unconstrained)?;
+        let knots = match built.metadata {
+            BasisMetadata::BSpline1D { knots, .. } => knots,
+            _ => {
+                crate::bail_invalid_basis!(
+                    "internal TensorBSpline error at dim {dim}: expected BSpline1D metadata"
+                );
+            }
+        };
+        let metadata_knots = match marginalspec.knotspec {
+            BSplineKnotSpec::PeriodicUniform {
+                data_range,
+                num_basis,
+            } => Array1::linspace(data_range.0, data_range.1, num_basis),
+            _ => knots,
+        };
+        marginal_knots.push(metadata_knots);
+        marginal_degrees.push(marginalspec.degree);
+        marginalnum_basis.push(built.design.ncols());
+        // Capture the sparse representation of this marginal (when the
+        // 1D builder produced one) before densifying for the dense
+        // marginal cache used by `tensor_product_design_from_marginals`
+        // and `TensorProductDesignOperator`.
+        let dense_marginal = built.design.to_dense();
+        let sparse_view: Option<SparseColMat<usize, f64>> = match built.design.as_sparse() {
+            Some(sd) => {
+                let inner: &SparseColMat<usize, f64> = sd;
+                Some(inner.clone())
+            }
+            None => match marginalspec.knotspec {
+                BSplineKnotSpec::PeriodicUniform { .. } => {
+                    Some(dense_local_margin_to_sparse(&dense_marginal)?)
                 }
                 _ => None,
-            };
-            marginal_effective_periods.push(implied_period);
-        }
+            },
+        };
+        marginal_sparse.push(sparse_view);
+        marginal_designs.push(dense_marginal);
+        marginal_penalties.push(
+            built
+                .penalties
+                .first()
+                .ok_or_else(|| {
+                    BasisError::InvalidInput(format!(
+                        "internal TensorBSpline error at dim {dim}: missing marginal penalty"
+                    ))
+                })?
+                .clone(),
+        );
+        built.nullspace_dims.first().ok_or_else(|| {
+            BasisError::InvalidInput(format!(
+                "internal TensorBSpline error at dim {dim}: missing marginal nullspace dim"
+            ))
+        })?;
+        // A `PeriodicUniform` marginal knotspec implies the margin is
+        // wrap-around: the 1D builder already realized it as a periodic
+        // basis, so the tensor product inherits that periodicity. Record
+        // the period derived from the knotspec's data range so freeze
+        // restores `PeriodicUniform` on the marginal — otherwise the
+        // round-trip downgrades it to `Provided(knots)` (an open spline)
+        // and predict-time wraps disappear.
+        let implied_period = match marginalspec.knotspec {
+            BSplineKnotSpec::PeriodicUniform { data_range, .. } => {
+                Some(data_range.1 - data_range.0)
+            }
+            _ => spec.periods.get(dim).and_then(|p| *p),
+        };
+        marginal_effective_periods.push(implied_period);
     }
 
     let total_cols: usize = marginalnum_basis.iter().product();
@@ -5080,19 +5202,19 @@ fn build_tensor_bspline_basis(
             .into_iter()
             .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
                 let matrix = gauge.restrict_penalty(&candidate.matrix);
+                // Re-normalize in the *actual* coefficient chart used by the
+                // fit.  The tensor sum-to-zero transform is not norm-preserving
+                // for each overlapping marginal penalty, so carrying the raw
+                // marginal Frobenius scale into the restricted space changes the
+                // relative amount of smoothing seen by the LAML/REML optimizer.
+                // Keep the physical scale in metadata and give the optimizer
+                // unit-scale constrained penalties for every tensor margin.
                 let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
-                let preserve_margin_scale =
-                    matches!(&candidate.source, PenaltySource::TensorMarginal { .. });
-                let (matrix, normalization_scale) = if preserve_margin_scale {
-                    (matrix.mapv(|v| v * c_new), candidate.normalization_scale)
-                } else {
-                    (matrix, candidate.normalization_scale * c_new)
-                };
                 Ok(PenaltyCandidate {
                     nullspace_dim_hint: candidate.nullspace_dim_hint,
                     matrix,
                     source: candidate.source,
-                    normalization_scale,
+                    normalization_scale: candidate.normalization_scale * c_new,
                     // Z^T S Z is no longer a Kronecker product of the original
                     // marginal factors, so the Kronecker fast path in construction.rs
                     // must not be taken. Clearing kronecker_factors forces the generic
@@ -5856,6 +5978,32 @@ fn build_pca_smooth_basis(
     })
 }
 
+/// A factor-level `by=` wrapper owns the model-space centering of its inner
+/// smooth: it gates the raw/structurally-constrained basis to the level rows
+/// and then centers that gated block exactly once against the level indicator
+/// (`build_parametric_constraint_block_for_term` in `design_construction`).
+/// Leaving the inner B-spline's default pooled weighted-sum-to-zero active here
+/// would impose two generically-independent constraints — the pooled column
+/// moment `m = Σ_h m_h` and the per-level moment `m_g` — so a raw `k`-column
+/// basis collapses to `k-2` columns per level instead of `k-1`, deleting one
+/// genuine nonconstant spline direction *before REML runs* (#1427). The group
+/// main effect carries only the constant, so it cannot restore that direction.
+///
+/// Only the *default model-space* centering is deferred. Explicit structural or
+/// frozen transforms (`RemoveLinearTrend`, `OrthogonalToDesignColumns`,
+/// `FrozenTransform`, `None`) are user/structural choices and are preserved
+/// verbatim.
+fn defer_inner_model_centering_to_factor_level_wrapper(basis: &mut SmoothBasisSpec) {
+    if let SmoothBasisSpec::BSpline1D { spec, .. } = basis
+        && matches!(
+            spec.identifiability,
+            BSplineIdentifiability::WeightedSumToZero { .. }
+        )
+    {
+        spec.identifiability = BSplineIdentifiability::None;
+    }
+}
+
 fn apply_by_variable_to_local_build(
     mut built: LocalSmoothTermBuild,
     data: ArrayView2<'_, f64>,
@@ -5895,6 +6043,154 @@ fn apply_by_variable_to_local_build(
     built.design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(dense));
     built.kronecker_factored = None;
     Ok(built)
+}
+
+/// Build the local smooth term for a `BySmooth` spec, which unifies numeric-by
+/// and factor-by modulation into a single `SmoothTermSpec`.
+///
+/// For a **numeric** by-variable the inner smooth is built once and every row
+/// is multiplied by the by-column value (identical to `ByVariable::Numeric`).
+///
+/// For a **factor** by-variable the inner smooth is built once and gated per
+/// level into side-by-side column blocks, producing a `n × (L * p)` design
+/// matrix.  The penalties are block-diagonalised (one copy of the inner penalty
+/// per level) exactly as `build_factor_smooth` does for `bs="fs"/"sz"`.
+fn build_by_smooth_local(
+    data: ArrayView2<'_, f64>,
+    term: &SmoothTermSpec,
+    smooth: &SmoothBasisSpec,
+    by_kind: &ByVarKind,
+    workspace: &mut crate::basis::BasisWorkspace,
+) -> Result<LocalSmoothTermBuild, BasisError> {
+    let inner_term = SmoothTermSpec {
+        name: term.name.clone(),
+        basis: (*smooth).clone(),
+        shape: term.shape,
+        joint_null_rotation: None,
+    };
+    let inner = build_single_local_smooth_term(data, &inner_term, workspace)?;
+
+    match by_kind {
+        ByVarKind::Numeric { feature_col } => {
+            let inner_meta = inner.metadata.clone();
+            let mut built = apply_by_variable_to_local_build(
+                inner,
+                data,
+                *feature_col,
+                &ByVariableSpec::Numeric,
+                &term.name,
+            )?;
+            built.metadata = BasisMetadata::BySmooth {
+                inner: Box::new(inner_meta),
+                by_col: *feature_col,
+                levels: None,
+                ordered: false,
+            };
+            Ok(built)
+        }
+        ByVarKind::Factor {
+            feature_col,
+            frozen_levels,
+            ordered,
+        } => {
+            // Collect factor levels: prefer the frozen set (replay path), else
+            // scan the data column (first-fit path).
+            let level_bits: Vec<u64> = if let Some(fl) = frozen_levels {
+                fl.clone()
+            } else {
+                let col = data.column(*feature_col);
+                let mut seen = BTreeSet::<u64>::new();
+                for &v in col.iter() {
+                    if v.is_finite() {
+                        seen.insert(v.to_bits());
+                    }
+                }
+                seen.into_iter().collect()
+            };
+            let n_levels = level_bits.len();
+            if n_levels == 0 {
+                crate::bail_invalid_basis!(
+                    "by-factor smooth term '{}': factor column {} has no observed levels",
+                    term.name,
+                    feature_col
+                );
+            }
+            let p = inner.dim;
+            let q = n_levels * p;
+            let n = data.nrows();
+
+            let inner_dense = inner
+                .design
+                .try_to_dense_by_chunks("by-factor smooth design gating")
+                .map_err(BasisError::InvalidInput)?;
+
+            // Gate each level into its own p-wide column block.
+            let mut combined = Array2::<f64>::zeros((n, q));
+            for (lvl_idx, &bits) in level_bits.iter().enumerate() {
+                let col_start = lvl_idx * p;
+                for row in 0..n {
+                    if data[[row, *feature_col]].to_bits() == bits {
+                        combined
+                            .slice_mut(s![row, col_start..col_start + p])
+                            .assign(&inner_dense.row(row));
+                    }
+                }
+            }
+
+            // Build block-diagonal penalties: one copy of the inner penalty per
+            // level, matching the block-column layout of the combined design.
+            let inner_meta = inner.metadata.clone();
+            let n_penalties = inner.penalties.len();
+            let mut penalties = Vec::<Array2<f64>>::with_capacity(n_penalties);
+            let mut penaltyinfo = Vec::<PenaltyInfo>::with_capacity(n_penalties);
+            for (pen_pos, s_inner) in inner.penalties.iter().enumerate() {
+                let mut s_big = Array2::<f64>::zeros((q, q));
+                for lvl in 0..n_levels {
+                    let off = lvl * p;
+                    s_big
+                        .slice_mut(s![off..off + p, off..off + p])
+                        .assign(s_inner);
+                }
+                let (s_big, scale) = normalize_penalty_in_constrained_space(&s_big);
+                let mut info = inner.penaltyinfo[pen_pos].clone();
+                info.original_index = pen_pos;
+                info.normalization_scale *= scale;
+                info.nullspace_dim_hint = info.nullspace_dim_hint.saturating_mul(n_levels);
+                info.kronecker_factors = None;
+                penalties.push(s_big);
+                penaltyinfo.push(info);
+            }
+
+            let nullspaces = inner
+                .nullspaces
+                .iter()
+                .map(|&ns| ns.saturating_mul(n_levels))
+                .collect::<Vec<_>>();
+            let null_eigenvectors = vec![None; penalties.len()];
+            let ops = vec![None; penalties.len()];
+
+            Ok(LocalSmoothTermBuild {
+                dim: q,
+                design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(combined)),
+                penalties,
+                ops,
+                nullspaces,
+                null_eigenvectors,
+                joint_null_rotation: None,
+                penaltyinfo,
+                pre_dropped_penaltyinfo: inner.pre_dropped_penaltyinfo,
+                metadata: BasisMetadata::BySmooth {
+                    inner: Box::new(inner_meta),
+                    by_col: *feature_col,
+                    levels: Some(level_bits),
+                    ordered: *ordered,
+                },
+                linear_constraints: None,
+                box_reparam: false,
+                kronecker_factored: None,
+            })
+        }
+    }
 }
 
 fn ensure_by_variable_specs_match(
@@ -6309,14 +6605,30 @@ fn build_single_local_smooth_term(
     } = &term.basis
     {
         ensure_by_variable_specs_match(kind, by, &term.name)?;
+        let mut inner_basis = (**inner).clone();
+        // Factor-level `by=` owns model-space centering (it centers the gated
+        // block against the level indicator downstream). Defer the inner
+        // basis's default pooled centering so the level block is not
+        // double-centered down to `k-2` columns (#1427). Numeric-by smooths are
+        // untouched: they are not row-gated to a level and keep ordinary
+        // intercept centering.
+        if matches!(by, ByVariableSpec::Level { .. }) {
+            defer_inner_model_centering_to_factor_level_wrapper(&mut inner_basis);
+        }
         let inner_term = SmoothTermSpec {
             name: term.name.clone(),
-            basis: (**inner).clone(),
+            basis: inner_basis,
             shape: term.shape,
             joint_null_rotation: None,
         };
         let built = build_single_local_smooth_term(data, &inner_term, workspace)?;
         return apply_by_variable_to_local_build(built, data, *by_col, by, &term.name);
+    }
+
+    // BySmooth: a `by=` smooth that unifies numeric or factor modulation into a
+    // single term.  Lower it here so the downstream match does not need an arm.
+    if let SmoothBasisSpec::BySmooth { smooth, by_kind } = &term.basis {
+        return build_by_smooth_local(data, term, smooth, by_kind, workspace);
     }
 
     let mut shape_axis_col: Option<usize> = None;
@@ -6832,7 +7144,6 @@ fn build_single_local_smooth_term(
         .collect::<Vec<_>>();
     let use_box_reparam =
         term.shape != ShapeConstraint::None && shape_uses_box_reparameterization(&term.basis);
-    let mut coefficient_transform_for_constraints: Option<Array2<f64>> = None;
     if let Some((order, sign)) = shape_order_and_sign(term.shape)
         && use_box_reparam
     {
@@ -6878,7 +7189,6 @@ fn build_single_local_smooth_term(
         } else {
             cumulative_sum_transform_matrix(p_local, order, sign)
         };
-        coefficient_transform_for_constraints = Some(t.clone());
         // Coefficient-side transform: wrap the design in an operator that
         // applies T on the coefficient side, preserving sparsity/operator
         // structure of the inner design.
@@ -6964,24 +7274,9 @@ fn build_single_local_smooth_term(
         .map(
             |((matrix, info), op_in)| -> Result<PenaltyCandidate, BasisError> {
                 let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
-                let preserve_margin_scale =
-                    matches!(&info.source, PenaltySource::TensorMarginal { .. });
-                let (matrix, normalization_scale, op_scale, kronecker_scale) =
-                    if preserve_margin_scale {
-                        (
-                            matrix.mapv(|v| v * c_new),
-                            info.normalization_scale,
-                            1.0,
-                            1.0,
-                        )
-                    } else {
-                        (
-                            matrix,
-                            info.normalization_scale * c_new,
-                            1.0 / c_new,
-                            1.0 / c_new,
-                        )
-                    };
+                let normalization_scale = info.normalization_scale * c_new;
+                let op_scale = 1.0 / c_new;
+                let kronecker_scale = 1.0 / c_new;
                 // Frobenius rescale: wrap inner op in `ScaledPenaltyOp(1/c_new)`
                 // so `op.as_dense() == matrix` post-normalization.
                 let scaled_op = if op_scale > 0.0 && op_scale.is_finite() {

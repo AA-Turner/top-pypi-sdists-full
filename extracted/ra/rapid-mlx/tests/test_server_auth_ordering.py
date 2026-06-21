@@ -217,6 +217,11 @@ def _route_paths_with_auth(router):
       accepting Anthropic-native ``x-api-key`` header. Used by the
       ``/v1/messages*`` routes that mirror Anthropic's API shape.
 
+    The historical ``verify_internal_admin`` gate (F-180) was reverted
+    in #728 / #756 per operator intent — single-machine UX, no API key
+    gate. If a future PR reintroduces it, add the dep back to the
+    ``auth_funcs`` set so the bind→auth ordering invariant covers it.
+
     Both gates run BEFORE the route handler executes; either is
     structurally equivalent for the bind→auth ordering invariant.
     """

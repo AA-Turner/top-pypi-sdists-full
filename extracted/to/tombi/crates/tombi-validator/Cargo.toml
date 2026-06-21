@@ -1,0 +1,41 @@
+[package]
+name = "tombi-validator"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+addr.workspace = true
+email_address.workspace = true
+itertools.workspace = true
+log.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tombi-accessor.workspace = true
+tombi-ast.workspace = true
+tombi-comment-directive.workspace = true
+tombi-comment-directive-store.workspace = true
+tombi-diagnostic.workspace = true
+tombi-document.workspace = true
+tombi-document-tree.workspace = true
+tombi-future.workspace = true
+tombi-hashmap.workspace = true
+tombi-json-value.workspace = true
+tombi-parser.workspace = true
+tombi-regex.workspace = true
+tombi-schema-store.workspace = true
+tombi-severity-level.workspace = true
+tombi-text.workspace = true
+tombi-uri.workspace = true
+tombi-x-keyword.workspace = true
+unicode-segmentation.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[lints]
+workspace = true

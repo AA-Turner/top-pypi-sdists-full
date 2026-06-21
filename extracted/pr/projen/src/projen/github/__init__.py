@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -17,78 +19,32 @@ from jsii._type_checking import check_type
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    Component as _Component_2b0ad27f,
-    GitOptions as _GitOptions_a65916a3,
-    Gitpod as _Gitpod_5d9b9d87,
-    GroupRunnerOptions as _GroupRunnerOptions_148c59c1,
-    IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
-    JsonFile as _JsonFile_fa8164db,
-    LoggerOptions as _LoggerOptions_eb0f6309,
-    Project as _Project_57d89203,
-    ProjectOptions as _ProjectOptions_0d5b93c6,
-    ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
-    RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
-    SampleReadmeProps as _SampleReadmeProps_3518b03b,
-    Task as _Task_9fa875b6,
-    TextFile as _TextFile_4a74808c,
-    YamlFile as _YamlFile_909731b0,
-)
-from ..vscode import DevContainer as _DevContainer_ae6f3538, VsCode as _VsCode_9f0f4eb5
-from .workflows import (
-    AppPermissions as _AppPermissions_59709d51,
-    BranchProtectionRuleOptions as _BranchProtectionRuleOptions_422f7f4e,
-    CheckRunOptions as _CheckRunOptions_66af1ceb,
-    CheckSuiteOptions as _CheckSuiteOptions_6a122376,
-    ContainerOptions as _ContainerOptions_f50907af,
-    CreateOptions as _CreateOptions_6247308d,
-    CronScheduleOptions as _CronScheduleOptions_7724cd93,
-    DeleteOptions as _DeleteOptions_c46578d4,
-    DeploymentOptions as _DeploymentOptions_0bea6580,
-    DeploymentStatusOptions as _DeploymentStatusOptions_f9cbd32b,
-    DiscussionCommentOptions as _DiscussionCommentOptions_e8674c31,
-    DiscussionOptions as _DiscussionOptions_6b34c7b6,
-    ForkOptions as _ForkOptions_0437229d,
-    GollumOptions as _GollumOptions_1acffea2,
-    IssueCommentOptions as _IssueCommentOptions_b551b1e5,
-    IssuesOptions as _IssuesOptions_dd89885c,
-    Job as _Job_20ffcf45,
-    JobCallingReusableWorkflow as _JobCallingReusableWorkflow_12ad1018,
-    JobDefaults as _JobDefaults_965f0d10,
-    JobPermissions as _JobPermissions_3b5b53dc,
-    JobStep as _JobStep_c3287c05,
-    JobStepConfiguration as _JobStepConfiguration_9caff420,
-    JobStepOutput as _JobStepOutput_acebe827,
-    JobStrategy as _JobStrategy_15089712,
-    LabelOptions as _LabelOptions_ca474a61,
-    MergeGroupOptions as _MergeGroupOptions_683d3a61,
-    MilestoneOptions as _MilestoneOptions_6f9d8b6f,
-    PageBuildOptions as _PageBuildOptions_c30eafce,
-    ProjectCardOptions as _ProjectCardOptions_c89fc28d,
-    ProjectColumnOptions as _ProjectColumnOptions_25a462f6,
-    ProjectOptions as _ProjectOptions_50d963ea,
-    PublicOptions as _PublicOptions_2c3a3b94,
-    PullRequestOptions as _PullRequestOptions_b051b0c9,
-    PullRequestReviewCommentOptions as _PullRequestReviewCommentOptions_85235a68,
-    PullRequestReviewOptions as _PullRequestReviewOptions_27fd8e95,
-    PullRequestTargetOptions as _PullRequestTargetOptions_81011bb1,
-    PushOptions as _PushOptions_63e1c4f2,
-    RegistryPackageOptions as _RegistryPackageOptions_781d5ac7,
-    ReleaseOptions as _ReleaseOptions_d152186d,
-    RepositoryDispatchOptions as _RepositoryDispatchOptions_d75e9903,
-    StatusOptions as _StatusOptions_aa35df44,
-    Tools as _Tools_75b93a2a,
-    Triggers as _Triggers_e9ae7617,
-    WatchOptions as _WatchOptions_d33f5d00,
-    WorkflowCallOptions as _WorkflowCallOptions_bc57a5b4,
-    WorkflowDispatchOptions as _WorkflowDispatchOptions_7110ffdc,
-    WorkflowRunOptions as _WorkflowRunOptions_5a4262c5,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import constructs as _constructs_77d1e7e8
+    import projen as _projen_04054675
+    import projen.github.workflows as _workflows_2b7f1587
+    import projen.vscode as _vscode_b521b30a
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _projen_04054675 = _LazyImport("projen")
+    _vscode_b521b30a = _LazyImport("projen.vscode")
+    _workflows_2b7f1587 = _LazyImport("projen.github.workflows")
 
 
 class AutoApprove(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.AutoApprove",
 ):
@@ -104,7 +60,7 @@ class AutoApprove(
         allowed_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
         label: typing.Optional[builtins.str] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -157,7 +113,7 @@ class AutoApproveOptions:
         allowed_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
         label: typing.Optional[builtins.str] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Options for 'AutoApprove'.
@@ -171,7 +127,7 @@ class AutoApproveOptions:
         :stability: experimental
         '''
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f9c4613bc56be10f461d808c77225c1917fcd25ebccedbc39aa410ff163ca51)
             check_type(argname="argument allowed_usernames", value=allowed_usernames, expected_type=type_hints["allowed_usernames"])
@@ -227,7 +183,7 @@ class AutoApproveOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -235,7 +191,7 @@ class AutoApproveOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     @builtins.property
     def secret(self) -> typing.Optional[builtins.str]:
@@ -270,7 +226,7 @@ class AutoApproveOptions:
 
 
 class AutoMerge(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.AutoMerge",
 ):
@@ -449,7 +405,7 @@ class AutoMergeOptions:
 
 
 class AutoQueue(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.AutoQueue",
 ):
@@ -663,7 +619,7 @@ class AutoQueueOptions:
 
 @jsii.data_type(
     jsii_type="projen.github.CheckoutOptions",
-    jsii_struct_bases=[_JobStepConfiguration_9caff420],
+    jsii_struct_bases=[_workflows_2b7f1587.JobStepConfiguration],
     name_mapping={
         "env": "env",
         "id": "id",
@@ -676,7 +632,7 @@ class AutoQueueOptions:
         "with_": "with",
     },
 )
-class CheckoutOptions(_JobStepConfiguration_9caff420):
+class CheckoutOptions(_workflows_2b7f1587.JobStepConfiguration):
     def __init__(
         self,
         *,
@@ -1599,7 +1555,7 @@ class CreatePullRequestOptions:
 
 
 class Dependabot(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.Dependabot",
 ):
@@ -2705,7 +2661,7 @@ class DependabotScheduleInterval(enum.Enum):
 
 
 class DependencyReview(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.DependencyReview",
 ):
@@ -2731,7 +2687,7 @@ class DependencyReview(
         fail_on_severity: typing.Optional[builtins.str] = None,
         license_check: typing.Optional[builtins.bool] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         show_open_ssf_scorecard: typing.Optional[builtins.bool] = None,
         vulnerability_check: typing.Optional[builtins.bool] = None,
         warn_only: typing.Optional[builtins.bool] = None,
@@ -2812,7 +2768,7 @@ class DependencyReviewOptions:
         fail_on_severity: typing.Optional[builtins.str] = None,
         license_check: typing.Optional[builtins.bool] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         show_open_ssf_scorecard: typing.Optional[builtins.bool] = None,
         vulnerability_check: typing.Optional[builtins.bool] = None,
         warn_only: typing.Optional[builtins.bool] = None,
@@ -2838,7 +2794,7 @@ class DependencyReviewOptions:
         :stability: experimental
         '''
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e65ca485637cc926ed0db9d01876f7212e4f08726ceed0e5ffec8be73e88bdcb)
             check_type(argname="argument allow_ghsas", value=allow_ghsas, expected_type=type_hints["allow_ghsas"])
@@ -2985,13 +2941,13 @@ class DependencyReviewOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     @builtins.property
     def show_open_ssf_scorecard(self) -> typing.Optional[builtins.bool]:
@@ -3051,7 +3007,7 @@ class DependencyReviewOptions:
 
 @jsii.data_type(
     jsii_type="projen.github.DownloadArtifactOptions",
-    jsii_struct_bases=[_JobStepConfiguration_9caff420],
+    jsii_struct_bases=[_workflows_2b7f1587.JobStepConfiguration],
     name_mapping={
         "env": "env",
         "id": "id",
@@ -3064,7 +3020,7 @@ class DependencyReviewOptions:
         "with_": "with",
     },
 )
-class DownloadArtifactOptions(_JobStepConfiguration_9caff420):
+class DownloadArtifactOptions(_workflows_2b7f1587.JobStepConfiguration):
     def __init__(
         self,
         *,
@@ -3402,7 +3358,7 @@ class DownloadArtifactWith:
 
 
 class GitHub(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.GitHub",
 ):
@@ -3412,7 +3368,7 @@ class GitHub(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         dependency_review: typing.Optional[builtins.bool] = None,
@@ -3472,7 +3428,7 @@ class GitHub(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: "_Project_57d89203") -> typing.Optional["GitHub"]:
+    def of(cls, project: "_projen_04054675.Project") -> typing.Optional["GitHub"]:
         '''(experimental) Returns the ``GitHub`` component of a project or ``undefined`` if the project does not have a GitHub component.
 
         :param project: -
@@ -4013,7 +3969,7 @@ class GitHubOptions:
 
 
 class GitHubProject(
-    _Project_57d89203,
+    _projen_04054675.Project,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.GitHubProject",
 ):
@@ -4042,23 +3998,23 @@ class GitHubProject(
         github_options: typing.Optional[typing.Union["GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         projen_credentials: typing.Optional["GithubCredentials"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
@@ -4150,14 +4106,14 @@ class GitHubProject(
 
     @builtins.property
     @jsii.member(jsii_name="devContainer")
-    def dev_container(self) -> typing.Optional["_DevContainer_ae6f3538"]:
+    def dev_container(self) -> typing.Optional["_vscode_b521b30a.DevContainer"]:
         '''(deprecated) Access for .devcontainer.json (used for GitHub Codespaces).
 
         This will be ``undefined`` if devContainer boolean is false
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional["_DevContainer_ae6f3538"], jsii.get(self, "devContainer"))
+        return typing.cast(typing.Optional["_vscode_b521b30a.DevContainer"], jsii.get(self, "devContainer"))
 
     @builtins.property
     @jsii.member(jsii_name="github")
@@ -4172,30 +4128,30 @@ class GitHubProject(
 
     @builtins.property
     @jsii.member(jsii_name="gitpod")
-    def gitpod(self) -> typing.Optional["_Gitpod_5d9b9d87"]:
+    def gitpod(self) -> typing.Optional["_projen_04054675.Gitpod"]:
         '''(deprecated) Access for Gitpod.
 
         This will be ``undefined`` if gitpod boolean is false
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional["_Gitpod_5d9b9d87"], jsii.get(self, "gitpod"))
+        return typing.cast(typing.Optional["_projen_04054675.Gitpod"], jsii.get(self, "gitpod"))
 
     @builtins.property
     @jsii.member(jsii_name="vscode")
-    def vscode(self) -> typing.Optional["_VsCode_9f0f4eb5"]:
+    def vscode(self) -> typing.Optional["_vscode_b521b30a.VsCode"]:
         '''(deprecated) Access all VSCode components.
 
         This will be ``undefined`` for subprojects.
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional["_VsCode_9f0f4eb5"], jsii.get(self, "vscode"))
+        return typing.cast(typing.Optional["_vscode_b521b30a.VsCode"], jsii.get(self, "vscode"))
 
 
 @jsii.data_type(
     jsii_type="projen.github.GitHubProjectOptions",
-    jsii_struct_bases=[_ProjectOptions_0d5b93c6],
+    jsii_struct_bases=[_projen_04054675.ProjectOptions],
     name_mapping={
         "name": "name",
         "commit_generated": "commitGenerated",
@@ -4225,23 +4181,23 @@ class GitHubProject(
         "vscode": "vscode",
     },
 )
-class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
+class GitHubProjectOptions(_projen_04054675.ProjectOptions):
     def __init__(
         self,
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_options: typing.Optional[typing.Union["AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
         auto_merge_options: typing.Optional[typing.Union["AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4251,7 +4207,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         github_options: typing.Optional[typing.Union["GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         projen_credentials: typing.Optional["GithubCredentials"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
@@ -4288,15 +4244,15 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         :stability: experimental
         '''
         if isinstance(git_ignore_options, dict):
-            git_ignore_options = _IgnoreFileOptions_86c48b91(**git_ignore_options)
+            git_ignore_options = _projen_04054675.IgnoreFileOptions(**git_ignore_options)
         if isinstance(git_options, dict):
-            git_options = _GitOptions_a65916a3(**git_options)
+            git_options = _projen_04054675.GitOptions(**git_options)
         if isinstance(logging, dict):
-            logging = _LoggerOptions_eb0f6309(**logging)
+            logging = _projen_04054675.LoggerOptions(**logging)
         if isinstance(projenrc_json_options, dict):
-            projenrc_json_options = _ProjenrcJsonOptions_9c40dd4f(**projenrc_json_options)
+            projenrc_json_options = _projen_04054675.ProjenrcJsonOptions(**projenrc_json_options)
         if isinstance(renovatebot_options, dict):
-            renovatebot_options = _RenovatebotOptions_18e6b8a1(**renovatebot_options)
+            renovatebot_options = _projen_04054675.RenovatebotOptions(**renovatebot_options)
         if isinstance(auto_approve_options, dict):
             auto_approve_options = AutoApproveOptions(**auto_approve_options)
         if isinstance(auto_merge_options, dict):
@@ -4304,7 +4260,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         if isinstance(github_options, dict):
             github_options = GitHubOptions(**github_options)
         if isinstance(readme, dict):
-            readme = _SampleReadmeProps_3518b03b(**readme)
+            readme = _projen_04054675.SampleReadmeProps(**readme)
         if isinstance(stale_options, dict):
             stale_options = StaleOptions(**stale_options)
         if __debug__:
@@ -4414,25 +4370,27 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
+    def git_ignore_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.IgnoreFileOptions"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFileOptions"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
+    def git_options(self) -> typing.Optional["_projen_04054675.GitOptions"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GitOptions"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
+    def logging(self) -> typing.Optional["_projen_04054675.LoggerOptions"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -4440,7 +4398,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
+        return typing.cast(typing.Optional["_projen_04054675.LoggerOptions"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -4460,13 +4418,13 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional["_Project_57d89203"]:
+    def parent(self) -> typing.Optional["_projen_04054675.Project"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional["_Project_57d89203"], result)
+        return typing.cast(typing.Optional["_projen_04054675.Project"], result)
 
     @builtins.property
     def project_tree(self) -> typing.Optional[builtins.bool]:
@@ -4504,7 +4462,9 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
+    def projenrc_json_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.ProjenrcJsonOptions"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -4512,7 +4472,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
+        return typing.cast(typing.Optional["_projen_04054675.ProjenrcJsonOptions"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -4526,7 +4486,9 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
+    def renovatebot_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.RenovatebotOptions"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -4534,7 +4496,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.RenovatebotOptions"], result)
 
     @builtins.property
     def auto_approve_options(self) -> typing.Optional["AutoApproveOptions"]:
@@ -4644,7 +4606,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
         return typing.cast(typing.Optional["GithubCredentials"], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
+    def readme(self) -> typing.Optional["_projen_04054675.SampleReadmeProps"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -4656,7 +4618,7 @@ class GitHubProjectOptions(_ProjectOptions_0d5b93c6):
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
+        return typing.cast(typing.Optional["_projen_04054675.SampleReadmeProps"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -4781,7 +4743,7 @@ class GithubCredentials(
         app_id_secret: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         owner: typing.Optional[builtins.str] = None,
-        permissions: typing.Optional[typing.Union["_AppPermissions_59709d51", typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Optional[typing.Union["_workflows_2b7f1587.AppPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         private_key_secret: typing.Optional[builtins.str] = None,
         repositories: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> "GithubCredentials":
@@ -4843,12 +4805,12 @@ class GithubCredentials(
 
     @builtins.property
     @jsii.member(jsii_name="setupSteps")
-    def setup_steps(self) -> typing.List["_JobStep_c3287c05"]:
+    def setup_steps(self) -> typing.List["_workflows_2b7f1587.JobStep"]:
         '''(experimental) Setup steps to obtain GitHub credentials.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.get(self, "setupSteps"))
+        return typing.cast(typing.List["_workflows_2b7f1587.JobStep"], jsii.get(self, "setupSteps"))
 
     @builtins.property
     @jsii.member(jsii_name="tokenRef")
@@ -4891,7 +4853,7 @@ class GithubCredentialsAppOptions:
         app_id_secret: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         owner: typing.Optional[builtins.str] = None,
-        permissions: typing.Optional[typing.Union["_AppPermissions_59709d51", typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Optional[typing.Union["_workflows_2b7f1587.AppPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         private_key_secret: typing.Optional[builtins.str] = None,
         repositories: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -4907,7 +4869,7 @@ class GithubCredentialsAppOptions:
         :stability: experimental
         '''
         if isinstance(permissions, dict):
-            permissions = _AppPermissions_59709d51(**permissions)
+            permissions = _workflows_2b7f1587.AppPermissions(**permissions)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cfe552d6288d1f706792afe5f041e666db050b8d0d3bb7062899a3bdefe652a8)
             check_type(argname="argument app_id_secret", value=app_id_secret, expected_type=type_hints["app_id_secret"])
@@ -4966,7 +4928,7 @@ class GithubCredentialsAppOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def permissions(self) -> typing.Optional["_AppPermissions_59709d51"]:
+    def permissions(self) -> typing.Optional["_workflows_2b7f1587.AppPermissions"]:
         '''(experimental) The permissions granted to the token.
 
         :default: - all permissions granted to the app
@@ -4974,7 +4936,7 @@ class GithubCredentialsAppOptions:
         :stability: experimental
         '''
         result = self._values.get("permissions")
-        return typing.cast(typing.Optional["_AppPermissions_59709d51"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.AppPermissions"], result)
 
     @builtins.property
     def private_key_secret(self) -> typing.Optional[builtins.str]:
@@ -5081,7 +5043,7 @@ class GithubCredentialsPersonalAccessTokenOptions:
 
 
 class GithubWorkflow(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.GithubWorkflow",
 ):
@@ -5133,7 +5095,7 @@ class GithubWorkflow(
     def add_job(
         self,
         id: builtins.str,
-        job: typing.Union[typing.Union["_JobCallingReusableWorkflow_12ad1018", typing.Dict[builtins.str, typing.Any]], typing.Union["_Job_20ffcf45", typing.Dict[builtins.str, typing.Any]]],
+        job: typing.Union[typing.Union["_workflows_2b7f1587.JobCallingReusableWorkflow", typing.Dict[builtins.str, typing.Any]], typing.Union["_workflows_2b7f1587.Job", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''(experimental) Adds a single job to the workflow.
 
@@ -5151,7 +5113,7 @@ class GithubWorkflow(
     @jsii.member(jsii_name="addJobs")
     def add_jobs(
         self,
-        jobs: typing.Mapping[builtins.str, typing.Union[typing.Union["_JobCallingReusableWorkflow_12ad1018", typing.Dict[builtins.str, typing.Any]], typing.Union["_Job_20ffcf45", typing.Dict[builtins.str, typing.Any]]]],
+        jobs: typing.Mapping[builtins.str, typing.Union[typing.Union["_workflows_2b7f1587.JobCallingReusableWorkflow", typing.Dict[builtins.str, typing.Any]], typing.Union["_workflows_2b7f1587.Job", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''(experimental) Add jobs to the workflow.
 
@@ -5201,7 +5163,7 @@ class GithubWorkflow(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2c1da253367f5ac8878af3a7061301a73b14e7ddab7d0bf125b384473df4b84)
             check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
-        step = _JobStep_c3287c05(
+        step = _workflows_2b7f1587.JobStep(
             run=run,
             uses=uses,
             with_=with_,
@@ -5221,7 +5183,7 @@ class GithubWorkflow(
     def get_job(
         self,
         id: builtins.str,
-    ) -> typing.Union["_JobCallingReusableWorkflow_12ad1018", "_Job_20ffcf45"]:
+    ) -> typing.Union["_workflows_2b7f1587.JobCallingReusableWorkflow", "_workflows_2b7f1587.Job"]:
         '''(experimental) Get a single job from the workflow.
 
         :param id: The job name (unique within the workflow).
@@ -5231,14 +5193,14 @@ class GithubWorkflow(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6eb2f09bb8f2d945c8f2826934c657ba552c34bd0514dcd4dfea5bae7172af5)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        return typing.cast(typing.Union["_JobCallingReusableWorkflow_12ad1018", "_Job_20ffcf45"], jsii.invoke(self, "getJob", [id]))
+        return typing.cast(typing.Union["_workflows_2b7f1587.JobCallingReusableWorkflow", "_workflows_2b7f1587.Job"], jsii.invoke(self, "getJob", [id]))
 
     @jsii.member(jsii_name="getStep")
     def get_step(
         self,
         job_id: builtins.str,
         step_id: builtins.str,
-    ) -> "_JobStep_c3287c05":
+    ) -> "_workflows_2b7f1587.JobStep":
         '''(experimental) Gets a single step from a job by step ID.
 
         The returned object is frozen and read-only. Use ``replaceStep`` or
@@ -5255,7 +5217,7 @@ class GithubWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__98ca96efd0e35c2a249c17c816c681f0586cde5056d99e7abf2fe2fbd6b65649)
             check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
             check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
-        return typing.cast("_JobStep_c3287c05", jsii.invoke(self, "getStep", [job_id, step_id]))
+        return typing.cast("_workflows_2b7f1587.JobStep", jsii.invoke(self, "getStep", [job_id, step_id]))
 
     @jsii.member(jsii_name="insertStepAfter")
     def insert_step_after(
@@ -5297,7 +5259,7 @@ class GithubWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__ad17047f6d44720906e0616128e61d58d605c2541a07f1f200dbf28e2c0a6b66)
             check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
             check_type(argname="argument reference_step_id", value=reference_step_id, expected_type=type_hints["reference_step_id"])
-        step = _JobStep_c3287c05(
+        step = _workflows_2b7f1587.JobStep(
             run=run,
             uses=uses,
             with_=with_,
@@ -5353,7 +5315,7 @@ class GithubWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__a72fad6a72387bf7e8273ac5cdaf456177096c97bb4ca95c845eebd5b4f2d4d8)
             check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
             check_type(argname="argument reference_step_id", value=reference_step_id, expected_type=type_hints["reference_step_id"])
-        step = _JobStep_c3287c05(
+        step = _workflows_2b7f1587.JobStep(
             run=run,
             uses=uses,
             with_=with_,
@@ -5373,41 +5335,41 @@ class GithubWorkflow(
     def on(
         self,
         *,
-        branch_protection_rule: typing.Optional[typing.Union["_BranchProtectionRuleOptions_422f7f4e", typing.Dict[builtins.str, typing.Any]]] = None,
-        check_run: typing.Optional[typing.Union["_CheckRunOptions_66af1ceb", typing.Dict[builtins.str, typing.Any]]] = None,
-        check_suite: typing.Optional[typing.Union["_CheckSuiteOptions_6a122376", typing.Dict[builtins.str, typing.Any]]] = None,
-        create: typing.Optional[typing.Union["_CreateOptions_6247308d", typing.Dict[builtins.str, typing.Any]]] = None,
-        delete: typing.Optional[typing.Union["_DeleteOptions_c46578d4", typing.Dict[builtins.str, typing.Any]]] = None,
-        deployment: typing.Optional[typing.Union["_DeploymentOptions_0bea6580", typing.Dict[builtins.str, typing.Any]]] = None,
-        deployment_status: typing.Optional[typing.Union["_DeploymentStatusOptions_f9cbd32b", typing.Dict[builtins.str, typing.Any]]] = None,
-        discussion: typing.Optional[typing.Union["_DiscussionOptions_6b34c7b6", typing.Dict[builtins.str, typing.Any]]] = None,
-        discussion_comment: typing.Optional[typing.Union["_DiscussionCommentOptions_e8674c31", typing.Dict[builtins.str, typing.Any]]] = None,
-        fork: typing.Optional[typing.Union["_ForkOptions_0437229d", typing.Dict[builtins.str, typing.Any]]] = None,
-        gollum: typing.Optional[typing.Union["_GollumOptions_1acffea2", typing.Dict[builtins.str, typing.Any]]] = None,
-        issue_comment: typing.Optional[typing.Union["_IssueCommentOptions_b551b1e5", typing.Dict[builtins.str, typing.Any]]] = None,
-        issues: typing.Optional[typing.Union["_IssuesOptions_dd89885c", typing.Dict[builtins.str, typing.Any]]] = None,
-        label: typing.Optional[typing.Union["_LabelOptions_ca474a61", typing.Dict[builtins.str, typing.Any]]] = None,
-        merge_group: typing.Optional[typing.Union["_MergeGroupOptions_683d3a61", typing.Dict[builtins.str, typing.Any]]] = None,
-        milestone: typing.Optional[typing.Union["_MilestoneOptions_6f9d8b6f", typing.Dict[builtins.str, typing.Any]]] = None,
-        page_build: typing.Optional[typing.Union["_PageBuildOptions_c30eafce", typing.Dict[builtins.str, typing.Any]]] = None,
-        project: typing.Optional[typing.Union["_ProjectOptions_50d963ea", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_card: typing.Optional[typing.Union["_ProjectCardOptions_c89fc28d", typing.Dict[builtins.str, typing.Any]]] = None,
-        project_column: typing.Optional[typing.Union["_ProjectColumnOptions_25a462f6", typing.Dict[builtins.str, typing.Any]]] = None,
-        public: typing.Optional[typing.Union["_PublicOptions_2c3a3b94", typing.Dict[builtins.str, typing.Any]]] = None,
-        pull_request: typing.Optional[typing.Union["_PullRequestOptions_b051b0c9", typing.Dict[builtins.str, typing.Any]]] = None,
-        pull_request_review: typing.Optional[typing.Union["_PullRequestReviewOptions_27fd8e95", typing.Dict[builtins.str, typing.Any]]] = None,
-        pull_request_review_comment: typing.Optional[typing.Union["_PullRequestReviewCommentOptions_85235a68", typing.Dict[builtins.str, typing.Any]]] = None,
-        pull_request_target: typing.Optional[typing.Union["_PullRequestTargetOptions_81011bb1", typing.Dict[builtins.str, typing.Any]]] = None,
-        push: typing.Optional[typing.Union["_PushOptions_63e1c4f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        registry_package: typing.Optional[typing.Union["_RegistryPackageOptions_781d5ac7", typing.Dict[builtins.str, typing.Any]]] = None,
-        release: typing.Optional[typing.Union["_ReleaseOptions_d152186d", typing.Dict[builtins.str, typing.Any]]] = None,
-        repository_dispatch: typing.Optional[typing.Union["_RepositoryDispatchOptions_d75e9903", typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: typing.Optional[typing.Sequence[typing.Union["_CronScheduleOptions_7724cd93", typing.Dict[builtins.str, typing.Any]]]] = None,
-        status: typing.Optional[typing.Union["_StatusOptions_aa35df44", typing.Dict[builtins.str, typing.Any]]] = None,
-        watch: typing.Optional[typing.Union["_WatchOptions_d33f5d00", typing.Dict[builtins.str, typing.Any]]] = None,
-        workflow_call: typing.Optional[typing.Union["_WorkflowCallOptions_bc57a5b4", typing.Dict[builtins.str, typing.Any]]] = None,
-        workflow_dispatch: typing.Optional[typing.Union["_WorkflowDispatchOptions_7110ffdc", typing.Dict[builtins.str, typing.Any]]] = None,
-        workflow_run: typing.Optional[typing.Union["_WorkflowRunOptions_5a4262c5", typing.Dict[builtins.str, typing.Any]]] = None,
+        branch_protection_rule: typing.Optional[typing.Union["_workflows_2b7f1587.BranchProtectionRuleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_run: typing.Optional[typing.Union["_workflows_2b7f1587.CheckRunOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_suite: typing.Optional[typing.Union["_workflows_2b7f1587.CheckSuiteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        create: typing.Optional[typing.Union["_workflows_2b7f1587.CreateOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        delete: typing.Optional[typing.Union["_workflows_2b7f1587.DeleteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment: typing.Optional[typing.Union["_workflows_2b7f1587.DeploymentOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_status: typing.Optional[typing.Union["_workflows_2b7f1587.DeploymentStatusOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        discussion: typing.Optional[typing.Union["_workflows_2b7f1587.DiscussionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        discussion_comment: typing.Optional[typing.Union["_workflows_2b7f1587.DiscussionCommentOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        fork: typing.Optional[typing.Union["_workflows_2b7f1587.ForkOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        gollum: typing.Optional[typing.Union["_workflows_2b7f1587.GollumOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        issue_comment: typing.Optional[typing.Union["_workflows_2b7f1587.IssueCommentOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        issues: typing.Optional[typing.Union["_workflows_2b7f1587.IssuesOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        label: typing.Optional[typing.Union["_workflows_2b7f1587.LabelOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        merge_group: typing.Optional[typing.Union["_workflows_2b7f1587.MergeGroupOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        milestone: typing.Optional[typing.Union["_workflows_2b7f1587.MilestoneOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        page_build: typing.Optional[typing.Union["_workflows_2b7f1587.PageBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        project: typing.Optional[typing.Union["_workflows_2b7f1587.ProjectOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_card: typing.Optional[typing.Union["_workflows_2b7f1587.ProjectCardOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_column: typing.Optional[typing.Union["_workflows_2b7f1587.ProjectColumnOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        public: typing.Optional[typing.Union["_workflows_2b7f1587.PublicOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        pull_request: typing.Optional[typing.Union["_workflows_2b7f1587.PullRequestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        pull_request_review: typing.Optional[typing.Union["_workflows_2b7f1587.PullRequestReviewOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        pull_request_review_comment: typing.Optional[typing.Union["_workflows_2b7f1587.PullRequestReviewCommentOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        pull_request_target: typing.Optional[typing.Union["_workflows_2b7f1587.PullRequestTargetOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        push: typing.Optional[typing.Union["_workflows_2b7f1587.PushOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        registry_package: typing.Optional[typing.Union["_workflows_2b7f1587.RegistryPackageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        release: typing.Optional[typing.Union["_workflows_2b7f1587.ReleaseOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        repository_dispatch: typing.Optional[typing.Union["_workflows_2b7f1587.RepositoryDispatchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        schedule: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.CronScheduleOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status: typing.Optional[typing.Union["_workflows_2b7f1587.StatusOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        watch: typing.Optional[typing.Union["_workflows_2b7f1587.WatchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_call: typing.Optional[typing.Union["_workflows_2b7f1587.WorkflowCallOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_dispatch: typing.Optional[typing.Union["_workflows_2b7f1587.WorkflowDispatchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_run: typing.Optional[typing.Union["_workflows_2b7f1587.WorkflowRunOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Add events to triggers the workflow.
 
@@ -5449,7 +5411,7 @@ class GithubWorkflow(
 
         :stability: experimental
         '''
-        events = _Triggers_e9ae7617(
+        events = _workflows_2b7f1587.Triggers(
             branch_protection_rule=branch_protection_rule,
             check_run=check_run,
             check_suite=check_suite,
@@ -5541,7 +5503,7 @@ class GithubWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__6129b91aa6568d6255d3afc17889aca4acec2c8f8e39ca1a835d0b052a76ad24)
             check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
             check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
-        patch = _JobStep_c3287c05(
+        patch = _workflows_2b7f1587.JobStep(
             run=run,
             uses=uses,
             with_=with_,
@@ -5625,7 +5587,7 @@ class GithubWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__594bb401fd1b92fb9e008e53dc73d7d77e660fe98c491aecc6996fffee383bb1)
             check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
             check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
-        replacement_step = _JobStep_c3287c05(
+        replacement_step = _workflows_2b7f1587.JobStep(
             run=run,
             uses=uses,
             with_=with_,
@@ -5645,7 +5607,7 @@ class GithubWorkflow(
     def update_job(
         self,
         id: builtins.str,
-        job: typing.Union[typing.Union["_JobCallingReusableWorkflow_12ad1018", typing.Dict[builtins.str, typing.Any]], typing.Union["_Job_20ffcf45", typing.Dict[builtins.str, typing.Any]]],
+        job: typing.Union[typing.Union["_workflows_2b7f1587.JobCallingReusableWorkflow", typing.Dict[builtins.str, typing.Any]], typing.Union["_workflows_2b7f1587.Job", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''(experimental) Updates a single job to the workflow.
 
@@ -5663,7 +5625,7 @@ class GithubWorkflow(
     @jsii.member(jsii_name="updateJobs")
     def update_jobs(
         self,
-        jobs: typing.Mapping[builtins.str, typing.Union[typing.Union["_JobCallingReusableWorkflow_12ad1018", typing.Dict[builtins.str, typing.Any]], typing.Union["_Job_20ffcf45", typing.Dict[builtins.str, typing.Any]]]],
+        jobs: typing.Mapping[builtins.str, typing.Union[typing.Union["_workflows_2b7f1587.JobCallingReusableWorkflow", typing.Dict[builtins.str, typing.Any]], typing.Union["_workflows_2b7f1587.Job", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''(experimental) Updates jobs for this workflow Does a complete replace, it does not try to merge the jobs.
 
@@ -5680,14 +5642,14 @@ class GithubWorkflow(
     @jsii.member(jsii_name="jobs")
     def jobs(
         self,
-    ) -> typing.Mapping[builtins.str, typing.Union["_JobCallingReusableWorkflow_12ad1018", "_Job_20ffcf45"]]:
+    ) -> typing.Mapping[builtins.str, typing.Union["_workflows_2b7f1587.JobCallingReusableWorkflow", "_workflows_2b7f1587.Job"]]:
         '''(experimental) All current jobs of the workflow.
 
         This is a read-only copy, use the respective helper methods to add, update or remove jobs.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Mapping[builtins.str, typing.Union["_JobCallingReusableWorkflow_12ad1018", "_Job_20ffcf45"]], jsii.get(self, "jobs"))
+        return typing.cast(typing.Mapping[builtins.str, typing.Union["_workflows_2b7f1587.JobCallingReusableWorkflow", "_workflows_2b7f1587.Job"]], jsii.get(self, "jobs"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5733,14 +5695,14 @@ class GithubWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> typing.Optional["_YamlFile_909731b0"]:
+    def file(self) -> typing.Optional["_projen_04054675.YamlFile"]:
         '''(experimental) The workflow YAML file.
 
         May not exist if ``workflowsEnabled`` is false on ``GitHub``.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_YamlFile_909731b0"], jsii.get(self, "file"))
+        return typing.cast(typing.Optional["_projen_04054675.YamlFile"], jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="runName")
@@ -5955,7 +5917,7 @@ class MergeMethod(enum.Enum):
 
 
 class MergeQueue(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.MergeQueue",
 ):
@@ -6086,7 +6048,7 @@ class MergeQueueOptions:
 
 
 class Mergify(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.Mergify",
 ):
@@ -6520,7 +6482,7 @@ class MergifyRule:
 
 
 class PullRequestBackport(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.PullRequestBackport",
 ):
@@ -6569,11 +6531,11 @@ class PullRequestBackport(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_JsonFile_fa8164db":
+    def file(self) -> "_projen_04054675.JsonFile":
         '''
         :stability: experimental
         '''
-        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.JsonFile", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="workflow")
@@ -6784,7 +6746,7 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
         patch: typing.Union["PullRequestPatchSource", typing.Dict[builtins.str, typing.Any]],
         job_name: typing.Optional[builtins.str] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param pull_request_description: (experimental) Description added to the pull request. Providence information are automatically added.
@@ -6813,7 +6775,7 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
         if isinstance(patch, dict):
             patch = PullRequestPatchSource(**patch)
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c1e5279fc8c18480c3113cc60b389aa13938b2052436bbdcb3069cfe669fa47)
             check_type(argname="argument pull_request_description", value=pull_request_description, expected_type=type_hints["pull_request_description"])
@@ -7059,7 +7021,7 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -7067,7 +7029,7 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7082,7 +7044,7 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
 
 
 class PullRequestLint(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.PullRequestLint",
 ):
@@ -7100,7 +7062,7 @@ class PullRequestLint(
         contributor_statement: typing.Optional[builtins.str] = None,
         contributor_statement_options: typing.Optional[typing.Union["ContributorStatementOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         semantic_title: typing.Optional[builtins.bool] = None,
         semantic_title_options: typing.Optional[typing.Union["SemanticTitleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -7157,7 +7119,7 @@ class PullRequestLintOptions:
         contributor_statement: typing.Optional[builtins.str] = None,
         contributor_statement_options: typing.Optional[typing.Union["ContributorStatementOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         semantic_title: typing.Optional[builtins.bool] = None,
         semantic_title_options: typing.Optional[typing.Union["SemanticTitleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -7175,7 +7137,7 @@ class PullRequestLintOptions:
         if isinstance(contributor_statement_options, dict):
             contributor_statement_options = ContributorStatementOptions(**contributor_statement_options)
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if isinstance(semantic_title_options, dict):
             semantic_title_options = SemanticTitleOptions(**semantic_title_options)
         if __debug__:
@@ -7242,7 +7204,7 @@ class PullRequestLintOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -7250,7 +7212,7 @@ class PullRequestLintOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     @builtins.property
     def semantic_title(self) -> typing.Optional[builtins.bool]:
@@ -7491,7 +7453,7 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
 
 
 class PullRequestTemplate(
-    _TextFile_4a74808c,
+    _projen_04054675.TextFile,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.PullRequestTemplate",
 ):
@@ -7521,7 +7483,10 @@ class PullRequestTemplate(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: "_Project_57d89203") -> typing.Optional["PullRequestTemplate"]:
+    def of(
+        cls,
+        project: "_projen_04054675.Project",
+    ) -> typing.Optional["PullRequestTemplate"]:
         '''(experimental) Returns the ``PullRequestTemplate`` instance associated with a project or ``undefined`` if there is no PullRequestTemplate.
 
         :param project: The project.
@@ -7675,7 +7640,7 @@ class SemanticTitleOptions:
 
 @jsii.data_type(
     jsii_type="projen.github.SetupGitIdentityOptions",
-    jsii_struct_bases=[_JobStepConfiguration_9caff420],
+    jsii_struct_bases=[_workflows_2b7f1587.JobStepConfiguration],
     name_mapping={
         "env": "env",
         "id": "id",
@@ -7688,7 +7653,7 @@ class SemanticTitleOptions:
         "git_identity": "gitIdentity",
     },
 )
-class SetupGitIdentityOptions(_JobStepConfiguration_9caff420):
+class SetupGitIdentityOptions(_workflows_2b7f1587.JobStepConfiguration):
     def __init__(
         self,
         *,
@@ -7859,7 +7824,7 @@ class SetupGitIdentityOptions(_JobStepConfiguration_9caff420):
 
 
 class Stale(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.Stale",
 ):
@@ -7882,7 +7847,7 @@ class Stale(
         issues: typing.Optional[typing.Union["StaleBehavior", typing.Dict[builtins.str, typing.Any]]] = None,
         pull_request: typing.Optional[typing.Union["StaleBehavior", typing.Dict[builtins.str, typing.Any]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param github: -
@@ -8083,7 +8048,7 @@ class StaleOptions:
         issues: typing.Optional[typing.Union["StaleBehavior", typing.Dict[builtins.str, typing.Any]]] = None,
         pull_request: typing.Optional[typing.Union["StaleBehavior", typing.Dict[builtins.str, typing.Any]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for ``Stale``.
 
@@ -8099,7 +8064,7 @@ class StaleOptions:
         if isinstance(pull_request, dict):
             pull_request = StaleBehavior(**pull_request)
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3522ab5e4c43b16a792a120a46122600785f2af070bebc9421e03d5a3d80e371)
             check_type(argname="argument issues", value=issues, expected_type=type_hints["issues"])
@@ -8158,7 +8123,7 @@ class StaleOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -8166,7 +8131,7 @@ class StaleOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8195,26 +8160,26 @@ class TaskWorkflow(
         github: "GitHub",
         *,
         name: builtins.str,
-        task: "_Task_9fa875b6",
+        task: "_projen_04054675.Task",
         job_id: typing.Optional[builtins.str] = None,
-        triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
-        permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
+        triggers: typing.Optional[typing.Union["_workflows_2b7f1587.Triggers", typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]],
         artifacts_directory: typing.Optional[builtins.str] = None,
         checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         checkout_with: typing.Optional[typing.Union["CheckoutWith", typing.Dict[builtins.str, typing.Any]]] = None,
         condition: typing.Optional[builtins.str] = None,
-        container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
+        container: typing.Optional[typing.Union["_workflows_2b7f1587.ContainerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         environment: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
-        job_defaults: typing.Optional[typing.Union["_JobDefaults_965f0d10", typing.Dict[builtins.str, typing.Any]]] = None,
-        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_JobStepOutput_acebe827", typing.Dict[builtins.str, typing.Any]]]] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_defaults: typing.Optional[typing.Union["_workflows_2b7f1587.JobDefaults", typing.Dict[builtins.str, typing.Any]]] = None,
+        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_workflows_2b7f1587.JobStepOutput", typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param github: -
@@ -8289,7 +8254,7 @@ class TaskWorkflow(
 
 
 class TaskWorkflowJob(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.github.TaskWorkflowJob",
 ):
@@ -8302,25 +8267,25 @@ class TaskWorkflowJob(
     def __init__(
         self,
         scope: "_constructs_77d1e7e8.IConstruct",
-        task: "_Task_9fa875b6",
+        task: "_projen_04054675.Task",
         *,
-        permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
+        permissions: typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]],
         artifacts_directory: typing.Optional[builtins.str] = None,
         checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         checkout_with: typing.Optional[typing.Union["CheckoutWith", typing.Dict[builtins.str, typing.Any]]] = None,
         condition: typing.Optional[builtins.str] = None,
-        container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
+        container: typing.Optional[typing.Union["_workflows_2b7f1587.ContainerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         environment: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
-        job_defaults: typing.Optional[typing.Union["_JobDefaults_965f0d10", typing.Dict[builtins.str, typing.Any]]] = None,
-        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_JobStepOutput_acebe827", typing.Dict[builtins.str, typing.Any]]]] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_defaults: typing.Optional[typing.Union["_workflows_2b7f1587.JobDefaults", typing.Dict[builtins.str, typing.Any]]] = None,
+        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_workflows_2b7f1587.JobStepOutput", typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: should be part of the project the Task belongs to.
@@ -8373,19 +8338,19 @@ class TaskWorkflowJob(
 
     @builtins.property
     @jsii.member(jsii_name="permissions")
-    def permissions(self) -> "_JobPermissions_3b5b53dc":
+    def permissions(self) -> "_workflows_2b7f1587.JobPermissions":
         '''
         :stability: experimental
         '''
-        return typing.cast("_JobPermissions_3b5b53dc", jsii.get(self, "permissions"))
+        return typing.cast("_workflows_2b7f1587.JobPermissions", jsii.get(self, "permissions"))
 
     @builtins.property
     @jsii.member(jsii_name="steps")
-    def steps(self) -> typing.List["_JobStep_c3287c05"]:
+    def steps(self) -> typing.List["_workflows_2b7f1587.JobStep"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.get(self, "steps"))
+        return typing.cast(typing.List["_workflows_2b7f1587.JobStep"], jsii.get(self, "steps"))
 
     @builtins.property
     @jsii.member(jsii_name="concurrency")
@@ -8397,11 +8362,11 @@ class TaskWorkflowJob(
 
     @builtins.property
     @jsii.member(jsii_name="container")
-    def container(self) -> typing.Optional["_ContainerOptions_f50907af"]:
+    def container(self) -> typing.Optional["_workflows_2b7f1587.ContainerOptions"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_ContainerOptions_f50907af"], jsii.get(self, "container"))
+        return typing.cast(typing.Optional["_workflows_2b7f1587.ContainerOptions"], jsii.get(self, "container"))
 
     @builtins.property
     @jsii.member(jsii_name="continueOnError")
@@ -8413,11 +8378,11 @@ class TaskWorkflowJob(
 
     @builtins.property
     @jsii.member(jsii_name="defaults")
-    def defaults(self) -> typing.Optional["_JobDefaults_965f0d10"]:
+    def defaults(self) -> typing.Optional["_workflows_2b7f1587.JobDefaults"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_JobDefaults_965f0d10"], jsii.get(self, "defaults"))
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobDefaults"], jsii.get(self, "defaults"))
 
     @builtins.property
     @jsii.member(jsii_name="env")
@@ -8463,11 +8428,11 @@ class TaskWorkflowJob(
     @jsii.member(jsii_name="outputs")
     def outputs(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_JobStepOutput_acebe827"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_workflows_2b7f1587.JobStepOutput"]]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_JobStepOutput_acebe827"]], jsii.get(self, "outputs"))
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_workflows_2b7f1587.JobStepOutput"]], jsii.get(self, "outputs"))
 
     @builtins.property
     @jsii.member(jsii_name="runsOn")
@@ -8479,29 +8444,29 @@ class TaskWorkflowJob(
 
     @builtins.property
     @jsii.member(jsii_name="runsOnGroup")
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], jsii.get(self, "runsOnGroup"))
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], jsii.get(self, "runsOnGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="services")
     def services(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_ContainerOptions_f50907af"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_workflows_2b7f1587.ContainerOptions"]]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_ContainerOptions_f50907af"]], jsii.get(self, "services"))
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_workflows_2b7f1587.ContainerOptions"]], jsii.get(self, "services"))
 
     @builtins.property
     @jsii.member(jsii_name="strategy")
-    def strategy(self) -> typing.Optional["_JobStrategy_15089712"]:
+    def strategy(self) -> typing.Optional["_workflows_2b7f1587.JobStrategy"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_JobStrategy_15089712"], jsii.get(self, "strategy"))
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobStrategy"], jsii.get(self, "strategy"))
 
     @builtins.property
     @jsii.member(jsii_name="timeoutMinutes")
@@ -8513,11 +8478,11 @@ class TaskWorkflowJob(
 
     @builtins.property
     @jsii.member(jsii_name="tools")
-    def tools(self) -> typing.Optional["_Tools_75b93a2a"]:
+    def tools(self) -> typing.Optional["_workflows_2b7f1587.Tools"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_Tools_75b93a2a"], jsii.get(self, "tools"))
+        return typing.cast(typing.Optional["_workflows_2b7f1587.Tools"], jsii.get(self, "tools"))
 
 
 @jsii.data_type(
@@ -8547,23 +8512,23 @@ class TaskWorkflowJobOptions:
     def __init__(
         self,
         *,
-        permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
+        permissions: typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]],
         artifacts_directory: typing.Optional[builtins.str] = None,
         checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         checkout_with: typing.Optional[typing.Union["CheckoutWith", typing.Dict[builtins.str, typing.Any]]] = None,
         condition: typing.Optional[builtins.str] = None,
-        container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
+        container: typing.Optional[typing.Union["_workflows_2b7f1587.ContainerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         environment: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
-        job_defaults: typing.Optional[typing.Union["_JobDefaults_965f0d10", typing.Dict[builtins.str, typing.Any]]] = None,
-        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_JobStepOutput_acebe827", typing.Dict[builtins.str, typing.Any]]]] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_defaults: typing.Optional[typing.Union["_workflows_2b7f1587.JobDefaults", typing.Dict[builtins.str, typing.Any]]] = None,
+        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_workflows_2b7f1587.JobStepOutput", typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options to create the Job associated with a TaskWorkflow.
 
@@ -8588,17 +8553,17 @@ class TaskWorkflowJobOptions:
         :stability: experimental
         '''
         if isinstance(permissions, dict):
-            permissions = _JobPermissions_3b5b53dc(**permissions)
+            permissions = _workflows_2b7f1587.JobPermissions(**permissions)
         if isinstance(checkout_with, dict):
             checkout_with = CheckoutWith(**checkout_with)
         if isinstance(container, dict):
-            container = _ContainerOptions_f50907af(**container)
+            container = _workflows_2b7f1587.ContainerOptions(**container)
         if isinstance(git_identity, dict):
             git_identity = GitIdentity(**git_identity)
         if isinstance(job_defaults, dict):
-            job_defaults = _JobDefaults_965f0d10(**job_defaults)
+            job_defaults = _workflows_2b7f1587.JobDefaults(**job_defaults)
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f2039f9f0120fa5bcc0261afed5aa5fd2be59874413018ee781d5e75221c30c)
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
@@ -8655,14 +8620,14 @@ class TaskWorkflowJobOptions:
             self._values["runs_on_group"] = runs_on_group
 
     @builtins.property
-    def permissions(self) -> "_JobPermissions_3b5b53dc":
+    def permissions(self) -> "_workflows_2b7f1587.JobPermissions":
         '''(experimental) Permissions for the build job.
 
         :stability: experimental
         '''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
-        return typing.cast("_JobPermissions_3b5b53dc", result)
+        return typing.cast("_workflows_2b7f1587.JobPermissions", result)
 
     @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
@@ -8707,14 +8672,14 @@ class TaskWorkflowJobOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def container(self) -> typing.Optional["_ContainerOptions_f50907af"]:
+    def container(self) -> typing.Optional["_workflows_2b7f1587.ContainerOptions"]:
         '''
         :default: - default image
 
         :stability: experimental
         '''
         result = self._values.get("container")
-        return typing.cast(typing.Optional["_ContainerOptions_f50907af"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.ContainerOptions"], result)
 
     @builtins.property
     def download_lfs(self) -> typing.Optional[builtins.bool]:
@@ -8761,18 +8726,18 @@ class TaskWorkflowJobOptions:
         return typing.cast(typing.Optional["GitIdentity"], result)
 
     @builtins.property
-    def job_defaults(self) -> typing.Optional["_JobDefaults_965f0d10"]:
+    def job_defaults(self) -> typing.Optional["_workflows_2b7f1587.JobDefaults"]:
         '''(experimental) Default settings for all steps in the TaskWorkflow Job.
 
         :stability: experimental
         '''
         result = self._values.get("job_defaults")
-        return typing.cast(typing.Optional["_JobDefaults_965f0d10"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobDefaults"], result)
 
     @builtins.property
     def outputs(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_JobStepOutput_acebe827"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_workflows_2b7f1587.JobStepOutput"]]:
         '''(experimental) Mapping of job output names to values/expressions.
 
         :default: {}
@@ -8780,10 +8745,12 @@ class TaskWorkflowJobOptions:
         :stability: experimental
         '''
         result = self._values.get("outputs")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_JobStepOutput_acebe827"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_workflows_2b7f1587.JobStepOutput"]], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    def post_build_steps(
+        self,
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Actions to run after the main build step.
 
         :default: - not set
@@ -8791,10 +8758,12 @@ class TaskWorkflowJobOptions:
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
-    def pre_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    def pre_build_steps(
+        self,
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Steps to run before the main build step.
 
         :default: - not set
@@ -8802,10 +8771,12 @@ class TaskWorkflowJobOptions:
         :stability: experimental
         '''
         result = self._values.get("pre_build_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
-    def pre_checkout_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    def pre_checkout_steps(
+        self,
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Initial steps to run before the source code checkout.
 
         :default: - not set
@@ -8813,7 +8784,7 @@ class TaskWorkflowJobOptions:
         :stability: experimental
         '''
         result = self._values.get("pre_checkout_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
     def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8829,7 +8800,7 @@ class TaskWorkflowJobOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -8837,7 +8808,7 @@ class TaskWorkflowJobOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8882,27 +8853,27 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
     def __init__(
         self,
         *,
-        permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
+        permissions: typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]],
         artifacts_directory: typing.Optional[builtins.str] = None,
         checkout_submodules: typing.Optional["CheckoutSubmodules"] = None,
         checkout_with: typing.Optional[typing.Union["CheckoutWith", typing.Dict[builtins.str, typing.Any]]] = None,
         condition: typing.Optional[builtins.str] = None,
-        container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
+        container: typing.Optional[typing.Union["_workflows_2b7f1587.ContainerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         environment: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
-        job_defaults: typing.Optional[typing.Union["_JobDefaults_965f0d10", typing.Dict[builtins.str, typing.Any]]] = None,
-        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_JobStepOutput_acebe827", typing.Dict[builtins.str, typing.Any]]]] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_defaults: typing.Optional[typing.Union["_workflows_2b7f1587.JobDefaults", typing.Dict[builtins.str, typing.Any]]] = None,
+        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_workflows_2b7f1587.JobStepOutput", typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         name: builtins.str,
-        task: "_Task_9fa875b6",
+        task: "_projen_04054675.Task",
         job_id: typing.Optional[builtins.str] = None,
-        triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        triggers: typing.Optional[typing.Union["_workflows_2b7f1587.Triggers", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options to create a TaskWorkflow.
 
@@ -8931,19 +8902,19 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         :stability: experimental
         '''
         if isinstance(permissions, dict):
-            permissions = _JobPermissions_3b5b53dc(**permissions)
+            permissions = _workflows_2b7f1587.JobPermissions(**permissions)
         if isinstance(checkout_with, dict):
             checkout_with = CheckoutWith(**checkout_with)
         if isinstance(container, dict):
-            container = _ContainerOptions_f50907af(**container)
+            container = _workflows_2b7f1587.ContainerOptions(**container)
         if isinstance(git_identity, dict):
             git_identity = GitIdentity(**git_identity)
         if isinstance(job_defaults, dict):
-            job_defaults = _JobDefaults_965f0d10(**job_defaults)
+            job_defaults = _workflows_2b7f1587.JobDefaults(**job_defaults)
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if isinstance(triggers, dict):
-            triggers = _Triggers_e9ae7617(**triggers)
+            triggers = _workflows_2b7f1587.Triggers(**triggers)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15e1c594f5876baf2e105789fcb541bcb5e71cea5ad4320fb67052a9ce6946a8)
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
@@ -9010,14 +8981,14 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
             self._values["triggers"] = triggers
 
     @builtins.property
-    def permissions(self) -> "_JobPermissions_3b5b53dc":
+    def permissions(self) -> "_workflows_2b7f1587.JobPermissions":
         '''(experimental) Permissions for the build job.
 
         :stability: experimental
         '''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
-        return typing.cast("_JobPermissions_3b5b53dc", result)
+        return typing.cast("_workflows_2b7f1587.JobPermissions", result)
 
     @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
@@ -9062,14 +9033,14 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def container(self) -> typing.Optional["_ContainerOptions_f50907af"]:
+    def container(self) -> typing.Optional["_workflows_2b7f1587.ContainerOptions"]:
         '''
         :default: - default image
 
         :stability: experimental
         '''
         result = self._values.get("container")
-        return typing.cast(typing.Optional["_ContainerOptions_f50907af"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.ContainerOptions"], result)
 
     @builtins.property
     def download_lfs(self) -> typing.Optional[builtins.bool]:
@@ -9116,18 +9087,18 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         return typing.cast(typing.Optional["GitIdentity"], result)
 
     @builtins.property
-    def job_defaults(self) -> typing.Optional["_JobDefaults_965f0d10"]:
+    def job_defaults(self) -> typing.Optional["_workflows_2b7f1587.JobDefaults"]:
         '''(experimental) Default settings for all steps in the TaskWorkflow Job.
 
         :stability: experimental
         '''
         result = self._values.get("job_defaults")
-        return typing.cast(typing.Optional["_JobDefaults_965f0d10"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobDefaults"], result)
 
     @builtins.property
     def outputs(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_JobStepOutput_acebe827"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_workflows_2b7f1587.JobStepOutput"]]:
         '''(experimental) Mapping of job output names to values/expressions.
 
         :default: {}
@@ -9135,10 +9106,12 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         :stability: experimental
         '''
         result = self._values.get("outputs")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_JobStepOutput_acebe827"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_workflows_2b7f1587.JobStepOutput"]], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    def post_build_steps(
+        self,
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Actions to run after the main build step.
 
         :default: - not set
@@ -9146,10 +9119,12 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
-    def pre_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    def pre_build_steps(
+        self,
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Steps to run before the main build step.
 
         :default: - not set
@@ -9157,10 +9132,12 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_build_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
-    def pre_checkout_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    def pre_checkout_steps(
+        self,
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Initial steps to run before the source code checkout.
 
         :default: - not set
@@ -9168,7 +9145,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_checkout_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
     def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9184,7 +9161,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -9192,7 +9169,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -9205,14 +9182,14 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def task(self) -> "_Task_9fa875b6":
+    def task(self) -> "_projen_04054675.Task":
         '''(experimental) The main task to be executed.
 
         :stability: experimental
         '''
         result = self._values.get("task")
         assert result is not None, "Required property 'task' is missing"
-        return typing.cast("_Task_9fa875b6", result)
+        return typing.cast("_projen_04054675.Task", result)
 
     @builtins.property
     def job_id(self) -> typing.Optional[builtins.str]:
@@ -9226,7 +9203,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
+    def triggers(self) -> typing.Optional["_workflows_2b7f1587.Triggers"]:
         '''(experimental) The triggers for the workflow.
 
         :default: - by default workflows can only be triggered by manually.
@@ -9234,7 +9211,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         :stability: experimental
         '''
         result = self._values.get("triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.Triggers"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9250,7 +9227,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
 
 @jsii.data_type(
     jsii_type="projen.github.UploadArtifactOptions",
-    jsii_struct_bases=[_JobStepConfiguration_9caff420],
+    jsii_struct_bases=[_workflows_2b7f1587.JobStepConfiguration],
     name_mapping={
         "env": "env",
         "id": "id",
@@ -9263,7 +9240,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         "with_": "with",
     },
 )
-class UploadArtifactOptions(_JobStepConfiguration_9caff420):
+class UploadArtifactOptions(_workflows_2b7f1587.JobStepConfiguration):
     def __init__(
         self,
         *,
@@ -9781,7 +9758,7 @@ class WorkflowActions(
         repository: typing.Optional[builtins.str] = None,
         submodules: typing.Optional["CheckoutSubmodules"] = None,
         token: typing.Optional[builtins.str] = None,
-    ) -> typing.List["_JobStep_c3287c05"]:
+    ) -> typing.List["_workflows_2b7f1587.JobStep"]:
         '''(experimental) Checks out a repository and applies a git patch that was created using ``uploadGitPatch``.
 
         :param patch_file: (experimental) The name of the artifact the patch is stored as. Default: ".repo.patch"
@@ -9808,7 +9785,7 @@ class WorkflowActions(
             token=token,
         )
 
-        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.sinvoke(cls, "checkoutWithPatch", [options]))
+        return typing.cast(typing.List["_workflows_2b7f1587.JobStep"], jsii.sinvoke(cls, "checkoutWithPatch", [options]))
 
     @jsii.member(jsii_name="createPullRequest")
     @builtins.classmethod
@@ -9829,7 +9806,7 @@ class WorkflowActions(
         signoff: typing.Optional[builtins.bool] = None,
         step_id: typing.Optional[builtins.str] = None,
         step_name: typing.Optional[builtins.str] = None,
-    ) -> typing.List["_JobStep_c3287c05"]:
+    ) -> typing.List["_workflows_2b7f1587.JobStep"]:
         '''(experimental) A step that creates a pull request based on the current repo state.
 
         :param pull_request_description: (experimental) Description added to the pull request. Providence information are automatically added.
@@ -9868,7 +9845,7 @@ class WorkflowActions(
             step_name=step_name,
         )
 
-        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.sinvoke(cls, "createPullRequest", [options]))
+        return typing.cast(typing.List["_workflows_2b7f1587.JobStep"], jsii.sinvoke(cls, "createPullRequest", [options]))
 
     @jsii.member(jsii_name="uploadGitPatch")
     @builtins.classmethod
@@ -9880,7 +9857,7 @@ class WorkflowActions(
         mutation_error: typing.Optional[builtins.str] = None,
         patch_file: typing.Optional[builtins.str] = None,
         step_name: typing.Optional[builtins.str] = None,
-    ) -> typing.List["_JobStep_c3287c05"]:
+    ) -> typing.List["_workflows_2b7f1587.JobStep"]:
         '''(experimental) Creates a .patch file from the current git diff and uploads it as an artifact. Use ``checkoutWithPatch`` to download and apply in another job.
 
         If a patch was uploaded, the action can optionally fail the job.
@@ -9903,7 +9880,7 @@ class WorkflowActions(
             step_name=step_name,
         )
 
-        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.sinvoke(cls, "uploadGitPatch", [options]))
+        return typing.cast(typing.List["_workflows_2b7f1587.JobStep"], jsii.sinvoke(cls, "uploadGitPatch", [options]))
 
 
 class WorkflowJobs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowJobs"):
@@ -9926,7 +9903,7 @@ class WorkflowJobs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowJob
         patch: typing.Union["PullRequestPatchSource", typing.Dict[builtins.str, typing.Any]],
         job_name: typing.Optional[builtins.str] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pull_request_description: builtins.str,
         pull_request_title: builtins.str,
         workflow_name: builtins.str,
@@ -9941,7 +9918,7 @@ class WorkflowJobs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowJob
         signoff: typing.Optional[builtins.bool] = None,
         step_id: typing.Optional[builtins.str] = None,
         step_name: typing.Optional[builtins.str] = None,
-    ) -> "_Job_20ffcf45":
+    ) -> "_workflows_2b7f1587.Job":
         '''(experimental) Creates a pull request with the changes of a patch file.
 
         :param patch: (experimental) Information about the patch that is used to create the pull request.
@@ -9988,7 +9965,7 @@ class WorkflowJobs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowJob
             step_name=step_name,
         )
 
-        return typing.cast("_Job_20ffcf45", jsii.sinvoke(cls, "pullRequestFromPatch", [options]))
+        return typing.cast("_workflows_2b7f1587.Job", jsii.sinvoke(cls, "pullRequestFromPatch", [options]))
 
 
 class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSteps"):
@@ -10017,7 +9994,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         name: typing.Optional[builtins.str] = None,
         shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
-    ) -> "_JobStep_c3287c05":
+    ) -> "_workflows_2b7f1587.JobStep":
         '''(experimental) Checks out a repository.
 
         :param with_: (experimental) Options for ``checkout``.
@@ -10046,7 +10023,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             working_directory=working_directory,
         )
 
-        return typing.cast("_JobStep_c3287c05", jsii.sinvoke(cls, "checkout", [options]))
+        return typing.cast("_workflows_2b7f1587.JobStep", jsii.sinvoke(cls, "checkout", [options]))
 
     @jsii.member(jsii_name="downloadArtifact")
     @builtins.classmethod
@@ -10062,7 +10039,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         name: typing.Optional[builtins.str] = None,
         shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
-    ) -> "_JobStep_c3287c05":
+    ) -> "_workflows_2b7f1587.JobStep":
         '''(experimental) Downloads an artifact.
 
         :param with_: (experimental) Options for ``download-artifact``.
@@ -10091,7 +10068,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             working_directory=working_directory,
         )
 
-        return typing.cast("_JobStep_c3287c05", jsii.sinvoke(cls, "downloadArtifact", [options]))
+        return typing.cast("_workflows_2b7f1587.JobStep", jsii.sinvoke(cls, "downloadArtifact", [options]))
 
     @jsii.member(jsii_name="setupGitIdentity")
     @builtins.classmethod
@@ -10107,7 +10084,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         name: typing.Optional[builtins.str] = None,
         shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
-    ) -> "_JobStep_c3287c05":
+    ) -> "_workflows_2b7f1587.JobStep":
         '''(experimental) Configures the git identity (user name and email).
 
         :param git_identity: (experimental) The identity to use.
@@ -10136,7 +10113,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             working_directory=working_directory,
         )
 
-        return typing.cast("_JobStep_c3287c05", jsii.sinvoke(cls, "setupGitIdentity", [options]))
+        return typing.cast("_workflows_2b7f1587.JobStep", jsii.sinvoke(cls, "setupGitIdentity", [options]))
 
     @jsii.member(jsii_name="tagExists")
     @builtins.classmethod
@@ -10152,7 +10129,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         name: typing.Optional[builtins.str] = None,
         shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
-    ) -> "_JobStep_c3287c05":
+    ) -> "_workflows_2b7f1587.JobStep":
         '''(experimental) Checks if a tag exists.
 
         Requires a checkout step to have been run before this step with "fetch-depth" set to "0".
@@ -10178,7 +10155,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__696566a4c593a7173649d5eeaadb52edb8460487e95d469374dc3c01f621dc72)
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
-        options = _JobStepConfiguration_9caff420(
+        options = _workflows_2b7f1587.JobStepConfiguration(
             continue_on_error=continue_on_error,
             timeout_minutes=timeout_minutes,
             env=env,
@@ -10189,7 +10166,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             working_directory=working_directory,
         )
 
-        return typing.cast("_JobStep_c3287c05", jsii.sinvoke(cls, "tagExists", [tag, options]))
+        return typing.cast("_workflows_2b7f1587.JobStep", jsii.sinvoke(cls, "tagExists", [tag, options]))
 
     @jsii.member(jsii_name="uploadArtifact")
     @builtins.classmethod
@@ -10205,7 +10182,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         name: typing.Optional[builtins.str] = None,
         shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
-    ) -> "_JobStep_c3287c05":
+    ) -> "_workflows_2b7f1587.JobStep":
         '''(experimental) Uploads an artifact.
 
         :param with_: (experimental) Options for ``upload-artifact``.
@@ -10234,7 +10211,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             working_directory=working_directory,
         )
 
-        return typing.cast("_JobStep_c3287c05", jsii.sinvoke(cls, "uploadArtifact", [options]))
+        return typing.cast("_workflows_2b7f1587.JobStep", jsii.sinvoke(cls, "uploadArtifact", [options]))
 
 
 __all__ = [
@@ -10345,7 +10322,7 @@ def _typecheckingstub__b9950225018303493365be2cb651e0d7d64a1e6439bed8efe63e4e98a
     allowed_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
     label: typing.Optional[builtins.str] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     secret: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -10356,7 +10333,7 @@ def _typecheckingstub__1f9c4613bc56be10f461d808c77225c1917fcd25ebccedbc39aa410ff
     allowed_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
     label: typing.Optional[builtins.str] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     secret: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -10614,7 +10591,7 @@ def _typecheckingstub__8d1a93740635d98ed2858c12bde3e4024184432c48c6ca7bd06ba503c
     fail_on_severity: typing.Optional[builtins.str] = None,
     license_check: typing.Optional[builtins.bool] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     show_open_ssf_scorecard: typing.Optional[builtins.bool] = None,
     vulnerability_check: typing.Optional[builtins.bool] = None,
     warn_only: typing.Optional[builtins.bool] = None,
@@ -10634,7 +10611,7 @@ def _typecheckingstub__e65ca485637cc926ed0db9d01876f7212e4f08726ceed0e5ffec8be73
     fail_on_severity: typing.Optional[builtins.str] = None,
     license_check: typing.Optional[builtins.bool] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     show_open_ssf_scorecard: typing.Optional[builtins.bool] = None,
     vulnerability_check: typing.Optional[builtins.bool] = None,
     warn_only: typing.Optional[builtins.bool] = None,
@@ -10673,7 +10650,7 @@ def _typecheckingstub__3e5008f68a85d8490ecf62a54f413b82cc795d9a14d3bc8eabcc2720f
     pass
 
 def _typecheckingstub__65db11e8703472c7fa4e013294c649e43b7f8634b29ca11be71b46d8c549c4d1(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     dependency_review: typing.Optional[builtins.bool] = None,
@@ -10694,7 +10671,7 @@ def _typecheckingstub__65db11e8703472c7fa4e013294c649e43b7f8634b29ca11be71b46d8c
     pass
 
 def _typecheckingstub__f1f9f6e10bd4208bf86fd269c2d9b1be37bfe497219300efebf37a151efc972e(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10760,17 +10737,17 @@ def _typecheckingstub__e987504475149e2e7d9b25ee3320e9bdd8afa45a0da64af7b3a153489
     *,
     name: builtins.str,
     commit_generated: typing.Optional[builtins.bool] = None,
-    git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-    git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-    logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_ignore_options: typing.Optional[typing.Union[_projen_04054675.IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_options: typing.Optional[typing.Union[_projen_04054675.GitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[typing.Union[_projen_04054675.LoggerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
-    parent: typing.Optional[_Project_57d89203] = None,
+    parent: typing.Optional[_projen_04054675.Project] = None,
     project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
-    projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+    projenrc_json_options: typing.Optional[typing.Union[_projen_04054675.ProjenrcJsonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     renovatebot: typing.Optional[builtins.bool] = None,
-    renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+    renovatebot_options: typing.Optional[typing.Union[_projen_04054675.RenovatebotOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_approve_options: typing.Optional[typing.Union[AutoApproveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_merge: typing.Optional[builtins.bool] = None,
     auto_merge_options: typing.Optional[typing.Union[AutoMergeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10780,7 +10757,7 @@ def _typecheckingstub__e987504475149e2e7d9b25ee3320e9bdd8afa45a0da64af7b3a153489
     github_options: typing.Optional[typing.Union[GitHubOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
     projen_credentials: typing.Optional[GithubCredentials] = None,
-    readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+    readme: typing.Optional[typing.Union[_projen_04054675.SampleReadmeProps, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[StaleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     vscode: typing.Optional[builtins.bool] = None,
@@ -10801,7 +10778,7 @@ def _typecheckingstub__cfe552d6288d1f706792afe5f041e666db050b8d0d3bb7062899a3bde
     app_id_secret: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     owner: typing.Optional[builtins.str] = None,
-    permissions: typing.Optional[typing.Union[_AppPermissions_59709d51, typing.Dict[builtins.str, typing.Any]]] = None,
+    permissions: typing.Optional[typing.Union[_workflows_2b7f1587.AppPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
     private_key_secret: typing.Optional[builtins.str] = None,
     repositories: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -10831,13 +10808,13 @@ def _typecheckingstub__ca4f375b4fda039fc4fb5b2f4ad26a9d1695085d170d2d76e6d720c7c
 
 def _typecheckingstub__41cabee474513917adfff8f9da118269944812886b749e97c9b0d6a0c6b27c68(
     id: builtins.str,
-    job: typing.Union[typing.Union[_JobCallingReusableWorkflow_12ad1018, typing.Dict[builtins.str, typing.Any]], typing.Union[_Job_20ffcf45, typing.Dict[builtins.str, typing.Any]]],
+    job: typing.Union[typing.Union[_workflows_2b7f1587.JobCallingReusableWorkflow, typing.Dict[builtins.str, typing.Any]], typing.Union[_workflows_2b7f1587.Job, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__35b214ee606f61696719b92d704439e37a0a249e846714952fe087dd08b962c4(
-    jobs: typing.Mapping[builtins.str, typing.Union[typing.Union[_JobCallingReusableWorkflow_12ad1018, typing.Dict[builtins.str, typing.Any]], typing.Union[_Job_20ffcf45, typing.Dict[builtins.str, typing.Any]]]],
+    jobs: typing.Mapping[builtins.str, typing.Union[typing.Union[_workflows_2b7f1587.JobCallingReusableWorkflow, typing.Dict[builtins.str, typing.Any]], typing.Union[_workflows_2b7f1587.Job, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10964,13 +10941,13 @@ def _typecheckingstub__594bb401fd1b92fb9e008e53dc73d7d77e660fe98c491aecc6996fffe
 
 def _typecheckingstub__f94d2f725bca7bfcc9d04d8f1edba76829d02bb3d36b41c2102d987f4124a5e0(
     id: builtins.str,
-    job: typing.Union[typing.Union[_JobCallingReusableWorkflow_12ad1018, typing.Dict[builtins.str, typing.Any]], typing.Union[_Job_20ffcf45, typing.Dict[builtins.str, typing.Any]]],
+    job: typing.Union[typing.Union[_workflows_2b7f1587.JobCallingReusableWorkflow, typing.Dict[builtins.str, typing.Any]], typing.Union[_workflows_2b7f1587.Job, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e001ff456c44e6bf864c623b78e14cf21c2f18b1311c5a89b0ac92606e46d94f(
-    jobs: typing.Mapping[builtins.str, typing.Union[typing.Union[_JobCallingReusableWorkflow_12ad1018, typing.Dict[builtins.str, typing.Any]], typing.Union[_Job_20ffcf45, typing.Dict[builtins.str, typing.Any]]]],
+    jobs: typing.Mapping[builtins.str, typing.Union[typing.Union[_workflows_2b7f1587.JobCallingReusableWorkflow, typing.Dict[builtins.str, typing.Any]], typing.Union[_workflows_2b7f1587.Job, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11103,7 +11080,7 @@ def _typecheckingstub__0c1e5279fc8c18480c3113cc60b389aa13938b2052436bbdcb3069cfe
     patch: typing.Union[PullRequestPatchSource, typing.Dict[builtins.str, typing.Any]],
     job_name: typing.Optional[builtins.str] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11114,7 +11091,7 @@ def _typecheckingstub__2e947e718bf3d7bd85f25ecd7154aeef36d789ef76012c5d50b8c1a26
     contributor_statement: typing.Optional[builtins.str] = None,
     contributor_statement_options: typing.Optional[typing.Union[ContributorStatementOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     semantic_title: typing.Optional[builtins.bool] = None,
     semantic_title_options: typing.Optional[typing.Union[SemanticTitleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -11126,7 +11103,7 @@ def _typecheckingstub__753ecd53f4dea89ebcc13327977e141a051588fef5185d3f14e06f44f
     contributor_statement: typing.Optional[builtins.str] = None,
     contributor_statement_options: typing.Optional[typing.Union[ContributorStatementOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     semantic_title: typing.Optional[builtins.bool] = None,
     semantic_title_options: typing.Optional[typing.Union[SemanticTitleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -11158,7 +11135,7 @@ def _typecheckingstub__609f06a532384d8ff817f7118dd1e021a8ee15a4aeb1b785b674a5c88
     pass
 
 def _typecheckingstub__f0af695bcfedd2f6459c1076cb70a8fb3bcc292ca53d672ffe1454877abb97d7(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11200,7 +11177,7 @@ def _typecheckingstub__cde7a08a3b4ffe6754e0a55a7717404b9b4693c90412e433734959e93
     issues: typing.Optional[typing.Union[StaleBehavior, typing.Dict[builtins.str, typing.Any]]] = None,
     pull_request: typing.Optional[typing.Union[StaleBehavior, typing.Dict[builtins.str, typing.Any]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11223,7 +11200,7 @@ def _typecheckingstub__3522ab5e4c43b16a792a120a46122600785f2af070bebc9421e03d5a3
     issues: typing.Optional[typing.Union[StaleBehavior, typing.Dict[builtins.str, typing.Any]]] = None,
     pull_request: typing.Optional[typing.Union[StaleBehavior, typing.Dict[builtins.str, typing.Any]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11232,101 +11209,101 @@ def _typecheckingstub__8d4fb3030e96a87b921aa6bfb0d4ccf7a90d4c2affbcb8eeca2d5a24c
     github: GitHub,
     *,
     name: builtins.str,
-    task: _Task_9fa875b6,
+    task: _projen_04054675.Task,
     job_id: typing.Optional[builtins.str] = None,
-    triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-    permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
+    triggers: typing.Optional[typing.Union[_workflows_2b7f1587.Triggers, typing.Dict[builtins.str, typing.Any]]] = None,
+    permissions: typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]],
     artifacts_directory: typing.Optional[builtins.str] = None,
     checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     checkout_with: typing.Optional[typing.Union[CheckoutWith, typing.Dict[builtins.str, typing.Any]]] = None,
     condition: typing.Optional[builtins.str] = None,
-    container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+    container: typing.Optional[typing.Union[_workflows_2b7f1587.ContainerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     environment: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
-    job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
-    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
-    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_defaults: typing.Optional[typing.Union[_workflows_2b7f1587.JobDefaults, typing.Dict[builtins.str, typing.Any]]] = None,
+    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_workflows_2b7f1587.JobStepOutput, typing.Dict[builtins.str, typing.Any]]]] = None,
+    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8e35b96aa7e4fe84c59cac8c7e3f4c146c780c7b09807f610b1aaf727c130a02(
     scope: _constructs_77d1e7e8.IConstruct,
-    task: _Task_9fa875b6,
+    task: _projen_04054675.Task,
     *,
-    permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
+    permissions: typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]],
     artifacts_directory: typing.Optional[builtins.str] = None,
     checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     checkout_with: typing.Optional[typing.Union[CheckoutWith, typing.Dict[builtins.str, typing.Any]]] = None,
     condition: typing.Optional[builtins.str] = None,
-    container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+    container: typing.Optional[typing.Union[_workflows_2b7f1587.ContainerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     environment: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
-    job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
-    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
-    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_defaults: typing.Optional[typing.Union[_workflows_2b7f1587.JobDefaults, typing.Dict[builtins.str, typing.Any]]] = None,
+    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_workflows_2b7f1587.JobStepOutput, typing.Dict[builtins.str, typing.Any]]]] = None,
+    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4f2039f9f0120fa5bcc0261afed5aa5fd2be59874413018ee781d5e75221c30c(
     *,
-    permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
+    permissions: typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]],
     artifacts_directory: typing.Optional[builtins.str] = None,
     checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     checkout_with: typing.Optional[typing.Union[CheckoutWith, typing.Dict[builtins.str, typing.Any]]] = None,
     condition: typing.Optional[builtins.str] = None,
-    container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+    container: typing.Optional[typing.Union[_workflows_2b7f1587.ContainerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     environment: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
-    job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
-    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
-    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_defaults: typing.Optional[typing.Union[_workflows_2b7f1587.JobDefaults, typing.Dict[builtins.str, typing.Any]]] = None,
+    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_workflows_2b7f1587.JobStepOutput, typing.Dict[builtins.str, typing.Any]]]] = None,
+    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__15e1c594f5876baf2e105789fcb541bcb5e71cea5ad4320fb67052a9ce6946a8(
     *,
-    permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
+    permissions: typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]],
     artifacts_directory: typing.Optional[builtins.str] = None,
     checkout_submodules: typing.Optional[CheckoutSubmodules] = None,
     checkout_with: typing.Optional[typing.Union[CheckoutWith, typing.Dict[builtins.str, typing.Any]]] = None,
     condition: typing.Optional[builtins.str] = None,
-    container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+    container: typing.Optional[typing.Union[_workflows_2b7f1587.ContainerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     environment: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
-    job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
-    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
-    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_defaults: typing.Optional[typing.Union[_workflows_2b7f1587.JobDefaults, typing.Dict[builtins.str, typing.Any]]] = None,
+    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_workflows_2b7f1587.JobStepOutput, typing.Dict[builtins.str, typing.Any]]]] = None,
+    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_checkout_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     name: builtins.str,
-    task: _Task_9fa875b6,
+    task: _projen_04054675.Task,
     job_id: typing.Optional[builtins.str] = None,
-    triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
+    triggers: typing.Optional[typing.Union[_workflows_2b7f1587.Triggers, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

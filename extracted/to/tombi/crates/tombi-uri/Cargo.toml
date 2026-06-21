@@ -1,0 +1,18 @@
+[package]
+name = "tombi-uri"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+serde.workspace = true
+url = { version = "2.5.4", features = ["serde"] }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

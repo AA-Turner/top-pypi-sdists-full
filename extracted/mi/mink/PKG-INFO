@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mink
-Version: 1.1.1
+Version: 1.2.0
 Summary: Python inverse kinematics based on MuJoCo
 Keywords: inverse,kinematics,mujoco
 Author-Email: Kevin Zakka <zakka@berkeley.edu>

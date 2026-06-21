@@ -63,7 +63,82 @@ async def test_protocol_read_limit_overrun(
     with pytest.raises(SMTPResponseException) as exc_info:
         await protocol.execute_command(b"TEST", timeout=1.0)  # type: ignore
 
-    assert exc_info.value.code == 500
+    assert exc_info.value.code == -1
+    assert "Response too long" in exc_info.value.message
+
+    server.close()
+    await cleanup_server(server)
+
+
+async def test_protocol_response_no_newline_overrun(
+    bind_address: str,
+    hostname: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event_loop = asyncio.get_running_loop()
+
+    async def client_connected(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        await reader.read(1000)
+        # No line ending at all, so the per-line cap is never reached.
+        writer.write(b"2" * 500)
+        await writer.drain()
+
+    server = await asyncio.start_server(
+        client_connected, host=bind_address, port=0, family=socket.AF_INET
+    )
+    server_port = server.sockets[0].getsockname()[1] if server.sockets else 0
+    connect_future = event_loop.create_connection(
+        SMTPProtocol, host=hostname, port=server_port
+    )
+
+    _, protocol = await asyncio.wait_for(connect_future, timeout=1.0)
+
+    monkeypatch.setattr("aiosmtplib.protocol.MAX_RESPONSE_LENGTH", 128)
+
+    with pytest.raises(SMTPResponseException) as exc_info:
+        await protocol.execute_command(b"TEST", timeout=1.0)  # type: ignore
+
+    assert exc_info.value.code == -1
+    assert "Response too long" in exc_info.value.message
+
+    server.close()
+    await cleanup_server(server)
+
+
+async def test_protocol_response_continuation_overrun(
+    bind_address: str,
+    hostname: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event_loop = asyncio.get_running_loop()
+
+    async def client_connected(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        await reader.read(1000)
+        # Endless multiline continuation; each line is well under the per-line
+        # cap, so only the total response cap can stop it.
+        writer.write(b"250-spam\r\n" * 100)
+        await writer.drain()
+
+    server = await asyncio.start_server(
+        client_connected, host=bind_address, port=0, family=socket.AF_INET
+    )
+    server_port = server.sockets[0].getsockname()[1] if server.sockets else 0
+    connect_future = event_loop.create_connection(
+        SMTPProtocol, host=hostname, port=server_port
+    )
+
+    _, protocol = await asyncio.wait_for(connect_future, timeout=1.0)
+
+    monkeypatch.setattr("aiosmtplib.protocol.MAX_RESPONSE_LENGTH", 128)
+
+    with pytest.raises(SMTPResponseException) as exc_info:
+        await protocol.execute_command(b"TEST", timeout=1.0)  # type: ignore
+
+    assert exc_info.value.code == -1
     assert "Response too long" in exc_info.value.message
 
     server.close()
@@ -160,6 +235,53 @@ async def test_protocol_timeout_on_starttls(
         await protocol.start_tls(client_tls_context)
 
     transport.close()
+
+
+async def test_protocol_discards_buffer_before_tls_handshake(
+    bind_address: str,
+    hostname: str,
+    client_tls_context: ssl.SSLContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Bytes a MITM injects after the 220 STARTTLS reply must not survive into the
+    encrypted session.
+    """
+    event_loop = asyncio.get_running_loop()
+
+    async def client_connected(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        await reader.readuntil(b"\r\n")
+        # 220 reply plus injected plaintext, in a single segment.
+        writer.write(b"220 Go ahead\r\n250-mx.evil\r\n250 AUTH LOGIN\r\n")
+        await writer.drain()
+        await reader.read()  # keep the connection open through start_tls
+
+    server = await asyncio.start_server(
+        client_connected, host=bind_address, port=0, family=socket.AF_INET
+    )
+    server_port = server.sockets[0].getsockname()[1] if server.sockets else 0
+    connect_future = event_loop.create_connection(
+        SMTPProtocol, host=hostname, port=server_port
+    )
+    _, protocol = await asyncio.wait_for(connect_future, timeout=1.0)
+
+    captured: dict[str, bytes] = {}
+
+    async def mock_start_tls(transport, proto, *args, **kwargs):  # type: ignore[no-untyped-def]
+        captured["buffer"] = bytes(proto._buffer)
+        return transport
+
+    monkeypatch.setattr(event_loop, "start_tls", mock_start_tls)
+
+    response = await protocol.start_tls(client_tls_context, timeout=1.0)  # type: ignore[union-attr]
+
+    assert response.code == 220
+    assert captured["buffer"] == b""
+
+    server.close()
+    await cleanup_server(server)
 
 
 async def test_error_on_readline_with_partial_line(

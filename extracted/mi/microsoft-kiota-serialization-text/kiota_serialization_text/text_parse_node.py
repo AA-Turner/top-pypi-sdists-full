@@ -8,7 +8,9 @@ from typing import Optional, TypeVar
 from uuid import UUID
 
 from kiota_abstractions.date_utils import (
-    parse_timedelta_string, datetime_from_iso_format_compat, time_from_iso_format_compat
+    datetime_from_iso_format_compat,
+    parse_timedelta_string,
+    time_from_iso_format_compat,
 )
 from kiota_abstractions.serialization import Parsable, ParsableFactory, ParseNode
 

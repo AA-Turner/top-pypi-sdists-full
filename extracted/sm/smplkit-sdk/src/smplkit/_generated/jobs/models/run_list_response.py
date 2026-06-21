@@ -25,7 +25,7 @@ class RunListResponse:
 
     Attributes:
         data (list[RunResource]):
-        meta (RunListMeta): Cursor-pagination meta for the runs list (ADR-014 high-cardinality exception).
+        meta (RunListMeta): Cursor-pagination meta for the runs list.
         links (None | RunListLinks | Unset):
     """
 

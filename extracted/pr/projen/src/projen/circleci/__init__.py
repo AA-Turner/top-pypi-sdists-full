@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -16,11 +18,22 @@ from jsii._type_checking import check_type
 
 from .._jsii import *
 
-from .. import (
-    Component as _Component_2b0ad27f,
-    Project as _Project_57d89203,
-    YamlFile as _YamlFile_909731b0,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import projen as _projen_04054675
+else:
+
+    _projen_04054675 = _LazyImport("projen")
 
 
 @jsii.data_type(
@@ -138,7 +151,7 @@ class CircleCiProps:
 
 
 class Circleci(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.circleci.Circleci",
 ):
@@ -150,7 +163,7 @@ class Circleci(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         jobs: typing.Optional[typing.Sequence[typing.Union["Job", typing.Dict[builtins.str, typing.Any]]]] = None,
         orbs: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -220,12 +233,12 @@ class Circleci(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_YamlFile_909731b0":
+    def file(self) -> "_projen_04054675.YamlFile":
         '''(experimental) The yaml file for the Circleci pipeline.
 
         :stability: experimental
         '''
-        return typing.cast("_YamlFile_909731b0", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.YamlFile", jsii.get(self, "file"))
 
 
 @jsii.data_type(
@@ -1714,7 +1727,7 @@ def _typecheckingstub__3c06d1b34693d265fea30a99659c5747190e9c57d57d9f113945e2e9c
     pass
 
 def _typecheckingstub__e2e6060b99c6fcc0051c7dac0012833613cc8aeda16307b7ed8accef2f464d02(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     jobs: typing.Optional[typing.Sequence[typing.Union[Job, typing.Dict[builtins.str, typing.Any]]]] = None,
     orbs: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

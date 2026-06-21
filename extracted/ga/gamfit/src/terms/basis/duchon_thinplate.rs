@@ -27,7 +27,7 @@ type DuchonBasisCacheKey = (u64, u64);
 #[derive(Clone)]
 struct CachedDuchonBasis(BasisBuildResult);
 
-impl crate::solver::resource::ResidentBytes for CachedDuchonBasis {
+impl crate::resource::ResidentBytes for CachedDuchonBasis {
     fn resident_bytes(&self) -> usize {
         // Coarse charge: the dominant resident cost is the dense design columns
         // and the penalty Grams. An estimate suffices — the byte budget only
@@ -55,11 +55,11 @@ impl crate::solver::resource::ResidentBytes for CachedDuchonBasis {
 /// working set is a single `BasisBuildResult`, so even a modest budget retains
 /// the shared basis across the whole sweep.
 fn duchon_basis_cache()
--> &'static crate::solver::resource::ByteLruCache<DuchonBasisCacheKey, CachedDuchonBasis> {
+-> &'static crate::resource::ByteLruCache<DuchonBasisCacheKey, CachedDuchonBasis> {
     static CACHE: std::sync::OnceLock<
-        crate::solver::resource::ByteLruCache<DuchonBasisCacheKey, CachedDuchonBasis>,
+        crate::resource::ByteLruCache<DuchonBasisCacheKey, CachedDuchonBasis>,
     > = std::sync::OnceLock::new();
-    CACHE.get_or_init(|| crate::solver::resource::ByteLruCache::new(1 << 30))
+    CACHE.get_or_init(|| crate::resource::ByteLruCache::new(1 << 30))
 }
 
 /// 128-bit content fingerprint of `(data, spec)`. Two independent hashers (one
@@ -200,7 +200,7 @@ fn build_duchon_basis_uncached(
         spec.power
     };
     validate_duchon_kernel_orders(spec.length_scale, p_order, validation_power, data.ncols())?;
-    let kernel_transform = kernel_constraint_nullspace(
+    let mut kernel_transform = kernel_constraint_nullspace(
         centers.view(),
         effective_nullspace_order,
         &mut workspace.cache,
@@ -209,6 +209,24 @@ fn build_duchon_basis_uncached(
     let base_cols = kernel_transform.ncols() + poly_cols;
     let dense_bytes = dense_design_bytes(data.nrows(), base_cols);
     let use_lazy = should_use_lazy_spatial_design(data.nrows(), base_cols, workspace.policy());
+    // #1355: data-metric radial reparameterization `V`, frozen into metadata so
+    // predict / κ-trial rebuilds replay the exact fit-time rotated radial basis.
+    // A FROZEN `V` (predict / κ-trial / replay) is folded into the constrained
+    // kernel transform on EVERY path so the design stays consistent with the
+    // frozen penalty. A FRESH `V` is computed only on the dense cold path; the
+    // lazy/streaming cold path keeps the original constrained basis (`None`).
+    let mut frozen_radial_reparam: Option<Array2<f64>> = None;
+    if let Some(v) = spec.radial_reparam.as_ref() {
+        if v.nrows() != kernel_transform.ncols() {
+            crate::bail_dim_basis!(
+                "Duchon frozen radial reparam shape {:?} does not match constrained kernel dimension {}",
+                v.dim(),
+                kernel_transform.ncols()
+            );
+        }
+        kernel_transform = fast_ab(&kernel_transform, v);
+        frozen_radial_reparam = Some(v.clone());
+    }
     let (design, identifiability_transform) = if use_lazy {
         // log::info! — deliberate memory-saving choice, not an anomaly.
         log::info!(
@@ -241,7 +259,22 @@ fn build_duchon_basis_uncached(
         } else {
             None
         };
-        let poly_block = polynomial_block_from_order(data, effective_nullspace_order);
+        // Translation-invariant polynomial frame (#1375): build the explicit
+        // poly null-space columns at coordinates centered by the center-cloud
+        // per-axis mean, matching `build_duchon_basis_designwithworkspace` (dense
+        // path) and the side-condition `Z` (centered inside
+        // `kernel_constraint_nullspace`). The kernel block reads `data − centers`
+        // differences, so it is already translation-invariant and stays raw.
+        let center_mean: Vec<f64> = (0..d)
+            .map(|c| centers.column(c).sum() / (centers.nrows().max(1) as f64))
+            .collect();
+        let mut data_centered = data.to_owned();
+        for c in 0..d {
+            let mu = center_mean[c];
+            data_centered.column_mut(c).mapv_inplace(|v| v - mu);
+        }
+        let poly_block =
+            polynomial_block_from_order(data_centered.view(), effective_nullspace_order);
         let kernel_amp = duchon_kernel_amplification(
             centers.view(),
             length_scale,
@@ -334,6 +367,69 @@ fn build_duchon_basis_uncached(
         };
         (design, identifiability_transform)
     } else {
+        // #1355: dense path applies the data-metric radial reparameterization
+        // `V` (mirroring the thin-plate Wood-TPRS reparam) so the native
+        // penalty's cliff-less Mercer spectrum is replaced by the
+        // curvature-per-unit-data-variance spectrum (mgcv's cliff), removing the
+        // REML over-smoothing collapse to EDF = 1. `V` is frozen at the cold
+        // build and replayed verbatim from `spec.radial_reparam` on the
+        // predict / κ-trial paths.
+        // A FRESH `V` is computed only when no frozen reparam was supplied
+        // (`frozen_radial_reparam` already folded above on the replay paths). At
+        // that point `kernel_transform` is still the raw `Z`.
+        //
+        // The reparam is gated to the native-Gram-only configuration (no active
+        // mass/tension/stiffness operator penalties): those operators build
+        // their own collocation Grams in the un-rotated `Z` frame, so rotating
+        // only the native penalty would desync the operator penalty columns.
+        // Operators are off for the default `duchon(x1,x2)` (the #1355 collapse),
+        // so this gate keeps the fix scoped to where it is needed and sound.
+        let operators_active = matches!(
+            spec.operator_penalties.mass,
+            OperatorPenaltySpec::Active { .. }
+        ) || matches!(
+            spec.operator_penalties.tension,
+            OperatorPenaltySpec::Active { .. }
+        ) || matches!(
+            spec.operator_penalties.stiffness,
+            OperatorPenaltySpec::Active { .. }
+        );
+        if frozen_radial_reparam.is_none() && !operators_active {
+            let kernel_cols = kernel_transform.ncols();
+            if kernel_cols > 0 {
+                // Build the un-rotated constrained kernel design once, take its
+                // realized Gram `G_c = (K·Z)ᵀ(K·Z)`, and solve the generalized
+                // eigenproblem `Ω_c v = μ G_c v` with `Ω_c = α²·ZᵀK_CC Z`.
+                let raw = build_duchon_basis_designwithworkspace(
+                    data,
+                    centers.view(),
+                    spec.length_scale,
+                    spec.power,
+                    effective_nullspace_order,
+                    aniso.as_deref(),
+                    None,
+                    workspace,
+                )?;
+                let kernel_block = raw.basis.slice(s![.., 0..kernel_cols]);
+                let design_gram = symmetrize_penalty(&fast_atb(&kernel_block, &kernel_block));
+                let omega_constrained = duchon_constrained_bending_penalty(
+                    centers.view(),
+                    spec.length_scale,
+                    spec.power,
+                    effective_nullspace_order,
+                    aniso.as_deref(),
+                    &kernel_transform,
+                )?;
+                let (v, _mu) =
+                    thin_plate_radial_reparam_data_metric(&omega_constrained, &design_gram)?;
+                // A degenerate reparam (no retained modes) would gut the basis;
+                // only adopt `V` when it preserves at least one radial column.
+                if v.ncols() > 0 {
+                    kernel_transform = fast_ab(&kernel_transform, &v);
+                    frozen_radial_reparam = Some(v);
+                }
+            }
+        }
         let d = build_duchon_basis_designwithworkspace(
             data,
             centers.view(),
@@ -341,6 +437,7 @@ fn build_duchon_basis_uncached(
             spec.power,
             effective_nullspace_order,
             aniso.as_deref(),
+            frozen_radial_reparam.as_ref(),
             workspace,
         )?;
         let basis = d.basis;
@@ -427,6 +524,7 @@ fn build_duchon_basis_uncached(
             input_scales: None,
             aniso_log_scales: aniso,
             operator_collocation_points,
+            radial_reparam: frozen_radial_reparam,
         },
         kronecker_factored: None,
     })
@@ -461,6 +559,7 @@ pub(crate) fn duchon_penalties_at_length_scale(
     power: f64,
     nullspace_order: DuchonNullspaceOrder,
     aniso_log_scales: Option<&[f64]>,
+    radial_reparam: Option<&Array2<f64>>,
     length_scale: Option<f64>,
     workspace: &mut BasisWorkspace,
 ) -> Result<(Vec<Array2<f64>>, Vec<usize>), BasisError> {
@@ -470,8 +569,20 @@ pub(crate) fn duchon_penalties_at_length_scale(
     let effective_nullspace_order = duchon_effective_nullspace_order(centers, nullspace_order);
     let aniso = auto_seed_aniso_contrasts(centers, aniso_log_scales);
     // n-free kernel-constraint nullspace (from centers; cached on the workspace).
-    let kernel_transform =
+    let mut kernel_transform =
         kernel_constraint_nullspace(centers, effective_nullspace_order, &mut workspace.cache)?;
+    // #1355: fold the frozen data-metric reparam `Z' = Z·V` so the κ-trial
+    // penalty `Z'ᵀ K_CC(ψ) Z' = diag(μ(ψ))` matches the rotated design.
+    if let Some(v) = radial_reparam {
+        if v.nrows() != kernel_transform.ncols() {
+            crate::bail_dim_basis!(
+                "Duchon frozen radial reparam shape {:?} does not match constrained kernel dimension {}",
+                v.dim(),
+                kernel_transform.ncols()
+            );
+        }
+        kernel_transform = fast_ab(&kernel_transform, v);
+    }
     // Polynomial column count: `C(d+r, r)`, independent of the row count, so the
     // n-free centers-based form equals the cold build's data-based `.ncols()`.
     let poly_cols = polynomial_block_from_order(centers, effective_nullspace_order).ncols();
@@ -610,10 +721,32 @@ pub fn thin_plate_polynomial_basis_dimension(dimension: usize) -> usize {
     monomial_exponents(dimension, thin_plate_polynomial_degree(dimension)).len()
 }
 
-const THIN_PLATE_RADIAL_RETAIN_REL_TOL: f64 = 1.0e-1;
-
+/// Selects which radial penalty eigenmodes to expose as basis columns.
+///
+/// The constrained radial penalty `Ω` is SPD in exact arithmetic — the
+/// polynomial null space `{1, x, …}` has already been removed by the gauge
+/// restriction, so every nonzero eigenvalue is a genuine bending direction
+/// and must be retained (this matches mgcv's thin-plate construction, which
+/// keeps all `k − M` radial modes and relies on REML, not basis truncation,
+/// to set the effective degrees of freedom). The only modes that are NOT
+/// real curvature directions are **roundoff dust**: eigenvalues at or below
+/// the LAPACK numerical-rank floor `K·ε·λ_max` (Golub & Van Loan, *Matrix
+/// Computations*, §2.5.6) are exact zeros polluted by floating-point error
+/// from the constraint restriction and carry no information.
+///
+/// The threshold is therefore the standard numerical-rank floor — derived,
+/// scale-free, and tuning-free. It deliberately does NOT prune low-but-real
+/// bending modes by magnitude: doing so was the #1271 hill-climb (a swept
+/// `max_eval·tol` cutoff) that over-pruned the nonlinear arms (lidar /
+/// by-factor truth recovery collapsed) while still missing the linear EDF
+/// bar. The genuine over-fit on near-linear data is a REML smoothing issue
+/// (the diagonalised radial penalty's wide eigenvalue spread under a single
+/// `λ` leaves a flat REML profile, so the outer optimiser terminates at an
+/// interior `λ` that under-smooths), not a basis-rank issue — pruning cannot
+/// fix it without destroying the bending capacity real data needs.
 fn thin_plate_retained_radial_indices(evals: &Array1<f64>) -> Vec<usize> {
-    if evals.is_empty() {
+    let k = evals.len();
+    if k == 0 {
         return Vec::new();
     }
     let max_eval = evals
@@ -623,11 +756,14 @@ fn thin_plate_retained_radial_indices(evals: &Array1<f64>) -> Vec<usize> {
     if !max_eval.is_finite() || max_eval <= 0.0 {
         return Vec::new();
     }
-    let tol = max_eval * THIN_PLATE_RADIAL_RETAIN_REL_TOL;
+    // Numerical-rank floor: anything at or below `K·ε·λ_max` is roundoff dust
+    // from the gauge restriction, not a real bending mode. Everything above it
+    // is genuine curvature and is kept.
+    let num_floor = (k as f64) * f64::EPSILON * max_eval;
     evals
         .iter()
         .enumerate()
-        .filter_map(|(idx, &value)| (value > tol).then_some(idx))
+        .filter_map(|(idx, &value)| (value.abs() > num_floor).then_some(idx))
         .collect()
 }
 
@@ -653,6 +789,93 @@ pub(crate) fn thin_plate_radial_reparam_from_constrained_penalty(
     }
     let keep = thin_plate_retained_radial_indices(&evals);
     Ok((evecs.select(Axis(1), &keep), evals.select(Axis(0), &keep)))
+}
+
+/// Thin-plate radial reparameterization in the **realized data metric** (#1347).
+///
+/// The penalty is the polyharmonic bending energy `Ω_c = Zᵀ K_CC Z` (the RKHS
+/// reproducing-norm Gram on the constrained kernel coefficients). gam's old
+/// reparam eigendecomposed `Ω_c` alone, laying its raw eigenvalues on the
+/// penalty diagonal. But the constraint `Z` has already quotiented out the
+/// `{1, x}` polynomial null space, so `Ω_c` is full-rank with a smooth Mercer
+/// tail and **no cliff** — its smallest eigenvalues are genuine low-curvature
+/// bending directions that nonetheless carry large variance over the data.
+/// Under a single REML `λ` those near-null modes cost almost nothing yet absorb
+/// EDF freely, over-fitting near-linear data (mean EDF ≈ 5.3 vs mgcv ≈ 2.1).
+///
+/// mgcv's TPRS instead penalizes bending energy **relative to the realized
+/// design metric** — equivalently it solves the generalized eigenproblem
+///
+/// ```text
+///   Ω_c v = μ G_c v ,   G_c = (K Z)ᵀ (K Z)
+/// ```
+///
+/// where `G_c` is the Gram of the realized constrained kernel design columns.
+/// The eigenvalue `μ = (vᵀ Ω_c v)/(vᵀ G_c v)` is curvature per unit
+/// data-variance: it spreads the spectrum the way mgcv's does (top mode, a
+/// `0.77` second mode, then a clean geometric cliff to the tail), so a single
+/// `λ` can no longer buy near-free wiggle. The returned eigenvectors `V` are
+/// `G_c`-orthonormal (`Vᵀ G_c V = I`), so the rotated design `K Z V` has an
+/// identity Gram and the penalty is exactly `diag(μ) = Vᵀ Ω_c V` — which the
+/// frozen-replay / length-scale paths already recover via `diag(Vᵀ Ω_c V)`, so
+/// no downstream change is needed. The model space `span(K Z V) = span(K Z)` is
+/// unchanged (`V` is invertible), preserving full nonlinear capacity.
+pub(crate) fn thin_plate_radial_reparam_data_metric(
+    omega_constrained: &Array2<f64>,
+    design_gram: &Array2<f64>,
+) -> Result<(Array2<f64>, Array1<f64>), BasisError> {
+    let k = omega_constrained.nrows();
+    if k != omega_constrained.ncols() || design_gram.nrows() != k || design_gram.ncols() != k {
+        crate::bail_dim_basis!(
+            "thin-plate data-metric reparam requires square k×k Ω_c and G_c: Ω_c={:?}, G_c={:?}",
+            omega_constrained.dim(),
+            design_gram.dim()
+        );
+    }
+    if k == 0 {
+        return Ok((Array2::<f64>::zeros((0, 0)), Array1::<f64>::zeros(0)));
+    }
+    // Whiten by G_c: G_c = U_g D_g U_gᵀ ; W = U_g D_g^{-1/2} (drop near-null G_c
+    // directions, which are design columns with no realized data support).
+    let g_sym = symmetrize_penalty(design_gram);
+    let (g_evals, g_evecs) =
+        FaerEigh::eigh(&g_sym, Side::Lower).map_err(BasisError::LinalgError)?;
+    let gmax = g_evals.iter().copied().fold(0.0_f64, |a, b| a.max(b.abs()));
+    if !gmax.is_finite() || gmax <= 0.0 {
+        // Degenerate design Gram: fall back to the plain bending eigenbasis.
+        return thin_plate_radial_reparam_from_constrained_penalty(omega_constrained);
+    }
+    let g_floor = (k as f64) * f64::EPSILON * gmax;
+    let mut cols: Vec<usize> = Vec::with_capacity(k);
+    for j in 0..k {
+        if g_evals[j] > g_floor {
+            cols.push(j);
+        }
+    }
+    let m = cols.len();
+    if m == 0 {
+        return thin_plate_radial_reparam_from_constrained_penalty(omega_constrained);
+    }
+    let mut w = Array2::<f64>::zeros((k, m));
+    for (c, &j) in cols.iter().enumerate() {
+        let inv_sqrt = 1.0 / g_evals[j].sqrt();
+        for i in 0..k {
+            w[[i, c]] = g_evecs[[i, j]] * inv_sqrt;
+        }
+    }
+    // M = Wᵀ Ω_c W (m×m), eig(M) = (μ, P). Generalized eigenvectors V = W P.
+    let omega_sym = symmetrize_penalty(omega_constrained);
+    let wt_omega = fast_atb(&w, &omega_sym);
+    let m_mat = symmetrize_penalty(&fast_ab(&wt_omega, &w));
+    let (mut mu, p_mat) = FaerEigh::eigh(&m_mat, Side::Lower).map_err(BasisError::LinalgError)?;
+    for value in mu.iter_mut() {
+        if *value < 0.0 {
+            *value = 0.0;
+        }
+    }
+    let v_full = fast_ab(&w, &p_mat); // k×m, G_c-orthonormal columns
+    let keep = thin_plate_retained_radial_indices(&mu);
+    Ok((v_full.select(Axis(1), &keep), mu.select(Axis(0), &keep)))
 }
 
 pub(crate) fn thin_plate_radial_reparam_from_centers(
@@ -759,6 +982,32 @@ pub fn select_thin_plate_knots(
     });
     min_dist2[seed_idx] = 0.0;
 
+    // Lexicographic order on a candidate's COORDINATE VALUES (not its row
+    // index). Farthest-point ties — two unselected points at exactly the same
+    // `min_dist2` to the chosen set — are common on a maximin grid and in
+    // float arithmetic, and breaking them by row index made the selected knot
+    // SET depend on the row order of the data: a pure permutation of the
+    // training rows then produced a different thin-plate basis, a different
+    // design conditioning, and a different REML λ̂ (gam#1378, ~3% curve drift,
+    // while value-anchored cr/ps were bit-identical). Break ties by the
+    // value-lexicographically smallest candidate instead — a pure function of
+    // the data value set — so the knots (and hence the whole fit) are
+    // row-permutation invariant, matching the value-based seed above.
+    let value_less = |i: usize, j: usize| -> bool {
+        for c in 0..d {
+            let vi = data[[i, c]];
+            let vj = data[[j, c]];
+            if vi < vj {
+                return true;
+            }
+            if vi > vj {
+                return false;
+            }
+        }
+        // Exactly equal coordinates: fall back to row index only to keep a
+        // total order (duplicate points are interchangeable in the basis).
+        i < j
+    };
     while selected.len() < num_knots {
         let best_idx = min_dist2
             .par_iter()
@@ -766,7 +1015,7 @@ pub fn select_thin_plate_knots(
             .filter(|(i, _)| !chosen[*i])
             .map(|(i, &cand)| (i, cand))
             .reduce_with(|a, b| {
-                if b.1 > a.1 || (b.1 == a.1 && b.0 < a.0) {
+                if b.1 > a.1 || (b.1 == a.1 && value_less(b.0, a.0)) {
                     b
                 } else {
                     a
@@ -1178,7 +1427,12 @@ pub(crate) fn create_thin_plate_spline_basis_scaledwithworkspace(
     } else if constrained_kernel_cols == 0 {
         (Array2::<f64>::zeros((0, 0)), Array1::<f64>::zeros(0))
     } else {
-        thin_plate_radial_reparam_from_constrained_penalty(&omega_constrained)?
+        // #1347: reparameterize in the realized data metric so the bending
+        // spectrum acquires mgcv's cliff (curvature per unit data-variance),
+        // rather than the cliff-less raw knot-Gram spectrum that lets REML buy
+        // near-free wiggle on near-linear data. G_c = (K Z)ᵀ (K Z).
+        let design_gram = symmetrize_penalty(&fast_atb(&kernel_constrained, &kernel_constrained));
+        thin_plate_radial_reparam_data_metric(&omega_constrained, &design_gram)?
     };
     let kernel_cols = radial_eigvals.len();
     let total_cols = kernel_cols + poly_cols;
@@ -2168,4 +2422,69 @@ pub fn auto_centers_1d_equal_mass(
     let mut flat: Vec<f64> = centers.column(0).iter().copied().collect();
     flat.sort_by(f64::total_cmp);
     Ok(Array1::from_vec(flat))
+}
+
+#[cfg(test)]
+mod retained_radial_indices_tests {
+    use super::thin_plate_retained_radial_indices;
+    use ndarray::Array1;
+
+    // The eigenvalue spectra below were captured from the live thin-plate
+    // builder (`s(x, bs="tp", k=20)`) on the #1271 regression data. They lock
+    // in the derived selection behaviour: keep EVERY numerically-real bending
+    // mode (matching mgcv, which truncates only at the numerical-rank floor),
+    // dropping only sub-floor roundoff dust — no tuned magnitude cutoff.
+
+    #[test]
+    fn linear_data_spectrum_keeps_every_mode() {
+        // Purely linear DGP: every eigenvalue is far above the numerical floor,
+        // so all are genuine curvature directions and must be kept. REML (not
+        // basis truncation) is responsible for the EDF on linear data.
+        let evals = Array1::from_vec(vec![
+            885.4, 119.98, 26.287, 10.030, 5.066, 2.330, 1.3953, 0.67709, 0.46814, 0.34210,
+            0.26488, 0.17895, 0.14514,
+        ]);
+        let keep = thin_plate_retained_radial_indices(&evals);
+        assert_eq!(
+            keep.len(),
+            evals.len(),
+            "all numerically real modes must be retained"
+        );
+    }
+
+    #[test]
+    fn lidar_spectrum_keeps_every_real_mode() {
+        // Real lidar fit: the smallest eigenvalues (~0.04) are still ~12 orders
+        // of magnitude above the numerical floor (K*eps*lambda_max ~ 5e-12), so
+        // they are real bending modes and are kept — pruning them by magnitude
+        // was the #1271 over-prune that collapsed the nonlinear truth recovery.
+        let evals = Array1::from_vec(vec![
+            1212.2, 144.94, 37.270, 15.529, 6.0768, 3.5845, 1.8094, 1.1058, 0.73002, 0.43701,
+            0.33814, 0.23136, 0.18267, 0.15702, 0.13654, 0.044936, 0.041844, 0.038235,
+        ]);
+        let keep = thin_plate_retained_radial_indices(&evals);
+        assert_eq!(keep.len(), evals.len(), "every above-floor mode is kept");
+    }
+
+    #[test]
+    fn pure_roundoff_modes_are_dropped() {
+        // A mode below the K*eps*lambda_max numerical floor is roundoff dust.
+        // Here K=5, lambda_max=1e3 => floor = 5*eps*1e3; put the dust an order
+        // of magnitude below that floor.
+        let big = 1.0e3;
+        let dust = 0.1 * 5.0 * f64::EPSILON * big; // well below the K*eps*max floor
+        let evals = Array1::from_vec(vec![big, 100.0, 10.0, 1.0, dust]);
+        let keep = thin_plate_retained_radial_indices(&evals);
+        assert_eq!(keep.len(), 4, "the sub-floor roundoff mode must be pruned");
+        assert!(!keep.contains(&4));
+    }
+
+    #[test]
+    fn empty_and_singleton_spectra_are_handled() {
+        assert!(thin_plate_retained_radial_indices(&Array1::from_vec(vec![])).is_empty());
+        assert_eq!(
+            thin_plate_retained_radial_indices(&Array1::from_vec(vec![5.0])),
+            vec![0]
+        );
+    }
 }

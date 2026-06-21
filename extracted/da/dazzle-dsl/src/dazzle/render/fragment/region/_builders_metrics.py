@@ -29,6 +29,7 @@ from dazzle.render.fragment import (
     StatusListEntry,
     Surface,
 )
+from dazzle.render.fragment.region._context import RegionContext
 from dazzle.render.fragment.region._shared import (
     _region_title,
     _wrap_surface,
@@ -40,7 +41,7 @@ class _BuildersMetricsMixin:
     `WorkspaceRegionAdapter`. Same pattern as `_BuildersChartsMixin`.
     """
 
-    def _build_pipeline_steps(self, region: Any, ctx: dict[str, Any]) -> Surface:
+    def _build_pipeline_steps(self, region: Any, ctx: RegionContext) -> Surface:
         """`display: pipeline_steps` renders a horizontal row of stage
         cards with arrow connectors. Phase 4B.4 wave 2: dedicated
         `PipelineSteps` primitive replacing prior Card+Stack composition
@@ -100,7 +101,7 @@ class _BuildersMetricsMixin:
         body: Fragment = PipelineSteps(stages=tuple(stages), empty_message=str(empty_msg))
         return _wrap_surface(title, "dashboard", body)
 
-    def _build_progress(self, region: Any, ctx: dict[str, Any]) -> Surface:
+    def _build_progress(self, region: Any, ctx: RegionContext) -> Surface:
         """`display: progress` renders a `<progress>` header + chip list
         of stages. Phase 4B.1.b uses the typed StageBar primitive
         matching the legacy `workspace/regions/progress.html` shape.
@@ -180,7 +181,7 @@ class _BuildersMetricsMixin:
         )
         return _wrap_surface(title, "list", body)
 
-    def _build_status_list(self, region: Any, ctx: dict[str, Any]) -> Surface:
+    def _build_status_list(self, region: Any, ctx: RegionContext) -> Surface:
         """`display: status_list` regions render as a `StatusList`
         primitive — vertical list of icon + title + caption + state-pill
         rows. Phase 4B.4 wave 1: dedicated primitive replacing the prior
@@ -227,7 +228,7 @@ class _BuildersMetricsMixin:
         body: Fragment = StatusList(entries=tuple(entries), empty_message=str(empty_msg))
         return _wrap_surface(title, "list", body)
 
-    def _build_metrics(self, region: Any, ctx: dict[str, Any]) -> Surface:
+    def _build_metrics(self, region: Any, ctx: RegionContext) -> Surface:
         """`display: metrics` (and `summary`) regions render a row of
         MetricTile primitives — one per declared aggregate. Phase 4B.1.a
         replaced KPI with MetricTile so the legacy template's extended
@@ -251,6 +252,7 @@ class _BuildersMetricsMixin:
             (legacy) aggregates: dict[name → resolved value], used as
                 fallback when metrics list isn't supplied
         """
+        from dazzle.core.ir import AggregateRef, DerivedMetricExpr
         from dazzle.render.filters import _metric_number_filter
 
         title = _region_title(region)
@@ -258,9 +260,19 @@ class _BuildersMetricsMixin:
         if not metrics_list:
             agg = ctx.get("aggregates") or getattr(region, "aggregates", {}) or {}
             if isinstance(agg, dict):
+                # Only resolved values become tiles. The sole runtime path that
+                # populates `aggregates` stores the *raw* IR dict (AggregateRef /
+                # DerivedMetricExpr), so on scope-denial — where the orchestrator
+                # correctly leaves `metrics` empty — this fallback would otherwise
+                # stringify the typed IR (`func='count' where=ConditionExpr(...)`)
+                # straight into the tile, leaking the where-clause of an entity the
+                # user can't read (#1425). Drop unresolved IR so the region renders
+                # the clean "No metrics" empty state instead, mirroring
+                # `compute_pipeline_steps`'s None-on-denied handling.
                 metrics_list = [
                     {"label": str(name).replace("_", " ").title(), "value": val}
                     for name, val in agg.items()
+                    if not isinstance(val, (AggregateRef, DerivedMetricExpr))
                 ]
 
         body: Fragment

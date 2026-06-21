@@ -94,6 +94,18 @@ class SamplingParams:
     # correct (don't publish wrong numbers), but without ``ignore_eos``
     # there's no way to satisfy it on models that early-stop.
     ignore_eos: bool = False
+    # H-11: per-request PRNG seed. When set, the scheduler builds a
+    # fresh per-request sampler closure that maintains its own
+    # ``mx.random.key(seed)`` state and splits it per step, so two
+    # requests with the same ``(seed, temperature, top_p, prompt)`` pair
+    # produce the same token stream. ``None`` (default) preserves the
+    # pre-fix behaviour — the global ``mx.random.state`` advances
+    # naturally and the per-request sampler caches by sampling-param
+    # tuple (no per-call key threading). Range matches the OpenAI wire
+    # surface declared on ``ChatCompletionRequest.seed`` /
+    # ``CompletionRequest.seed``; out-of-range values are rejected at
+    # the API layer with a 422 before they reach SamplingParams.
+    seed: int | None = None
 
     def __post_init__(self):
         if self.stop is None:
@@ -281,6 +293,20 @@ class RequestOutput:
     # effectiveness. Appended at the end of the dataclass so positional
     # constructor args for the pre-existing fields keep their indices.
     cached_tokens: int = 0
+    # H-03: when a user-supplied ``stop`` string fired (vs an EOS token
+    # or ``max_tokens`` cap), the scheduler records the matched string
+    # here so route adapters can surface the precise reason. The
+    # Anthropic ``/v1/messages`` surface maps this onto
+    # ``stop_reason="stop_sequence"`` + ``stop_sequence: <str>`` per the
+    # public Anthropic spec; OpenAI ``/v1/completions`` and
+    # ``/v1/chat/completions`` keep ``finish_reason="stop"`` (a single
+    # bucket for both EOS and stop-string per OpenAI's wire spec), so
+    # the field is harmless to ignore for the OpenAI surface. ``None``
+    # means "no user stop matched" — ``finish_reason`` was set by EOS,
+    # length cap, or never fired. Appended at the end of the dataclass
+    # so positional constructor args for the pre-existing fields keep
+    # their indices.
+    matched_stop: str | None = None
 
     @property
     def usage(self) -> dict[str, int]:

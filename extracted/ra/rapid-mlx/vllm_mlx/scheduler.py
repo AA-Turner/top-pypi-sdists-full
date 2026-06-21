@@ -38,6 +38,7 @@ from ._sampler_fast_path import (  # noqa: E402
     is_fused_top_p_eligible,
     make_fused_top_p_temp_sampler,
 )
+from ._seeded_sampler import make_seeded_sampler  # noqa: E402
 from .memory_cache import MemoryAwarePrefixCache, MemoryCacheConfig  # noqa: E402
 from .paged_cache import PagedCacheManager
 from .pflash import PFlashConfig, compress_request_tokens
@@ -1869,6 +1870,17 @@ class Scheduler:
         self.num_requests_processed = 0
         self.total_prompt_tokens = 0
         self.total_completion_tokens = 0
+        # PFlash observability (M-02 reframe). When PFlash compresses a
+        # prompt the request bypasses the prefix-cache fetch + store
+        # paths entirely (positional-fiction safety; see comment block
+        # near ``compress_request_tokens``). That bypass is correct but
+        # silences ``rapid_mlx_prefix_cache_*`` on PFlash-always tiers
+        # (e.g. verified-tier aliases), making /metrics look frozen at
+        # ``hits=0/misses=1``. These two counters let operators see
+        # PFlash is doing meaningful work even when the cache series
+        # stays flat. Observability only — bypass semantics unchanged.
+        self.pflash_bypass_count = 0
+        self.pflash_compressed_tokens_dropped = 0
 
         # Memory management: periodic mx.clear_cache() to free Metal command buffers
         # Lower interval = less VRAM spike during generation but slight throughput cost
@@ -1993,6 +2005,56 @@ class Scheduler:
         homogeneous-looking batches would silently share an incorrect
         sampler.
         """
+        # H-11: per-request seed requests bypass the shared sampler cache
+        # because the seeded sampler carries mutable per-call PRNG state.
+        # Two requests with the same ``seed`` MUST still each get their
+        # own closure — otherwise the second request would resume from
+        # wherever the first left off (so its first token would be the
+        # first request's second token). The mlx-lm fast-path interning
+        # (identity-equality on ``GenerationBatch.samplers``) is also
+        # incorrect for seeded requests because the dense-batch fast
+        # path replaces the per-row dispatch with a single shared
+        # sampler call — which would lose the seed isolation. Seeded
+        # requests therefore route through ``_mtp_step``'s explicit
+        # per-row loop and skip the dense sampler fast path naturally
+        # (the identity-equality check fails when each row has its own
+        # closure).
+        #
+        # ``getattr`` defaults to ``None`` so legacy callers (community
+        # bench harness, embedded test stubs) that construct
+        # ``SamplingParams`` look-alikes via attribute set without the
+        # H-11 ``seed`` field still route through the unchanged cache
+        # path — no behaviour change for the pre-H-11 surface.
+        _seed = getattr(sampling_params, "seed", None)
+        if _seed is not None:
+            # Log once per process so operators can confirm the H-11
+            # plumbing is engaged on a deployment without spamming the
+            # request log on every seeded request. Mirrors the
+            # ``_fused_top_p_logged`` belt below.
+            #
+            # Codex r1 NIT: do NOT include the raw seed value here. Seeds
+            # are caller-controlled and routinely come from eval / audit
+            # harnesses where leakage to an operator log would let a
+            # reviewer replay the exact graded outputs. Operators just
+            # need to know the per-request RNG path is engaged; the
+            # request itself can still be correlated by the request id
+            # on the surrounding scheduler log line.
+            if not getattr(self, "_seeded_sampler_logged", False):
+                logger.info(
+                    "[seeded_sampler] H-11 engaged — per-request "
+                    "seeds are honoured (sample shape: temp=%.3f "
+                    "top_p=%.3f)",
+                    sampling_params.temperature,
+                    sampling_params.top_p,
+                )
+                self._seeded_sampler_logged = True
+            return make_seeded_sampler(
+                seed=_seed,
+                temperature=sampling_params.temperature,
+                top_p=sampling_params.top_p,
+                min_p=sampling_params.min_p,
+                top_k=sampling_params.top_k,
+            )
         # Codex round-2 BLOCKER #3 fix: read the env-var BEFORE the cache
         # lookup so that flipping ``RAPID_MLX_DISABLE_FUSED_SAMPLER`` in a
         # long-lived process can disable the fast path on the next request
@@ -2863,6 +2925,17 @@ class Scheduler:
             request.pflash_metadata = metadata
             if metadata["compressed"]:
                 pflash_compressed = True
+                # M-02: count every prompt that took the PFlash bypass
+                # so /metrics surfaces the work that prefix-cache
+                # counters can't (the compressed sequence skips both
+                # fetch and store — see the explanation block above).
+                # ``tokens_dropped`` = logical prompt length minus kept
+                # length, i.e. the saving operators want for capacity
+                # planning.
+                self.pflash_bypass_count += 1
+                self.pflash_compressed_tokens_dropped += max(
+                    0, len(original_tokens) - len(compressed_tokens)
+                )
                 request.original_prompt_token_ids = original_tokens
                 request.prompt_token_ids = compressed_tokens
                 request.model_prompt_tokens = len(compressed_tokens)
@@ -2986,11 +3059,35 @@ class Scheduler:
             request_id: The request ID to abort
 
         Returns:
-            True (abort is always enqueued)
+            True when an active/queued request was enqueued for abort, False
+            when ``request_id`` is unknown to this scheduler. F-151 hardening:
+            previously this method returned True unconditionally — including
+            for arbitrary attacker-supplied strings — which let the route
+            layer respond ``{"cancelled": true}`` for any id. The route uses
+            the False return as the 404 signal.
         """
-        self._pending_abort_ids.add(request_id)
-        logger.info(f"[abort_request] {request_id[:12]} enqueued for deferred abort")
-        return True
+        # Consider the request "known" if it lives in any of: the canonical
+        # ``requests`` dict (admitted but not finished), the BatchGenerator
+        # uid map (admitted into a live batch — may already have been popped
+        # from ``requests`` by an in-flight ``_cleanup_request``), the
+        # ``running`` map (currently scheduled), or ``_pending_abort_ids``
+        # (a concurrent abort enqueue made this method idempotent — return
+        # True so a double-cancel doesn't 404 the second caller). We do NOT
+        # treat ``finished_req_ids`` as "known" because the abort would be
+        # a no-op and the route contract is "404 when already finished".
+        if (
+            request_id in self.requests
+            or request_id in self.request_id_to_uid
+            or request_id in self.running
+            or request_id in self._pending_abort_ids
+        ):
+            self._pending_abort_ids.add(request_id)
+            logger.info(
+                f"[abort_request] {request_id[:12]} enqueued for deferred abort"
+            )
+            return True
+        logger.info("[abort_request] unknown request_id (rejected without enqueue)")
+        return False
 
     def _process_pending_aborts(self) -> None:
         """Drain and process pending abort requests. Called from executor thread."""
@@ -3415,6 +3512,14 @@ class Scheduler:
                 for stop_str in stop_params:
                     if stop_str and stop_str in decoded_so_far:
                         finish_reason = "stop"
+                        # H-03: pin WHICH user-supplied stop fired so
+                        # the Anthropic adapter can surface
+                        # ``stop_reason="stop_sequence"`` +
+                        # ``stop_sequence: <str>`` per the public spec.
+                        # OpenAI's ``finish_reason="stop"`` bucket
+                        # already lumps EOS and stop-string together so
+                        # the OpenAI surface ignores this field.
+                        output.matched_stop = stop_str
                         idx = decoded_so_far.index(stop_str)
                         trimmed_total = decoded_so_far[:idx]
                         request.output_text = trimmed_total
@@ -3999,6 +4104,16 @@ class Scheduler:
             "num_requests_processed": self.num_requests_processed,
             "total_prompt_tokens": self.total_prompt_tokens,
             "total_completion_tokens": self.total_completion_tokens,
+            # M-02: PFlash observability counters. ``bypass_count`` is
+            # the number of requests where PFlash compression engaged
+            # and the prefix-cache fetch/store was skipped;
+            # ``compressed_tokens_dropped`` is the cumulative number of
+            # prompt tokens removed by the compressor (logical minus
+            # kept). Both default to zero on engines without PFlash so
+            # /metrics renders a flat-line 0 instead of an absent
+            # series.
+            "pflash_bypass_count": self.pflash_bypass_count,
+            "pflash_compressed_tokens_dropped": self.pflash_compressed_tokens_dropped,
         }
         # Include Metal memory stats
         try:

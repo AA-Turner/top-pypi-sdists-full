@@ -131,7 +131,9 @@ class _TemperatureLevel(SHCDevice):
         self._temperaturelevel_service = self.device_service("TemperatureLevel")
 
     @property
-    def temperature(self) -> float:
+    def temperature(self) -> float | None:
+        if self._temperaturelevel_service is None:
+            return None
         return self._temperaturelevel_service.temperature
 
 
@@ -143,7 +145,13 @@ class _HumidityLevel(SHCDevice):
         self._humiditylevel_service = self.device_service("HumidityLevel")
 
     @property
-    def humidity(self) -> float:
+    def supports_humidity(self) -> bool:
+        return self._humiditylevel_service is not None
+
+    @property
+    def humidity(self) -> float | None:
+        if self._humiditylevel_service is None:
+            return None
         return self._humiditylevel_service.humidity
 
 
@@ -299,10 +307,14 @@ class SHCMicromoduleRelay(
 
     @property
     def impulse_length(self) -> int:
+        if self._impulseswitch_service is None:
+            return None
         return self._impulseswitch_service.impulse_length
 
     @impulse_length.setter
     def impulse_length(self, impulse_length: int):
+        if self._impulseswitch_service is None:
+            return
         self._impulseswitch_service.put_state_element("impulseLength", impulse_length)
 
     @property
@@ -654,6 +666,10 @@ class SHCClimateControl(_TemperatureLevel):
     def supports_cooling(self) -> bool:
         return self._roomclimatecontrol_service.supports_cooling
 
+    @property
+    def has_demand(self) -> bool:
+        return self._roomclimatecontrol_service.has_demand
+
 
 class SHCHeatingCircuit(SHCDevice):
     from .services_impl import HeatingCircuitService
@@ -695,7 +711,7 @@ class SHCHeatingCircuit(SHCDevice):
         return self._heating_circuit_service.on
 
 
-class SHCWallThermostat(SHCBatteryDevice, _TemperatureLevel, _HumidityLevel):
+class SHCWallThermostat(SHCBatteryDevice, _TemperatureLevel, _HumidityLevel, _Thermostat):
     pass
 
 
@@ -816,9 +832,17 @@ class SHCMotionDetector2(SHCBatteryDevice):
     def multi_level_switch(self) -> int:
         return self._multi_level_switch_service.value
 
+    @multi_level_switch.setter
+    def multi_level_switch(self, value: int):
+        self._multi_level_switch_service.put_state_element("level", value)
+
     @property
     def binaryswitch(self) -> bool:
         return self._binaryswitch_service.value
+
+    @binaryswitch.setter
+    def binaryswitch(self, value: bool):
+        self._binaryswitch_service.put_state_element("on", bool(value))
 
     @property
     def detection_state(self) -> DetectionTestService.DetectionState:
@@ -851,6 +875,10 @@ class SHCMotionDetector2(SHCBatteryDevice):
     @property
     def pet_immunity_enabled(self) -> bool:
         return self._petimmunity_service.enabled
+
+    @pet_immunity_enabled.setter
+    def pet_immunity_enabled(self, value: bool):
+        self._petimmunity_service.enabled = value
 
     @property
     def last_tamper_time(self) -> str:

@@ -22,6 +22,7 @@ import datetime
 if TYPE_CHECKING:
     from ..models.run_request_type_0 import RunRequestType0
     from ..models.run_result_type_0 import RunResultType0
+    from ..models.run_retry import RunRetry
 
 
 T = TypeVar("T", bound="Run")
@@ -36,10 +37,13 @@ class Run:
         environment (str): The environment this run executed in. A scheduled run inherits the firing job-environment; a
             manual run is created in the environment you name with the `X-Smplkit-Environment` header; a rerun copies its
             source run's environment.
-        trigger (RunTrigger): Why the run exists: `SCHEDULE`, `MANUAL` (Run now), or `RERUN`.
+        trigger (RunTrigger): Why the run exists: `SCHEDULE`, `MANUAL` (Run now), `RERUN`, or `RETRY` (an automatic
+            retry of a failed run).
         status (RunStatus): Lifecycle state of the run.
         job_version (int | None | Unset): The job's version at the time the run executed.
         rerun_of (None | Unset | UUID): The source run's id; set only when `trigger` is `RERUN`.
+        retry (None | RunRetry | Unset): Retry-chain position, present only when `trigger` is `RETRY`: the id of the
+            original run the chain retries (`of`) and this run's `attempt` number.
         scheduled_for (datetime.datetime | None | Unset): The intended fire time for a scheduled run; `null` for manual
             / rerun runs.
         started_at (datetime.datetime | None | Unset): When execution started.
@@ -62,6 +66,7 @@ class Run:
     status: RunStatus
     job_version: int | None | Unset = UNSET
     rerun_of: None | Unset | UUID = UNSET
+    retry: None | RunRetry | Unset = UNSET
     scheduled_for: datetime.datetime | None | Unset = UNSET
     started_at: datetime.datetime | None | Unset = UNSET
     finished_at: datetime.datetime | None | Unset = UNSET
@@ -78,6 +83,7 @@ class Run:
     def to_dict(self) -> dict[str, Any]:
         from ..models.run_request_type_0 import RunRequestType0
         from ..models.run_result_type_0 import RunResultType0
+        from ..models.run_retry import RunRetry
 
         job = self.job
 
@@ -100,6 +106,14 @@ class Run:
             rerun_of = str(self.rerun_of)
         else:
             rerun_of = self.rerun_of
+
+        retry: dict[str, Any] | None | Unset
+        if isinstance(self.retry, Unset):
+            retry = UNSET
+        elif isinstance(self.retry, RunRetry):
+            retry = self.retry.to_dict()
+        else:
+            retry = self.retry
 
         scheduled_for: None | str | Unset
         if isinstance(self.scheduled_for, Unset):
@@ -195,6 +209,8 @@ class Run:
             field_dict["job_version"] = job_version
         if rerun_of is not UNSET:
             field_dict["rerun_of"] = rerun_of
+        if retry is not UNSET:
+            field_dict["retry"] = retry
         if scheduled_for is not UNSET:
             field_dict["scheduled_for"] = scheduled_for
         if started_at is not UNSET:
@@ -224,6 +240,7 @@ class Run:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.run_request_type_0 import RunRequestType0
         from ..models.run_result_type_0 import RunResultType0
+        from ..models.run_retry import RunRetry
 
         d = dict(src_dict)
         job = d.pop("job")
@@ -259,6 +276,23 @@ class Run:
             return cast(None | Unset | UUID, data)
 
         rerun_of = _parse_rerun_of(d.pop("rerun_of", UNSET))
+
+        def _parse_retry(data: object) -> None | RunRetry | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                retry_type_0 = RunRetry.from_dict(data)
+
+                return retry_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | RunRetry | Unset, data)
+
+        retry = _parse_retry(d.pop("retry", UNSET))
 
         def _parse_scheduled_for(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -422,6 +456,7 @@ class Run:
             status=status,
             job_version=job_version,
             rerun_of=rerun_of,
+            retry=retry,
             scheduled_for=scheduled_for,
             started_at=started_at,
             finished_at=finished_at,

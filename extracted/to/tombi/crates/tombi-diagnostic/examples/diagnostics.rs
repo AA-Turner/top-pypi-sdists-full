@@ -1,0 +1,54 @@
+use std::path::PathBuf;
+
+use clap::Parser;
+use tombi_diagnostic::{Diagnostic, Print, printer::Pretty};
+
+#[derive(clap::Parser)]
+pub struct Args {}
+
+pub fn project_root_path() -> PathBuf {
+    let dir = std::env::var("CARGO_MANIFEST_DIR")
+        .unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_owned());
+    PathBuf::from(dir)
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_owned()
+}
+
+pub fn source_file() -> PathBuf {
+    project_root_path().join("Cargo.toml")
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _args = Args::parse_from(std::env::args_os());
+
+    env_logger::Builder::from_default_env()
+        .format_timestamp(None)
+        .init();
+
+    let source_file = source_file();
+
+    let warning = Diagnostic::new_warning(
+        "Some warning occured.",
+        "tombi-diagnostic",
+        ((2, 1), (2, 3)),
+    );
+    let error = Diagnostic::new_error("Some error occured.", "tombi-diagnostic", ((2, 1), (2, 3)));
+
+    warning.print(&mut Pretty {
+        use_ansi_color: true,
+    });
+    warning.with_source_file(&source_file).print(&mut Pretty {
+        use_ansi_color: true,
+    });
+    error.print(&mut Pretty {
+        use_ansi_color: true,
+    });
+    error.with_source_file(&source_file).print(&mut Pretty {
+        use_ansi_color: true,
+    });
+
+    Ok(())
+}

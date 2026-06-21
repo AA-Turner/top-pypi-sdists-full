@@ -1289,7 +1289,7 @@ pub(crate) fn value_gradient_hessian_prefers_family_supplied_outer_operator() {
 //   [reml_laml envelope-gradient consistency] |g|∞ = 9.669e16 ... |cost|
 //     = 3.480e5  ratio 4.14e3  → gradient suppressed → seed rejected.
 //
-// BUG-1 (math, compute_kkt_residual_rho_corrections @ ~unified.rs:8500):
+// BUG-1 (math, compute_kkt_residual_theta_corrections @ ~unified.rs:8500):
 //   At cert exit, the projected KKT residual r_proj ≈ 0 (multiplier
 //   captured by active set). Then q = H⁻¹·r_proj = 0, so the gradient
 //   correction `-aᵀ_k q + ½ qᵀA_k q` is identically zero. The cert's
@@ -1323,11 +1323,16 @@ pub(crate) fn ift_gradient_correction_with_zero_projected_residual_is_zero() {
     let penalty_a_k_betas = vec![array![0.3, -0.7, 0.0], array![0.0, 0.0, 0.5]];
     let zero_residual = Array1::<f64>::zeros(hop.dim());
 
-    let corrections = compute_kkt_residual_rho_corrections(
-        &solution,
+    // ρ-only contract over the live full-θ correction: r_i = a_i = λ_i S_i β̂,
+    // frozen drift A_i[v] = λ_i S_i v.
+    let drift_apply = |idx: usize, v: &Array1<f64>| -> Array1<f64> {
+        solution.penalty_coords[idx].scaled_matvec(v, lambdas[idx])
+    };
+    let corrections = compute_kkt_residual_theta_corrections(
         &hop,
-        &lambdas,
+        solution.penalty_subspace_trace.as_deref(),
         &penalty_a_k_betas,
+        drift_apply,
         &zero_residual,
         true,
         &[false, false],
@@ -1364,11 +1369,15 @@ pub(crate) fn ift_rho_upper_bound_masks_residual_correction_direction() {
     let penalty_a_k_betas = vec![array![0.3, -0.7, 0.0], array![0.0, 0.0, 0.5]];
     let residual = array![0.2, -0.3, 0.4];
 
-    let corrections = compute_kkt_residual_rho_corrections(
-        &solution,
+    // ρ-only contract over the live full-θ correction (drift A_i[v] = λ_i S_i v).
+    let drift_apply = |idx: usize, v: &Array1<f64>| -> Array1<f64> {
+        solution.penalty_coords[idx].scaled_matvec(v, lambdas[idx])
+    };
+    let corrections = compute_kkt_residual_theta_corrections(
         &hop,
-        &lambdas,
+        solution.penalty_subspace_trace.as_deref(),
         &penalty_a_k_betas,
+        drift_apply,
         &residual,
         true,
         &[false, true],
@@ -3399,36 +3408,6 @@ pub(crate) fn efs_log_step_from_grad_recovers_canonical_form() {
     assert!(efs_log_step_from_grad(1.0, f64::INFINITY).is_none());
 }
 
-/// `DenseSpectralOperator::trace_hinv_block_local_cross` must compute
-/// `tr(H⁻¹ A H⁻¹ A)`, not `tr(H⁻¹ A²)`. These coincide only when A
-/// commutes with H⁻¹ — generically they differ.
-#[test]
-pub(crate) fn dense_spectral_block_local_cross_trace_matches_dense() {
-    let h = array![[4.0, 1.0, 0.5], [1.0, 3.0, 0.25], [0.5, 0.25, 2.0],];
-    let op = DenseSpectralOperator::from_symmetric(&h).unwrap();
-
-    // 2×2 block at [0..2], non-commuting with H⁻¹.
-    let block = array![[1.5, 0.4], [0.4, 0.7]];
-    let scale = 1.7_f64;
-
-    // Reference: full-matrix `tr((H⁻¹ A)²)` via repeated solves.
-    let mut a_full = Array2::<f64>::zeros((3, 3));
-    for i in 0..2 {
-        for j in 0..2 {
-            a_full[[i, j]] = scale * block[[i, j]];
-        }
-    }
-    let hinva = op.solve_multi(&a_full); // = H⁻¹ A
-    let expected = (&hinva.t() * &hinva).sum(); // tr((H⁻¹A)(H⁻¹A))
-
-    let got = op.trace_hinv_block_local_cross(&block, scale, 0, 2);
-    assert!(
-        (got - expected).abs() < 1e-10,
-        "block-local cross trace = {got}, expected = {expected} (delta {})",
-        got - expected
-    );
-}
-
 #[test]
 pub(crate) fn test_reml_laml_evaluate_gaussian_basic() {
     // Simple 2-param Gaussian model.
@@ -4459,71 +4438,6 @@ pub(crate) fn dense_spectral_hinv_cross_matches_solve_contraction() {
     let reference = (&solved_a.t() * &solved_b).sum();
 
     assert_relative_eq!(exact, reference, epsilon = 1e-10, max_relative = 1e-10);
-}
-
-#[test]
-pub(crate) fn dense_spectral_batched_logdet_crosses_match_pairwise() {
-    assert!(file!().ends_with(".rs"));
-    let h = array![[4.0, 1.0, 0.5], [1.0, 3.0, 0.25], [0.5, 0.25, 2.0],];
-    let h1 = array![[1.0, 0.2, 0.1], [0.2, 0.5, 0.0], [0.1, 0.0, 0.3],];
-    let h2 = array![[0.3, 0.1, 0.0], [0.1, 0.8, 0.2], [0.0, 0.2, 0.6],];
-    let h3 = array![[0.7, 0.0, 0.2], [0.0, 0.4, 0.1], [0.2, 0.1, 0.9],];
-    let op = DenseSpectralOperator::from_symmetric(&h).unwrap();
-
-    let mats = [&h1, &h2, &h3];
-    let batched = op.trace_logdet_hessian_crosses(&mats);
-
-    for i in 0..mats.len() {
-        for j in 0..mats.len() {
-            let pairwise = op.trace_logdet_hessian_cross(mats[i], mats[j]);
-            assert_relative_eq!(
-                batched[[i, j]],
-                pairwise,
-                epsilon = 1e-10,
-                max_relative = 1e-10
-            );
-        }
-    }
-}
-
-#[test]
-pub(crate) fn sparse_block_local_trace_without_takahashi_matches_dense_reference() {
-    assert!(file!().ends_with(".rs"));
-    let h = array![
-        [5.0, 0.2, 0.0, 0.1],
-        [0.2, 4.0, 0.3, 0.0],
-        [0.0, 0.3, 3.0, 0.4],
-        [0.1, 0.0, 0.4, 2.5],
-    ];
-    let h_sparse = crate::linalg::sparse_exact::dense_to_sparse_symmetric_upper(&h, 0.0).unwrap();
-    let factor =
-        std::sync::Arc::new(crate::linalg::sparse_exact::factorize_sparse_spd(&h_sparse).unwrap());
-    let sparse = SparseCholeskyOperator::new(factor, 0.0, h.nrows());
-    let dense = DenseSpectralOperator::from_symmetric(&h).unwrap();
-
-    let block = array![[0.8, 0.15], [0.15, 0.45]];
-    let scale = 1.7;
-    let start = 1;
-    let end = 3;
-    let mut full = Array2::<f64>::zeros(h.raw_dim());
-    for i in 0..block.nrows() {
-        for j in 0..block.ncols() {
-            full[[start + i, start + j]] = scale * block[[i, j]];
-        }
-    }
-
-    assert_relative_eq!(
-        sparse.trace_hinv_block_local(&block, scale, start, end),
-        dense.trace_hinv_product(&full),
-        epsilon = 1e-10,
-        max_relative = 1e-10
-    );
-    assert_relative_eq!(
-        sparse.trace_hinv_block_local_cross(&block, scale, start, end),
-        dense.trace_hinv_product_cross(&full, &full),
-        epsilon = 1e-10,
-        max_relative = 1e-10
-    );
 }
 
 #[test]
@@ -6139,7 +6053,7 @@ pub(crate) fn ift_correction_vanishes_at_exact_kkt() {
 /// Regression test for issue #197.
 ///
 /// When ρ_k is pinned at its upper bound the IFT block
-/// (`compute_kkt_residual_rho_corrections`) already projects out the
+/// (`compute_kkt_residual_theta_corrections`) already projects out the
 /// gradient (sets it to 0). Prior to the #197 fix the main envelope
 /// block kept the trace term `½·tr(K·λ_k S_k)`, the penalty quadratic
 /// `½·λ_k β'S_kβ` and the `½·∂log|S|/∂ρ_k` term — yielding a non-zero

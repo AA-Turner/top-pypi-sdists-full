@@ -2,7 +2,7 @@ import importlib.resources
 import logging
 import threading
 from functools import lru_cache
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 from xml.etree import ElementTree as stdlibElementTree
 
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -27,15 +27,15 @@ def get_schema(schema_file: str) -> etree.XMLSchema:
 
 class XMLProcessor:
     _schemas: List[Any] = []
+    _schemas_lock = threading.Lock()
     schema_files: List[Any] = []
     _default_parser, _parser = None, None
 
     @classmethod
     def schemas(cls):
-        with threading.Lock():
-            if len(cls._schemas) == 0:
-                for schema_file in cls.schema_files:
-                    cls._schemas.append(get_schema(schema_file))
+        with cls._schemas_lock:
+            if "_schemas" not in cls.__dict__:
+                cls._schemas = [get_schema(schema_file) for schema_file in cls.schema_files]
         return cls._schemas
 
     @property
@@ -85,14 +85,14 @@ class XMLSignatureProcessor(XMLProcessor):
     # "urn:oid:1.3.132.0.36": ec.SECT409K1,
     # "urn:oid:1.3.132.0.37": ec.SECT409R1,
     # "urn:oid:1.3.132.0.38": ec.SECT571K1
-    known_ecdsa_curves = {
-        "urn:oid:1.2.840.10045.3.1.7": ec.SECP256R1,
-        "urn:oid:1.3.132.0.34": ec.SECP384R1,
-        "urn:oid:1.3.132.0.35": ec.SECP521R1,
-        "urn:oid:1.2.840.10045.3.1.1": ec.SECP192R1,
-        "urn:oid:1.3.132.0.33": ec.SECP224R1,
+    known_ecdsa_curves: Dict[str, ec.EllipticCurve] = {
+        "urn:oid:1.2.840.10045.3.1.7": ec.SECP256R1(),
+        "urn:oid:1.3.132.0.34": ec.SECP384R1(),
+        "urn:oid:1.3.132.0.35": ec.SECP521R1(),
+        "urn:oid:1.2.840.10045.3.1.1": ec.SECP192R1(),
+        "urn:oid:1.3.132.0.33": ec.SECP224R1(),
     }
-    known_ecdsa_curve_oids = {ec().name: oid for oid, ec in known_ecdsa_curves.items()}  # type: ignore[abstract]
+    known_ecdsa_curve_oids = {curve.name: oid for oid, curve in known_ecdsa_curves.items()}
 
     excise_empty_xmlns_declarations = False
 

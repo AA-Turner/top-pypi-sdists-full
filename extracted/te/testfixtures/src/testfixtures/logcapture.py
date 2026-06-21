@@ -2,12 +2,13 @@ import atexit
 import logging
 import warnings
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import LogRecord
 from pprint import pformat
 from types import TracebackType
 from typing import (
-    Any, Callable, Sequence, TypeAlias, TypeVar, List, Tuple, Self, Protocol, overload
+    Any, Callable, Iterator, Sequence, TypeAlias, TypeVar, List, Tuple, Self, Protocol, overload
 )
 from warnings import warn
 
@@ -191,6 +192,7 @@ class LogCapture:
                 names = (names,)
             self._sources = [LoggingSource(attributes, level, names=names, propagate=propagate)]
         self.recursive_check = recursive_check
+        self._disabled = False
         if ensure_checks_above is None:
             self.ensure_checks_above = self.default_ensure_checks_above
         else:
@@ -255,6 +257,20 @@ class LogCapture:
     def _collect_entry(self, entry: Entry) -> None:
         self.entries.append(entry)
 
+    @contextmanager
+    def disabled(self) -> Iterator[None]:
+        """
+        A context manager that stops capturing for the duration of the ``with`` block by
+        uninstalling the capture and reinstalling it on exit. Anything logged while it is
+        active is handled as if the capture were not present, which is useful for ignoring
+        noisy setup in a test.
+        """
+        self.uninstall()
+        try:
+            yield
+        finally:
+            self.install()
+
     def install(self) -> Self | None:
         """
         Install this :class:`LogCapture`, enabling all configured sources to begin capturing.
@@ -298,7 +314,14 @@ class LogCapture:
         tuples = (r if isinstance(r, tuple) else (r,) for r in self.actual())
         return '\n'.join(' '.join(str(e) for e in t) for t in tuples)
 
-    def check(self, *expected: Any, order_matters: bool = True, raises: bool = True) -> str | None:
+    def check(
+        self,
+        *expected: Any,
+        order_matters: bool = True,
+        raises: bool = True,
+        level: int | None = None,
+        predicate: Callable[[Entry], bool] | None = None,
+    ) -> str | None:
         """
         This will compare the captured entries with the expected
         entries provided and raise an :class:`AssertionError` if they
@@ -317,16 +340,36 @@ class LogCapture:
         :param raises: If ``False``, the message that would be raised in the
                        :class:`AssertionError` will be returned instead of the
                        exception being raised.
+
+        :param level:
+
+          A keyword-only parameter that, if provided, excludes any captured entry
+          with a numeric :attr:`~testfixtures.logcapture.Entry.level` below it from
+          the comparison. Entries with a ``level`` of ``None`` are always included.
+
+        :param predicate:
+
+          A keyword-only parameter that, if provided, is called with each captured
+          :class:`~testfixtures.logcapture.Entry`; only those for which it returns
+          a true value are included in the comparison.
         """
         __tracebackhide__ = True
+
+        actual = []
+        for entry in self.entries:
+            if level is not None and entry.level is not None and entry.level < level:
+                continue
+            if predicate is not None and not predicate(entry):
+                continue
+            entry.checked = True
+            actual.append(entry.actual)
 
         result = None
         if order_matters:
             result = compare(
-                expected, actual=self.actual(), recursive=self.recursive_check, raises=False
+                expected, actual=actual, recursive=self.recursive_check, raises=False
             )
         else:
-            actual = self.actual()
             expected_ = SequenceComparison(
                 *expected, ordered=False, partial=False, recursive=self.recursive_check
             )
@@ -334,8 +377,31 @@ class LogCapture:
                 result = expected_.failed
         if result and raises:
             raise AssertionError(result)
-        self.mark_all_checked()
         return result
+
+    def check_empty(
+        self,
+        level: int | None = None,
+        predicate: Callable[[Entry], bool] | None = None,
+    ) -> None:
+        """
+        Assert that nothing was logged, raising an :class:`AssertionError` if it was.
+        This is a clearer way of writing :meth:`check` with no expected entries.
+
+        :param level:
+
+          If provided, only entries with a numeric
+          :attr:`~testfixtures.logcapture.Entry.level` at or above it are considered.
+          Entries with a ``level`` of ``None`` are always considered.
+
+        :param predicate:
+
+          If provided, it is called with each captured
+          :class:`~testfixtures.logcapture.Entry`; only those for which it returns
+          a true value are considered.
+        """
+        __tracebackhide__ = True
+        self.check(level=level, predicate=predicate)
 
     def raise_first_exception(self, start_index: int = 0) -> None:
         """

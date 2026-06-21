@@ -7,7 +7,7 @@ use github_actions_models::common::{Env, expr::LoE};
 use jsonschema::ErrorEntry;
 use jsonschema::{Validator, validator_for};
 use std::ops::{Deref, Range};
-use std::{fmt::Write, sync::LazyLock};
+use std::{fmt::Write as _, sync::LazyLock};
 
 use crate::finding::location::Routable;
 use crate::{models::AsDocument, registry::input::CollectionError};
@@ -848,7 +848,7 @@ runs:
 
         let action = AuditInput::from(Action::from_string(
             action.into(),
-            InputKey::local("fakegroup".into(), "fake", None),
+            InputKey::local("fakegroup".into(), "fake", None, None),
         )?);
 
         let exprs = parse_fenced_expressions_from_routable(&action);
@@ -879,7 +879,7 @@ jobs:
 
         let workflow = AuditInput::from(Workflow::from_string(
             workflow.into(),
-            InputKey::local("fakegroup".into(), "fake", None),
+            InputKey::local("fakegroup".into(), "fake", None, None),
         )?);
 
         let exprs = parse_fenced_expressions_from_routable(&workflow)
@@ -922,7 +922,7 @@ jobs:
 
         let workflow = AuditInput::from(Workflow::from_string(
             workflow_content.into(),
-            InputKey::local("fakegroup".into(), "fake", None),
+            InputKey::local("fakegroup".into(), "fake", None, None),
         )?);
         let exprs = parse_fenced_expressions_from_routable(&workflow)
             .into_iter()

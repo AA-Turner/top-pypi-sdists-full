@@ -25,39 +25,6 @@ fn eval_poly_derivative_slice(coefficients: &[f64], z: f64) -> f64 {
 }
 
 impl SurvivalMarginalSlopeFamily {
-    /// Compute directional extensions of a timepoint's exact quantities.
-    /// Given the base `SurvivalFlexTimepointExact`, returns the directional
-    /// derivatives eta_uv_dir, chi_uv_dir, d_u_dir, d_uv_dir contracted
-    /// with `dir`.
-    pub(crate) fn compute_survival_timepoint_directional_exact(
-        &self,
-        row: usize,
-        primary: &FlexPrimarySlices,
-        q: f64,
-        q_index: usize,
-        a: f64,
-        b: f64,
-        beta_h: Option<&Array1<f64>>,
-        beta_w: Option<&Array1<f64>>,
-        dir: &Array1<f64>,
-        need_d_uv_dir: bool,
-    ) -> Result<SurvivalFlexTimepointDirectionalExact, String> {
-        let cached = self.build_cached_partition(primary, a, b, beta_h, beta_w)?;
-        self.compute_survival_timepoint_directional_exact_from_cached(
-            row,
-            primary,
-            q,
-            q_index,
-            a,
-            b,
-            beta_h,
-            beta_w,
-            &cached,
-            dir,
-            need_d_uv_dir,
-        )
-    }
-
     pub(crate) fn compute_survival_timepoint_directional_exact_from_cached(
         &self,
         row: usize,
@@ -89,7 +56,6 @@ impl SurvivalMarginalSlopeFamily {
         let a_dir = {
             let mut f_dir_pre = 0.0;
             for cell_entry in &cached.cells {
-                let neg_cell = cell_entry.neg_cell;
                 let state = &cell_entry.state;
                 let fixed = &cell_entry.fixed;
                 let mut neg_coeff_dir = [0.0; 4];
@@ -101,7 +67,6 @@ impl SurvivalMarginalSlopeFamily {
                         neg_coeff_dir[k] -= fixed.coeff_u[c][k] * dir[c];
                     }
                 }
-                let _ = neg_cell;
                 f_dir_pre += exact_kernel::cell_first_derivative_from_moments(
                     &neg_coeff_dir,
                     &state.moments,
@@ -390,6 +355,102 @@ impl SurvivalMarginalSlopeFamily {
         for u in 0..p {
             a_u[u] = -f_u[u] * inv_f_a;
         }
+        let a_dir = a_u.dot(dir);
+        let dir_g = if primary.g < p { dir[primary.g] } else { 0.0 };
+        if b != 0.0 {
+            for cell_entry in &cached.cells {
+                let cell = cell_entry.neg_cell;
+                let fixed = &cell_entry.fixed;
+                let part = &cell_entry.partition_cell;
+                let edge_vel = |axis: usize,
+                                edge: crate::families::cubic_cell_kernel::PartitionEdge,
+                                z: f64|
+                 -> f64 {
+                    match edge {
+                        crate::families::cubic_cell_kernel::PartitionEdge::Crossing { .. } => {
+                            let direct_g = if axis == primary.g { z } else { 0.0 };
+                            -(a_u[axis] + direct_g) / b
+                        }
+                        crate::families::cubic_cell_kernel::PartitionEdge::Fixed(_) => 0.0,
+                    }
+                };
+                let flux = |axis: usize, poly: &[f64]| -> f64 {
+                    let v_r = edge_vel(axis, part.right_edge, cell.right);
+                    let v_l = edge_vel(axis, part.left_edge, cell.left);
+                    let right = if v_r != 0.0 {
+                        v_r * crate::families::cubic_cell_kernel::cell_density_boundary_integrand(
+                            cell, poly, cell.right,
+                        )
+                    } else {
+                        0.0
+                    };
+                    let left = if v_l != 0.0 {
+                        v_l * crate::families::cubic_cell_kernel::cell_density_boundary_integrand(
+                            cell, poly, cell.left,
+                        )
+                    } else {
+                        0.0
+                    };
+                    right - left
+                };
+                // ∂_z of the bare calibration density weight `w(z)=exp(-q(z))/2π`,
+                // i.e. `w_z = -q_z·w` with `q_z = z + η(z)·η_z(z)`. This is the
+                // `density_z_derivative` of the directional reference block below
+                // specialised to the constant integrand `g≡1` (G = w itself).
+                let density_w_z = |z: f64| -> f64 {
+                    let eta = cell.eta(z);
+                    let eta_z = cell.c1 + 2.0 * cell.c2 * z + 3.0 * cell.c3 * z * z;
+                    let q_z = z + eta * eta_z;
+                    -q_z * (-cell.q(z)).exp() / std::f64::consts::TAU
+                };
+                // Self-flux `G_z·z_u·z_v` of the moving-boundary second derivative
+                // (G = w). The Leibniz expansion of `∂_v∂_u ∫_{zL(θ)}^{zR(θ)} w dz`
+                // carries, per edge, `∂_uG·z_v + ∂_vG·z_u + G_z·z_u·z_v + G·z_uv`.
+                // The first two terms are the `flux(·)` pair above; this closure
+                // supplies the missing `G_z·z_u·z_v` self-flux (symmetric in u,v).
+                // The remaining `G·z_uv` term carries the bare continuous density
+                // `w` (not the cell-discontinuous integrand coefficients), so it
+                // telescope-cancels across each shared interior link-knot crossing
+                // and is dropped (gam#932). z_u/z_v reuse the crossing edge
+                // velocities `edge_vel`.
+                let self_flux = |u: usize, v: usize| -> f64 {
+                    let zu_r = edge_vel(u, part.right_edge, cell.right);
+                    let zv_r = edge_vel(v, part.right_edge, cell.right);
+                    let zu_l = edge_vel(u, part.left_edge, cell.left);
+                    let zv_l = edge_vel(v, part.left_edge, cell.left);
+                    let right = if zu_r != 0.0 && zv_r != 0.0 {
+                        zu_r * zv_r * density_w_z(cell.right)
+                    } else {
+                        0.0
+                    };
+                    let left = if zu_l != 0.0 && zv_l != 0.0 {
+                        zu_l * zv_l * density_w_z(cell.left)
+                    } else {
+                        0.0
+                    };
+                    right - left
+                };
+                for u in 0..p {
+                    let neg_coeff_u = fixed.coeff_u[u].map(|value| -value);
+                    for v in u..p {
+                        let boundary = flux(v, &neg_coeff_u);
+                        let boundary = if u == v {
+                            boundary
+                        } else {
+                            let neg_coeff_v = fixed.coeff_u[v].map(|value| -value);
+                            boundary + flux(u, &neg_coeff_v)
+                        };
+                        // `G_z·z_u·z_v` is a single symmetric term, added once
+                        // (unlike the asymmetric `flux` pair) to both triangles.
+                        let boundary = boundary + self_flux(u, v);
+                        f_uv[[u, v]] += boundary;
+                        if u != v {
+                            f_uv[[v, u]] += boundary;
+                        }
+                    }
+                }
+            }
+        }
         let mut a_uv = Array2::<f64>::zeros((p, p));
         for u in 0..p {
             for v in u..p {
@@ -400,25 +461,26 @@ impl SurvivalMarginalSlopeFamily {
                 a_uv[[v, u]] = val;
             }
         }
-        let a_dir = a_u.dot(dir);
         let a_u_dir = a_uv.dot(dir);
-        // Moving-domain (Leibniz) boundary correction for link-knot crossings.
-        // The fixed-domain moment reductions above differentiate only the
-        // integrand on each current cell. A link edge is
-        // `z_c=(tau-a)/b`, so along a primary direction its velocity is the
-        // TOTAL calibration motion
-        //
-        //     z_c' = -(a_dir + z_c * dir_g) / b.
-        //
-        // The previous correction used only the direct slope term
-        // `-(z_c/b) * dir_g`, which left every channel depending on the
-        // intercept IFT motion with a stale domain derivative.
-        let dir_g = if primary.g < p { dir[primary.g] } else { 0.0 };
-        if b != 0.0 && (a_dir != 0.0 || dir_g != 0.0) {
+        if b != 0.0 {
             for cell_entry in &cached.cells {
                 let neg_cell = cell_entry.neg_cell;
                 let fixed = &cell_entry.fixed;
                 let part = &cell_entry.partition_cell;
+                let neg_dc_da = fixed.dc_da.map(|val| -val);
+                let neg_dc_daa = fixed.dc_daa.map(|val| -val);
+                let mut neg_cell_dir = [0.0; 4];
+                for c in 0..p {
+                    if dir[c] == 0.0 {
+                        continue;
+                    }
+                    for k in 0..4 {
+                        neg_cell_dir[k] -= fixed.coeff_u[c][k] * dir[c];
+                    }
+                }
+                for k in 0..4 {
+                    neg_cell_dir[k] += a_dir * neg_dc_da[k];
+                }
                 let edge_velocity =
                     |edge: crate::families::cubic_cell_kernel::PartitionEdge, z: f64| -> f64 {
                         match edge {
@@ -430,12 +492,32 @@ impl SurvivalMarginalSlopeFamily {
                     };
                 let v_right = edge_velocity(part.right_edge, neg_cell.right);
                 let v_left = edge_velocity(part.left_edge, neg_cell.left);
-                if v_right == 0.0 && v_left == 0.0 {
-                    continue;
-                }
+                let first_boundary = |poly: &[f64]| -> f64 {
+                    let right = if v_right != 0.0 {
+                        v_right
+                            * crate::families::cubic_cell_kernel::cell_density_boundary_integrand(
+                                neg_cell,
+                                poly,
+                                neg_cell.right,
+                            )
+                    } else {
+                        0.0
+                    };
+                    let left = if v_left != 0.0 {
+                        v_left
+                            * crate::families::cubic_cell_kernel::cell_density_boundary_integrand(
+                                neg_cell,
+                                poly,
+                                neg_cell.left,
+                            )
+                    } else {
+                        0.0
+                    };
+                    right - left
+                };
 
                 let boundary = |neg_r: &[f64], neg_s: &[f64], neg_rs: &[f64]| -> f64 {
-                    let fr = if v_right != 0.0 {
+                    let right = if v_right != 0.0 {
                         v_right
                             * crate::families::cubic_cell_kernel::cell_second_derivative_boundary_integrand(
                                 neg_cell,
@@ -447,7 +529,7 @@ impl SurvivalMarginalSlopeFamily {
                     } else {
                         0.0
                     };
-                    let fl = if v_left != 0.0 {
+                    let left = if v_left != 0.0 {
                         v_left
                             * crate::families::cubic_cell_kernel::cell_second_derivative_boundary_integrand(
                                 neg_cell,
@@ -459,22 +541,166 @@ impl SurvivalMarginalSlopeFamily {
                     } else {
                         0.0
                     };
-                    fr - fl
+                    right - left
+                };
+                let edge_axis = |axis: usize,
+                                 edge: crate::families::cubic_cell_kernel::PartitionEdge,
+                                 z: f64|
+                 -> (f64, f64, f64) {
+                    match edge {
+                        crate::families::cubic_cell_kernel::PartitionEdge::Crossing { .. } => {
+                            let z_dir = -(a_dir + z * dir_g) / b;
+                            let axis_g = if axis == primary.g { 1.0 } else { 0.0 };
+                            let z_axis = -(a_u[axis] + z * axis_g) / b;
+                            let z_axis_dir = -(a_u_dir[axis] + z_dir * axis_g + z_axis * dir_g) / b;
+                            (z_axis, z_axis_dir, z_dir)
+                        }
+                        crate::families::cubic_cell_kernel::PartitionEdge::Fixed(_) => {
+                            (0.0, 0.0, 0.0)
+                        }
+                    }
+                };
+                let density_z_derivative = |poly: &[f64], z: f64| -> f64 {
+                    let eta = neg_cell.eta(z);
+                    let eta_z = neg_cell.c1 + 2.0 * neg_cell.c2 * z + 3.0 * neg_cell.c3 * z * z;
+                    let amp = eval_poly_slice(poly, z);
+                    let amp_z = eval_poly_derivative_slice(poly, z);
+                    let q_z = z + eta * eta_z;
+                    (amp_z - amp * q_z) * (-neg_cell.q(z)).exp() / std::f64::consts::TAU
+                };
+                let density_dir_integrand = |poly: &[f64], poly_dir: &[f64], z: f64| -> f64 {
+                    let eta = neg_cell.eta(z);
+                    let eta_dir = eval_poly_slice(&neg_cell_dir, z);
+                    let amp = eval_poly_slice(poly, z);
+                    let amp_dir = eval_poly_slice(poly_dir, z) - amp * eta * eta_dir;
+                    amp_dir * (-neg_cell.q(z)).exp() / std::f64::consts::TAU
+                };
+                let axis_flux_dir = |axis: usize, poly: &[f64], poly_dir: &[f64]| -> f64 {
+                    let eval_edge =
+                        |edge: crate::families::cubic_cell_kernel::PartitionEdge, z: f64| -> f64 {
+                            let (z_axis, z_axis_dir, z_dir) = edge_axis(axis, edge, z);
+                            if z_axis == 0.0 && z_axis_dir == 0.0 && z_dir == 0.0 {
+                                return 0.0;
+                            }
+                            z_axis_dir
+                            * crate::families::cubic_cell_kernel::cell_density_boundary_integrand(
+                                neg_cell, poly, z,
+                            )
+                            + z_axis * density_dir_integrand(poly, poly_dir, z)
+                            + z_axis * z_dir * density_z_derivative(poly, z)
+                        };
+                    eval_edge(part.right_edge, neg_cell.right)
+                        - eval_edge(part.left_edge, neg_cell.left)
+                };
+                // `G_z = w_z = -q_z·w` (G = w, constant integrand g≡1), reusing
+                // the directional block's `density_z_derivative` at poly=[1].
+                let density_w_z = |z: f64| -> f64 { density_z_derivative(&[1.0], z) };
+                // `D_dir(G_z) = D_dir(-q_z·w)`. With `q_z = z + η·η_z`,
+                // `D_dir(q_z) = η_dir·η_z + η·η_z_dir` (z is the integration
+                // variable, `D_dir(z)=0`), and `D_dir(w) = -η·η_dir·w` (since
+                // `D_dir(q) = η·η_dir`). Hence
+                // `D_dir(G_z) = [-(η_dir·η_z + η·η_z_dir) + q_z·η·η_dir]·w`.
+                // `η_dir`/`η_z_dir` come from the directional cell-coefficient
+                // shift `neg_cell_dir` already assembled above.
+                let density_w_z_dir = |z: f64| -> f64 {
+                    let eta = neg_cell.eta(z);
+                    let eta_z = neg_cell.c1 + 2.0 * neg_cell.c2 * z + 3.0 * neg_cell.c3 * z * z;
+                    let eta_dir = eval_poly_slice(&neg_cell_dir, z);
+                    let eta_z_dir = eval_poly_derivative_slice(&neg_cell_dir, z);
+                    let q_z = z + eta * eta_z;
+                    let w = (-neg_cell.q(z)).exp() / std::f64::consts::TAU;
+                    (-(eta_dir * eta_z + eta * eta_z_dir) + q_z * eta * eta_dir) * w
+                };
+                // `∂_z G_z = ∂_z(-q_z·w) = (q_z² − q_zz)·w`, the second z-derivative
+                // of the bare calibration weight (G = w). `q_zz = 1 + η_z² + η·η_zz`
+                // with `η_zz = 2c₂ + 6c₃·z`. This is the boundary-MOTION sensitivity
+                // of `G_z`: the self-flux is evaluated at the moving crossing
+                // `z = z_edge(θ)`, so `D_dir(G_z) = ∂_θG_z + z_dir·∂_zG_z`.
+                let density_w_zz = |z: f64| -> f64 {
+                    let eta = neg_cell.eta(z);
+                    let eta_z = neg_cell.c1 + 2.0 * neg_cell.c2 * z + 3.0 * neg_cell.c3 * z * z;
+                    let eta_zz = 2.0 * neg_cell.c2 + 6.0 * neg_cell.c3 * z;
+                    let q_z = z + eta * eta_z;
+                    let q_zz = 1.0 + eta_z * eta_z + eta * eta_zz;
+                    let w = (-neg_cell.q(z)).exp() / std::f64::consts::TAU;
+                    (q_z * q_z - q_zz) * w
+                };
+                // `D_dir(G_z·z_u·z_v)` self-flux, the directional derivative of the
+                // base block's `self_flux` (gam#932). By Leibniz,
+                // `D_dir(G_z·z_u·z_v) = D_dir(G_z)·z_u·z_v
+                //   + G_z·(z_u_dir·z_v + z_u·z_v_dir)`,
+                // with `z_u = z_axis(u)`, `z_u_dir = z_axis_dir(u)` from `edge_axis`.
+                // Crucially the self-flux lives at the moving crossing `z_edge(θ)`,
+                // so the TOTAL `D_dir(G_z)` is `density_w_z_dir` (∂_θ at fixed z) PLUS
+                // the boundary-motion term `z_dir·∂_zG_z = z_dir·density_w_zz` — the
+                // exact analogue of the `z_axis·z_dir·density_z_derivative` term
+                // `axis_flux_dir` already carries for the regular flux. Omitting it
+                // (the pre-fix state) left `f_uv_dir` desynced from `D_dir(f_uv)` on
+                // the deviation (β_w) blocks whenever the contraction direction moves
+                // the crossing (e.g. the g/log-slope axis). Symmetric in u,v → added
+                // once (like base self_flux), summed right−left over crossing edges.
+                let self_flux_dir = |u: usize, v: usize| -> f64 {
+                    let eval_edge =
+                        |edge: crate::families::cubic_cell_kernel::PartitionEdge, z: f64| -> f64 {
+                            let (zu, zu_dir, z_dir) = edge_axis(u, edge, z);
+                            let (zv, zv_dir, _) = edge_axis(v, edge, z);
+                            if zu == 0.0 && zu_dir == 0.0 && zv == 0.0 && zv_dir == 0.0 {
+                                return 0.0;
+                            }
+                            let g_z_total_dir = density_w_z_dir(z) + z_dir * density_w_zz(z);
+                            g_z_total_dir * zu * zv + density_w_z(z) * (zu_dir * zv + zu * zv_dir)
+                        };
+                    eval_edge(part.right_edge, neg_cell.right)
+                        - eval_edge(part.left_edge, neg_cell.left)
                 };
 
-                let neg_dc_da = fixed.dc_da.map(|val| -val);
-                let neg_dc_daa = fixed.dc_daa.map(|val| -val);
+                f_a_dir += first_boundary(&neg_dc_da);
                 f_aa_dir += boundary(&neg_dc_da, &neg_dc_da, &neg_dc_daa);
                 for u in 0..p {
                     let neg_coeff_u = fixed.coeff_u[u].map(|val| -val);
                     let neg_coeff_au = fixed.coeff_au[u].map(|val| -val);
+                    let mut neg_coeff_u_dir = [0.0; 4];
+                    for c in 0..p {
+                        if dir[c] == 0.0 {
+                            continue;
+                        }
+                        let sc = self.cell_pair_second_coeff(primary, &fixed.coeff_bu, u, c);
+                        for k in 0..4 {
+                            neg_coeff_u_dir[k] -= sc[k] * dir[c];
+                        }
+                    }
+                    for k in 0..4 {
+                        neg_coeff_u_dir[k] += a_dir * neg_coeff_au[k];
+                    }
                     f_au_dir[u] += boundary(&neg_dc_da, &neg_coeff_u, &neg_coeff_au);
                     for v in u..p {
                         let neg_coeff_v = fixed.coeff_u[v].map(|val| -val);
+                        let mut neg_coeff_v_dir = [0.0; 4];
+                        for c in 0..p {
+                            if dir[c] == 0.0 {
+                                continue;
+                            }
+                            let sc = self.cell_pair_second_coeff(primary, &fixed.coeff_bu, v, c);
+                            for k in 0..4 {
+                                neg_coeff_v_dir[k] -= sc[k] * dir[c];
+                            }
+                        }
+                        let neg_coeff_av = fixed.coeff_au[v].map(|val| -val);
+                        for k in 0..4 {
+                            neg_coeff_v_dir[k] += a_dir * neg_coeff_av[k];
+                        }
                         let neg_sc_uv = self
                             .cell_pair_second_coeff(primary, &fixed.coeff_bu, u, v)
                             .map(|val| -val);
-                        let bval = boundary(&neg_coeff_u, &neg_coeff_v, &neg_sc_uv);
+                        let mut bval = boundary(&neg_coeff_u, &neg_coeff_v, &neg_sc_uv);
+                        bval += axis_flux_dir(v, &neg_coeff_u, &neg_coeff_u_dir);
+                        if u != v {
+                            bval += axis_flux_dir(u, &neg_coeff_v, &neg_coeff_v_dir);
+                        }
+                        // `D_dir(G_z·z_u·z_v)` self-flux: directional derivative of
+                        // the base block's symmetric `self_flux`, added once to both
+                        // triangles (gam#932).
+                        bval += self_flux_dir(u, v);
                         f_uv_dir[[u, v]] += bval;
                         if u != v {
                             f_uv_dir[[v, u]] += bval;
@@ -608,13 +834,7 @@ impl SurvivalMarginalSlopeFamily {
 
         let mut tau_dir = Array1::<f64>::zeros(p);
         let mut tau_a_dir = Array1::<f64>::zeros(p);
-        let mut rho_dir = Array1::<f64>::zeros(p);
         for u in 0..p {
-            let fixed_rho_dir =
-                g_jet.param_directional_from_b_family(g_jet.b_first, u, dir, COEFF_SUPPORT_GHW);
-            rho_dir[u] = eval_coeff4_at(&g_jet.a_first[u], z_obs) * a_dir
-                + eval_coeff4_at(&fixed_rho_dir, z_obs);
-
             let fixed_tau_dir =
                 g_jet.param_directional_from_b_family(g_jet.ab_first, u, dir, COEFF_SUPPORT_GW);
             tau_dir[u] = eval_coeff4_at(&g_jet.aa_first[u], z_obs) * a_dir
@@ -626,49 +846,95 @@ impl SurvivalMarginalSlopeFamily {
                 + eval_coeff4_at(&fixed_tau_a_dir, z_obs);
         }
 
-        let mut eta_u_dir = Array1::<f64>::zeros(p);
-        let mut chi_u_dir = Array1::<f64>::zeros(p);
+        let chi_jet = MultiDirJet::bilinear(chi_val, chi_dir, 0.0, 0.0);
+        let eta_aa_jet = MultiDirJet::bilinear(eta_aa, eta_aa_dir, 0.0, 0.0);
+        let eta_aaa_jet = MultiDirJet::bilinear(eta_aaa, eta_aaa_dir, 0.0, 0.0);
+        let mut a_u_jets = Vec::with_capacity(p);
+        let mut tau_jets = Vec::with_capacity(p);
+        let mut tau_a_jets = Vec::with_capacity(p);
         for u in 0..p {
-            eta_u_dir[u] = chi_dir * a_u[u] + chi_val * a_u_dir[u] + rho_dir[u];
-            chi_u_dir[u] = eta_aa_dir * a_u[u] + eta_aa * a_u_dir[u] + tau_a_dir[u];
+            a_u_jets.push(MultiDirJet::bilinear(a_u[u], a_u_dir[u], 0.0, 0.0));
+            tau_jets.push(MultiDirJet::bilinear(tau[u], tau_dir[u], 0.0, 0.0));
+            tau_a_jets.push(MultiDirJet::bilinear(tau_a[u], tau_a_dir[u], 0.0, 0.0));
         }
 
+        let mut eta_uv = Array2::<f64>::zeros((p, p));
+        let mut chi_uv = Array2::<f64>::zeros((p, p));
         let mut eta_uv_dir = Array2::<f64>::zeros((p, p));
         let mut chi_uv_dir = Array2::<f64>::zeros((p, p));
         for u in 0..p {
             for v in u..p {
-                let r_uv_dir = self.observed_fixed_eta_second_partial_dir(
-                    primary, &obs, u, v, z_obs, u_obs, a, b, a_dir, dir, beta_w,
-                )?;
-                let chi_uv_fixed_dir = self.observed_fixed_chi_second_partial_dir(
-                    primary, u, v, z_obs, u_obs, a_dir, dir,
-                )?;
+                let a_uv_jet = MultiDirJet::bilinear(a_uv[[u, v]], a_uv_dir[[u, v]], 0.0, 0.0);
+                let a_u_prod = a_u_jets[u].mul(&a_u_jets[v]);
+                let r_uv_jet = MultiDirJet::bilinear(
+                    eval_coeff4_at(
+                        &g_jet.pair_from_b_family(g_jet.b_first, u, v, COEFF_SUPPORT_GHW),
+                        z_obs,
+                    ),
+                    eval_coeff4_at(
+                        &g_jet.pair_from_b_family(g_jet.ab_first, u, v, COEFF_SUPPORT_GW),
+                        z_obs,
+                    ) * a_dir
+                        + eval_coeff4_at(
+                            &g_jet.pair_directional_from_bb_family(
+                                g_jet.bb_first,
+                                u,
+                                v,
+                                dir,
+                                COEFF_SUPPORT_GHW,
+                            ),
+                            z_obs,
+                        ),
+                    0.0,
+                    0.0,
+                );
+                let chi_uv_fixed_jet = MultiDirJet::bilinear(
+                    eval_coeff4_at(
+                        &g_jet.pair_from_b_family(g_jet.ab_first, u, v, COEFF_SUPPORT_GW),
+                        z_obs,
+                    ),
+                    eval_coeff4_at(
+                        &g_jet.pair_from_b_family(g_jet.aab_first, u, v, COEFF_SUPPORT_GW),
+                        z_obs,
+                    ) * a_dir
+                        + eval_coeff4_at(
+                            &g_jet.pair_directional_from_bb_family(
+                                g_jet.abb_first,
+                                u,
+                                v,
+                                dir,
+                                COEFF_SUPPORT_GW,
+                            ),
+                            z_obs,
+                        ),
+                    0.0,
+                    0.0,
+                );
+                let eta_uv_jet = chi_jet
+                    .mul(&a_uv_jet)
+                    .add(&eta_aa_jet.mul(&a_u_prod))
+                    .add(&tau_jets[u].mul(&a_u_jets[v]))
+                    .add(&tau_jets[v].mul(&a_u_jets[u]))
+                    .add(&r_uv_jet);
+                let chi_uv_jet = eta_aa_jet
+                    .mul(&a_uv_jet)
+                    .add(&eta_aaa_jet.mul(&a_u_prod))
+                    .add(&tau_a_jets[u].mul(&a_u_jets[v]))
+                    .add(&tau_a_jets[v].mul(&a_u_jets[u]))
+                    .add(&chi_uv_fixed_jet);
 
-                let eta_val = chi_dir * a_uv[[u, v]]
-                    + chi_val * a_uv_dir[[u, v]]
-                    + eta_aa_dir * a_u[u] * a_u[v]
-                    + eta_aa * (a_u_dir[u] * a_u[v] + a_u[u] * a_u_dir[v])
-                    + tau_dir[u] * a_u[v]
-                    + tau[u] * a_u_dir[v]
-                    + tau_dir[v] * a_u[u]
-                    + tau[v] * a_u_dir[u]
-                    + r_uv_dir;
-                eta_uv_dir[[u, v]] = eta_val;
-                eta_uv_dir[[v, u]] = eta_val;
-
-                let chi_v = eta_aa_dir * a_uv[[u, v]]
-                    + eta_aa * a_uv_dir[[u, v]]
-                    + eta_aaa_dir * a_u[u] * a_u[v]
-                    + eta_aaa * (a_u_dir[u] * a_u[v] + a_u[u] * a_u_dir[v])
-                    + tau_a_dir[u] * a_u[v]
-                    + tau_a[u] * a_u_dir[v]
-                    + tau_a_dir[v] * a_u[u]
-                    + tau_a[v] * a_u_dir[u]
-                    + chi_uv_fixed_dir;
-                chi_uv_dir[[u, v]] = chi_v;
-                chi_uv_dir[[v, u]] = chi_v;
+                eta_uv[[u, v]] = eta_uv_jet.coeff(0);
+                eta_uv[[v, u]] = eta_uv[[u, v]];
+                chi_uv[[u, v]] = chi_uv_jet.coeff(0);
+                chi_uv[[v, u]] = chi_uv[[u, v]];
+                eta_uv_dir[[u, v]] = eta_uv_jet.coeff(1);
+                eta_uv_dir[[v, u]] = eta_uv_dir[[u, v]];
+                chi_uv_dir[[u, v]] = chi_uv_jet.coeff(1);
+                chi_uv_dir[[v, u]] = chi_uv_dir[[u, v]];
             }
         }
+        let eta_u_dir = eta_uv.dot(dir);
+        let chi_u_dir = chi_uv.dot(dir);
 
         // D_u_dir: directional derivative of the density normalization first derivative.
         let d_u_dir_cell_accums = cached
@@ -844,21 +1110,12 @@ impl SurvivalMarginalSlopeFamily {
 
         // D_uv_dir
         let mut d_uv_dir = Array2::<f64>::zeros((p, p));
-        #[cfg(test)]
-        let mut debug_d_uv_terms: Option<([f64; 5], [f64; 5])> = None;
         if need_d_uv_dir {
-            // #932 debug probe block: (w0, w0) deviation diagonal.
-            #[cfg(test)]
-            let dbg_target: Option<(usize, usize)> = primary.w.as_ref().map(|w| (w.start, w.start));
             let d_uv_dir_cell_accums = cached
                 .cells
                 .iter()
-                .map(|cell_entry| -> Result<(Array2<f64>, [f64; 10]), String> {
+                .map(|cell_entry| -> Result<Array2<f64>, String> {
                     let mut d_uv_dir = Array2::<f64>::zeros((p, p));
-                    #[cfg(test)]
-                    let mut dbg_terms = [0.0_f64; 10];
-                    #[cfg(not(test))]
-                    let dbg_terms = [0.0_f64; 10];
                     let cell = cell_entry.partition_cell.cell;
                     let state_ref = &cell_entry.state;
                     let fixed = &cell_entry.fixed;
@@ -1395,34 +1652,6 @@ impl SurvivalMarginalSlopeFamily {
                                 &state_ref.moments,
                                 "survival D_t second derivative directional",
                             )?;
-                            #[cfg(test)]
-                            if dbg_target == Some((u, v)) {
-                                let ig = |poly: &[f64]| -> f64 {
-                                    exact_kernel::cell_polynomial_integral_from_moments(
-                                        poly,
-                                        &state_ref.moments,
-                                        "dbg",
-                                    )
-                                    .unwrap_or(f64::NAN)
-                                };
-                                // Base per-term ∫t_i·m (t1=i_base's chi_uv piece..t5).
-                                dbg_terms[0] += ig(&t1);
-                                dbg_terms[1] += ig(&t2);
-                                dbg_terms[2] += ig(&t3);
-                                dbg_terms[3] += ig(&t4);
-                                dbg_terms[4] += ig(&t5);
-                                // Analytic FULL dir per-term:
-                                //   D_dir(∫t_i·m) = ∫t_i_dir·m - ∫eta·eta_dir·t_i·m.
-                                // The trailing moment-measure correction must be
-                                // included per term so it equals the FD of ∫t_i·m.
-                                let mw = poly_mul(&eta_poly, &eta_dir_poly);
-                                let corr = |t: &[f64]| ig(&poly_mul(&mw, t));
-                                dbg_terms[5] += ig(&t1_dir) - corr(&t1);
-                                dbg_terms[6] += ig(&t2_dir) - corr(&t2);
-                                dbg_terms[7] += ig(&t3_dir) - corr(&t3);
-                                dbg_terms[8] += ig(&t4_dir) - corr(&t4);
-                                dbg_terms[9] += ig(&t5_dir) - corr(&t5);
-                            }
                             d_uv_dir[[u, v]] += value;
                             // Moving-domain (Leibniz) boundary flux for the
                             // density second-derivative integral: same
@@ -1511,28 +1740,15 @@ impl SurvivalMarginalSlopeFamily {
                             d_uv_dir[[v, u]] = d_uv_dir[[u, v]];
                         }
                     }
-                    Ok((d_uv_dir, dbg_terms))
+                    Ok(d_uv_dir)
                 })
                 .collect::<Result<Vec<_>, String>>()?;
-            #[cfg(test)]
-            let mut dbg_sum = [0.0_f64; 10];
-            for (cell_d_uv_dir, _cell_dbg) in &d_uv_dir_cell_accums {
+            for cell_d_uv_dir in &d_uv_dir_cell_accums {
                 for u in 0..p {
                     for v in 0..p {
                         d_uv_dir[[u, v]] += cell_d_uv_dir[[u, v]];
                     }
                 }
-                #[cfg(test)]
-                for k in 0..10 {
-                    dbg_sum[k] += _cell_dbg[k];
-                }
-            }
-            #[cfg(test)]
-            {
-                debug_d_uv_terms = Some((
-                    [dbg_sum[0], dbg_sum[1], dbg_sum[2], dbg_sum[3], dbg_sum[4]],
-                    [dbg_sum[5], dbg_sum[6], dbg_sum[7], dbg_sum[8], dbg_sum[9]],
-                ));
             }
         }
 
@@ -1543,8 +1759,6 @@ impl SurvivalMarginalSlopeFamily {
             chi_uv_dir,
             d_u_dir,
             d_uv_dir,
-            #[cfg(test)]
-            debug_d_uv_terms,
         })
     }
 }

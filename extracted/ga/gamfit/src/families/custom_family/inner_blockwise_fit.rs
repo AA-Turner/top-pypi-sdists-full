@@ -542,9 +542,10 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         // ~120 s of wall-clock per outer ρ-evaluation that the outer
         // optimizer will reject anyway. The signature is exact and local:
         // (i) every trust attempt this cycle was rejected by SOME path —
-        // model, likelihood, OR objective (the three counters partition the
-        // JOINT_TRUST_MAX_ATTEMPTS attempts), so `model_rejects +
-        // likelihood_rejects + objective_rejects == JOINT_TRUST_MAX_ATTEMPTS`,
+        // model, likelihood, objective, OR feasibility (the four counters
+        // partition the JOINT_TRUST_MAX_ATTEMPTS attempts), so `model_rejects +
+        // likelihood_rejects + objective_rejects + feasibility_rejects ==
+        // JOINT_TRUST_MAX_ATTEMPTS`,
         // AND (ii) the joint trust radius has NOT shrunk relative to the
         // previous fully-rejected cycle. Condition (i) was originally
         // objective-only (`objective_rejects == MAX`, others 0), which never
@@ -575,6 +576,17 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         const FULLY_REJECTED_STALL_MAX_CYCLES: usize = 8;
         let mut prev_rejected_trust_radius: Option<f64> = None;
         let mut consecutive_held_rejected_cycles: usize = 0;
+        // Byte-identical fixed-point detector for the fully-rejected stall.
+        // Tracks the first-attempt trial objective of the previous fully-
+        // rejected cycle; when the current fully-rejected cycle reproduces it
+        // bit-for-bit the iterate is provably stationary at the f64 floor (the
+        // n≈3e5 marginal/logslope coupling case where the line search rejects
+        // every step on a 1-ULP cross-path round-off gap and β reverts
+        // identically each cycle). One repeat is conclusive, so the guard fires
+        // after two such cycles regardless of the `radius_held` heuristic.
+        let mut prev_rejected_first_attempt_objective: Option<f64> = None;
+        let mut consecutive_identical_rejected_cycles: usize = 0;
+        const IDENTICAL_REJECTED_STALL_MAX_CYCLES: usize = 2;
         let mut last_joint_math: Option<JointNewtonMathDiagnostic> = None;
         // Cross-cycle cache of the joint Jeffreys/Firth triple `(β_key, ∇Φ, H_Φ)`
         // (gam#729/#826/#808). Computing `(∇Φ, H_Φ)` costs `p` family
@@ -1702,14 +1714,30 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             // exact quadratic problem (i.e. converge in one cycle when the
             // model is exact). The trust-region globalization above must not
             // truncate the very first proposal merely because the hard-coded
-            // initial radius (1.0) is smaller than the natural Newton-step
-            // 2-norm. Bumping the radius up to the post-barrier Newton-step
-            // norm on cycle 0 preserves quadratic convergence on
-            // well-conditioned problems while leaving the standard adaptive
-            // shrink/expand for subsequent cycles. Family feasibility
-            // constraints and the adaptive trust radius remain the safeguards
-            // against runaway proposals.
+            // initial radius (1.0) is smaller than the natural Newton-step norm.
+            //
+            // There are two norms in play:
+            //   * the constrained-QP / dogleg paths truncate per block against
+            //     `joint_block_trust_radii`;
+            //   * the exact spectral trust-region path solves one global
+            //     Moré–Sorensen problem against `joint_trust_radius`.
+            //
+            // The old cycle-0 bump only raised the per-block radii and then set the
+            // global radius to `max(block_norms)`. For a multiblock exact quadratic
+            // with a diagonal metric that leaves a full Newton step like
+            // `[0.8, 0.8]` inside every per-block ball (`max = 0.8`) but outside
+            // the global spectral ball (`sqrt(0.8² + 0.8²) = 1.13`). Once the
+            // constrained branch started populating `joint_spectrum` for the
+            // Newton-decrement certificate, the line search correctly used the
+            // spectral path and incorrectly clipped that exact feasible Newton
+            // step to radius 1.0, preventing one-cycle KKT convergence. Bump the
+            // global radius to the full metric norm while still bumping each block
+            // radius to its own block norm; this keeps the first exact Newton step
+            // untruncated in both globalization modes and leaves the standard
+            // adaptive shrink/expand for subsequent cycles.
             if cycle == 0 && joint_step_spectral_nullity == 0 {
+                let initial_global_norm =
+                    joint_trust_region_metric_step_norm(&delta, &joint_trust_metric_diag);
                 let initial_block_norms = joint_trust_region_block_metric_norms(
                     &delta,
                     &ranges,
@@ -1720,10 +1748,15 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         *radius = norm;
                     }
                 }
-                joint_trust_radius = joint_block_trust_radii
+                let block_radius = joint_block_trust_radii
                     .iter()
                     .copied()
                     .fold(0.0_f64, f64::max);
+                joint_trust_radius = if initial_global_norm.is_finite() {
+                    block_radius.max(initial_global_norm)
+                } else {
+                    block_radius
+                };
                 if !joint_trust_radius.is_finite() || joint_trust_radius <= 0.0 {
                     joint_trust_radius = 1.0;
                 }
@@ -1870,7 +1903,46 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             let mut model_rejects = 0usize;
             let mut likelihood_rejects = 0usize;
             let mut objective_rejects = 0usize;
+            // Feasibility-path rejections (gam#979 survival monotone cone). The two
+            // constrained-path `continue`s — the `apply_joint_feasibility_limit`
+            // α-crush `Err` (current iterate infeasible / no positive step) and the
+            // `project_point_strictly_into_feasible_cone` `None` (degenerate /
+            // empty-interior cone at this trial) — consume a trust attempt but were
+            // NOT counted by any of model/likelihood/objective. On the survival
+            // marginal-slope monotone-cone pathology this is the DOMINANT reject
+            // path (the trial step keeps crossing the binding time-derivative cone
+            // at slack≈0), so `model + likelihood + objective < MAX_ATTEMPTS`
+            // ALWAYS, `all_attempts_rejected` was permanently false, and the
+            // fully-rejected stall guard below NEVER armed — the inner joint-Newton
+            // spun to `inner_loop_hard_ceiling` every outer ρ-evaluation (the 1322 s
+            // hang; #1040). A feasibility rejection IS a "no descent the local model
+            // can reconcile at this β" signal exactly like an objective rejection,
+            // so counting it restores the partition invariant
+            // `model + likelihood + objective + feasibility == MAX_ATTEMPTS` the
+            // stall guard relies on. Off the constrained pathology this counter
+            // stays 0 (those `continue`s are never taken on a feasible/unconstrained
+            // arm), so every converging fit is byte-identical.
+            let mut feasibility_rejects = 0usize;
             let mut first_likelihood_reject: Option<String> = None;
+            // Fixed-point signature for the fully-rejected stall guard. The
+            // FIRST trust attempt of a cycle evaluates the proposal at the
+            // pre-cycle β (the attempt that has not yet shrunk the radius), so
+            // its trial objective is a deterministic function of (β, S, λ)
+            // alone. On a fully-rejected cycle β is reverted to that same
+            // pre-cycle value, so if two consecutive fully-rejected cycles
+            // report a *byte-identical* first-attempt trial objective the next
+            // cycle's entire Newton system, trust-region search, and reject
+            // outcome are provably byte-identical — the iterate is at an exact
+            // fixed point and every further cycle is a pure no-op. This is
+            // strictly stronger evidence than the `radius_held` heuristic (which
+            // can keep resetting while the boundary block's radius oscillates),
+            // so it lets the guard fire in two cycles instead of grinding to the
+            // 8-cycle held-radius count or the hard ceiling. Captured only on
+            // the first attempt; a successful first-attempt likelihood-reject
+            // leaves it `None` (and the early-exit reject path captures it
+            // explicitly below) so a non-finite trial cannot masquerade as a
+            // fixed point.
+            let mut first_attempt_trial_objective: Option<f64> = None;
             // Coalesce consecutive trust-region attempts whose accept/reject
             // outcome and numeric signature round to the same values, so a long
             // run of identical retries collapses into a single "attempts a..b
@@ -1909,7 +1981,28 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     // resulting (unconstrained) step is projected back onto the cone
                     // just below (gam#1108), preserving this step's fast convergence
                     // while keeping every accepted iterate feasible.
-                    trial_delta = spectrum.trust_region_step(joint_trust_radius).delta;
+                    //
+                    // If the already-computed Newton/QP step lies inside the
+                    // current global trust ball, take it directly instead of asking
+                    // the trust-region solver to recover the boundary solution at
+                    // `r == ‖δ_N‖`. The boundary multiplier is mathematically zero
+                    // in that case, but finite precision can produce a tiny positive
+                    // multiplier and perturb an exact quadratic one-step solve by
+                    // O(1e-6), which is large relative to the inner KKT floor. The
+                    // direct step is the exact unconstrained minimizer of the local
+                    // model and is still trust-region feasible.
+                    let search_norm = joint_trust_region_metric_step_norm(
+                        &search_delta,
+                        &joint_trust_metric_diag,
+                    );
+                    if search_norm.is_finite()
+                        && joint_trust_radius.is_finite()
+                        && search_norm <= joint_trust_radius * (1.0 + 1e-12)
+                    {
+                        trial_delta = search_delta.clone();
+                    } else {
+                        trial_delta = spectrum.trust_region_step(joint_trust_radius).delta;
+                    }
                     joint_trust_region_block_metric_norms(
                         &trial_delta,
                         &ranges,
@@ -2019,6 +2112,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     && apply_joint_feasibility_limit(family, &states, &ranges, &mut trial_delta)
                         .is_err()
                 {
+                    feasibility_rejects += 1;
                     joint_trust_radius = shrink_active_joint_block_trust_radii(
                         &mut joint_block_trust_radii,
                         &block_step_norms,
@@ -2063,6 +2157,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                                 // (gam#979). Without this an infeasible trial would
                                 // reach the next cycle's `check_linear_feasibility`
                                 // QP gate and hard-error.
+                                feasibility_rejects += 1;
                                 joint_trust_radius = shrink_active_joint_block_trust_radii(
                                     &mut joint_block_trust_radii,
                                     &block_step_norms,
@@ -2389,6 +2484,12 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     }
                 };
                 let trialobjective = -trial_ll + trial_penalty;
+                if trust_attempt == 0 && trialobjective.is_finite() {
+                    // Deterministic fixed-point signature (see declaration). The
+                    // first attempt evaluates at the unshrunk pre-cycle β, so this
+                    // value identifies the iterate exactly.
+                    first_attempt_trial_objective = Some(trialobjective);
+                }
                 // Row measure observed by the trial objective at β + δ. The
                 // line-search helper above runs under `coefficient_line_search_options`,
                 // which now preserves `outer_score_subsample` and disables
@@ -2639,6 +2740,18 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         cached_active_sets =
                             scatter_joint_active_set(joint_active_set, &block_constraints);
                     }
+                    let tight_rows_added = augment_active_sets_with_tight_constraint_rows(
+                        &mut cached_active_sets,
+                        &block_constraints,
+                        &states,
+                        crate::solver::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL,
+                    );
+                    if tight_rows_added > 0 {
+                        log::info!(
+                            "[PIRLS/joint-Newton] added {tight_rows_added} tight constraint row(s) \
+                             to the cached active set after accepted constrained step"
+                        );
+                    }
                     last_joint_math = Some(joint_math);
                     last_accepted_hit_joint_trust_boundary = step_hit_trust_boundary;
                     accepted = true;
@@ -2672,7 +2785,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             let line_search_elapsed = line_search_started.elapsed();
             if accepted && converged {
                 log::info!(
-                    "[PIRLS/joint-Newton/cycle-summary] cycle={} accepted=true hessian_qp={:.3}s line_search={:.3}s line_search_attempts={} reject_model={} reject_likelihood={} reject_objective={} first_likelihood_reject={} grad_reload=0.000s total={:.3}s",
+                    "[PIRLS/joint-Newton/cycle-summary] cycle={} accepted=true hessian_qp={:.3}s line_search={:.3}s line_search_attempts={} reject_model={} reject_likelihood={} reject_objective={} reject_feasibility={} first_likelihood_reject={} grad_reload=0.000s total={:.3}s",
                     cycle,
                     hessian_and_qp_elapsed.as_secs_f64(),
                     line_search_elapsed.as_secs_f64(),
@@ -2680,6 +2793,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     model_rejects,
                     likelihood_rejects,
                     objective_rejects,
+                    feasibility_rejects,
                     first_likelihood_reject.as_deref().unwrap_or("none"),
                     cycle_started.elapsed().as_secs_f64(),
                 );
@@ -2700,7 +2814,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 // the next cycle's Newton proposal will be evaluated under
                 // a tighter L2 bound without any parallel adaptation here.
                 log::info!(
-                    "[PIRLS/joint-Newton/cycle-summary] cycle={} accepted=false hessian_qp={:.3}s line_search={:.3}s line_search_attempts={} reject_model={} reject_likelihood={} reject_objective={} first_likelihood_reject={} grad_reload=0.000s total={:.3}s",
+                    "[PIRLS/joint-Newton/cycle-summary] cycle={} accepted=false hessian_qp={:.3}s line_search={:.3}s line_search_attempts={} reject_model={} reject_likelihood={} reject_objective={} reject_feasibility={} first_likelihood_reject={} grad_reload=0.000s total={:.3}s",
                     cycle,
                     hessian_and_qp_elapsed.as_secs_f64(),
                     line_search_elapsed.as_secs_f64(),
@@ -2708,6 +2822,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     model_rejects,
                     likelihood_rejects,
                     objective_rejects,
+                    feasibility_rejects,
                     first_likelihood_reject.as_deref().unwrap_or("none"),
                     cycle_started.elapsed().as_secs_f64(),
                 );
@@ -2749,8 +2864,9 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 // Fully-rejected stall guard. See the constant declaration
                 // at the top of this function for the full rationale. The
                 // condition is: every trust attempt this cycle was rejected by
-                // SOME path (model OR likelihood OR objective; the three reject
-                // counters partition the JOINT_TRUST_MAX_ATTEMPTS attempts) AND
+                // SOME path (model OR likelihood OR objective OR feasibility; the
+                // four reject counters partition the JOINT_TRUST_MAX_ATTEMPTS
+                // attempts) AND
                 // the joint trust radius did not shrink relative to the previous
                 // fully-rejected cycle. Both together prove the next cycle's
                 // Newton system, trust radius, and trust-region search are
@@ -2768,8 +2884,9 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 // full rejection by the likelihood path at a collapsed trust
                 // radius is the same numerically-flat-no-descent stall as a
                 // full objective rejection; counting either lets the guard fire.
-                let all_attempts_rejected = model_rejects + likelihood_rejects + objective_rejects
-                    == JOINT_TRUST_MAX_ATTEMPTS;
+                let all_attempts_rejected =
+                    model_rejects + likelihood_rejects + objective_rejects + feasibility_rejects
+                        == JOINT_TRUST_MAX_ATTEMPTS;
                 let radius_held_since_last_reject = match prev_rejected_trust_radius {
                     Some(prev) => {
                         joint_trust_radius.is_finite()
@@ -2785,7 +2902,35 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     consecutive_held_rejected_cycles = 0;
                 }
                 prev_rejected_trust_radius = Some(joint_trust_radius);
-                if consecutive_held_rejected_cycles >= FULLY_REJECTED_STALL_MAX_CYCLES {
+                // Byte-identical fixed-point detector. A fully-rejected cycle
+                // whose first-attempt trial objective reproduces the previous
+                // fully-rejected cycle's value bit-for-bit proves β reverted to
+                // the same iterate and the Newton system is identical, so every
+                // further cycle is a provable no-op. This is stronger than the
+                // held-radius count and fires in two cycles, fixing the n≈3e5
+                // marginal/logslope grind where the held-radius path's off-by-one
+                // let the inner solve spin past the wall-clock budget (gam#979).
+                match (
+                    all_attempts_rejected,
+                    first_attempt_trial_objective,
+                    prev_rejected_first_attempt_objective,
+                ) {
+                    (true, Some(current), Some(prev)) if current.to_bits() == prev.to_bits() => {
+                        consecutive_identical_rejected_cycles =
+                            consecutive_identical_rejected_cycles.saturating_add(1);
+                    }
+                    _ => {
+                        consecutive_identical_rejected_cycles = 0;
+                    }
+                }
+                if all_attempts_rejected {
+                    prev_rejected_first_attempt_objective = first_attempt_trial_objective;
+                } else {
+                    prev_rejected_first_attempt_objective = None;
+                }
+                if consecutive_held_rejected_cycles >= FULLY_REJECTED_STALL_MAX_CYCLES
+                    || consecutive_identical_rejected_cycles >= IDENTICAL_REJECTED_STALL_MAX_CYCLES
+                {
                     let last_math_summary = last_joint_math
                         .as_ref()
                         .map(|math| {
@@ -2802,17 +2947,30 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                             )
                         })
                         .unwrap_or_else(|| "last_newton_math=<none>".to_string());
+                    let stall_trigger = if consecutive_identical_rejected_cycles
+                        >= IDENTICAL_REJECTED_STALL_MAX_CYCLES
+                    {
+                        format!(
+                            "byte-identical first-attempt trial objective for {} consecutive \
+                             fully-rejected cycles (exact fixed point)",
+                            consecutive_identical_rejected_cycles
+                        )
+                    } else {
+                        format!(
+                            "{} consecutive fully-rejected cycles with joint trust radius held",
+                            consecutive_held_rejected_cycles
+                        )
+                    };
                     log::warn!(
                         "[PIRLS/joint-Newton convergence] cycle {:>3} | fully-rejected stall \
                          early-exit: every trust-region attempt rejected (by any of the model / \
-                         likelihood / objective paths) for {} consecutive cycles with joint trust \
-                         radius held at {:.3e} throughout. Reverted β + held trust radius mean the \
-                         next cycle's Newton step is byte-identical to this one's; no descent \
-                         direction is reachable from this iterate under the current local model. \
-                         {}. Checking identified-subspace stationarity before declaring \
-                         non-convergence.",
+                         likelihood / objective paths) — {} at joint trust radius {:.3e}. Reverted β \
+                         + identical Newton system mean the next cycle's step is byte-identical to \
+                         this one's; no descent direction is reachable from this iterate under the \
+                         current local model. {}. Checking identified-subspace stationarity before \
+                         declaring non-convergence.",
                         cycle,
-                        consecutive_held_rejected_cycles,
+                        stall_trigger,
                         joint_trust_radius,
                         last_math_summary,
                     );
@@ -2893,6 +3051,83 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         converged = true;
                         break;
                     }
+                    // FULL-RANK FIXED-POINT FALLBACK (gam#979 survival marginal-slope).
+                    //
+                    // The range-space certificate above returns `None` when
+                    // `projected_residual_range_space_inf` finds `nullity == 0`:
+                    // at the REML optimum ρ the penalty `S(λ)` lifts the
+                    // gauge-flat marginal≈logslope alias direction (the n≈133
+                    // heart-failure fit's 0.956-overlap confound) to an
+                    // eigenvalue just ABOVE the `1e-10·λ_max` rank cutoff, so
+                    // H_pen reads numerically full-rank and there is no null
+                    // space to project the residual onto. The previous code then
+                    // declared non-convergence and ABORTED the whole fit — even
+                    // though the iterate is a provably-stationary penalized
+                    // optimum whose residual is floored at a small multiple of
+                    // tol by the near-singular conditioning, NOT by a reachable
+                    // descent direction.
+                    //
+                    // The honest discriminator is the SAME conjunction the
+                    // fully-rejected stall is built on, asserted explicitly so a
+                    // genuine non-convergence (a fit stalled FAR from tol with
+                    // real reducible range-space mass) still exits unconverged:
+                    //   (a) the joint trust radius has collapsed to its `1e-12`
+                    //       floor — no smaller step is representable;
+                    //   (b) `FULLY_REJECTED_STALL_MAX_CYCLES` consecutive cycles
+                    //       (or a byte-identical first-attempt objective) were
+                    //       fully rejected — β reverts identically, so the next
+                    //       step is bit-for-bit the same: a fixed point;
+                    //   (c) the last accepted Newton model was essentially exact
+                    //       (`trust_ratio ≈ 1` and scalar relative model error
+                    //       below `inner_tol`) — the quadratic model has nothing
+                    //       left to reduce.
+                    // Only when all three hold AND the best residual the solve
+                    // actually achieved is within the same `4×residual_tol` band
+                    // the sibling identified-subspace certificates use (lines
+                    // ~4497 / ~4659) AND the objective is flat do we certify. A
+                    // fit stalled at, say, 10×tol with reducible mass fails the
+                    // `best_residual_seen ≤ 4×tol` gate and still aborts.
+                    const FIXED_POINT_TRUST_RADIUS_CEIL: f64 = 1e-9;
+                    let model_exact = last_joint_math
+                        .as_ref()
+                        .map(|math| {
+                            (math.trust_ratio - 1.0).abs() <= 0.5
+                                && math.scalar_model_relative_error() <= inner_tol.max(1e-6)
+                        })
+                        .unwrap_or(false);
+                    let provable_fixed_point = joint_trust_radius <= FIXED_POINT_TRUST_RADIUS_CEIL
+                        && (consecutive_held_rejected_cycles >= FULLY_REJECTED_STALL_MAX_CYCLES
+                            || consecutive_identical_rejected_cycles
+                                >= IDENTICAL_REJECTED_STALL_MAX_CYCLES)
+                        && model_exact;
+                    if provable_fixed_point
+                        && last_cycle_obj_change_below_tol
+                        && best_residual_seen.is_finite()
+                        && best_residual_seen <= 4.0 * last_residual_tol
+                    {
+                        log::info!(
+                            "[PIRLS/joint-Newton convergence] cycle {:>3} | fully-rejected stall \
+                             resolved as full-rank fixed-point KKT convergence (gam#979): trust \
+                             radius collapsed to {:.3e} (≤ floor), {} consecutive fully-rejected \
+                             cycles, last Newton model exact (ρ≈1, scalar_relerr small), and the \
+                             objective is flat — a provably-stationary penalized optimum. H_pen reads \
+                             full-rank at the optimal ρ (the gauge-flat alias eigenvalue sits above \
+                             the rank cutoff), so the range-space certificate has no null space to \
+                             project; the best achieved KKT residual {:.3e} ≤ 4×tol {:.3e} is the \
+                             near-singular conditioning floor, not reducible descent — returning \
+                             converged.",
+                            cycle,
+                            joint_trust_radius,
+                            consecutive_held_rejected_cycles,
+                            best_residual_seen,
+                            4.0 * last_residual_tol,
+                        );
+                        if best_residual_seen.is_finite() {
+                            min_certified_residual = min_certified_residual.min(best_residual_seen);
+                        }
+                        converged = true;
+                        break;
+                    }
                     converged = false;
                     break;
                 }
@@ -2943,6 +3178,11 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             // forward a stale radius snapshot from the previous reject streak.
             prev_rejected_trust_radius = None;
             consecutive_held_rejected_cycles = 0;
+            // An accepted step moved β, so the fixed-point signature is stale;
+            // reset it so a later reject streak compares only consecutive
+            // fully-rejected cycles at the SAME iterate.
+            prev_rejected_first_attempt_objective = None;
+            consecutive_identical_rejected_cycles = 0;
             // Accepted-cycle timing breakdown is debug-only. The per-cycle
             // info line below already includes total cycle time; emitting a
             // four-phase split on every verbose cycle adds a redundant info
@@ -3517,6 +3757,25 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 && decrement.is_finite()
                 && decrement <= objective_tol
             {
+                // Audit witness (#1082): the residual mass this certificate
+                // EXCLUDES as gauge-null. The decrement bound is sound only when
+                // that excluded mass truly lies on penalty-null directions; if it
+                // is large the certificate may have discarded a weakly-identified
+                // real mode (the `null_cutoff = rank_tol·λ_max` ill-conditioning
+                // edge), so emit it at WARN to keep the decision auditable.
+                let excluded_null_residual = joint_spectrum
+                    .as_ref()
+                    .map(|spectrum| spectrum.null_residual_inf())
+                    .unwrap_or(0.0);
+                if excluded_null_residual > residual_tol.max(1e-6) {
+                    log::warn!(
+                        "[PIRLS/joint-Newton convergence] cycle {cycle:>3} | Newton-decrement \
+                         certificate fired with LARGE excluded near-null residual \
+                         ={excluded_null_residual:.3e} (> tol={residual_tol:.3e}); the stopping \
+                         rule treated this mass as free gauge. Sound iff it lies on genuine \
+                         penalty-null directions — flagged for joint-stationarity audit (#1082)."
+                    );
+                }
                 log::info!(
                     "[PIRLS/joint-Newton convergence] cycle {:>3} | Newton-decrement certificate (gam#1040/#1088/#1082): \
                      residual={:.3e} (tol={:.3e}) stalled above tol for {} cycles on a weakly-identified block (last \
@@ -4387,6 +4646,38 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     block_stationarity_norms,
                     last_math_summary,
                 );
+                // Record a structured KKT-refusal report at the stall iterate so
+                // the bubbled IntegrationFailed error carries the per-block
+                // residual breakdown + H_pen spectrum instead of the opaque
+                // "no joint Newton math snapshot" string (gam#979/#1040). This is
+                // the dominant non-convergence exit for the survival
+                // marginal-slope monotone-cone DGP; without a report the cause of
+                // the abort is invisible past serialization.
+                cycles_done = cycle + 1;
+                let report = compute_kkt_refusal_report(
+                    cycle,
+                    &states,
+                    specs,
+                    &s_lambdas,
+                    &ranges,
+                    cached_joint_gradient.as_ref(),
+                    &cached_active_sets,
+                    &block_constraints,
+                    Some(&joint_hessian_source),
+                    total_p,
+                    ridge,
+                    options.ridge_policy,
+                    accepted_step_inf,
+                    step_inf,
+                    joint_trust_radius,
+                    residual_tol,
+                    objective_tol,
+                    step_tol,
+                    objective_change,
+                    residual,
+                    last_joint_math.as_ref(),
+                );
+                last_kkt_refusal_report = Some(report);
                 converged = false;
                 break;
             }

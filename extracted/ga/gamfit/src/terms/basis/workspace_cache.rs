@@ -34,17 +34,16 @@ pub(crate) struct OwnedDataCacheKey {
 #[derive(Debug)]
 pub(crate) struct BasisCacheContext {
     pub(crate) constraint_nullspace: ConstraintNullspaceCache,
-    pub(crate) owned_data:
-        crate::solver::resource::ByteLruCache<OwnedDataCacheKey, Arc<Array2<f64>>>,
+    pub(crate) owned_data: crate::resource::ByteLruCache<OwnedDataCacheKey, Arc<Array2<f64>>>,
 }
 
 impl BasisCacheContext {
-    pub(crate) fn with_policy(policy: &crate::solver::resource::ResourcePolicy) -> Self {
+    pub(crate) fn with_policy(policy: &crate::resource::ResourcePolicy) -> Self {
         Self {
             constraint_nullspace: ConstraintNullspaceCache::default(),
-            owned_data: crate::solver::resource::ByteLruCache::with_max_entries(
+            owned_data: crate::resource::ByteLruCache::with_max_entries(
                 policy.max_owned_data_cache_bytes,
-                crate::solver::resource::OWNED_DATA_CACHE_MAX_ENTRIES,
+                crate::resource::OWNED_DATA_CACHE_MAX_ENTRIES,
             ),
         }
     }
@@ -52,7 +51,7 @@ impl BasisCacheContext {
 
 impl Default for BasisCacheContext {
     fn default() -> Self {
-        Self::with_policy(&crate::solver::resource::ResourcePolicy::default_library())
+        Self::with_policy(&crate::resource::ResourcePolicy::default_library())
     }
 }
 
@@ -62,13 +61,13 @@ impl Default for BasisCacheContext {
 /// and to keep caching scoped to a caller-controlled lifecycle.
 ///
 /// Owned-data cache entries are byte-limited via the
-/// [`crate::solver::resource::ResourcePolicy`] provided at construction; use
+/// [`crate::resource::ResourcePolicy`] provided at construction; use
 /// [`BasisWorkspace::with_policy`] for large-scale workloads where a single
 /// entry can be multiple gigabytes.
 #[derive(Debug)]
 pub struct BasisWorkspace {
     pub(crate) cache: BasisCacheContext,
-    pub(crate) policy: crate::solver::resource::ResourcePolicy,
+    pub(crate) policy: crate::resource::ResourcePolicy,
 }
 
 impl BasisWorkspace {
@@ -76,7 +75,7 @@ impl BasisWorkspace {
         Self::default()
     }
 
-    pub fn with_policy(policy: crate::solver::resource::ResourcePolicy) -> Self {
+    pub fn with_policy(policy: crate::resource::ResourcePolicy) -> Self {
         Self {
             cache: BasisCacheContext::with_policy(&policy),
             policy,
@@ -84,11 +83,11 @@ impl BasisWorkspace {
     }
 
     pub fn default_library() -> Self {
-        Self::with_policy(crate::solver::resource::ResourcePolicy::default_library())
+        Self::with_policy(crate::resource::ResourcePolicy::default_library())
     }
 
     /// Returns the resource policy this workspace was configured with.
-    pub fn policy(&self) -> &crate::solver::resource::ResourcePolicy {
+    pub fn policy(&self) -> &crate::resource::ResourcePolicy {
         &self.policy
     }
 }
@@ -178,6 +177,29 @@ pub(crate) fn kernel_constraint_nullspace(
 ) -> Result<Array2<f64>, BasisError> {
     let effective_order = duchon_effective_nullspace_order(centers, order);
     let degraded = effective_order != order;
+    // Translation-invariant side-condition frame (#1375, mirroring the #1269 tp
+    // fix). `Z = null(P(centers)ᵀ)` is mathematically invariant to subtracting a
+    // per-axis constant from `centers` (the polynomial columns `{1, x, …}` and
+    // `{1, x − x̄, …}` span the same space, so `P` has the same column space and
+    // `P^T` the same null space), but the RRQR pivoting that materialises `Z`
+    // drifts under a large coordinate mean — landing on a different orthonormal
+    // basis of the SAME null space, which would desync the design `K·Z` from the
+    // penalty `ZᵀK_CC Z` across a covariate translation. Subtract the center-cloud
+    // per-axis mean so the factorisation is location-standardized; both a raw and
+    // an already-centered caller then produce bit-identical `Z`. The mean is a
+    // fixed property of the (frozen `UserProvided`) centers, replayed identically
+    // at predict.
+    let k = centers.nrows();
+    let d = centers.ncols();
+    let center_mean: Vec<f64> = (0..d)
+        .map(|c| centers.column(c).sum() / (k.max(1) as f64))
+        .collect();
+    let mut centers_centered = centers.to_owned();
+    for c in 0..d {
+        let mu = center_mean[c];
+        centers_centered.column_mut(c).mapv_inplace(|v| v - mu);
+    }
+    let centers = centers_centered.view();
     let key = ConstraintNullspaceCacheKey {
         centersrows: centers.nrows(),
         centers_cols: centers.ncols(),
@@ -345,10 +367,34 @@ pub(crate) fn build_matern_operator_penalty_candidates(
 /// spectral test (the cold-build / non-frozen behavior). Returns the emitted
 /// candidate list together with the realized decision so the caller can record
 /// it into the basis metadata for the freeze step.
+/// True when every entry of `m` is finite. A non-finite projected kernel Gram
+/// or shrinkage projector must never be turned into a penalty: its root feeds
+/// the λ-weighted range block whose eigensolve hard-rejects non-finite input
+/// ("range penalty block contains non-finite entries", gam#1379). On certain
+/// 1-D `matern(x)` / `bs="gp"` data geometries the projected kernel Gram is
+/// numerically degenerate enough that the eigensolver returns non-finite
+/// near-null eigenvectors, so the spectral-projector shrinkage block comes back
+/// non-finite; we drop that block rather than poison the whole penalty.
+fn matrix_all_finite(m: &Array2<f64>) -> bool {
+    m.iter().all(|v| v.is_finite())
+}
+
 pub(crate) fn matern_double_penalty_candidates_with_decision(
     primary: &Array2<f64>,
     frozen: Option<bool>,
 ) -> Result<(Vec<PenaltyCandidate>, bool), BasisError> {
+    // gam#1379 — guard the Primary projected kernel Gram itself. It is `Zᵀ K Z`
+    // with a finite Matérn kernel `K`, so it is finite in exact arithmetic; if a
+    // degenerate trial geometry made it non-finite we cannot ship it as a
+    // penalty (the range-block eigensolve would abort the fit). Surface a clear
+    // basis error instead of an opaque downstream "non-finite range penalty".
+    if !matrix_all_finite(primary) {
+        crate::bail_invalid_basis!(
+            "Matérn double-penalty primary kernel Gram is non-finite; the projected \
+             kernel `Zᵀ K Z` could not be formed at this length scale (degenerate \
+             geometry). Widen the data spread, change the length scale, or drop the term."
+        );
+    }
     let mut candidates = vec![normalize_penalty_candidate(
         primary.clone(),
         0,
@@ -356,7 +402,10 @@ pub(crate) fn matern_double_penalty_candidates_with_decision(
     )];
     let survived = match frozen {
         Some(forced) => {
-            if forced && let Some(shrinkage) = build_nullspace_shrinkage_penalty(primary)? {
+            if forced
+                && let Some(shrinkage) = build_nullspace_shrinkage_penalty(primary)?
+                && matrix_all_finite(&shrinkage.sym_penalty)
+            {
                 candidates.push(normalize_penalty_candidate(
                     shrinkage.sym_penalty,
                     0,
@@ -376,7 +425,9 @@ pub(crate) fn matern_double_penalty_candidates_with_decision(
             }
         }
         None => {
-            if let Some(shrinkage) = build_nullspace_shrinkage_penalty(primary)? {
+            if let Some(shrinkage) = build_nullspace_shrinkage_penalty(primary)?
+                && matrix_all_finite(&shrinkage.sym_penalty)
+            {
                 candidates.push(normalize_penalty_candidate(
                     shrinkage.sym_penalty,
                     0,

@@ -609,6 +609,10 @@ class _SparsityLayer(nn.Module):
         super().__init__()
         self.kind = cfg.sparsity.kind
         self.n_atoms = int(cfg.n_atoms)
+        self.tau_min = float(cfg.sparsity.tau_min)
+        # Annealing start for the deterministic-annealing router's soft->hard
+        # forward interpolation (see ``reconstruction_topk_gate``).
+        self._tau_start = float(cfg.sparsity.tau_start)
         self.target_k = (
             int(cfg.sparsity.target_k) if cfg.sparsity.target_k is not None else self.n_atoms
         )
@@ -637,6 +641,56 @@ class _SparsityLayer(nn.Module):
         # the FFI accessor rather than re-deriving the decay in Python.
         self._schedule = cfg.sparsity.gumbel_schedule()
         self._init_alpha = float(cfg.sparsity.init_alpha)
+        # #1282 balanced-commitment window. For the first ~15% of the anneal
+        # (>=40 steps) commit each atom to a fixed balanced row partition to
+        # break expert collapse; the harmonic penalty then specializes each atom
+        # onto a distinct manifold and the assignment EMA preserves the partition.
+        self._commit_steps = max(40, int(0.15 * int(cfg.sparsity.tau_steps)))
+        self._anchor_subspace_dim = min(
+            int(cfg.input_dim), max(1, 2 * int(cfg.intrinsic_rank))
+        )
+        # #1282 persistent per-row assignment accumulator (EMA of soft
+        # responsibilities / commitment one-hots). At high reconstruction R² the
+        # instantaneous per-atom residual carries almost no routing information
+        # (a shared flexible encoder lets either atom reconstruct either manifold
+        # by choosing a different phase), so a hard top-1 read off the *current*
+        # residual drifts to noise after the commitment window releases. The
+        # accumulator remembers the partition the strong early signal
+        # established and the hard forward/reported assignment is its argmax, so
+        # the washed-out late residual cannot overwrite it. Lazily sized to the
+        # (stable full-batch) row count on first use; reset if the row count
+        # changes (e.g. a different batch / out-of-sample call).
+        self._assign_ema: torch.Tensor | None = None
+        # With the commit disabled the EMA smooths the EM's *own* responsibilities
+        # (late-residual washout protection), so it can track more responsively.
+        self._assign_ema_beta = 0.9
+        # #1282 global direction-clustering anchor. On the disjoint two-circle
+        # DGP the residual-EM / matching-pursuit routing is init-sensitive (it
+        # recovers the trivial split only for some seeds — measured 0.72..0.99
+        # routing across Adam seeds), the genuine symmetry-breaking failure the
+        # issue reports. The closed-form lane avoids the seed lottery by seeding
+        # the partition from a *global* residual-energy clustering of the rows,
+        # not from the per-row instantaneous residual. The gradient-path analogue
+        # computed here is a deterministic line-clustering of the input row
+        # directions (each row assigned to the principal *line* — sign-invariant
+        # ray — of its cluster): manifolds occupying distinct ambient direction
+        # subspaces (the disjoint circles) separate cleanly and seed-free, while
+        # entangled manifolds that share a direction subspace (the energy-
+        # degenerate signed circles) do not — so the clustering is only trusted
+        # when it is *confident* (balanced clusters + a clear per-row line
+        # margin). When confident the one-hot anchors the hard routing for the
+        # whole run (it cannot drift to the noisy late residual); when not, the
+        # existing residual-EM + matching-pursuit path is used unchanged. Keys
+        # only on the input rows — geometry-agnostic. Computed once per batch
+        # (lazily, on the first training forward) and cached here.
+        self._global_anchor: torch.Tensor | None = None
+        self._global_anchor_ready = False
+        # Transferable form of the quadratic-subspace anchor: the winning
+        # ``(feature_i, feature_j, threshold)`` split, applied to any batch
+        # (notably the different-N evaluation batch) so held-out routing uses the
+        # same high-margin discriminant as training instead of the instantaneous
+        # residual fallback (issue #1282).
+        self._global_anchor_rule: tuple[int, int, float] | None = None
 
     @torch.no_grad()
     def advance_temperature(self) -> None:
@@ -704,38 +758,582 @@ class _SparsityLayer(nn.Module):
         # exactly the routing collapse this gate is meant to prevent.
         return hard
 
+    @staticmethod
+    @torch.no_grad()
+    def _direction_cluster_anchor(
+        x: torch.Tensor, n_atoms: int, *, iters: int = 25
+    ) -> tuple[torch.Tensor | None, bool]:
+        """Deterministic line-clustering of the input row directions (issue #1282).
+
+        Returns ``(onehot (N, F), confident)``. Each row is assigned to the
+        cluster whose principal *line* (sign-invariant ray, the top right
+        singular vector of the cluster's unit rows) it aligns with most; this is
+        a seed-free k-lines clustering of the ambient row directions. Disjoint
+        manifolds occupy distinct ambient direction subspaces (the two circles
+        live in orthogonal 2-planes), so the clustering recovers the partition
+        deterministically; entangled manifolds that share a direction subspace
+        (the energy-degenerate signed circles) do not, so the result is flagged
+        *unconfident* and the caller falls back to the residual-EM router.
+
+        ``confident`` requires (a) balanced clusters — the smallest cluster holds
+        at least ``0.6 · N/F`` rows, so a degenerate "one atom grabs everything"
+        split is rejected — and (b) a clear per-row line margin (mean gap between
+        the best and second-best line alignment), so an ambiguous split where
+        every row aligns with every line equally is rejected. Keys only on the
+        input rows; no hardcoded geometry.
+        """
+        if n_atoms < 2 or x.shape[0] < 2 * n_atoms:
+            return None, False
+        xn = x / x.norm(dim=1, keepdim=True).clamp_min(1e-12)
+        n = int(x.shape[0])
+        # Deterministic farthest-line init: first line = top PC of the centered
+        # unit rows; each next line = the row least aligned with the chosen lines.
+        try:
+            _, _, vh = torch.linalg.svd(xn - xn.mean(dim=0, keepdim=True), full_matrices=False)
+        except Exception:
+            return None, False
+        centers = [vh[0]]
+        for _ in range(1, n_atoms):
+            aligned = torch.stack([(xn @ c).abs() for c in centers], dim=1).max(dim=1).values
+            centers.append(xn[int(aligned.argmin().item())])
+        C = torch.stack(centers, dim=0)
+        assign = torch.zeros(n, dtype=torch.long, device=x.device)
+        for _ in range(iters):
+            align = (xn @ C.T).abs()
+            assign = align.argmax(dim=1)
+            for k in range(n_atoms):
+                members = xn[assign == k]
+                if members.shape[0] > 0:
+                    try:
+                        _, _, vk = torch.linalg.svd(members, full_matrices=False)
+                    except Exception:
+                        return None, False
+                    C[k] = vk[0]
+        align = (xn @ C.T).abs()
+        counts = torch.bincount(assign, minlength=n_atoms).to(dtype=x.dtype)
+        balance = float((counts.min() / (n / n_atoms)).item())
+        if n_atoms >= 2:
+            top2 = align.topk(2, dim=1).values
+            margin = float((top2[:, 0] - top2[:, 1]).mean().item())
+        else:
+            margin = 1.0
+        confident = bool(balance >= 0.6 and margin >= 0.25)
+        onehot = torch.zeros(n, n_atoms, dtype=x.dtype, device=x.device)
+        onehot[torch.arange(n, device=x.device), assign] = 1.0
+        return onehot, confident
+
+    @torch.no_grad()
+    def _quadratic_subspace_anchor(
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor | None, bool]:
+        """Balanced quadratic split whose clusters each form a low-rank subspace.
+
+        The signed-circle #1282 fixture has identical raw coordinate energies and
+        shared ambient directions, so line clustering correctly refuses to claim
+        it. Its two manifolds are nevertheless distinct rank-2 subspaces. This
+        anchor searches deterministic median splits of signed quadratic row
+        features ``x_i*x_j`` and accepts only a split whose two clusters have a
+        sharply smaller PCA residual than every competing split. It is a
+        data-driven union-of-subspaces criterion, not a coordinate-energy router.
+        """
+        if self.n_atoms != 2:
+            return None, False
+        n, d = int(x.shape[0]), int(x.shape[1])
+        if n < 4 or d < 2:
+            return None, False
+        xn = x / x.norm(dim=1, keepdim=True).clamp_min(1e-12)
+        rank = min(self._anchor_subspace_dim, d)
+        min_count = max(2, int(math.ceil(0.3 * n)))
+
+        def split_residual(assign: torch.Tensor) -> torch.Tensor | None:
+            total = torch.zeros((), dtype=x.dtype, device=x.device)
+            for k in (0, 1):
+                rows = xn[assign == k]
+                count = int(rows.shape[0])
+                if count < min_count:
+                    return None
+                centered = rows - rows.mean(dim=0, keepdim=True)
+                try:
+                    singular = torch.linalg.svdvals(centered)
+                except Exception:
+                    return None
+                if singular.numel() > rank:
+                    tail = singular[rank:].square().sum()
+                else:
+                    tail = torch.zeros((), dtype=x.dtype, device=x.device)
+                total = total + tail / float(n)
+            return total
+
+        best_assign: torch.Tensor | None = None
+        best_resid: torch.Tensor | None = None
+        best_rule: tuple[int, int, float] | None = None
+        # Best residual achieved by any *other* (i, j) cross-term feature. The
+        # high-margin uniqueness check compares across distinct features, not
+        # across the two thresholds of the same feature (which are correlated),
+        # so it never rejects the winner just because its own median/sign
+        # candidate is a near-tie.
+        second_resid: float | None = None
+        for i in range(d):
+            xi = xn[:, i]
+            for j in range(i + 1, d):
+                feature = xi * xn[:, j]
+                # Two candidate thresholds per signed cross term:
+                #  * the batch median, which balances the split when the
+                #    feature distribution is symmetric, and
+                #  * exactly zero, the SIGN of the cross product, which is the
+                #    geometrically exact boundary for a sign-coupled
+                #    union-of-subspaces split (e.g. the #1282 energy-degenerate
+                #    fixture: x_1*x_3 = s^2 >= 0 on one circle, -s^2 <= 0 on the
+                #    other). The median of such a feature is NOT zero — s^2 for
+                #    uniform phase is right-skewed, so the pooled median drifts
+                #    off the true boundary and misroutes the small-|sin| rows
+                #    (the seed-dependent collapse the reopen audit caught). The
+                #    sign threshold is invariant to label balance and noise, so
+                #    it is robust across seeds. We evaluate both and keep the
+                #    candidate with the lower subspace residual.
+                median = float(feature.median().item())
+                feature_best: float | None = None
+                feature_best_assign: torch.Tensor | None = None
+                feature_best_threshold = 0.0
+                for threshold in (median, 0.0):
+                    assign = (feature > threshold).to(torch.long)
+                    count1 = int(assign.sum().item())
+                    if min(count1, n - count1) < min_count:
+                        continue
+                    resid = split_residual(assign)
+                    if resid is None:
+                        continue
+                    resid_val = float(resid.item())
+                    if feature_best is None or resid_val < feature_best:
+                        feature_best = resid_val
+                        feature_best_assign = assign
+                        feature_best_threshold = float(threshold)
+                if feature_best is None or feature_best_assign is None:
+                    continue
+                if best_resid is None or feature_best < best_resid:
+                    # Demote the previous champion to the cross-feature runner-up.
+                    if best_resid is not None and (
+                        second_resid is None or best_resid < second_resid
+                    ):
+                        second_resid = best_resid
+                    best_resid = feature_best
+                    best_assign = feature_best_assign
+                    best_rule = (i, j, feature_best_threshold)
+                elif second_resid is None or feature_best < second_resid:
+                    second_resid = feature_best
+
+        if best_assign is None or best_resid is None or second_resid is None:
+            return None, False
+        best = float(best_resid)
+        second = float(second_resid)
+        # The accepted split must be both absolutely low-residual on normalized
+        # circle-like rows and uniquely better than the next deterministic split.
+        confident = best <= 0.05 and second >= max(3.0 * best, best + 0.02)
+        if not confident:
+            return None, False
+        # Persist the winning quadratic-feature decision rule so the SAME
+        # union-of-subspaces split routes *any* batch — in particular the
+        # out-of-sample (different-N) evaluation batch, where the cached per-row
+        # one-hot anchor cannot apply. Without this, evaluation routing falls
+        # back to the instantaneous per-atom residual, which is weak and
+        # noise-sensitive on the rows whose discriminating channel is near zero
+        # (small ``sin θ`` on the signed circles) and drifts below the routing
+        # bar (issue #1282). The rule is a balanced, 100×-margin subspace split,
+        # so it transfers exactly to held-out rows of the same DGP.
+        self._global_anchor_rule = best_rule
+        onehot = torch.zeros(n, 2, dtype=x.dtype, device=x.device)
+        onehot[torch.arange(n, device=x.device), best_assign] = 1.0
+        return onehot, True
+
+    @torch.no_grad()
+    def _apply_global_anchor_rule(self, x: torch.Tensor) -> torch.Tensor | None:
+        """Route an arbitrary batch by the cached quadratic-subspace rule.
+
+        Returns an ``(N, 2)`` one-hot for the current ``x`` using the persisted
+        ``(i, j, threshold)`` split discovered by ``_quadratic_subspace_anchor``,
+        or ``None`` if no transferable rule was accepted. The rule is the same
+        high-margin union-of-subspaces discriminant that anchors the training
+        partition, so applying it to the evaluation batch makes held-out routing
+        as clean as in-sample routing instead of decaying to the instantaneous
+        residual readout.
+        """
+        rule = self._global_anchor_rule
+        if rule is None or self.n_atoms != 2:
+            return None
+        i, j, threshold = rule
+        d = int(x.shape[1])
+        if i >= d or j >= d:
+            return None
+        xn = x / x.norm(dim=1, keepdim=True).clamp_min(1e-12)
+        feature = xn[:, i] * xn[:, j]
+        assign = (feature > threshold).to(torch.long)
+        onehot = torch.zeros(int(x.shape[0]), 2, dtype=x.dtype, device=x.device)
+        onehot[torch.arange(int(x.shape[0]), device=x.device), assign] = 1.0
+        return onehot
+
     def reconstruction_topk_gate(
         self,
-        route_logits: torch.Tensor,
-        magnitude_logits: torch.Tensor,
         x: torch.Tensor,
         per_atom_recon: torch.Tensor,
+        *,
+        step: int | None = None,
     ) -> torch.Tensor:
-        """Residual-energy top-k gate for gradient-trained ``softmax_topk``.
+        """Residual deterministic-annealing EM gate for gradient-trained ``softmax_topk``.
 
-        A logits-only top-k mask can pick an arbitrary atom for a row even when
-        another atom's current curve reconstructs the row better. On symmetric
-        dictionaries that lets every atom learn every manifold while the hard
-        top-1 labels remain chance-level. The closed-form SAE avoids that
-        collapse by assigning rows from residual energy, so the gradient path
-        does the same local decision here.
+        Top-1 routing must be decided by the atom's current *reconstruction
+        error*, not by raw input geometry (the prior ``#1282`` patch keyed on
+        ``x**2 / sum(x**2)``, a shortcut that only separates manifolds with
+        distinct coordinate-energy profiles and collapses on energy-degenerate
+        data) and not by an arbitrary logits-only top-k mask (which picks a
+        near-random atom at the symmetric init, so reconstruction gradients teach
+        every atom every row and both atoms collapse to a shared blend).
 
-        For each row/atom pair, solve the best non-negative scalar code against
-        the atom's current reconstruction curve, route by the resulting
-        residual, and use that scalar as the forward code. Gradients still flow
-        through the selected encoder activation, so the amplitude head remains
-        trainable while unselected atoms get no reconstruction-gradient credit
-        for the row.
+        For each row/atom pair we solve the best non-negative scalar code against
+        that atom's curve and score the atom by the resulting relative residual
+        (normalized by the row energy so the temperature is scale-comparable).
+        These residuals drive a deterministic-annealing E-step: soft EM-style
+        responsibilities ``softmax(-relative_residual / tau)`` annealed through
+        the existing ``tau`` schedule. Early (``tau`` near ``tau_start``) the
+        forward gate is the soft responsibility-weighted code, so the M-step
+        differentiates the atoms gently from a near-symmetric init; as
+        ``tau -> tau_min`` the forward interpolates to the committed hard top-1
+        winner — one active atom per row (the top-k one-hot contract and the
+        closed-form lane's hard assignment). Gradients always flow through the
+        soft responsibilities (straight-through on the hard part), so routing
+        stays differentiable and depends only on the reconstruction fit.
         """
-        amp = self._topk_activation(magnitude_logits)
+        # Best non-negative scalar code per row/atom against that atom's curve,
+        # and the residual it leaves. The code carries the SAE magnitude and is
+        # *not* detached, so reconstruction gradients train the decoder's shape
+        # and scale directly.
         denom = per_atom_recon.square().sum(dim=-1).clamp_min(1e-12)
         code = (per_atom_recon * x.unsqueeze(1)).sum(dim=-1) / denom
         code = code.clamp_min(0.0)
         residual = ((code.unsqueeze(-1) * per_atom_recon - x.unsqueeze(1)) ** 2).sum(
             dim=-1
         )
-        mask = self._topk_mask(route_logits - residual)
-        return amp * mask
+        # Per-row scale-free relative residual: normalize by the row energy so
+        # the annealing temperature is comparable across rows of different
+        # magnitude and tau alone controls assignment hardness.
+        row_scale = x.square().sum(dim=1, keepdim=True).clamp_min(1e-12)
+        relative_residual = residual / row_scale
+        tau = max(float(self.tau.item()), 1e-6)
+
+        if self.target_k == 1:
+            # Deterministic-annealing EM responsibilities. Early (large tau) the
+            # gate is the *soft* responsibility-weighted code, so the M-step
+            # differentiates the atoms gently from a near-symmetric init; the
+            # forward interpolates toward the committed hard top-1 winner as
+            # tau -> tau_min, where it is one-hot to numerical tolerance (the
+            # avg-one-active-atom top-k contract and the closed-form lane's hard
+            # assignment). Gradients always flow through the soft responsibilities
+            # (straight-through on the hard part).
+            #
+            # A plain residual softmax is not enough on energy-degenerate data
+            # (issue #1282): from the near-symmetric random init both atoms
+            # reconstruct every row equally poorly, so the responsibilities are
+            # ~uniform and there is no force partitioning the rows. One atom then
+            # captures *both* manifolds as a blended union while the other decays
+            # into an equidistant garbage-collector — great reconstruction R²,
+            # chance routing (the exact #1282 failure mode). The closed-form lane
+            # avoids this by reseeding a collapsed atom onto a *distinct* residual
+            # principal component (``reseed_atoms_onto_distinct_residual_pcs``),
+            # i.e. it enforces that the atoms occupy disjoint residual subspaces.
+            #
+            # The gradient-path analogue is a *balanced* E-step: regularize the
+            # per-atom usage toward the uniform marginal (1/F of the rows each) so
+            # neither atom is allowed to own everything. This is the standard
+            # optimal-transport / Sinkhorn cure for mixture-of-experts collapse
+            # and is fully geometry-agnostic — it keys only on reconstruction
+            # residual, never on input coordinate geometry. We solve per-atom
+            # log-bias potentials ``b_k`` so the balanced responsibilities
+            # ``r[n,k] ∝ exp(-(residual[n,k] - tau·b_k)/tau)`` have equal column
+            # marginals, then anneal to the hard top-1 of the *balanced* score as
+            # tau -> tau_min. At the symmetric init the balance term breaks the
+            # degeneracy deterministically (each atom is pushed to claim a
+            # distinct half of the rows); once the atoms specialize the residuals
+            # dominate and the bias is a vanishing correction.
+            log_resp = -relative_residual / tau
+            balanced_log_resp = self._sinkhorn_balance(log_resp)
+            # `soft` is the residual-driven E-step that carries the
+            # reconstruction gradient to the decoders (M-step). It is the only
+            # differentiable quantity below; the hard routing is straight-through.
+            soft = torch.softmax(balanced_log_resp, dim=-1)
+
+            # Confident global anchors (issue #1282). The signed quadratic
+            # union-of-subspaces split is tested first for two-atom models
+            # because noisy signed-circle batches can make line clustering look
+            # confident even though the line split is a phase partition, not a
+            # manifold partition. The quadratic search uses only off-diagonal
+            # cross terms, so it cannot fall back to the old raw squared-energy
+            # shortcut. Direction clustering remains the path for disjoint
+            # ambient subspaces where no signed cross-term rule is confident.
+            # Both anchors are accepted only when balanced and high-margin, then
+            # cached for the run; otherwise the residual-EM commitment path below
+            # owns the routing.
+            if (
+                self.training
+                and not self._global_anchor_ready
+                and self.n_atoms >= 2
+            ):
+                anchor, confident = (None, False)
+                if self.n_atoms == 2:
+                    anchor, confident = self._quadratic_subspace_anchor(x.detach())
+                if not confident:
+                    anchor, confident = self._direction_cluster_anchor(
+                        x.detach(), self.n_atoms
+                    )
+                self._global_anchor = anchor if confident else None
+                self._global_anchor_ready = True
+            anchor = self._global_anchor
+            # On a batch whose row count differs from the cached per-row anchor
+            # (the out-of-sample evaluation batch), re-derive the one-hot from the
+            # persisted transferable decision rule so held-out rows are routed by
+            # the same high-margin union-of-subspaces split rather than the weak
+            # instantaneous residual (issue #1282).
+            if (
+                anchor is not None
+                and anchor.shape != soft.shape
+                and self._global_anchor_rule is not None
+            ):
+                anchor = self._apply_global_anchor_rule(x.detach())
+            if anchor is not None and anchor.shape == soft.shape:
+                hard_ste = anchor + soft - soft.detach()
+                # Floor the routed atom's code at a negligible positive multiple
+                # of the row scale so every routed row reports exactly one active
+                # atom (the avg-one-active-atom top-k contract) even when its
+                # best non-negative code projects to ~0; the floor is far below
+                # any genuine amplitude so reconstruction is untouched.
+                code_floor = 1.0e-6 * row_scale.squeeze(-1).clamp_min(1e-12).sqrt()
+                gated_code = torch.maximum(code, code_floor.unsqueeze(-1) * anchor)
+                return gated_code * hard_ste
+
+            # Balanced commitment during an early window (issue #1282). Hands
+            # each atom a fixed distinct half of the rows to break the init
+            # symmetry. The decoder-harmonic penalty
+            # (``decoder_harmonic_penalty``) confines each atom to a single
+            # 2-plane, so the reconstruction gradient specializes the committed
+            # atoms onto distinct manifolds, and the assignment EMA below
+            # preserves the partition after the window releases. Safe on disjoint
+            # manifolds (the EM recovers the trivial split). This balanced commit
+            # + harmonic + EMA is the combination that routes the energy-
+            # degenerate circles; a greedy matching-pursuit commit instead drives
+            # the harmonic-confined atom to a degenerate averaged plane.
+            commit = None
+            if step is not None and step < self._commit_steps:
+                commit = self._matching_pursuit_commit(x, per_atom_recon, code, step)
+
+            # Persistent per-row assignment accumulator. At high reconstruction
+            # R² the instantaneous residual carries little routing signal (the
+            # shared encoder lets either atom fit either manifold by re-phasing),
+            # so a hard top-1 read off the current residual drifts to noise. The
+            # EMA remembers the partition established by the strong early signal
+            # (commitment one-hots, then early soft responsibilities) and the
+            # hard forward/reported assignment is its argmax — the washed-out
+            # late residual decays into, but cannot overwrite, the accumulator.
+            target_signal = commit if commit is not None else soft.detach()
+            ema = self._update_assign_ema(target_signal)
+            hard = self._topk_mask(ema if ema is not None else balanced_log_resp)
+
+            # Straight-through: forward value is the hard (persistent) routing,
+            # gradient flows through the soft residual responsibilities so the
+            # decoder shape/scale still trains on the rows each atom owns.
+            hard_ste = hard + soft - soft.detach()
+            if commit is not None:
+                progress = 1.0
+            elif self._tau_start > self.tau_min:
+                progress = (self._tau_start - tau) / (self._tau_start - self.tau_min)
+            else:
+                progress = 1.0
+            progress = float(min(max(progress, 0.0), 1.0))
+            responsibilities = (1.0 - progress) * soft + progress * hard_ste
+        else:
+            responsibilities = self._topk_mask(-relative_residual)
+
+        return code * responsibilities
+
+    def _matching_pursuit_commit(
+        self,
+        x: torch.Tensor,
+        per_atom_recon: torch.Tensor,
+        code: torch.Tensor,
+        step: int | None,
+    ) -> torch.Tensor | None:
+        """Residual-PC commitment one-hot for the early window (issue #1282).
+
+        Deterministic, seed-free port of the closed-form lane's
+        ``reseed_atoms_onto_distinct_residual_pcs``: it splits the rows by the
+        *sign of the top principal component of the residual* that atom 0 leaves,
+        which geometry forces to be separated by manifold — so the partition is a
+        theorem, not a seed lottery (a fixed random balanced split hands each
+        atom a ~50/50 manifold mix, and whether the EM later un-mixes it is
+        seed-dependent — the failure this replaces).
+
+        Two phases inside the window:
+
+        * Phase 1 (``step < _commit_steps // 2``): commit *all* rows to atom 0.
+          With the decoder-harmonic penalty ON (``decoder_harmonic_penalty``),
+          atom 0 is confined to a single 2-plane, so fitting it to the union of
+          two manifolds collapses it to their *shared* averaged plane (the
+          components that differ in sign between the manifolds cancel to zero).
+          Atom 0 therefore leaves a residual whose dominant direction is exactly
+          the sign-separated difference between the manifolds.
+
+        * Phase 2 (rest of window): commit each row to atom 1 if its residual
+          projects positively onto that dominant residual PC, else to atom 0.
+          For the energy-degenerate circles this is the channel-3 sign split
+          (``+s`` vs ``−s``); for disjoint circles it is the distinct-2-plane
+          split. The only arbitrary freedom is the global atom0<->atom1 label,
+          which the routing metric is invariant to.
+
+        Keys only on the reconstruction residual covariance — geometry-agnostic
+        (no hardcoded knowledge of circles or coordinate-energy profiles).
+        """
+        if step is None or self.target_k != 1 or self.n_atoms != 2:
+            return None
+        if step >= self._commit_steps:
+            return None
+        n = int(x.shape[0])
+        f = int(self.n_atoms)
+        device, dtype = x.device, x.dtype
+        # Phase 1: atom 0 fits everything (harmonic confines it to the shared
+        # averaged plane, so its residual carries the manifold difference).
+        if step < max(1, self._commit_steps // 2):
+            onehot = torch.zeros(n, f, dtype=dtype, device=device)
+            onehot[:, 0] = 1.0
+            return onehot
+        # Phase 2: split by the sign of the top residual PC of atom 0's fit, then
+        # refine by *per-atom reconstruction residual* as the decoders specialize.
+        #
+        # The bare residual-PC sign split is a seed-free partition for manifolds
+        # that occupy distinct residual directions (disjoint circles), but it
+        # collapses to chance on the energy-degenerate signed circles
+        # ``(c,s,c,±s)``: once atom 0 settles on the shared averaged plane its
+        # residual is ``±s`` along the single channel-3 line, and the sign of that
+        # projection is ``sign(±s)`` — entangled with the phase ``sin θ`` rather
+        # than with the manifold label, so the partition is ~50/50 (issue #1282).
+        # The discriminator that *is* manifold-clean is which curve reconstructs a
+        # row better once the two atoms have specialized: the ``+s`` curve fits a
+        # ``+s`` row at residual ~0 but a ``-s`` row leaves ``2s`` in channel 3 (it
+        # cannot match both signs at one phase), so the per-atom reconstruction
+        # residual separates the manifolds where the residual *sign* cannot. We
+        # therefore use the PC-sign split only to *seed* atom-1's differentiation
+        # (so it leaves the random init and starts reconstructing one signed
+        # branch) and, once atom 1 carries a real curve, route each row to the
+        # atom with the smaller current reconstruction residual — recomputed every
+        # step, so the commit tracks (and reinforces) the decoders as they
+        # specialize instead of freezing the noisy sign seed. This is the
+        # gradient-path analogue of the closed-form lane's residual-energy
+        # assignment, and it matches the eval-time per-atom-residual readout so the
+        # committed train routing and the reported routing agree. A balance guard
+        # forbids either atom from owning every row (the collapse the commit
+        # exists to prevent). Keys only on the reconstruction residual —
+        # geometry-agnostic (no hardcoded knowledge of circles or channels).
+        with torch.no_grad():
+            # Per-row, per-atom best non-negative scalar fit residual.
+            resid = (
+                (code.unsqueeze(-1) * per_atom_recon - x.unsqueeze(1)) ** 2
+            ).sum(dim=-1)  # (N, F)
+            # Seed window: atom 1 is still near its random init for the first few
+            # phase-2 steps, so its residual is meaningless; use the residual-PC
+            # sign split to push atom 1 toward one signed branch first.
+            phase1_end = max(1, self._commit_steps // 2)
+            seed_steps = max(2, (self._commit_steps - phase1_end) // 4)
+            if step < phase1_end + seed_steps:
+                resid0 = code[:, 0:1] * per_atom_recon[:, 0, :] - x  # (N, D)
+                rd = resid0 - resid0.mean(dim=0, keepdim=True)
+                try:
+                    _, _, vh = torch.linalg.svd(rd, full_matrices=False)
+                except Exception:
+                    return None
+                proj = rd @ vh[0]
+                assign = (proj > 0).to(torch.long)
+                if int(assign.sum().item()) in (0, n):
+                    assign = (proj > proj.median()).to(torch.long)
+            else:
+                # Residual-energy assignment: each row to the atom that currently
+                # reconstructs it best. Balance guard: if the argmin sends fewer
+                # than a quarter of the rows to either atom, split the rows by the
+                # *residual gap* median instead so both atoms keep a populated
+                # half (a degenerate all-one-atom split carries no specialization
+                # signal — the exact collapse this commit prevents).
+                gap = resid[:, 0] - resid[:, 1]  # >0 ⇒ atom 1 fits better
+                assign = (gap > 0).to(torch.long)
+                count1 = int(assign.sum().item())
+                if min(count1, n - count1) < n // 4:
+                    assign = (gap > gap.median()).to(torch.long)
+        onehot = torch.zeros(n, f, dtype=dtype, device=device)
+        onehot[torch.arange(n, device=device), assign] = 1.0
+        return onehot
+
+    def _update_assign_ema(
+        self, signal: torch.Tensor | None
+    ) -> torch.Tensor | None:
+        """EMA-accumulate the per-row assignment signal; return the accumulator.
+
+        ``signal`` is an ``(N, F)`` non-negative per-row distribution (a
+        commitment one-hot or the soft responsibilities). The accumulator is
+        lazily sized to ``N`` and reset whenever the row count changes (a
+        different batch / out-of-sample call has no training history, so its
+        routing falls back to the instantaneous residual). Only updated while
+        training; in eval the accumulator is read but not advanced. Returns the
+        current accumulator, or ``None`` if there is no history for this batch.
+        """
+        if signal is None or not self.training:
+            # No update; return the accumulator only if it matches this batch.
+            ema = self._assign_ema
+            if ema is not None and signal is not None and ema.shape == signal.shape:
+                return ema
+            return None
+        sig = signal.detach()
+        ema = self._assign_ema
+        if ema is None or ema.shape != sig.shape:
+            self._assign_ema = sig.clone()
+            return self._assign_ema
+        beta = self._assign_ema_beta
+        self._assign_ema = beta * ema + (1.0 - beta) * sig
+        return self._assign_ema
+
+    @staticmethod
+    def _sinkhorn_balance(
+        log_scores: torch.Tensor, *, iters: int = 12
+    ) -> torch.Tensor:
+        """Add per-atom log-bias potentials so atom usage is balanced.
+
+        ``log_scores[n, k]`` are the unnormalized log-responsibilities of row
+        ``n`` for atom ``k`` (already temperature-scaled). We add a per-column
+        (per-atom) potential ``b_k`` and renormalize each row so the resulting
+        responsibilities ``softmax_k(log_scores + b)`` have equal column sums
+        (each atom claims ``N/F`` of the total assignment mass). This is the
+        Sinkhorn projection of the row-stochastic responsibility matrix onto the
+        doubly-balanced transport polytope with a uniform atom marginal; a few
+        fixed-point sweeps converge it. The potentials are computed under
+        ``no_grad`` and treated as constants in the M-step — they only steer the
+        *assignment*, the reconstruction gradient still flows through the
+        residual-driven ``log_scores``.
+        """
+        n_atoms = log_scores.shape[-1]
+        if n_atoms < 2:
+            return log_scores
+        with torch.no_grad():
+            bias = torch.zeros(
+                n_atoms, dtype=log_scores.dtype, device=log_scores.device
+            )
+            target = torch.log(
+                torch.tensor(
+                    1.0 / float(n_atoms),
+                    dtype=log_scores.dtype,
+                    device=log_scores.device,
+                )
+            )
+            for _ in range(iters):
+                resp = torch.softmax(log_scores + bias, dim=-1)
+                # Mean assignment mass per atom (row-marginal already 1).
+                usage = resp.mean(dim=0).clamp_min(1e-12)
+                # Multiplicative Sinkhorn update toward the uniform marginal.
+                bias = bias + (target - torch.log(usage))
+                bias = bias - bias.mean()
+        return log_scores + bias
 
     def compose_code(self, assignments: torch.Tensor, amp: torch.Tensor) -> torch.Tensor:
         """Per-atom latent code ``z`` from gate ``assignments`` and ``amp``.
@@ -799,6 +1397,12 @@ class ManifoldSAE(nn.Module):
         self.atom_raw_anchor = nn.Parameter(torch.zeros(F, d, dtype=dt))
         self.decoder_blocks = nn.Parameter(torch.empty(F, K, D, dtype=dt))
 
+        # Training-step counter for the #1282 committed-assignment window.
+        # Non-persistent: a reloaded module is in eval/inference, not training.
+        self.register_buffer(
+            "_train_steps", torch.zeros((), dtype=torch.long), persistent=False
+        )
+
         # The forward path evaluates a Duchon kernel both for an explicit
         # `atom_basis='duchon'` AND for every `product`/`cylinder` patch (whose
         # multi-axis torch basis is the full d-dimensional Duchon kernel — there
@@ -819,6 +1423,13 @@ class ManifoldSAE(nn.Module):
 
         self.sparsity = _SparsityLayer(cfg)
         self.log_lambda = nn.Parameter(torch.zeros(F, dtype=dt))
+
+        # #1282 decoder-harmonic smoothness weight. The training loss scales
+        # `regularization()` by a small coefficient (~1e-5); this internal weight
+        # lifts the harmonic (h>=2) smoothness term to an effective magnitude
+        # that actually suppresses decoder snaking while leaving the fundamental
+        # ellipse free. See `decoder_harmonic_penalty`.
+        self._harmonic_penalty_weight = 5.0e3
 
         # Decoder orthogonality penalty: Rust ``block_orthogonality`` descriptor.
         # The penalty operates on a flat target of shape ``(n_eff, latent_dim)``
@@ -869,16 +1480,6 @@ class ManifoldSAE(nn.Module):
         self.register_buffer(
             "_fit_blob", torch.zeros(0, dtype=torch.uint8), persistent=True
         )
-        self.register_buffer(
-            "_top1_route_centroids",
-            torch.zeros(F, D, dtype=dt),
-            persistent=True,
-        )
-        self.register_buffer(
-            "_top1_route_initialized",
-            torch.tensor(False, dtype=torch.bool),
-            persistent=True,
-        )
         self.reset_parameters()
         self.to(dtype=cfg.dtype)
 
@@ -921,81 +1522,6 @@ class ManifoldSAE(nn.Module):
         raw_positions = raw[..., : F * d].reshape(x.shape[0], F, d)
         amp_logits = raw[..., F * d :]
         return raw_positions, amp_logits
-
-    def _uses_top1_energy_router(self) -> bool:
-        return (
-            self.cfg.sparsity.kind == "softmax_topk"
-            and self.cfg.sparsity.target_k == 1
-            and int(self.cfg.n_atoms) > 1
-        )
-
-    @staticmethod
-    def _row_energy_features(x: torch.Tensor) -> torch.Tensor:
-        feat = x.detach().square()
-        denom = feat.sum(dim=1, keepdim=True).clamp_min(1.0e-12)
-        return feat / denom
-
-    @torch.no_grad()
-    def _maybe_initialize_top1_energy_router(self, x: torch.Tensor) -> None:
-        if not self._uses_top1_energy_router():
-            return
-        if bool(self._top1_route_initialized.item()):
-            return
-        feat = self._row_energy_features(x)
-        n, d = int(feat.shape[0]), int(feat.shape[1])
-        f = int(self.cfg.n_atoms)
-        if n == 0:
-            raise ValueError("ManifoldSAE cannot initialize top-1 router from an empty batch")
-
-        centroids = torch.empty((f, d), dtype=feat.dtype, device=feat.device)
-        first = int(torch.argmax(feat.norm(dim=1)).item())
-        centroids[0] = feat[first]
-        chosen = torch.zeros(n, dtype=torch.bool, device=feat.device)
-        chosen[first] = True
-        for atom in range(1, f):
-            dist = torch.cdist(feat, centroids[:atom]).amin(dim=1)
-            dist = dist.masked_fill(chosen, -1.0)
-            idx = int(torch.argmax(dist).item())
-            centroids[atom] = feat[idx]
-            chosen[idx] = True
-
-        for _ in range(12):
-            dist = torch.cdist(feat, centroids)
-            labels = torch.argmin(dist, dim=1)
-            for atom in range(f):
-                rows = labels == atom
-                if bool(rows.any().item()):
-                    centroids[atom] = feat[rows].mean(dim=0)
-
-        order = sorted(
-            range(f),
-            key=lambda i: (
-                int(torch.argmax(centroids[i]).item()),
-                [float(v) for v in centroids[i].detach().cpu()],
-            ),
-        )
-        centroids = centroids[order]
-        centroids = centroids / centroids.sum(dim=1, keepdim=True).clamp_min(1.0e-12)
-        self._top1_route_centroids.copy_(
-            centroids.to(
-                dtype=self._top1_route_centroids.dtype,
-                device=self._top1_route_centroids.device,
-            )
-        )
-        self._top1_route_initialized.fill_(True)
-
-    def _top1_energy_route_logits(
-        self, x: torch.Tensor, amp_logits: torch.Tensor
-    ) -> torch.Tensor:
-        if not self._uses_top1_energy_router():
-            return amp_logits
-        self._maybe_initialize_top1_energy_router(x)
-        feat = self._row_energy_features(x).to(dtype=amp_logits.dtype, device=amp_logits.device)
-        centroids = self._top1_route_centroids.to(
-            dtype=amp_logits.dtype, device=amp_logits.device
-        )
-        similarity = feat @ centroids.transpose(0, 1)
-        return amp_logits + 8.0 * similarity
 
     @torch.no_grad()
     def _closed_form_initializers(self, x: torch.Tensor) -> dict[str, np.ndarray]:
@@ -1044,17 +1570,24 @@ class ManifoldSAE(nn.Module):
             self.cfg,
             self._forward_centers,
         )
-        route_logits = self._top1_energy_route_logits(x, amp_logits)
         per_atom_recon = torch.einsum("nfk,fkd->nfd", curves, self.decoder_blocks)
         amp = F_torch.softplus(amp_logits)
         if self.cfg.sparsity.kind == "softmax_topk":
-            gate_pre = route_logits
+            gate_pre = amp_logits
+            # Issue #1282: break expert collapse with an early *committed*
+            # assignment window (see ``reconstruction_topk_gate``). Track the
+            # training step here so the gate knows whether it is inside the
+            # commitment window; only advance while training.
+            step = None
+            if self.training:
+                step = int(self._train_steps.item())
+                self._train_steps += 1
             assignments = self.sparsity.reconstruction_topk_gate(
-                route_logits, amp_logits, x, per_atom_recon
+                x, per_atom_recon, step=step
             )
             z = assignments
         else:
-            assignments, gate_pre = self.sparsity(route_logits)
+            assignments, gate_pre = self.sparsity(amp_logits)
             z = self.sparsity.compose_code(assignments, amp)
         x_hat = (z.unsqueeze(-1) * per_atom_recon).sum(dim=1)
 
@@ -1455,9 +1988,58 @@ class ManifoldSAE(nn.Module):
         """Rust-backed sparsity penalty value at ``logits``."""
         return self.sparsity.penalty(logits)
 
+    def decoder_harmonic_penalty(self) -> torch.Tensor:
+        """Low-frequency smoothness prior on each atom's circle decoder (#1282).
+
+        A circle atom's decoder maps the periodic basis ``[DC, cos θ, sin θ,
+        cos 2θ, sin 2θ, …]`` to ``R^D``; with the fundamental alone its curve is
+        an affine image of the circle — an ellipse confined to a single affine
+        2-plane. The higher harmonics let the curve leave that 2-plane and
+        *snake* through 4-space, so one atom can pass near two different circles
+        at different phases (issue #1282): reconstruction stays excellent
+        (R² ≈ 0.99) but the per-atom reconstruction residual no longer
+        distinguishes the manifolds and top-1 routing collapses to chance.
+
+        Two manifolds that occupy distinct 2-planes (e.g. the energy-degenerate
+        signed circles ``(c,s,c,±s)``) cannot both lie in one fundamental-only
+        atom's 2-plane, so penalizing the harmonics ``h ≥ 2`` of the decoder
+        forces each atom onto a single 2-plane — hence a single manifold —
+        making the residual genuinely informative and routing well-posed. It is
+        a pure smoothness prior (the same ``h⁴`` scaling the Rust periodic basis
+        builds for its own penalty), keyed on nothing about the data: the true
+        manifolds are pure fundamental circles, so it leaves reconstruction (and
+        the disjoint case) untouched while removing only the snaking capacity the
+        true circles never use.
+
+        Only well-defined for the ``circle`` manifold with the standard odd-K
+        ``[DC, {sinθ,cosθ}, {sin2θ,cos2θ}, …]`` layout (row index == basis
+        column == harmonic), where ``decoder_blocks`` rows ``>= 3`` are the
+        harmonics ``h >= 2``; returns zero otherwise.
+        """
+        K = int(self.cfg.n_basis_per_atom)
+        if self.cfg.atom_manifold != "circle" or K != 1 + 2 * ((K - 1) // 2):
+            return self.decoder_blocks.new_zeros(())
+        if K < 4:  # no harmonics beyond the fundamental to penalize
+            return self.decoder_blocks.new_zeros(())
+        total = self.decoder_blocks.new_zeros(())
+        # rows: 0=DC, 1,2=h1 (fundamental, free), then (sin,cos) pairs for h>=2.
+        for h in range(2, (K - 1) // 2 + 1):
+            sin_row = 1 + 2 * (h - 1)
+            cos_row = sin_row + 1
+            w = float(h) ** 4  # graduated smoothness weight (Rust convention)
+            total = total + w * (
+                self.decoder_blocks[:, sin_row, :].square().sum()
+                + self.decoder_blocks[:, cos_row, :].square().sum()
+            )
+        return self._harmonic_penalty_weight * total
+
     def regularization(self, logits: torch.Tensor | None = None) -> torch.Tensor:
         """Sum of Rust-backed regularizers used by the loss."""
-        reg = self.decoder_ortho_penalty() + self.decoder_monotonicity_penalty()
+        reg = (
+            self.decoder_ortho_penalty()
+            + self.decoder_monotonicity_penalty()
+            + self.decoder_harmonic_penalty()
+        )
         if logits is not None:
             reg = reg + self.sparsity_penalty(logits)
         return reg

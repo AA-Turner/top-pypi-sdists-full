@@ -72,6 +72,14 @@ class MLLMBatchRequest:
     # Generation state
     num_tokens: int = 0  # Tokens generated so far
     output_tokens: list[int] = field(default_factory=list)
+    # Prompt-token count snapshotted from ``input_ids.size`` at the end of
+    # ``_process_prompts`` (before ``input_ids`` is released to free
+    # buffers). Stamped onto every ``MLLMBatchResponse.prompt_tokens`` so
+    # the scheduler can populate ``MLLMRequest.num_prompt_tokens`` without
+    # re-tokenising the prompt or guessing at the vision-token expansion.
+    # 0 means "not yet processed" — the field is set in ``_process_prompts``
+    # once preprocessing has run.
+    num_prompt_tokens: int = 0
 
     # Vision state (populated after initial VLM forward pass)
     vision_encoded: bool = False
@@ -93,6 +101,21 @@ class MLLMBatchResponse:
     logprobs: mx.array  # Log probabilities
     finish_reason: str | None = None  # "stop", "length", or None
     prompt_cache: list[Any] | None = None  # Extracted cache for finished requests
+    # Prompt-token count for the request that produced this token. Stamped
+    # by ``_next()`` from ``req.input_ids.size`` so the scheduler can wire
+    # it through to ``RequestOutput.prompt_tokens`` → ``GenerationOutput``
+    # → OpenAI ``usage.prompt_tokens``. Pre-fix, the MLLM path always
+    # reported ``prompt_tokens=0`` because ``MLLMRequest.num_prompt_tokens``
+    # had no producer (text path uses ``len(tokenizer.encode(prompt))`` —
+    # MLLM can't, because vision-token expansion happens inside the
+    # processor). Same shape as the text path's ``RequestOutput.
+    # prompt_tokens`` so downstream ``_build_usage`` / ``get_usage`` work
+    # unmodified for both paths.  0 means "not stamped" — only fresh
+    # ``_next()`` responses set it; the scheduler then memoises onto
+    # ``MLLMRequest.num_prompt_tokens`` so subsequent streaming responses
+    # inherit the count without us having to thread it through every
+    # decode step.
+    prompt_tokens: int = 0
 
 
 @dataclass
@@ -366,9 +389,41 @@ class MLLMBatchGenerator:
                 f"MLLMBatchGenerator: Vision cache enabled (size={vision_cache_size})"
             )
 
-        # Generation stream
+        # Generation stream.
+        #
+        # Use the WORKER THREAD's default stream rather than a freshly
+        # created ``mx.new_stream(...)``. mlx-lm 0.31.3+ tags every
+        # ``mx.array`` with the stream it was produced on, and a stream
+        # created by ``mx.new_stream`` is bound to the caller thread —
+        # any other thread that later tries to materialise (lazy
+        # ``mx.eval`` / ``np.array(...)``) one of those arrays crashes
+        # with ``There is no Stream(gpu, N) in current thread``.
+        #
+        # That crash path went live the moment PR #716 plumbed
+        # ``MLLMBatchResponse.logprobs`` through to the route layer:
+        # the per-step logprob slice was produced inside ``with
+        # mx.stream(MLLMBatchGenerator._stream):`` blocks on the
+        # ``mllm-step`` worker, then the route handler (asyncio loop
+        # thread) called ``np.array(logprobs_array)`` from
+        # ``service.helpers._extract_token_logprob`` — and the loop
+        # thread does not own ``Stream(gpu, 4)``. The server worker
+        # aborted on every ``logprobs=true`` chat completion against
+        # qwen3-vl-2b-4bit / gemma-3n-e2b-4bit / gemma-3n-e4b-4bit
+        # (0.7.41 hotfix candidate).
+        #
+        # The text scheduler avoids this by running on a dedicated
+        # ``mlx-step`` worker initialised via ``_init_mlx_step_thread``
+        # (engine_core.py), which adopts
+        # ``mx.default_stream(mx.default_device())`` — the process-wide
+        # default that every thread can materialise against. Mirror
+        # that here: the MLLM worker (``mllm-step``) was already
+        # initialised by the same ``_init_mlx_step_thread`` callback
+        # at executor construction, so its default stream is the same
+        # process-wide default the model weights / KV cache were
+        # tagged with. Logprob arrays produced under this default
+        # round-trip cleanly to the route handler thread.
         if MLLMBatchGenerator._stream is None:
-            MLLMBatchGenerator._stream = mx.new_stream(mx.default_device())
+            MLLMBatchGenerator._stream = mx.default_stream(mx.default_device())
 
         # Memory management
         self._old_wired_limit = None
@@ -550,13 +605,103 @@ class MLLMBatchGenerator:
             getattr(model_config, "image_token_index", None) if model_config else None
         )
 
-        # Prepare inputs using mlx_vlm
-        inputs = prepare_inputs(
-            self.processor,
-            images=all_images if all_images else None,
-            prompts=request.prompt,
-            image_token_index=image_token_index,
-        )
+        # F-063: extreme-aspect-ratio guard.
+        #
+        # When an image has ``min(w, h) <= 2`` (e.g. 1x10000, 10000x1,
+        # 2x2, 1x100), the Qwen3-VL patch-tokenizer (patch_size=14)
+        # rounds the short dimension to 0 patches and emits an empty
+        # vision-token sequence. The language model then has nothing
+        # to attend to and silently hallucinates a generic reply, so
+        # the HTTP response is ``200 OK`` with content like "The image
+        # is a solid green color" — indistinguishable from a real
+        # answer to the caller.
+        #
+        # mlx_vlm's own ``smart_resize`` only rejects extreme aspect
+        # ratios (``abs ratio > 200``), which catches 1x500 / 2x500
+        # but lets 1x100 / 2x2 / 3x2 sail through.
+        #
+        # Pre-filter with PIL here so the request fails fast with a
+        # canonical ``Failed to process image: image too small …``
+        # ``ValueError`` — the same marker the
+        # ``except (OSError, ValueError)`` block below uses, so
+        # ``is_client_error`` fires and routes map it to HTTP 400.
+        if all_images:
+            from PIL import Image as _PILImage
+
+            _MIN_DIM = 3  # patches collapse to zero below this
+            for _img_path in all_images:
+                try:
+                    with _PILImage.open(_img_path) as _im:
+                        _w, _h = _im.size
+                except Exception:
+                    # Decode failures are handled by the prepare_inputs
+                    # try/except below; don't double-report here.
+                    continue
+                if min(_w, _h) < _MIN_DIM:
+                    raise ValueError(
+                        f"Failed to process image: image too small "
+                        f"(min dimension must be >= {_MIN_DIM}, "
+                        f"got {_w}x{_h})"
+                    )
+
+        # Prepare inputs using mlx_vlm.
+        #
+        # mlx_vlm's ``prepare_inputs`` opens each saved image via PIL,
+        # which raises ``OSError`` ("broken data stream when reading
+        # image file"), ``UnidentifiedImageError``, or
+        # ``ValueError("Failed to load image from <path>: cannot
+        # identify image file ...")`` for corrupted / unsupported
+        # payloads (e.g. mangled-IDAT PNGs, ``data:image/png;base64,``
+        # of "Hello World", SVG-as-PNG, etc.).
+        #
+        # Pre-fix:
+        #   - ``OSError`` escaped the narrow ``except (ValueError,
+        #     RuntimeError)`` in ``MLLMScheduler._step_no_queue`` and
+        #     reached the broad ``except Exception`` in
+        #     ``MLLMScheduler._process_loop``, which logged + retried
+        #     the same broken request forever (F-061: 10 KB image →
+        #     pegged MLLM worker, easy single-request CPU DoS).
+        #   - ``ValueError("Failed to load image …")`` WAS caught by
+        #     ``_step_no_queue`` but the client-error matcher only
+        #     looked for ``"Failed to process image"`` — the request
+        #     was filed as a server error (``finish_reason="length"``,
+        #     ``error=None``), producing a silent ``200 OK`` with
+        #     ``content=null`` and ``prompt_tokens=0`` (F-062).
+        #
+        # Normalize every image-decode failure to the canonical
+        # ``Failed to process image: …`` ``ValueError`` so:
+        #   * ``_step_no_queue``'s ``except (ValueError, RuntimeError)``
+        #     catches it (no infinite retry),
+        #   * ``is_client_error`` fires on the ``"Failed to process
+        #     image"`` substring (clean ``error`` field), and
+        #   * ``routes/chat.py`` / ``routes/anthropic.py`` /
+        #     ``routes/responses.py`` map the marker to HTTP 400 with
+        #     an actionable message.
+        # Catch the *narrow* set of exception types that PIL / mlx_vlm
+        # raise for bad image bytes — ``OSError`` (PIL "broken data
+        # stream when reading image file"), ``PIL.UnidentifiedImageError``
+        # (a subclass of ``OSError``), and ``ValueError`` ("Failed to
+        # load image from …"). Internal bugs in the processor /
+        # tokenizer / MLX runtime (``AttributeError`` / ``TypeError`` /
+        # ``RuntimeError`` / arbitrary ``Exception``) MUST keep
+        # propagating as server errors so the caller sees HTTP 500
+        # instead of a misleading HTTP 400 "Failed to process image".
+        try:
+            inputs = prepare_inputs(
+                self.processor,
+                images=all_images if all_images else None,
+                prompts=request.prompt,
+                image_token_index=image_token_index,
+            )
+        except (OSError, ValueError) as e:
+            # Already-canonical messages (the ``process_image_input``
+            # branch above raises ``ValueError("Failed to process image:
+            # …")``) pass through unchanged; everything else gets the
+            # canonical prefix so downstream matchers fire.
+            msg = str(e)
+            if msg.startswith("Failed to process image"):
+                raise
+            raise ValueError(f"Failed to process image: {msg}") from e
 
         request.input_ids = inputs.get("input_ids")
         request.pixel_values = inputs.get("pixel_values")
@@ -677,6 +822,21 @@ class MLLMBatchGenerator:
         # Preprocess all requests
         for req in requests:
             self._preprocess_request(req)
+
+        # Snapshot per-request prompt-token counts BEFORE any later step
+        # nulls out ``input_ids`` to release Metal buffers (line ~822 in
+        # this method also nulls ``pixel_values`` / ``attention_mask`` /
+        # ``image_grid_thw`` for the same reason). We stash the count on
+        # the request so ``_next()`` can stamp it onto every
+        # ``MLLMBatchResponse.prompt_tokens`` and the scheduler can wire
+        # it through to ``RequestOutput.prompt_tokens`` →
+        # ``GenerationOutput`` → OpenAI ``usage.prompt_tokens``. Without
+        # this, MLLM responses always reported ``prompt_tokens=0`` even
+        # though the prompt was real (text + image-patch tokens).
+        for req in requests:
+            req.num_prompt_tokens = (
+                int(req.input_ids.size) if req.input_ids is not None else 0
+            )
 
         total_prompt_tokens = sum(
             req.input_ids.size if req.input_ids is not None else 1 for req in requests
@@ -919,9 +1079,29 @@ class MLLMBatchGenerator:
         if batch is None:
             return []
 
-        y, logprobs = batch.y, batch.logprobs
+        # ``y`` / ``outgoing_logprobs`` capture the PREVIOUS step's
+        # sampled tokens + per-token logprobs distribution (one row per
+        # active request). ``MLLMBatchResponse.logprobs`` for the
+        # responses we are about to build below at
+        # ``logprobs=outgoing_logprobs[i]`` slices from THIS array, so
+        # ``outgoing_logprobs`` is the exact object that crosses the
+        # worker → route-handler thread boundary.
+        y, outgoing_logprobs = batch.y, batch.logprobs
         batch.y, batch.logprobs = self._step(y[:, None], batch.cache, batch.requests)
         mx.async_eval(batch.y, batch.logprobs)
+
+        # Force evaluation of the OUTGOING per-step logprobs on the
+        # worker thread before they are sliced into ``MLLMBatchResponse``
+        # (and consumed by the route handler thread for ``np.array`` /
+        # top-k extraction in ``service.helpers._extract_token_logprob``).
+        # ``mx.async_eval`` above only schedules work — any residual
+        # laziness on the response slice would otherwise be resolved on
+        # the consumer thread, which under mlx-lm 0.31.3+ thread-local-
+        # stream rules crashes with ``There is no Stream(...) in current
+        # thread``. Pairs with the worker-default-stream adoption in
+        # ``__init__`` so logprobs survive a cross-thread ``np.array(...)``
+        # even if ``MLLMBatchGenerator._stream`` is ever re-pointed.
+        mx.eval(outgoing_logprobs)
 
         y = y.tolist()
         toc = time.perf_counter()
@@ -974,9 +1154,19 @@ class MLLMBatchGenerator:
                     uid=uid,
                     request_id=request_id,
                     token=token,
-                    logprobs=logprobs[i],
+                    # ``outgoing_logprobs[i]`` is the exact slice we
+                    # eval'd above on the worker thread; the consumer
+                    # thread's ``np.array(...)`` is therefore a pure
+                    # CPU copy with no stream lookup.
+                    logprobs=outgoing_logprobs[i],
                     finish_reason=finish_reason,
                     prompt_cache=prompt_cache,
+                    # ``num_prompt_tokens`` was snapshotted in
+                    # ``_process_prompts`` from ``input_ids.size`` before
+                    # the per-request buffers got released, so it's safe
+                    # to read here (``req.input_ids`` itself may now be
+                    # None to free memory).
+                    prompt_tokens=req.num_prompt_tokens,
                 )
             )
 

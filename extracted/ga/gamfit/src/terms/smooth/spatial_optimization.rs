@@ -91,11 +91,17 @@ fn try_build_spatial_term_log_kappa_derivative(
                 centers,
                 identifiability_transform,
                 operator_collocation_points,
+                radial_reparam,
                 ..
             } = &smooth_term.metadata
             else {
                 return Ok(None);
             };
+            // #1355: replay the frozen data-metric reparam into the derivative
+            // spec so the ψ-derivative arms assemble in the rotated radial basis.
+            if spec_local.radial_reparam.is_none() {
+                spec_local.radial_reparam = radial_reparam.clone();
+            }
             crate::basis::build_duchon_basis_log_kappa_derivativeswith_collocationwithworkspace(
                 x.view(),
                 &spec_local,
@@ -1291,13 +1297,11 @@ impl<'d> SingleBlockExactJointDesignCache<'d> {
         &mut self,
         theta: &Array1<f64>,
     ) -> Result<Vec<DirectionalHyperParam>, EstimationError> {
-        let psi = &theta
-            .as_slice()
-            .ok_or_else(|| {
-                EstimationError::InvalidInput(
-                    "nfree_tensor_gradient_hyper_dirs: theta is not contiguous".to_string(),
-                )
-            })?[self.rho_dim..];
+        let psi = &theta.as_slice().ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "nfree_tensor_gradient_hyper_dirs: theta is not contiguous".to_string(),
+            )
+        })?[self.rho_dim..];
         let (global_range, p_total, s_psi_components) = self
             .realizer
             .canonical_penalty_derivatives_at_psi(&self.spatial_terms, psi)
@@ -2161,17 +2165,64 @@ fn try_exact_joint_spatial_length_scale_optimization(
     let rho_star = theta_star.slice(s![..rho_dim]).mapv(f64::exp);
     let log_kappa_star =
         SpatialLogKappaCoords::from_theta_tail_with_dims(&theta_star, rho_dim, dims_per_term);
-    let resolvedspec = log_kappa_star.apply_tospec(resolvedspec, spatial_terms)?;
+    // Keep a handle on the baseline geometry spec before shadowing `resolvedspec`
+    // with the κ-optimized spec, so the #1357 degenerate-corner guard below can
+    // fall back to the frozen baseline.
+    let baseline_spec = resolvedspec;
+    let optimized_spec = log_kappa_star.apply_tospec(resolvedspec, spatial_terms)?;
     let optimized = fit_term_collection_forspecwith_heuristic_lambdas(
         data,
         y,
         weights,
         offset,
-        &resolvedspec,
+        &optimized_spec,
         rho_star.as_slice(),
-        family,
+        family.clone(),
         options,
     )?;
+
+    // #1357 degenerate-corner guard. In the flat (ρ, κ) valley the joint
+    // optimizer can certify a κ at which the kernel block goes nearly flat and
+    // REML then shrinks the whole smooth onto its intercept (EDF → the null
+    // floor, prediction returns a constant surface). Such a corner can carry a
+    // *better* profiled REML cost than the informative baseline — the
+    // smoothing-correction trace flips between the near-boundary cubature and
+    // first-order branches across draws, so the `joint_final_value` ≤
+    // `baseline_score` gate above does not catch it. The frozen baseline
+    // geometry (the data-derived default length scale with its own REML-seeded
+    // λ) keeps the kernel informative, so when the joint optimum has collapsed
+    // to the null while the baseline has materially more effective DOF, reject
+    // the optimum and keep the baseline. This never blocks a genuine refinement:
+    // the baseline is only preferred when the joint candidate is degenerate.
+    let optimized_edf = optimized.fit.inference.as_ref().map(|inf| inf.edf_total);
+    if let Some(opt_edf) = optimized_edf
+        && opt_edf < SPATIAL_COLLAPSE_EDF_FLOOR
+    {
+        let baseline = fit_frozen_baseline_geometry(
+            data,
+            y,
+            weights,
+            offset,
+            baseline_spec,
+            best,
+            family.clone(),
+            options,
+            baseline_score,
+            Some(kappa_timing),
+        )?;
+        let baseline_edf = baseline.fit.inference.as_ref().map(|inf| inf.edf_total);
+        if let Some(base_edf) = baseline_edf
+            && base_edf >= opt_edf + SPATIAL_COLLAPSE_EDF_MARGIN
+        {
+            log::info!(
+                "[spatial-kappa] joint candidate collapsed to the null (edf={opt_edf:.3}); \
+                 baseline geometry retains edf={base_edf:.3} — keeping the frozen baseline",
+            );
+            return Ok(Some(baseline));
+        }
+        // Baseline is no better (both genuinely near-null, or baseline lacks
+        // inference): keep the optimized candidate via the normal path below.
+    }
 
     // Stamp reml_score with joint_final_value so downstream consumers see a
     // score consistent with the gate decision; the refit serves as a
@@ -2181,13 +2232,24 @@ fn try_exact_joint_spatial_length_scale_optimization(
     let optimized_result = FittedTermCollectionWithSpec {
         fit,
         design: optimized.design,
-        resolvedspec,
+        resolvedspec: optimized_spec,
         adaptive_diagnostics: optimized.adaptive_diagnostics,
         kappa_timing: Some(kappa_timing),
     };
 
     Ok(Some(optimized_result))
 }
+
+/// EDF below this is treated as an intercept-only / null collapse of the spatial
+/// smooth (#1357): the model has shed essentially all effective degrees of
+/// freedom beyond a handful of unpenalized coordinates.
+const SPATIAL_COLLAPSE_EDF_FLOOR: f64 = 2.5;
+
+/// A non-degenerate baseline must carry at least this much more effective DOF
+/// than the collapsed joint candidate before the baseline is preferred (#1357),
+/// so genuinely-near-null surfaces (where both fits agree there is no signal)
+/// are left untouched.
+const SPATIAL_COLLAPSE_EDF_MARGIN: f64 = 1.0;
 
 /// Re-fit at the frozen baseline geometry — the REML-seeded length scales and
 /// heuristic λ already certified in `best` — and stamp the certified baseline
@@ -2200,8 +2262,8 @@ fn try_exact_joint_spatial_length_scale_optimization(
 /// started from, so it is always valid — the joint step can only ever improve on
 /// it, never block it.
 ///
-/// The refit is a β/inference harvester at `best`'s lambdas and the frozen
-/// `resolvedspec`; the score that geometry was certified at is
+/// The refit is a β/inference harvester at the frozen baseline `resolvedspec`;
+/// the score that geometry was certified at is
 /// `baseline_score = fit_score(&best.fit)`. We stamp that certified value rather
 /// than the harvest's own re-derived `reml_score`, which drifts because the
 /// harvest runs the full-inference option set (and re-runs the adaptive spatial
@@ -2212,6 +2274,18 @@ fn try_exact_joint_spatial_length_scale_optimization(
 /// geometry spuriously reads as "the optimizer made the score worse" and aborts
 /// an otherwise-valid fit. Stamping keeps the returned score consistent with the
 /// gate decision that selected this geometry, identical to the optimized branch.
+///
+/// #1357: the harvest warm-starts REML from `best.fit.lambdas` (reproducing the
+/// certified baseline cheaply), but on the flat (ρ, κ) Matérn valley that warm
+/// start can slide the ρ search into a degenerate basin that collapses the smooth
+/// onto its intercept (EDF → 1) even though `best` at the same geometry is
+/// healthy — the double-penalty nullspace-shrinkage block of `best`'s λ sits near
+/// the shrink-out corner, and the relaxed log-λ cap then lets it run away. When
+/// the warm-started harvest collapses far below `best`'s certified EDF, refit the
+/// same geometry from scratch (no λ seed, exactly how `best` was produced); the
+/// scratch fit recovers the healthy baseline. This retry only fires on the
+/// collapse pathology, so warm-starting's speed/uniformity is preserved for every
+/// non-degenerate fallback.
 #[allow(clippy::too_many_arguments)]
 fn fit_frozen_baseline_geometry(
     data: ArrayView2<'_, f64>,
@@ -2232,9 +2306,28 @@ fn fit_frozen_baseline_geometry(
         offset,
         resolvedspec,
         best.fit.lambdas.as_slice(),
-        family,
+        family.clone(),
         options,
     )?;
+    // #1357 collapse retry: if the warm-started harvest shed essentially all of
+    // `best`'s certified effective DOF (a flat-valley collapse onto the
+    // intercept), re-derive λ from scratch — `best` itself was fit from scratch
+    // and is healthy, so the scratch harvest reproduces it.
+    let best_edf = best.fit.inference.as_ref().map(|inf| inf.edf_total);
+    let baseline_edf = baseline.fit.inference.as_ref().map(|inf| inf.edf_total);
+    let baseline = match (best_edf, baseline_edf) {
+        (Some(best_edf), Some(base_edf))
+            if base_edf < SPATIAL_COLLAPSE_EDF_FLOOR
+                && best_edf >= base_edf + SPATIAL_COLLAPSE_EDF_MARGIN =>
+        {
+            log::info!(
+                "[spatial-kappa] warm-started frozen baseline collapsed (edf={base_edf:.3}) \
+                 below the certified baseline (edf={best_edf:.3}); refitting from scratch",
+            );
+            fit_term_collection_forspec(data, y, weights, offset, resolvedspec, family, options)?
+        }
+        _ => baseline,
+    };
     let mut fit = baseline.fit;
     fit.reml_score = baseline_score;
     Ok(FittedTermCollectionWithSpec {
@@ -2342,7 +2435,55 @@ struct SpatialJointContext<'d> {
     frozen_glm_tensor_attempted: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+struct NfreeSkipGateStatus {
+    shape: bool,
+    value: bool,
+    gradient: bool,
+    penalty: bool,
+    revision: bool,
+    second_order: bool,
+}
+
+impl NfreeSkipGateStatus {
+    fn would_skip(self, require_gradient: bool) -> bool {
+        self.shape
+            && self.value
+            && (!require_gradient || self.gradient)
+            && self.penalty
+            && self.revision
+            && !self.second_order
+    }
+}
+
 impl<'d> SpatialJointContext<'d> {
+    fn nfree_skip_gate_status(
+        &self,
+        theta: &Array1<f64>,
+        allow_second_order: bool,
+        require_gradient: bool,
+    ) -> NfreeSkipGateStatus {
+        let shape = theta.len() == self.rho_dim + 1;
+        let (value, gradient) = if shape {
+            let psi = theta[self.rho_dim];
+            (
+                self.evaluator.psi_gram_tensor_covers(psi)
+                    && self.evaluator.psi_gram_tensor_covers_skip(psi),
+                !require_gradient || self.evaluator.psi_gram_tensor_covers_gradient(psi),
+            )
+        } else {
+            (false, false)
+        };
+        NfreeSkipGateStatus {
+            shape,
+            value,
+            gradient,
+            penalty: self.evaluator.supports_nfree_penalty_rekey(),
+            revision: self.evaluator.nfree_fast_path_revision().is_some(),
+            second_order: allow_second_order,
+        }
+    }
+
     fn frozen_glm_working_state(
         &self,
         beta: &Array1<f64>,
@@ -2521,78 +2662,65 @@ impl<'d> SpatialJointContext<'d> {
         // `(∂G/∂ψ, ∂b/∂ψ)` tensor derivatives — never the n×k ∂X/∂ψ slab. So when
         //   (a) this is the single design-moving ψ coordinate (`rho_dim + 1`),
         //   (b) the certified ψ-Gram tensor covers ψ for BOTH the value lane
-        //       (`psi_gram_tensor_covers`) AND the gradient sub-window
+        //       (`psi_gram_tensor_covers`) AND the gradient window
         //       (`psi_gram_tensor_covers_gradient`) — so neither channel reads
         //       the realized rows,
         //   (c) this eval is gradient-only (`!allow_second_order`) — the exact
         //       outer-Hessian `B_j` path DOES read the slab, so a Hessian trial
         //       must keep a faithful (freshly realized) design, and
-        //   (d) the evaluator's design-revision fast path is ARMED at the
-        //       current realizer revision (`design_revision_fast_path_armed`) —
-        //       i.e. a prior slow-path eval already pinned a faithful reference
-        //       surface at this revision, which `prepare_eval_state` will reuse
-        //       while re-installing the ψ-keyed cache,
+        //   (d) the evaluator has a pinned canonical slow-path revision — i.e.
+        //       a prior slow-path eval already built a faithful reference surface,
+        //       which `prepare_eval_state` will reuse while re-installing the
+        //       ψ-keyed cache,
         // we SKIP `ensure_theta`. The realizer revision then does not advance, so
-        // `prepare_eval_state` takes its design-revision fast path: it skips
-        // `reset_surface` + the n×k `apply_to_design`, keeps the (intentionally
-        // stale) reference surface, and re-keys the `GaussianFixedCache` to this
-        // ψ. The hyper_dirs built below are a pure function of (data, frozen
-        // spec, column layout) — ψ-invariant — so they are bit-identical whether
-        // or not the design was re-realized, and the tensor branch never reads
-        // their n×k slab anyway. Net: criterion + gradient + inner solve come
-        // from k-space statistics only, with no per-trial O(n·k) pass.
+        // `prepare_eval_state` takes its design-revision fast path by receiving
+        // that pinned revision back: it skips `reset_surface` + the n×k
+        // `apply_to_design`, keeps the reference surface, and re-keys the
+        // `GaussianFixedCache` to this ψ. The hyper_dirs built below are a pure
+        // function of (data, frozen spec, column layout) — ψ-invariant — so they
+        // are bit-identical whether or not the design was re-realized, and the
+        // tensor branch never reads their n×k slab anyway. Net: criterion +
+        // gradient + inner solve come from k-space statistics only, with no
+        // per-trial O(n·k) pass.
         //
         // When ANY gate clause fails (non-Gaussian, off-window, off the gradient
-        // sub-window, a Hessian eval, or the fast path not yet armed) we realize
-        // the design as before so the slow path rebuilds a faithful surface — the
-        // existing exact lane runs UNCHANGED.
+        // sub-window, a Hessian eval, or no pinned canonical surface yet) we
+        // realize the design as before so the slow path rebuilds a faithful
+        // surface — the existing exact lane runs unchanged.
+        let nfree_fast_path_revision = self.evaluator.nfree_fast_path_revision();
         let skip_design_realization = !allow_second_order && theta.len() == self.rho_dim + 1 && {
             let psi = theta[self.rho_dim];
             self.evaluator.psi_gram_tensor_covers(psi)
                     // #1033 gradient coverage: the skip serves the ψ-gradient n-free
-                    // only where the analytic Chebyshev derivative is CERTIFIED
-                    // (`contains_for_gradient`). Differentiating the value interpolant
-                    // amplifies its error (`T_d′ ∼ d²`), so near the window edges the
-                    // analytic derivative genuinely fails the gradient tolerance even
-                    // though the value still certifies — a real accuracy boundary. For
-                    // those edge ψ the gradient must come from the EXACT streamed n×k
-                    // ∂X/∂ψ slab, which needs the realized design at this ψ, so the
-                    // skip is refused there (whole design realized → exact value AND
-                    // gradient). Most κ trials land interior (inside the sub-window) →
-                    // n-free; only the rare edge evals pay O(n), and every gradient is
-                    // EXACT (analytic interior, exact-streamed at edges) — no
-                    // production finite difference.
+                    // only where the analytic Chebyshev derivative is CERTIFIED.
+                    // The kappa sufficient-statistic outer loop is routed here only
+                    // when the certified gradient window spans the entire optimizer
+                    // bounds, so a measured trial cannot pay an edge streamed
+                    // ∂X/∂ψ pass after the initial priming eval.
                     && self.evaluator.psi_gram_tensor_covers_gradient(psi)
-                    // #1033 (reduced-basis rotation, supersedes #1264 gate): the
-                    // Gaussian-identity inner solve the skip serves reads its data
-                    // statistics ONLY from re-keyed k×k objects — XᵀWX(ψ)/XᵀW(y−
-                    // offset)(ψ) from the `GaussianFixedCache` (re-installed at this
-                    // trial's ψ by `install_psi_gram_statistics`) and the stable
-                    // reparametrization Qs, which is built from the PENALTY
-                    // (`stable_reparameterization_engine_canonical`), NOT the data
-                    // Gram, and is rebuilt every inner PLS call from the re-keyed
-                    // `S(ψ)`. β̂, EDF, scale/deviance, and the j==0 ψ-gradient
-                    // (from the re-keyed `∂G/∂ψ`,`∂b/∂ψ` derivative pair, conjugated
-                    // by Qs) never read `self.x` rows. So the skip is sound whether
-                    // or not the conditioned reduced basis ROTATES with ψ: the
-                    // realized `self.x` frozen at the pinning ψ is never consumed on
-                    // this lane. The earlier wrong-β̂ regression a wide-window MSI
-                    // run found was the STALE PENALTY `S(ψ_old)` (fixed by re-keying
-                    // it n-free below), not a stale reduced basis. The pairwise
-                    // range-projector witness `reduced_basis_equal` is retained as a
-                    // soundness reference, but is no longer a skip precondition — it
-                    // refused sound rotated-basis skips, forcing the O(n)
-                    // `reset_surface` fallback and breaking n-independence across a
-                    // basis rotation.
-                    //
+                    // #1264 (RESTORED) reduced-basis-rotation soundness precondition.
+                    // The Gaussian inner penalized solve `(QsᵀGQs+S)β=b` runs in the
+                    // CONDITIONED reduced basis. On the near-singular production
+                    // Duchon Gram (κ(G)≈9.5e14) that basis ROTATES with ψ, and the
+                    // skip installs the Chebyshev-interpolated `gram_at(ψ)` (≤1e-10
+                    // vs streamed exact). When the trial-ψ basis differs from the
+                    // reference surface's, the κ-amplified round-off moves β̂ by
+                    // ~1.7e-5 — 17× the issue's 1e-6 bar — EVEN at a ψ the n-free
+                    // VALUE window admits (cluster: β̂rel=1.749e-5 at ψ=2.803). The
+                    // "stale-penalty-not-stale-basis" theory that dropped this gate
+                    // was empirically refuted. So the skip is β̂-sound ONLY where the
+                    // gauge-invariant range projector is unchanged vs the pinning ψ:
+                    // `reduced_basis_equal(psi_ref, psi)`. Value coverage is NOT
+                    // sufficient. This forces the exact O(n) `reset_surface` fallback
+                    // across a basis rotation — correctness over n-independence
+                    // (#1033 is frontier-blocked on rotating Duchon geometry).
+                    && self.evaluator.psi_gram_tensor_covers_skip(psi)
                     // #1033 penalty lane: ψ moves S(ψ) too, and the skip leaves
                     // `reset_surface` un-run; only skip when the penalty can be
                     // rebuilt EXACTLY and n-free on the fast path, else the inner
                     // solve would pair XᵀWX(ψ_new) with the stale S(ψ_old).
                     && self.evaluator.supports_nfree_penalty_rekey()
-                    && self
-                        .evaluator
-                        .design_revision_fast_path_armed(self.cache.design_revision())
+                    && nfree_fast_path_revision.is_some()
         };
         if skip_design_realization {
             log::debug!(
@@ -2629,7 +2757,11 @@ impl<'d> SpatialJointContext<'d> {
             self.cache.hyper_dirs_for_current_design(self.data, kind)?
         };
 
-        let design_revision = Some(self.cache.design_revision());
+        let design_revision = if skip_design_realization {
+            nfree_fast_path_revision
+        } else {
+            Some(self.cache.design_revision())
+        };
         // #1033 penalty lane: stage the EXACT n-free `S(ψ)` for this trial so the
         // evaluator's design-revision fast path can re-key the kept reference
         // surface without `reset_surface`. Built from the FROZEN basis geometry
@@ -2758,41 +2890,42 @@ impl<'d> SpatialJointContext<'d> {
         // tensor's value lane (`XᵀWX(ψ)/XᵀW(y−offset)(ψ)`), which the inner
         // Gaussian PLS reads n-free from the ψ-keyed `GaussianFixedCache`. So when
         // the single design-moving ψ is covered for the VALUE lane and the
-        // evaluator's design-revision fast path is armed at the current realizer
-        // revision, skip the n×k design re-realization: the realizer revision
-        // stays pinned, `evaluate_cost_only` takes its `prepare_eval_state_cost_only`
-        // fast path (which skips `reset_surface` + the n×k `apply_to_design` and
-        // re-keys the cache to this probe's ψ), and the probe cost comes from
-        // k-space statistics only. Line-search probes are the bulk of the κ-loop
-        // per-trial work, so this is the dominant n-flat lever. Unlike the
-        // gradient path the value lane spans the FULL certified window, but the
-        // probe still skips `reset_surface`, so it must also stay inside the
-        // reduced-basis-equality skip sub-window. Any miss (non-Gaussian, off-window,
-        // off-skip-window, fast path not yet armed) realizes the design and runs
-        // the exact streamed probe unchanged.
+        // evaluator has a pinned canonical slow-path revision, skip the n×k
+        // design re-realization: `evaluate_cost_only` receives that pinned
+        // revision, takes its `prepare_eval_state_cost_only` fast path (which
+        // skips `reset_surface` + the n×k `apply_to_design` and re-keys the cache
+        // to this probe's ψ), and the probe cost comes from k-space statistics
+        // only. Line-search probes are the bulk of the κ-loop per-trial work, so
+        // this is the dominant n-flat lever. Any miss (non-Gaussian, off-window,
+        // missing penalty re-key support, or no pinned surface yet) realizes the
+        // design and runs the exact streamed probe unchanged.
+        let nfree_fast_path_revision = self.evaluator.nfree_fast_path_revision();
         let skip_value_realization = theta.len() == self.rho_dim + 1 && {
             let psi = theta[self.rho_dim];
             self.evaluator.psi_gram_tensor_covers(psi)
-                    // #1033 (reduced-basis rotation): a value-only line-search probe
-                    // runs the inner Gaussian-identity solve from the re-keyed
-                    // `GaussianFixedCache` (XᵀWX(ψ)/XᵀW(y−offset)(ψ)) and the stable
-                    // reparametrization Qs (penalty-derived, re-keyed every call from
-                    // the n-free `S(ψ)`). β̂ and the cost never read the frozen
-                    // `self.x` rows, so the probe is correct whether or not the
-                    // conditioned reduced basis rotates with ψ. The
-                    // `reduced_basis_equal` precondition is therefore dropped here
-                    // too (it refused sound rotated-basis probes and forced the O(n)
-                    // `reset_surface` fallback); the witness is kept as a soundness
-                    // reference. See the eval_full gate for the full justification.
+                    // #1264 (RESTORED): the value-only line-search probe runs the
+                    // SAME conditioned-basis Gaussian solve, so it ships the same
+                    // κ-amplified interpolated-Gram β̂ error across a basis rotation
+                    // (cluster: β̂rel≈1.7e-5 ≫ 1e-6). The probe is β̂-sound only where the
+                    // reduced basis is provably unchanged vs the pinning ψ, exactly
+                    // as the eval_full gate. See the eval_full gate for the full
+                    // justification; the dropped-precondition "stale-penalty" theory
+                    // was empirically refuted.
+                    && self.evaluator.psi_gram_tensor_covers_skip(psi)
                     // #1033 penalty lane: the value-probe fast path also skips
                     // `reset_surface`, so the probe must be able to re-key S(ψ)
                     // EXACTLY and n-free; otherwise its cost would use the stale
                     // S(ψ_old) and mis-rank the line search.
                     && self.evaluator.supports_nfree_penalty_rekey()
-                    && self
-                        .evaluator
-                        .design_revision_fast_path_armed(self.cache.design_revision())
+                    && nfree_fast_path_revision.is_some()
         };
+        if theta.len() == self.rho_dim + 1
+            && self.evaluator.has_psi_gram_tensor()
+            && !self.evaluator.psi_gram_tensor_covers(theta[self.rho_dim])
+        {
+            self.cache.store_cost_at(theta, f64::INFINITY);
+            return f64::INFINITY;
+        }
         if !skip_value_realization && self.cache.ensure_theta(theta).is_err() {
             return f64::INFINITY;
         }
@@ -2837,7 +2970,11 @@ impl<'d> SpatialJointContext<'d> {
             self.evaluator.stage_glm_first_step_gram(None);
             self.evaluator.stage_glm_psi_gram_deriv(None);
         }
-        let design_revision = Some(self.cache.design_revision());
+        let design_revision = if skip_value_realization {
+            nfree_fast_path_revision
+        } else {
+            Some(self.cache.design_revision())
+        };
         let cost_label = self.kind.label();
         let result = {
             let design = self.cache.design();
@@ -3077,7 +3214,10 @@ fn run_exact_joint_spatial_optimization(
     // off-window trials, or any other ineligibility silently keep the exact
     // streamed path (same numbers, the tensor is certified to
     // PSI_GRAM_SPOT_RTOL against the exact rebuild).
-    if coord_dim == 1 && family.is_gaussian_identity() {
+    let nfree_penalty_capable = coord_dim == 1
+        && family.is_gaussian_identity()
+        && ctx.cache.supports_nfree_penalty_rekey();
+    if nfree_penalty_capable {
         let psi_lo = lower[rho_dim];
         let psi_hi = upper[rho_dim];
         let z = Array1::from_iter(y.iter().zip(offset.iter()).map(|(yi, oi)| yi - oi));
@@ -3104,8 +3244,22 @@ fn run_exact_joint_spatial_optimization(
                 "[{label}] certified ψ-gram tensor over [{psi_lo:.3}, {psi_hi:.3}]: \
                  in-window trials assemble Gaussian sufficient statistics n-free"
             );
+            let gradient_covers_full_window = evaluator.psi_gram_tensor_covers_gradient(psi_lo)
+                && evaluator.psi_gram_tensor_covers_gradient(psi_hi);
+            if gradient_covers_full_window {
+                log::info!(
+                    "[{label}] certified ψ-gram tensor gradient lane covers the full \
+                     optimizer window [{psi_lo:.3}, {psi_hi:.3}]"
+                );
+            } else {
+                log::info!(
+                    "[{label}] ψ-gram tensor value lane certified, but the gradient lane \
+                     does not cover the full optimizer window [{psi_lo:.3}, {psi_hi:.3}]; \
+                     keeping exact streamed kappa routing"
+                );
+            }
             // #1033 penalty lane: ψ also moves the penalty `S(ψ)` (the
-            // Duchon/Matérn Hilbert scale is an analytic function of the
+            // Duchon/ThinPlate Hilbert scale is an analytic function of the
             // length-scale, built from the FROZEN basis CENTERS — not the data
             // rows). The design-revision fast path that the Gram tensor enables
             // SKIPS `reset_surface`, the only place the canonical penalty surface
@@ -3118,30 +3272,17 @@ fn run_exact_joint_spatial_optimization(
             // Here we only DECLARE the capability to the evaluator; the per-trial
             // staging happens in `eval_full` / `eval_cost`. The skip is enabled
             // exactly when the single spatial term's frozen metadata
-            // (Duchon/Matérn/ThinPlate) admits the exact rebuild.
-            let nfree_penalty = cache.supports_nfree_penalty_rekey();
-            evaluator.set_supports_nfree_penalty_rekey(nfree_penalty);
-            if nfree_penalty {
-                log::info!(
-                    "[{label}] exact n-free ψ-penalty re-key enabled over [{psi_lo:.3}, \
-                     {psi_hi:.3}]: in-window fast-path trials rebuild S(ψ) n-free from frozen \
-                     geometry (no reset_surface)"
-                );
-            } else {
-                // The frozen geometry does not admit an exact n-free penalty
-                // rebuild (multi-term, or a non-spatial-kernel basis). The
-                // fast-path design-realization skip gates on
-                // `supports_nfree_penalty_rekey`, so it never fires and every
-                // trial keeps the slow `reset_surface` (faithful S). The Gram
-                // tensor still serves the streamed-Gram value lane on the slow
-                // path, so this only forgoes the design-realization skip — never
-                // correctness.
-                log::info!(
-                    "[{label}] exact n-free ψ-penalty re-key unavailable over [{psi_lo:.3}, \
-                     {psi_hi:.3}]; fast-path design-realization skip disabled (slow path re-keys \
-                     S exactly)"
-                );
-            }
+            // (Duchon/ThinPlate) admits the exact rebuild. Matérn deliberately
+            // does not enter this block: mixing tensor value probes with exact
+            // streamed gradients/Hessians changed its selected κ enough to miss
+            // the truth-recovery quality gate, so Matérn stays on one exact
+            // streamed objective for value, gradient, and Hessian.
+            evaluator.set_supports_nfree_penalty_rekey(true);
+            log::info!(
+                "[{label}] exact n-free ψ-penalty re-key enabled over [{psi_lo:.3}, \
+                 {psi_hi:.3}]: in-window fast-path trials rebuild S(ψ) n-free from frozen \
+                 geometry (no reset_surface)"
+            );
         } else {
             log::info!(
                 "[{label}] ψ-gram tensor did not certify over [{psi_lo:.3}, {psi_hi:.3}]; \
@@ -3169,6 +3310,8 @@ fn run_exact_joint_spatial_optimization(
         // uncertified window), where it still pays O(n) per Hessian but keeps the
         // quality-sensitive exact second-order path.
         if attached
+            && evaluator.psi_gram_tensor_covers_gradient(psi_lo)
+            && evaluator.psi_gram_tensor_covers_gradient(psi_hi)
             && evaluator.supports_nfree_penalty_rekey()
             && cache.supports_nfree_gradient_only_routing()
         {
@@ -3177,9 +3320,15 @@ fn run_exact_joint_spatial_optimization(
             log::info!(
                 "[{label}] n-free Gaussian ψ-lane armed; suppressing the analytic outer \
                  Hessian and routing gradient-only (BFGS) so the κ outer loop never realizes \
-                 the O(n) second-order slab — n-independent outer loop (#1033)"
+                the O(n) second-order slab — n-independent outer loop (#1033)"
             );
         }
+    } else if coord_dim == 1 && family.is_gaussian_identity() {
+        log::info!(
+            "[{label}] exact n-free ψ-penalty re-key unavailable; skipping ψ-gram tensor \
+             attachment so value, gradient, and Hessian remain on the same exact streamed \
+             objective"
+        );
     }
 
     // ── Discriminating outer-gradient FD audit (issue #1040 / #944 merge gate) ──
@@ -3252,14 +3401,38 @@ fn run_exact_joint_spatial_optimization(
         }
     }
 
+    let kphase_prime_order = if analytic_outer_hessian_available && !suppress_outer_hessian_for_nfree {
+        OuterEvalOrder::ValueGradientHessian
+    } else {
+        OuterEvalOrder::ValueAndGradient
+    };
+    let kphase_prime_start = std::time::Instant::now();
+    drop(ctx.eval_full(theta0, kphase_prime_order, analytic_outer_hessian_available)?);
+    log::info!(
+        "[KAPPA-PHASE-PRIME] order={:?} elapsed_s={:.4} slow_path_resets_total={} design_revision={}",
+        kphase_prime_order,
+        kphase_prime_start.elapsed().as_secs_f64(),
+        ctx.evaluator.slow_path_reset_count(),
+        ctx.cache.design_revision(),
+    );
+
     let kphase_cost_calls = std::cell::Cell::new(0usize);
     let kphase_eval_calls = std::cell::Cell::new(0usize);
     let kphase_efs_calls = std::cell::Cell::new(0usize);
     let kphase_cost_total_s = std::cell::Cell::new(0.0);
     let kphase_eval_total_s = std::cell::Cell::new(0.0);
     let kphase_efs_total_s = std::cell::Cell::new(0.0);
+    let kphase_nfree_miss_shape = std::cell::Cell::new(0u64);
+    let kphase_nfree_miss_value = std::cell::Cell::new(0u64);
+    let kphase_nfree_miss_gradient = std::cell::Cell::new(0u64);
+    let kphase_nfree_miss_penalty = std::cell::Cell::new(0u64);
+    let kphase_nfree_miss_revision = std::cell::Cell::new(0u64);
+    let kphase_nfree_miss_second_order = std::cell::Cell::new(0u64);
+    let kphase_nfree_miss_other = std::cell::Cell::new(0u64);
     let kphase_optim_start = std::time::Instant::now();
     let kphase_log_kappa_dim = coord_dim;
+    let kphase_slow_resets_start = ctx.evaluator.slow_path_reset_count();
+    let kphase_design_revision_start = ctx.cache.design_revision();
 
     let problem = exact_joint_multistart_outer_problem(
         theta0,
@@ -3312,7 +3485,45 @@ fn run_exact_joint_spatial_optimization(
                       order: OuterEvalOrder|
      -> Result<OuterEval, EstimationError> {
         let t0 = std::time::Instant::now();
+        let allow_second_order_for_call = matches!(order, OuterEvalOrder::ValueGradientHessian)
+            && analytic_outer_hessian_available;
+        let gate = ctx.nfree_skip_gate_status(theta, allow_second_order_for_call, true);
+        let resets_before = ctx.evaluator.slow_path_reset_count();
         let raw = ctx.eval_full(theta, order, analytic_outer_hessian_available);
+        let reset_delta = ctx
+            .evaluator
+            .slow_path_reset_count()
+            .saturating_sub(resets_before);
+        if reset_delta > 0 {
+            if !gate.shape {
+                kphase_nfree_miss_shape.set(kphase_nfree_miss_shape.get() + reset_delta);
+            }
+            if gate.shape && !gate.value {
+                kphase_nfree_miss_value.set(kphase_nfree_miss_value.get() + reset_delta);
+            }
+            if gate.shape && gate.value && !gate.gradient {
+                kphase_nfree_miss_gradient.set(kphase_nfree_miss_gradient.get() + reset_delta);
+            }
+            if gate.shape && gate.value && gate.gradient && !gate.penalty {
+                kphase_nfree_miss_penalty.set(kphase_nfree_miss_penalty.get() + reset_delta);
+            }
+            if gate.shape && gate.value && gate.gradient && gate.penalty && !gate.revision {
+                kphase_nfree_miss_revision.set(kphase_nfree_miss_revision.get() + reset_delta);
+            }
+            if gate.shape
+                && gate.value
+                && gate.gradient
+                && gate.penalty
+                && gate.revision
+                && gate.second_order
+            {
+                kphase_nfree_miss_second_order
+                    .set(kphase_nfree_miss_second_order.get() + reset_delta);
+            }
+            if gate.would_skip(true) {
+                kphase_nfree_miss_other.set(kphase_nfree_miss_other.get() + reset_delta);
+            }
+        }
         let elapsed_s = t0.elapsed().as_secs_f64();
         kphase_eval_calls.set(kphase_eval_calls.get() + 1);
         kphase_eval_total_s.set(kphase_eval_total_s.get() + elapsed_s);
@@ -3355,7 +3566,30 @@ fn run_exact_joint_spatial_optimization(
         &mut ctx,
         |ctx: &mut &mut SpatialJointContext<'_>, theta: &Array1<f64>| {
             let t0 = std::time::Instant::now();
+            let gate = ctx.nfree_skip_gate_status(theta, false, false);
+            let resets_before = ctx.evaluator.slow_path_reset_count();
             let cost = ctx.eval_cost(theta);
+            let reset_delta = ctx
+                .evaluator
+                .slow_path_reset_count()
+                .saturating_sub(resets_before);
+            if reset_delta > 0 {
+                if !gate.shape {
+                    kphase_nfree_miss_shape.set(kphase_nfree_miss_shape.get() + reset_delta);
+                }
+                if gate.shape && !gate.value {
+                    kphase_nfree_miss_value.set(kphase_nfree_miss_value.get() + reset_delta);
+                }
+                if gate.shape && gate.value && !gate.penalty {
+                    kphase_nfree_miss_penalty.set(kphase_nfree_miss_penalty.get() + reset_delta);
+                }
+                if gate.shape && gate.value && gate.penalty && !gate.revision {
+                    kphase_nfree_miss_revision.set(kphase_nfree_miss_revision.get() + reset_delta);
+                }
+                if gate.would_skip(false) {
+                    kphase_nfree_miss_other.set(kphase_nfree_miss_other.get() + reset_delta);
+                }
+            }
             let elapsed_s = t0.elapsed().as_secs_f64();
             kphase_cost_calls.set(kphase_cost_calls.get() + 1);
             kphase_cost_total_s.set(kphase_cost_total_s.get() + elapsed_s);
@@ -3425,9 +3659,18 @@ fn run_exact_joint_spatial_optimization(
             kind.adjective(),
         ))
     })?;
+    drop(obj);
     let kphase_total_s = kphase_optim_start.elapsed().as_secs_f64();
+    let kphase_slow_resets = ctx
+        .evaluator
+        .slow_path_reset_count()
+        .saturating_sub(kphase_slow_resets_start);
+    let kphase_design_revision_delta = ctx
+        .cache
+        .design_revision()
+        .saturating_sub(kphase_design_revision_start);
     log::info!(
-        "[KAPPA-PHASE-SUMMARY] log_kappa_dim={} n_cost={} cost_total_s={:.4} n_eval={} eval_total_s={:.4} n_efs={} efs_total_s={:.4} optim_total_s={:.4}",
+        "[KAPPA-PHASE-SUMMARY] log_kappa_dim={} n_cost={} cost_total_s={:.4} n_eval={} eval_total_s={:.4} n_efs={} efs_total_s={:.4} slow_path_resets={} design_revision_delta={} nfree_miss_shape={} nfree_miss_value={} nfree_miss_gradient={} nfree_miss_penalty={} nfree_miss_revision={} nfree_miss_second_order={} nfree_miss_other={} optim_total_s={:.4}",
         kphase_log_kappa_dim,
         kphase_cost_calls.get(),
         kphase_cost_total_s.get(),
@@ -3435,6 +3678,15 @@ fn run_exact_joint_spatial_optimization(
         kphase_eval_total_s.get(),
         kphase_efs_calls.get(),
         kphase_efs_total_s.get(),
+        kphase_slow_resets,
+        kphase_design_revision_delta,
+        kphase_nfree_miss_shape.get(),
+        kphase_nfree_miss_value.get(),
+        kphase_nfree_miss_gradient.get(),
+        kphase_nfree_miss_penalty.get(),
+        kphase_nfree_miss_revision.get(),
+        kphase_nfree_miss_second_order.get(),
+        kphase_nfree_miss_other.get(),
         kphase_total_s,
     );
     let timing = SpatialLengthScaleOptimizationTiming {
@@ -3445,6 +3697,15 @@ fn run_exact_joint_spatial_optimization(
         eval_total_s: kphase_eval_total_s.get(),
         efs_calls: kphase_efs_calls.get(),
         efs_total_s: kphase_efs_total_s.get(),
+        slow_path_resets: kphase_slow_resets,
+        design_revision_delta: kphase_design_revision_delta,
+        nfree_miss_shape: kphase_nfree_miss_shape.get(),
+        nfree_miss_value: kphase_nfree_miss_value.get(),
+        nfree_miss_gradient: kphase_nfree_miss_gradient.get(),
+        nfree_miss_penalty: kphase_nfree_miss_penalty.get(),
+        nfree_miss_revision: kphase_nfree_miss_revision.get(),
+        nfree_miss_second_order: kphase_nfree_miss_second_order.get(),
+        nfree_miss_other: kphase_nfree_miss_other.get(),
         optim_total_s: kphase_total_s,
     };
     if !result.converged {
@@ -3789,6 +4050,7 @@ fn freeze_smooth_basis_from_metadata(
                 identifiability_transform,
                 input_scales: meta_scales,
                 aniso_log_scales: meta_aniso,
+                radial_reparam: meta_radial_reparam,
                 ..
             },
         ) => {
@@ -3814,6 +4076,7 @@ fn freeze_smooth_basis_from_metadata(
                     aniso_log_scales: meta_aniso.clone(),
                     operator_penalties: Default::default(),
                     boundary: OneDimensionalBoundary::Open,
+                    radial_reparam: meta_radial_reparam.clone(),
                 },
                 input_scales: meta_scales.clone(),
             };
@@ -3979,6 +4242,7 @@ fn freeze_smooth_basis_from_metadata(
                 identifiability_transform,
                 input_scales: meta_scales,
                 aniso_log_scales: meta_aniso,
+                radial_reparam,
                 ..
             },
         ) => {
@@ -4001,6 +4265,10 @@ fn freeze_smooth_basis_from_metadata(
             s.aniso_log_scales = meta_aniso.clone();
             s.periodic = meta_periodic.clone();
             *input_scales = meta_scales.clone();
+            // #1355: persist the frozen data-metric radial reparam so the
+            // predict-time / κ-trial rebuild replays the EXACT fit-time rotated
+            // radial basis (a fresh `V` from predict rows would differ).
+            s.radial_reparam = radial_reparam.clone();
         }
         (
             SmoothBasisSpec::Sphere { spec: s, .. },
@@ -4862,7 +5130,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
     }
 
     /// True when this realizer carries exactly ONE spatial smooth term whose
-    /// frozen basis geometry (`BasisMetadata::Duchon`/`ThinPlate`/`Matern`)
+    /// frozen basis geometry (`BasisMetadata::Duchon`/`ThinPlate`)
     /// admits an EXACT, n-free penalty rebuild at a new length-scale (#1033).
     /// The κ-loop fast path gates its design-realization skip on this: the skip
     /// leaves `reset_surface` un-run, so it is only sound when `S(ψ_new)` can be
@@ -4871,22 +5139,10 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
     /// the re-keyed penalty's block topology is IDENTICAL to the one the frozen
     /// design carries.
     ///
-    /// `Matern` is now ADMITTED (#1274). The earlier #1270 exclusion existed
-    /// because the n-free re-key rebuilt the projected-kernel double-penalty
-    /// (1–2 blocks), while the realized Matérn design carries the collocation
-    /// operator triplet (mass/tension/stiffness, gated by the Sobolev order
-    /// `m = ν + d/2`) installed by `matern_operator_penalty_triplet_from_metadata`
-    /// — a DIFFERENT block topology that the block-count guard correctly
-    /// rejected. The fix routes the re-key through the SAME canonical triplet
-    /// builder the realized design uses
-    /// (`matern_operator_penalty_triplet_at_length_scale`, see the
-    /// `BasisMetadata::Matern` branch in `canonical_penalties_at_psi`), so the
-    /// re-keyed `S(ψ)` is byte/topology-identical to the slow-path realized
-    /// penalty at every trial length-scale (the operator gate `m = ν + d/2` is
-    /// ℓ-independent, so the block count is ψ-stable by construction). With the
-    /// topologies matched the design-realization skip is sound for Matérn, so
-    /// the κ outer loop is n-free for it as well — instead of re-realizing the
-    /// O(n) design on every trial.
+    /// Matérn stays on the exact slow re-key path here. Its operator-triplet
+    /// n-free rebuild exists, but the current quality gate shows that enabling
+    /// the fast-path κ loop changes the selected fit enough to miss the mgcv
+    /// truth-recovery bar. Duchon/ThinPlate are the #1033 acceptance lane.
     fn supports_nfree_penalty_rekey(&self, spatial_terms: &[usize]) -> bool {
         if spatial_terms.len() != 1 {
             return false;
@@ -4894,11 +5150,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
         let term_idx = spatial_terms[0];
         matches!(
             self.design.smooth.terms.get(term_idx).map(|t| &t.metadata),
-            Some(
-                BasisMetadata::Duchon { .. }
-                    | BasisMetadata::ThinPlate { .. }
-                    | BasisMetadata::Matern { .. }
-            )
+            Some(BasisMetadata::Duchon { .. } | BasisMetadata::ThinPlate { .. })
         )
     }
 
@@ -4975,6 +5227,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 nullspace_order,
                 aniso_log_scales,
                 input_scales,
+                radial_reparam,
                 ..
             } => {
                 let operator_penalties = match &termspec.basis {
@@ -5001,6 +5254,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                     *power,
                     *nullspace_order,
                     aniso_log_scales.as_deref(),
+                    radial_reparam.as_ref(),
                     effective_ls,
                     &mut self.basisworkspace,
                 )
@@ -5127,10 +5381,9 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
         }
         let term_idx = spatial_terms[0];
         let (ls_opt, aniso_from_psi) = spatial_term_psi_to_length_scale_and_aniso(psi);
-        let termspec =
-            self.spec.smooth_terms.get(term_idx).ok_or_else(|| {
-                format!("spatial term {term_idx} out of range for n-free penalty derivative")
-            })?;
+        let termspec = self.spec.smooth_terms.get(term_idx).ok_or_else(|| {
+            format!("spatial term {term_idx} out of range for n-free penalty derivative")
+        })?;
         let term = self
             .design
             .smooth
@@ -5139,8 +5392,8 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             .ok_or_else(|| format!("realized smooth term {term_idx} out of range"))?;
         let p_total = self.design.design.ncols();
         let smooth_start = p_total.saturating_sub(self.design.smooth.total_smooth_cols());
-        let global_range = (smooth_start + term.coeff_range.start)
-            ..(smooth_start + term.coeff_range.end);
+        let global_range =
+            (smooth_start + term.coeff_range.start)..(smooth_start + term.coeff_range.end);
 
         let locals = match &term.metadata {
             BasisMetadata::Duchon {
@@ -5151,6 +5404,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 nullspace_order,
                 aniso_log_scales,
                 input_scales,
+                radial_reparam,
                 ..
             } => {
                 let mut spec = match &termspec.basis {
@@ -5172,6 +5426,9 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 spec.power = *power;
                 spec.nullspace_order = *nullspace_order;
                 spec.aniso_log_scales = aniso_log_scales.clone();
+                // #1355: replay the frozen data-metric reparam so the n-free
+                // penalty ψ-derivative matches the rotated forward penalty.
+                spec.radial_reparam = radial_reparam.clone();
                 if spec.length_scale.is_none() {
                     return Err(
                         "Duchon n-free penalty derivative requires a hybrid length-scale"
@@ -5182,7 +5439,15 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                     .as_ref()
                     .map(|points| points.view())
                     .unwrap_or_else(|| centers.view());
-                let (_sources, first, _second) =
+                let (_native_sources, mut first, _native_second) =
+                    crate::basis::build_duchon_native_penalty_psi_derivatives(
+                        centers.view(),
+                        &spec,
+                        identifiability_transform.as_ref(),
+                        &mut self.basisworkspace,
+                    )
+                    .map_err(|e| e.to_string())?;
+                let (_operator_sources, operator_first, _operator_second) =
                     crate::basis::build_duchon_operator_penalty_psi_derivatives(
                         collocation,
                         centers.view(),
@@ -5191,6 +5456,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                         &mut self.basisworkspace,
                     )
                     .map_err(|e| e.to_string())?;
+                first.extend(operator_first);
                 first
             }
             BasisMetadata::Matern {
@@ -5257,10 +5523,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                     )
                     .map_err(|e| e.to_string())?;
                 if self.design.penalties.len() > 1 {
-                    vec![
-                        primary.clone(),
-                        Array2::<f64>::zeros(primary.raw_dim()),
-                    ]
+                    vec![primary.clone(), Array2::<f64>::zeros(primary.raw_dim())]
                 } else {
                     vec![primary]
                 }
@@ -5998,6 +6261,75 @@ pub(crate) fn seed_risk_profile_for_likelihood_family(
 /// (classic Matérn κ/η fits) keeps cheap exact second-order geometry.
 const EXACT_JOINT_SECOND_ORDER_THETA_CAP: usize = 8;
 
+fn exact_joint_seed_config(
+    risk_profile: crate::seeding::SeedRiskProfile,
+    auxiliary_dim: usize,
+) -> crate::seeding::SeedConfig {
+    let mut config = crate::seeding::SeedConfig {
+        risk_profile,
+        num_auxiliary_trailing: auxiliary_dim,
+        ..Default::default()
+    };
+    match risk_profile {
+        crate::seeding::SeedRiskProfile::Gaussian => {
+            config.max_seeds = 4;
+            config.seed_budget = 2;
+        }
+        crate::seeding::SeedRiskProfile::GeneralizedLinear => {
+            // Bernoulli marginal-slope Matérn fits use the exact-joint spatial
+            // driver rather than the family-local BMS outer. Mirror BMS proper:
+            // screen one principled heuristic seed deeply enough to reach the
+            // KKT basin instead of spending minutes screening equivalent starts.
+            config.max_seeds = 1;
+            config.seed_budget = 1;
+            config.screen_max_inner_iterations = 8;
+        }
+        crate::seeding::SeedRiskProfile::Survival => {
+            // Survival marginal-slope has an additional time/hazard block and
+            // is the most sensitive Matérn startup regime. Keep more of the
+            // coherent SPDE candidate manifold alive through truncation and
+            // validate enough starts that one bad transient does not report
+            // "no candidate seeds" before reaching a viable basin.
+            config.max_seeds = 8;
+            config.seed_budget = 4;
+            config.screen_max_inner_iterations = 8;
+        }
+    }
+    config
+}
+
+#[cfg(test)]
+mod exact_joint_seed_config_tests {
+    use super::*;
+
+    #[test]
+    fn exact_joint_marginal_slope_profiles_get_deeper_startup_validation() {
+        let bms = exact_joint_seed_config(crate::seeding::SeedRiskProfile::GeneralizedLinear, 2);
+        assert_eq!(bms.max_seeds, 1);
+        assert_eq!(bms.seed_budget, 1);
+        assert_eq!(bms.screen_max_inner_iterations, 8);
+        assert_eq!(bms.num_auxiliary_trailing, 2);
+
+        let survival = exact_joint_seed_config(crate::seeding::SeedRiskProfile::Survival, 3);
+        assert_eq!(survival.max_seeds, 8);
+        assert_eq!(survival.seed_budget, 4);
+        assert_eq!(survival.screen_max_inner_iterations, 8);
+        assert_eq!(survival.num_auxiliary_trailing, 3);
+    }
+
+    #[test]
+    fn exact_joint_gaussian_keeps_tight_historical_multistart_budget() {
+        let gaussian = exact_joint_seed_config(crate::seeding::SeedRiskProfile::Gaussian, 1);
+        assert_eq!(gaussian.max_seeds, 4);
+        assert_eq!(gaussian.seed_budget, 2);
+        assert_eq!(
+            gaussian.screen_max_inner_iterations,
+            crate::seeding::SeedConfig::default().screen_max_inner_iterations
+        );
+        assert_eq!(gaussian.num_auxiliary_trailing, 1);
+    }
+}
+
 pub(crate) fn exact_joint_multistart_outer_problem(
     theta0: &Array1<f64>,
     lower: &Array1<f64>,
@@ -6071,13 +6403,7 @@ pub(crate) fn exact_joint_multistart_outer_problem(
         .with_initial_rho(theta0.clone())
         .with_bfgs_step_cap(bfgs_step_cap)
         .with_bfgs_step_cap_psi(bfgs_step_cap_psi)
-        .with_seed_config(crate::seeding::SeedConfig {
-            max_seeds: 4,
-            seed_budget: 2,
-            risk_profile,
-            num_auxiliary_trailing: auxiliary_dim,
-            ..Default::default()
-        })
+        .with_seed_config(exact_joint_seed_config(risk_profile, auxiliary_dim))
         .with_rho_bound(12.0)
         .with_heuristic_lambdas(seed_heuristic);
     if let Some((n_obs, p_cols)) = profiled_objective_size {
@@ -6338,11 +6664,11 @@ where
         n_total: usize,
         k_target: usize,
         seed: u64,
-    ) -> crate::solver::outer_subsample::OuterScoreSubsample {
-        use crate::solver::outer_subsample::OuterScoreSubsample;
+    ) -> crate::outer_subsample::OuterScoreSubsample {
+        use crate::outer_subsample::OuterScoreSubsample;
         let k = k_target.min(n_total);
         if k == 0 || n_total == 0 {
-            return OuterScoreSubsample::new(Vec::new(), n_total, seed);
+            return OuterScoreSubsample::from_uniform_inclusion_mask(Vec::new(), n_total, seed);
         }
         // Reservoir-free deterministic pick: linear congruential walk
         // over a shuffled index set; for the pilot, a fast Floyd-style
@@ -6363,7 +6689,7 @@ where
         }
         mask.sort_unstable();
         mask.dedup();
-        OuterScoreSubsample::new(mask, n_total, seed)
+        OuterScoreSubsample::from_uniform_inclusion_mask(mask, n_total, seed)
     }
 
     let current_row_set: std::cell::RefCell<crate::outer_subsample::RowSet> = if use_staged_kappa {
@@ -6466,81 +6792,6 @@ where
         cache.designs().into_iter().cloned().collect()
     }
 
-    // ── Discriminating outer-gradient FD audit (issue #1040) ──
-    //
-    // On a diagnostic-sized problem, run the single test that forks the two
-    // failure modes of a non-terminating outer loop: an objective↔gradient
-    // desync (analytic ≠ FD on some θ component → the trust region chases a
-    // phantom descent direction forever) vs weak identifiability (analytic ≈ FD
-    // but a near-zero outer-Hessian eigenvalue → a genuinely flat valley). This
-    // runs the real outer evaluator (`exact_fn`) at θ₀ and central-differences
-    // the criterion component-by-component, then reports the per-block analytic
-    // gradient norms, the analytic-vs-FD gaps, and the outer-Hessian spectrum.
-    //
-    // Gated strictly to small problems so it never taxes a production fit: the
-    // failing large-scale fits skip it entirely. Auto-derived from the realized
-    // (n, θ_dim) — no flag.
-    // FD-OK: FD-audit of the analytic outer gradient (small-problem gate, never feeds the optimizer)
-    const OUTER_FD_AUDIT_MAX_N: usize = 4_000; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
-    const OUTER_FD_AUDIT_MAX_THETA_DIM: usize = 32; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
-    let outer_fd_audit_eligible = analytic_joint_gradient_available // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
-        && n_total <= OUTER_FD_AUDIT_MAX_N // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
-        && theta_dim <= OUTER_FD_AUDIT_MAX_THETA_DIM; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
-    log::warn!(
-        "[OUTER-FD-AUDIT/spatial-exact-joint] gate eligible={outer_fd_audit_eligible} analytic_grad={analytic_joint_gradient_available} n_total={n_total} theta_dim={theta_dim} rho_dim={rho_dim} psi_dim={psi_dim}"
-    );
-    if outer_fd_audit_eligible {
-        // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
-        let audit = (|| -> Result<crate::solver::rho_optimizer::OuterGradientFdAudit, String> {
-            let mut eval_at = |theta: &Array1<f64>,
-                               mode: crate::solver::estimate::reml::reml_outer_engine::EvalMode|
-             -> Result<
-                (
-                    f64,
-                    Array1<f64>,
-                    crate::solver::rho_optimizer::HessianResult,
-                ),
-                String,
-            > {
-                state
-                    .cache
-                    .ensure_theta(theta)
-                    .map_err(|e| format!("fd-audit ensure_theta: {e}"))?;
-                let specs = collect_specs(&state.cache);
-                let designs = collect_designs(&state.cache);
-                let row_set_borrow = current_row_set.borrow();
-                (*exact_fn_cell.borrow_mut())(theta, &specs, &designs, mode, &row_set_borrow)
-            };
-            let rho_dim_audit = rho_dim;
-            let psi_dim_audit = psi_dim;
-            let aux_dim_audit = joint_setup.auxiliary_dim();
-            let label = move |i: usize| -> String {
-                if i < rho_dim_audit {
-                    format!("rho[{i}]")
-                } else if i < rho_dim_audit + (psi_dim_audit - aux_dim_audit) {
-                    format!("psi_kappa[{}]", i - rho_dim_audit)
-                } else {
-                    format!(
-                        "aux[{}]",
-                        i - rho_dim_audit - (psi_dim_audit - aux_dim_audit)
-                    )
-                }
-            };
-            crate::solver::rho_optimizer::outer_gradient_fd_audit(
-                // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
-                &theta0,
-                1e-4,
-                label,
-                &mut eval_at,
-            )
-        })();
-        // END-FD-OK
-        match audit {
-            Ok(audit) => audit.log_verdict("spatial-exact-joint"),
-            Err(e) => log::warn!("[OUTER-FD-AUDIT/spatial-exact-joint] skipped: {e}"),
-        }
-    }
-
     let result = {
         let eval_outer = |ctx: &mut &mut NBlockExactJointState<'_>,
                           theta: &Array1<f64>,
@@ -6556,10 +6807,20 @@ where
                     if !cost.is_finite() {
                         return Ok(OuterEval::infeasible(theta.len()));
                     }
+                    // Symmetric with the non-finite-cost guard above: a non-finite
+                    // gradient marks this θ as infeasible just as a non-finite cost
+                    // does (e.g. degenerate tied / zero-gap survival times drive the
+                    // analytic exact-joint gradient channel to NaN/Inf). Return the
+                    // bounded infeasible sentinel so the outer optimizer rejects the
+                    // step and shrinks its trust region — instead of hard-failing the
+                    // entire REML fit and handing the driver an unbroken stream of
+                    // objective failures whose recovery path deepens once per outer
+                    // step until the worker stack overflows (the survival
+                    // location-scale path is the one that routes through this analytic
+                    // gradient, which is why it crashed where the cost-only paths only
+                    // stall).
                     if grad.iter().any(|v| !v.is_finite()) {
-                        return Err(EstimationError::RemlOptimizationFailed(
-                            "n-block exact-joint gradient contained non-finite values".to_string(),
-                        ));
+                        return Ok(OuterEval::infeasible(theta.len()));
                     }
                     return Ok(OuterEval {
                         cost,
@@ -6617,10 +6878,20 @@ where
                     if !cost.is_finite() {
                         return Ok(OuterEval::infeasible(theta.len()));
                     }
+                    // Symmetric with the non-finite-cost guard above: a non-finite
+                    // gradient marks this θ as infeasible just as a non-finite cost
+                    // does (e.g. degenerate tied / zero-gap survival times drive the
+                    // analytic exact-joint gradient channel to NaN/Inf). Return the
+                    // bounded infeasible sentinel so the outer optimizer rejects the
+                    // step and shrinks its trust region — instead of hard-failing the
+                    // entire REML fit and handing the driver an unbroken stream of
+                    // objective failures whose recovery path deepens once per outer
+                    // step until the worker stack overflows (the survival
+                    // location-scale path is the one that routes through this analytic
+                    // gradient, which is why it crashed where the cost-only paths only
+                    // stall).
                     if grad.iter().any(|v| !v.is_finite()) {
-                        return Err(EstimationError::RemlOptimizationFailed(
-                            "n-block exact-joint gradient contained non-finite values".to_string(),
-                        ));
+                        return Ok(OuterEval::infeasible(theta.len()));
                     }
                     Ok(OuterEval {
                         cost,
@@ -6836,6 +7107,15 @@ where
         eval_total_s: kphase_eval_total_s.get(),
         efs_calls: kphase_efs_calls.get(),
         efs_total_s: kphase_efs_total_s.get(),
+        slow_path_resets: 0,
+        design_revision_delta: 0,
+        nfree_miss_shape: 0,
+        nfree_miss_value: 0,
+        nfree_miss_gradient: 0,
+        nfree_miss_penalty: 0,
+        nfree_miss_revision: 0,
+        nfree_miss_second_order: 0,
+        nfree_miss_other: 0,
         optim_total_s: kphase_total_s,
     };
 

@@ -184,10 +184,13 @@ pub(crate) fn fit_standard_model(
             &request.options,
         )
         .map_err(|e| e.to_string())?;
+        let resolvedspec =
+            crate::smooth::freeze_term_collection_from_design(&request.spec, &fitted.design)
+                .map_err(|e| e.to_string())?;
         crate::terms::smooth::FittedTermCollectionWithSpec {
             fit: fitted.fit,
             design: fitted.design,
-            resolvedspec: request.spec.clone(),
+            resolvedspec,
             adaptive_diagnostics: fitted.adaptive_diagnostics,
             kappa_timing: None,
         }
@@ -716,6 +719,7 @@ fn rescale_gaussian_location_scale_to_raw(
                 }
                 if let Some(state) = result.fit.fit.block_states.get_mut(block_idx) {
                     state.beta.mapv_inplace(|v| v * s);
+                    state.eta.mapv_inplace(|v| v * s);
                 }
             }
             BlockRole::Scale => {
@@ -732,6 +736,9 @@ fn rescale_gaussian_location_scale_to_raw(
                     {
                         state.beta[col] += ln_s;
                     }
+                }
+                if let Some(state) = result.fit.fit.block_states.get_mut(block_idx) {
+                    state.eta.mapv_inplace(|v| v + ln_s);
                 }
             }
             BlockRole::Time | BlockRole::Threshold => {
@@ -1935,7 +1942,7 @@ pub(crate) fn fit_survival_transformation_model(
             // plain quadratic `λ βᵀSβ`; a non-zero centering would need an offset
             // the survival PenaltyBlock does not model, so such blocks are left to
             // the ridge rather than mis-applied.
-            for cov_penalty in &covariate_design.penalties {
+            for (penalty_idx, cov_penalty) in covariate_design.penalties.iter().enumerate() {
                 let cr = &cov_penalty.col_range;
                 let block_dim = cr.end - cr.start;
                 let matches_dims = cov_penalty.local.nrows() == block_dim
@@ -1949,7 +1956,11 @@ pub(crate) fn fit_survival_transformation_model(
                         matrix: cov_penalty.local.clone(),
                         lambda: 1e-2,
                         range: (p_time_total + cr.start)..(p_time_total + cr.end),
-                        nullspace_dim: 0,
+                        nullspace_dim: covariate_design
+                            .nullspace_dims
+                            .get(penalty_idx)
+                            .copied()
+                            .unwrap_or(0),
                     });
                 }
             }
@@ -2764,7 +2775,7 @@ pub(crate) fn crossfit_score_calibration(
     data: &Dataset,
     col_map: &HashMap<String, usize>,
     recipe: Option<&CtnStage1Recipe>,
-    policy: &crate::solver::resource::ResourcePolicy,
+    policy: &crate::resource::ResourcePolicy,
 ) -> Result<Option<CrossFitScoreCalibration>, String> {
     let Some(recipe) = recipe else {
         return Ok(None);

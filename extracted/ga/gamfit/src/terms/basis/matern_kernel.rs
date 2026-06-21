@@ -60,6 +60,7 @@ pub fn build_thin_plate_basiswithworkspace(
             aniso_log_scales: None,
             operator_penalties: DuchonOperatorPenaltySpec::default(),
             boundary: OneDimensionalBoundary::Open,
+            radial_reparam: None,
         };
         log::info!(
             "thin-plate basis auto-promoted to hybrid Duchon ({:?}, s={}) in d={}: \
@@ -1623,7 +1624,7 @@ pub(crate) fn transform_closed_form_raw_block(
 }
 
 pub(crate) fn symmetrize(matrix: &Array2<f64>) -> Array2<f64> {
-    (matrix + &matrix.t().to_owned()) * 0.5
+    crate::matrix::symmetrize(matrix)
 }
 
 /// Centered design Gram: `(D − 1 μ')^T (D − 1 μ')` where `μ_j` is the
@@ -3003,9 +3004,11 @@ pub(crate) fn matern_rank_reduce_centers(
 ) -> Result<Array2<f64>, BasisError> {
     let k = centers.nrows();
     let n = data.nrows();
-    // Need at least as many rows as columns for a column rank to be meaningful;
-    // the kernel design is n × K, and a 0/1-center basis can never be deficient.
-    if k <= 1 || n < k {
+    // A 0/1-center basis can never be internally deficient.  Otherwise always
+    // inspect the realized n × K kernel block, including the low-n / K > n
+    // case: its column rank is at most n, and leaving all K centers in place
+    // simply defers the inevitable rank-deficiency to the fit audit.
+    if k <= 1 {
         return Ok(centers.clone());
     }
     let mut kernel_block = Array2::<f64>::zeros((n, k));

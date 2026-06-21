@@ -1132,8 +1132,21 @@ pub(crate) fn build_duchon_design_psi_derivativeswithworkspace(
     let s_order = spec.power_as_usize();
     let kappa = 1.0 / length_scale;
     let coeffs = duchon_partial_fraction_coeffs(p_order, s_order, kappa);
-    let z_kernel =
+    let mut z_kernel =
         kernel_constraint_nullspace(centers, effective_nullspace_order, &mut workspace.cache)?;
+    // #1355: fold the frozen data-metric reparam `Z' = Z·V` so the design
+    // ψ-derivatives assemble in the SAME rotated radial basis as the forward
+    // design and penalty (bit-consistent nonlinear/hybrid Duchon arm).
+    if let Some(v) = spec.radial_reparam.as_ref() {
+        if v.nrows() != z_kernel.ncols() {
+            crate::bail_dim_basis!(
+                "Duchon frozen radial reparam shape {:?} does not match constrained kernel dimension {}",
+                v.dim(),
+                z_kernel.ncols()
+            );
+        }
+        z_kernel = fast_ab(&z_kernel, v);
+    }
     let poly_cols = polynomial_block_from_order(data, effective_nullspace_order).ncols();
     let p_padded = z_kernel.ncols() + poly_cols;
     if let Some(zf) = identifiability_transform
@@ -1437,6 +1450,7 @@ pub(crate) fn build_duchon_basis_designwithworkspace(
     power: f64,
     nullspace_order: DuchonNullspaceOrder,
     aniso_log_scales: Option<&[f64]>,
+    radial_reparam: Option<&Array2<f64>>,
     workspace: &mut BasisWorkspace,
 ) -> Result<DuchonBasisDesign, BasisError> {
     let n = data.nrows();
@@ -1477,11 +1491,57 @@ pub(crate) fn build_duchon_basis_designwithworkspace(
     };
     validate_duchon_kernel_orders(length_scale, p_order, validation_power, d)?;
 
-    let poly_block = polynomial_block_from_order(data, nullspace_order);
+    // Translation-invariant polynomial frame (#1375, mirroring the #1269 tp fix).
+    // The Duchon kernel reads only coordinate *differences* `data − centers`, so
+    // the `K·Z` block is already invariant to a covariate translation `x → x + b`.
+    // The polynomial null-space block `P = {1, x, x², …}` (appended as explicit
+    // unpenalized design columns) and the side-condition `P(centers)ᵀα = 0` that
+    // defines `Z`, however, are assembled at the *absolute* coordinate. With a
+    // large covariate mean the `{1, x}` columns become near-collinear, the design
+    // ill-conditions, and REML λ-selection lands in a slightly different basin —
+    // moving the fit even though `{1, x − x̄}` spans the same model space. Subtract
+    // the CENTER-CLOUD per-axis mean from both `data` and `centers` before every
+    // polynomial / side-condition assembly so the polynomial frame is
+    // location-standardized. The mean is a fixed property of the frozen
+    // (`UserProvided`) centers — recomputed identically at predict — and under
+    // `x → x + b` the centers (selected from the data) shift by the same `b`, so
+    // the centred coordinate, hence the whole basis, is invariant.
+    let center_mean: Vec<f64> = (0..d)
+        .map(|c| centers.column(c).sum() / (k.max(1) as f64))
+        .collect();
+    let mut data_centered = data.to_owned();
+    for c in 0..d {
+        let mu = center_mean[c];
+        data_centered.column_mut(c).mapv_inplace(|v| v - mu);
+    }
+
+    let poly_block = polynomial_block_from_order(data_centered.view(), nullspace_order);
     // Z spans null(Q^T), where Q contains polynomial side conditions at centers.
     // Reparameterizing alpha = Z gamma enforces conditional-PD constraints once
     // and yields free-parameter penalty gamma^T (Z^T K_CC Z) gamma.
-    let z = kernel_constraint_nullspace(centers, nullspace_order, &mut workspace.cache)?;
+    // `kernel_constraint_nullspace` centers `centers` by the same center-cloud
+    // mean internally (#1375), so the side-condition factorisation matches the
+    // centered polynomial design columns above and is translation-stable; this is
+    // the SAME `Z` the penalty path assembles, keeping design and penalty
+    // consistent.
+    let z_raw = kernel_constraint_nullspace(centers, nullspace_order, &mut workspace.cache)?;
+    // #1355: fold the frozen data-metric radial reparameterization `V` into the
+    // constrained kernel transform (`Z' = Z·V`) so the realized design columns
+    // `K·Z·V` rotate into the `G_c`-orthonormal generalized eigenbasis. Applied
+    // here identically to the penalty assembly keeps design and penalty
+    // bit-consistent at fit, predict, and κ-trial time.
+    let z = if let Some(v) = radial_reparam {
+        if v.nrows() != z_raw.ncols() {
+            crate::bail_dim_basis!(
+                "Duchon radial reparam shape {:?} does not match constrained kernel dimension {}",
+                v.dim(),
+                z_raw.ncols()
+            );
+        }
+        fast_ab(&z_raw, v)
+    } else {
+        z_raw
+    };
 
     let coeffs = length_scale.map(|ls| {
         duchon_partial_fraction_coeffs(
@@ -1765,11 +1825,17 @@ pub(crate) fn build_cyclic_duchon_basis_1dwithworkspace(
     } else {
         s_kernel
     };
+    // Frobenius-normalize the cyclic roughness penalty so its smoothing
+    // parameter shares the unit-Frobenius scale of every other basis (cr /
+    // duchon / tensor / open-and-cyclic ps, #1365); a raw operator (scale 1.0)
+    // would put `λ` on a basis-dependent scale and miscalibrate the outer
+    // λ-search. Fit-invariant at the REML optimum (only `λ̂` rescales by `c`).
+    let (s_final_norm, s_final_scale) = normalize_penalty(&s_final);
     let candidates = vec![PenaltyCandidate {
-        matrix: s_final,
+        matrix: s_final_norm,
         nullspace_dim_hint: 1,
         source: PenaltySource::Primary,
-        normalization_scale: 1.0,
+        normalization_scale: s_final_scale,
         kronecker_factors: None,
         op: None,
     }];
@@ -1790,6 +1856,7 @@ pub(crate) fn build_cyclic_duchon_basis_1dwithworkspace(
             input_scales: None,
             aniso_log_scales: None,
             operator_collocation_points: None,
+            radial_reparam: None,
         },
         kronecker_factored: None,
         ops,

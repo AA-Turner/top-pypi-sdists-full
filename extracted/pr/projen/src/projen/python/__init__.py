@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -17,35 +19,32 @@ from jsii._type_checking import check_type
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    Component as _Component_2b0ad27f,
-    Dependency as _Dependency_f510e013,
-    FileBase as _FileBase_aff596dc,
-    GitOptions as _GitOptions_a65916a3,
-    IResolver as _IResolver_0b7d1958,
-    IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
-    LoggerOptions as _LoggerOptions_eb0f6309,
-    Project as _Project_57d89203,
-    ProjenrcFile as _ProjenrcFile_50432c7e,
-    ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
-    RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
-    SampleReadmeProps as _SampleReadmeProps_3518b03b,
-    Task as _Task_9fa875b6,
-    TomlFile as _TomlFile_dab3b22f,
-)
-from ..github import (
-    AutoApproveOptions as _AutoApproveOptions_dac86cbe,
-    AutoMergeOptions as _AutoMergeOptions_d112cd3c,
-    GitHubOptions as _GitHubOptions_21553699,
-    GitHubProject as _GitHubProject_c48bc7ea,
-    GitHubProjectOptions as _GitHubProjectOptions_547f2d08,
-    GithubCredentials as _GithubCredentials_ae257072,
-    StaleOptions as _StaleOptions_929db764,
-)
-from ..javascript import ProjenrcOptions as _ProjenrcOptions_179dd39f
-from ..typescript import ProjenrcTsOptions as _ProjenrcTsOptions_e3a2602d
-from .uv_config import UvConfiguration as _UvConfiguration_126496a9
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import constructs as _constructs_77d1e7e8
+    import projen as _projen_04054675
+    import projen.github as _github_c49f935d
+    import projen.javascript as _javascript_eb5dbe11
+    import projen.python.uv_config as _uv_config_6a231145
+    import projen.typescript as _typescript_7a66cf84
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _github_c49f935d = _LazyImport("projen.github")
+    _javascript_eb5dbe11 = _LazyImport("projen.javascript")
+    _projen_04054675 = _LazyImport("projen")
+    _typescript_7a66cf84 = _LazyImport("projen.typescript")
+    _uv_config_6a231145 = _LazyImport("projen.python.uv_config")
 
 
 @jsii.data_type(
@@ -140,7 +139,7 @@ class IPackageProvider(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="packages")
-    def packages(self) -> typing.List["_Dependency_f510e013"]:
+    def packages(self) -> typing.List["_projen_04054675.Dependency"]:
         '''(experimental) An array of packages (may be dynamically generated).
 
         :stability: experimental
@@ -157,12 +156,12 @@ class _IPackageProviderProxy:
 
     @builtins.property
     @jsii.member(jsii_name="packages")
-    def packages(self) -> typing.List["_Dependency_f510e013"]:
+    def packages(self) -> typing.List["_projen_04054675.Dependency"]:
         '''(experimental) An array of packages (may be dynamically generated).
 
         :stability: experimental
         '''
-        return typing.cast(typing.List["_Dependency_f510e013"], jsii.get(self, "packages"))
+        return typing.cast(typing.List["_projen_04054675.Dependency"], jsii.get(self, "packages"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPackageProvider).__jsii_proxy_class__ = lambda : _IPackageProviderProxy
@@ -176,7 +175,7 @@ class IPythonDeps(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> "_Task_9fa875b6":
+    def install_ci_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that installs and updates dependencies.
 
         :stability: experimental
@@ -221,12 +220,12 @@ class _IPythonDepsProxy:
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> "_Task_9fa875b6":
+    def install_ci_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that installs and updates dependencies.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "installCiTask"))
 
     @jsii.member(jsii_name="addDependency")
     def add_dependency(self, spec: builtins.str) -> None:
@@ -308,7 +307,7 @@ class IPythonPackaging(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> "_Task_9fa875b6":
+    def publish_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that uploads the package to a package repository.
 
         :stability: experimental
@@ -325,25 +324,29 @@ class _IPythonPackagingProxy:
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> "_Task_9fa875b6":
+    def publish_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that uploads the package to a package repository.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "publishTask"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPythonPackaging).__jsii_proxy_class__ = lambda : _IPythonPackagingProxy
 
 
 @jsii.implements(IPythonDeps)
-class Pip(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.python.Pip"):
+class Pip(
+    _projen_04054675.Component,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.python.Pip",
+):
     '''(experimental) Manages dependencies using a requirements.txt file and the pip CLI tool.
 
     :stability: experimental
     '''
 
-    def __init__(self, project: "_Project_57d89203") -> None:
+    def __init__(self, project: "_projen_04054675.Project") -> None:
         '''
         :param project: -
 
@@ -392,12 +395,12 @@ class Pip(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.python
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> "_Task_9fa875b6":
+    def install_ci_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that installs and updates dependencies.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "installCiTask"))
 
 
 @jsii.data_type(
@@ -427,7 +430,7 @@ class PipOptions:
 
 @jsii.implements(IPythonDeps, IPythonEnv, IPythonPackaging)
 class Poetry(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.Poetry",
 ):
@@ -438,7 +441,7 @@ class Poetry(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -534,43 +537,43 @@ class Poetry(
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> "_Task_9fa875b6":
+    def install_ci_task(self) -> "_projen_04054675.Task":
         '''(experimental) Task for installing dependencies according to the existing lockfile.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "installCiTask"))
 
     @builtins.property
     @jsii.member(jsii_name="installTask")
-    def install_task(self) -> "_Task_9fa875b6":
+    def install_task(self) -> "_projen_04054675.Task":
         '''(experimental) Task for updating the lockfile and installing project dependencies.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "installTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "installTask"))
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> "_Task_9fa875b6":
+    def publish_task(self) -> "_projen_04054675.Task":
         '''(experimental) Task for publishing the package to a package repository.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "publishTask"))
 
     @builtins.property
     @jsii.member(jsii_name="publishTestTask")
-    def publish_test_task(self) -> "_Task_9fa875b6":
+    def publish_test_task(self) -> "_projen_04054675.Task":
         '''(experimental) Task for publishing the package to the Test PyPI repository for testing purposes.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTestTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "publishTestTask"))
 
 
 class PoetryPyproject(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.PoetryPyproject",
 ):
@@ -1109,7 +1112,7 @@ class ProjectAuthor:
 
 
 class Projenrc(
-    _ProjenrcFile_50432c7e,
+    _projen_04054675.ProjenrcFile,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.Projenrc",
 ):
@@ -1123,7 +1126,7 @@ class Projenrc(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         filename: typing.Optional[builtins.str] = None,
         projen_version: typing.Optional[builtins.str] = None,
@@ -1403,7 +1406,7 @@ class PyprojectTomlDependencyGroups:
 
 
 class PyprojectTomlFile(
-    _TomlFile_dab3b22f,
+    _projen_04054675.TomlFile,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.PyprojectTomlFile",
 ):
@@ -1446,7 +1449,7 @@ class PyprojectTomlFile(
     @jsii.member(jsii_name="synthesizeContent")
     def _synthesize_content(
         self,
-        resolver: "_IResolver_0b7d1958",
+        resolver: "_projen_04054675.IResolver",
     ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
@@ -2297,7 +2300,7 @@ class PyprojectTomlTool:
 
 
 class Pytest(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.Pytest",
 ):
@@ -2307,7 +2310,7 @@ class Pytest(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         max_failures: typing.Optional[jsii.Number] = None,
         test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2431,7 +2434,7 @@ class PytestOptions:
 
 
 class PytestSample(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.PytestSample",
 ):
@@ -2442,7 +2445,7 @@ class PytestSample(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         module_name: builtins.str,
         testdir: builtins.str,
@@ -2770,7 +2773,7 @@ class PythonPackagingOptions:
 
 
 class PythonProject(
-    _GitHubProject_c48bc7ea,
+    _github_c49f935d.GitHubProject,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.PythonProject",
 ):
@@ -2789,11 +2792,11 @@ class PythonProject(
         pip: typing.Optional[builtins.bool] = None,
         poetry: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_javascript_eb5dbe11.ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_python: typing.Optional[builtins.bool] = None,
         projenrc_python_options: typing.Optional[typing.Union["ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcTsOptions_e3a2602d", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_typescript_7a66cf84.ProjenrcTsOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pytest: typing.Optional[builtins.bool] = None,
         pytest_options: typing.Optional[typing.Union["PytestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         sample: typing.Optional[builtins.bool] = None,
@@ -2802,18 +2805,18 @@ class PythonProject(
         uv: typing.Optional[builtins.bool] = None,
         venv: typing.Optional[builtins.bool] = None,
         venv_options: typing.Optional[typing.Union["VenvOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_github_c49f935d.GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_github_c49f935d.GithubCredentials"] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_github_c49f935d.StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -2829,17 +2832,17 @@ class PythonProject(
         python_exec: typing.Optional[builtins.str] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param module_name: (experimental) Name of the python package as used in imports and filenames. Must only consist of alphanumeric characters and underscores. Default: $PYTHON_MODULE_NAME
@@ -3078,7 +3081,9 @@ class PythonProject(
 @jsii.data_type(
     jsii_type="projen.python.PythonProjectOptions",
     jsii_struct_bases=[
-        _GitHubProjectOptions_547f2d08, PythonPackagingOptions, PythonExecutableOptions
+        _github_c49f935d.GitHubProjectOptions,
+        PythonPackagingOptions,
+        PythonExecutableOptions,
     ],
     name_mapping={
         "name": "name",
@@ -3141,7 +3146,7 @@ class PythonProject(
     },
 )
 class PythonProjectOptions(
-    _GitHubProjectOptions_547f2d08,
+    _github_c49f935d.GitHubProjectOptions,
     PythonPackagingOptions,
     PythonExecutableOptions,
 ):
@@ -3150,29 +3155,29 @@ class PythonProjectOptions(
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_github_c49f935d.GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_github_c49f935d.GithubCredentials"] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_github_c49f935d.StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -3192,11 +3197,11 @@ class PythonProjectOptions(
         pip: typing.Optional[builtins.bool] = None,
         poetry: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_javascript_eb5dbe11.ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_python: typing.Optional[builtins.bool] = None,
         projenrc_python_options: typing.Optional[typing.Union["ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcTsOptions_e3a2602d", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_typescript_7a66cf84.ProjenrcTsOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pytest: typing.Optional[builtins.bool] = None,
         pytest_options: typing.Optional[typing.Union["PytestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         sample: typing.Optional[builtins.bool] = None,
@@ -3269,35 +3274,35 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         if isinstance(git_ignore_options, dict):
-            git_ignore_options = _IgnoreFileOptions_86c48b91(**git_ignore_options)
+            git_ignore_options = _projen_04054675.IgnoreFileOptions(**git_ignore_options)
         if isinstance(git_options, dict):
-            git_options = _GitOptions_a65916a3(**git_options)
+            git_options = _projen_04054675.GitOptions(**git_options)
         if isinstance(logging, dict):
-            logging = _LoggerOptions_eb0f6309(**logging)
+            logging = _projen_04054675.LoggerOptions(**logging)
         if isinstance(projenrc_json_options, dict):
-            projenrc_json_options = _ProjenrcJsonOptions_9c40dd4f(**projenrc_json_options)
+            projenrc_json_options = _projen_04054675.ProjenrcJsonOptions(**projenrc_json_options)
         if isinstance(renovatebot_options, dict):
-            renovatebot_options = _RenovatebotOptions_18e6b8a1(**renovatebot_options)
+            renovatebot_options = _projen_04054675.RenovatebotOptions(**renovatebot_options)
         if isinstance(auto_approve_options, dict):
-            auto_approve_options = _AutoApproveOptions_dac86cbe(**auto_approve_options)
+            auto_approve_options = _github_c49f935d.AutoApproveOptions(**auto_approve_options)
         if isinstance(auto_merge_options, dict):
-            auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
+            auto_merge_options = _github_c49f935d.AutoMergeOptions(**auto_merge_options)
         if isinstance(github_options, dict):
-            github_options = _GitHubOptions_21553699(**github_options)
+            github_options = _github_c49f935d.GitHubOptions(**github_options)
         if isinstance(readme, dict):
-            readme = _SampleReadmeProps_3518b03b(**readme)
+            readme = _projen_04054675.SampleReadmeProps(**readme)
         if isinstance(stale_options, dict):
-            stale_options = _StaleOptions_929db764(**stale_options)
+            stale_options = _github_c49f935d.StaleOptions(**stale_options)
         if isinstance(poetry_options, dict):
             poetry_options = PoetryPyprojectOptionsWithoutDeps(**poetry_options)
         if isinstance(uv_options, dict):
             uv_options = UvOptions(**uv_options)
         if isinstance(projenrc_js_options, dict):
-            projenrc_js_options = _ProjenrcOptions_179dd39f(**projenrc_js_options)
+            projenrc_js_options = _javascript_eb5dbe11.ProjenrcOptions(**projenrc_js_options)
         if isinstance(projenrc_python_options, dict):
             projenrc_python_options = ProjenrcOptions(**projenrc_python_options)
         if isinstance(projenrc_ts_options, dict):
-            projenrc_ts_options = _ProjenrcTsOptions_e3a2602d(**projenrc_ts_options)
+            projenrc_ts_options = _typescript_7a66cf84.ProjenrcTsOptions(**projenrc_ts_options)
         if isinstance(pytest_options, dict):
             pytest_options = PytestOptions(**pytest_options)
         if isinstance(venv_options, dict):
@@ -3498,25 +3503,27 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
+    def git_ignore_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.IgnoreFileOptions"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFileOptions"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
+    def git_options(self) -> typing.Optional["_projen_04054675.GitOptions"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GitOptions"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
+    def logging(self) -> typing.Optional["_projen_04054675.LoggerOptions"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -3524,7 +3531,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
+        return typing.cast(typing.Optional["_projen_04054675.LoggerOptions"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -3544,13 +3551,13 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional["_Project_57d89203"]:
+    def parent(self) -> typing.Optional["_projen_04054675.Project"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional["_Project_57d89203"], result)
+        return typing.cast(typing.Optional["_projen_04054675.Project"], result)
 
     @builtins.property
     def project_tree(self) -> typing.Optional[builtins.bool]:
@@ -3588,7 +3595,9 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
+    def projenrc_json_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.ProjenrcJsonOptions"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -3596,7 +3605,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
+        return typing.cast(typing.Optional["_projen_04054675.ProjenrcJsonOptions"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -3610,7 +3619,9 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
+    def renovatebot_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.RenovatebotOptions"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -3618,10 +3629,12 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.RenovatebotOptions"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
+    def auto_approve_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.AutoApproveOptions"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -3629,7 +3642,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.AutoApproveOptions"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -3646,7 +3659,9 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
+    def auto_merge_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.AutoMergeOptions"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -3657,7 +3672,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.AutoMergeOptions"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -3695,7 +3710,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
+    def github_options(self) -> typing.Optional["_github_c49f935d.GitHubOptions"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -3703,7 +3718,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GitHubOptions"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -3717,7 +3732,9 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
+    def projen_credentials(
+        self,
+    ) -> typing.Optional["_github_c49f935d.GithubCredentials"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -3725,10 +3742,10 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GithubCredentials"], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
+    def readme(self) -> typing.Optional["_projen_04054675.SampleReadmeProps"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -3740,7 +3757,7 @@ class PythonProjectOptions(
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
+        return typing.cast(typing.Optional["_projen_04054675.SampleReadmeProps"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -3756,7 +3773,7 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
+    def stale_options(self) -> typing.Optional["_github_c49f935d.StaleOptions"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -3766,7 +3783,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.StaleOptions"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -3991,7 +4008,9 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_js_options(self) -> typing.Optional["_ProjenrcOptions_179dd39f"]:
+    def projenrc_js_options(
+        self,
+    ) -> typing.Optional["_javascript_eb5dbe11.ProjenrcOptions"]:
         '''(experimental) Options related to projenrc in JavaScript.
 
         :default: - default options
@@ -3999,7 +4018,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_js_options")
-        return typing.cast(typing.Optional["_ProjenrcOptions_179dd39f"], result)
+        return typing.cast(typing.Optional["_javascript_eb5dbe11.ProjenrcOptions"], result)
 
     @builtins.property
     def projenrc_python(self) -> typing.Optional[builtins.bool]:
@@ -4041,7 +4060,9 @@ class PythonProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_ts_options(self) -> typing.Optional["_ProjenrcTsOptions_e3a2602d"]:
+    def projenrc_ts_options(
+        self,
+    ) -> typing.Optional["_typescript_7a66cf84.ProjenrcTsOptions"]:
         '''(experimental) Options related to projenrc in TypeScript.
 
         :default: - default options
@@ -4049,7 +4070,7 @@ class PythonProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_ts_options")
-        return typing.cast(typing.Optional["_ProjenrcTsOptions_e3a2602d"], result)
+        return typing.cast(typing.Optional["_typescript_7a66cf84.ProjenrcTsOptions"], result)
 
     @builtins.property
     def pytest(self) -> typing.Optional[builtins.bool]:
@@ -4158,7 +4179,7 @@ class PythonProjectOptions(
 
 
 class PythonSample(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.PythonSample",
 ):
@@ -4167,7 +4188,12 @@ class PythonSample(
     :stability: experimental
     '''
 
-    def __init__(self, project: "_Project_57d89203", *, dir: builtins.str) -> None:
+    def __init__(
+        self,
+        project: "_projen_04054675.Project",
+        *,
+        dir: builtins.str,
+    ) -> None:
         '''
         :param project: -
         :param dir: (experimental) Sample code directory.
@@ -4225,7 +4251,7 @@ class PythonSampleOptions:
 
 
 class RequirementsFile(
-    _FileBase_aff596dc,
+    _projen_04054675.FileBase,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.RequirementsFile",
 ):
@@ -4237,7 +4263,7 @@ class RequirementsFile(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         file_path: builtins.str,
         *,
         package_provider: typing.Optional["IPackageProvider"] = None,
@@ -4275,7 +4301,7 @@ class RequirementsFile(
     @jsii.member(jsii_name="synthesizeContent")
     def _synthesize_content(
         self,
-        resolver: "_IResolver_0b7d1958",
+        resolver: "_projen_04054675.IResolver",
     ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
@@ -4334,7 +4360,7 @@ class RequirementsFileOptions:
 
 
 class SetupPy(
-    _FileBase_aff596dc,
+    _projen_04054675.FileBase,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.SetupPy",
 ):
@@ -4345,7 +4371,7 @@ class SetupPy(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         additional_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -4394,7 +4420,7 @@ class SetupPy(
     @jsii.member(jsii_name="synthesizeContent")
     def _synthesize_content(
         self,
-        resolver: "_IResolver_0b7d1958",
+        resolver: "_projen_04054675.IResolver",
     ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
@@ -4596,7 +4622,7 @@ class SetupPyOptions:
 
 @jsii.implements(IPythonPackaging)
 class Setuptools(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.Setuptools",
 ):
@@ -4607,7 +4633,7 @@ class Setuptools(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -4661,21 +4687,21 @@ class Setuptools(
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> "_Task_9fa875b6":
+    def publish_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that uploads the package to a package repository.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "publishTask"))
 
     @builtins.property
     @jsii.member(jsii_name="publishTestTask")
-    def publish_test_task(self) -> "_Task_9fa875b6":
+    def publish_test_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that uploads the package to the Test PyPI repository.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTestTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "publishTestTask"))
 
 
 @jsii.data_type(
@@ -4906,7 +4932,11 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
 
 
 @jsii.implements(IPythonDeps, IPythonEnv, IPythonPackaging)
-class Uv(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.python.Uv"):
+class Uv(
+    _projen_04054675.Component,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.python.Uv",
+):
     '''(experimental) Manage project dependencies, virtual environments, and packaging through uv.
 
     :stability: experimental
@@ -4918,7 +4948,7 @@ class Uv(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.python.
         *,
         build_system: typing.Optional[typing.Union["BuildSystem", typing.Dict[builtins.str, typing.Any]]] = None,
         project: typing.Optional[typing.Union["PyprojectTomlProject", typing.Dict[builtins.str, typing.Any]]] = None,
-        uv: typing.Optional[typing.Union["_UvConfiguration_126496a9", typing.Dict[builtins.str, typing.Any]]] = None,
+        uv: typing.Optional[typing.Union["_uv_config_6a231145.UvConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -4992,37 +5022,37 @@ class Uv(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.python.
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> "_Task_9fa875b6":
+    def install_ci_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that installs and updates dependencies.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "installCiTask"))
 
     @builtins.property
     @jsii.member(jsii_name="installTask")
-    def install_task(self) -> "_Task_9fa875b6":
+    def install_task(self) -> "_projen_04054675.Task":
         '''
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "installTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "installTask"))
 
     @builtins.property
     @jsii.member(jsii_name="publishTask")
-    def publish_task(self) -> "_Task_9fa875b6":
+    def publish_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task that uploads the package to a package repository.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "publishTask"))
 
     @builtins.property
     @jsii.member(jsii_name="publishTestTask")
-    def publish_test_task(self) -> "_Task_9fa875b6":
+    def publish_test_task(self) -> "_projen_04054675.Task":
         '''
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "publishTestTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "publishTestTask"))
 
 
 @jsii.data_type(
@@ -5042,7 +5072,7 @@ class UvOptions(PythonExecutableOptions):
         python_exec: typing.Optional[builtins.str] = None,
         build_system: typing.Optional[typing.Union["BuildSystem", typing.Dict[builtins.str, typing.Any]]] = None,
         project: typing.Optional[typing.Union["PyprojectTomlProject", typing.Dict[builtins.str, typing.Any]]] = None,
-        uv: typing.Optional[typing.Union["_UvConfiguration_126496a9", typing.Dict[builtins.str, typing.Any]]] = None,
+        uv: typing.Optional[typing.Union["_uv_config_6a231145.UvConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for UV project.
 
@@ -5058,7 +5088,7 @@ class UvOptions(PythonExecutableOptions):
         if isinstance(project, dict):
             project = PyprojectTomlProject(**project)
         if isinstance(uv, dict):
-            uv = _UvConfiguration_126496a9(**uv)
+            uv = _uv_config_6a231145.UvConfiguration(**uv)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7160d30dca474dc5d88b1ee88cb680c95003b72e43b0c36e6476ea71df3e39bc)
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
@@ -5107,13 +5137,13 @@ class UvOptions(PythonExecutableOptions):
         return typing.cast(typing.Optional["PyprojectTomlProject"], result)
 
     @builtins.property
-    def uv(self) -> typing.Optional["_UvConfiguration_126496a9"]:
+    def uv(self) -> typing.Optional["_uv_config_6a231145.UvConfiguration"]:
         '''(experimental) The configuration and metadata for uv.
 
         :stability: experimental
         '''
         result = self._values.get("uv")
-        return typing.cast(typing.Optional["_UvConfiguration_126496a9"], result)
+        return typing.cast(typing.Optional["_uv_config_6a231145.UvConfiguration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5129,7 +5159,7 @@ class UvOptions(PythonExecutableOptions):
 
 @jsii.implements(IPythonEnv)
 class Venv(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.python.Venv",
 ):
@@ -5140,7 +5170,7 @@ class Venv(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         envdir: typing.Optional[builtins.str] = None,
         python_exec: typing.Optional[builtins.str] = None,
@@ -5965,7 +5995,7 @@ def _typecheckingstub__18f78139d5d8654e761211f750e1484c6d50446550d577751bc8cc05f
     pass
 
 def _typecheckingstub__55771f94c59d078712217b1e5458179674981bf7ae2fbbec3e2aea1eb4fbde8d(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5983,7 +6013,7 @@ def _typecheckingstub__07f54078c02a927b611cbaccc8f11852eba16fed33a71f89e09ad7205
     pass
 
 def _typecheckingstub__5f89c074241aa542e5f366ea84bd8e5e2e9da8150d15e44f4ae6c715237a7ab5(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     author_email: builtins.str,
     author_name: builtins.str,
@@ -6079,7 +6109,7 @@ def _typecheckingstub__c75ee0fa1f03d64ef2f4f70177834504f849664100250bdf991680eba
     pass
 
 def _typecheckingstub__dd796c2ffac4ce790fd379f22162cb352a7e6e5fcca10c21249e16c756967555(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     filename: typing.Optional[builtins.str] = None,
     projen_version: typing.Optional[builtins.str] = None,
@@ -6126,7 +6156,7 @@ def _typecheckingstub__d9e7cb471169a85cb7809c67deb7b7e20dde1ce20a6a49f8357e0726c
     pass
 
 def _typecheckingstub__8c653bb340110f30f664421242162e21f98489f495f8991c5180052f98429065(
-    resolver: _IResolver_0b7d1958,
+    resolver: _projen_04054675.IResolver,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6184,7 +6214,7 @@ def _typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108c
     pass
 
 def _typecheckingstub__ce0d8c554f8b4609921caa32636cdf3f53ff29d779d94c8c46d6322903608390(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     max_failures: typing.Optional[jsii.Number] = None,
     test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6203,7 +6233,7 @@ def _typecheckingstub__4be1ab17806d0a3326c1d1b9ba1180daed1458dcbff7d77f34e7381dd
     pass
 
 def _typecheckingstub__4f906cb8312da613b5dac7c5b6dd5f8891604f7db731a9229768f798e6394360(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     module_name: builtins.str,
     testdir: builtins.str,
@@ -6265,29 +6295,29 @@ def _typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe
     *,
     name: builtins.str,
     commit_generated: typing.Optional[builtins.bool] = None,
-    git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-    git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-    logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_ignore_options: typing.Optional[typing.Union[_projen_04054675.IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_options: typing.Optional[typing.Union[_projen_04054675.GitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[typing.Union[_projen_04054675.LoggerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
-    parent: typing.Optional[_Project_57d89203] = None,
+    parent: typing.Optional[_projen_04054675.Project] = None,
     project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
-    projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+    projenrc_json_options: typing.Optional[typing.Union[_projen_04054675.ProjenrcJsonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     renovatebot: typing.Optional[builtins.bool] = None,
-    renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-    auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+    renovatebot_options: typing.Optional[typing.Union[_projen_04054675.RenovatebotOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    auto_approve_options: typing.Optional[typing.Union[_github_c49f935d.AutoApproveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_merge: typing.Optional[builtins.bool] = None,
-    auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+    auto_merge_options: typing.Optional[typing.Union[_github_c49f935d.AutoMergeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     clobber: typing.Optional[builtins.bool] = None,
     dev_container: typing.Optional[builtins.bool] = None,
     github: typing.Optional[builtins.bool] = None,
-    github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+    github_options: typing.Optional[typing.Union[_github_c49f935d.GitHubOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+    projen_credentials: typing.Optional[_github_c49f935d.GithubCredentials] = None,
+    readme: typing.Optional[typing.Union[_projen_04054675.SampleReadmeProps, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
-    stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+    stale_options: typing.Optional[typing.Union[_github_c49f935d.StaleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     vscode: typing.Optional[builtins.bool] = None,
     author_email: builtins.str,
     author_name: builtins.str,
@@ -6307,11 +6337,11 @@ def _typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe
     pip: typing.Optional[builtins.bool] = None,
     poetry: typing.Optional[builtins.bool] = None,
     projenrc_js: typing.Optional[builtins.bool] = None,
-    projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+    projenrc_js_options: typing.Optional[typing.Union[_javascript_eb5dbe11.ProjenrcOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     projenrc_python: typing.Optional[builtins.bool] = None,
     projenrc_python_options: typing.Optional[typing.Union[ProjenrcOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     projenrc_ts: typing.Optional[builtins.bool] = None,
-    projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcTsOptions_e3a2602d, typing.Dict[builtins.str, typing.Any]]] = None,
+    projenrc_ts_options: typing.Optional[typing.Union[_typescript_7a66cf84.ProjenrcTsOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     pytest: typing.Optional[builtins.bool] = None,
     pytest_options: typing.Optional[typing.Union[PytestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     sample: typing.Optional[builtins.bool] = None,
@@ -6325,7 +6355,7 @@ def _typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe
     pass
 
 def _typecheckingstub__c3bcdd275f2ce46000aaf25f2a3e647162493fad064bba3c202171993eac3113(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     dir: builtins.str,
 ) -> None:
@@ -6340,7 +6370,7 @@ def _typecheckingstub__56dd4236187397714b5033201402e20292f5d94e1adb1da8f9b8b1498
     pass
 
 def _typecheckingstub__067090383052aa74d2668f8a92939d92a387c3f7500e777be0f1ee0c120c65cf(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     file_path: builtins.str,
     *,
     package_provider: typing.Optional[IPackageProvider] = None,
@@ -6355,7 +6385,7 @@ def _typecheckingstub__a128026dd4d42385bb9003347f88e458bd169cd8d7f7bc55661e6aa67
     pass
 
 def _typecheckingstub__0c7dd615518f2d339b32c81b441685913dc14e59488172225a49caf6f6272803(
-    resolver: _IResolver_0b7d1958,
+    resolver: _projen_04054675.IResolver,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6368,7 +6398,7 @@ def _typecheckingstub__58e6bc9ea3bbd35a2cd3a406c70d46e549de59b62bb9dae45ddc293d4
     pass
 
 def _typecheckingstub__e959984ddf11978e5e74218bdca4f1d228232167175b58a9366486a216409fcc(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     additional_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     author_email: typing.Optional[builtins.str] = None,
@@ -6385,7 +6415,7 @@ def _typecheckingstub__e959984ddf11978e5e74218bdca4f1d228232167175b58a9366486a21
     pass
 
 def _typecheckingstub__03f6f2e53b0cab029d8119404377455c0d5f7009dcb023ec2a61c9971a63dd66(
-    resolver: _IResolver_0b7d1958,
+    resolver: _projen_04054675.IResolver,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6407,7 +6437,7 @@ def _typecheckingstub__700c5016a6ce3777c3e559d9aafbc5c5f727d957945e00ab0719c6759
     pass
 
 def _typecheckingstub__990ed4ecaa4edf7848fc5144b71682e590ee9d8b8da5b2facfae58711091a20d(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     author_email: builtins.str,
     author_name: builtins.str,
@@ -6448,7 +6478,7 @@ def _typecheckingstub__c6af3eeebf702d4696ff95e3dd9f7765abd1bead0231202b6c3d96e21
     *,
     build_system: typing.Optional[typing.Union[BuildSystem, typing.Dict[builtins.str, typing.Any]]] = None,
     project: typing.Optional[typing.Union[PyprojectTomlProject, typing.Dict[builtins.str, typing.Any]]] = None,
-    uv: typing.Optional[typing.Union[_UvConfiguration_126496a9, typing.Dict[builtins.str, typing.Any]]] = None,
+    uv: typing.Optional[typing.Union[_uv_config_6a231145.UvConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     python_exec: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6471,13 +6501,13 @@ def _typecheckingstub__7160d30dca474dc5d88b1ee88cb680c95003b72e43b0c36e6476ea71d
     python_exec: typing.Optional[builtins.str] = None,
     build_system: typing.Optional[typing.Union[BuildSystem, typing.Dict[builtins.str, typing.Any]]] = None,
     project: typing.Optional[typing.Union[PyprojectTomlProject, typing.Dict[builtins.str, typing.Any]]] = None,
-    uv: typing.Optional[typing.Union[_UvConfiguration_126496a9, typing.Dict[builtins.str, typing.Any]]] = None,
+    uv: typing.Optional[typing.Union[_uv_config_6a231145.UvConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b6ca42e19c95fdbb85e49328df4ac0dad237aa7b6f072c08d159cd38acff3b7e(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     envdir: typing.Optional[builtins.str] = None,
     python_exec: typing.Optional[builtins.str] = None,

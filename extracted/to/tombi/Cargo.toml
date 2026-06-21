@@ -1,0 +1,133 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "extensions/*", "rust/*"]
+
+[workspace.package]
+version = "1.1.4"  # We use git tags for versioning. This is just a placeholder.
+# tombi: lint.rules.deprecated.disabled = true
+authors = ["ya7010 <ya7010@outlook.com>"]
+edition = "2024"
+repository = "https://github.com/tombi-toml/tombi"
+license = "MIT"
+
+[workspace.dependencies]
+addr = "0.15.6"
+anyhow = "1.0.98"
+bytes = "1.11.1"
+chrono = { version = "0.4.41", features = ["serde"] }
+clap = { version = "4.5.37", features = ["derive", "env", "string"] }
+console_error_panic_hook = "0.1.7"
+convert_case = "0.6.0"
+countme = "3.0.1"
+dirs = { version = "6.0.0" }
+drop_bomb = "0.1.5"
+email_address = "0.2.9"
+env_logger = "0.11.5"
+fast-glob = "0.3.0"
+flate2 = "1.0.35"
+futures = "0.3.31"
+glob = "0.3.2"
+gloo-net = "0.6.0"
+hashbrown = "0.15.3"
+ignore = "0.4.20"
+itertools = "0.14.0"
+js-sys = "0.3.77"
+log = "0.4.22"
+nu-ansi-term = "0.50.1"
+pep508_rs = "0.9"
+pretty_assertions = "1.4.1"
+proc-macro-crate = "3.4.0"
+proc-macro2 = "1.0.95"
+quote = "1.0.40"
+rayon = "1.10.0"
+reqwest = { version = "0.12.15", default-features = false, features = [
+  "json",
+  "rustls-tls-native-roots",
+] }
+rstest = { version = "0.25.0" }
+rustc-hash = { version = "2.1.1" }
+schemars = { version = "1.2.1", features = ["preserve_order", "url2"] }
+semver = "1.0.17"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = { version = "1.0.140", features = ["preserve_order"] }
+serde_tombi = { path = "rust/serde_tombi", default-features = false }
+serde_tombi_macros = { path = "rust/serde_tombi_macros" }
+similar = { version = "2.7.0" }
+syn = { version = "2.0.110", features = ["extra-traits", "full"] }
+tar = { version = "0.4.46" }
+tempfile = { version = "3.15.0" }
+textwrap = { version = "0.16.2" }
+thiserror = { version = "2.0.12" }
+time = { version = "0.3.47" }
+tokio = { version = "1.45.0", default-features = false }
+tombi-accessor = { path = "crates/tombi-accessor" }
+tombi-ast = { path = "crates/tombi-ast" }
+tombi-ast-editor = { path = "crates/tombi-ast-editor" }
+tombi-cache = { path = "crates/tombi-cache" }
+tombi-cli-options = { path = "crates/tombi-cli-options" }
+tombi-comment-directive = { path = "crates/tombi-comment-directive" }
+tombi-comment-directive-serde = { path = "crates/tombi-comment-directive-serde" }
+tombi-comment-directive-store = { path = "crates/tombi-comment-directive-store" }
+tombi-config = { path = "crates/tombi-config" }
+tombi-date-time = { path = "crates/tombi-date-time" }
+tombi-diagnostic = { path = "crates/tombi-diagnostic" }
+tombi-document = { path = "crates/tombi-document" }
+tombi-document-tree = { path = "crates/tombi-document-tree" }
+tombi-extension = { path = "crates/tombi-extension" }
+tombi-extension-cargo = { path = "extensions/tombi-extension-cargo" }
+tombi-extension-manifest = { path = "crates/tombi-extension-manifest" }
+tombi-extension-pyproject = { path = "extensions/tombi-extension-pyproject" }
+tombi-extension-tombi = { path = "extensions/tombi-extension-tombi" }
+tombi-formatter = { path = "crates/tombi-formatter" }
+tombi-future = { path = "crates/tombi-future" }
+tombi-glob = { path = "crates/tombi-glob" }
+tombi-hashmap = { path = "crates/tombi-hashmap" }
+tombi-json = { path = "crates/tombi-json" }
+tombi-json-lexer = { path = "crates/tombi-json-lexer" }
+tombi-json-syntax = { path = "crates/tombi-json-syntax" }
+tombi-json-value = { path = "crates/tombi-json-value" }
+tombi-lexer = { path = "crates/tombi-lexer" }
+tombi-linter = { path = "crates/tombi-linter" }
+tombi-lsp = { path = "crates/tombi-lsp", default-features = false }
+tombi-parser = { path = "crates/tombi-parser" }
+tombi-regex = { path = "crates/tombi-regex" }
+tombi-rg-tree = { path = "crates/tombi-rg-tree" }
+tombi-schema-store = { path = "crates/tombi-schema-store", default-features = false }
+tombi-severity-level = { path = "crates/tombi-severity-level" }
+tombi-syntax = { path = "crates/tombi-syntax" }
+tombi-test-lib = { path = "crates/tombi-test-lib" }
+tombi-text = { path = "crates/tombi-text" }
+tombi-toml-text = { path = "crates/tombi-toml-text" }
+tombi-toml-version = { path = "crates/tombi-toml-version" }
+tombi-uri = { path = "crates/tombi-uri" }
+tombi-validator = { path = "crates/tombi-validator" }
+tombi-version-sort = { path = "crates/tombi-version-sort" }
+tombi-x-keyword = { path = "crates/tombi-x-keyword" }
+tower-lsp = { version = "0.20.0" }
+typed-builder = "0.21.0"
+ungrammar.version = "1.16.1"
+unicode-segmentation = "1.12.0"
+uuid = { version = "1.18.0", features = ["v1", "v3", "v4", "v5", "v7", "v8"] }
+wasi = { version = "0.14.7" }
+wasm-bindgen = "0.2.100"
+wasm-bindgen-futures = "0.4.50"
+xshell.version = "0.2.7"
+zed_extension_api = "0.7.0"
+zip = { version = "2.3.0" }
+
+[workspace.lints.clippy]
+collapsible_match = "warn"
+explicit_counter_loop = "warn"
+needless_for_each = "warn"
+ptr_cast_constness = "warn"
+
+[workspace.lints.rust]
+aarch64_softfloat_neon = "warn"
+deprecated = "warn"
+
+[workspace.metadata.cargo-shear]
+ignored = [
+  "wasi",
+  "wasm-bindgen",
+  "wasm-bindgen-futures",
+]

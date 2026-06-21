@@ -228,9 +228,10 @@ pub struct SurvivalFlexRowCellsBatch<'a> {
     pub n_cells: usize,
     /// Number of rows (logical observations).
     pub n_rows: usize,
-    /// Highest moment degree to evaluate, in `0..=24`.  Survival flex
-    /// Hessian needs degree 24 for the `D_uv` cross terms; degree 9 is
-    /// sufficient for value-only evaluations.
+    /// Highest moment degree to evaluate, in `0..=24`. The full CPU
+    /// bidirectional survival path now needs degree 27, so callers must not
+    /// route that path through this degree-24 substrate until the kernel bound
+    /// is raised. Degree 9 is sufficient for value-only evaluations.
     pub max_degree: usize,
     /// Flat SoA cell quadruples, length `n_cells` each.
     pub left: &'a [f64],
@@ -1316,6 +1317,7 @@ pub fn pullback_step6_joint_beta(
 
 /// Flattened SoA view of the Step-6 rows, plus the per-row dims/offsets the
 /// device kernel indexes.  Built once from `&[SurvivalFlexStep6RowPullback]`.
+#[cfg(target_os = "linux")]
 #[derive(Clone, Debug)]
 struct Step6DeviceBatch {
     n_rows: usize,
@@ -1330,6 +1332,7 @@ struct Step6DeviceBatch {
     j_off: Vec<u32>,
 }
 
+#[cfg(target_os = "linux")]
 impl Step6DeviceBatch {
     fn build(rows: &[SurvivalFlexStep6RowPullback<'_>], p: usize) -> Result<Self, GpuError> {
         let n_rows = rows.len();
@@ -1511,7 +1514,8 @@ pub fn try_device_step6_joint_beta(
     }
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = &rows;
+        // No CUDA toolchain off Linux; `rows` was already consumed by the
+        // emptiness check above, and the host caller folds the contraction.
         Ok(None)
     }
 }

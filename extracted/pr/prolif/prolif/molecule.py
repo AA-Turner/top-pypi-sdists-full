@@ -82,17 +82,27 @@ class Molecule(BaseRDKitMol):
 
     .. versionchanged:: 2.1.0
         Added `use_segid`.
+
+    .. versionchanged:: 2.2.0
+        Added `residues` to bypass :func:`~prolif.utils.split_mol_by_residues`.
     """
 
-    def __init__(self, mol: Chem.Mol, *, use_segid: bool = False) -> None:
+    def __init__(
+        self,
+        mol: Chem.Mol,
+        *,
+        use_segid: bool = False,
+        residues: list[Residue] | None = None,
+    ) -> None:
         super().__init__(mol)
         # set mapping of atoms
         for atom in self.GetAtoms():
             atom.SetUnsignedProp("mapindex", atom.GetIdx())
-        # split in residues
-        residues = split_mol_by_residues(self)
-        residues = [Residue(mol, use_segid=use_segid) for mol in residues]
-        residues.sort(key=attrgetter("resid"))
+        if residues is None:
+            # split in residues
+            residues = split_mol_by_residues(self)
+            residues = [Residue(mol, use_segid=use_segid) for mol in residues]
+            residues.sort(key=attrgetter("resid"))
         self.residues = ResidueGroup(residues)
 
     @classmethod
@@ -136,9 +146,18 @@ class Molecule(BaseRDKitMol):
             mol = prolif.Molecule.from_mda(protein)
             mol
 
+        Since MDAnalysis v2.10.0, it is possible to directly control how bond orders and
+        charges are inferred from the topology using the ``inferrer`` parameter::
+
+            >>> from MDAnalysis.converters.RDKitInferring import TemplateInferrer
+            >>> from rdkit import Chem
+            >>> ligand_template = Chem.MolFromSmiles("NC(c2nc(=Cc1ccc([O-])cc1)c(=O)n2CC=O)C(C)O")
+            >>> ligand_inferrer = TemplateInferrer(ligand_template)
+            >>> mol = prolif.Molecule.from_mda(u, "resname LIG", inferrer=ligand_inferrer)
+
         .. versionchanged:: 2.1.0
             Added `use_segid`.
-        """
+        """  # noqa: E501
         ag = obj.select_atoms(selection) if selection else obj.atoms
         if ag.n_atoms == 0:
             raise mda.SelectionError("AtomGroup is empty, please check your selection")
@@ -566,10 +585,22 @@ def split_molecule(
 
     .. versionadded:: 2.1.0
 
+    .. versionchanged:: 2.2.0
+        The underlying residues of the input molecule are copied instead of being
+        recalculated from each new child molecule, allowing to keep information from the
+        :class:`~prolif.io.molecule_standardizer.MoleculeStandardizer` class.
+
     """
+    lhs_residues: list[Residue] = []
+    rhs_residues: list[Residue] = []
     with Chem.RWMol(mol) as lhs, Chem.RWMol(mol) as rhs:
         for residue in mol:
-            target = rhs if predicate(residue.resid) else lhs
+            first = predicate(residue.resid)
+            del_target = rhs if first else lhs
             for atom in residue.GetAtoms():
-                target.RemoveAtom(atom.GetUnsignedProp("mapindex"))
-    return Molecule(lhs.GetMol()), Molecule(rhs.GetMol())
+                del_target.RemoveAtom(atom.GetUnsignedProp("mapindex"))
+            res_target = lhs_residues if first else rhs_residues
+            res_target.append(residue)
+    return Molecule(lhs.GetMol(), residues=lhs_residues), Molecule(
+        rhs.GetMol(), residues=rhs_residues
+    )

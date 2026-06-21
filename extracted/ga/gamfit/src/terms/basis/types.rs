@@ -580,7 +580,7 @@ pub fn conservative_secondary_centers(n: usize, d: usize) -> usize {
 /// Returned by [`plan_spatial_basis`]. Captures the resolved center count,
 /// final basis dimension `p`, the dense byte cost for the value matrix and
 /// each derivative tier, and a recommended storage mode that is consistent
-/// with the supplied [`crate::solver::resource::ResourcePolicy`].
+/// with the supplied [`crate::resource::ResourcePolicy`].
 #[derive(Clone, Debug)]
 pub struct SpatialBasisPlan {
     pub n: usize,
@@ -632,7 +632,7 @@ pub fn plan_spatial_basis(
     requested_centers: CenterCountRequest,
     nullspace_order: DuchonNullspaceOrder,
     scale_dims: bool,
-    policy: &crate::solver::resource::ResourcePolicy,
+    policy: &crate::resource::ResourcePolicy,
 ) -> Result<SpatialBasisPlan, BasisError> {
     if n == 0 {
         crate::bail_invalid_basis!("plan_spatial_basis: n must be >= 1");
@@ -672,10 +672,10 @@ pub fn plan_spatial_basis(
 
     // 4. Pick storage mode based on policy.
     let recommended_storage = match policy.derivative_storage_mode {
-        crate::solver::resource::DerivativeStorageMode::AnalyticOperatorRequired => {
+        crate::resource::DerivativeStorageMode::AnalyticOperatorRequired => {
             SpatialStorageMode::OperatorOnly
         }
-        crate::solver::resource::DerivativeStorageMode::MaterializeIfSmall => {
+        crate::resource::DerivativeStorageMode::MaterializeIfSmall => {
             let budget = policy.max_single_materialization_bytes;
             if derivative_axes == 0 {
                 if dense_design_bytes <= budget {
@@ -696,7 +696,7 @@ pub fn plan_spatial_basis(
                 }
             }
         }
-        crate::solver::resource::DerivativeStorageMode::DiagnosticsOnly => {
+        crate::resource::DerivativeStorageMode::DiagnosticsOnly => {
             // Diagnostic mode still prefers analytic storage for correctness.
             SpatialStorageMode::OperatorOnly
         }
@@ -715,10 +715,10 @@ pub fn plan_spatial_basis(
 }
 
 pub const fn default_spatial_center_strategy(num_centers: usize, d: usize) -> CenterStrategy {
-    if d >= 4 {
-        CenterStrategy::EqualMassCovarRepresentative { num_centers }
+    if d <= 3 {
+        CenterStrategy::FarthestPoint { num_centers }
     } else {
-        CenterStrategy::EqualMass { num_centers }
+        CenterStrategy::EqualMassCovarRepresentative { num_centers }
     }
 }
 
@@ -729,8 +729,10 @@ pub fn auto_spatial_center_strategy(num_centers: usize, d: usize) -> CenterStrat
         // low-frequency Duchon radial block slightly under-resolved at the
         // boundaries, and REML then compensates with an over-smooth λ on
         // low-noise signals (#504). The maximin grid matches the native
-        // reproducing-kernel interpolation geometry while keeping the existing
-        // equal-mass defaults for genuinely multivariate smooths.
+        // reproducing-kernel interpolation geometry. The default strategy below
+        // extends the same space-filling contract to low-dimensional spatial
+        // GP bases, where kriging accuracy is governed by fill distance rather
+        // than marginal quantile balance.
         CenterStrategy::FarthestPoint { num_centers }
     } else {
         default_spatial_center_strategy(num_centers, d)
@@ -1016,7 +1018,6 @@ pub struct DuchonBasisSpec {
     /// a spec reaches the builder this value is the final intended `s`. The
     /// hybrid Duchon–Matérn path (`length_scale = Some`) still requires an
     /// integer `s` (read via `spec.power_as_usize()`).
-    #[serde(alias = "power_int")]
     pub power: f64,
     pub nullspace_order: DuchonNullspaceOrder,
     #[serde(default)]
@@ -1037,6 +1038,18 @@ pub struct DuchonBasisSpec {
     pub operator_penalties: DuchonOperatorPenaltySpec,
     #[serde(default)]
     pub boundary: OneDimensionalBoundary,
+    /// Data-metric radial reparameterization `V` (#1355), mirroring the
+    /// thin-plate Wood-TPRS reparam. When `Some`, the constrained kernel
+    /// transform is folded to `Z·V` so the realized design columns rotate into
+    /// the `G_c`-orthonormal generalized eigenbasis of `Ω_c v = μ G_c v` and the
+    /// native penalty becomes the diagonal curvature-per-unit-data-variance
+    /// spectrum (mgcv's cliff), preventing the REML over-smoothing collapse to
+    /// EDF = 1. Frozen at the cold dense build and replayed verbatim by the
+    /// predict / κ-trial / ψ-derivative paths so they stay bit-consistent with
+    /// the fit-time design. `None` on the lazy/streaming path (huge `n`), which
+    /// retains the original constrained basis.
+    #[serde(default)]
+    pub radial_reparam: Option<Array2<f64>>,
 }
 
 impl DuchonBasisSpec {
@@ -1399,6 +1412,11 @@ pub enum BasisMetadata {
         /// caches can rebuild the exact same operator rows instead of guessing
         /// from centers.
         operator_collocation_points: Option<Array2<f64>>,
+        /// Data-metric radial reparameterization `V` (#1355). When `Some`, the
+        /// constrained kernel transform is folded to `Z·V` so predict-time and
+        /// κ-trial rebuilds replay the exact fit-time rotated radial basis.
+        /// `None` on the lazy/streaming path (original constrained basis).
+        radial_reparam: Option<Array2<f64>>,
     },
     Pca {
         feature_cols: Vec<usize>,
@@ -1677,6 +1695,10 @@ pub struct CanonicalPenaltyBlock {
     pub eigenvectors: Array2<f64>,
     pub rank: usize,
     pub nullity: usize,
+    /// Number of genuine negative-curvature eigendirections (`ev < -tol`).
+    /// A non-PSD penalty has `negative_dim > 0`; these directions are
+    /// neither range nor null and are never absorbed as unpenalized (#1425).
+    pub negative_dim: usize,
     pub tol: f64,
     pub iszero: bool,
     /// Optional operator-form handle that is bit-equivalent to `sym_penalty`.
@@ -1703,6 +1725,7 @@ impl std::fmt::Debug for CanonicalPenaltyBlock {
             )
             .field("rank", &self.rank)
             .field("nullity", &self.nullity)
+            .field("negative_dim", &self.negative_dim)
             .field("tol", &self.tol)
             .field("iszero", &self.iszero)
             .field("op", &self.op.as_ref().map(|o| o.dim()))
@@ -1821,7 +1844,7 @@ pub fn should_use_implicit_operators_with_policy(
     n: usize,
     p: usize,
     d: usize,
-    policy: &crate::solver::resource::ResourcePolicy,
+    policy: &crate::resource::ResourcePolicy,
 ) -> bool {
     // Each first-derivative matrix is (n x p) f64 → n*p*8 bytes.
     // We need D of them for first derivatives, D for second diag, plus
@@ -1844,7 +1867,7 @@ pub(crate) fn should_cache_implicit_radial_components(
     n: usize,
     k: usize,
     n_axes: usize,
-    policy: &crate::solver::resource::ResourcePolicy,
+    policy: &crate::resource::ResourcePolicy,
 ) -> bool {
     implicit_radial_cache_bytes(n, k, n_axes) <= policy.max_operator_cache_bytes
 }
@@ -1859,11 +1882,11 @@ pub fn assert_no_dense_derivative_materialization(n: usize, p: usize, d_pc: usiz
     // first- and second-order dense bytes fit under the single-materialization
     // byte budget. `DiagnosticsOnly` is treated like `MaterializeIfSmall` for
     // this guard: it permits dense materialization under the same byte cap.
-    let policy = crate::solver::resource::ResourcePolicy::default_library();
+    let policy = crate::resource::ResourcePolicy::default_library();
     let budget = policy.max_single_materialization_bytes;
     let needed = first.saturating_add(second);
     match policy.derivative_storage_mode {
-        crate::solver::resource::DerivativeStorageMode::AnalyticOperatorRequired => {
+        crate::resource::DerivativeStorageMode::AnalyticOperatorRequired => {
             // SAFETY: this assertion helper exists specifically to enforce
             // the large-scale invariant that spatial-PC Duchon derivative
             // designs never persist as dense `Array2<f64>` storage. When the
@@ -1877,8 +1900,8 @@ pub fn assert_no_dense_derivative_materialization(n: usize, p: usize, d_pc: usiz
                 second as f64 / (1024.0 * 1024.0),
             );
         }
-        crate::solver::resource::DerivativeStorageMode::MaterializeIfSmall
-        | crate::solver::resource::DerivativeStorageMode::DiagnosticsOnly => {
+        crate::resource::DerivativeStorageMode::MaterializeIfSmall
+        | crate::resource::DerivativeStorageMode::DiagnosticsOnly => {
             assert!(
                 needed <= budget,
                 "spatial PC Duchon derivative designs would exceed the single-materialization budget; refused persistent dense derivative materialization (n={n}, p={p}, d_pc={d_pc}, first_order={:.1} MiB, second_order={:.1} MiB, budget={:.1} MiB)",
@@ -1928,7 +1951,7 @@ pub(crate) fn dense_design_bytes(n: usize, p: usize) -> usize {
 pub(crate) fn should_use_lazy_spatial_design(
     n: usize,
     p: usize,
-    policy: &crate::solver::resource::ResourcePolicy,
+    policy: &crate::resource::ResourcePolicy,
 ) -> bool {
     dense_design_bytes(n, p) > policy.max_single_materialization_bytes
 }

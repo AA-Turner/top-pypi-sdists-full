@@ -1,0 +1,2480 @@
+#![allow(clippy::await_holding_lock)]
+
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
+
+use tombi_test_lib::{
+    TestCacheHome, adjacent_applicators_test_schema_path, adjacent_one_of_hover_test_schema_path,
+    cargo_feature_navigation_fixture_path, cargo_schema_path, exact_index_string_test_schema_path,
+    issue_1895_rustfmt_like_schema_path, lsp_consistency_test_schema_path,
+    one_of_hover_discriminator_test_schema_path, pyproject_schema_path,
+    ref_sibling_annotations_test_schema_path, string_format_test_schema_path, tombi_schema_path,
+};
+
+fn nested_table_keys_order_schema_path() -> PathBuf {
+    tombi_test_lib::project_root_path()
+        .join("crates/tombi-lsp/tests/fixtures/nested-table-keys-order.schema.json")
+}
+
+fn array_values_order_schema_path() -> PathBuf {
+    tombi_test_lib::project_root_path()
+        .join("crates/tombi-lsp/tests/fixtures/array-values-order.schema.json")
+}
+
+fn array_values_order_one_of_schema_path() -> PathBuf {
+    tombi_test_lib::project_root_path()
+        .join("crates/tombi-lsp/tests/fixtures/array-values-order-one-of.schema.json")
+}
+
+fn exact_index_hover_test_schema_path() -> PathBuf {
+    tombi_test_lib::project_root_path().join("schemas/exact-index-hover-test.schema.json")
+}
+
+fn exact_index_array_values_order_schema_path() -> PathBuf {
+    tombi_test_lib::project_root_path()
+        .join("crates/tombi-lsp/tests/fixtures/exact-index-array-values-order.schema.json")
+}
+
+fn history_hover_null_default_schema_path() -> PathBuf {
+    tombi_test_lib::project_root_path()
+        .join("crates/tombi-lsp/tests/fixtures/history-hover-null-default.schema.json")
+}
+
+fn cargo_feature_usage_hover_description(
+    project_root: &Path,
+    locations: &[(PathBuf, u32)],
+) -> String {
+    let mut lines = vec!["Feature references in this project:".to_string()];
+
+    for (path, line) in locations {
+        let relative_path = path
+            .strip_prefix(project_root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let mut uri = tombi_uri::Uri::from_file_path(path).unwrap();
+        uri.set_fragment(Some(&format!("L{line}")));
+        lines.push(format!("- [{relative_path}:{line}]({uri})"));
+    }
+
+    lines.join("\n")
+}
+
+async fn cached_remote_json_file_path(url: &str) -> PathBuf {
+    let uri = tombi_uri::Uri::from_str(url).unwrap();
+    tombi_cache::get_cache_file_path(&uri).await.unwrap()
+}
+
+async fn write_cached_response(url: &str, body: &str) {
+    let cache_path = cached_remote_json_file_path(url).await;
+    if let Some(parent) = cache_path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::write(&cache_path, body).unwrap();
+}
+
+mod hover_keys_value {
+    use super::*;
+
+    mod tombi_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_toml_version(
+                r#"
+                toml-version = "█v1.0.0"
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": "toml-version",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_toml_version_without_schema(
+                r#"
+                toml-version = "█v1.0.0"
+                "#,
+            ) -> Ok({
+                "Keys": "toml-version",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_lint_rules_key_empty(
+                r#"
+                [lint.rules]
+                key-empty = "█warn"
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": "lint.rules.key-empty",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_schema_catalog_paths(
+                r#"
+                [schema.catalog]
+                paths = ["█https://www.schemastore.org/api/json/catalog.json"]
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": "schema.catalog.paths[0]",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_schema_catalog_path_without_schema(
+                r#"
+                [schema.catalog]
+                path = "█https://www.schemastore.org/api/json/catalog.json"
+                "#,
+            ) -> Ok({
+                "Keys": "schema.catalog.path",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            // NOTE: This test is correct. When you hover over the last key of the header of ArrayOfTable,
+            //       the Keys in the hover content is `schema[$index]`, not `schemas`.
+            //       Therefore, the Value is `Table`.
+            async fn tombi_schemas(
+                r#"
+                [[schemas█]]
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": "schemas[0]",
+                "Value": "Table"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_schemas_without_schema(
+                r#"
+                [[schemas█]]
+                "#,
+            ) -> Ok({
+                "Keys": "schemas[0]",
+                "Value": "Table"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_schemas_path(
+                r#"
+                [[schemas]]
+                path = "█schemas/tombi.schema.json"
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": "schemas[0].path",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_schemas_include(
+                r#"
+                [[schemas]]
+                path = "schemas/tombi.schema.json"
+                include█ = ["*.toml"]
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": "schemas[0].include",
+                "Value": "Array"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_schemas_include_array_string(
+                r#"
+                [[schemas]]
+                path = "schemas/tombi.schema.json"
+                include = ["█*.toml"]
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": "schemas[0].include[0]",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_comment_directive_toml_version(
+                r#"
+                #:tombi toml-version█ = "v1.0.0"
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": "toml-version",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn tombi_extensions_non_bare_key(
+                r#"
+                [extensions]
+                "tombi-toml/cargo" = { lsp = { hover█ = { enabled = true } } }
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok({
+                "Keys": r#"extensions."tombi-toml/cargo".lsp.hover"#,
+                "Value": "Table?"
+            });
+        );
+    }
+
+    mod cargo_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_package_name(
+                r#"
+                [package]
+                name█ = "tombi"
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "package.name",
+                "Value": "String" // Yes; the value is required.
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_package_name_incomplete(
+                r#"
+                [package]
+                name = █
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "package.name",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_lints_clippy_absolute_paths_default(
+                r#"
+                [lints.clippy]
+                absolute_paths█ = "allow"
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "lints.clippy.absolute_paths",
+                "Value": "(String | Table)?",
+                "Title": Some("Absolute Paths"),
+                "Default": "\"allow\""
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn ref_sibling_examples_are_displayed(
+                r#"
+                name = "█allow"
+                "#,
+                SchemaPath(ref_sibling_annotations_test_schema_path()),
+            ) -> Ok({
+                "Keys": "name",
+                "Value": "String?",
+                "Title": Some("Ref Sibling Annotations"),
+                "Default": "\"allow\"",
+                "Examples": ["\"warn\"", "\"deny\""]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_package_readme(
+                r#"
+                [package]
+                readme = "█README.md"
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "package.readme",
+                "Value": "(String | Boolean | Table)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_package_readme_without_schema(
+                r#"
+                [package]
+                readme = "█README.md"
+                "#,
+            ) -> Ok({
+                "Keys": "package.readme",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependencies_key(
+                r#"
+                [dependencies]
+                serde█ = { workspace = true }
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.serde",
+                "Value": "(String | Table)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependencies_version(
+                r#"
+                [dependencies]
+                serde = "█1.0"
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.serde",
+                "Value": "(String | Table)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependencies_version_without_schema(
+                r#"
+                [dependencies]
+                serde = "█1.0"
+                "#,
+            ) -> Ok({
+                "Keys": "dependencies.serde",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependencies_workspace(
+                r#"
+                [dependencies]
+                serde = { workspace█ = true }
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.serde.workspace",
+                "Value": "Boolean?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_without_schema(
+                r#"
+                [dependencies]
+                serde = { workspace█ = true }
+                "#,
+            ) -> Ok({
+                "Keys": "dependencies.serde.workspace",
+                "Value": "Boolean"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependencies_features(
+                r#"
+                [dependencies]
+                serde = { version = "^1.0.0", default-features = false, features█ = ["derive"] }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.serde.features",
+                "Value": "Array?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependencies_features_item(
+                r#"
+                [dependencies]
+                serde = { version = "^1.0.0", default-features = false, features = ["derive█"] }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.serde.features[0]",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependencies_features_item_without_schema(
+                r#"
+                [dependencies]
+                serde = { version = "^1.0.0", features = ["derive█"] }
+                "#,
+            ) -> Ok({
+                "Keys": "dependencies.serde.features[0]",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_path_dependency_features_append_default_feature_list(
+                r#"
+                [dependencies]
+                local-path-crate = { path = "local-path-crate", default-features = true, features█ = ["default"] }
+                "#,
+                SourcePath(
+                    tombi_test_lib::project_root_path()
+                        .join("crates/tombi-lsp/tests/fixtures/cargo/path-dependency-with-features/Cargo.toml")
+                ),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.local-path-crate.features",
+                "Value": "Array?",
+                "Description": Some(
+                    "List of features to activate in the dependency.\n\nDefault Features:\n  - `extras`"
+                ),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_registry_dependency_feature_item_appends_default_feature_list(
+                r#"
+                [dependencies]
+                serde = { version = "=1.0.228", features = ["derive█"] }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("Cargo.toml")),
+                UseTestCacheHome,
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(false),
+                },
+                SchemaPath(cargo_schema_path()),
+                    CachedRemoteJson {
+                        url: "https://crates.io/api/v1/crates/serde/1.0.228",
+                        body: r#"{
+	                        "version": {
+                                "num": "1.0.228",
+	                            "features": {
+	                                "alloc": [],
+	                                "default": ["std"],
+                                "derive": ["serde_derive"],
+                                "rc": [],
+                                "std": ["serde_core/std"]
+                            }
+                        }
+                    }"#,
+                },
+            ) -> Ok({
+                "Keys": "dependencies.serde.features[0]",
+                "Value": "String",
+                "Description": Some(
+                    "List of features to activate in the dependency.\n\nFeature Dependencies:\n  - `serde_derive`\n\nDefault Features:\n  - `std`"
+                ),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_registry_dependency_feature_item_skips_default_feature_list_when_disabled_by_extensions(
+                r#"
+                [dependencies]
+                serde = { version = "=1.0.228", features = ["derive█"] }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-hover-default-features-disabled/Cargo.toml"
+                )),
+                UseTestCacheHome,
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(false),
+                },
+                SchemaPath(cargo_schema_path()),
+                CachedRemoteJson {
+                    url: "https://crates.io/api/v1/crates/serde/1.0.228",
+                    body: r#"{
+                        "version": {
+                            "num": "1.0.228",
+                            "features": {
+                                "alloc": [],
+                                "default": ["std"],
+                                "derive": ["serde_derive"],
+                                "rc": [],
+                                "std": ["serde_core/std"]
+                            }
+                        }
+                    }"#,
+                },
+            ) -> Ok({
+                "Keys": "dependencies.serde.features[0]",
+                "Value": "String",
+                "Description": Some(
+                    "List of features to activate in the dependency.\n\nFeature Dependencies:\n  - `serde_derive`"
+                ),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_registry_dependency_feature_item_skips_feature_dependencies_when_disabled_by_extensions(
+                r#"
+                [dependencies]
+                serde = { version = "=1.0.228", features = ["derive█"] }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-hover-feature-dependencies-disabled/Cargo.toml"
+                )),
+                UseTestCacheHome,
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(false),
+                },
+                SchemaPath(cargo_schema_path()),
+                CachedRemoteJson {
+                    url: "https://crates.io/api/v1/crates/serde/1.0.228",
+                    body: r#"{
+                        "version": {
+                            "num": "1.0.228",
+                            "features": {
+                                "alloc": [],
+                                "default": ["std"],
+                                "derive": ["serde_derive"],
+                                "rc": [],
+                                "std": ["serde_core/std"]
+                            }
+                        }
+                    }"#,
+                },
+            ) -> Ok({
+                "Keys": "dependencies.serde.features[0]",
+                "Value": "String",
+                "Description": Some(
+                    "List of features to activate in the dependency.\n\nDefault Features:\n  - `std`"
+                ),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_profile_release_strip_debuginfo(
+                r#"
+                [profile.release]
+                strip = "debuginfo█"
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "profile.release.strip",
+                "Value": "(String ^ Boolean)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_profile_release_strip_true(
+                r#"
+                [profile.release]
+                strip = true█
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "profile.release.strip",
+                "Value": "(String ^ Boolean)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_profile_release_strip_false(
+                r#"
+                [profile.release]
+                strip = false█
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "profile.release.strip",
+                "Value": "(String ^ Boolean)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_workspace_dependency_hover_metadata(
+                r#"
+                [dependencies]
+                tombi-extension-cargo█ = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("crates/tombi-lsp/Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.tombi-extension-cargo",
+                "Value": "(String | Table)?",
+                "Title": Some("tombi-extension-cargo"),
+                "Description": Some("Tombi extension for Cargo.toml"),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependency_table_field_hover_keeps_schema_metadata(
+                r#"
+                [dependencies]
+                tombi-extension-cargo = { version█ = "0.0.0", workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("crates/tombi-lsp/Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.tombi-extension-cargo.version",
+                "Value": "String?",
+                "Title": Some("Semantic Version Requirement"),
+                "Description": Some("The [version requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html) of the target dependency."),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_workspace_dependency_hover_metadata_disabled_by_extensions(
+                r#"
+                [dependencies]
+                member█ = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-hover-disabled/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.member",
+                "Value": "(String | Table)?",
+                "Title": Some("Dependency"),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_workspace_dependency_hover_metadata_skips_dependency_detail_when_disabled_by_extensions(
+                r#"
+                [dependencies]
+                member█ = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-hover-dependency-detail-disabled/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.member",
+                "Value": "(String | Table)?",
+                "Title": Some("Dependency"),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_remote_dependency_hover_offline(
+                r#"
+                [workspace.dependencies]
+                serde█ = "1.0"
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("Cargo.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: None,
+                },
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "workspace.dependencies.serde",
+                "Value": "(String | Table)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_dependency_version_hover_appends_latest_version(
+                r#"
+                [dependencies]
+                serde = { version = "█1.0", features = ["derive"] }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("Cargo.toml")),
+                UseTestCacheHome,
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(false),
+                },
+                SchemaPath(cargo_schema_path()),
+                CachedRemoteJson {
+                    url: "https://crates.io/api/v1/crates/serde",
+                    body: r#"{
+                        "crate": {
+                            "name": "serde",
+                            "description": "A generic serialization/deserialization framework",
+                            "max_version": "1.0.228"
+                        }
+                    }"#,
+                },
+            ) -> Ok({
+                "Keys": "dependencies.serde.version",
+                "Value": "String?",
+                "Title": Some("Semantic Version Requirement"),
+                "Description": Some(
+                    "The [version requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html) of the target dependency.\n\nLatest Version: `1.0.228`"
+                ),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_workspace_dependency_version_hover_appends_latest_version(
+                r#"
+                [workspace.dependencies]
+                typed-builder = "█0.21.0"
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("Cargo.toml")),
+                UseTestCacheHome,
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(false),
+                },
+                SchemaPath(cargo_schema_path()),
+                CachedRemoteJson {
+                    url: "https://crates.io/api/v1/crates/typed-builder",
+                    body: r#"{
+                        "crate": {
+                            "name": "typed-builder",
+                            "description": "Compile-time type-checked builder derive",
+                            "max_version": "0.23.0"
+                        }
+                    }"#,
+                },
+            ) -> Ok({
+                "Keys": "workspace.dependencies.typed-builder",
+                "Value": "(String | Table)?",
+                "Description": Some(
+                    "The [version requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html) of the target dependency.\n\nLatest Version: `0.23.0`"
+                ),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_feature_key_hover_lists_project_references(
+                r#"
+                [package]
+                name = "provider"
+                version = "0.1.0"
+                edition = "2024"
+
+                [features]
+                jsonschema█ = []
+                "#,
+                SourcePath(
+                    cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml")
+                ),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "features.jsonschema",
+                "Value": "Array?",
+                "Description": Some(cargo_feature_usage_hover_description(
+                    &cargo_feature_navigation_fixture_path().join("workspace"),
+                    &[
+                        (
+                            cargo_feature_navigation_fixture_path().join("workspace/Cargo.toml"),
+                            11,
+                        ),
+                        (
+                            cargo_feature_navigation_fixture_path()
+                                .join("workspace/consumer/Cargo.toml"),
+                            7,
+                        ),
+                        (
+                            cargo_feature_navigation_fixture_path()
+                                .join("workspace/consumer/Cargo.toml"),
+                            10,
+                        ),
+                        (
+                            cargo_feature_navigation_fixture_path()
+                                .join("workspace/renamed-consumer/Cargo.toml"),
+                            7,
+                        ),
+                        (
+                            cargo_feature_navigation_fixture_path()
+                                .join("workspace/renamed-consumer/Cargo.toml"),
+                            10,
+                        ),
+                        (
+                            cargo_feature_navigation_fixture_path()
+                                .join("workspace/weak-consumer/Cargo.toml"),
+                            10,
+                        ),
+                    ],
+                )),
+            });
+        );
+    }
+
+    mod one_of_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn one_of_hover_prefers_single_valid_branch(
+                r#"
+                [[repos]]
+                repo = "builtin"
+                hooks = [
+                  { id = "█hook" }
+                ]
+                "#,
+                SchemaPath(one_of_hover_discriminator_test_schema_path()),
+            ) -> Ok({
+                "Keys": "repos[0].hooks[0].id",
+                "Value": "String",
+                "Default": "\"builtin-hook\""
+            });
+        );
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn one_of_hover_does_not_leak_branch_default_when_no_branch_is_valid(
+                r#"
+                [[repos]]
+                hooks = [
+                  { id = "█hook" }
+                ]
+                "#,
+                SchemaPath(one_of_hover_discriminator_test_schema_path()),
+            ) -> Ok({
+                "Keys": "repos[0]",
+                "Value": "Table"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn adjacent_one_of_hover_prefers_valid_branch_property_schema(
+                r#"
+                [[repos]]
+                repo = "builtin"
+                ho█oks = []
+                "#,
+                SchemaPath(adjacent_one_of_hover_test_schema_path()),
+            ) -> Ok({
+                "Keys": "repos[0].hooks",
+                "Value": "Array"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn adjacent_one_of_hover_prefers_valid_branch_nested_item_schema(
+                r#"
+                [[repos]]
+                repo = "builtin"
+                hooks = [
+                  { id = "█hook" }
+                ]
+                "#,
+                SchemaPath(adjacent_one_of_hover_test_schema_path()),
+            ) -> Ok({
+                "Keys": "repos[0].hooks[0].id",
+                "Value": "String",
+                "Default": "\"builtin-hook\""
+            });
+        );
+    }
+
+    mod adjacent_applicators_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn adjacent_all_of_offset_date_time_hover_merges_const(
+                r#"
+                offset_date_time_all = 2024-01-15T█10:30:00Z
+                "#,
+                SchemaPath(adjacent_applicators_test_schema_path()),
+            ) -> Ok({
+                "Keys": "offset_date_time_all",
+                "Value": "OffsetDateTime?",
+                "Enum": ["2024-01-15T10:30:00Z"]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn adjacent_all_of_boolean_hover_merges_const(
+                r#"
+                boolean_all = t█rue
+                "#,
+                SchemaPath(adjacent_applicators_test_schema_path()),
+            ) -> Ok({
+                "Keys": "boolean_all",
+                "Value": "Boolean?",
+                "Enum": ["true"]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn all_of_table_hover_ignores_null_in_default_object(
+                r#"
+                [hist█ory]
+                persistence = "save-all"
+                "#,
+                SchemaPath(history_hover_null_default_schema_path()),
+            ) -> Ok({
+                "Keys": "history",
+                "Value": "Table?",
+                "Default": r#"{ persistence = "save-all" }"#
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn all_of_nested_property_hover_survives_parent_default_with_null(
+                r#"
+                [history]
+                persis█tence = "save-all"
+                "#,
+                SchemaPath(history_hover_null_default_schema_path()),
+            ) -> Ok({
+                "Keys": "history.persistence",
+                "Value": "String?",
+                "Default": "\"save-all\""
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn all_of_array_hover_omits_default_when_array_contains_null(
+                r#"
+                [history]
+                modes = █["save-all"]
+                "#,
+                SchemaPath(history_hover_null_default_schema_path()),
+            ) -> Ok({
+                "Keys": "history.modes",
+                "Value": "Array?",
+                "No Default": true
+            });
+        );
+    }
+
+    mod consistency_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn typed_extra_table_unevaluated_properties_hover(
+                r#"
+                [typed_extra_table]
+                extra = { id = "█value" }
+                "#,
+                SchemaPath(lsp_consistency_test_schema_path()),
+            ) -> Ok({
+                "Keys": "typed_extra_table.extra.id",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn typed_unevaluated_tuple_hover(
+                r#"
+                typed_unevaluated_tuple = [1, { id = "█value" }]
+                "#,
+                SchemaPath(lsp_consistency_test_schema_path()),
+            ) -> Ok({
+                "Keys": "typed_unevaluated_tuple[1].id",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn typed_overflow_tuple_hover(
+                r#"
+                typed_overflow_tuple = [1, { id = "█value" }]
+                "#,
+                SchemaPath(lsp_consistency_test_schema_path()),
+            ) -> Ok({
+                "Keys": "typed_overflow_tuple[1].id",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn exact_index_subschema_does_not_apply_to_first_item_hover(
+                r#"
+                items = [{ name = "█zero" }, { name = "one" }]
+                "#,
+                SubSchemaPath {
+                    root: "items[1]".to_string(),
+                    path: exact_index_hover_test_schema_path(),
+                },
+            ) -> Ok({
+                "Keys": "items[0].name",
+                "Value": "String",
+                "Schema": false
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn exact_index_subschema_applies_to_second_item_hover(
+                r#"
+                items = [{ name = "zero" }, { name = "█one" }]
+                "#,
+                SubSchemaPath {
+                    root: "items[1]".to_string(),
+                    path: exact_index_hover_test_schema_path(),
+                },
+            ) -> Ok({
+                "Keys": "items[1].name",
+                "Value": "String?",
+                "Schema": true,
+                "Title": Some("ScopedName".to_string()),
+                "Description": Some("Property available only on the targeted tuple item".to_string())
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn exact_index_string_subschema_does_not_apply_to_first_item_hover(
+                r#"
+                items = ["█zero", "scoped"]
+                "#,
+                SubSchemaPath {
+                    root: "items[1]".to_string(),
+                    path: exact_index_string_test_schema_path(),
+                },
+            ) -> Ok({
+                "Keys": "items[0]",
+                "Value": "String",
+                "Schema": false
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn exact_index_string_subschema_applies_to_second_item_hover(
+                r#"
+                items = ["zero", "█scoped"]
+                "#,
+                SubSchemaPath {
+                    root: "items[1]".to_string(),
+                    path: exact_index_string_test_schema_path(),
+                },
+            ) -> Ok({
+                "Keys": "items[1]",
+                "Value": "String",
+                "Schema": true,
+                "Title": Some("ScopedString".to_string()),
+                "Description": Some("String schema applied only to the targeted array item".to_string())
+            });
+        );
+    }
+
+    mod issue_1895_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn annotation_only_property_hover_keeps_description(
+                r#"
+                max_width = 120
+                igno█re = ["*_capnp.rs"]
+                "#,
+                SchemaPath(issue_1895_rustfmt_like_schema_path()),
+            ) -> Ok({
+                "Keys": "ignore",
+                "Value": "(Boolean | Integer | Float | String | LocalDate | LocalDateTime | LocalTime | OffsetDateTime | Array | Table)?",
+                "Description": Some("Annotation-only property schema that should still allow the key.")
+            });
+        );
+    }
+
+    mod pyproject_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_project_readme(
+                r#"
+                [project]
+                readme = "█1.0.0"
+                "#,
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "project.readme",
+                "Value": "(String ^ Table)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_dependency_groups(
+                r#"
+                [dependency-groups]
+                dev = [
+                    "█pytest>=8.3.3",
+                ]
+                "#,
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "dependency-groups.dev[0]",
+                "Value": "String ^ Table"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_dependency_groups_without_schema(
+                r#"
+                [dependency-groups]
+                dev = [
+                    "█pytest>=8.3.3",
+                ]
+                "#,
+            ) -> Ok({
+                "Keys": "dependency-groups.dev[0]",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_workspace_dependency_hover_metadata(
+                r#"
+                [project]
+                dependencies = [
+                    "tombi-beta█",
+                ]
+
+                [tool.uv.workspace]
+                members = ["python/tombi-beta"]
+
+                [tool.uv.sources]
+                tombi-beta = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("pyproject.toml")),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "project.dependencies[0]",
+                "Value": "String",
+                "Title": Some("tombi-beta"),
+                "Description": Some("Add your description here"),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_source_package_key_hover_metadata(
+                r#"
+                [tool.uv.workspace]
+                members = ["members/my-package1"]
+
+                [tool.uv.sources]
+                my-package1█ = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject-hover-metadata/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "tool.uv.sources.my-package1",
+                "Value": "(Table | Array)?",
+                "Title": Some("my-package1"),
+                "Description": Some("A test package used by hover fixtures."),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_source_child_field_hover_keeps_schema_metadata(
+                r#"
+                [tool.uv.workspace]
+                members = ["members/my-package1"]
+
+                [tool.uv.sources]
+                my-package1.workspace█ = true
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject-hover-metadata/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "tool.uv.sources.my-package1.workspace",
+                "Value": "Boolean",
+                "Description": Some("When set to `false`, the package will be fetched from the remote index, rather than\nincluded as a workspace package."),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_workspace_dependency_hover_metadata_disabled_by_extensions(
+                r#"
+                [project]
+                dependencies = [
+                    "member█",
+                ]
+
+                [tool.uv.workspace]
+                members = ["member"]
+
+                [tool.uv.sources]
+                member = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/pyproject-hover-disabled/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "project.dependencies[0]",
+                "Value": "String",
+                "Title": Some("Project mandatory dependency requirements"),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_remote_dependency_hover_offline(
+                r#"
+                [project]
+                dependencies = [
+                    "request█s>=2.0",
+                ]
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("pyproject.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: None,
+                },
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "project.dependencies[0]",
+                "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_tool_uv_constraint_dependency_hover_metadata(
+                r#"
+                [tool.uv]
+                constraint-dependencies = [
+                    "tombi-beta█",
+                ]
+
+                [tool.uv.workspace]
+                members = ["python/tombi-beta"]
+
+                [tool.uv.sources]
+                tombi-beta = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("pyproject.toml")),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "tool.uv.constraint-dependencies[0]",
+                "Value": "String",
+                "Title": Some("tombi-beta"),
+                "Description": Some("Add your description here"),
+            });
+        );
+
+        #[tokio::test]
+        async fn pyproject_build_system_requires_hover_metadata()
+        -> Result<(), Box<dyn std::error::Error>> {
+            use std::io::Write;
+
+            use tombi_lsp::{Backend, HoverContent, backend::Options, handler::handle_did_open};
+            use tombi_text::IntoLsp;
+            use tower_lsp::{
+                LspService,
+                lsp_types::{
+                    DidOpenTextDocumentParams, TextDocumentIdentifier, TextDocumentItem,
+                    TextDocumentPositionParams, Url, WorkDoneProgressParams,
+                },
+            };
+
+            tombi_test_lib::init_log();
+
+            let _cache_home = TestCacheHome::new();
+            write_cached_response(
+                "https://pypi.org/pypi/maturin/json",
+                r#"{
+                    "info": {
+                        "name": "maturin",
+                        "summary": "Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python packages"
+                    }
+                }"#,
+            )
+            .await;
+
+            let source = r#"
+                [build-system]
+                requires = [
+                    "maturin█>=1.5,<2.0",
+                ]
+            "#;
+            let mut toml_text = textwrap::dedent(source).trim().to_string();
+            let index = toml_text
+                .find("█")
+                .ok_or("failed to find hover position marker")?;
+            toml_text.remove(index);
+
+            let source_path = tombi_test_lib::project_root_path().join("pyproject.toml");
+            let temp_dir = source_path
+                .parent()
+                .ok_or("failed to get source parent directory")?;
+            let temp_file = tempfile::NamedTempFile::with_suffix_in(".toml", temp_dir)?;
+            temp_file.as_file().write_all(toml_text.as_bytes())?;
+
+            let (service, _) = LspService::new(|client| {
+                Backend::new(
+                    client,
+                    &Options {
+                        offline: Some(true),
+                        no_cache: Some(false),
+                    },
+                )
+            });
+            let backend = service.inner();
+
+            let schema_uri = tombi_schema_store::SchemaUri::from_file_path(pyproject_schema_path())
+                .map_err(|_| "failed to convert schema path to URI")?;
+            let config_schema_store = backend
+                .config_manager
+                .config_schema_store_for_file(&source_path)
+                .await;
+            let mut test_config = config_schema_store.config;
+            let mut existing_schemas = test_config.schemas.take().unwrap_or_default();
+            existing_schemas.push(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                toml_version: None,
+                path: schema_uri.to_string(),
+                include: vec!["*.toml".into()],
+                exclude: None,
+                lint: None,
+                format: None,
+                overrides: None,
+            }));
+            test_config.schemas = Some(existing_schemas);
+
+            if let Some(config_path) = config_schema_store.config_path {
+                backend
+                    .config_manager
+                    .update_config_with_path(test_config, &config_path)
+                    .await
+                    .map_err(|error| {
+                        format!(
+                            "failed to update config {}: {}",
+                            config_path.display(),
+                            error
+                        )
+                    })?;
+            } else {
+                backend
+                    .config_manager
+                    .update_editor_config(test_config)
+                    .await;
+            }
+
+            let line_index =
+                tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+            let toml_file_url = Url::from_file_path(&source_path)
+                .map_err(|_| "failed to convert source file path to URL")?;
+
+            handle_did_open(
+                backend,
+                DidOpenTextDocumentParams {
+                    text_document: TextDocumentItem {
+                        uri: toml_file_url.clone(),
+                        language_id: "toml".to_string(),
+                        version: 0,
+                        text: toml_text.clone(),
+                    },
+                },
+            )
+            .await;
+
+            let hover_content = tombi_lsp::handler::handle_hover(
+                backend,
+                tower_lsp::lsp_types::HoverParams {
+                    text_document_position_params: TextDocumentPositionParams {
+                        text_document: TextDocumentIdentifier { uri: toml_file_url },
+                        position: (tombi_text::Position::default()
+                            + tombi_text::RelativePosition::of(&toml_text[..index]))
+                        .into_lsp(&line_index),
+                    },
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                },
+            )
+            .await?;
+
+            let Some(
+                HoverContent::Value(hover_content) | HoverContent::DirectiveContent(hover_content),
+            ) = hover_content
+            else {
+                return Err("failed to handle hover content".into());
+            };
+
+            pretty_assertions::assert_eq!(
+                hover_content.accessors.to_string(),
+                "build-system.requires[0]"
+            );
+            pretty_assertions::assert_eq!(hover_content.value_type.to_string(), "String");
+            pretty_assertions::assert_eq!(hover_content.title.as_deref(), Some("maturin"));
+            pretty_assertions::assert_eq!(
+                hover_content.description.as_deref(),
+                Some(
+                    "Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python packages"
+                )
+            );
+
+            Ok(())
+        }
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_tool_poetry_exclude_tests(
+                r#"
+                [tool.poetry]
+                exclude = [
+                    "█tests",
+                ]
+                "#,
+            ) -> Ok({
+                "Keys": "tool.poetry.exclude[0]",
+                "Value": "String"
+            });
+        );
+    }
+
+    mod non_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn variable_placeholder(
+                r#"
+                [[dependencies.${mod_id}]]
+                modId="create█"
+                "#,
+            ) -> Ok({
+                "Keys": "dependencies.${mod_id}[0].modId",
+                "Value": "String"
+            });
+        );
+    }
+
+    mod string_format_test_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn hover_date_val_with_string_formats(
+                r#"
+                date_val = 2024-01-15█
+                "#,
+                SchemaPath(string_format_test_schema_path()),
+            ) -> Ok({
+                "Keys": "date_val",
+                "Value": "(LocalDate | String)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn hover_time_local_val_with_string_formats(
+                r#"
+                time_local_val = 10:30:00█
+                "#,
+                SchemaPath(string_format_test_schema_path()),
+            ) -> Ok({
+                "Keys": "time_local_val",
+                "Value": "(LocalTime | String)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn hover_date_time_local_val_with_string_formats(
+                r#"
+                date_time_local_val = 2024-01-15T10:30:00█
+                "#,
+                SchemaPath(string_format_test_schema_path()),
+            ) -> Ok({
+                "Keys": "date_time_local_val",
+                "Value": "(LocalDateTime | String)?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn hover_date_time_val_with_string_formats(
+                r#"
+                date_time_val = 2024-01-15T10:30:00Z█
+                "#,
+                SchemaPath(string_format_test_schema_path()),
+            ) -> Ok({
+                "Keys": "date_time_val",
+                "Value": "(OffsetDateTime | String)?"
+            });
+        );
+    }
+
+    mod table_keys_order_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn shows_struck_through_keys_order_when_schema_format_rule_is_disabled(
+                r#"
+                [nested█]
+                b = 1
+                a = 2
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        nested_table_keys_order_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: Some(tombi_config::SchemaFormatOptions {
+                        rules: Some(tombi_config::SchemaFormatRules {
+                            array_values_order: None,
+                            table_keys_order: Some(tombi_config::SchemaTableKeysOrderRule {
+                                enabled: Some(false.into()),
+                            }),
+                        }),
+                    }),
+                    overrides: None,
+                })),
+            ) -> Ok({
+                "Keys": "nested",
+                "Value": "Table?",
+                "Keys Order": None,
+                "Disabled Keys Order": Some("ascending"),
+                "Hover Contains": ["Keys Order: ~~`ascending`~~"]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn uses_schema_override_for_keys_order_in_hover(
+                r#"
+                [nested█]
+                b = 1
+                a = 2
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        nested_table_keys_order_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: None,
+                    overrides: Some(vec![tombi_config::SchemaOverrideItem {
+                        targets: vec!["nested".into()],
+                        lint: None,
+                        format: Some(tombi_config::SchemaOverrideFormatOptions {
+                            rules: Some(tombi_config::SchemaOverrideFormatRules {
+                                array_values_order: None,
+                                table_keys_order: Some(
+                                    tombi_config::SchemaOverrideTableKeysOrderRule::Order(
+                                        tombi_x_keyword::TableKeysOrder::Descending,
+                                    ),
+                                ),
+                            }),
+                        }),
+                    }]),
+                })),
+            ) -> Ok({
+                "Keys": "nested",
+                "Value": "Table?",
+                "Keys Order": Some("descending")
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn shows_struck_through_keys_order_when_override_disables_it(
+                r#"
+                [nested█]
+                b = 1
+                a = 2
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        nested_table_keys_order_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: None,
+                    overrides: Some(vec![tombi_config::SchemaOverrideItem {
+                        targets: vec!["nested".into()],
+                        lint: None,
+                        format: Some(tombi_config::SchemaOverrideFormatOptions {
+                            rules: Some(tombi_config::SchemaOverrideFormatRules {
+                                array_values_order: None,
+                                table_keys_order: Some(
+                                    tombi_config::SchemaOverrideTableKeysOrderRule::Rule(
+                                        tombi_config::SchemaTableKeysOrderRule {
+                                            enabled: Some(false.into()),
+                                        },
+                                    ),
+                                ),
+                            }),
+                        }),
+                    }]),
+                })),
+            ) -> Ok({
+                "Keys": "nested",
+                "Value": "Table?",
+                "Keys Order": None,
+                "Disabled Keys Order": Some("ascending"),
+                "Hover Contains": ["Keys Order: ~~`ascending`~~"]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn shows_struck_through_keys_order_when_comment_directive_disables_it(
+                r#"
+                # tombi: format.rules.table-keys-order.disabled = true
+                [nested█]
+                b = 1
+                a = 2
+                "#,
+                SchemaPath(nested_table_keys_order_schema_path()),
+            ) -> Ok({
+                "Keys": "nested",
+                "Value": "Table?",
+                "Keys Order": None,
+                "Disabled Keys Order": Some("ascending"),
+                "Hover Contains": ["Keys Order: ~~`ascending`~~"]
+            });
+        );
+    }
+
+    mod array_values_order_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn shows_struck_through_values_order_when_schema_format_rule_is_disabled(
+                r#"
+                items = ["b", "a"]█
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        array_values_order_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: Some(tombi_config::SchemaFormatOptions {
+                        rules: Some(tombi_config::SchemaFormatRules {
+                            array_values_order: Some(tombi_config::SchemaArrayValuesOrderRule {
+                                enabled: Some(false.into()),
+                            }),
+                            table_keys_order: None,
+                        }),
+                    }),
+                    overrides: None,
+                })),
+            ) -> Ok({
+                "Keys": "items",
+                "Value": "Array?",
+                "Values Order": None,
+                "Disabled Values Order": Some("ascending"),
+                "Hover Contains": ["Values Order: ~~`ascending`~~"]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn uses_schema_override_for_values_order_in_hover(
+                r#"
+                items = ["b", "a"]█
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        array_values_order_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: None,
+                    overrides: Some(vec![tombi_config::SchemaOverrideItem {
+                        targets: vec!["items".into()],
+                        lint: None,
+                        format: Some(tombi_config::SchemaOverrideFormatOptions {
+                            rules: Some(tombi_config::SchemaOverrideFormatRules {
+                                array_values_order: Some(
+                                    tombi_config::SchemaOverrideArrayValuesOrderRule::Order(
+                                        tombi_x_keyword::ArrayValuesOrder::Descending,
+                                    ),
+                                ),
+                                table_keys_order: None,
+                            }),
+                        }),
+                    }]),
+                })),
+            ) -> Ok({
+                "Keys": "items",
+                "Value": "Array?",
+                "Values Order": Some("descending")
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn shows_struck_through_values_order_when_override_disables_it(
+                r#"
+                items = ["b", "a"]█
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        array_values_order_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: None,
+                    overrides: Some(vec![tombi_config::SchemaOverrideItem {
+                        targets: vec!["items".into()],
+                        lint: None,
+                        format: Some(tombi_config::SchemaOverrideFormatOptions {
+                            rules: Some(tombi_config::SchemaOverrideFormatRules {
+                                array_values_order: Some(
+                                    tombi_config::SchemaOverrideArrayValuesOrderRule::Rule(
+                                        tombi_config::SchemaArrayValuesOrderRule {
+                                            enabled: Some(false.into()),
+                                        },
+                                    ),
+                                ),
+                                table_keys_order: None,
+                            }),
+                        }),
+                    }]),
+                })),
+            ) -> Ok({
+                "Keys": "items",
+                "Value": "Array?",
+                "Values Order": None,
+                "Disabled Values Order": Some("ascending"),
+                "Hover Contains": ["Values Order: ~~`ascending`~~"]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn shows_struck_through_values_order_when_comment_directive_disables_it(
+                r#"
+                items = [
+                  # tombi: format.rules.array-values-order.disabled = true
+
+                  "b",
+                  "a",
+                ]█
+                "#,
+                SchemaPath(array_values_order_schema_path()),
+            ) -> Ok({
+                "Keys": "items",
+                "Value": "Array?",
+                "Values Order": None,
+                "Disabled Values Order": Some("ascending"),
+                "Hover Contains": ["Values Order: ~~`ascending`~~"]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn shows_struck_through_one_of_values_order_when_schema_format_rule_is_disabled(
+                r#"
+                items = ["b", "a"]█
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        array_values_order_one_of_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: Some(tombi_config::SchemaFormatOptions {
+                        rules: Some(tombi_config::SchemaFormatRules {
+                            array_values_order: Some(tombi_config::SchemaArrayValuesOrderRule {
+                                enabled: Some(false.into()),
+                            }),
+                            table_keys_order: None,
+                        }),
+                    }),
+                    overrides: None,
+                })),
+            ) -> Ok({
+                "Keys": "items",
+                "Value": "Array?",
+                "Values Order": None,
+                "Disabled Values Order": Some("oneOf:ascending,descending"),
+                "Hover Contains": [
+                    "Values Order: ~~`oneOf`~~",
+                    "  - ~~`ascending`~~",
+                    "  - ~~`descending`~~",
+                ]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn exact_index_override_applies_only_to_targeted_array_item(
+                r#"
+                items = [["b", "a"]█, ["d", "c"]]
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        exact_index_array_values_order_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: None,
+                    overrides: Some(vec![tombi_config::SchemaOverrideItem {
+                        targets: vec!["items[1]".into()],
+                        lint: None,
+                        format: Some(tombi_config::SchemaOverrideFormatOptions {
+                            rules: Some(tombi_config::SchemaOverrideFormatRules {
+                                array_values_order: Some(
+                                    tombi_config::SchemaOverrideArrayValuesOrderRule::Order(
+                                        tombi_x_keyword::ArrayValuesOrder::Ascending,
+                                    ),
+                                ),
+                                table_keys_order: None,
+                            }),
+                        }),
+                    }]),
+                })),
+            ) -> Ok({
+                "Keys": "items[0]",
+                "Value": "Array",
+                "Values Order": None
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn exact_index_override_wins_over_wildcard_array_item(
+                r#"
+                items = [["b", "a"], ["d", "c"]█]
+                "#,
+                SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                    toml_version: None,
+                    path: tombi_schema_store::SchemaUri::from_file_path(
+                        exact_index_array_values_order_schema_path(),
+                    )
+                    .unwrap()
+                    .to_string(),
+                    include: vec!["*.toml".into()],
+                    exclude: None,
+                    lint: None,
+                    format: None,
+                    overrides: Some(vec![
+                        tombi_config::SchemaOverrideItem {
+                            targets: vec!["items[*]".into()],
+                            lint: None,
+                            format: Some(tombi_config::SchemaOverrideFormatOptions {
+                                rules: Some(tombi_config::SchemaOverrideFormatRules {
+                                    array_values_order: Some(
+                                        tombi_config::SchemaOverrideArrayValuesOrderRule::Order(
+                                            tombi_x_keyword::ArrayValuesOrder::Descending,
+                                        ),
+                                    ),
+                                    table_keys_order: None,
+                                }),
+                            }),
+                        },
+                        tombi_config::SchemaOverrideItem {
+                            targets: vec!["items[1]".into()],
+                            lint: None,
+                            format: Some(tombi_config::SchemaOverrideFormatOptions {
+                                rules: Some(tombi_config::SchemaOverrideFormatRules {
+                                    array_values_order: Some(
+                                        tombi_config::SchemaOverrideArrayValuesOrderRule::Order(
+                                            tombi_x_keyword::ArrayValuesOrder::Ascending,
+                                        ),
+                                    ),
+                                    table_keys_order: None,
+                                }),
+                            }),
+                        },
+                    ]),
+                })),
+            ) -> Ok({
+                "Keys": "items[1]",
+                "Value": "Array",
+                "Values Order": Some("ascending")
+            });
+        );
+    }
+
+    #[macro_export]
+    macro_rules! test_hover_keys_value {
+        (#[tokio::test] async fn $name:ident(
+            $source:expr $(, $arg:expr )* $(,)?
+        ) -> Ok({
+            "Keys": $keys:expr,
+            "Value": $value_type:expr
+            $(, "Schema": $has_schema:expr)?
+            $(, "Keys Order": $keys_order:expr)?
+            $(, "Disabled Keys Order": $disabled_keys_order:expr)?
+            $(, "Values Order": $values_order:expr)?
+            $(, "Disabled Values Order": $disabled_values_order:expr)?
+            $(, "Hover Contains": [$($hover_contains:expr),* $(,)?])?
+            $(, "Title": $title:expr)?
+            $(, "Description": $description:expr)?
+            $(, "Enum": [$($enum_values:expr),* $(,)?])?
+            $(, "Default": $default:expr)?
+            $(, "No Default": $no_default:expr)?
+            $(, "Examples": [$($examples:expr),* $(,)?])?
+            $(,)?
+        });) => {
+            #[tokio::test]
+            async fn $name() -> Result<(), Box<dyn std::error::Error>> {
+                use tombi_lsp::Backend;
+                use std::io::Write;
+                use tower_lsp::{
+                    lsp_types::{
+                        TextDocumentIdentifier, Url, WorkDoneProgressParams, DidOpenTextDocumentParams,
+                        TextDocumentItem,
+                    },
+                    LspService,
+                };
+                use tombi_lsp::handler::handle_did_open;
+                use tombi_text::IntoLsp;
+
+                tombi_test_lib::init_log();
+
+                #[allow(unused)]
+                #[derive(Default)]
+                struct TestArgs {
+                    source_file_path: Option<std::path::PathBuf>,
+                    schema_file_path: Option<std::path::PathBuf>,
+                    schema_items: Vec<tombi_config::SchemaItem>,
+                    subschemas: Vec<SubSchemaPath>,
+                    use_test_cache_home: bool,
+                    cached_remote_json: Vec<CachedRemoteJson>,
+                    backend_options: tombi_lsp::backend::Options,
+                }
+
+                #[allow(unused)]
+                trait ApplyTestArg {
+                    fn apply(self, args: &mut TestArgs);
+                }
+
+                #[allow(unused)]
+                struct SourcePath(std::path::PathBuf);
+
+                impl ApplyTestArg for SourcePath {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.source_file_path = Some(self.0);
+                    }
+                }
+
+                #[allow(unused)]
+                struct SchemaPath(std::path::PathBuf);
+
+                impl ApplyTestArg for SchemaPath {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.schema_file_path = Some(self.0);
+                    }
+                }
+
+                #[allow(unused)]
+                struct SchemaItemArg(tombi_config::SchemaItem);
+
+                impl ApplyTestArg for SchemaItemArg {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.schema_items.push(self.0);
+                    }
+                }
+
+                #[allow(unused)]
+                struct SubSchemaPath {
+                    pub root: String,
+                    pub path: std::path::PathBuf,
+                }
+
+                impl ApplyTestArg for SubSchemaPath {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.subschemas.push(self);
+                    }
+                }
+
+                #[allow(unused)]
+                struct UseTestCacheHome;
+
+                impl ApplyTestArg for UseTestCacheHome {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.use_test_cache_home = true;
+                    }
+                }
+
+                #[allow(unused)]
+                struct CachedRemoteJson {
+                    url: &'static str,
+                    body: &'static str,
+                }
+
+                impl ApplyTestArg for CachedRemoteJson {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.cached_remote_json.push(self);
+                    }
+                }
+
+                impl ApplyTestArg for tombi_lsp::backend::Options {
+                    fn apply(self, args: &mut TestArgs) {
+                        args.backend_options = self;
+                    }
+                }
+
+                #[allow(unused_mut)]
+                let mut args = TestArgs::default();
+                $(ApplyTestArg::apply($arg, &mut args);)*
+
+                let _cache_home = args
+                    .use_test_cache_home
+                    .then(TestCacheHome::new);
+                for cached_remote_json in &args.cached_remote_json {
+                    write_cached_response(cached_remote_json.url, cached_remote_json.body).await;
+                }
+
+                let (service, _) = LspService::new(|client| {
+                    Backend::new(client, &args.backend_options)
+                });
+
+                let backend = service.inner();
+                let mut schema_items = args.schema_items.clone();
+
+                if let Some(schema_file_path) = args.schema_file_path.as_ref() {
+                    let schema_uri = tombi_schema_store::SchemaUri::from_file_path(schema_file_path)
+                        .expect(
+                            format!(
+                                "failed to convert schema path to URL: {}",
+                                schema_file_path.display()
+                            )
+                            .as_str(),
+                        );
+
+                    schema_items.push(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                        toml_version: None,
+                        path: schema_uri.to_string(),
+                        include: vec!["*.toml".into()],
+                        exclude: None,
+                        lint: None,
+                        format: None,
+                        overrides: None,
+                    }));
+                }
+
+                for subschema in &args.subschemas {
+                    let subschema_uri = tombi_schema_store::SchemaUri::from_file_path(&subschema.path)
+                        .expect(
+                            format!(
+                                "failed to convert subschema path to URL: {}",
+                                subschema.path.display()
+                            )
+                            .as_str(),
+                        );
+
+                    schema_items.push(tombi_config::SchemaItem::Sub(tombi_config::SubSchema {
+                        path: subschema_uri.to_string(),
+                        include: vec!["*.toml".into()],
+                        exclude: None,
+                        root: subschema.root.clone(),
+                        lint: None,
+                        format: None,
+                        overrides: None,
+                    }));
+                }
+
+                let current_dir = std::env::current_dir().expect("failed to get current directory");
+                let temp_dir = if let Some(source_path) = args.source_file_path.as_ref() {
+                    source_path.parent().ok_or("failed to get parent directory")?
+                } else {
+                    current_dir.as_path()
+                };
+                let Ok(temp_file) = tempfile::NamedTempFile::with_suffix_in(
+                    ".toml",
+                    temp_dir,
+                ) else {
+                    return Err("failed to create a temporary file for the test data".into());
+                };
+
+                let mut toml_text = textwrap::dedent($source).trim().to_string();
+
+                let Some(index) = toml_text
+                    .as_str()
+                    .find("█")
+                        else {
+                        return Err("failed to find hover position marker (█) in the test data".into())
+                        };
+
+                toml_text.remove(index);
+                if temp_file.as_file().write_all(toml_text.as_bytes()).is_err() {
+                    return Err("failed to write to temporary file".into());
+                };
+
+                let line_index =
+                tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+
+                let source_path = args.source_file_path.as_deref().unwrap_or(temp_file.path());
+
+                let Ok(toml_file_url) = Url::from_file_path(source_path) else {
+                    return Err("failed to convert file path to URL".into());
+                };
+
+                if !schema_items.is_empty() {
+                    let config_schema_store = backend
+                        .config_manager
+                        .config_schema_store_for_file(source_path)
+                        .await;
+
+                    let mut test_config = config_schema_store.config;
+                    let mut existing_schemas = test_config.schemas.take().unwrap_or_default();
+                    existing_schemas.extend(schema_items);
+                    test_config.schemas = Some(existing_schemas);
+
+                    if let Some(config_path) = config_schema_store.config_path {
+                        backend
+                            .config_manager
+                            .update_config_with_path(test_config, &config_path)
+                            .await
+                            .map_err(|e| {
+                                format!(
+                                    "failed to update config {}: {}",
+                                    config_path.display(),
+                                    e
+                                )
+                            })?;
+                    } else {
+                        backend.config_manager.update_editor_config(test_config).await;
+                    }
+                }
+
+                handle_did_open(
+                    backend,
+                    DidOpenTextDocumentParams {
+                        text_document: TextDocumentItem {
+                            uri: toml_file_url.clone(),
+                            language_id: "toml".to_string(),
+                            version: 0,
+                            text: toml_text.clone(),
+                        },
+                    },
+                )
+                .await;
+
+                let Ok(Some(tombi_lsp::HoverContent::Value(hover_content) | tombi_lsp::HoverContent::DirectiveContent(hover_content))) = tombi_lsp::handler::handle_hover(
+                    &backend,
+                    tower_lsp::lsp_types::HoverParams {
+                        text_document_position_params: tower_lsp::lsp_types::TextDocumentPositionParams {
+                            text_document: TextDocumentIdentifier {
+                                uri: toml_file_url,
+                            },
+                            position: (tombi_text::Position::default()
+                                + tombi_text::RelativePosition::of(&toml_text[..index]))
+                            .into_lsp(&line_index),
+                        },
+                        work_done_progress_params: WorkDoneProgressParams::default(),
+                    },
+                )
+                .await else {
+                    return Err("failed to handle hover content".into());
+                };
+
+                log::debug!("hover_content: {:#?}", hover_content);
+
+                if let Some(expected_has_schema) = None::<bool> $(.or(Some($has_schema)))? {
+                    assert_eq!(
+                        hover_content.schema_uri.is_some(),
+                        expected_has_schema,
+                        "Schema presence is not equal",
+                    );
+                } else if args.schema_file_path.is_some() || !args.schema_items.is_empty() {
+                    assert!(hover_content.schema_uri.is_some(), "The hover target is not defined in the schema.");
+                } else {
+                    assert!(hover_content.schema_uri.is_none(), "The hover target is defined in the schema.");
+                }
+
+                pretty_assertions::assert_eq!(hover_content.accessors.to_string(), $keys, "Keys are not equal");
+                pretty_assertions::assert_eq!(hover_content.value_type.to_string(), $value_type, "Value type are not equal");
+                $(
+                    let expected_keys_order = $keys_order.map(str::to_string);
+                    let actual_keys_order = hover_content
+                        .constraints
+                        .as_ref()
+                        .and_then(|constraints| constraints.keys_order.as_ref())
+                        .filter(|keys_order| !keys_order.disabled)
+                        .map(|keys_order| match &keys_order.order {
+                            tombi_schema_store::XTombiTableKeysOrder::All(keys_order) => {
+                                keys_order.to_string()
+                            }
+                            tombi_schema_store::XTombiTableKeysOrder::Groups(groups) => groups
+                                .iter()
+                                .map(|group| format!("{}={}", group.target, group.order))
+                                .collect::<Vec<_>>()
+                                .join(","),
+                        });
+                    pretty_assertions::assert_eq!(
+                        actual_keys_order,
+                        expected_keys_order,
+                        "Keys order is not equal"
+                    );
+                )?
+                $(
+                    let expected_disabled_keys_order =
+                        $disabled_keys_order.map(str::to_string);
+                    let actual_disabled_keys_order = hover_content
+                        .constraints
+                        .as_ref()
+                        .and_then(|constraints| constraints.keys_order.as_ref())
+                        .filter(|keys_order| keys_order.disabled)
+                        .map(|keys_order| match &keys_order.order {
+                            tombi_schema_store::XTombiTableKeysOrder::All(keys_order) => {
+                                keys_order.to_string()
+                            }
+                            tombi_schema_store::XTombiTableKeysOrder::Groups(groups) => groups
+                                .iter()
+                                .map(|group| format!("{}={}", group.target, group.order))
+                                .collect::<Vec<_>>()
+                                .join(","),
+                        });
+                    pretty_assertions::assert_eq!(
+                        actual_disabled_keys_order,
+                        expected_disabled_keys_order,
+                        "Disabled keys order is not equal"
+                    );
+                )?
+                $(
+                    let expected_values_order = $values_order.map(str::to_string);
+                    let actual_values_order = hover_content
+                        .constraints
+                        .as_ref()
+                        .and_then(|constraints| constraints.values_order.as_ref())
+                        .filter(|values_order| !values_order.disabled)
+                        .map(|values_order| match &values_order.order {
+                            tombi_schema_store::XTombiArrayValuesOrder::All(values_order) => {
+                                values_order.to_string()
+                            }
+                            tombi_schema_store::XTombiArrayValuesOrder::Groups(groups) => match groups {
+                                tombi_x_keyword::ArrayValuesOrderGroup::OneOf(values_order) => {
+                                    format!(
+                                        "oneOf:{}",
+                                        values_order
+                                            .iter()
+                                            .map(ToString::to_string)
+                                            .collect::<Vec<_>>()
+                                            .join(",")
+                                    )
+                                }
+                                tombi_x_keyword::ArrayValuesOrderGroup::AnyOf(values_order) => {
+                                    format!(
+                                        "anyOf:{}",
+                                        values_order
+                                            .iter()
+                                            .map(ToString::to_string)
+                                            .collect::<Vec<_>>()
+                                            .join(",")
+                                    )
+                                }
+                            },
+                        });
+                    pretty_assertions::assert_eq!(
+                        actual_values_order,
+                        expected_values_order,
+                        "Values order is not equal"
+                    );
+                )?
+                $(
+                    let expected_disabled_values_order =
+                        $disabled_values_order.map(str::to_string);
+                    let actual_disabled_values_order = hover_content
+                        .constraints
+                        .as_ref()
+                        .and_then(|constraints| constraints.values_order.as_ref())
+                        .filter(|values_order| values_order.disabled)
+                        .map(|values_order| match &values_order.order {
+                            tombi_schema_store::XTombiArrayValuesOrder::All(values_order) => {
+                                values_order.to_string()
+                            }
+                            tombi_schema_store::XTombiArrayValuesOrder::Groups(groups) => match groups {
+                                tombi_x_keyword::ArrayValuesOrderGroup::OneOf(values_order) => {
+                                    format!(
+                                        "oneOf:{}",
+                                        values_order
+                                            .iter()
+                                            .map(ToString::to_string)
+                                            .collect::<Vec<_>>()
+                                            .join(",")
+                                    )
+                                }
+                                tombi_x_keyword::ArrayValuesOrderGroup::AnyOf(values_order) => {
+                                    format!(
+                                        "anyOf:{}",
+                                        values_order
+                                            .iter()
+                                            .map(ToString::to_string)
+                                            .collect::<Vec<_>>()
+                                            .join(",")
+                                    )
+                                }
+                            },
+                        });
+                    pretty_assertions::assert_eq!(
+                        actual_disabled_values_order,
+                        expected_disabled_values_order,
+                        "Disabled values order is not equal"
+                    );
+                )?
+                $(
+                    let rendered_hover = hover_content.to_string();
+                    $(
+                        assert!(
+                            rendered_hover.contains($hover_contains),
+                            "Rendered hover does not contain expected text: {}\nrendered: {}",
+                            $hover_contains,
+                            rendered_hover
+                        );
+                    )*
+                )?
+                $(
+                    let expected_title = $title;
+                    pretty_assertions::assert_eq!(
+                        hover_content.title.as_deref(),
+                        expected_title.as_deref(),
+                        "Title is not equal"
+                    );
+                )?
+                $(
+                    let expected_description = $description;
+                    pretty_assertions::assert_eq!(
+                        hover_content.description.as_deref(),
+                        expected_description.as_deref(),
+                        "Description is not equal"
+                    );
+                )?
+                $(
+                    let expected_enum = vec![$($enum_values),*];
+                    pretty_assertions::assert_eq!(
+                        hover_content
+                            .constraints
+                            .as_ref()
+                            .and_then(|constraints| constraints.r#enum.as_ref())
+                            .map(|values| values.iter().map(ToString::to_string).collect::<Vec<_>>())
+                            .unwrap_or_default(),
+                        expected_enum,
+                        "Enum is not equal"
+                    );
+                )?
+                $(
+                    let expected_default = $default;
+                    pretty_assertions::assert_eq!(
+                        hover_content
+                            .constraints
+                            .as_ref()
+                            .and_then(|constraints| constraints.default.as_ref())
+                            .map(ToString::to_string)
+                            .as_deref(),
+                        Some(expected_default),
+                        "Default is not equal"
+                    );
+                )?
+                $(
+                    if $no_default {
+                        pretty_assertions::assert_eq!(
+                            hover_content
+                                .constraints
+                                .as_ref()
+                                .and_then(|constraints| constraints.default.as_ref())
+                                .map(ToString::to_string),
+                            None,
+                            "Default is not empty"
+                        );
+                    }
+                )?
+                $(
+                    let expected_examples = vec![$($examples),*];
+                    pretty_assertions::assert_eq!(
+                        hover_content
+                            .constraints
+                            .as_ref()
+                            .and_then(|constraints| constraints.examples.as_ref())
+                            .map(|examples| examples.iter().map(ToString::to_string).collect::<Vec<_>>()),
+                        Some(expected_examples.into_iter().map(ToString::to_string).collect()),
+                        "Examples are not equal"
+                    );
+                )?
+
+                Ok(())
+            }
+        }
+    }
+}

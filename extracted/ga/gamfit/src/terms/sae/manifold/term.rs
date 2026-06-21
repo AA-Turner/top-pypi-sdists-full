@@ -23,35 +23,6 @@ pub(crate) const SAE_OUTER_GRADIENT_GAUGE_RAYLEIGH_FACTOR: f64 = 1.0e-8;
 /// Matches the `1e-9` relative rank cutoff used across the codebase.
 pub(crate) const SAE_DECODER_BETA_NULL_RELATIVE_FLOOR: f64 = 1.0e-9;
 
-/// Largest decoder (`β`) block dimension for which the outer-gradient
-/// conditioning path may additionally probe the β coordinate basis for a
-/// near-null subspace of the joint Hessian (issue #1051, #1095).
-///
-/// The closed-form gauge orbit ([`SaeManifoldTerm::dense_step_gauge_vectors`])
-/// only covers the *chart* reparametrisation freedom (constant + linear
-/// coordinate fields). It does NOT cover a **rank-deficient decoder design** —
-/// e.g. a euclidean-1D atom fit to a straight line in a `p = 2` ambient leaves
-/// the decoder column space rank-1, so one decoder direction is unidentified by
-/// the data and the joint Hessian acquires a near-null direction that lives in
-/// the β block, not the gauge orbit. That direction is exactly a Faddeev-Popov
-/// gauge of the *same* kind (a flat direction of the evidence quotient), so it
-/// is deflated identically — but only after the β basis is admitted as a
-/// deflation candidate. The dense `k×k` Rayleigh eigendecomposition that
-/// resolves it is `O(k³)`, so it is gated to moderate β blocks; large-`p`
-/// LLM-scale fits keep the pure gauge-orbit path untouched (they reach low
-/// decoder rank through the Grassmann frame, which reduces the border width
-/// from `M·p` to `M·r` where `r ≪ p`, so `k ≤ M·r` is always small). PCA-
-/// reduced fits (p ≈ 32–128) with the Grassmann frame active can have
-/// `k = M·r` up to ~512 (e.g. m=8 basis fns, p=32, r=8 → k=64, but for
-/// m=16 → k=128, m=32 → k=256); 512 covers all typical small-atom PCA cases
-/// while keeping the O(k³) cost ≈ 0.13B ops — negligible next to the solve.
-///
-/// #1273: the outer-gradient deflation no longer probes the raw unit-β basis
-/// (it now uses the penalty-aware `decoder_beta_null_directions`), so this
-/// dimension cap is retained for the documented contract / other call sites.
-#[allow(dead_code)]
-pub(crate) const SAE_OUTER_GRADIENT_BETA_NULL_PROBE_MAX_DIM: usize = 512;
-
 /// Nominal curvature-homotopy `η` step (#1007): the tracker covers `η ∈ [0, 1]`
 /// in this many equal predictor-corrector waypoints when the branch is clean.
 /// Five waypoints is a few corrector solves — far cheaper than the multi-seed
@@ -208,6 +179,30 @@ pub(crate) const SAE_FIT_DATA_COLLAPSE_COST: f64 = 1.0e12;
 pub(crate) const SAE_FINAL_EV_DEGRADATION_TOL: f64 = 1.0e-3;
 
 pub(crate) const SAE_SEED_DISPERSION_FLOOR: f64 = 1.0e-12;
+
+/// #1026 decoder-repulsion conditioner strength. Small fixed weight on the
+/// collinearity-gated cross-decoder repulsion that injects POSITIVE curvature in
+/// the inter-atom co-collapse direction. It is a conditioner/separator, not a
+/// primary objective term: it is identically zero (value, gradient, curvature)
+/// unless two atom decoders exceed
+/// [`SAE_DECODER_REPULSION_COLLINEARITY_GATE`], so it is a strict no-op for
+/// well-separated atoms and for `K = 1`. Without it the SAE joint inner Newton
+/// solve has NO inter-atom repulsion (data-fit is independent per atom given the
+/// soft assignment), so at `K >= 4` on real residual geometry two atoms drift
+/// onto the same decoder direction, the per-row `H_tt` block goes near-singular,
+/// the reduced β-Schur over-subtracts and goes indefinite, and the inner solve
+/// never converges (#1026).
+pub(crate) const SAE_DECODER_REPULSION_STRENGTH: f64 = 1.0e-3;
+
+/// #1026 normalized collinearity score
+/// `s_jk = ‖B_jB_kᵀ‖²_F / (‖B_j‖²_F·‖B_k‖²_F)` at/above which the decoder
+/// repulsion engages. Below this the smoothstep gate is exactly 0 (zero penalty
+/// / gradient / curvature), so healthy fits whose atoms point in distinct
+/// directions never activate the term. `s_jk` is scale-free in each decoder's
+/// magnitude (it measures ANGLE, not norm) so it cannot fight the data-fit's
+/// choice of decoder scale.
+pub(crate) const SAE_DECODER_REPULSION_COLLINEARITY_GATE: f64 = 0.5;
+
 /// Full SAE-manifold term.
 #[derive(Debug)]
 pub struct SaeManifoldTerm {
@@ -264,6 +259,16 @@ pub struct SaeManifoldTerm {
     /// lock-step with the assembled system so the step interpretation cannot
     /// drift from the layout the system was built in.
     pub(crate) last_frames_active: bool,
+    /// #1407: when set, `assemble_arrow_schur` emits ONLY the per-row block-
+    /// diagonal `htt`/`gt` (the data-fit Gauss-Newton + assignment/ARD prior
+    /// curvature and gradient), skipping the entire β decoder tier — the β Gram
+    /// `G`, the `gb` gradient, the matrix-free `H_tβ` Kronecker operator, the
+    /// dense `H_ββ`, and all β-tier analytic penalties. The fixed-decoder encode
+    /// (`run_fixed_decoder_arrow_schur`) freezes the decoder and its per-row step
+    /// reads only `htt`/`gt` (`fixed_decoder_step_from_rows`), so the entire
+    /// `K`-dependent decoder assembly it otherwise computes-and-discards is
+    /// avoided. A transient mode set in lock-step by that driver, not persisted.
+    pub(crate) fixed_decoder_assembly: bool,
     /// Reusable dense β-tier workspace for analytic penalty assembly. SAE
     /// immediately lowers the dense block into a `BetaPenaltyOp`, so the returned
     /// `ArrowSchurSystem` does not need to keep owning the allocation.
@@ -309,6 +314,31 @@ pub struct SaeManifoldTerm {
     /// ledger in [`Self::collapse_events`] because a co-collapse reseed is a
     /// whole-dictionary multi-start, not a per-atom second chance.
     pub(crate) dictionary_cocollapse_reseeds: usize,
+    /// #1026 co-collapse multi-start incumbent: the best (highest reconstruction
+    /// EV) dictionary state seen across the full-dictionary co-collapse reseeds in
+    /// the current optimization, with that EV. A blind reseed sequence can land in
+    /// a strictly WORSE basin than the seed it replaced (real OLMo K=4: EV 0.127 →
+    /// −1.01 across reseeds), so the multi-start must RETAIN the best basin and
+    /// restore it when the reseed budget is spent, instead of keeping the last
+    /// (often catastrophic) attempt. `None` until the first co-collapse reseed;
+    /// reset to `None` alongside [`Self::dictionary_cocollapse_reseeds`] at the
+    /// start of each outer optimization.
+    pub(crate) best_cocollapse_incumbent: Option<(f64, SaeManifoldMutableState)>,
+    /// #1026 decoder-repulsion gate, frozen per assembly (lagged-diffusivity
+    /// discipline, exactly like [`SaeManifoldAtom::smooth_penalty`]): the
+    /// symmetric `(K, K)` matrix of collinearity gate weights
+    /// `gate(s_jk)·SAE_DECODER_REPULSION_STRENGTH` computed from the decoder
+    /// state at assembly entry. Both the assembly (gradient into `gb`, PSD
+    /// curvature into `hbb`) and the line-search value path
+    /// ([`Self::penalized_objective_total`]) read THIS frozen gate, so the
+    /// repulsion's value, gradient, and curvature stay mutually consistent
+    /// across a Newton step even as the trial decoders move (the cross-Gram
+    /// quadratic moves with the trial; only the gate weight is frozen). `None`
+    /// when no repulsion is active (`K < 2`, or every pair below the gate
+    /// threshold — the strict no-op case). Refreshed at the same chokepoint as
+    /// the smoothness Gram; not part of the persisted term identity (Clone
+    /// starts `None`).
+    pub(crate) decoder_repulsion_gate: Option<Array2<f64>>,
     /// #1026: the load-bearing curved-vs-linear hybrid-split verdict, computed
     /// once in [`Self::canonicalize_charts_post_fit`] after the joint fit
     /// converges. Each eligible `d = 1` atom's fitted curved image is adjudicated
@@ -352,6 +382,7 @@ impl Clone for SaeManifoldTerm {
             collapse_events: self.collapse_events.clone(),
             row_loss_weights: self.row_loss_weights.clone(),
             last_frames_active: self.last_frames_active,
+            fixed_decoder_assembly: false,
             border_hbb_workspace: Array2::<f64>::zeros((0, 0)),
             certificate_dispersion: self.certificate_dispersion,
             curvature_walk_report: self.curvature_walk_report.clone(),
@@ -360,6 +391,12 @@ impl Clone for SaeManifoldTerm {
             evidence_gauge_deflation_reanchors: self.evidence_gauge_deflation_reanchors,
             evidence_gauge_deflation_last_delta_sign: self.evidence_gauge_deflation_last_delta_sign,
             dictionary_cocollapse_reseeds: self.dictionary_cocollapse_reseeds,
+            // Transient in-fit multi-start incumbent — not part of the persisted
+            // term identity (like `border_hbb_workspace`); a fresh clone starts
+            // with no incumbent and rebuilds it if it re-enters co-collapse.
+            best_cocollapse_incumbent: None,
+            // Transient per-assembly frozen gate — rebuilt at the next assembly.
+            decoder_repulsion_gate: None,
             hybrid_split_report: self.hybrid_split_report.clone(),
             atom_inner_fits: self.atom_inner_fits.clone(),
             oos_linear_images: self.oos_linear_images.clone(),

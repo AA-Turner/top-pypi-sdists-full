@@ -37,6 +37,7 @@ from ..config import get_config
 from ..engine import BaseEngine
 from ..middleware.auth import check_rate_limit_or_x_api_key, verify_api_key_or_x_api_key
 from ..service.helpers import (
+    SSE_RESPONSE_HEADERS,
     _build_usage,
     _check_admission_or_503,
     _disconnect_guard,
@@ -51,6 +52,7 @@ from ..service.helpers import (
     _resolve_temperature,
     _resolve_top_p,
     _validate_model_name,
+    _validate_tool_call_params,
     _wait_with_disconnect,
     build_extended_sampling_kwargs,
     enforce_context_length_for_messages,
@@ -103,6 +105,161 @@ def _should_start_in_thinking(chat_template: str, enable_thinking: bool | None) 
     if enable_thinking is False:
         return False
     return "<think>" in chat_template and "add_generation_prompt" in chat_template
+
+
+def _named_tool_choice_target(tool_choice) -> str | None:
+    """Return the target tool name when ``tool_choice`` pins a specific
+    tool, else ``None``.
+
+    The Anthropic adapter has already translated
+    ``{"type":"tool","name":X}`` into the OpenAI form
+    ``{"type":"function","function":{"name":X}}`` on
+    ``openai_request.tool_choice`` by the time we get here. ``"auto"`` /
+    ``"required"`` / ``"none"`` / unset shapes return ``None`` — they
+    have no defined "wrong tool" case to filter or enforce.
+    """
+    if not isinstance(tool_choice, dict):
+        return None
+    if tool_choice.get("type") != "function":
+        return None
+    target = (tool_choice.get("function") or {}).get("name")
+    return target or None
+
+
+def _tool_call_name_anthropic(tc) -> str | None:
+    """Extract the function name from a tool_call entry regardless of
+    shape. Three real shapes survive into this point — see
+    ``routes/chat.py:_tool_call_name`` for the same catalogue. Inlined
+    here to avoid a cross-route import dependency from ``routes/chat.py``
+    into ``routes/anthropic.py``.
+    """
+    if isinstance(tc, dict):
+        fn = tc.get("function")
+        if isinstance(fn, dict):
+            return fn.get("name")
+        if fn is not None:
+            return getattr(fn, "name", None)
+        return tc.get("name")
+    fn = getattr(tc, "function", None)
+    if fn is not None:
+        return getattr(fn, "name", None)
+    return getattr(tc, "name", None)
+
+
+def _filter_tool_calls_by_tool_choice(tool_calls, tool_choice) -> list:
+    """Drop tool_use blocks that don't match a forced ``tool_choice``.
+
+    H-05: Anthropic ``tool_choice={"type":"tool","name":X}`` pins WHICH
+    tool the model must call. Local inference has no decoder-level
+    constraint, so a small model can happily defy the pin and emit a
+    call to a different tool (the Sergei repro hit qwen3.5-4b on a
+    two-tool prompt where the model fired BOTH the pinned tool AND the
+    un-pinned one). Pre-fix, the downstream JSON-schema validator
+    (F-220) then 400-ed on the un-pinned tool's argument schema —
+    leaking validation across a tool the user never asked for and
+    silently breaking ``tool_choice``.
+
+    Policy: when the choice pins a specific tool, KEEP only the calls
+    to that tool and drop the rest with a warning. This matches the
+    user-visible expectation ("you asked for X, here is X") and keeps
+    the F-220 validator scoped to the pinned tool. ``"auto"`` /
+    ``"required"`` / ``"none"`` / unset shapes pass through unchanged
+    — only the explicit named-tool form has a defined "wrong tool"
+    case to filter.
+
+    Chat.py's named-function path 422s on the same mismatch (see
+    ``routes/chat.py:1665``). The two routes intentionally diverge on
+    the "got pinned + extras" case: ``/v1/chat/completions`` mirrors
+    OpenAI's strict contract (422), while ``/v1/messages`` mirrors
+    Anthropic's more forgiving "deliver the pinned tool's call"
+    contract — a 422 on an extra call would surface a confusing error
+    to clients that pinned the very tool the response already
+    carries. They CONVERGE on the "got zero pinned calls" case, which
+    is handled by ``_enforce_named_tool_choice_present`` below (PR
+    #763 codex round-1 BLOCKING #1: a filter that emptied the list
+    plus a downstream "no tool_calls? end_turn." branch would 200
+    with no ``tool_use`` block at all, silently violating the
+    forced-tool contract).
+
+    The validator scope refactor in ``_validate_tool_call_params``
+    ensures we never validate against the dropped tool's schema even
+    if a future change weakens this filter.
+    """
+    if not tool_calls or not isinstance(tool_choice, dict):
+        return tool_calls or []
+    target = _named_tool_choice_target(tool_choice)
+    if not target:
+        return tool_calls
+
+    filtered = []
+    dropped: list[str] = []
+    for tc in tool_calls:
+        if _tool_call_name_anthropic(tc) == target:
+            filtered.append(tc)
+        else:
+            dropped.append(_tool_call_name_anthropic(tc) or "<unknown>")
+    if dropped:
+        logger.warning(
+            "tool_choice pinned %r but model also emitted calls to %s; "
+            "dropping the un-pinned calls so the response carries only the "
+            "pinned tool (Anthropic /v1/messages H-05 policy).",
+            target,
+            dropped,
+        )
+    return filtered
+
+
+def _enforce_named_tool_choice_present(
+    tool_calls,
+    tool_choice,
+    *,
+    original_call_count: int,
+) -> None:
+    """Raise 422 when ``tool_choice`` pinned a specific tool but no
+    matching tool_call survives.
+
+    PR #763 codex round-1 BLOCKING #1: ``_filter_tool_calls_by_tool_choice``
+    correctly drops un-pinned calls, but the downstream branch in
+    ``messages_endpoint`` treats ``tool_calls=[]`` as "model returned
+    text only → ``stop_reason=end_turn``". That is the wrong contract
+    when the client pinned a specific tool: an empty post-filter list
+    means EITHER the model emitted zero tool_calls at all (model
+    defied the pin entirely and answered as plain text) OR every
+    emitted call was to the wrong tool (model called something else
+    and we dropped them all). Both states violate the forced-tool
+    contract; clients that pinned ``X`` expect a ``tool_use`` block
+    for ``X`` and a 200 ``end_turn`` text response leaves them with
+    nothing to act on. Surface the failure explicitly so the caller
+    can retry / fall back instead of silently mis-routing.
+
+    Mirrors chat.py's ``tool_choice="required"`` no-call branch
+    (``routes/chat.py:1587``) which 422s with the same "local
+    inference cannot decoder-enforce" diagnostic. The streaming
+    branch uses the same body via an SSE ``event: error``.
+
+    ``original_call_count`` is the size of ``tool_calls`` BEFORE the
+    filter ran — we use it to disambiguate "model returned text"
+    (count == 0) from "model called the wrong tool(s) and the filter
+    emptied the list" (count > 0) in the error message.
+    """
+    target = _named_tool_choice_target(tool_choice)
+    if not target or tool_calls:
+        return
+    if original_call_count == 0:
+        detail = (
+            f"tool_choice pinned tool {target!r} but the model returned a text "
+            "response with no tool_calls. Local inference has no decoder-level "
+            "constraint; the system-prompt enforcement was insufficient for "
+            "this prompt. Retry with a more direct user message."
+        )
+    else:
+        detail = (
+            f"tool_choice pinned tool {target!r} but the model emitted "
+            f"{original_call_count} call(s), none to {target!r}. Local "
+            "inference cannot decoder-enforce a specific tool; retry with a "
+            "more direct user message."
+        )
+    raise HTTPException(status_code=422, detail=detail)
 
 
 @router.post(
@@ -184,6 +341,15 @@ async def create_anthropic_message(
             openai_request = anthropic_to_openai(anthropic_request)
         except AnthropicOutputConfigError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        except ValidationError as e:
+            # F-034 (and any future ``ChatCompletionRequest``-layer
+            # validator): the adapter constructs an OpenAI-shape request
+            # from the Anthropic body, and ``ChatCompletionRequest`` now
+            # rejects unsatisfiable combinations (e.g. ``tool_choice="required"``
+            # — Anthropic ``any`` — with no ``tools``). Surface as 400 with
+            # the validator's message instead of letting Pydantic crash
+            # the route into a 500.
+            raise HTTPException(status_code=400, detail=str(e))
 
         # Context-length pre-check — same DoS gate the chat/completions/
         # responses routes enforce. Render the prompt through the engine's
@@ -211,19 +377,29 @@ async def create_anthropic_message(
 
         if anthropic_request.stream:
             _admission_committed = True
+            # C-01 force-abort: holder list the engine populates with
+            # the admitted scheduler request id; the disconnect_guard
+            # reads it and force-calls scheduler.abort_request on
+            # client disconnect.
+            _anth_rid_holder: list[str | None] = [None]
             return StreamingResponse(
                 _disconnect_guard(
                     _stream_anthropic_messages(
-                        engine, openai_request, anthropic_request
+                        engine,
+                        openai_request,
+                        anthropic_request,
+                        request_id_holder=_anth_rid_holder,
                     ),
                     request,
                     engine=engine,
+                    request_id_holder=_anth_rid_holder,
                 ),
                 media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                },
+                # ``SSE_RESPONSE_HEADERS`` (Cache-Control no-cache/no-transform +
+                # X-Accel-Buffering: no) keeps anti-buffering parity with the
+                # other SSE routes; ``Connection: keep-alive`` is preserved for
+                # the Anthropic SDK clients that historically checked for it.
+                headers={**SSE_RESPONSE_HEADERS, "Connection": "keep-alive"},
             )
 
         # Non-streaming: run inference through existing engine
@@ -307,6 +483,41 @@ async def create_anthropic_message(
         cleaned_text, tool_calls = _parse_tool_calls_with_parser(
             output.text, openai_request, structured_tool_calls=engine_tool_calls
         )
+
+        # H-05: tool_choice={"type":"tool","name":X} pins WHICH tool the
+        # model must call. Local inference can't decoder-enforce that,
+        # so a defiant model can fire an extra call to a different
+        # tool. Pre-fix, the F-220 validator below then 400-ed on the
+        # un-pinned tool's schema — Sergei's repro: pinned
+        # ``get_weather``, model fired ``get_weather`` AND
+        # ``lookup_zip``, 400 came back complaining about ``lookup_zip``.
+        # Drop the un-pinned calls FIRST so the validator only sees the
+        # pinned tool's call(s). See ``_filter_tool_calls_by_tool_choice``
+        # for the policy rationale vs chat.py's 422-on-mismatch, and
+        # ``_enforce_named_tool_choice_present`` for the "filter dropped
+        # everything" guard added in PR #763 codex round-1.
+        original_call_count = len(tool_calls or [])
+        if openai_request.tool_choice:
+            tool_calls = _filter_tool_calls_by_tool_choice(
+                tool_calls or [], openai_request.tool_choice
+            )
+            _enforce_named_tool_choice_present(
+                tool_calls,
+                openai_request.tool_choice,
+                original_call_count=original_call_count,
+            )
+
+        # F-220: enforce the same tool_call JSON-schema validation
+        # ``routes/chat.py:1651`` runs on the OpenAI ``/v1/chat/completions``
+        # route. The Anthropic adapter has already translated
+        # ``input_schema`` into the OpenAI ``function.parameters`` shape
+        # (see ``api/anthropic_adapter._convert_tool``), so we can reuse
+        # the same validator unchanged. Without this, an enum/type/range
+        # violation that returns HTTP 400 on chat-completions silently
+        # propagated through ``/v1/messages`` as a 200 ``tool_use`` block
+        # carrying schema-violating arguments.
+        if tool_calls and openai_request.tools:
+            _validate_tool_call_params(tool_calls, openai_request.tools)
 
         # Extract reasoning content via the same orchestration the OpenAI route
         # uses (chat.py). Skipping this is what #413 fixed — the Anthropic surface
@@ -412,6 +623,13 @@ async def create_anthropic_message(
             openai_response,
             cfg.model_name or anthropic_request.model,
             reasoning_enabled=_resolve_reasoning_enabled(anthropic_request.model),
+            # H-03: forward the engine-surfaced matched stop string so
+            # the response carries ``stop_reason="stop_sequence"`` +
+            # ``stop_sequence: <str>`` per Anthropic's public spec.
+            # ``getattr`` keeps the call defensive against engines that
+            # haven't been rebuilt against the new ``GenerationOutput``
+            # field (None → legacy ``stop`` → ``end_turn`` mapping).
+            matched_stop=getattr(output, "matched_stop", None),
         )
         return Response(
             content=anthropic_response.model_dump_json(exclude_none=True),
@@ -429,8 +647,111 @@ async def create_anthropic_message(
     ],
 )
 async def count_anthropic_tokens(request: Request):
-    """Count tokens for an Anthropic Messages API request."""
+    """Count tokens for an Anthropic Messages API request.
+
+    Validation contract — mirrors ``/v1/messages``:
+
+    * Malformed JSON body → 400 via the global ``json.JSONDecodeError``
+      handler in ``server.py`` (F-161).
+    * Missing or empty ``messages`` → 400 ``invalid_request_error``
+      instead of the silent ``{"input_tokens": 0}`` cost-estimation
+      footgun (F-160). Anthropic's real endpoint requires a non-empty
+      ``messages`` array; mirror that here so clients don't ship a
+      pricing-page bug into production.
+    * Unknown ``model`` → 404 via ``_validate_model_name`` instead of
+      silently using the loaded model's tokenizer (F-167). A fallback
+      count is mathematically meaningless to a client estimating cost
+      for a *different* model.
+    """
     body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "message": "Request body must be a JSON object",
+                    "type": "invalid_request_error",
+                    "code": "invalid_request",
+                    "param": None,
+                }
+            },
+        )
+
+    # Validate ``messages`` first — Anthropic's contract requires at
+    # least one message. Returning 0 tokens here is worse than an error
+    # because clients use this endpoint to estimate cost and a silent
+    # zero looks like "free request" rather than "bad request".
+    raw_messages = body.get("messages", None)
+    if raw_messages is None or (
+        isinstance(raw_messages, list) and len(raw_messages) == 0
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "message": (
+                        "`messages` must be a non-empty array of "
+                        "Anthropic message objects"
+                    ),
+                    "type": "invalid_request_error",
+                    "code": "invalid_request",
+                    "param": "messages",
+                }
+            },
+        )
+    if not isinstance(raw_messages, list):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "message": "`messages` must be a JSON array",
+                    "type": "invalid_request_error",
+                    "code": "invalid_request",
+                    "param": "messages",
+                }
+            },
+        )
+
+    # Validate model name — mirror ``/v1/chat/completions`` and
+    # ``/v1/responses``. Claude/Codex aliases pass through to the
+    # loaded engine just like in ``create_anthropic_message`` above
+    # (PR #557 contract). A *present* non-string ``model`` (or empty
+    # string) is a client bug — if we silently dropped it the loaded
+    # engine's tokenizer would still produce a count and a cost
+    # estimator would treat it as authoritative (codex bundled review
+    # on the F-167 fix, follow-up to F-160).
+    if "model" in body:
+        requested_model = body["model"]
+        if requested_model is not None and not isinstance(requested_model, str):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "message": "`model` must be a string",
+                        "type": "invalid_request_error",
+                        "code": "invalid_request",
+                        "param": "model",
+                    }
+                },
+            )
+        if isinstance(requested_model, str) and requested_model == "":
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "message": "`model` must not be empty",
+                        "type": "invalid_request_error",
+                        "code": "invalid_request",
+                        "param": "model",
+                    }
+                },
+            )
+        if (
+            isinstance(requested_model, str)
+            and requested_model
+            and not requested_model.startswith(("claude-", "gpt-"))
+        ):
+            _validate_model_name(requested_model)
 
     engine = get_engine()
     tokenizer = engine.tokenizer
@@ -530,8 +851,19 @@ async def _stream_anthropic_messages(
     engine: BaseEngine,
     openai_request: ChatCompletionRequest,
     anthropic_request: AnthropicRequest,
+    *,
+    request_id_holder: list | None = None,
 ) -> AsyncIterator[str]:
-    """Stream Anthropic Messages API SSE events."""
+    """Stream Anthropic Messages API SSE events.
+
+    Args:
+        request_id_holder: C-01 force-abort plumbing. Forwarded to
+            ``engine.stream_chat`` so the engine writes the admitted
+            scheduler request id into ``holder[0]``; the route's
+            ``_disconnect_guard`` reads the same holder and force-calls
+            ``scheduler.abort_request`` on client disconnect. ``None``
+            (default) is a no-op.
+    """
     msg_id = f"msg_{uuid.uuid4().hex[:24]}"
     start_time = time.perf_counter()
 
@@ -547,6 +879,10 @@ async def _stream_anthropic_messages(
         ),
         **_resolved_sampling_kwargs(openai_request),
     }
+    # C-01: thread the request_id holder to the engine so disconnect
+    # detection can force-call scheduler.abort_request.
+    if request_id_holder is not None:
+        chat_kwargs["request_id_holder"] = request_id_holder
 
     if openai_request.tools:
         chat_kwargs["tools"] = convert_tools_for_template(openai_request.tools)
@@ -719,6 +1055,52 @@ async def _stream_anthropic_messages(
     }
     yield f"event: message_start\ndata: {json.dumps(message_start)}\n\n"
 
+    # H-05 follow-up (PR #771 codex round-2 BLOCKING #1): when
+    # ``tool_choice`` pins a specific tool, the model is supposed to
+    # emit a ``tool_use`` for that tool. Local inference can't
+    # decoder-enforce that, so a defiant model can stream a TEXT
+    # response instead — and pre-fix, those text deltas were
+    # yielded chunk-by-chunk before we knew to reject the response.
+    # By the time the post-loop enforcement fired the SSE error event,
+    # the client had already received a partial text payload that
+    # violates the forced-tool contract.
+    #
+    # Fix: when a named ``tool_choice`` is set, BUFFER every
+    # content_block / thinking event produced inside the chunk loop
+    # (and the post-loop flushes) into ``pre_filter_buffer`` instead
+    # of yielding it. After the loop finishes we run the same filter +
+    # enforcement step the non-stream branch uses; on success we
+    # replay the buffer so streaming UX is preserved, on failure we
+    # drop the buffer and emit only the SSE error event so the
+    # forbidden text payload never reaches the wire. ``message_start``
+    # is yielded above this (clients use it to allocate the message
+    # frame) and ``message_delta`` / ``message_stop`` are yielded
+    # below the enforcement (they only describe the terminal state).
+    _pinned_tool_target = _named_tool_choice_target(
+        getattr(openai_request, "tool_choice", None)
+    )
+    _buffer_for_pinned_tool = _pinned_tool_target is not None
+    pre_filter_buffer: list[str] = []
+
+    def _capture(event: str) -> str | None:
+        """Either buffer ``event`` and return ``None``, or return
+        ``event`` unchanged.
+
+        When a named ``tool_choice`` is pinned, every chunk-loop
+        content event is appended to ``pre_filter_buffer`` and this
+        helper returns ``None`` so the caller's ``if ev is not None:
+        yield ev`` is a no-op. Otherwise the helper returns the
+        event unchanged and the caller yields it immediately —
+        preserving the original "one event in ⇒ one event out"
+        streaming semantics. ``async for`` constructs in Python 3.12
+        don't allow ``yield from`` against a sync generator helper,
+        so this returns a scalar rather than an iterator.
+        """
+        if _buffer_for_pinned_tool:
+            pre_filter_buffer.append(event)
+            return None
+        return event
+
     accumulated_text = ""
     accumulated_raw = ""
     # Structured tool calls surfaced by the engine's OutputRouter
@@ -746,6 +1128,15 @@ async def _stream_anthropic_messages(
     prompt_tokens = 0
     completion_tokens = 0
     cached_tokens = 0
+    # H-03: track the most-recently-surfaced ``matched_stop`` so the
+    # terminal ``message_delta`` can emit Anthropic's
+    # ``stop_reason="stop_sequence"`` + ``stop_sequence: <str>`` per the
+    # public spec. The scheduler pins this exactly once (on the chunk
+    # that fires the stop check) and downstream wrappers preserve it
+    # through to the terminal sentinel, so reading the latest non-None
+    # value is equivalent to "did any stop fire on this request?".
+    # Stays ``None`` for EOS / length / no-stop terminations.
+    stream_matched_stop: str | None = None
 
     current_block_type = None
     block_index = 0
@@ -842,6 +1233,12 @@ async def _stream_anthropic_messages(
             completion_tokens = output.completion_tokens
         if hasattr(output, "cached_tokens") and output.cached_tokens:
             cached_tokens = output.cached_tokens
+        # H-03: latch the matched stop string from whichever chunk
+        # carries it. ``getattr`` keeps legacy mocks without the field
+        # working unchanged.
+        _chunk_matched_stop = getattr(output, "matched_stop", None)
+        if _chunk_matched_stop:
+            stream_matched_stop = _chunk_matched_stop
 
         # Capture engine-surfaced structured tool calls (HarmonyStreamingRouter
         # via openai-harmony's StreamableParser). The delta_text on these
@@ -953,7 +1350,9 @@ async def _stream_anthropic_messages(
                         block_index,
                     )
                     for event in events:
-                        yield event
+                        ev = _capture(event)
+                        if ev is not None:
+                            yield ev
                 continue
 
             if reasoning_parser:
@@ -1108,7 +1507,9 @@ async def _stream_anthropic_messages(
                         block_index,
                     )
                     for event in events:
-                        yield event
+                        ev = _capture(event)
+                        if ev is not None:
+                            yield ev
                 continue
 
             # No reasoning_parser path — keep the existing think_router
@@ -1128,7 +1529,9 @@ async def _stream_anthropic_messages(
                     block_index,
                 )
                 for event in events:
-                    yield event
+                    ev = _capture(event)
+                    if ev is not None:
+                        yield ev
 
     # Flush remaining from both filters
     remaining = tool_filter.flush()
@@ -1146,7 +1549,9 @@ async def _stream_anthropic_messages(
             block_index,
         )
         for event in events:
-            yield event
+            ev = _capture(event)
+            if ev is not None:
+                yield ev
 
     if not reasoning_parser:
         flush_pieces = think_router.flush()
@@ -1157,11 +1562,18 @@ async def _stream_anthropic_messages(
                 block_index,
             )
             for event in events:
-                yield event
+                ev = _capture(event)
+                if ev is not None:
+                    yield ev
 
     # Close final content block
     if current_block_type is not None:
-        yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': block_index})}\n\n"
+        ev = _capture(
+            f"event: content_block_stop\ndata: "
+            f"{json.dumps({'type': 'content_block_stop', 'index': block_index})}\n\n"
+        )
+        if ev is not None:
+            yield ev
         block_index += 1
 
     # Codex round-3 BLOCKING #2: if the reasoning cap latched on the
@@ -1227,14 +1639,18 @@ async def _stream_anthropic_messages(
                         [("text", filtered)], current_block_type, block_index
                     )
                     for event in events:
-                        yield event
+                        ev = _capture(event)
+                        if ev is not None:
+                            yield ev
         # Close any block we opened above before falling through to the
         # finalize_streaming path.
         if current_block_type is not None:
-            yield (
+            ev = _capture(
                 f"event: content_block_stop\ndata: "
                 f"{json.dumps({'type': 'content_block_stop', 'index': block_index})}\n\n"
             )
+            if ev is not None:
+                yield ev
             block_index += 1
             current_block_type = None
 
@@ -1267,17 +1683,17 @@ async def _stream_anthropic_messages(
             content = strip_special_tokens(final_msg.content)
             if content:
                 accumulated_text = content
-                yield (
+                for raw_event in (
                     f"event: content_block_start\ndata: "
-                    f"{json.dumps({'type': 'content_block_start', 'index': block_index, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
-                )
-                delta_event = {
-                    "type": "content_block_delta",
-                    "index": block_index,
-                    "delta": {"type": "text_delta", "text": content},
-                }
-                yield f"event: content_block_delta\ndata: {json.dumps(delta_event)}\n\n"
-                yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': block_index})}\n\n"
+                    f"{json.dumps({'type': 'content_block_start', 'index': block_index, 'content_block': {'type': 'text', 'text': ''}})}\n\n",
+                    f"event: content_block_delta\ndata: "
+                    f"{json.dumps({'type': 'content_block_delta', 'index': block_index, 'delta': {'type': 'text_delta', 'text': content}})}\n\n",
+                    f"event: content_block_stop\ndata: "
+                    f"{json.dumps({'type': 'content_block_stop', 'index': block_index})}\n\n",
+                ):
+                    ev = _capture(raw_event)
+                    if ev is not None:
+                        yield ev
                 block_index += 1
 
     # Check for tool calls — prefer engine-surfaced structured payload
@@ -1289,6 +1705,111 @@ async def _stream_anthropic_messages(
         openai_request,
         structured_tool_calls=accumulated_structured_tool_calls or None,
     )
+
+    # H-05: same un-pinned-tool drop as the non-streaming branch —
+    # see the non-stream call site for the policy rationale. Run
+    # BEFORE validation so the F-220 enforcer never sees the dropped
+    # tool's schema-violating arguments.
+    #
+    # IMPORTANT (PR #763 codex round-1 BLOCKING #2 — confirm-and-lock):
+    # NO ``content_block_start`` for ``type=tool_use`` is emitted in the
+    # while-loop above. The structured tool-call payload is only
+    # collected into ``accumulated_structured_tool_calls`` (see the
+    # ``engine_tool_calls`` extend at the stream-chunk site), and the
+    # tool_use SSE events are emitted strictly below (after the
+    # filter + validation). If a future refactor moves tool_use deltas
+    # earlier in the stream, this filter MUST be re-applied at the
+    # earlier emission point or the dropped tool's content_block_start
+    # will reach the wire before we know to suppress it.
+    tool_choice_error: str | None = None
+    original_call_count_stream = len(tool_calls or [])
+    if openai_request.tool_choice:
+        tool_calls = _filter_tool_calls_by_tool_choice(
+            tool_calls or [], openai_request.tool_choice
+        )
+        # Stream variant of ``_enforce_named_tool_choice_present``:
+        # headers are already on the wire so we can't 422 — surface
+        # the same diagnostic as an Anthropic ``event: error`` and
+        # close the stream with ``end_turn``. Mirrors how the F-220
+        # validation-failure branch below handles the same
+        # "headers-already-sent" constraint.
+        try:
+            _enforce_named_tool_choice_present(
+                tool_calls,
+                openai_request.tool_choice,
+                original_call_count=original_call_count_stream,
+            )
+        except HTTPException as exc:
+            tool_choice_error = (
+                exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+            )
+
+    # F-220: enforce JSON-schema validation on the model's emitted
+    # tool_call arguments. On the streaming branch, headers are already
+    # sent so a mid-stream ``HTTPException`` cannot be returned as a 400
+    # response. Instead, surface the validation error as an Anthropic
+    # SSE ``error`` event (``invalid_request_error``) and drop the
+    # offending tool_use blocks so the client can recover. Matches the
+    # non-stream branch's 400 contract in spirit while staying within
+    # the Anthropic streaming protocol.
+    tool_validation_error: str | None = None
+    if tool_calls and openai_request.tools:
+        try:
+            _validate_tool_call_params(tool_calls, openai_request.tools)
+        except HTTPException as exc:
+            tool_validation_error = (
+                exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+            )
+            tool_calls = []
+
+    # PR #771 codex round-2 BLOCKING #1: replay or drop the
+    # ``pre_filter_buffer`` we accumulated during the chunk loop.
+    # Until this point in the stream the only event yielded was the
+    # opening ``message_start``; every content_block / thinking event
+    # that the chunk loop produced sits in the buffer. We now know
+    # whether the enforcement passed:
+    #
+    #   * pass → replay the buffer so the streaming UX is preserved
+    #     (clients see the same text-delta cadence they would have
+    #     seen without the buffer). Tool_use blocks emit below.
+    #   * fail → drop the buffer so the would-be text response NEVER
+    #     reaches the wire. Only the SSE error event + the trailing
+    #     ``message_delta`` (end_turn) + ``message_stop`` follow.
+    #
+    # The buffer is unused when ``tool_choice`` is not a named pin —
+    # in that case the chunk loop yielded directly and ``pre_filter_buffer``
+    # is empty, so this block is a no-op on every non-pinned request.
+    if _buffer_for_pinned_tool and not (tool_choice_error or tool_validation_error):
+        for buffered_event in pre_filter_buffer:
+            yield buffered_event
+        pre_filter_buffer.clear()
+
+    # Emit a single SSE error event when either the tool_choice
+    # enforcement or the schema validator fired. Both classes are
+    # surfaced as ``invalid_request_error`` — they describe a
+    # client-actionable failure (retry / fall back / relax pin),
+    # whereas a true server failure would arrive via the route-level
+    # exception handler.
+    if tool_choice_error or tool_validation_error:
+        # On the buffered path the buffer is intentionally NOT replayed
+        # — the would-be text payload that the chunk loop accumulated
+        # is precisely what the named ``tool_choice`` contract forbids.
+        # Drop it on the floor and surface only the error event.
+        pre_filter_buffer.clear()
+        error_event = {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": tool_choice_error or tool_validation_error,
+            },
+        }
+        yield f"event: error\ndata: {json.dumps(error_event)}\n\n"
+        # When the pinned-tool enforcement fires, the only emit-worthy
+        # output is the error event — drop any surviving tool_calls so
+        # the loop below doesn't ship a ``tool_use`` for a state the
+        # error event already marked unrecoverable.
+        if tool_choice_error:
+            tool_calls = []
 
     if tool_calls:
         for i, tc in enumerate(tool_calls):
@@ -1321,6 +1842,18 @@ async def _stream_anthropic_messages(
             yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': tool_index})}\n\n"
 
     stop_reason = "tool_use" if tool_calls else "end_turn"
+    # H-03: when a user-supplied ``stop_sequences`` entry fired (and the
+    # turn would otherwise have terminated normally with ``end_turn``),
+    # surface Anthropic's dedicated ``stop_sequence`` reason + populate
+    # the matched bytes — mirroring the non-stream adapter. Tool-use
+    # finishes still win: the model emitting a tool_call AND happening
+    # to also surface a stop string in auxiliary text should not be
+    # reclassified, matching Anthropic's mutually-exclusive
+    # ``stop_reason`` semantics.
+    stop_sequence: str | None = None
+    if stream_matched_stop is not None and stop_reason == "end_turn":
+        stop_reason = "stop_sequence"
+        stop_sequence = stream_matched_stop
 
     # Anthropic-side cache fields mirror what the non-streaming adapter
     # at ``api/anthropic_adapter.openai_to_anthropic`` produces. Per
@@ -1345,7 +1878,7 @@ async def _stream_anthropic_messages(
         usage_payload["cache_read_input_tokens"] = cached_tokens
     message_delta = {
         "type": "message_delta",
-        "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+        "delta": {"stop_reason": stop_reason, "stop_sequence": stop_sequence},
         "usage": usage_payload,
     }
     yield f"event: message_delta\ndata: {json.dumps(message_delta)}\n\n"

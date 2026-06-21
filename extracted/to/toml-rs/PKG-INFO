@@ -1,27 +1,31 @@
 Metadata-Version: 2.4
 Name: toml-rs
-Version: 0.3.13
+Version: 0.3.14
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
+Classifier: Development Status :: 5 - Production/Stable
 License-File: UNLICENSE
 Summary: A High-Performance TOML Parser for Python written in Rust
+Keywords: toml,parser
 Author-email: chirizxc <chirizxc@proton.me>
 License-Expression: Unlicense
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Bug Tracker, https://github.com/lava-sh/toml-rs/issues
+Description-Content-Type: text/markdown
 Project-URL: Homepage, https://github.com/lava-sh/toml-rs
-Project-URL: Source, https://github.com/lava-sh/toml-rs
+Project-URL: Issues, https://github.com/lava-sh/toml-rs/issues
+Project-URL: Repository, https://github.com/lava-sh/toml-rs
 
 <div align="center">
 
@@ -29,11 +33,13 @@ Project-URL: Source, https://github.com/lava-sh/toml-rs
 
 *A High-Performance TOML v1.0.0 / v1.1.0 parser for Python written in Rust*
 
-[![PyPI License](https://img.shields.io/pypi/l/toml_rs.svg?style=flat-square)](https://pypi.org/project/toml_rs/)
-[![Monthly downloads](https://img.shields.io/pypi/dm/toml_rs.svg?style=flat-square)](https://pypi.org/project/toml_rs/)
-[![Github Repository size](https://img.shields.io/github/repo-size/lava-sh/toml-rs?style=flat-square)](https://github.com/lava-sh/toml-rs)
-[![Python version](https://img.shields.io/pypi/pyversions/toml_rs.svg?style=flat-square)](https://pypi.org/project/toml_rs/)
-[![Implementation](https://img.shields.io/pypi/implementation/toml_rs.svg?style=flat-square)](https://pypi.org/project/toml_rs/)
+<a href="https://pypi.org/project/toml-rs"><img alt="PyPI Version" src="https://shieldcn.dev/pypi/toml-rs.svg?variant=branded&font=geist-mono&size=xs"/></a>
+<a href="https://pypi.org/project/toml-rs"><img alt="Monthly Downloads" src="https://shieldcn.dev/pypi/dm/toml-rs.svg?variant=branded&font=geist-mono&size=xs"/></a>
+<a href="https://pypi.org/project/toml-rs"><img alt="Python Version" src="https://shieldcn.dev/pypi/python/toml-rs.svg?variant=branded&font=geist-mono&size=xs"/></a>
+
+<a href="https://github.com/lava-sh/toml-rs/actions?query=branch%3Amain"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/ci/lava-sh/toml-rs.svg?variant=outline&font=geist-mono&size=xs&animate=pulse&mode=dark"><img alt="CI" src="https://shieldcn.dev/github/ci/lava-sh/toml-rs.svg?variant=outline&font=geist-mono&size=xs&animate=pulse&mode=light"></picture></a>
+<a href="https://github.com/lava-sh/toml-rs/commits/main"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/last-commit/lava-sh/toml-rs.svg?variant=outline&font=geist-mono&size=xs&mode=dark"><img alt="Last Commit" src="https://shieldcn.dev/github/last-commit/lava-sh/toml-rs.svg?variant=outline&font=geist-mono&size=xs&mode=light"></picture></a>
+<a href="https://github.com/lava-sh/toml-rs/blob/main/UNLICENSE"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/lava-sh/toml-rs/license.svg?variant=outline&font=geist-mono&size=xs&mode=dark"><img alt="License" src="https://shieldcn.dev/github/lava-sh/toml-rs/license.svg?variant=outline&font=geist-mono&size=xs&mode=light"></picture></a>
 
 </div>
 
@@ -46,16 +52,43 @@ Project-URL: Source, https://github.com/lava-sh/toml-rs
 
 ## Installation
 
-Using [pip](https://github.com/pypa/pip):
+<p>
+  <img
+    src="https://thesvg.org/icons/python/default.svg"
+    alt="Python"
+    height="14"
+  />
+  Using <a href="https://github.com/pypa/pip">pip</a>:
+</p>
 
 ```bash
 pip install toml-rs
 ```
 
-Using [uv](https://github.com/astral-sh/uv):
+<p>
+  <img
+    src="https://thesvg.org/icons/uv/default.svg"
+    alt="uv"
+    height="14"
+  />
+  Using <a href="https://github.com/astral-sh/uv">uv</a>:
+</p>
 
 ```bash
 uv pip install toml-rs
+```
+
+<p>
+  <img
+    src="https://thesvg.org/icons/poetry/default.svg"
+    alt="Poetry"
+    height="14"
+  />
+  Using <a href="https://github.com/python-poetry/poetry">poetry</a>:
+</p>
+
+```bash
+poetry add toml-rs
 ```
 
 ## Examples

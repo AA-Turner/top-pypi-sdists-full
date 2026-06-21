@@ -996,25 +996,38 @@ class TestValidateToolCallParams:
             self._make_tools(),
         )
 
-    def test_type_mismatch_no_crash(self):
+    def test_type_mismatch_raises_400(self):
+        """F-141: type violation now enforced as HTTPException(400)."""
+        from fastapi import HTTPException
+
         from vllm_mlx.server import _validate_tool_call_params
 
-        _validate_tool_call_params(
-            self._make_tool_calls(arguments='{"location": 123}'),
-            self._make_tools(properties={"location": {"type": "string"}}),
-        )
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_tool_call_params(
+                self._make_tool_calls(arguments='{"location": 123}'),
+                self._make_tools(properties={"location": {"type": "string"}}),
+            )
+        assert exc_info.value.status_code == 400
+        assert "location" in exc_info.value.detail
 
-    def test_enum_violation_no_crash(self):
+    def test_enum_violation_raises_400(self):
+        """F-141: enum violation now enforced as HTTPException(400)."""
+        from fastapi import HTTPException
+
         from vllm_mlx.server import _validate_tool_call_params
 
-        _validate_tool_call_params(
-            self._make_tool_calls(arguments='{"unit": "kelvin"}'),
-            self._make_tools(
-                properties={
-                    "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
-                }
-            ),
-        )
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_tool_call_params(
+                self._make_tool_calls(arguments='{"unit": "kelvin"}'),
+                self._make_tools(
+                    properties={
+                        "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                    }
+                ),
+            )
+        assert exc_info.value.status_code == 400
+        assert "unit" in exc_info.value.detail
+        assert "kelvin" in exc_info.value.detail or "enum" in exc_info.value.detail
 
     def test_empty_tool_calls(self):
         from vllm_mlx.server import _validate_tool_call_params
@@ -1223,12 +1236,17 @@ class TestGenerationOutputFieldOrder:
             "reasoning_text",
             "tool_calls",
             "cached_tokens",
+            # H-03 appended ``matched_stop`` after ``cached_tokens``. New
+            # additions must keep growing this tail in chronological
+            # order — anything inserted MID-LIST silently rebinds
+            # positional construction for pre-v0.6.65 callers.
+            "matched_stop",
         ], (
             f"new GenerationOutput fields must be APPENDED in order "
-            f"(raw_text → reasoning_text → tool_calls → cached_tokens) "
-            f"to preserve positional-arg compatibility for the "
-            f"pre-v0.6.65 surface. Current trailing fields after "
-            f"``channel``: {appended}"
+            f"(raw_text → reasoning_text → tool_calls → cached_tokens "
+            f"→ matched_stop) to preserve positional-arg compatibility "
+            f"for the pre-v0.6.65 surface. Current trailing fields "
+            f"after ``channel``: {appended}"
         )
 
 

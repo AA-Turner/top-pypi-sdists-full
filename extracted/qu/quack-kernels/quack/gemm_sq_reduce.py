@@ -111,11 +111,12 @@ class GemmSqReduceMixin(GemmActMixin):
         if const_expr(getattr(params, "mAuxOut", None) is not None):
             tRS_rAuxOut = cute.make_rmem_tensor_like(tRS_rD)
             tRS_rAuxOut.store(tRS_rD.load())
+            tRS_rAuxOuts = (tRS_rAuxOut,)
         else:
-            tRS_rAuxOut = None
+            tRS_rAuxOuts = ()
         # Multiply by rowvec (norm_weight) AFTER sq_sum
         vec_multiply(self, tRS_rD, None, tDrRowVec)
-        return tRS_rAuxOut
+        return tRS_rAuxOuts
 
 
 class GemmSqReduceSm90(GemmSqReduceMixin, GemmSm90):
@@ -317,6 +318,6 @@ def gemm_sq_reduce(
     varlen_args = make_varlen_args(None, None, None)
 
     if device_capacity[0] in [10, 11]:
-        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args, None, None, None)
+        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args, None, None)
     else:
-        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args, None)
+        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args)

@@ -200,6 +200,52 @@ class TestToolCalling:
         assert td.type == "function"
         assert td.function["name"] == "get_weather"
 
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            "",  # F-035: empty string - hermes parser leaks <tool_call> to content
+            "a" * 65,  # F-146: >64 chars - exceeds OpenAI spec cap
+            "a" * 10000,  # F-146: 10k-char fuzz - context-window waster
+            "weather_\U0001f324",  # F-146: emoji - non-ASCII
+            "$(whoami)",  # F-146: shell metachars
+            "foo\nbar",  # F-146: control char (newline)
+            "foo bar",  # F-146: space
+            "foo.bar",  # F-146: dot
+            "foo/bar",  # F-146: slash
+        ],
+    )
+    def test_tool_definition_rejects_malformed_name(self, bad_name):
+        """F-035 / F-146: ``function.name`` must match the OpenAI spec
+        regex ``^[a-zA-Z0-9_-]{1,64}$``. Pre-fix the schema accepted
+        anything (typed as ``dict``), and empty / emoji / 10k-char /
+        shell-metachar names all 200'd - on hermes-parser models the
+        empty-name case leaked literal ``<tool_call>{"name":"",...}</tool_call>``
+        into ``content`` because the tool-call detector keyed off a
+        non-empty name. A single regex constraint at the schema layer
+        covers the whole class.
+        """
+        with pytest.raises(ValidationError) as excinfo:
+            ToolDefinition(
+                function={"name": bad_name, "parameters": {"type": "object"}}
+            )
+        assert "function.name" in str(excinfo.value)
+
+    def test_tool_definition_rejects_missing_name(self):
+        """F-035 / F-146: ``function`` dict missing the ``name`` key is
+        also malformed - the OpenAI spec mandates ``name`` as required.
+        """
+        with pytest.raises(ValidationError) as excinfo:
+            ToolDefinition(function={"description": "no name", "parameters": {}})
+        assert "function.name" in str(excinfo.value)
+
+    def test_tool_definition_accepts_full_64_char_name(self):
+        """Boundary check - exactly 64 chars is the OpenAI spec maximum
+        and must pass cleanly. Guards against off-by-one regressions in
+        the regex bound."""
+        name = "a" * 64
+        td = ToolDefinition(function={"name": name, "parameters": {"type": "object"}})
+        assert td.function["name"] == name
+
 
 class TestResponseFormat:
     """Tests for structured output models."""
@@ -742,3 +788,82 @@ class TestModelSerialization:
         )
         data = schema.model_dump(by_alias=True)
         assert "schema" in data
+
+    # F-040 regression: ``content`` MUST always be present on the wire,
+    # even when the route serializes the response with ``exclude_none=True``
+    # and the underlying value is ``None`` (e.g. reasoning consumed the
+    # whole budget and we truncated mid-``<think>``). Standard OpenAI
+    # clients read ``resp["choices"][0]["message"]["content"]`` and crash
+    # with ``KeyError: 'content'`` if the field is missing.
+    def test_assistant_message_content_always_present_in_json(self):
+        """``content`` is REQUIRED in OpenAI's chat.completion schema (string|null)."""
+        msg = AssistantMessage(
+            content=None,
+            reasoning_content="I was thinking but ran out of budget mid-thought.",
+        )
+        data = json.loads(msg.model_dump_json(exclude_none=True))
+        assert "content" in data, (
+            "F-040: 'content' must always appear on the wire (OpenAI spec); "
+            "any standard SDK client crashes with KeyError otherwise."
+        )
+        assert data["content"] is None
+        # reasoning alias still surfaces for backward-compat
+        assert data["reasoning"] == data["reasoning_content"]
+
+    def test_assistant_message_content_present_via_model_dump(self):
+        """Direct ``model_dump(exclude_none=True)`` also surfaces ``content``."""
+        msg = AssistantMessage(content=None, reasoning_content="…")
+        data = msg.model_dump(exclude_none=True)
+        assert "content" in data
+        assert data["content"] is None
+
+    def test_chat_completion_response_content_always_present(self):
+        """Parent ``ChatCompletionResponse.model_dump_json(exclude_none=True)``
+        must preserve ``message.content`` (the actual production path in
+        ``routes/chat.py`` non-streaming responses)."""
+        resp = ChatCompletionResponse(
+            model="reasoning-model",
+            choices=[
+                ChatCompletionChoice(
+                    message=AssistantMessage(
+                        content=None,
+                        reasoning_content="Truncated mid-think.",
+                    ),
+                    finish_reason="length",
+                )
+            ],
+        )
+        payload = json.loads(resp.model_dump_json(exclude_none=True))
+        message = payload["choices"][0]["message"]
+        assert "content" in message
+        assert message["content"] is None
+        # Make sure we did not regress the role / reasoning shape.
+        assert message["role"] == "assistant"
+        assert message["reasoning_content"] == "Truncated mid-think."
+
+    def test_chunk_delta_terminal_with_reasoning_has_content_null(self):
+        """F-040 (streaming): the terminal chunk delta for a reasoning-only
+        finish must expose ``content: null`` so clients reading
+        ``chunk.choices[0].delta.content`` on the last chunk do not crash.
+        """
+        delta = ChatCompletionChunkDelta(reasoning_content="…", content=None)
+        data = json.loads(delta.model_dump_json(exclude_none=True))
+        assert "content" in data
+        assert data["content"] is None
+
+    def test_chunk_delta_pure_content_stays_lean(self):
+        """Per-token content-only deltas keep their minimal shape — we do
+        NOT inject ``reasoning_content: null`` or other noise on every
+        chunk (per-token streaming budget must stay tight)."""
+        delta = ChatCompletionChunkDelta(content="Hello")
+        data = json.loads(delta.model_dump_json(exclude_none=True))
+        assert data == {"content": "Hello"}
+
+    def test_chunk_delta_empty_stays_empty(self):
+        """A truly empty terminal delta (e.g. guided-decoding finish chunk)
+        still serializes to ``{}`` — we do not pollute pure
+        finish-marker chunks with a spurious ``content: null``.
+        """
+        delta = ChatCompletionChunkDelta()
+        data = json.loads(delta.model_dump_json(exclude_none=True))
+        assert data == {}

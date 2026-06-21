@@ -1845,6 +1845,12 @@ struct TjBuffer {
     /// carries the wmode it was rendered under. A font change flushes the
     /// buffer, so a single buffer never spans mixed writing modes.
     wmode: u8,
+    /// Baseline shift as a ratio of font size (`Ts ÷ Tf size`, ISO 32000-1
+    /// §9.3.7), captured from the graphics state when the buffer started.
+    /// `> 0` superscript, `< 0` subscript, `0.0` on-baseline. Stored as a
+    /// ratio so it is text/CTM-scale-independent and directly comparable to a
+    /// font-size fraction by the sub/superscript rejoin.
+    text_rise: f32,
 }
 
 /// Snap a run's display rotation (from the composed `CTM × T_m` rotation block,
@@ -1935,6 +1941,11 @@ impl TjBuffer {
             user_h_scale,
             rotation_degrees,
             wmode: state.text_wmode,
+            text_rise: if state.font_size > 0.0 {
+                state.text_rise / state.font_size
+            } else {
+                0.0
+            },
         }
     }
 
@@ -2460,6 +2471,17 @@ struct MarkedContentContext {
     ///
     /// Set when tag is "OC" and the OCG /Name matches one of the excluded layers.
     is_excluded_layer: bool,
+    /// Whether this marked content context is an InDesign "placed PDF" figure.
+    ///
+    /// Set when the tag is `/PlacedPDF` — an Adobe InDesign-specific
+    /// marked-content tag that wraps an imported/placed PDF rendered AS a
+    /// figure (always nested inside a `/Figure` structure element). Its text
+    /// content is the placed artwork's own glyphs (e.g. a draft galley of the
+    /// manuscript with line numbers), NOT the document's logical text — the
+    /// authoritative copy is re-typeset outside the placed region. Treating it
+    /// as a figure (suppressing its text) matches what pdftotext/PyMuPDF do
+    /// and removes duplicated / mojibake overlay text. See `is_content_suppressed`.
+    is_placed_pdf: bool,
     /// MCID declared by this BDC (only BDC; BMC carries no /MCID).
     ///
     /// Stored here so EMC can restore the outer scope's MCID instead
@@ -2553,6 +2575,24 @@ pub struct TextExtractor<'doc> {
     ///
     /// True when any ancestor in the marked_content_stack has is_excluded_layer=true.
     inside_excluded_layer: bool,
+    /// Whether we're currently inside an InDesign `/PlacedPDF` figure region.
+    ///
+    /// True when any ancestor in the marked_content_stack has is_placed_pdf=true.
+    /// Text inside a placed-PDF figure is the placed artwork's own glyphs and is
+    /// suppressed (it is a figure, not logical text). See `MarkedContentContext::is_placed_pdf`.
+    inside_placed_pdf: bool,
+    /// When true, `/PlacedPDF` text is KEPT instead of suppressed for this page.
+    ///
+    /// The placed-PDF suppression assumes the placed region is a *decorative
+    /// figure overlay* whose glyphs duplicate logical text that lives OUTSIDE it
+    /// (the PMC8100493 draft-galley case). But some publishers (e.g. MATEC Web of
+    /// Conferences) place the ENTIRE article body inside a single `/PlacedPDF`
+    /// region, leaving almost nothing outside — there the placed text IS the
+    /// page's logical content and suppressing it drops the whole page. Set by a
+    /// cheap page-content-stream pre-scan (`placed_pdf_text_dominates`) that
+    /// flips this on only when the placed text dominates and the non-placed text
+    /// is negligible. pymupdf/pdftotext likewise extract the body in that case.
+    placed_pdf_keep: bool,
     /// Ink / separation names to exclude from extraction.
     ///
     /// When a `cs` operator sets a Separation or DeviceN color space whose ink name(s)
@@ -2696,6 +2736,8 @@ impl<'doc> TextExtractor<'doc> {
             inside_artifact: false, // Track artifact state
             excluded_layers: HashSet::new(),
             inside_excluded_layer: false,
+            inside_placed_pdf: false,
+            placed_pdf_keep: false,
             excluded_inks: HashSet::new(),
             inside_excluded_ink: false,
             tj_offset_history: Vec::with_capacity(1000), // Track TJ offsets for statistical analysis
@@ -3018,6 +3060,10 @@ impl<'doc> TextExtractor<'doc> {
             .marked_content_stack
             .iter()
             .any(|ctx| ctx.is_excluded_layer);
+        self.inside_placed_pdf = self
+            .marked_content_stack
+            .iter()
+            .any(|ctx| ctx.is_placed_pdf);
     }
 
     /// Whether content emission should be suppressed.
@@ -3026,11 +3072,89 @@ impl<'doc> TextExtractor<'doc> {
     /// extracted text should be discarded. Currently checks:
     /// - Inside an excluded OCG layer (`inside_excluded_layer`)
     /// - Inside an excluded ink / separation color space (`inside_excluded_ink`)
+    /// - Inside an InDesign `/PlacedPDF` figure region (`inside_placed_pdf`)
     ///
     /// Note: artifact filtering is handled separately via span metadata and
     /// downstream filtering, so `inside_artifact` is intentionally not checked here.
     fn is_content_suppressed(&self) -> bool {
-        self.inside_excluded_layer || self.inside_excluded_ink
+        self.inside_excluded_layer
+            || self.inside_excluded_ink
+            || (self.inside_placed_pdf && !self.placed_pdf_keep)
+    }
+
+    /// Decide whether `/PlacedPDF` text should be kept (not suppressed) for a page.
+    ///
+    /// Cheap read-only pre-scan of the page content stream: sum the byte length of
+    /// text-show operands (`Tj`/`TJ`/`'`/`"`) emitted INSIDE a `/PlacedPDF`
+    /// marked-content scope vs. OUTSIDE it. The placed region is treated as the
+    /// page's real content (kept) only when it carries a substantial body of text
+    /// AND the non-placed text is a small fraction of it — i.e. the publisher
+    /// placed the whole article as a PlacedPDF (MATEC), not a decorative figure
+    /// overlay duplicating outside text (PMC8100493). Conservative on purpose:
+    /// when placed text is in a nested XObject the page-stream scan undercounts it
+    /// and falls back to suppression (the prior behaviour), so this can only ADD
+    /// recovery on the whole-body-placed case, never remove the de-dup win.
+    fn placed_pdf_text_dominates(content_stream: &[u8]) -> bool {
+        // Gate: only pages that actually carry the InDesign tag pay for a parse.
+        if !content_stream
+            .windows(b"PlacedPDF".len())
+            .any(|w| w == b"PlacedPDF")
+        {
+            return false;
+        }
+        let Ok(operators) = parse_content_stream(content_stream) else {
+            return false;
+        };
+        let mut placed_stack: Vec<bool> = Vec::new();
+        let mut placed_chars: usize = 0;
+        let mut other_chars: usize = 0;
+        let inside = |stack: &[bool]| stack.iter().any(|&p| p);
+        for op in &operators {
+            match op {
+                Operator::BeginMarkedContent { tag } => {
+                    placed_stack.push(tag == "PlacedPDF");
+                },
+                Operator::BeginMarkedContentDict { tag, .. } => {
+                    placed_stack.push(tag == "PlacedPDF");
+                },
+                Operator::EndMarkedContent => {
+                    placed_stack.pop();
+                },
+                Operator::Tj { text } | Operator::Quote { text } => {
+                    if inside(&placed_stack) {
+                        placed_chars += text.len();
+                    } else {
+                        other_chars += text.len();
+                    }
+                },
+                Operator::DoubleQuote { text, .. } => {
+                    if inside(&placed_stack) {
+                        placed_chars += text.len();
+                    } else {
+                        other_chars += text.len();
+                    }
+                },
+                Operator::TJ { array } => {
+                    let n: usize = array
+                        .iter()
+                        .map(|e| match e {
+                            TextElement::String(s) => s.len(),
+                            TextElement::Offset(_) => 0,
+                        })
+                        .sum();
+                    if inside(&placed_stack) {
+                        placed_chars += n;
+                    } else {
+                        other_chars += n;
+                    }
+                },
+                _ => {},
+            }
+        }
+        // Keep placed text only when it is a substantial body AND the non-placed
+        // text is a small minority of it (≈3:1). MATEC: other≈header ≪ placed;
+        // PMC8100493: other = a full paper ≫ 1/3 of the duplicated galley.
+        placed_chars >= 800 && other_chars.saturating_mul(3) < placed_chars
     }
 
     /// Parse artifact type and subtype from artifact properties dictionary.
@@ -3494,6 +3618,9 @@ impl<'doc> TextExtractor<'doc> {
         self.extract_spans = true;
         self.spans.clear();
         self.span_sequence_counter = 0; // Reset sequence counter for this page
+                                        // Decide per page whether a whole-body `/PlacedPDF` region must be kept
+                                        // rather than suppressed (see `placed_pdf_text_dominates`).
+        self.placed_pdf_keep = Self::placed_pdf_text_dominates(content_stream);
 
         extract_log_debug!("Parsing content stream for text extraction");
         if self.excluded_inks.is_empty() {
@@ -3558,6 +3685,7 @@ impl<'doc> TextExtractor<'doc> {
         self.extract_spans = false;
         self.chars.clear();
         self.spans.clear(); // Ensure spans are clear so they don't poison xobject_spans_cache
+        self.placed_pdf_keep = Self::placed_pdf_text_dominates(content_stream);
 
         let operators = if self.excluded_inks.is_empty() {
             parse_content_stream_text_only(content_stream)?
@@ -6050,6 +6178,8 @@ impl<'doc> TextExtractor<'doc> {
                 }
                 // BMC doesn't have properties, but the tag can indicate artifacts
                 let is_artifact = tag == "Artifact";
+                // InDesign placed-PDF figure region (see MarkedContentContext::is_placed_pdf).
+                let is_placed_pdf = tag == "PlacedPDF";
                 self.marked_content_stack.push(MarkedContentContext {
                     tag: tag.clone(),
                     is_artifact,
@@ -6058,9 +6188,11 @@ impl<'doc> TextExtractor<'doc> {
                     actual_text_emitted: false,
                     expansion: None,          // BMC doesn't have expansion
                     is_excluded_layer: false, // BMC cannot carry OCG properties
-                    own_mcid: None,           // BMC carries no MCID
+                    is_placed_pdf,
+                    own_mcid: None, // BMC carries no MCID
                 });
                 self.update_artifact_state();
+                self.update_layer_state();
 
                 if is_artifact {
                     log::debug!("Entered /Artifact marked content (BMC, no subtype)");
@@ -6126,6 +6258,8 @@ impl<'doc> TextExtractor<'doc> {
 
                 // Check if this is an artifact (per PDF Spec Section 14.6)
                 let is_artifact = tag == "Artifact";
+                // InDesign placed-PDF figure region (see MarkedContentContext::is_placed_pdf).
+                let is_placed_pdf = tag == "PlacedPDF";
                 self.marked_content_stack.push(MarkedContentContext {
                     tag: tag.clone(),
                     is_artifact,
@@ -6134,6 +6268,7 @@ impl<'doc> TextExtractor<'doc> {
                     actual_text_emitted: false,
                     expansion,
                     is_excluded_layer,
+                    is_placed_pdf,
                     own_mcid,
                 });
                 self.update_artifact_state();
@@ -6888,6 +7023,7 @@ impl<'doc> TextExtractor<'doc> {
             heading_level: None,
             rotation_degrees: buffer.rotation_degrees,
             wmode: buffer.wmode,
+            text_rise: buffer.text_rise,
         };
         self.span_sequence_counter += 1;
 
@@ -7408,6 +7544,11 @@ impl<'doc> TextExtractor<'doc> {
             heading_level: None,
             rotation_degrees: snap_run_rotation(&state.ctm.multiply(&state.text_matrix)),
             wmode: state.text_wmode,
+            text_rise: if state.font_size > 0.0 {
+                state.text_rise / state.font_size
+            } else {
+                0.0
+            },
         };
 
         // Step 6: Increment sequence counter and add to spans
@@ -8113,6 +8254,11 @@ impl<'doc> TextExtractor<'doc> {
             heading_level: None,
             rotation_degrees: snap_run_rotation(&state.ctm.multiply(&state.text_matrix)),
             wmode: state.text_wmode,
+            text_rise: if state.font_size > 0.0 {
+                state.text_rise / state.font_size
+            } else {
+                0.0
+            },
         };
         self.span_sequence_counter += 1;
 
@@ -8279,6 +8425,7 @@ impl<'doc> TextExtractor<'doc> {
                     heading_level: None,
                     rotation_degrees: buffer.rotation_degrees,
                     wmode: buffer.wmode,
+                    text_rise: buffer.text_rise,
                 };
                 self.span_sequence_counter += 1;
 
@@ -9046,6 +9193,7 @@ mod tests {
     fn test_split_boundary_merges_with_space() {
         let spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "the".to_string(),
                 bbox: Rect {
@@ -9075,6 +9223,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "General".to_string(),
                 bbox: Rect {
@@ -9960,6 +10109,7 @@ mod tests {
     // being flaky.
     fn snap_span(text: &str, x: f32, y: f32, w: f32, fs: f32, seq: usize) -> TextSpan {
         TextSpan {
+            text_rise: 0.0,
             artifact_type: None,
             text: text.to_string(),
             bbox: Rect::new(x, y, w, fs),
@@ -10201,11 +10351,104 @@ mod tests {
             actual_text: None,
             expansion: None,
             is_excluded_layer: false,
+            is_placed_pdf: false,
             actual_text_emitted: false,
             own_mcid: None,
         });
         extractor.update_artifact_state();
         assert!(extractor.inside_artifact);
+    }
+
+    #[test]
+    fn test_placed_pdf_suppresses_content() {
+        // Text inside an InDesign /PlacedPDF figure region (the placed
+        // artwork's own glyphs — e.g. a draft galley) must be suppressed,
+        // matching pdftotext/PyMuPDF. Entering a /PlacedPDF BDC sets
+        // inside_placed_pdf, which feeds is_content_suppressed().
+        let mut extractor = TextExtractor::new();
+        assert!(!extractor.inside_placed_pdf);
+        assert!(!extractor.is_content_suppressed());
+
+        extractor.marked_content_stack.push(MarkedContentContext {
+            artifact_type: None,
+            tag: "PlacedPDF".to_string(),
+            is_artifact: false,
+            actual_text: None,
+            expansion: None,
+            is_excluded_layer: false,
+            is_placed_pdf: true,
+            actual_text_emitted: false,
+            own_mcid: None,
+        });
+        extractor.update_layer_state();
+        assert!(extractor.inside_placed_pdf);
+        assert!(extractor.is_content_suppressed(), "text inside /PlacedPDF must be suppressed");
+
+        // Leaving the region restores normal extraction.
+        extractor.marked_content_stack.pop();
+        extractor.update_layer_state();
+        assert!(!extractor.inside_placed_pdf);
+        assert!(!extractor.is_content_suppressed());
+    }
+
+    #[test]
+    fn test_non_placed_pdf_tag_does_not_suppress() {
+        // A regular (non-PlacedPDF) marked-content tag such as /Figure must
+        // NOT suppress its text — only the placed-PDF wrapper does.
+        let mut extractor = TextExtractor::new();
+        extractor.marked_content_stack.push(MarkedContentContext {
+            artifact_type: None,
+            tag: "Figure".to_string(),
+            is_artifact: false,
+            actual_text: None,
+            expansion: None,
+            is_excluded_layer: false,
+            is_placed_pdf: false,
+            actual_text_emitted: false,
+            own_mcid: None,
+        });
+        extractor.update_layer_state();
+        assert!(!extractor.inside_placed_pdf);
+        assert!(!extractor.is_content_suppressed());
+    }
+
+    #[test]
+    fn test_placed_pdf_kept_when_it_is_the_whole_page_body() {
+        // A publisher that places the ENTIRE article body inside one /PlacedPDF
+        // region (e.g. MATEC Web of Conferences) leaves almost nothing outside.
+        // There the placed text IS the page's logical content and must NOT be
+        // suppressed (pymupdf/pdftotext extract it). The coverage pre-scan flags
+        // this: placed text dominates, non-placed text is a tiny header.
+        let body =
+            "(This is the full article body typeset inside a placed PDF region) Tj\n".repeat(20);
+        let stream = format!("/PlacedPDF BMC\nBT\n{body}ET\nEMC\nBT (Journal vol 1) Tj ET\n");
+        assert!(
+            TextExtractor::placed_pdf_text_dominates(stream.as_bytes()),
+            "whole-body /PlacedPDF must be KEPT (not suppressed)"
+        );
+    }
+
+    #[test]
+    fn test_placed_pdf_suppressed_when_minority_overlay() {
+        // The decorative-figure case (PMC8100493): a small /PlacedPDF galley
+        // duplicate sits amid a full page of real text OUTSIDE it. The placed
+        // text is the minority, so it stays suppressed (the de-dup win).
+        let outside =
+            "(Real published paragraph of the article that lives outside the placed region) Tj\n"
+                .repeat(20);
+        let stream = format!("BT\n{outside}ET\n/PlacedPDF BMC\nBT (draft galley) Tj ET\nEMC\n");
+        assert!(
+            !TextExtractor::placed_pdf_text_dominates(stream.as_bytes()),
+            "minority-overlay /PlacedPDF must stay suppressed"
+        );
+    }
+
+    #[test]
+    fn test_placed_pdf_coverage_noop_without_tag() {
+        // No /PlacedPDF tag anywhere: the pre-scan must short-circuit to false
+        // (keep the default suppression state; pay nothing for ordinary pages).
+        let stream = b"BT (ordinary single column page of text) Tj ET\n";
+        assert!(!TextExtractor::placed_pdf_text_dominates(stream));
     }
 
     #[test]
@@ -10218,6 +10461,7 @@ mod tests {
             actual_text: None,
             expansion: None,
             is_excluded_layer: false,
+            is_placed_pdf: false,
             actual_text_emitted: false,
             own_mcid: None,
         });
@@ -10228,6 +10472,7 @@ mod tests {
             actual_text: None,
             expansion: None,
             is_excluded_layer: false,
+            is_placed_pdf: false,
             actual_text_emitted: false,
             own_mcid: None,
         });
@@ -10843,6 +11088,7 @@ mod tests {
         let mut extractor = TextExtractor::new();
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello".to_string(),
                 bbox: Rect::new(100.0, 700.0, 30.0, 12.0),
@@ -10867,6 +11113,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello".to_string(),
                 bbox: Rect::new(101.0, 700.0, 30.0, 12.0), // Very close
@@ -10916,6 +11163,7 @@ mod tests {
         // body-text sizes.
         let narrow_span =
             |glyph: char, x: f32, font_size: f32, advance: f32, seq: usize| TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: glyph.to_string(),
                 bbox: Rect::new(x, 700.0, advance, font_size),
@@ -10973,6 +11221,7 @@ mod tests {
         let mut extractor = TextExtractor::new();
 
         let narrow_at = |x: f32, seq: usize| TextSpan {
+            text_rise: 0.0,
             artifact_type: None,
             text: "l".to_string(),
             bbox: Rect::new(x, 700.0, 2.5, 9.0),
@@ -11026,6 +11275,7 @@ mod tests {
         // Create spans all in one column
         for i in 0..10 {
             extractor.spans.push(TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: format!("Line {}", i),
                 bbox: Rect::new(50.0, 700.0 - (i as f32 * 14.0), 200.0, 12.0),
@@ -11221,6 +11471,7 @@ mod tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello".to_string(),
                 bbox: Rect::new(100.0, 700.0, 30.0, 12.0),
@@ -11245,6 +11496,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "World".to_string(),
                 bbox: Rect::new(131.0, 700.0, 30.0, 12.0), // 1pt gap
@@ -11283,6 +11535,7 @@ mod tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello".to_string(),
                 bbox: Rect::new(100.0, 700.0, 30.0, 12.0),
@@ -11307,6 +11560,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "World".to_string(),
                 bbox: Rect::new(100.0, 680.0, 30.0, 12.0), // Different line
@@ -11350,6 +11604,7 @@ mod tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Left".to_string(),
                 bbox: Rect::new(50.0, 700.0, 30.0, 12.0),
@@ -11374,6 +11629,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Right".to_string(),
                 bbox: Rect::new(300.0, 700.0, 30.0, 12.0), // Large gap (column boundary)
@@ -11410,6 +11666,7 @@ mod tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello".to_string(),
                 bbox: Rect::new(100.0, 700.0, 30.0, 12.0),
@@ -11434,6 +11691,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: " ".to_string(),
                 bbox: Rect::new(130.0, 700.0, 2.0, 12.0),
@@ -11458,6 +11716,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "World".to_string(),
                 bbox: Rect::new(132.0, 700.0, 30.0, 12.0),
@@ -13888,6 +14147,7 @@ mod tests {
         let mut extractor = TextExtractor::new();
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello World".to_string(), // >= 5 chars
                 bbox: Rect::new(100.0, 700.0, 60.0, 12.0),
@@ -13912,6 +14172,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello World".to_string(), // Same text, overlapping position
                 bbox: Rect::new(102.0, 700.0, 60.0, 12.0), // X within 5pt
@@ -13946,6 +14207,7 @@ mod tests {
         let mut extractor = TextExtractor::new();
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello World".to_string(),
                 bbox: Rect::new(100.0, 700.0, 60.0, 12.0),
@@ -13970,6 +14232,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello World".to_string(), // Same text but far apart
                 bbox: Rect::new(500.0, 700.0, 60.0, 12.0), // X > 5pt difference
@@ -14064,6 +14327,7 @@ mod tests {
     fn test_split_fused_words_camelcase() {
         let mut extractor = TextExtractor::new();
         extractor.spans = vec![TextSpan {
+            text_rise: 0.0,
             artifact_type: None,
             text: "theGeneral".to_string(),
             bbox: Rect::new(100.0, 700.0, 60.0, 12.0),
@@ -14099,6 +14363,7 @@ mod tests {
     fn test_split_fused_words_no_split() {
         let mut extractor = TextExtractor::new();
         extractor.spans = vec![TextSpan {
+            text_rise: 0.0,
             artifact_type: None,
             text: "hello".to_string(),
             bbox: Rect::new(100.0, 700.0, 30.0, 12.0),
@@ -14281,6 +14546,7 @@ mod tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Right Col".to_string(),
                 bbox: Rect::new(350.0, 700.0, 100.0, 12.0),
@@ -14305,6 +14571,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Left Col".to_string(),
                 bbox: Rect::new(50.0, 700.0, 100.0, 12.0),
@@ -14385,6 +14652,7 @@ mod tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello ".to_string(), // ends with space
                 bbox: Rect::new(100.0, 700.0, 35.0, 12.0),
@@ -14409,6 +14677,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: " World".to_string(), // starts with space
                 bbox: Rect::new(136.0, 700.0, 35.0, 12.0), // 1pt gap
@@ -14567,6 +14836,7 @@ mod tests {
             actual_text: None,
             expansion: None,
             is_excluded_layer: false,
+            is_placed_pdf: false,
             actual_text_emitted: false,
             own_mcid: None,
         });
@@ -14708,6 +14978,7 @@ mod tests {
         let mut extractor = TextExtractor::new();
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Line2".to_string(),
                 bbox: Rect::new(50.0, 680.0, 100.0, 12.0),
@@ -14732,6 +15003,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Line1".to_string(),
                 bbox: Rect::new(50.0, 700.0, 100.0, 12.0),
@@ -14909,6 +15181,7 @@ mod tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello".to_string(),
                 bbox: Rect::new(100.0, 700.0, 30.0, 12.0),
@@ -14933,6 +15206,7 @@ mod tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: " ".to_string(), // offset_semantic space
                 bbox: Rect::new(130.5, 700.0, 2.0, 12.0),
@@ -15113,6 +15387,7 @@ fn test_marked_content_context_with_actual_text() {
         actual_text: Some("fi".to_string()), // Ligature expansion
         expansion: None,
         is_excluded_layer: false,
+        is_placed_pdf: false,
         actual_text_emitted: false,
         own_mcid: None,
     };
@@ -15131,6 +15406,7 @@ fn test_marked_content_context_with_expansion() {
         actual_text: None,
         expansion: Some("Portable Document Format".to_string()),
         is_excluded_layer: false,
+        is_placed_pdf: false,
         actual_text_emitted: false,
         own_mcid: None,
     };
@@ -15148,6 +15424,7 @@ fn test_marked_content_context_artifact_with_actual_text() {
         actual_text: Some("Header text".to_string()),
         expansion: None,
         is_excluded_layer: false,
+        is_placed_pdf: false,
         actual_text_emitted: false,
         own_mcid: None,
     };
@@ -15169,6 +15446,7 @@ fn test_get_current_actual_text_finds_first() {
         actual_text: Some("outer text".to_string()),
         expansion: None,
         is_excluded_layer: false,
+        is_placed_pdf: false,
         actual_text_emitted: false,
         own_mcid: None,
     });
@@ -15180,6 +15458,7 @@ fn test_get_current_actual_text_finds_first() {
         actual_text: Some("inner text".to_string()),
         expansion: None,
         is_excluded_layer: false,
+        is_placed_pdf: false,
         actual_text_emitted: false,
         own_mcid: None,
     });
@@ -15202,6 +15481,7 @@ fn test_get_current_actual_text_skips_none() {
         actual_text: Some("replacement text".to_string()),
         expansion: None,
         is_excluded_layer: false,
+        is_placed_pdf: false,
         actual_text_emitted: false,
         own_mcid: None,
     });
@@ -15214,6 +15494,7 @@ fn test_get_current_actual_text_skips_none() {
         actual_text: None,
         expansion: None,
         is_excluded_layer: false,
+        is_placed_pdf: false,
         actual_text_emitted: false,
         own_mcid: None,
     });
@@ -15467,6 +15748,7 @@ mod profile_based_space_tests {
         // Second value starts at x=131, creating a 1pt gap (100 + 30 = 130, gap = 1pt)
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "$0.00".to_string(),
                 bbox: Rect::new(100.0, 700.0, 30.0, 10.0),
@@ -15491,6 +15773,7 @@ mod profile_based_space_tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "$0.00".to_string(),
                 bbox: Rect::new(131.0, 700.0, 30.0, 10.0), // 1pt gap
@@ -15534,6 +15817,7 @@ mod profile_based_space_tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "100".to_string(),
                 bbox: Rect::new(200.0, 500.0, 18.0, 10.0),
@@ -15558,6 +15842,7 @@ mod profile_based_space_tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "200".to_string(),
                 bbox: Rect::new(219.5, 500.0, 18.0, 10.0), // 1.5pt gap
@@ -15601,6 +15886,7 @@ mod profile_based_space_tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hel".to_string(),
                 bbox: Rect::new(100.0, 700.0, 18.0, 12.0),
@@ -15625,6 +15911,7 @@ mod profile_based_space_tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "lo".to_string(),
                 bbox: Rect::new(118.0, 700.0, 12.0, 12.0), // 0pt gap
@@ -15674,6 +15961,7 @@ mod profile_based_space_tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "123456".to_string(),
                 bbox: Rect::new(382.3, 700.0, 39.6, 12.0),
@@ -15698,6 +15986,7 @@ mod profile_based_space_tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "72".to_string(),
                 bbox: Rect::new(432.7, 700.0, 13.2, 12.0), // 10.8pt gap
@@ -15739,6 +16028,7 @@ mod profile_based_space_tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "50".to_string(),
                 bbox: Rect::new(382.3, 700.0, 15.0, 12.0),
@@ -15763,6 +16053,7 @@ mod profile_based_space_tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "00".to_string(),
                 bbox: Rect::new(407.0, 700.0, 13.2, 12.0), // 9.7pt gap
@@ -15801,6 +16092,7 @@ mod profile_based_space_tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "Hello".to_string(),
                 bbox: Rect::new(382.3, 700.0, 39.6, 12.0),
@@ -15825,6 +16117,7 @@ mod profile_based_space_tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "72".to_string(),
                 bbox: Rect::new(432.7, 700.0, 13.2, 12.0), // 10.8pt gap
@@ -15867,6 +16160,7 @@ mod profile_based_space_tests {
 
         extractor.spans = vec![
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "123456".to_string(),
                 bbox: Rect::new(382.3, 700.0, 39.6, 12.0),
@@ -15891,6 +16185,7 @@ mod profile_based_space_tests {
                 wmode: 0,
             },
             TextSpan {
+                text_rise: 0.0,
                 artifact_type: None,
                 text: "723".to_string(),
                 bbox: Rect::new(432.7, 700.0, 18.0, 12.0), // 10.8pt gap

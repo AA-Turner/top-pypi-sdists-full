@@ -27,18 +27,28 @@ class JobEnvironment:
         enabled (bool | Unset): Whether the job schedules runs in this environment. A job runs in an environment only
             via this field; it is disabled in every environment by default. Default: False.
         schedule (None | str | Unset): Per-environment schedule override. Omit to inherit the job's base `schedule`.
-            When present, it must be a 5-field cron expression evaluated in **UTC** (e.g. `0 3 * * *`), and is only allowed
-            on a recurring (cron) job — it varies the cadence within that environment. It cannot appear on a manual or one-
-            off job, and cannot change a job's kind.
+            When present, it must be a 5-field cron expression (e.g. `0 3 * * *`), evaluated in this environment's effective
+            `timezone` (the per-environment override, else the base, else UTC), and is only allowed on a recurring (cron)
+            job — it varies the cadence within that environment. It cannot appear on a manual or one-off job, and cannot
+            change a job's kind.
+        timezone (None | str | Unset): Per-environment timezone override for evaluating this environment's cron
+            `schedule`. Omit to inherit the base `timezone` (else UTC). When present, it must be a valid IANA timezone key
+            (e.g. `America/New_York`). Only valid on a recurring (cron) job; it may be set on an environment that inherits
+            the base schedule (it need not also override `schedule`).
         configuration (JobHttpConfiguration | None | Unset): Per-environment HTTP request override. Omit to inherit the
             job's base `configuration`. When present, it fully replaces the base configuration for runs in this environment.
+        retry_policy (None | str | Unset): Per-environment retry-policy override — the `id` of a retry policy (or
+            `Default`). Omit to inherit the job's base `retry_policy`. When present, runs in this environment retry
+            according to this policy instead of the base.
         next_run_at (datetime.datetime | None | Unset): The next scheduled fire time in this environment. `null` when
             the environment is not enabled, or once a one-off run has fired.
     """
 
     enabled: bool | Unset = False
     schedule: None | str | Unset = UNSET
+    timezone: None | str | Unset = UNSET
     configuration: JobHttpConfiguration | None | Unset = UNSET
+    retry_policy: None | str | Unset = UNSET
     next_run_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -53,6 +63,12 @@ class JobEnvironment:
         else:
             schedule = self.schedule
 
+        timezone: None | str | Unset
+        if isinstance(self.timezone, Unset):
+            timezone = UNSET
+        else:
+            timezone = self.timezone
+
         configuration: dict[str, Any] | None | Unset
         if isinstance(self.configuration, Unset):
             configuration = UNSET
@@ -60,6 +76,12 @@ class JobEnvironment:
             configuration = self.configuration.to_dict()
         else:
             configuration = self.configuration
+
+        retry_policy: None | str | Unset
+        if isinstance(self.retry_policy, Unset):
+            retry_policy = UNSET
+        else:
+            retry_policy = self.retry_policy
 
         next_run_at: None | str | Unset
         if isinstance(self.next_run_at, Unset):
@@ -76,8 +98,12 @@ class JobEnvironment:
             field_dict["enabled"] = enabled
         if schedule is not UNSET:
             field_dict["schedule"] = schedule
+        if timezone is not UNSET:
+            field_dict["timezone"] = timezone
         if configuration is not UNSET:
             field_dict["configuration"] = configuration
+        if retry_policy is not UNSET:
+            field_dict["retry_policy"] = retry_policy
         if next_run_at is not UNSET:
             field_dict["next_run_at"] = next_run_at
 
@@ -99,6 +125,15 @@ class JobEnvironment:
 
         schedule = _parse_schedule(d.pop("schedule", UNSET))
 
+        def _parse_timezone(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        timezone = _parse_timezone(d.pop("timezone", UNSET))
+
         def _parse_configuration(data: object) -> JobHttpConfiguration | None | Unset:
             if data is None:
                 return data
@@ -115,6 +150,15 @@ class JobEnvironment:
             return cast(JobHttpConfiguration | None | Unset, data)
 
         configuration = _parse_configuration(d.pop("configuration", UNSET))
+
+        def _parse_retry_policy(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        retry_policy = _parse_retry_policy(d.pop("retry_policy", UNSET))
 
         def _parse_next_run_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -136,7 +180,9 @@ class JobEnvironment:
         job_environment = cls(
             enabled=enabled,
             schedule=schedule,
+            timezone=timezone,
             configuration=configuration,
+            retry_policy=retry_policy,
             next_run_at=next_run_at,
         )
 

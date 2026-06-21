@@ -64,13 +64,13 @@ pub(crate) use crate::probability::standard_normal_quantile;
 pub(crate) use crate::reml_contracts::{
     DriftDerivResult, HyperOperator, ProjectedFactorCache, ProjectedFactorKey,
 };
+pub(crate) use crate::resource::{MatrixMaterializationError, ResourcePolicy};
 pub(crate) use crate::smooth::{
     ExactJointHyperSetup, SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords,
     TermCollectionDesign, TermCollectionSpec, build_term_collection_design,
     freeze_term_collection_from_design, optimize_spatial_length_scale_exact_joint,
     spatial_length_scale_term_indices,
 };
-pub(crate) use crate::solver::resource::{MatrixMaterializationError, ResourcePolicy};
 pub(crate) use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayViewMut2, s};
 pub(crate) use std::cell::RefCell;
 pub(crate) use std::sync::{Arc, Mutex, OnceLock};
@@ -101,7 +101,7 @@ pub use psi_operator::*;
 pub use response_basis::effective_response_num_internal_knots;
 pub(crate) use response_basis::{
     assert_rowwise_kronecker_dimensions, build_response_basis, response_endpoint_value_bases,
-    response_floor_offsets, transformation_complexity_knot_budget,
+    response_floor_offsets,
 };
 pub(crate) use scop_density::*;
 pub(crate) use warm_start::*;

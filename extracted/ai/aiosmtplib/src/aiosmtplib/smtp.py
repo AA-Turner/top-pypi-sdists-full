@@ -440,6 +440,11 @@ class SMTP:
         self.loop = asyncio.get_running_loop()
         if self._connect_lock is None:
             self._connect_lock = asyncio.Lock()
+
+        if self.is_connected:
+            raise SMTPException("SMTP instance is already connected")
+
+        # The lock is held until close(), serializing concurrent connect calls.
         await self._connect_lock.acquire()
 
         # If we're not using a socket, default to port and hostname
@@ -595,7 +600,10 @@ class SMTP:
             response = await self.protocol.execute_command(
                 *args, timeout=self.timeout if timeout is Default.token else timeout
             )
-        except SMTPServerDisconnected:
+        except (SMTPServerDisconnected, SMTPTimeoutError):
+            # A read timeout leaves the protocol desynced (a partial buffer and
+            # a server response we gave up on), so close rather than risk
+            # mispairing that response with a later command.
             self.close()
             raise
 
@@ -938,7 +946,7 @@ class SMTP:
 
         try:
             return await self.protocol.execute_data_command(message, timeout=timeout)
-        except SMTPServerDisconnected:
+        except (SMTPServerDisconnected, SMTPTimeoutError):
             self.close()
             raise
 
@@ -967,10 +975,11 @@ class SMTP:
         response = await self.execute_command(
             b"EHLO", hostname.encode("ascii"), timeout=timeout
         )
-        self.last_ehlo_response = response
 
         if response.code != SMTPStatus.completed:
             raise SMTPHeloError(response.code, response.message)
+
+        self.last_ehlo_response = response
 
         return response
 
@@ -1067,7 +1076,7 @@ class SMTP:
             response = await self.protocol.start_tls(
                 tls_context, server_hostname=server_hostname, timeout=timeout
             )
-        except SMTPServerDisconnected:
+        except (SMTPServerDisconnected, SMTPTimeoutError):
             self.close()
             raise
 
@@ -1165,7 +1174,7 @@ class SMTP:
         verification_bytes = auth_crammd5_verify(
             username, password, initial_response.message
         )
-        response = await self.execute_command(verification_bytes)
+        response = await self.execute_command(verification_bytes, timeout=timeout)
 
         if response.code != SMTPStatus.auth_successful:
             raise SMTPAuthenticationError(response.code, response.message)
@@ -1337,7 +1346,7 @@ class SMTP:
             ...     await smtp.sendmail("me@my.org", recipients, message)
             ...     return await smtp.quit()
             >>> asyncio.run(connect_and_send())
-            (221, Bye)
+            SMTPResponse(code=221, message='Bye')
 
         In the above example, the message was accepted for delivery for all
         three addresses. If delivery had been only successful to two

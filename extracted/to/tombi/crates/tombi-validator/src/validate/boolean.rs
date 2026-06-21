@@ -1,0 +1,225 @@
+use itertools::Itertools;
+use tombi_comment_directive::value::{BooleanCommonFormatRules, BooleanCommonLintRules};
+use tombi_document_tree::ValueImpl;
+use tombi_future::{BoxFuture, Boxable};
+use tombi_schema_store::ValueSchema;
+use tombi_severity_level::SeverityLevelDefaultError;
+
+use crate::{
+    comment_directive::get_tombi_key_table_value_rules_and_diagnostics,
+    validate::{
+        handle_anything_schema, handle_deprecated_value, handle_nothing_schema,
+        handle_type_mismatch, handle_unused_noqa, validate_adjacent_applicators,
+    },
+};
+
+use super::{Validate, validate_all_of, validate_any_of, validate_one_of};
+
+impl Validate for tombi_document_tree::Boolean {
+    fn validate<'a: 'b, 'b>(
+        &'a self,
+        accessors: &'a [tombi_schema_store::Accessor],
+        current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
+        schema_context: &'a tombi_schema_store::SchemaContext,
+    ) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>> {
+        async move {
+            let comment_directives = self
+                .comment_directives()
+                .map(|directives| directives.cloned().collect_vec());
+
+            let (lint_rules, lint_rules_diagnostics) =
+                get_tombi_key_table_value_rules_and_diagnostics::<
+                    BooleanCommonFormatRules,
+                    BooleanCommonLintRules,
+                >(self.comment_directives(), accessors)
+                .await;
+
+            let result = if let Some(current_schema) = current_schema {
+                match current_schema.value_schema.as_ref() {
+                    ValueSchema::Boolean(boolean_schema) => {
+                        validate_boolean(
+                            self,
+                            accessors,
+                            boolean_schema,
+                            current_schema,
+                            schema_context,
+                            comment_directives.as_deref(),
+                            lint_rules.as_ref(),
+                        )
+                        .await
+                    }
+                    ValueSchema::OneOf(one_of_schema) => {
+                        validate_one_of(
+                            self,
+                            accessors,
+                            one_of_schema,
+                            current_schema,
+                            schema_context,
+                            self.comment_directives()
+                                .map(|directives| directives.cloned().collect_vec())
+                                .as_deref(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
+                        )
+                        .await
+                    }
+                    ValueSchema::AnyOf(any_of_schema) => {
+                        validate_any_of(
+                            self,
+                            accessors,
+                            any_of_schema,
+                            current_schema,
+                            schema_context,
+                            self.comment_directives()
+                                .map(|directives| directives.cloned().collect_vec())
+                                .as_deref(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
+                        )
+                        .await
+                    }
+                    ValueSchema::AllOf(all_of_schema) => {
+                        validate_all_of(
+                            self,
+                            accessors,
+                            all_of_schema,
+                            current_schema,
+                            schema_context,
+                            self.comment_directives()
+                                .map(|directives| directives.cloned().collect_vec())
+                                .as_deref(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
+                        )
+                        .await
+                    }
+                    ValueSchema::Null => return Ok(crate::EvaluatedLocations::new()),
+                    ValueSchema::Anything(_) => handle_anything_schema(self),
+                    ValueSchema::Nothing(_) => handle_nothing_schema(self),
+                    value_schema => handle_type_mismatch(
+                        value_schema.value_type().await,
+                        self.value_type(),
+                        self.range(),
+                        lint_rules.as_ref().map(|rules| &rules.common),
+                    ),
+                }
+            } else {
+                Ok(crate::EvaluatedLocations::new())
+            };
+
+            crate::validate::with_lint_diagnostics(result, lint_rules_diagnostics)
+        }
+        .boxed()
+    }
+}
+
+async fn validate_boolean(
+    boolean_value: &tombi_document_tree::Boolean,
+    accessors: &[tombi_schema_store::Accessor],
+    boolean_schema: &tombi_schema_store::BooleanSchema,
+    current_schema: &tombi_schema_store::CurrentSchema<'_>,
+    schema_context: &tombi_schema_store::SchemaContext<'_>,
+    comment_directives: Option<&[tombi_ast::TombiValueCommentDirective]>,
+    lint_rules: Option<&BooleanCommonLintRules>,
+) -> Result<crate::EvaluatedLocations, crate::Error> {
+    let mut diagnostics = vec![];
+
+    let value = boolean_value.value();
+    let range = boolean_value.range();
+
+    if let Some(const_value) = &boolean_schema.const_value
+        && value != *const_value
+    {
+        let level = lint_rules
+            .map(|rules| &rules.common)
+            .and_then(|rules| {
+                rules
+                    .const_value
+                    .as_ref()
+                    .map(SeverityLevelDefaultError::from)
+            })
+            .unwrap_or_default();
+
+        crate::Diagnostic {
+            kind: Box::new(crate::DiagnosticKind::Const {
+                expected: const_value.to_string(),
+                actual: value.to_string(),
+            }),
+            range,
+        }
+        .push_diagnostic_with_level(level, &mut diagnostics);
+    } else if lint_rules
+        .and_then(|rules| rules.common.const_value.as_ref())
+        .and_then(|rules| rules.disabled)
+        == Some(true)
+    {
+        handle_unused_noqa(
+            &mut diagnostics,
+            boolean_value.comment_directives(),
+            lint_rules.as_ref().map(|rules| &rules.common),
+            "const-value",
+        );
+    }
+
+    if let Some(r#enum) = &boolean_schema.r#enum
+        && !r#enum.contains(&value)
+    {
+        let level = lint_rules
+            .map(|rules| &rules.common)
+            .and_then(|rules| rules.r#enum().map(SeverityLevelDefaultError::from))
+            .unwrap_or_default();
+
+        crate::Diagnostic {
+            kind: Box::new(crate::DiagnosticKind::Enum {
+                expected: r#enum.iter().map(ToString::to_string).collect(),
+                actual: value.to_string(),
+            }),
+            range,
+        }
+        .push_diagnostic_with_level(level, &mut diagnostics);
+    } else if lint_rules
+        .and_then(|rules| rules.common.r#enum())
+        .and_then(|rules| rules.disabled)
+        == Some(true)
+    {
+        handle_unused_noqa(
+            &mut diagnostics,
+            boolean_value.comment_directives(),
+            lint_rules.as_ref().map(|rules| &rules.common),
+            "enum",
+        );
+    }
+
+    if diagnostics.is_empty() {
+        handle_deprecated_value(
+            &mut diagnostics,
+            boolean_schema.deprecated,
+            accessors,
+            boolean_value,
+            Some(current_schema),
+            schema_context,
+            boolean_value.comment_directives(),
+            lint_rules.as_ref().map(|rules| &rules.common),
+        );
+    }
+
+    let base_result = if diagnostics.is_empty() {
+        Ok(crate::EvaluatedLocations::new())
+    } else {
+        Err(diagnostics.into())
+    };
+
+    crate::validate::merge_validation_results(
+        base_result,
+        validate_adjacent_applicators(
+            boolean_value,
+            accessors,
+            boolean_schema.one_of.as_deref(),
+            boolean_schema.any_of.as_deref(),
+            boolean_schema.all_of.as_deref(),
+            boolean_schema.not.as_deref(),
+            current_schema,
+            schema_context,
+            comment_directives,
+            lint_rules.map(|rules| &rules.common),
+        )
+        .await,
+    )
+}

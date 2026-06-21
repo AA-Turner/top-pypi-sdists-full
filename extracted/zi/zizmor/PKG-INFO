@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zizmor
-Version: 1.25.2
+Version: 1.26.1
 License-File: LICENSE
 Summary: Static analysis for GitHub Actions
 Home-Page: https://docs.zizmor.sh
@@ -118,6 +118,11 @@ Tracebit
 <td align="center" valign="top">
 <a href="https://github.com/ariccio">
 Alexander Riccio
+</a>
+</td>
+<td align="center" valign="top">
+<a href="https://github.com/willingc">
+Carol Willing
 </a>
 </td>
 </tr>

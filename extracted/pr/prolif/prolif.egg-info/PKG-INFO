@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prolif
-Version: 2.1.0
+Version: 2.2.0
 Summary: Interaction Fingerprints for protein-ligand complexes and more
 Author-email: Cédric Bouysset <cedric@bouysset.net>
 License-Expression: Apache-2.0
@@ -33,6 +33,7 @@ Requires-Dist: tqdm
 Requires-Dist: multiprocess
 Requires-Dist: dill
 Requires-Dist: psutil
+Requires-Dist: gemmi>=0.7.5
 Provides-Extra: plots
 Requires-Dist: py3Dmol; extra == "plots"
 Requires-Dist: matplotlib>=3.5; extra == "plots"

@@ -46,6 +46,7 @@ from ..config import get_config
 from ..engine import BaseEngine
 from ..middleware.auth import check_rate_limit, verify_api_key
 from ..service.helpers import (
+    SSE_RESPONSE_HEADERS,
     _build_usage,
     _check_admission_or_503,
     _disconnect_guard,
@@ -164,7 +165,16 @@ async def create_response(request: Request):
                 cfg_for_log.model_name,
             )
 
-        openai_request = responses_to_openai(responses_request)
+        # F-034 (and any future ``ChatCompletionRequest``-layer validator):
+        # the adapter materializes a fresh ``ChatCompletionRequest`` from
+        # the Responses body, which now rejects unsatisfiable combinations
+        # (e.g. ``tool_choice="required"`` with no ``tools``). Surface as
+        # 400 with the validator's message instead of letting Pydantic
+        # crash the route into a 500.
+        try:
+            openai_request = responses_to_openai(responses_request)
+        except ValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
         # Context-length pre-check — same DoS gate the chat/completions/
         # anthropic routes enforce. Runs BEFORE the stream branch so
@@ -189,17 +199,29 @@ async def create_response(request: Request):
 
         if responses_request.stream:
             _admission_committed = True
+            # C-01 force-abort: holder list the engine populates with
+            # the admitted scheduler request id; the disconnect_guard
+            # reads it and force-calls scheduler.abort_request on
+            # client disconnect.
+            _resp_rid_holder: list[str | None] = [None]
             return StreamingResponse(
                 _disconnect_guard(
-                    _stream_responses(engine, openai_request, responses_request),
+                    _stream_responses(
+                        engine,
+                        openai_request,
+                        responses_request,
+                        request_id_holder=_resp_rid_holder,
+                    ),
                     request,
                     engine=engine,
+                    request_id_holder=_resp_rid_holder,
                 ),
                 media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                },
+                # ``SSE_RESPONSE_HEADERS`` (Cache-Control no-cache/no-transform +
+                # X-Accel-Buffering: no) wraps the legacy ``Connection: keep-alive``
+                # already on this route. F-073 anti-buffering parity with the
+                # chat / completions / anthropic streaming responses.
+                headers={**SSE_RESPONSE_HEADERS, "Connection": "keep-alive"},
             )
 
         return await _non_stream(engine, openai_request, responses_request, request)
@@ -358,6 +380,8 @@ async def _stream_responses(
     engine: BaseEngine,
     openai_request: ChatCompletionRequest,
     responses_request: ResponsesRequest,
+    *,
+    request_id_holder: list | None = None,
 ) -> AsyncIterator[str]:
     """Stream a Responses-API SSE event sequence Codex CLI can parse.
 
@@ -417,6 +441,10 @@ async def _stream_responses(
         resolved_thinking = _resolve_enable_thinking(openai_request)
         if resolved_thinking is not None:
             chat_kwargs["enable_thinking"] = resolved_thinking
+        # C-01: thread the request_id holder so disconnect_guard can
+        # force-call scheduler.abort_request on client RST.
+        if request_id_holder is not None:
+            chat_kwargs["request_id_holder"] = request_id_holder
 
         accumulated_text = ""
         accumulated_raw = ""

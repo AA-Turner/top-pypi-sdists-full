@@ -2645,11 +2645,14 @@ fn optimize_rho(
 
     const GRID_INTERVALS: usize = 96;
     let mut stationary = Vec::<f64>::new();
+    let mut grid = Vec::<(f64, f64)>::with_capacity(GRID_INTERVALS + 1);
     let mut prev_rho = RHO_LOWER;
     let mut prev_eval = prepared.evaluate(prev_rho);
+    grid.push((prev_rho, prev_eval.cost));
     for i in 1..=GRID_INTERVALS {
         let rho = RHO_LOWER + (RHO_UPPER - RHO_LOWER) * (i as f64) / (GRID_INTERVALS as f64);
         let eval = prepared.evaluate(rho);
+        grid.push((rho, eval.cost));
         if prev_eval.grad <= 0.0 && eval.grad >= 0.0 {
             push_candidate(
                 &mut stationary,
@@ -2666,6 +2669,9 @@ fn optimize_rho(
     if let Some(rho0) = init_rho {
         push_candidate(&mut candidates, rho0);
     }
+    if let Some(rho) = refine_best_grid_cell(prepared, &grid) {
+        push_candidate(&mut candidates, rho);
+    }
 
     // Evaluate each candidate exactly once. `min_by` over a comparator that
     // re-evaluates would do O(n log n) extra `prepared.evaluate` calls during
@@ -2680,6 +2686,39 @@ fn optimize_rho(
                 "Gaussian REML optimizer produced no candidates".to_string(),
             )
         })
+}
+
+fn refine_best_grid_cell(prepared: &GaussianRemlPrepared, grid: &[(f64, f64)]) -> Option<f64> {
+    let best_idx = grid
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, cost))| cost.is_finite())
+        .min_by(|(_, (_, a)), (_, (_, b))| a.total_cmp(b))
+        .map(|(idx, _)| idx)?;
+    if best_idx == 0 || best_idx + 1 == grid.len() {
+        return Some(grid[best_idx].0);
+    }
+    // The best interior grid cell brackets a genuine REML minimum (its cost is
+    // below both neighbours), so the objective gradient changes sign across
+    // `[grid[i-1], grid[i+1]]`. Refine to that stationary point (∂V/∂ρ = 0)
+    // rather than minimising the cost with a golden section: the cost-based
+    // search only locates ρ to ~√ε of the cell (~1e-8), whereas the
+    // grad-sign-change branch already contributes stationary candidates
+    // converged to GRAD_TOL (~1e-12). When both target the same minimum, the
+    // ~1e-16 cost ordering between a 1e-8-accurate and a 1e-12-accurate ρ is
+    // numerical noise, so `min_by(cost)` used to pick between two ρ values
+    // ~1e-8 apart essentially at random — making the selected λ̂ a
+    // non-smooth function of the design X (its ~1e-8 jumps wrecked the
+    // closed-form REML reverse-mode VJP's agreement with finite differences).
+    // Returning the stationary point makes every interior candidate a
+    // GRAD_TOL-accurate root, so the residual selection jitter collapses to
+    // ~1e-12 and λ̂(X) is smooth to the IFT gradient.
+    Some(refine_stationary_rho(
+        prepared,
+        grid[best_idx - 1].0,
+        grid[best_idx + 1].0,
+        grid[best_idx].0,
+    ))
 }
 
 fn fill_weighted_rhs_no_alloc(
@@ -2787,8 +2826,10 @@ fn optimize_rho_no_alloc(
     let mut best_cost = lower_eval.cost;
 
     const GRID_INTERVALS: usize = 96;
+    let mut grid = Vec::<(f64, f64)>::with_capacity(GRID_INTERVALS + 1);
     let mut prev_rho = RHO_LOWER;
     let mut prev_eval = lower_eval;
+    grid.push((prev_rho, prev_eval.cost));
     for i in 1..=GRID_INTERVALS {
         let rho = RHO_LOWER + (RHO_UPPER - RHO_LOWER) * (i as f64) / (GRID_INTERVALS as f64);
         let eval = evaluate_reml_parts(
@@ -2799,6 +2840,7 @@ fn optimize_rho_no_alloc(
             n_outputs,
             rho,
         );
+        grid.push((rho, eval.cost));
         if prev_eval.grad <= 0.0 && eval.grad >= 0.0 {
             let stationary_rho = refine_stationary_rho_no_alloc(
                 cache,
@@ -2823,6 +2865,47 @@ fn optimize_rho_no_alloc(
         }
         prev_rho = rho;
         prev_eval = eval;
+    }
+    if let Some(best_idx) = grid
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, cost))| cost.is_finite())
+        .min_by(|(_, (_, a)), (_, (_, b))| a.total_cmp(b))
+        .map(|(idx, _)| idx)
+    {
+        let refined = if best_idx == 0 || best_idx + 1 == grid.len() {
+            grid[best_idx].0
+        } else {
+            // Refine the best interior grid cell to the REML stationary point
+            // (∂V/∂ρ = 0) rather than the golden-section cost minimum, mirroring
+            // the allocating `refine_best_grid_cell`. A cost-based search locates
+            // ρ only to ~1e-8, which competed against the GRAD_TOL-accurate
+            // (~1e-12) stationary candidates in the cost `min_by` below and made
+            // the selected λ̂ jump ~1e-8 with the design — a non-smoothness the
+            // closed-form REML VJP could not match under finite differences.
+            // (Keeping both optimizers' refinement identical preserves their
+            // allocating/no-alloc bit-for-bit parity.)
+            refine_stationary_rho_no_alloc(
+                cache,
+                ywy,
+                projected_rhs_squared,
+                n_observations,
+                n_outputs,
+                grid[best_idx - 1].0,
+                grid[best_idx + 1].0,
+                grid[best_idx].0,
+            )
+        };
+        consider_rho_no_alloc(
+            cache,
+            ywy,
+            projected_rhs_squared,
+            n_observations,
+            n_outputs,
+            refined,
+            &mut best_rho,
+            &mut best_cost,
+        );
     }
 
     consider_rho_no_alloc(

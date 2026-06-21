@@ -709,6 +709,32 @@ fn resolve_external_family_rejects_unsupported_firth_request() {
 }
 
 #[test]
+fn resolve_external_family_accepts_constant_precision_beta_regression() {
+    // Beta(logit) with a constant precision φ is a genuine-dispersion mean
+    // family on par with Gamma/Tweedie/Negative-Binomial: the external GLM
+    // route fits the mean while φ is estimated by the Pearson moment estimator
+    // (betareg's default behavior). The route must accept it and surface the
+    // φ-estimation contract via the EstimatedBetaPhi scale metadata.
+    let (spec, firth) = resolve_external_family(
+        &LikelihoodSpec::new(
+            ResponseFamily::Beta { phi: 5.0 },
+            InverseLink::Standard(StandardLink::Logit),
+        ),
+        None,
+    )
+    .expect("external-design policy must accept constant-precision beta regression");
+    assert!(
+        !firth,
+        "beta regression does not request Firth bias reduction"
+    );
+    assert!(
+        spec.scale.beta_phi_is_estimated(),
+        "beta φ must be flagged for joint estimation, got {:?}",
+        spec.scale
+    );
+}
+
+#[test]
 fn resolve_external_family_accepts_supported_nonlogit_firth_request() {
     let (_, firth) = resolve_external_family(
         &LikelihoodSpec::new(

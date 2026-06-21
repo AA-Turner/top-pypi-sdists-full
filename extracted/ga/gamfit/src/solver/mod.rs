@@ -4,6 +4,7 @@ pub mod continuation_path;
 pub mod cross_node;
 pub mod estimate;
 pub mod evidence;
+pub mod fit_orchestration;
 pub mod gauge;
 pub mod gaussian_reml;
 pub mod glm_sufficient_lane;
@@ -19,10 +20,6 @@ pub mod measure_jet_gram_cache;
 pub mod mixture_link;
 pub(crate) mod objective_base;
 pub mod orthogonal_reparam;
-/// Back-compat re-export: the outer-loop row subsample + `RowSet` moved DOWN to
-/// the crate-root `crate::outer_subsample` lower layer (#1135). Existing
-/// `crate::solver::outer_subsample::*` paths keep resolving.
-pub use crate::outer_subsample;
 pub(crate) mod parallel_strategy;
 pub(crate) mod persistent_warm_start;
 pub mod pirls;
@@ -30,11 +27,6 @@ pub(crate) mod priority_selection;
 pub mod protocol;
 pub mod psi_gram_tensor;
 pub mod residual_cascade;
-/// Back-compat re-export: resource-policy types moved to the crate-root
-/// `crate::resource` lower layer to break the `families → solver::resource`
-/// back-edge (#1135). Existing `crate::solver::resource::*` paths keep working.
-pub use crate::resource;
-pub mod fit_orchestration;
 pub mod rho_optimizer;
 pub(crate) mod riemannian_retraction;
 pub mod row_measure;
@@ -64,12 +56,13 @@ pub use evidence::{
 pub use topology_selector::{
     AutoTopologyKind, CrossClassCandidate, CrossClassRaceVerdict, EvidenceCertification, Headline,
     HeldOutDensityProvider, MIXTURE_K_LADDER, MixtureRungFit, MixtureRungResult, STACKING_CV_FOLDS,
-    TopologyAutoFitEvidence, TopologyAutoRankedFit, TopologyAutoSelector,
+    STACKING_CV_SEED, TopologyAutoFitEvidence, TopologyAutoRankedFit, TopologyAutoSelector,
     TopologyAutoSelectorResult, TopologyRaceParallelCandidate, UnionRungFit, UnionRungResult,
     adjudicate_cross_class_race, build_cv_log_density_table, deterministic_cv_folds,
-    fit_mixture_rung, fit_union_candidate, fit_union_rung, mixture_density_provider,
-    parse_union_name, run_topology_race_parallel, select_topology_with_fit,
-    select_topology_with_fit_parallel, tk_normalized_score, union_density_provider,
+    deterministic_cv_folds_seeded, fit_mixture_rung, fit_union_candidate, fit_union_rung,
+    mixture_density_provider, parse_union_name, run_topology_race_parallel,
+    select_topology_with_fit, select_topology_with_fit_parallel, tk_normalized_score,
+    union_density_provider,
 };
 
 /// Process-wide counter of smoothing-corrections that took the sigma-cubature

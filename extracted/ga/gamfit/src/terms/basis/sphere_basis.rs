@@ -144,9 +144,12 @@ pub fn build_spherical_spline_basis(
     })
 }
 
-const SPHERE_UNPENALIZED_LOW_DEGREE: usize = 1;
+pub(crate) const SPHERE_UNPENALIZED_LOW_DEGREE: usize = 1;
 
-fn harmonic_degree_for_wahba_basis_width(spec: &SphericalSplineBasisSpec, n_rows: usize) -> usize {
+pub(crate) fn harmonic_degree_for_wahba_basis_width(
+    spec: &SphericalSplineBasisSpec,
+    n_rows: usize,
+) -> usize {
     let target = match &spec.center_strategy {
         CenterStrategy::Auto(inner) => match inner.as_ref() {
             CenterStrategy::FarthestPoint { num_centers }
@@ -275,14 +278,14 @@ fn orthonormal_complement(q: ArrayView2<'_, f64>, rel_tol: f64) -> Array2<f64> {
     out
 }
 
-struct WahbaLowDegreeDecomposition {
-    kernel_basis: Array2<f64>,
-    low_degree_centers: Option<Array2<f64>>,
-    kernel_low_projection: Option<Array2<f64>>,
-    low_degree_cols: usize,
+pub(crate) struct WahbaLowDegreeDecomposition {
+    pub(crate) kernel_basis: Array2<f64>,
+    pub(crate) low_degree_centers: Option<Array2<f64>>,
+    pub(crate) kernel_low_projection: Option<Array2<f64>>,
+    pub(crate) low_degree_cols: usize,
 }
 
-fn wahba_low_degree_decomposition(
+pub(crate) fn wahba_low_degree_decomposition(
     centers: ArrayView2<'_, f64>,
     radians: bool,
     center_kernel: ArrayView2<'_, f64>,
@@ -352,12 +355,67 @@ fn build_wahba_decomposed_design(
                 SPHERE_UNPENALIZED_LOW_DEGREE,
                 radians,
             );
-            debug_assert_eq!(raw_low.ncols(), low_degree_centers.ncols());
+            assert_eq!(
+                raw_low.ncols(),
+                low_degree_centers.ncols(),
+                "low-degree spherical harmonic design width must match its centers"
+            );
             let low_design = raw_low;
             kernel_design -= &low_design.dot(kernel_low_projection);
             hstack_dense(kernel_design.view(), low_design.view())
         }
         _ => kernel_design,
+    }
+}
+
+/// Build the DESIGN jet `∂Φ/∂(lat, lon)` of the Wahba decomposed design,
+/// matching the exact column layout of [`build_wahba_decomposed_design`].
+///
+/// The forward decomposed design is the linear map
+///   `[ raw_kernel·kernel_basis − low·kernel_low_projection | low ]`
+/// of the per-row evaluated kernel and low-degree harmonic functions, so its
+/// derivative w.r.t. each angular axis is the SAME linear map applied to the
+/// per-row jets:
+///   `kernel_jet = raw_kernel_jet·kernel_basis − low_jet·kernel_low_projection`,
+///   `out_jet    = [ kernel_jet | low_jet ]`.
+/// Without the low-degree split (centers ≤ low span) the design is just
+/// `raw_kernel·kernel_basis`, so the jet is `raw_kernel_jet·kernel_basis`.
+pub(crate) fn build_wahba_decomposed_jet(
+    raw_kernel_jet: &Array3<f64>,
+    low_jet: Option<&Array3<f64>>,
+    decomposition: &WahbaLowDegreeDecomposition,
+) -> Array3<f64> {
+    let n = raw_kernel_jet.shape()[0];
+    match (
+        &decomposition.kernel_low_projection,
+        low_jet,
+        &decomposition.low_degree_centers,
+    ) {
+        (Some(kernel_low_projection), Some(low_jet), Some(_)) => {
+            let kernel_cols = decomposition.kernel_basis.ncols();
+            let low_cols = decomposition.low_degree_cols;
+            let mut out = Array3::<f64>::zeros((n, kernel_cols + low_cols, 2));
+            for axis in 0..2 {
+                let raw_axis = raw_kernel_jet.index_axis(ndarray::Axis(2), axis);
+                let low_axis = low_jet.index_axis(ndarray::Axis(2), axis);
+                let kernel_axis =
+                    raw_axis.dot(&decomposition.kernel_basis) - low_axis.dot(kernel_low_projection);
+                out.slice_mut(s![.., 0..kernel_cols, axis])
+                    .assign(&kernel_axis);
+                out.slice_mut(s![.., kernel_cols.., axis]).assign(&low_axis);
+            }
+            out
+        }
+        _ => {
+            let kernel_cols = decomposition.kernel_basis.ncols();
+            let mut out = Array3::<f64>::zeros((n, kernel_cols, 2));
+            for axis in 0..2 {
+                let raw_axis = raw_kernel_jet.index_axis(ndarray::Axis(2), axis);
+                let projected = raw_axis.dot(&decomposition.kernel_basis);
+                out.slice_mut(s![.., .., axis]).assign(&projected);
+            }
+            out
+        }
     }
 }
 
@@ -626,46 +684,46 @@ pub(crate) fn build_spherical_harmonic_basis(
             Ok(())
         })?;
     }
-    // Diagonal Laplace-Beltrami eigenvalue penalty [l(l+1)]^m per (l, m).
-    // For explicit high-degree bases (L > 2), fold an extra [l(l+1)] factor
-    // into modes l > 2 in this same primary block. Keeping the shrinkage tied
-    // to the primary lambda prevents REML from fitting dense equatorial noise
-    // with separately under-penalized high-degree modes and then degrading in
-    // sparse polar latitude bands.
+    // Diagonal Laplace-Beltrami curvature penalty [l(l+1)]^order per (l, m).
     //
-    // This is already in the natural coefficient coordinates for the real
-    // spherical harmonics: the basis is orthonormal on S², so X'X/n is O(1)
-    // under uniform sampling, while the diagonal entries are the physical
-    // roughness eigenvalues of the final function. Frobenius-normalizing this
-    // matrix would divide away that meaningful spectral scale (≈1261 for
-    // L=4, m=2), making REML optimize against an artificially tiny physical
-    // penalty. Keep the raw operator with normalization_scale=1 so optimizer
-    // lambdas are physical lambdas for this smooth.
+    // The real spherical harmonics diagonalize the Laplace-Beltrami operator on
+    // S²: the degree-l block is an irreducible SO(3) representation with the
+    // single eigenvalue l(l+1), constant across all 2l+1 modes in the block.
+    // Raising every mode in a degree to the SAME power therefore yields a
+    // ROTATION-INVARIANT penalty (it commutes with the SO(3) action), which is
+    // exactly the iterated Laplacian Sobolev seminorm ‖Δ^order f‖². Because the
+    // penalty is rotation-invariant and the sphere area measure is rotation-
+    // invariant, the induced smoothing is latitude-independent by construction:
+    // no pole/equator direction is privileged (#1246). Splitting the curvature
+    // penalty by mode type (e.g. routing zonal m=0 modes to a separate block)
+    // would BREAK this invariance and reintroduce a latitude-dependent error
+    // profile, so the operator is kept as one isotropic block.
+    //
+    // The basis is orthonormal on S², so X'X/n is O(1) under uniform sampling
+    // while the diagonal entries are the physical roughness eigenvalues of the
+    // fitted function. Frobenius-normalizing would divide away that meaningful
+    // spectral scale, making REML optimize against an artificially tiny physical
+    // penalty, so the raw operator is kept with normalization_scale=1 and the
+    // optimizer lambda is a physical lambda for this smooth.
     let mut penalty = Array2::<f64>::zeros((p, p));
     let mut col = 0usize;
     for l in 1..=l_max {
         let laplace = l as f64 * (l as f64 + 1.0);
-        let eig = if l <= SPHERE_UNPENALIZED_LOW_DEGREE {
-            0.0
-        } else {
-            laplace.powi((spec.penalty_order + 1) as i32)
-        };
+        let eig = laplace.powi(spec.penalty_order as i32);
         for _ in 0..(2 * l + 1) {
             penalty[[col, col]] = eig;
             col += 1;
         }
     }
-    let mut ridge = Array2::<f64>::eye(p);
-    {
-        let mut col = 0usize;
-        for l in 1..=l_max {
-            for _ in 0..(2 * l + 1) {
-                if l <= SPHERE_UNPENALIZED_LOW_DEGREE {
-                    ridge[[col, col]] = 0.0;
-                }
-                col += 1;
-            }
-        }
+    // The curvature penalty above is full-rank within this basis (every degree
+    // l >= 1 has eigenvalue l(l+1) > 0; the constant mode l=0 is not part of the
+    // harmonic basis), so it has an empty null space. A double-penalty therefore
+    // contributes a uniform isotropic ridge that shrinks all coefficients toward
+    // zero under its own smoothing parameter — the standard mgcv-style extra
+    // shrinkage term — and is only active when explicitly requested.
+    let mut ridge = Array2::<f64>::zeros((p, p));
+    for c in 0..p {
+        ridge[[c, c]] = 1.0;
     }
 
     // Realized-design identifiability gauge (#1246). The global smooth
@@ -2113,7 +2171,21 @@ pub(crate) fn build_duchon_native_penalty_psi_derivatives(
     let p_order = duchon_p_from_nullspace_order(effective_nullspace_order);
     let s_order = spec.power_as_usize();
     let dim = centers.ncols();
-    let z = kernel_constraint_nullspace(centers, effective_nullspace_order, &mut workspace.cache)?;
+    let mut z =
+        kernel_constraint_nullspace(centers, effective_nullspace_order, &mut workspace.cache)?;
+    // #1355: fold the frozen data-metric reparam `Z' = Z·V` so the penalty
+    // ψ-derivatives project in the SAME rotated radial basis as the forward
+    // penalty (`Vᵀ Ω(ψ) V`), staying bit-consistent with the design.
+    if let Some(v) = spec.radial_reparam.as_ref() {
+        if v.nrows() != z.ncols() {
+            crate::bail_dim_basis!(
+                "Duchon frozen radial reparam shape {:?} does not match constrained kernel dimension {}",
+                v.dim(),
+                z.ncols()
+            );
+        }
+        z = fast_ab(&z, v);
+    }
     let kernel_cols = z.ncols();
     let poly_cols = polynomial_block_from_order(centers, effective_nullspace_order).ncols();
     let total_cols = kernel_cols + poly_cols;
@@ -2224,6 +2296,7 @@ pub(crate) fn prepare_duchon_derivative_contextwithworkspace(
         spec.power,
         spec.nullspace_order,
         spec.aniso_log_scales.as_deref(),
+        None,
         workspace,
     )?;
     let identifiability_transform = spatial_identifiability_transform_from_design(
@@ -2879,9 +2952,44 @@ pub fn build_matern_basis_log_kappa_derivativeswithworkspace(
     workspace: &mut BasisWorkspace,
 ) -> Result<BasisPsiDerivativeBundle, BasisError> {
     // Analytic psi derivative assembly for the Matérn basis block.
-    let centers = select_centers_by_strategy(data, &spec.center_strategy)?;
-    let z_opt = matern_identifiability_transform(centers.view(), &spec.identifiability)?;
-    let aniso = spec.aniso_log_scales.as_deref();
+    //
+    // The ψ-derivatives MUST be built over the EXACT same realized geometry as
+    // the value build (`build_matern_basiswithworkspace`): the value build
+    // rank-reduces an over-specified center set (`matern_rank_reduce_centers`,
+    // #755), periodic-expands it, and resolves the anisotropy/identifiability
+    // transform over the surviving centers. Re-deriving the centers here from
+    // `select_centers_by_strategy` (un-reduced) produced a derivative penalty
+    // sized to the FULL center set while `base.penaltyinfo` (the active-block
+    // mask + the forward penalty list) is sized to the REDUCED set — an
+    // index/shape desync that crashed the double-penalty ψ-derivative assembly
+    // with an IncompatibleShape matmul and left the FD audit comparing
+    // differently-shaped blocks (the matern double-penalty log-κ FD tests). Pull
+    // the realized centers, transform, and anisotropy from the value build so the
+    // two are byte-consistent by construction.
+    let base = build_matern_basiswithworkspace(data, spec, workspace)?;
+    let (base_centers, base_transform, base_aniso) = match &base.metadata {
+        BasisMetadata::Matern {
+            centers,
+            identifiability_transform,
+            aniso_log_scales,
+            ..
+        } => (
+            centers.clone(),
+            identifiability_transform.clone(),
+            aniso_log_scales.clone(),
+        ),
+        other => {
+            return Err(BasisError::InvalidInput(format!(
+                "Matérn ψ-derivative build expected Matérn metadata, got {:?}",
+                std::mem::discriminant(other)
+            )));
+        }
+    };
+    // Reproduce the value build's periodic expansion of the (reduced) base
+    // centers so the kernel pairs and the realized design columns align.
+    let centers = expand_periodic_centers(&base_centers, spec.periodic.as_deref())?;
+    let z_opt = base_transform;
+    let aniso = base_aniso.as_deref();
     let design_derivatives = build_matern_design_psi_derivatives(
         data,
         centers.view(),
@@ -2892,7 +3000,6 @@ pub fn build_matern_basis_log_kappa_derivativeswithworkspace(
         aniso,
     )?;
     let (penalties_derivative, penaltiessecond_derivative) = if spec.double_penalty {
-        let base = build_matern_basiswithworkspace(data, spec, workspace)?;
         let (_, primary_derivative, primarysecond_derivative, _, a_raw, a_raw_psi, a_raw_psi_psi) =
             build_matern_double_penalty_primarywith_psi_derivatives(
                 centers.view(),
@@ -3333,48 +3440,139 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         result.penalties_cross_provider = Some(cross_provider);
     }
 
-    if dim > 1 && !result.penalties_first.is_empty() {
+    if dim > 1 {
         // The forward anisotropic Matérn design uses the CENTERED contrast
         // metric `w_a = exp(2·(η_a − mean(η)))` (see `centered_aniso_metric_weights`
         // / `aniso_distance`): a uniform shift of every η_a leaves the mean-
         // subtracted weights — and therefore the whole design, kernel, and
         // penalty — unchanged. The optimizer's per-axis ψ-coordinate is the raw
         // η_a, so the criterion is invariant along the all-ones direction and
-        // the analytic penalty derivative w.r.t. raw η_a must be the centering
-        // projection of the per-axis ψ-derivative:
+        // the analytic FIRST derivative w.r.t. raw η_a must be the centering
+        // projection of the per-axis centered-ψ derivative:
         //
-        //   ∂S/∂η_a = ∂S/∂ψ_a − (1/d) Σ_b ∂S/∂ψ_b   (η_a − mean(η) chain rule).
+        //   ∂F/∂η_a = ∂F/∂ψ_a − (1/d) Σ_b ∂F/∂ψ_b   (η_a − mean(η) chain rule).
         //
-        // The per-axis builders above produce `∂S/∂ψ_a`, treating each centered
-        // contrast as independent; subtracting the mean across axes removes the
-        // spurious common-mode. (#1259: the previous code added back a
-        // `scalar_share = (1/d)·∂S/∂log κ` term, which is the gradient of a
-        // GLOBAL length-scale move — but the centered forward design makes a
-        // uniform η shift a no-op, not a log-κ change, so that add-back injected
-        // a fake all-ones gradient component. The FD-audit of the outer REML
-        // criterion flagged it as a per-axis analytic≠FD desync that misdirected
-        // the κ-optimizer off the true signal-axis contrast.)
+        // The per-axis builders produce `∂F/∂ψ_a`, treating each centered
+        // contrast as independent; subtracting the cross-axis mean removes the
+        // spurious common-mode. This MUST be applied to BOTH the design first
+        // derivatives (`design_first`, which feed the data-fit / deviance and the
+        // `½log|H+Sλ|` H-side of the outer REML gradient) AND the penalty first
+        // derivatives (`penalties_first`). Previously only the penalty side was
+        // centered, so the FULL outer gradient w.r.t. raw η disagreed with a
+        // central FD of the criterion by the un-centered design common-mode
+        // (#1376: the eta-contrast FD audit saw analytic ≈ ∂/∂ψ_a while FD ≈
+        // ∂/∂η_a = ½(∂/∂ψ_0 − ∂/∂ψ_1) for d=2, a large per-component gap even
+        // though the contrast itself is invariant to the common mode).
+        //
+        // (#1259: an earlier version of the penalty centering instead added back
+        // a `scalar_share = (1/d)·∂S/∂log κ` term — the gradient of a GLOBAL
+        // length-scale move — but the centered forward design makes a uniform η
+        // shift a no-op, not a log-κ change, so that add-back injected a fake
+        // all-ones gradient component; the centering projection here is the
+        // correct chain rule.)
         let inv_dim = 1.0 / dim as f64;
-        let num_blocks = result.penalties_first[0].len();
-        for block in 0..num_blocks {
-            let mut eta_mean = Array2::<f64>::zeros(result.penalties_first[0][block].raw_dim());
+
+        // Center the per-axis DESIGN first derivatives across axes.
+        if !result.design_first.is_empty() {
+            if result.design_first.len() != dim {
+                return Err(BasisError::InvalidInput(format!(
+                    "Matérn aniso design first-derivative axis count {} != dim {dim}",
+                    result.design_first.len()
+                )));
+            }
+            let mut design_mean = Array2::<f64>::zeros(result.design_first[0].raw_dim());
             for axis in 0..dim {
-                if result.penalties_first[axis][block].raw_dim()
-                    != result.penalties_first[0][block].raw_dim()
-                {
+                if result.design_first[axis].raw_dim() != result.design_first[0].raw_dim() {
                     return Err(BasisError::InvalidInput(format!(
-                        "Matérn aniso raw-psi penalty derivative shape mismatch on axis {axis}, block {block}"
+                        "Matérn aniso raw-psi design derivative shape mismatch on axis {axis}"
                     )));
                 }
-                eta_mean += &result.penalties_first[axis][block];
+                design_mean += &result.design_first[axis];
             }
-            eta_mean.mapv_inplace(|value| value * inv_dim);
+            design_mean.mapv_inplace(|value| value * inv_dim);
             for axis in 0..dim {
-                result.penalties_first[axis][block] =
-                    &result.penalties_first[axis][block] - &eta_mean;
+                result.design_first[axis] = &result.design_first[axis] - &design_mean;
+            }
+        }
+
+        // Center the per-axis PENALTY first derivatives across axes.
+        if !result.penalties_first.is_empty() {
+            let num_blocks = result.penalties_first[0].len();
+            for block in 0..num_blocks {
+                let mut eta_mean = Array2::<f64>::zeros(result.penalties_first[0][block].raw_dim());
+                for axis in 0..dim {
+                    if result.penalties_first[axis][block].raw_dim()
+                        != result.penalties_first[0][block].raw_dim()
+                    {
+                        return Err(BasisError::InvalidInput(format!(
+                            "Matérn aniso raw-psi penalty derivative shape mismatch on axis {axis}, block {block}"
+                        )));
+                    }
+                    eta_mean += &result.penalties_first[axis][block];
+                }
+                eta_mean.mapv_inplace(|value| value * inv_dim);
+                for axis in 0..dim {
+                    result.penalties_first[axis][block] =
+                        &result.penalties_first[axis][block] - &eta_mean;
+                }
             }
         }
     }
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod harmonic_penalty_invariants_tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn harmonic_double_penalty_targets_primary_nullspace() {
+        let data = array![
+            [-0.9, 0.0],
+            [-0.4, 1.0],
+            [0.0, 2.0],
+            [0.4, 3.0],
+            [0.9, 4.0],
+            [0.2, 5.0],
+        ];
+        let spec = SphericalSplineBasisSpec {
+            center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
+            penalty_order: 2,
+            double_penalty: true,
+            radians: true,
+            method: SphereMethod::Harmonic,
+            max_degree: Some(3),
+            wahba_kernel: SphereWahbaKernel::Sobolev,
+            identifiability: SphericalSplineIdentifiability::CenterSumToZero,
+        };
+        let built = build_spherical_harmonic_basis(data.view(), &spec).expect("harmonic basis");
+        assert_eq!(built.penalties.len(), 2);
+        let primary = &built.penalties[0];
+        let shrink = &built.penalties[1];
+        for col in 0..primary.ncols() {
+            let primary_diag = primary[[col, col]].abs();
+            let shrink_diag = shrink[[col, col]].abs();
+            if col < SPHERE_UNPENALIZED_LOW_DEGREE * (SPHERE_UNPENALIZED_LOW_DEGREE + 2) {
+                assert!(
+                    primary_diag <= 1e-12,
+                    "low-degree column {col} must be primary-null"
+                );
+                assert!(
+                    shrink_diag > 0.0,
+                    "low-degree column {col} must be shrink-penalized"
+                );
+            } else {
+                assert!(
+                    primary_diag > 0.0,
+                    "higher-degree column {col} must carry roughness"
+                );
+                assert!(
+                    shrink_diag <= 1e-12,
+                    "higher-degree column {col} must not be in null shrinkage"
+                );
+            }
+        }
+    }
 }

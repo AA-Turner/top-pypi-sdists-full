@@ -230,7 +230,7 @@ pub(crate) fn exact_tau_tau_hessian_policy_with_firth(
             n_obs,
             p_coeff,
             implicit_n_axes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         );
     let dense_first_order_count = hyper_dirs
         .iter()
@@ -616,6 +616,38 @@ mod tests {
             None,
         )
         .expect("state")
+    }
+
+    #[test]
+    fn repeated_penalty_ranges_keep_analytic_outer_hessian() {
+        let y = array![0.2, -0.1, 0.3, 0.0];
+        let w = Array1::<f64>::ones(y.len());
+        let x = array![[1.0, -0.7], [1.0, -0.2], [1.0, 0.3], [1.0, 0.9]];
+        let offset = Array1::<f64>::zeros(y.len());
+        let cfg = RemlConfig::external(gaussian_identity_glm_spec(), 1e-10, false);
+        let p = x.ncols();
+        let canonical = vec![
+            crate::construction::CanonicalPenalty::from_dense_root(array![[0.0, 1.0]], p),
+            crate::construction::CanonicalPenalty::from_dense_root(array![[1.0, 0.0]], p),
+        ];
+        let state = RemlState::newwith_offset(
+            y.view(),
+            x,
+            w.view(),
+            offset.view(),
+            canonical,
+            p,
+            &cfg,
+            Some(vec![1, 1]),
+            None,
+            None,
+        )
+        .expect("state");
+
+        assert!(
+            state.analytic_outer_hessian_enabled(),
+            "double-penalty-style repeated coefficient ranges must still route to exact Hessian"
+        );
     }
 
     pub(crate) fn poisson_log_glm_spec() -> GlmLikelihoodSpec {
@@ -2790,7 +2822,7 @@ pub(crate) struct ImplicitDerivativeOp {
     /// called concurrently from inside another rayon par_iter — racing workers
     /// would park on the OnceLock's OS condvar, leaving the leader's nested
     /// par_iter without workers. `RayonSafeOnce` runs init lock-free.
-    pub(crate) cached_dense: std::sync::Arc<crate::solver::resource::RayonSafeOnce<Array2<f64>>>,
+    pub(crate) cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
 }
 
 #[derive(Clone)]
@@ -2799,7 +2831,7 @@ pub(crate) struct LatentCoordDerivativeOp {
     pub(crate) flat_axis: usize,
     pub(crate) global_range: Range<usize>,
     pub(crate) total_dim: usize,
-    pub(crate) cached_dense: std::sync::Arc<crate::solver::resource::RayonSafeOnce<Array2<f64>>>,
+    pub(crate) cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
 }
 
 impl LatentCoordDerivativeOp {
@@ -3079,10 +3111,7 @@ impl DerivativeStorageBackend for ZeroDerivativeMatrix {
         None
     }
 
-    fn design_forward_mul_original(
-        &self,
-        u: &Array1<f64>,
-    ) -> Result<Array1<f64>, EstimationError> {
+    fn design_forward_mul_original(&self, u: &Array1<f64>) -> Result<Array1<f64>, EstimationError> {
         if self.cols != u.len() {
             crate::bail_invalid_estim!(
                 "zero hyper design derivative forward_mul_original width mismatch: matrix={}x{}, vector={}",
@@ -3129,7 +3158,7 @@ impl DerivativeStorageBackend for ZeroDerivativeMatrix {
         &self,
         qs: &Array2<f64>,
         free_basis_opt: Option<&Array2<f64>>,
-        _u: &Array1<f64>,
+        u: &Array1<f64>,
     ) -> Result<Array1<f64>, EstimationError> {
         if self.cols != qs.nrows() {
             crate::bail_invalid_estim!(
@@ -3139,11 +3168,11 @@ impl DerivativeStorageBackend for ZeroDerivativeMatrix {
             );
         }
         let cols = free_basis_opt.map_or(qs.ncols(), |z| z.ncols());
-        if _u.len() != cols {
+        if u.len() != cols {
             crate::bail_invalid_estim!(
                 "zero design derivative transformed forward width mismatch: expected {}, vector={}",
                 cols,
-                _u.len()
+                u.len()
             );
         }
         Ok(Array1::<f64>::zeros(self.rows))
@@ -3192,8 +3221,16 @@ impl DerivativeStorageBackend for ZeroDerivativeMatrix {
     fn penalty_scaled_add_to(
         &self,
         target: &mut Array2<f64>,
-        _amp: f64,
+        amp: f64,
     ) -> Result<(), EstimationError> {
+        // Zero penalty derivative: `amp · 0 = 0`, so `amp` scales nothing and
+        // `target` is left unchanged. Validate it is finite so a bad scale
+        // surfaces here rather than silently no-op'ing on a NaN/inf amplitude.
+        if !amp.is_finite() {
+            crate::bail_invalid_estim!(
+                "zero hyper penalty derivative received non-finite amp={amp}"
+            );
+        }
         if target.nrows() != self.cols || target.ncols() != self.cols {
             crate::bail_invalid_estim!(
                 "zero hyper penalty derivative shape mismatch: target={}x{}, expected {}x{}",
@@ -3640,7 +3677,7 @@ impl HyperDesignDerivative {
                 level,
                 global_range,
                 total_dim: total_cols,
-                cached_dense: std::sync::Arc::new(crate::solver::resource::RayonSafeOnce::new()),
+                cached_dense: std::sync::Arc::new(crate::resource::RayonSafeOnce::new()),
             }),
         }
     }
@@ -3657,7 +3694,7 @@ impl HyperDesignDerivative {
                 flat_axis,
                 global_range,
                 total_dim: total_cols,
-                cached_dense: std::sync::Arc::new(crate::solver::resource::RayonSafeOnce::new()),
+                cached_dense: std::sync::Arc::new(crate::resource::RayonSafeOnce::new()),
             }),
         }
     }

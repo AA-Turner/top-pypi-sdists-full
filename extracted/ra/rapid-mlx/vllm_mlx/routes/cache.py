@@ -14,7 +14,9 @@ fill in with the engine-level save/load body. Stub behavior:
   the wire-level contract is exercised today.
 * ``GET /v1/cache/info`` — fully implemented: reads the manifest at a
   whitelisted path and returns it. Lets a peer instance (or oai-mlx) GC
-  / inspect an export root without round-tripping a full import.
+  / inspect an export root without round-tripping a full import. H-12:
+  response carries ``protocol_version`` + ``manifest`` only — the
+  resolved sandbox root stays in the server log, never on the wire.
 
 Auth follows ``vllm_mlx.routes.health``'s ``router``: the bearer key is
 enforced when ``--api-key`` is set, no new header is invented.
@@ -42,11 +44,34 @@ from ..middleware.auth import verify_api_key
 
 logger = logging.getLogger(__name__)
 
-_ISSUE_URL = "https://github.com/raullenchai/Rapid-MLX/issues/476"
-_NOT_IMPLEMENTED_MSG = (
-    "engine integration pending; the wire contract (auth, path-whitelist, "
-    f"manifest schema v{PROTOCOL_VERSION}) is live — see {_ISSUE_URL}"
-)
+_NOT_IMPLEMENTED_MSG = "engine integration pending"
+
+# Don't echo resolved paths / manifest contents in the 501 response body.
+# Logs keep the validated values for the operator; the client only learns
+# the route is unimplemented. (Avoids leaking $HOME / cache-sandbox layout
+# to any caller — sibling concerns to F-180.)
+_NOT_IMPLEMENTED_DETAIL = {
+    "error": {
+        "message": _NOT_IMPLEMENTED_MSG,
+        "type": "not_implemented_error",
+        "code": None,
+    }
+}
+
+# H-02: sandbox-escape 403 envelope. The underlying
+# ``InvalidExportPathError`` carries the caller-supplied path AND the
+# fully resolved sandbox root (``/Users/<username>/.cache/rapid-mlx/
+# cache_exports``). Echoing either to an unauthenticated caller leaks
+# the operator's home dir + username. Same treatment as the #756 501
+# envelope: generic wire message, full detail goes to the server log.
+_SANDBOX_ESCAPE_MSG = "destination must resolve under the cache-export sandbox"
+_SANDBOX_ESCAPE_DETAIL = {
+    "error": {
+        "message": _SANDBOX_ESCAPE_MSG,
+        "type": "invalid_request_error",
+        "code": "sandbox_escape",
+    }
+}
 
 
 router = APIRouter(
@@ -116,13 +141,24 @@ class ImportRequest(BaseModel):
 
 
 def _resolve_or_400(caller_path: str | None) -> Path:
-    """Wrap ``resolve_cache_dir`` so path violations surface as 403."""
+    """Wrap ``resolve_cache_dir`` so path violations surface as 403.
+
+    H-02: ``InvalidExportPathError`` carries the caller-supplied path AND
+    the resolved sandbox root (which expands to ``/Users/<USERNAME>/.cache
+    /rapid-mlx/cache_exports`` on macOS). Both stay in the server log via
+    ``logger.warning`` — only the sanitized envelope reaches the wire.
+    """
     try:
         return resolve_cache_dir(caller_path)
     except InvalidExportPathError as exc:
         # 403 (not 400) because the request is well-formed JSON — what's
         # rejected is the *authorization* to write/read outside the sandbox.
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        logger.warning(
+            "cache: sandbox-escape rejected (caller_path=%r): %s",
+            caller_path,
+            exc,
+        )
+        raise HTTPException(status_code=403, detail=_SANDBOX_ESCAPE_DETAIL) from exc
 
 
 def _read_manifest_or_http(root: Path):
@@ -172,18 +208,7 @@ async def export_cache(req: ExportRequest):
         req.max_bytes,
         _NOT_IMPLEMENTED_MSG,
     )
-    raise HTTPException(
-        status_code=501,
-        detail={
-            "message": _NOT_IMPLEMENTED_MSG,
-            "issue": _ISSUE_URL,
-            "validated": {
-                "destination": str(destination),
-                "max_bytes": req.max_bytes,
-                "protocol_version": PROTOCOL_VERSION,
-            },
-        },
-    )
+    raise HTTPException(status_code=501, detail=_NOT_IMPLEMENTED_DETAIL)
 
 
 @router.post("/import", status_code=501)
@@ -228,18 +253,7 @@ async def import_cache(req: ImportRequest):
         req.merge_strategy,
         _NOT_IMPLEMENTED_MSG,
     )
-    raise HTTPException(
-        status_code=501,
-        detail={
-            "message": _NOT_IMPLEMENTED_MSG,
-            "issue": _ISSUE_URL,
-            "validated": {
-                "source": str(source),
-                "merge_strategy": req.merge_strategy,
-                "manifest": manifest.to_dict(),
-            },
-        },
-    )
+    raise HTTPException(status_code=501, detail=_NOT_IMPLEMENTED_DETAIL)
 
 
 @router.get("/info")
@@ -249,12 +263,35 @@ async def cache_info(path: str | None = None):
     Returns the manifest dict so callers (peer instances, oai-mlx, ops
     tooling) can GC / route / version-gate without paying a full import.
     Path resolution follows the same sandbox rules as export/import.
+
+    H-12: pre-fix this handler echoed the resolved sandbox root back to
+    the caller in a top-level ``"path"`` field. ``str(root)`` expands to
+    ``/Users/<USERNAME>/.cache/rapid-mlx/cache_exports/<sub>`` on macOS
+    — same operator home-dir / username disclosure that H-02 fixed on
+    the 403 envelope. Same treatment here: keep the resolved root in
+    the server log only, omit it from the wire envelope. Callers that
+    need to dedupe by location already have the request-side ``path``
+    they supplied.
     """
     root = _resolve_or_400(path)
     manifest = _read_manifest_or_http(root)
 
+    # Codex r1 follow-up: log at DEBUG (not INFO) so the resolved root
+    # only lands in operator logs when the operator explicitly opts in
+    # (RAPID_MLX_LOG_LEVEL=DEBUG or equivalent). Routine 200 traffic
+    # carries no path on the wire AND no path in the default log stream
+    # — but the breadcrumb is still there for ops who need to debug a
+    # peer-sync issue. Sibling concern: H-02's logger.warning on the
+    # 403 path is fine because that's an anomaly worth recording at
+    # default verbosity, whereas every successful info read shouldn't
+    # rewrite the sandbox path into the rolling log.
+    logger.debug(
+        "cache/info: resolved root=%s model_id=%s entries=%s",
+        root,
+        manifest.model_id,
+        manifest.entries,
+    )
     return {
-        "path": str(root),
         "protocol_version": PROTOCOL_VERSION,
         "manifest": manifest.to_dict(),
     }

@@ -67,10 +67,6 @@ fn add_seed_dedup(seeds: &mut Vec<Array1<f64>>, seen: &mut HashSet<Vec<u64>>, se
     }
 }
 
-fn rho_from_lambda(lambda: f64, bounds: (f64, f64)) -> f64 {
-    clamp_to_bounds(lambda.max(1e-12).ln(), bounds)
-}
-
 fn safe_ln_pos(x: f64) -> Option<f64> {
     if x.is_finite() && x > 0.0 {
         Some(x.ln())
@@ -101,7 +97,7 @@ fn add_spde_manifold_seeds(
     seeds: &mut Vec<Array1<f64>>,
     seen: &mut HashSet<Vec<u64>>,
     bounds: (f64, f64),
-    heuristic_lambdas: Option<&[f64]>,
+    heuristic_rhos: Option<&[f64]>,
     primary: &Array1<f64>,
 ) {
     if primary.len() != 3 {
@@ -122,13 +118,14 @@ fn add_spde_manifold_seeds(
         }
     }
 
-    // Data-informed anchor: invert heuristic lambdas to (nu, kappa^2, tau) when feasible.
-    if let Some(vals) = heuristic_lambdas
+    // Data-informed anchor: convert the rho seed to lambdas, then invert to
+    // (nu, kappa^2, tau) when feasible.
+    if let Some(vals) = heuristic_rhos
         && vals.len() == 3
     {
-        let l0 = vals[0];
-        let l1 = vals[1];
-        let l2 = vals[2];
+        let l0 = vals[0].exp();
+        let l1 = vals[1].exp();
+        let l2 = vals[2].exp();
         if l0.is_finite() && l1.is_finite() && l2.is_finite() && l0 > 1e-12 && l2 > 1e-12 {
             let r = (l1 * l1) / (l0 * l2);
             if r > 2.0 {
@@ -164,7 +161,7 @@ fn add_first_order_fallback_seeds(
     seeds: &mut Vec<Array1<f64>>,
     seen: &mut HashSet<Vec<u64>>,
     bounds: (f64, f64),
-    heuristic_lambdas: Option<&[f64]>,
+    heuristic_rhos: Option<&[f64]>,
 ) {
     // Degenerate λ2 -> 0 fallback (first-order mass+tension):
     // λ0 = τ κ^2, λ1 = τ, λ2 ≈ 0.
@@ -178,17 +175,17 @@ fn add_first_order_fallback_seeds(
             add_seed_dedup(seeds, seen, Array1::from_vec(vec![rho0, rho1, rho2_floor]));
         }
     }
-    if let Some(vals) = heuristic_lambdas
+    if let Some(vals) = heuristic_rhos
         && vals.len() == 3
         && vals[0].is_finite()
         && vals[1].is_finite()
-        && vals[0] > 1e-12
-        && vals[1] > 1e-12
     {
-        let kappa2 = vals[0] / vals[1];
+        let l0 = vals[0].exp();
+        let l1 = vals[1].exp();
+        let kappa2 = l0 / l1;
         if kappa2.is_finite() && kappa2 > 0.0 {
             let lk = 0.5 * kappa2.ln();
-            let t = vals[1].ln();
+            let t = vals[1];
             let rho0 = clamp_to_bounds(t + 2.0 * lk, bounds);
             let rho1 = clamp_to_bounds(t, bounds);
             add_seed_dedup(seeds, seen, Array1::from_vec(vec![rho0, rho1, rho2_floor]));
@@ -254,7 +251,7 @@ fn first_primes(n: usize) -> Vec<usize> {
 
 pub fn generate_rho_candidates(
     num_penalties: usize,
-    heuristic_lambdas: Option<&[f64]>,
+    heuristic_rhos: Option<&[f64]>,
     config: &SeedConfig,
 ) -> Vec<Array1<f64>> {
     let mut seeds = Vec::new();
@@ -274,12 +271,11 @@ pub fn generate_rho_candidates(
     }
 
     // Prefer a full heuristic vector (length == k) as the primary anchor.
-    // Auxiliary trailing dimensions (e.g. SAS params) are already in the
-    // correct parameter space — do NOT apply rho_from_lambda to them.
+    // Values are already in the outer optimizer's rho/theta parameter space.
     let num_aux = config.num_auxiliary_trailing.min(num_penalties);
     let num_smoothing = num_penalties - num_aux;
     let aux_initial: Vec<f64> = if num_aux > 0 {
-        heuristic_lambdas
+        heuristic_rhos
             .filter(|h| h.len() == num_penalties)
             .map(|h| {
                 h[num_smoothing..]
@@ -292,13 +288,13 @@ pub fn generate_rho_candidates(
     } else {
         Vec::new()
     };
-    let heuristic_rhovec: Option<Array1<f64>> = heuristic_lambdas.and_then(|vals| {
+    let heuristic_rhovec: Option<Array1<f64>> = heuristic_rhos.and_then(|vals| {
         if vals.len() == num_penalties {
             Some(Array1::from_iter(
                 vals[..num_smoothing]
                     .iter()
                     .copied()
-                    .map(|v| rho_from_lambda(v, bounds))
+                    .map(|v| clamp_to_bounds(v, bounds))
                     .chain(
                         vals[num_smoothing..]
                             .iter()
@@ -311,10 +307,9 @@ pub fn generate_rho_candidates(
         }
     });
 
-    let primary = heuristic_rhovec
-        .clone()
-        .unwrap_or_else(|| Array1::<f64>::zeros(num_penalties))
-        .mapv(|v| clamp_to_bounds(v + risk_shift, bounds));
+    let primary = heuristic_rhovec.clone().unwrap_or_else(|| {
+        Array1::<f64>::from_elem(num_penalties, clamp_to_bounds(risk_shift, bounds))
+    });
     add_seed_dedup(&mut seeds, &mut seen, primary.clone());
     // Always include neutral baseline independently of heuristic anchor.
     add_seed_dedup(&mut seeds, &mut seen, Array1::zeros(num_penalties));
@@ -339,7 +334,7 @@ pub fn generate_rho_candidates(
     if num_smoothing == 3 {
         let smoothing_primary =
             Array1::from_vec(primary.iter().take(num_smoothing).copied().collect());
-        let smoothing_heuristic_lambdas = heuristic_lambdas.and_then(|vals| {
+        let smoothing_heuristic_lambdas = heuristic_rhos.and_then(|vals| {
             if vals.len() >= num_smoothing {
                 Some(&vals[..num_smoothing])
             } else {
@@ -383,16 +378,6 @@ pub fn generate_rho_candidates(
                 seed[num_smoothing + i] = v;
             }
             add_seed_dedup(&mut seeds, &mut seen, seed);
-        }
-    }
-
-    // Backward-compatible scalar heuristic support: treat each value as a symmetric λ seed.
-    if let Some(vals) = heuristic_lambdas
-        && vals.len() != num_penalties
-    {
-        for &lambda in vals {
-            let rho = rho_from_lambda(lambda, bounds);
-            add_seed_dedup(&mut seeds, &mut seen, Array1::from_elem(num_penalties, rho));
         }
     }
 
@@ -634,12 +619,32 @@ where
     }
 
     if n_smooths <= 6 {
-        let per_axis_shifts: [f64; 2] = [-3.0, 3.0];
+        // Per-axis refinement around the best isotropic point. The ±3 steps
+        // resolve a mild per-coordinate imbalance; the explicit saturation
+        // target (`bnds.1`, the over-smoothing upper bound) reaches asymmetric
+        // corners where selected penalty blocks are fully active while the
+        // others stay at the refined anchor. Those corners are load-bearing for
+        // double-penalty (Marra-Wood null-space shrinkage) smooths (#1266): an
+        // unsupported term must be allowed to send BOTH its wiggliness and
+        // null-space coordinates high, while a supported sibling term remains
+        // free. The isotropic grid only moves all coordinates together, so it
+        // cannot express "shrink s(z), keep s(x)". Probing these corners is
+        // criterion-ranked — a candidate is adopted only when it strictly lowers
+        // the true REML/LAML cost — so a genuinely better interior optimum or
+        // supported smooth simply wins the comparison.
+        let saturation = clamp_to_bounds(bnds.1, bnds);
         for axis in 0..n_smooths {
             let anchor = best_seed.clone();
-            for &delta in &per_axis_shifts {
+            let mut targets = vec![
+                clamp_to_bounds(anchor[axis] - 3.0, bnds),
+                clamp_to_bounds(anchor[axis] + 3.0, bnds),
+            ];
+            if (anchor[axis] - saturation).abs() > 1e-9 {
+                targets.push(saturation);
+            }
+            for target in targets {
                 let mut candidate = anchor.clone();
-                candidate[axis] = clamp_to_bounds(anchor[axis] + delta, bnds);
+                candidate[axis] = target;
                 if let Some(c) = eval_cost(&candidate)
                     && c.is_finite()
                     && best_cost.map(|b| c < b).unwrap_or(true)
@@ -647,6 +652,19 @@ where
                     best_cost = Some(c);
                     best_seed = candidate;
                 }
+            }
+        }
+        for start in 0..n_smooths.saturating_sub(1) {
+            let anchor = best_seed.clone();
+            let mut candidate = anchor;
+            candidate[start] = saturation;
+            candidate[start + 1] = saturation;
+            if let Some(c) = eval_cost(&candidate)
+                && c.is_finite()
+                && best_cost.map(|b| c < b).unwrap_or(true)
+            {
+                best_cost = Some(c);
+                best_seed = candidate;
             }
         }
     }
@@ -664,14 +682,14 @@ mod tests {
             risk_profile: SeedRiskProfile::Gaussian,
             ..SeedConfig::default()
         };
-        let heur = [1e-2, 1.0, 1e2];
+        let heur = [-2.0, 0.0, 2.0];
         let seeds = generate_rho_candidates(3, Some(&heur), &cfg);
         assert!(!seeds.is_empty());
         let first = &seeds[0];
         assert_eq!(first.len(), 3);
-        assert!((first[0] - heur[0].ln()).abs() < 1e-12);
-        assert!((first[1] - heur[1].ln()).abs() < 1e-12);
-        assert!((first[2] - heur[2].ln()).abs() < 1e-12);
+        assert!((first[0] - heur[0]).abs() < 1e-12);
+        assert!((first[1] - heur[1]).abs() < 1e-12);
+        assert!((first[2] - heur[2]).abs() < 1e-12);
     }
 
     #[test]
@@ -681,7 +699,7 @@ mod tests {
             risk_profile: SeedRiskProfile::GeneralizedLinear,
             ..SeedConfig::default()
         };
-        let heur = [1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0, 1e-1, 1.0, 10.0, 100.0];
+        let heur = [-6.0, -5.0, -4.0, 0.0, 2.0, 4.0, -3.0, 0.0, 3.0, 5.0];
         let seeds = generate_rho_candidates(10, Some(&heur), &cfg);
         assert!(seeds.len() <= 18);
         // Presence of at least one asymmetric cluster-conflict seed:
@@ -731,6 +749,17 @@ mod tests {
     }
 
     #[test]
+    fn objective_grid_can_seed_adjacent_pair_oversmoothing_corner() {
+        let base = Array1::zeros(4);
+        let selected = select_objective_seed_on_log_lambda_grid(&base, (-12.0, 12.0), 4, |rho| {
+            let supported_cost = 0.1 * (rho[0].powi(2) + rho[1].powi(2));
+            let unsupported_gap = (rho[2] - 12.0).powi(2) + (rho[3] - 12.0).powi(2);
+            Some(supported_cost + unsupported_gap)
+        });
+        assert_eq!(selected.to_vec(), vec![0.0, 0.0, 12.0, 12.0]);
+    }
+
+    #[test]
     fn three_penalty_seeds_include_nu2_reverse_manifold_triplets() {
         let cfg = SeedConfig::default();
         let seeds = generate_rho_candidates(3, None, &cfg);
@@ -770,14 +799,14 @@ mod tests {
     #[test]
     fn auxiliary_trailing_dims_pinned_to_initial_values() {
         // Simulate SAS optimization: 2 smoothing dims + 2 auxiliary dims
-        // (epsilon=0, log_delta=0).  The heuristic vector has lambda values
-        // for smoothing and raw initial values for auxiliary.
+        // (epsilon=0, log_delta=0).  The heuristic vector is in rho/theta
+        // space for both smoothing and auxiliary dimensions.
         let cfg = SeedConfig {
             num_auxiliary_trailing: 2,
             risk_profile: SeedRiskProfile::GeneralizedLinear,
             ..SeedConfig::default()
         };
-        let heur = [1.0, 10.0, 0.0, 0.0]; // lambdas + SAS initials
+        let heur = [0.0, 10.0_f64.ln(), 0.0, 0.0]; // rhos + SAS initials
         let seeds = generate_rho_candidates(4, Some(&heur), &cfg);
         assert!(!seeds.is_empty());
         // EVERY seed must have the auxiliary dims pinned to 0.0.

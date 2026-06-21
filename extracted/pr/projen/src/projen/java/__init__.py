@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -16,27 +18,24 @@ from jsii._type_checking import check_type
 
 from .._jsii import *
 
-from .. import (
-    Component as _Component_2b0ad27f,
-    Dependency as _Dependency_f510e013,
-    GitOptions as _GitOptions_a65916a3,
-    IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
-    LoggerOptions as _LoggerOptions_eb0f6309,
-    Project as _Project_57d89203,
-    ProjenrcFile as _ProjenrcFile_50432c7e,
-    ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
-    RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
-    SampleReadmeProps as _SampleReadmeProps_3518b03b,
-)
-from ..github import (
-    AutoApproveOptions as _AutoApproveOptions_dac86cbe,
-    AutoMergeOptions as _AutoMergeOptions_d112cd3c,
-    GitHubOptions as _GitHubOptions_21553699,
-    GitHubProject as _GitHubProject_c48bc7ea,
-    GitHubProjectOptions as _GitHubProjectOptions_547f2d08,
-    GithubCredentials as _GithubCredentials_ae257072,
-    StaleOptions as _StaleOptions_929db764,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import projen as _projen_04054675
+    import projen.github as _github_c49f935d
+else:
+
+    _github_c49f935d = _LazyImport("projen.github")
+    _projen_04054675 = _LazyImport("projen")
 
 
 @jsii.enum(jsii_type="projen.java.ChecksumPolicy")
@@ -60,7 +59,7 @@ class ChecksumPolicy(enum.Enum):
 
 
 class JavaProject(
-    _GitHubProject_c48bc7ea,
+    _github_c49f935d.GitHubProject,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.java.JavaProject",
 ):
@@ -84,18 +83,18 @@ class JavaProject(
         projenrc_java: typing.Optional[builtins.bool] = None,
         projenrc_java_options: typing.Optional[typing.Union["ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         test_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
-        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_github_c49f935d.GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_github_c49f935d.GithubCredentials"] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_github_c49f935d.StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         artifact_id: builtins.str,
         group_id: builtins.str,
@@ -106,17 +105,17 @@ class JavaProject(
         url: typing.Optional[builtins.str] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param sample: (experimental) Include sample code and test if the relevant directories don't exist. Default: true
@@ -236,7 +235,7 @@ class JavaProject(
         configuration: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         executions: typing.Optional[typing.Sequence[typing.Union["PluginExecution", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> "_Dependency_f510e013":
+    ) -> "_projen_04054675.Dependency":
         '''(experimental) Adds a build plugin to the pom.
 
         The plug in is also added as a BUILD dep to the project.
@@ -257,7 +256,7 @@ class JavaProject(
             executions=executions,
         )
 
-        return typing.cast("_Dependency_f510e013", jsii.invoke(self, "addPlugin", [spec, options]))
+        return typing.cast("_projen_04054675.Dependency", jsii.invoke(self, "addPlugin", [spec, options]))
 
     @jsii.member(jsii_name="addTestDependency")
     def add_test_dependency(self, spec: builtins.str) -> None:
@@ -328,7 +327,7 @@ class JavaProject(
 
 
 class Junit(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.java.Junit",
 ):
@@ -339,7 +338,7 @@ class Junit(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         pom: "Pom",
         sample_java_package: typing.Optional[builtins.str] = None,
@@ -446,7 +445,7 @@ class JunitOptions:
 
 
 class MavenCompile(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.java.MavenCompile",
 ):
@@ -457,7 +456,7 @@ class MavenCompile(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         pom: "Pom",
         *,
         source: typing.Optional[builtins.str] = None,
@@ -544,7 +543,7 @@ class MavenCompileOptions:
 
 
 class MavenPackaging(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.java.MavenPackaging",
 ):
@@ -555,7 +554,7 @@ class MavenPackaging(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         pom: "Pom",
         *,
         distdir: typing.Optional[builtins.str] = None,
@@ -906,7 +905,7 @@ class MavenRepositoryPolicy:
 
 
 class MavenSample(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.java.MavenSample",
 ):
@@ -915,7 +914,12 @@ class MavenSample(
     :stability: experimental
     '''
 
-    def __init__(self, project: "_Project_57d89203", *, package: builtins.str) -> None:
+    def __init__(
+        self,
+        project: "_projen_04054675.Project",
+        *,
+        package: builtins.str,
+    ) -> None:
         '''
         :param project: -
         :param package: (experimental) Project root java package.
@@ -1246,7 +1250,11 @@ class PluginOptions:
         )
 
 
-class Pom(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.java.Pom"):
+class Pom(
+    _projen_04054675.Component,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.java.Pom",
+):
     '''(experimental) A Project Object Model or POM is the fundamental unit of work in Maven.
 
     It is
@@ -1258,7 +1266,7 @@ class Pom(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.java.P
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         artifact_id: builtins.str,
         group_id: builtins.str,
@@ -1316,7 +1324,7 @@ class Pom(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.java.P
         configuration: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         executions: typing.Optional[typing.Sequence[typing.Union["PluginExecution", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> "_Dependency_f510e013":
+    ) -> "_projen_04054675.Dependency":
         '''(experimental) Adds a build plugin to the pom.
 
         The plug in is also added as a BUILD dep to the project.
@@ -1337,7 +1345,7 @@ class Pom(_Component_2b0ad27f, metaclass=jsii.JSIIMeta, jsii_type="projen.java.P
             executions=executions,
         )
 
-        return typing.cast("_Dependency_f510e013", jsii.invoke(self, "addPlugin", [spec, options]))
+        return typing.cast("_projen_04054675.Dependency", jsii.invoke(self, "addPlugin", [spec, options]))
 
     @jsii.member(jsii_name="addPluginRepository")
     def add_plugin_repository(
@@ -1704,7 +1712,7 @@ class PomOptions:
 
 
 class Projenrc(
-    _ProjenrcFile_50432c7e,
+    _projen_04054675.ProjenrcFile,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.java.Projenrc",
 ):
@@ -1719,7 +1727,7 @@ class Projenrc(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         pom: "Pom",
         *,
         class_name: typing.Optional[builtins.str] = None,
@@ -1907,7 +1915,7 @@ class UpdatePolicy(metaclass=jsii.JSIIMeta, jsii_type="projen.java.UpdatePolicy"
 
 @jsii.data_type(
     jsii_type="projen.java.JavaProjectCommonOptions",
-    jsii_struct_bases=[_GitHubProjectOptions_547f2d08, PomOptions],
+    jsii_struct_bases=[_github_c49f935d.GitHubProjectOptions, PomOptions],
     name_mapping={
         "name": "name",
         "commit_generated": "commitGenerated",
@@ -1953,35 +1961,35 @@ class UpdatePolicy(metaclass=jsii.JSIIMeta, jsii_type="projen.java.UpdatePolicy"
         "test_deps": "testDeps",
     },
 )
-class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
+class JavaProjectCommonOptions(_github_c49f935d.GitHubProjectOptions, PomOptions):
     def __init__(
         self,
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_github_c49f935d.GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_github_c49f935d.GithubCredentials"] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_github_c49f935d.StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         artifact_id: builtins.str,
         group_id: builtins.str,
@@ -2048,25 +2056,25 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         if isinstance(git_ignore_options, dict):
-            git_ignore_options = _IgnoreFileOptions_86c48b91(**git_ignore_options)
+            git_ignore_options = _projen_04054675.IgnoreFileOptions(**git_ignore_options)
         if isinstance(git_options, dict):
-            git_options = _GitOptions_a65916a3(**git_options)
+            git_options = _projen_04054675.GitOptions(**git_options)
         if isinstance(logging, dict):
-            logging = _LoggerOptions_eb0f6309(**logging)
+            logging = _projen_04054675.LoggerOptions(**logging)
         if isinstance(projenrc_json_options, dict):
-            projenrc_json_options = _ProjenrcJsonOptions_9c40dd4f(**projenrc_json_options)
+            projenrc_json_options = _projen_04054675.ProjenrcJsonOptions(**projenrc_json_options)
         if isinstance(renovatebot_options, dict):
-            renovatebot_options = _RenovatebotOptions_18e6b8a1(**renovatebot_options)
+            renovatebot_options = _projen_04054675.RenovatebotOptions(**renovatebot_options)
         if isinstance(auto_approve_options, dict):
-            auto_approve_options = _AutoApproveOptions_dac86cbe(**auto_approve_options)
+            auto_approve_options = _github_c49f935d.AutoApproveOptions(**auto_approve_options)
         if isinstance(auto_merge_options, dict):
-            auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
+            auto_merge_options = _github_c49f935d.AutoMergeOptions(**auto_merge_options)
         if isinstance(github_options, dict):
-            github_options = _GitHubOptions_21553699(**github_options)
+            github_options = _github_c49f935d.GitHubOptions(**github_options)
         if isinstance(readme, dict):
-            readme = _SampleReadmeProps_3518b03b(**readme)
+            readme = _projen_04054675.SampleReadmeProps(**readme)
         if isinstance(stale_options, dict):
-            stale_options = _StaleOptions_929db764(**stale_options)
+            stale_options = _github_c49f935d.StaleOptions(**stale_options)
         if isinstance(parent_pom, dict):
             parent_pom = ParentPom(**parent_pom)
         if isinstance(compile_options, dict):
@@ -2229,25 +2237,27 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
+    def git_ignore_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.IgnoreFileOptions"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFileOptions"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
+    def git_options(self) -> typing.Optional["_projen_04054675.GitOptions"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GitOptions"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
+    def logging(self) -> typing.Optional["_projen_04054675.LoggerOptions"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -2255,7 +2265,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
+        return typing.cast(typing.Optional["_projen_04054675.LoggerOptions"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -2275,13 +2285,13 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional["_Project_57d89203"]:
+    def parent(self) -> typing.Optional["_projen_04054675.Project"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional["_Project_57d89203"], result)
+        return typing.cast(typing.Optional["_projen_04054675.Project"], result)
 
     @builtins.property
     def project_tree(self) -> typing.Optional[builtins.bool]:
@@ -2319,7 +2329,9 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
+    def projenrc_json_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.ProjenrcJsonOptions"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -2327,7 +2339,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
+        return typing.cast(typing.Optional["_projen_04054675.ProjenrcJsonOptions"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -2341,7 +2353,9 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
+    def renovatebot_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.RenovatebotOptions"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -2349,10 +2363,12 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.RenovatebotOptions"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
+    def auto_approve_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.AutoApproveOptions"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -2360,7 +2376,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.AutoApproveOptions"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -2377,7 +2393,9 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
+    def auto_merge_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.AutoMergeOptions"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -2388,7 +2406,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.AutoMergeOptions"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -2426,7 +2444,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
+    def github_options(self) -> typing.Optional["_github_c49f935d.GitHubOptions"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -2434,7 +2452,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GitHubOptions"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -2448,7 +2466,9 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
+    def projen_credentials(
+        self,
+    ) -> typing.Optional["_github_c49f935d.GithubCredentials"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -2456,10 +2476,10 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GithubCredentials"], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
+    def readme(self) -> typing.Optional["_projen_04054675.SampleReadmeProps"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -2471,7 +2491,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
+        return typing.cast(typing.Optional["_projen_04054675.SampleReadmeProps"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -2487,7 +2507,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
+    def stale_options(self) -> typing.Optional["_github_c49f935d.StaleOptions"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -2497,7 +2517,7 @@ class JavaProjectCommonOptions(_GitHubProjectOptions_547f2d08, PomOptions):
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.StaleOptions"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -2816,29 +2836,29 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_github_c49f935d.GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_github_c49f935d.GithubCredentials"] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_github_c49f935d.StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         artifact_id: builtins.str,
         group_id: builtins.str,
@@ -2909,25 +2929,25 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         if isinstance(git_ignore_options, dict):
-            git_ignore_options = _IgnoreFileOptions_86c48b91(**git_ignore_options)
+            git_ignore_options = _projen_04054675.IgnoreFileOptions(**git_ignore_options)
         if isinstance(git_options, dict):
-            git_options = _GitOptions_a65916a3(**git_options)
+            git_options = _projen_04054675.GitOptions(**git_options)
         if isinstance(logging, dict):
-            logging = _LoggerOptions_eb0f6309(**logging)
+            logging = _projen_04054675.LoggerOptions(**logging)
         if isinstance(projenrc_json_options, dict):
-            projenrc_json_options = _ProjenrcJsonOptions_9c40dd4f(**projenrc_json_options)
+            projenrc_json_options = _projen_04054675.ProjenrcJsonOptions(**projenrc_json_options)
         if isinstance(renovatebot_options, dict):
-            renovatebot_options = _RenovatebotOptions_18e6b8a1(**renovatebot_options)
+            renovatebot_options = _projen_04054675.RenovatebotOptions(**renovatebot_options)
         if isinstance(auto_approve_options, dict):
-            auto_approve_options = _AutoApproveOptions_dac86cbe(**auto_approve_options)
+            auto_approve_options = _github_c49f935d.AutoApproveOptions(**auto_approve_options)
         if isinstance(auto_merge_options, dict):
-            auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
+            auto_merge_options = _github_c49f935d.AutoMergeOptions(**auto_merge_options)
         if isinstance(github_options, dict):
-            github_options = _GitHubOptions_21553699(**github_options)
+            github_options = _github_c49f935d.GitHubOptions(**github_options)
         if isinstance(readme, dict):
-            readme = _SampleReadmeProps_3518b03b(**readme)
+            readme = _projen_04054675.SampleReadmeProps(**readme)
         if isinstance(stale_options, dict):
-            stale_options = _StaleOptions_929db764(**stale_options)
+            stale_options = _github_c49f935d.StaleOptions(**stale_options)
         if isinstance(parent_pom, dict):
             parent_pom = ParentPom(**parent_pom)
         if isinstance(compile_options, dict):
@@ -3096,25 +3116,27 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
+    def git_ignore_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.IgnoreFileOptions"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFileOptions"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
+    def git_options(self) -> typing.Optional["_projen_04054675.GitOptions"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GitOptions"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
+    def logging(self) -> typing.Optional["_projen_04054675.LoggerOptions"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -3122,7 +3144,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
+        return typing.cast(typing.Optional["_projen_04054675.LoggerOptions"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -3142,13 +3164,13 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional["_Project_57d89203"]:
+    def parent(self) -> typing.Optional["_projen_04054675.Project"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional["_Project_57d89203"], result)
+        return typing.cast(typing.Optional["_projen_04054675.Project"], result)
 
     @builtins.property
     def project_tree(self) -> typing.Optional[builtins.bool]:
@@ -3186,7 +3208,9 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
+    def projenrc_json_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.ProjenrcJsonOptions"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -3194,7 +3218,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
+        return typing.cast(typing.Optional["_projen_04054675.ProjenrcJsonOptions"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -3208,7 +3232,9 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
+    def renovatebot_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.RenovatebotOptions"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -3216,10 +3242,12 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.RenovatebotOptions"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
+    def auto_approve_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.AutoApproveOptions"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -3227,7 +3255,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.AutoApproveOptions"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -3244,7 +3272,9 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
+    def auto_merge_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.AutoMergeOptions"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -3255,7 +3285,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.AutoMergeOptions"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -3293,7 +3323,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
+    def github_options(self) -> typing.Optional["_github_c49f935d.GitHubOptions"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -3301,7 +3331,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GitHubOptions"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -3315,7 +3345,9 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
+    def projen_credentials(
+        self,
+    ) -> typing.Optional["_github_c49f935d.GithubCredentials"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -3323,10 +3355,10 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GithubCredentials"], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
+    def readme(self) -> typing.Optional["_projen_04054675.SampleReadmeProps"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -3338,7 +3370,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
+        return typing.cast(typing.Optional["_projen_04054675.SampleReadmeProps"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -3354,7 +3386,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
+    def stale_options(self) -> typing.Optional["_github_c49f935d.StaleOptions"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -3364,7 +3396,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.StaleOptions"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -3699,7 +3731,7 @@ def _typecheckingstub__702d880972766245e6e0ce9d4332f75632d1c9f56321a84f3b10f119e
     pass
 
 def _typecheckingstub__877c5aed063e2ddca6cbb37631bb31564c14fc1f304629ab7adcc662faa0b0da(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     pom: Pom,
     sample_java_package: typing.Optional[builtins.str] = None,
@@ -3718,7 +3750,7 @@ def _typecheckingstub__db441a323339ae146e69254287868e3704cd5ee3edbcc272138a4e660
     pass
 
 def _typecheckingstub__0f143440a0c274a37fff9c951ad85be29c31b978c6c6d89ee2cbe127b8249b88(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     pom: Pom,
     *,
     source: typing.Optional[builtins.str] = None,
@@ -3736,7 +3768,7 @@ def _typecheckingstub__2abc628703576e622a20aab761493d186a662ac606df5bccb664dfe4f
     pass
 
 def _typecheckingstub__cd7f0f4d617b106a57e5b073cf5f51ca4195a66d251926fe0b5b0fa27b2b7612(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     pom: Pom,
     *,
     distdir: typing.Optional[builtins.str] = None,
@@ -3779,7 +3811,7 @@ def _typecheckingstub__041e104cddeb68a13d0b79cfdce8653000ee58d2c7cef3088a2c8717d
     pass
 
 def _typecheckingstub__4190861db7ca6169340394602246875f9668e86624764e5e7279d01f6c2a3017(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     package: builtins.str,
 ) -> None:
@@ -3823,7 +3855,7 @@ def _typecheckingstub__cf453a5ea3da08b956d0eb1127063e74802cd6e62720cf0f2c1841875
     pass
 
 def _typecheckingstub__e3638a11786e70b5de428bf2064d32761537778501eb3cb189b4457c78aee9d8(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     artifact_id: builtins.str,
     group_id: builtins.str,
@@ -3879,7 +3911,7 @@ def _typecheckingstub__468190ed1f2feac4431fa6e9f5cc22eb8dbb01cd1c5d3bdfdac29f07c
     pass
 
 def _typecheckingstub__6120ff9474a63c873f006408943a5ac6d72a57ca356c129fa21e41f897bb072d(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     pom: Pom,
     *,
     class_name: typing.Optional[builtins.str] = None,
@@ -3908,29 +3940,29 @@ def _typecheckingstub__95d1347bcc9244ea45fe2d94ee57536743a6579b8c3cbeefd1a9832f2
     *,
     name: builtins.str,
     commit_generated: typing.Optional[builtins.bool] = None,
-    git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-    git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-    logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_ignore_options: typing.Optional[typing.Union[_projen_04054675.IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_options: typing.Optional[typing.Union[_projen_04054675.GitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[typing.Union[_projen_04054675.LoggerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
-    parent: typing.Optional[_Project_57d89203] = None,
+    parent: typing.Optional[_projen_04054675.Project] = None,
     project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
-    projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+    projenrc_json_options: typing.Optional[typing.Union[_projen_04054675.ProjenrcJsonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     renovatebot: typing.Optional[builtins.bool] = None,
-    renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-    auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+    renovatebot_options: typing.Optional[typing.Union[_projen_04054675.RenovatebotOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    auto_approve_options: typing.Optional[typing.Union[_github_c49f935d.AutoApproveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_merge: typing.Optional[builtins.bool] = None,
-    auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+    auto_merge_options: typing.Optional[typing.Union[_github_c49f935d.AutoMergeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     clobber: typing.Optional[builtins.bool] = None,
     dev_container: typing.Optional[builtins.bool] = None,
     github: typing.Optional[builtins.bool] = None,
-    github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+    github_options: typing.Optional[typing.Union[_github_c49f935d.GitHubOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+    projen_credentials: typing.Optional[_github_c49f935d.GithubCredentials] = None,
+    readme: typing.Optional[typing.Union[_projen_04054675.SampleReadmeProps, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
-    stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+    stale_options: typing.Optional[typing.Union[_github_c49f935d.StaleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     vscode: typing.Optional[builtins.bool] = None,
     artifact_id: builtins.str,
     group_id: builtins.str,
@@ -3956,29 +3988,29 @@ def _typecheckingstub__9bd204911b78eb490a0ff7d3863868024abfc54a7f5ababba6fe97db2
     *,
     name: builtins.str,
     commit_generated: typing.Optional[builtins.bool] = None,
-    git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-    git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-    logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_ignore_options: typing.Optional[typing.Union[_projen_04054675.IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_options: typing.Optional[typing.Union[_projen_04054675.GitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[typing.Union[_projen_04054675.LoggerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
-    parent: typing.Optional[_Project_57d89203] = None,
+    parent: typing.Optional[_projen_04054675.Project] = None,
     project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
-    projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+    projenrc_json_options: typing.Optional[typing.Union[_projen_04054675.ProjenrcJsonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     renovatebot: typing.Optional[builtins.bool] = None,
-    renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-    auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+    renovatebot_options: typing.Optional[typing.Union[_projen_04054675.RenovatebotOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    auto_approve_options: typing.Optional[typing.Union[_github_c49f935d.AutoApproveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_merge: typing.Optional[builtins.bool] = None,
-    auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+    auto_merge_options: typing.Optional[typing.Union[_github_c49f935d.AutoMergeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     clobber: typing.Optional[builtins.bool] = None,
     dev_container: typing.Optional[builtins.bool] = None,
     github: typing.Optional[builtins.bool] = None,
-    github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+    github_options: typing.Optional[typing.Union[_github_c49f935d.GitHubOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+    projen_credentials: typing.Optional[_github_c49f935d.GithubCredentials] = None,
+    readme: typing.Optional[typing.Union[_projen_04054675.SampleReadmeProps, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
-    stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+    stale_options: typing.Optional[typing.Union[_github_c49f935d.StaleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     vscode: typing.Optional[builtins.bool] = None,
     artifact_id: builtins.str,
     group_id: builtins.str,

@@ -561,7 +561,18 @@ impl DeviceResidentArrowWorkspace {
             let trial_objective =
                 self.objective_at(&base, half_target_energy, &trial_t, &trial_beta);
 
-            let objective_scale = current_objective.abs().max(1.0);
+            // Trust-region gain-ratio noise floor keyed to the objective's own
+            // magnitude, mirroring the production `LatentInnerSolver` (#1127): the
+            // floor must be equivariant under a response rescaling `y → a·y` (the
+            // penalized objective and both reductions scale as `O(a²)`). The
+            // previous `.max(1.0)` absolute floor broke this — near a converged
+            // iterate it pinned the floor at `1e-14` while a genuine refining
+            // step's `predicted_reduction` was `O(a²)`, misclassifying the real
+            // step as numerical noise and stalling the inner solve at a
+            // non-stationary point. A perfectly converged objective
+            // (`current_objective == 0`) yields a `0` floor, so the
+            // `predicted_reduction > 0` branch still governs and no step is lost.
+            let objective_scale = current_objective.abs();
             let noise_floor = objective_scale * 1e-14;
             let actual_reduction = current_objective - trial_objective;
             let rho = if predicted_reduction > noise_floor {
@@ -1614,8 +1625,72 @@ mod tests {
         }
     }
 
-    /// #1017 residency-isolating per-solve bench. The full-fit bench
-    /// ([`gpu_residency_wallclock_bench`]) runs an exact quadratic that converges
+    /// #1017 fit-path parity (CPU-runnable). The resident inner solve and the
+    /// PRODUCTION arrow-Schur inner solve (`solve_arrow_newton_step_core`, the
+    /// entry the SAE joint fit reaches through `solve_with_lm_escalation_inner`)
+    /// must solve the SAME bordered-quadratic Newton system.
+    ///
+    /// This is the cross-implementation parity behind wiring the device seam into
+    /// the SAE inner loop: `solve_arrow_newton_step_core` carries the #1017
+    /// device-Schur seam (and falls through bit-identically to its CPU path off
+    /// CUDA), and the resident workspace's `cpu_reference_fit` converges the same
+    /// quadratic `φ(z) = ½‖X‖² + ½ zᵀH z − g₀ᵀ z`. The resident converged iterate
+    /// `z*` is the stationary point `H z* = g₀`; the production arrow path solves
+    /// the Newton system `H Δ = −g₀` from `z = 0`, so its step is
+    /// `Δ = −H⁻¹ g₀ = −z*`. With `H` PD the exact relationship is therefore
+    /// `Δ = −z*`; asserting it pins that routing the production inner solve through
+    /// the device-aware `_core` (which a GPU host then offloads) solves the
+    /// identical system the resident loop does. Runs on the CPU build box — no
+    /// CUDA required.
+    #[test]
+    fn resident_inner_solve_matches_production_arrow_core() {
+        use crate::solver::arrow_schur::{ArrowSolveOptions, solve_arrow_newton_step_core};
+
+        let ws = small_fixture(0x1017_F17);
+        let opts = DeviceResidentInnerOptions::default();
+
+        // Resident workspace converged fit (re-factoring CPU reference loop).
+        let resident = ws.cpu_reference_fit(&opts).expect("resident cpu fit");
+        assert!(
+            resident.converged,
+            "resident reference must converge on the PD quadratic"
+        );
+
+        // Production arrow path: one Newton step on the same system from z = 0.
+        // `_core` is the device-aware entry; on this CPU box it runs the dense
+        // CPU solve, the exact path the GPU host would fall back to on decline.
+        let sys = ws.to_arrow_system();
+        let (delta_t, delta_beta, _diag) = solve_arrow_newton_step_core(
+            &sys,
+            opts.initial_ridge_t,
+            opts.initial_ridge_beta,
+            &ArrowSolveOptions::direct(),
+        )
+        .expect("production arrow-core solve");
+
+        // The Newton step from z = 0 is Δ = −H⁻¹g₀ = −z*, where z* is the resident
+        // converged iterate (H z* = g₀, the invariant
+        // `cpu_inner_loop_reaches_quadratic_minimiser` pins directly). With H PD
+        // the relationship is exact, so Δ + z* = 0 to factorisation tolerance.
+        let t_scale = resident.t.iter().fold(1.0_f64, |m, &v| m.max(v.abs()));
+        let b_scale = resident.beta.iter().fold(1.0_f64, |m, &v| m.max(v.abs()));
+        let mut max_rel = 0.0_f64;
+        for (prod, res) in delta_t.iter().zip(resident.t.iter()) {
+            max_rel = max_rel.max((prod + res).abs() / t_scale);
+        }
+        for (prod, res) in delta_beta.iter().zip(resident.beta.iter()) {
+            max_rel = max_rel.max((prod + res).abs() / b_scale);
+        }
+        assert!(
+            max_rel < 1e-9,
+            "production arrow-core Newton step must be −(resident converged fit) on \
+             the same quadratic (rel {max_rel:e}); wiring the device seam into the \
+             SAE inner loop must not change the system being solved"
+        );
+    }
+
+    /// #1017 residency-isolating per-solve bench. A full-fit wall-clock bench
+    /// runs an exact quadratic that converges
     /// in ONE Newton step, so the resident frame is built once and solved once —
     /// the across-iteration amortization (factor `D`/`B`/Schur once, reuse for
     /// every gradient) has nothing to amortize over and the measured speedup is
@@ -1736,101 +1811,6 @@ mod tests {
                 max_rel < 1e-9,
                 "{label}: resident per-solve steps must match reupload (rel {max_rel:e})"
             );
-        }
-    }
-
-    /// #1017 GPU wall-clock bench. On a CUDA host this times the device-resident
-    /// inner Newton loop against the CPU dense-reference loop at color-arm and
-    /// Qwen scale, printing per-fit ms, the residency MiB ratio (device-resident
-    /// bytes vs host shadow), and the certified-refinement parity error. On a
-    /// CPU-only host it prints a skip line and still asserts CPU convergence, so
-    /// the same `cargo test` invocation is the runnable bench on the GPU node and
-    /// a harmless no-op on the build box. Run with `--nocapture` to see numbers.
-    ///
-    /// `#[ignore]`d because it is a wall-clock BENCHMARK, not a correctness gate:
-    /// on a CPU-only CI runner it still drives the color-arm and Qwen-scale CPU
-    /// reference fits (hundreds of seconds), which SIGTERMs the test budget
-    /// without measuring anything the device path proves (#1082). The device
-    /// residency parity it would assert on a CUDA host is already covered by the
-    /// dedicated GPU parity tests; run this explicitly on a GPU node with
-    /// `cargo test gpu_residency_wallclock_bench -- --ignored --nocapture`.
-    #[test]
-    #[ignore = "wall-clock GPU residency bench; runs hundreds of seconds of CPU reference fits on non-GPU runners — run explicitly on a GPU node with --ignored"]
-    fn gpu_residency_wallclock_bench() {
-        use std::time::Instant;
-        let opts = DeviceResidentInnerOptions::default();
-        for (label, ws) in [
-            ("color_arm", super::color_arm_fixture()),
-            ("qwen_non_gating", super::qwen_non_gating_fixture()),
-        ] {
-            let ws = ws.expect("bench fixture must validate");
-
-            let t_cpu = Instant::now();
-            let cpu = ws.cpu_reference_fit(&opts).expect("cpu reference fit");
-            let cpu_ms = t_cpu.elapsed().as_secs_f64() * 1e3;
-            assert!(cpu.converged, "{label}: cpu reference must converge");
-
-            if ws.device_resident() {
-                // BEFORE: the re-uploading GPU path — re-pack/upload D,B,g and
-                // re-factor every iterate. This is the residency baseline.
-                let t_reup = Instant::now();
-                let reup = ws
-                    .device_reupload_fit(&opts)
-                    .expect("device re-uploading fit");
-                let reup_ms = t_reup.elapsed().as_secs_f64() * 1e3;
-
-                // AFTER: the device-resident path — factor once, upload only the
-                // per-iterate gradient.
-                let t_dev = Instant::now();
-                let dev = ws.device_fit(&opts).expect("device resident fit");
-                let dev_ms = t_dev.elapsed().as_secs_f64() * 1e3;
-
-                let t_scale = cpu.t.iter().fold(1.0_f64, |m, &v| m.max(v.abs()));
-                let b_scale = cpu.beta.iter().fold(1.0_f64, |m, &v| m.max(v.abs()));
-                let mut max_rel = 0.0_f64;
-                for (a, b) in dev.t.iter().zip(cpu.t.iter()) {
-                    max_rel = max_rel.max((a - b).abs() / t_scale);
-                }
-                for (a, b) in dev.beta.iter().zip(cpu.beta.iter()) {
-                    max_rel = max_rel.max((a - b).abs() / b_scale);
-                }
-                // Resident vs re-uploading must reach the same minimiser too —
-                // they share the GPU factor kernels and differ only in reuse.
-                let mut max_reup_rel = 0.0_f64;
-                for (a, b) in dev.t.iter().zip(reup.t.iter()) {
-                    max_reup_rel = max_reup_rel.max((a - b).abs() / t_scale);
-                }
-                for (a, b) in dev.beta.iter().zip(reup.beta.iter()) {
-                    max_reup_rel = max_reup_rel.max((a - b).abs() / b_scale);
-                }
-                let resident_mib = ws.resident_device_bytes() as f64 / (1024.0 * 1024.0);
-                let host_mib = ws.host_shadow_bytes() as f64 / (1024.0 * 1024.0);
-                println!(
-                    "[#1017 bench {label}] resident={dev_ms:.2}ms reupload={reup_ms:.2}ms \
-                     cpu_ref={cpu_ms:.2}ms residency_speedup={:.2}x (vs reupload) \
-                     vs_cpu={:.1}x resident_mem={resident_mib:.1}MiB host_shadow={host_mib:.1}MiB \
-                     ratio={:.2} iters(res={}/reup={}/cpu={}) parity_rel(cpu={max_rel:e},reup={max_reup_rel:e})",
-                    reup_ms / dev_ms.max(1e-9),
-                    cpu_ms / dev_ms.max(1e-9),
-                    resident_mib / host_mib.max(1e-9),
-                    dev.iterations,
-                    reup.iterations,
-                    cpu.iterations,
-                );
-                assert!(
-                    max_rel < 1e-9,
-                    "{label}: resident device fit must match CPU reference (rel {max_rel:e})"
-                );
-                assert!(
-                    max_reup_rel < 1e-9,
-                    "{label}: resident fit must match re-uploading GPU fit (rel {max_reup_rel:e})"
-                );
-            } else {
-                println!(
-                    "[#1017 bench {label}] no CUDA device — cpu_ref={cpu_ms:.2}ms \
-                     (device residency path skipped; run on the GPU node for wall-clock)"
-                );
-            }
         }
     }
 

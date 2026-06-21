@@ -20,6 +20,7 @@ use crate::{
     state::AuditState,
 };
 
+pub(crate) mod adhoc_packages;
 pub(crate) mod anonymous_definition;
 pub(crate) mod archived_uses;
 pub(crate) mod artipacked;
@@ -48,6 +49,7 @@ pub(crate) mod self_hosted_runner;
 pub(crate) mod stale_action_refs;
 pub(crate) mod superfluous_actions;
 pub(crate) mod template_injection;
+pub(crate) mod typosquat_uses;
 pub(crate) mod undocumented_permissions;
 pub(crate) mod unpinned_images;
 pub(crate) mod unpinned_tools;
@@ -55,6 +57,7 @@ pub(crate) mod unpinned_uses;
 pub(crate) mod unredacted_secrets;
 pub(crate) mod unsound_condition;
 pub(crate) mod unsound_contains;
+pub(crate) mod unsound_ternary;
 pub(crate) mod use_trusted_publishing;
 
 #[derive(Debug)]

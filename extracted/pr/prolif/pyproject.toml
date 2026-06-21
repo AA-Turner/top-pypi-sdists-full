@@ -6,7 +6,7 @@ readme = "README.rst"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
-version = "2.1.0"
+version = "2.2.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Operating System :: OS Independent",
@@ -39,6 +39,7 @@ dependencies = [
     "multiprocess",
     "dill",
     "psutil",
+    "gemmi>=0.7.5",
 ]
 
 [project.optional-dependencies]
@@ -99,6 +100,9 @@ include = ["prolif*"]
 "prolif" = ["py.typed"]
 "prolif.data" = ["*"]
 "prolif.data.vina" = ["*"]
+"prolif.data.molecule_standardizer" = ["*"]
+"prolif.data.molecule_standardizer.templates" = ["*"]
+"prolif.data.implicitHbond" = ["*"]
 "prolif.plotting.network" = ["*"]
 
 [tool.uv]

@@ -131,7 +131,7 @@ class RoomClimateControlService(SHCDeviceService):
 
     @property
     def supports_boost_mode(self) -> bool:
-        return self.state["supportsBoostMode"]
+        return self.state.get("supportsBoostMode", False)
 
     @property
     def show_setpoint_temperature(self) -> bool:
@@ -139,6 +139,10 @@ class RoomClimateControlService(SHCDeviceService):
             return self.state["showSetpointTemperature"]
         else:
             return False
+
+    @property
+    def has_demand(self) -> bool:
+        return bool(self.state.get("hasDemand", False))
 
     def summary(self):
         super().summary()
@@ -504,15 +508,24 @@ class ShutterControlService(SHCDeviceService):
 
     @property
     def operation_state(self) -> State:
+        # Shutter Control I (old model) does not report an operationState at all
+        # — only Shutter Control II does. Per the Bosch API spec (Shutter-local
+        # vs Shutter-II), treat its absence as STOPPED so consumers that read
+        # operation_state on every update don't crash with a KeyError.
+        if "operationState" not in self.state:
+            return self.State.STOPPED
         return self.State(self.state["operationState"])
 
     @property
     def calibrated(self) -> bool:
-        return self.state["calibrated"]
+        # Shutter Control I does not expose `calibrated`; default to False.
+        return self.state.get("calibrated", False)
 
     @property
     def level(self) -> float:
-        return self.state["level"] if "level" in self.state else 0.0
+        # Shutter Control I reports level as a STRING ("0.000".."1.000"); Shutter
+        # Control II as a number. Coerce to float so position math works for both.
+        return float(self.state.get("level", 0.0))
 
     def summary(self):
         super().summary()
@@ -525,22 +538,27 @@ class BlindsControlService(SHCDeviceService):
     class BlindsType(Enum):
         DEGREE_90 = "DEGREE_90"
         DEGREE_180 = "DEGREE_180"
+        DEGREE_360 = "DEGREE_360"
+        EXTERIOR_BLINDS = "EXTERIOR_BLINDS"
 
     @property
     def current_angle(self) -> float:
-        return self.state["currentAngle"]
+        return self.state.get("currentAngle", 0.0)
 
     @property
     def target_angle(self) -> float:
-        return self.state["targetAngle"]
+        return self.state.get("targetAngle", 0.0)
 
     @target_angle.setter
     def target_angle(self, value: float):
         self.put_state_element("targetAngle", value)
 
     @property
-    def blinds_type(self) -> BlindsType:
-        return self.state["blindsType"]
+    def blinds_type(self):
+        raw = self.state.get("blindsType")
+        if raw is None:
+            return None
+        return self.BlindsType(raw)
 
     def summary(self):
         super().summary()
@@ -551,7 +569,7 @@ class BlindsControlService(SHCDeviceService):
 class BlindsSceneControlService(SHCDeviceService):
     @property
     def level(self) -> float:
-        return self.state["level"]
+        return self.state.get("level", 0.0)
 
     @level.setter
     def level(self, value: float):
@@ -559,7 +577,7 @@ class BlindsSceneControlService(SHCDeviceService):
 
     @property
     def angle(self) -> float:
-        return self.state["angle"]
+        return self.state.get("angle", 0.0)
 
     @angle.setter
     def angle(self, value: float):
@@ -717,6 +735,7 @@ class DetectionTestService(SHCDeviceService):
     class DetectionState(Enum):
         DETECTION_TEST_STARTED = "DETECTION_TEST_STARTED"
         DETECTION_TEST_STOPPED = "DETECTION_TEST_STOPPED"
+        DETECTION_TEST_UNKNOWN = "DETECTION_TEST_UNKNOWN"
 
     @property
     def detection_state(self) -> DetectionState:
@@ -755,6 +774,7 @@ class PollControlService(SHCDeviceService):
     class PollControlState(Enum):
         LONG = "LONG"
         SHORT = "SHORT"
+        UNKNOWN = "UNKNOWN"
     
     @property
     def longPollInterval(self) -> PollControlState:
@@ -770,6 +790,7 @@ class PirSensorConfigurationService(SHCDeviceService):
         HIGH = "HIGH"
         MIDDLE = "MIDDLE"
         LOW = "LOW"
+        UNKNOWN = "UNKNOWN"
    
     @property
     def motionSensitivity(self) -> MotionSensitivity:
@@ -803,6 +824,10 @@ class PetImmunityService(SHCDeviceService):
     @property
     def enabled(self) -> bool:
         return self.state["enabled"]
+
+    @enabled.setter
+    def enabled(self, value: bool):
+        self.put_state_element("enabled", value)
 
     def summary(self):
         super().summary()
@@ -901,10 +926,8 @@ class BatteryLevelService(SHCDeviceService):
             if "faults" in self._raw_device_service
             else None
         )
-        if not faults:
+        if not faults or not faults.get("entries"):
             return self.State("OK")
-        assert len(faults["entries"]) == 1
-        assert "type" in faults["entries"][0]
         return self.State(faults["entries"][0]["type"])
 
     def summary(self):

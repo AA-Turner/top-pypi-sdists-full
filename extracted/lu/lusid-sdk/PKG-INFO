@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.130
+Version: 2.3.132
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -1672,6 +1672,7 @@ Class | Method | HTTP request | Description
  - [PricingModel](docs/PricingModel.md)
  - [PricingOptions](docs/PricingOptions.md)
  - [PrimarySchedule](docs/PrimarySchedule.md)
+ - [PriorityIssueEvent](docs/PriorityIssueEvent.md)
  - [ProcessedCommand](docs/ProcessedCommand.md)
  - [PropertyDefinition](docs/PropertyDefinition.md)
  - [PropertyDefinitionEntity](docs/PropertyDefinitionEntity.md)

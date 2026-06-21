@@ -138,11 +138,20 @@ pub fn build_bspline_basis_1d(
         // is likewise a SINGLE-penalty smooth for the same reason. Emit only the
         // wiggliness penalty for the cyclic basis regardless of `double_penalty`:
         // there is no free polynomial null space left to shrink.
+        //
+        // Frobenius-normalize the cyclic wiggliness penalty (recording the norm
+        // in `normalization_scale`) so its smoothing parameter `λ` is on the same
+        // unit-Frobenius scale as every other basis (cr / duchon / tensor / the
+        // open-knot ps path, #1365). The shipped design penalty is `β'(S/c)β`; a
+        // raw `S` (scale 1.0) put `λ` on a basis-dependent scale and the outer
+        // λ-search heuristics under-smoothed exactly as for the open ps single
+        // penalty. Fit-invariant at the REML optimum (only `λ̂` rescales by `c`).
+        let (s_bend_norm, s_bend_scale) = normalize_penalty(&s_bend_raw);
         let penalties_raw = vec![PenaltyCandidate {
-            matrix: s_bend_raw.clone(),
+            matrix: s_bend_norm,
             nullspace_dim_hint: 1,
             source: PenaltySource::Primary,
-            normalization_scale: 1.0,
+            normalization_scale: s_bend_scale,
             kronecker_factors: None,
             op: None,
         }];
@@ -199,7 +208,9 @@ pub fn build_bspline_basis_1d(
                 )
             };
         let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-            filter_active_penalty_candidates_with_ops(transformed_candidates)?;
+            filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
+                transformed_candidates,
+            ))?;
         return Ok(BasisBuildResult {
             design,
             penalties,
@@ -303,7 +314,9 @@ pub fn build_bspline_basis_1d(
                 Some(chunk),
             )?;
         let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-            filter_active_penalty_candidates_with_ops(transformed_candidates)?;
+            filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
+                transformed_candidates,
+            ))?;
         return Ok(BasisBuildResult {
             design,
             penalties,
@@ -600,7 +613,9 @@ pub fn build_bspline_basis_1d(
             )
         };
     let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(transformed_candidates)?;
+        filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
+            transformed_candidates,
+        ))?;
     Ok(BasisBuildResult {
         design,
         penalties,
@@ -1178,7 +1193,7 @@ pub(crate) fn estimate_penalty_nullity(penalty: &Array2<f64>) -> Result<usize, B
 
     let (sym, evals, _) = spectral_summary(penalty)?;
     let tol = spectral_tolerance(&sym, &evals);
-    Ok(evals.iter().filter(|&&ev| ev.abs() <= tol).count())
+    Ok(SpectralClassification::new(&evals, tol).nullity())
 }
 
 #[derive(Debug, Clone)]
@@ -1190,15 +1205,7 @@ pub(crate) struct PsdSpectralSummary {
 }
 
 pub(crate) fn symmetrize_penalty(penalty: &Array2<f64>) -> Array2<f64> {
-    let mut sym = penalty.clone();
-    for i in 0..sym.nrows() {
-        for j in 0..i {
-            let v = 0.5 * (sym[[i, j]] + sym[[j, i]]);
-            sym[[i, j]] = v;
-            sym[[j, i]] = v;
-        }
-    }
-    sym
+    crate::matrix::symmetrize(penalty)
 }
 
 /// Project a (nearly-)symmetric matrix to the PSD cone by clamping
@@ -1257,6 +1264,155 @@ pub(crate) fn spectral_tolerance(sym: &Array2<f64>, evals: &Array1<f64>) -> f64 
     (sym.nrows().max(1) as f64) * 1e-10 * max_abs_ev
 }
 
+/// Where a single eigenvalue of a symmetric penalty sits relative to the
+/// spectral tolerance — the *only* place the three-way convention is defined.
+///
+/// A symmetric penalty's spectrum has exactly three structural classes, and
+/// conflating any two of them is the #1425 defect class:
+///
+/// * [`Range`](EigenClass::Range) — `ev > tol`: a direction the penalty
+///   genuinely penalizes (positive curvature). Spans `range(S)`; its square
+///   root enters the penalty root `R` (so `RᵀR = S` on this subspace).
+/// * [`Null`](EigenClass::Null) — `|ev| <= tol`: an *unpenalized* direction
+///   (`Sβ = 0`). Spans `null(S)`; this is what gets absorbed into the
+///   parametric block so the inner solve sees no flat penalty direction.
+/// * [`Negative`](EigenClass::Negative) — `ev < -tol`: a direction of genuine
+///   *negative* curvature — the penalty is non-PSD there. This is NEITHER
+///   range nor null: it must never be square-rooted into `R` (its sqrt is
+///   imaginary) and must never be counted toward `nullity` (it is not
+///   unpenalized). The old binary `ev <= tol` split had no name for this
+///   class, so it silently mislabeled negative curvature as null space.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EigenClass {
+    Range,
+    Null,
+    Negative,
+}
+
+impl EigenClass {
+    /// Classify a single eigenvalue against a (non-negative) spectral
+    /// tolerance. This is the canonical, single-definition partition every
+    /// penalty-spectrum consumer routes through.
+    #[inline]
+    pub(crate) fn of(eigenvalue: f64, tol: f64) -> EigenClass {
+        if eigenvalue > tol {
+            EigenClass::Range
+        } else if eigenvalue < -tol {
+            EigenClass::Negative
+        } else {
+            EigenClass::Null
+        }
+    }
+}
+
+/// The complete three-way structural partition of a symmetric penalty's
+/// spectrum: which eigen-indices are range, null, and negative-curvature.
+///
+/// This is the single source of truth for `rank` / `nullity` /
+/// `negative_dim` and for every subspace basis (`null_basis`, the joint
+/// absorption ordering). Building it once from `(evals, tol)` and deriving
+/// all answers from it is what makes the range/null/negative convention
+/// impossible to apply inconsistently across call sites (#1425).
+#[derive(Debug, Clone)]
+pub(crate) struct SpectralClassification {
+    /// Indices (into the eigenvalue array) with `ev > tol`.
+    pub(crate) range_idx: Vec<usize>,
+    /// Indices with `|ev| <= tol` — the genuine null space.
+    pub(crate) null_idx: Vec<usize>,
+    /// Indices with `ev < -tol` — genuine negative curvature (non-PSD).
+    pub(crate) negative_idx: Vec<usize>,
+    /// The tolerance the partition was computed against.
+    pub(crate) tol: f64,
+}
+
+impl SpectralClassification {
+    /// Partition `evals` against `tol` into range / null / negative classes.
+    pub(crate) fn new(evals: &Array1<f64>, tol: f64) -> SpectralClassification {
+        let mut range_idx = Vec::new();
+        let mut null_idx = Vec::new();
+        let mut negative_idx = Vec::new();
+        for (i, &ev) in evals.iter().enumerate() {
+            match EigenClass::of(ev, tol) {
+                EigenClass::Range => range_idx.push(i),
+                EigenClass::Null => null_idx.push(i),
+                EigenClass::Negative => negative_idx.push(i),
+            }
+        }
+        SpectralClassification {
+            range_idx,
+            null_idx,
+            negative_idx,
+            tol,
+        }
+    }
+
+    /// Number of positively-penalized directions, `dim(range(S))`.
+    #[inline]
+    pub(crate) fn rank(&self) -> usize {
+        self.range_idx.len()
+    }
+
+    /// Number of genuinely unpenalized directions, `dim(null(S))`. Excludes
+    /// negative-curvature directions, which are not unpenalized.
+    #[inline]
+    pub(crate) fn nullity(&self) -> usize {
+        self.null_idx.len()
+    }
+
+    /// Number of negative-curvature directions. `> 0` iff the penalty is
+    /// non-PSD beyond the noise floor.
+    #[inline]
+    pub(crate) fn negative_dim(&self) -> usize {
+        self.negative_idx.len()
+    }
+
+    /// True iff the penalty carries genuine negative curvature (non-PSD).
+    #[inline]
+    pub(crate) fn is_indefinite(&self) -> bool {
+        !self.negative_idx.is_empty()
+    }
+
+    /// True iff every eigenvalue is within tolerance of zero (the whole
+    /// block is numerically the zero matrix).
+    #[inline]
+    pub(crate) fn iszero(&self) -> bool {
+        self.range_idx.is_empty() && self.negative_idx.is_empty()
+    }
+
+    /// Eigenvector columns spanning `null(S)`, or `None` when full-rank.
+    pub(crate) fn null_basis(&self, evecs: &Array2<f64>) -> Option<Array2<f64>> {
+        if self.null_idx.is_empty() {
+            return None;
+        }
+        Some(evecs.select(Axis(1), &self.null_idx))
+    }
+
+    /// Column order for the absorption rotation `Q = [U_range | U_neg | U_null]`:
+    /// genuinely-penalized directions first (range, then any non-PSD negative
+    /// directions — penalized in the sense of *not unpenalized*), with the
+    /// `nullity()` genuine null columns LAST so the absorption stage can take
+    /// the trailing block. Within range, descending by eigenvalue for a stable,
+    /// well-conditioned leading block.
+    pub(crate) fn absorption_order(&self, evals: &Array1<f64>) -> Vec<usize> {
+        let mut order: Vec<usize> = (0..evals.len()).collect();
+        order.sort_by(|&a, &b| {
+            let null_a = EigenClass::of(evals[a], self.tol) == EigenClass::Null;
+            let null_b = EigenClass::of(evals[b], self.tol) == EigenClass::Null;
+            match (null_a, null_b) {
+                (false, true) => std::cmp::Ordering::Less,
+                (true, false) => std::cmp::Ordering::Greater,
+                // Both genuinely null (or both non-null): descending by
+                // eigenvalue. NaN/sign ties are unlikely on a symmetric
+                // penalty but handled safely.
+                _ => evals[b]
+                    .partial_cmp(&evals[a])
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            }
+        });
+        order
+    }
+}
+
 pub(crate) fn spectral_summary(
     penalty: &Array2<f64>,
 ) -> Result<(Array2<f64>, Array1<f64>, Array2<f64>), BasisError> {
@@ -1284,14 +1440,18 @@ pub(crate) fn validate_psd_penalty(
 
     let (sym, evals, _) = spectral_summary(penalty)?;
     let tolerance = spectral_tolerance(&sym, &evals);
+    let classes = SpectralClassification::new(&evals, tolerance);
     let min_eigenvalue = evals.iter().copied().fold(f64::INFINITY, f64::min);
     let max_abs_eigenvalue = evals
         .iter()
         .copied()
         .fold(0.0_f64, |acc, v| acc.max(v.abs()));
-    let effective_rank = evals.iter().filter(|&&ev| ev > tolerance).count();
+    let effective_rank = classes.rank();
 
-    if min_eigenvalue < -tolerance {
+    // A PSD penalty has no negative-curvature class. Surface any genuine
+    // negative eigendirection as an indefinite-penalty error rather than
+    // letting it masquerade as range or null downstream (#1425).
+    if classes.is_indefinite() {
         return Err(BasisError::IndefinitePenalty {
             context: context.to_string(),
             min_eigenvalue,
@@ -1326,6 +1486,7 @@ pub fn analyze_penalty_block_with_op(
             eigenvectors: Array2::<f64>::zeros((0, 0)),
             rank: 0,
             nullity: 0,
+            negative_dim: 0,
             tol: 1e-10,
             iszero: true,
             op,
@@ -1334,20 +1495,22 @@ pub fn analyze_penalty_block_with_op(
 
     let (sym, evals, evecs) = spectral_summary(penalty)?;
     let tol = spectral_tolerance(&sym, &evals);
-    let rank = evals.iter().filter(|&&ev| ev > tol).count();
-    let nullity = sym.nrows().saturating_sub(rank);
-    let max_abs_eigenvalue = evals
-        .iter()
-        .copied()
-        .fold(0.0_f64, |acc, v| acc.max(v.abs()));
+    // Route the entire range / null / negative-curvature partition through the
+    // single canonical classifier so this block can never disagree with any
+    // other penalty-spectrum consumer about which directions are unpenalized
+    // (the #1425 defect class). `nullity` is the genuine null space
+    // (`|ev| <= tol`); negative-curvature directions are tracked separately in
+    // `negative_dim` and are neither range nor null.
+    let classes = SpectralClassification::new(&evals, tol);
     Ok(CanonicalPenaltyBlock {
         sym_penalty: sym,
         eigenvalues: evals,
         eigenvectors: evecs,
-        rank,
-        nullity,
+        rank: classes.rank(),
+        nullity: classes.nullity(),
+        negative_dim: classes.negative_dim(),
         tol,
-        iszero: max_abs_eigenvalue <= tol,
+        iszero: classes.iszero(),
         op,
     })
 }
@@ -1365,8 +1528,9 @@ pub fn filter_active_penalty_candidates(
 /// Returns `Some(U_null)` with `U_null.ncols() == block.nullity` when the
 /// block has a non-trivial null space; `None` when the block is full-rank
 /// (`block.nullity == 0`). The columns of `U_null` are the eigenvectors of
-/// `block.sym_penalty` at eigenvalues `≤ block.tol` — exactly the directions
-/// along which `Sβ = 0` and on which `H_pen = H_loglik + S` carries no
+/// `block.sym_penalty` at eigenvalues `|ev| ≤ block.tol` (genuine null
+/// directions only — never the negative-curvature class) — exactly the
+/// directions along which `Sβ = 0` and on which `H_pen = H_loglik + S` carries no
 /// curvature from the penalty. These are the directions that must be
 /// absorbed into the parametric block at construction time so that the
 /// smooth's design is orthogonal to its own null space and the inner Newton
@@ -1375,16 +1539,10 @@ pub(crate) fn nullspace_basis_from_block(block: &CanonicalPenaltyBlock) -> Optio
     if block.nullity == 0 {
         return None;
     }
-    let null_idx: Vec<usize> = block
-        .eigenvalues
-        .iter()
-        .enumerate()
-        .filter_map(|(i, &ev)| (ev <= block.tol).then_some(i))
-        .collect();
-    if null_idx.is_empty() {
-        return None;
-    }
-    Some(block.eigenvectors.select(Axis(1), &null_idx))
+    // Derive the null basis from the canonical classifier so the columns it
+    // selects are exactly the directions counted in `block.nullity`
+    // (`|ev| <= tol`), never the negative-curvature directions (#1425).
+    SpectralClassification::new(&block.eigenvalues, block.tol).null_basis(&block.eigenvectors)
 }
 
 /// Compute the joint-null absorption rotation for a smooth with one or more
@@ -1408,8 +1566,9 @@ pub(crate) fn nullspace_basis_from_block(block: &CanonicalPenaltyBlock) -> Optio
 /// only state encoded as `Some`.
 /// Recompute per-block null-eigenvector matrices from a sequence of penalty
 /// matrices. Each output entry `null_eigenvectors[k]` is `Some(U_null)`
-/// (eigenvectors of `penalties[k]` at eigenvalues `≤ spectral_tolerance`)
-/// when the block has a non-trivial null space, and `None` otherwise.
+/// (eigenvectors of `penalties[k]` at eigenvalues `|ev| ≤ spectral_tolerance`,
+/// the genuine null directions) when the block has a non-trivial null space,
+/// and `None` otherwise.
 ///
 /// This is the inverse of "consumers update `penalties[k]` without
 /// refreshing `null_eigenvectors[k]`": whenever a code path rebuilds a
@@ -1458,32 +1617,21 @@ pub fn compute_joint_null_rotation(
     }
     let (sym, evals, evecs) = spectral_summary(&s_sum)?;
     let tol = spectral_tolerance(&sym, &evals);
-    let joint_nullity = evals.iter().filter(|&&ev| ev <= tol).count();
+    // Classify the joint penalty `Σ_k S_k` through the single canonical
+    // partition. Only the genuine joint null (`|ev| <= tol`) is absorbed; a
+    // negative joint eigenvalue (`ev < -tol`) is negative curvature, NOT an
+    // unpenalized direction, and stays in the leading (non-absorbed) block
+    // (#1425).
+    let classes = SpectralClassification::new(&evals, tol);
+    let joint_nullity = classes.nullity();
     if joint_nullity == 0 {
         return Ok(None);
     }
-    // Order columns of Q as [U_range | U_null]: ascending-eigenvalue ordering
-    // from `eigh` puts null columns first (eigenvalues near zero), so we need
-    // to permute so range columns lead and null columns trail. This is the
-    // canonical absorption ordering — Stage-3 split takes the last
-    // `joint_nullity` columns as the absorbed parametric columns.
-    let n = evals.len();
-    let mut order: Vec<usize> = (0..n).collect();
-    // Stable partition: range indices first (in original order, large
-    // eigenvalues first by descending sort), then null indices (small ev).
-    order.sort_by(|&a, &b| {
-        let ev_a = evals[a];
-        let ev_b = evals[b];
-        let null_a = ev_a <= tol;
-        let null_b = ev_b <= tol;
-        match (null_a, null_b) {
-            (false, true) => std::cmp::Ordering::Less,
-            (true, false) => std::cmp::Ordering::Greater,
-            // Both range or both null: descending by eigenvalue, with
-            // NaN/sign tie-breaks unlikely on a PSD sum but handled safely.
-            _ => ev_b.partial_cmp(&ev_a).unwrap_or(std::cmp::Ordering::Equal),
-        }
-    });
+    // Order columns of Q as [U_range | U_neg | U_null]: the absorption stage
+    // takes the trailing `joint_nullity` columns as the absorbed parametric
+    // block, so the genuine null columns must come last and negative-curvature
+    // columns must NOT be among them.
+    let order = classes.absorption_order(&evals);
     let rotation = evecs.select(Axis(1), &order);
     Ok(Some(JointNullRotation {
         rotation,
@@ -1581,6 +1729,38 @@ pub fn filter_active_penalty_candidates_with_ops(
     ))
 }
 
+/// Re-normalize already-constrained 1-D B-spline penalty candidates to unit
+/// Frobenius norm *in the constrained coordinate frame*.
+///
+/// The raw (pre-identifiability) wiggliness/ridge penalty is Frobenius-normalized
+/// at construction, but the sum-to-zero identifiability transform `Zᵀ S Z`
+/// perturbs `‖S‖_F` away from 1 (open `bs="ps"` order-2 drifts to ≈0.99967). The
+/// block the REML smoothing parameter `λ` actually multiplies is the *shipped*,
+/// constrained penalty, and the REML objective is evaluated entirely in
+/// constrained coordinates — so the shipped penalty must carry unit Frobenius
+/// norm *there*, matching `normalize_penalty_in_constrained_space` used by
+/// cr / duchon / tensor (the #1364/#1365/#1366/#1401 normalization class).
+/// Normalizing only the raw penalty (before the constraint) leaves `λ` on a
+/// slightly basis-dependent scale; this folds the residual constraint-transform
+/// factor out so `‖S‖_F = 1` in the frame that REML scores.
+///
+/// Fit-invariant at the REML optimum: rescaling `S → S/c` only rescales the
+/// recorded `λ̂` by `c`. Scaling a block never changes its rank, so this cannot
+/// alter which penalties `filter_active_penalty_candidates_with_ops` keeps
+/// active; the `> 1e-12` guard only avoids dividing a numerically-zero block.
+fn renormalize_constrained_penalty_candidates(
+    mut candidates: Vec<PenaltyCandidate>,
+) -> Vec<PenaltyCandidate> {
+    for candidate in &mut candidates {
+        let frob = candidate.matrix.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if frob.is_finite() && frob > 1e-12 {
+            candidate.matrix.mapv_inplace(|v| v / frob);
+            candidate.normalization_scale *= frob;
+        }
+    }
+    candidates
+}
+
 pub(crate) fn validated_kronecker_factors(
     factors: Option<Vec<Array2<f64>>>,
     matrix: &Array2<f64>,
@@ -1639,16 +1819,28 @@ fn bspline_penalty_candidates(
         None
     };
 
-    // Without an active null-space block, preserve the historical single-penalty
-    // geometry exactly: the bending penalty ships un-normalized with scale 1.0,
-    // so `double_penalty = False` (and boundary-conditioned) fits are byte-for-
-    // byte unchanged.
+    // Without an active null-space block, still Frobenius-normalize the bending
+    // penalty (recording the norm in `normalization_scale`) exactly the way the
+    // double-penalty branch below and the cr / duchon / constant-curvature /
+    // tensor paths already do. The shipped design penalty is `β'(S/c)β`; the
+    // REML smoothing parameter `λ` multiplies that *normalized* block, and the
+    // outer optimizer's λ-search (log-λ brackets, seed screening, the implicit
+    // prior on λ) is calibrated for a unit-Frobenius penalty. Shipping the raw
+    // `S` (scale 1.0) put `λ` on a basis-dependent scale, so REML stopped at a
+    // smaller effective `λ` and failed to fully shrink the penalty null space:
+    // `s(x, bs="ps")` over-fit data whose signal is the null space (a straight
+    // line), landing at EDF ~5 with spurious curvature while the normalized
+    // `bs="cr"` correctly collapsed to EDF ≈ 2 on the same data (#1365). At the
+    // REML optimum the fit is invariant to this normalization (only the recorded
+    // `λ̂` rescales by `c`); it just removes the scale miscalibration of the
+    // λ-search heuristics.
     let Some(shrinkage) = shrinkage else {
+        let (bend_norm, bend_scale) = normalize_penalty(s_bend_raw);
         return Ok(vec![PenaltyCandidate {
-            matrix: s_bend_raw.clone(),
+            matrix: bend_norm,
             nullspace_dim_hint: 0,
             source: PenaltySource::Primary,
-            normalization_scale: 1.0,
+            normalization_scale: bend_scale,
             kronecker_factors: None,
             op: None,
         }]);
@@ -1708,6 +1900,7 @@ pub(crate) fn build_nullspace_shrinkage_penalty(
         eigenvectors: evecs,
         rank: zero_idx.len(),
         nullity: 0,
+        negative_dim: 0,
         tol,
         iszero: false,
         op: None,

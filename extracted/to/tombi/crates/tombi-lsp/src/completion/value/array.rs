@@ -1,0 +1,598 @@
+use itertools::Itertools;
+use std::borrow::Cow;
+use tombi_document_tree::{ArrayKind, LiteralValueRef};
+use tombi_extension::{AddLeadingComma, AddTrailingComma, CompletionKind};
+use tombi_future::Boxable;
+use tombi_schema_store::{Accessor, ArraySchema, CurrentSchema, SchemaUri, ValueSchema};
+
+use super::{
+    CompletionHint, FindCompletionContents, all_of::find_all_of_completion_items,
+    any_of::find_any_of_completion_items, one_of::find_one_of_completion_items, type_hint_value,
+};
+use crate::{
+    comment_directive::get_array_comment_directive_content_with_schema_uri,
+    completion::{
+        CompletionContent, CompletionEdit,
+        comment::get_tombi_comment_directive_content_completion_contents,
+        merge_adjacent_schema_completion_items, schema_completion::SchemaCompletion,
+    },
+    schema_resolver::resolve_array_item_schema,
+};
+
+impl FindCompletionContents for tombi_document_tree::Array {
+    fn find_completion_contents<'a: 'b, 'b>(
+        &'a self,
+        position: tombi_text::Position,
+        keys: &'a [tombi_document_tree::Key],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        schema_context: &'a tombi_schema_store::SchemaContext<'a>,
+        completion_hint: Option<CompletionHint>,
+    ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        log::trace!("self = {:?}", self);
+        log::trace!("keys = {:?}", keys);
+        log::trace!("accessors = {:?}", accessors);
+        log::trace!("current_schema = {:?}", current_schema);
+        log::trace!("completion_hint = {:?}", completion_hint);
+
+        async move {
+            // `range.end` points to the cursor position right after `]`.
+            // At that point, completion should not behave as "inside array".
+            if self.kind() == ArrayKind::Array && position >= self.range().end {
+                return Vec::new();
+            }
+
+            if keys.is_empty()
+                && let Some((comment_directive_context, schema_uri)) =
+                    get_array_comment_directive_content_with_schema_uri(self, position, accessors)
+                && let Some(completions) = get_tombi_comment_directive_content_completion_contents(
+                    comment_directive_context,
+                    schema_uri,
+                )
+                .await
+            {
+                return completions;
+            }
+
+            if let Some(Ok(document_schema)) = schema_context
+                .get_subschema(accessors, current_schema)
+                .await
+                && let Some(value_schema) = &document_schema.value_schema
+            {
+                return self
+                    .find_completion_contents(
+                        position,
+                        keys,
+                        accessors,
+                        Some(&CurrentSchema {
+                            value_schema: value_schema.clone(),
+                            schema_uri: Cow::Borrowed(&document_schema.schema_uri),
+                            definitions: Cow::Borrowed(&document_schema.definitions),
+                        }),
+                        schema_context,
+                        completion_hint,
+                    )
+                    .await;
+            }
+
+            if let Some(current_schema) = current_schema {
+                match current_schema.value_schema.as_ref() {
+                    ValueSchema::Array(array_schema) => {
+                        let mut new_item_index = 0;
+                        let mut new_item_start_position = None;
+                        for (index, value) in self.values().iter().enumerate() {
+                            if value.range().end < position {
+                                new_item_index = index + 1;
+                                new_item_start_position = Some(value.range().end);
+                            }
+                            if value.contains(position) {
+                                let accessor = Accessor::Index(index);
+                                if let Some(current_schema) = resolve_array_item_schema(
+                                    index,
+                                    array_schema,
+                                    current_schema,
+                                    schema_context,
+                                )
+                                .await
+                                {
+                                    return value
+                                        .find_completion_contents(
+                                            position,
+                                            keys,
+                                            &accessors
+                                                .iter()
+                                                .cloned()
+                                                .chain(std::iter::once(accessor))
+                                                .collect_vec(),
+                                            Some(&current_schema),
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                }
+
+                                if let Some(one_of_schema) = array_schema.one_of.as_deref() {
+                                    let completion_items = find_one_of_completion_items(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        one_of_schema,
+                                        current_schema,
+                                        schema_context,
+                                        completion_hint,
+                                    )
+                                    .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+
+                                if let Some(any_of_schema) = array_schema.any_of.as_deref() {
+                                    let completion_items = find_any_of_completion_items(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        any_of_schema,
+                                        current_schema,
+                                        schema_context,
+                                        completion_hint,
+                                    )
+                                    .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+
+                                if let Some(all_of_schema) = array_schema.all_of.as_deref() {
+                                    let completion_items = find_all_of_completion_items(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        all_of_schema,
+                                        current_schema,
+                                        schema_context,
+                                        completion_hint,
+                                    )
+                                    .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+                            }
+                        }
+
+                        if let Some(current_schema) = resolve_array_item_schema(
+                            new_item_index,
+                            array_schema,
+                            current_schema,
+                            schema_context,
+                        )
+                        .await
+                        {
+                            let mut completions = SchemaCompletion
+                                .find_completion_contents(
+                                    position,
+                                    keys,
+                                    &accessors
+                                        .iter()
+                                        .cloned()
+                                        .chain(std::iter::once(Accessor::Index(new_item_index)))
+                                        .collect_vec(),
+                                    Some(&current_schema),
+                                    schema_context,
+                                    if self.kind() == ArrayKind::Array {
+                                        if new_item_index == 0 {
+                                            let add_trailing_comma = if self.is_empty()
+                                                || matches!(
+                                                    completion_hint,
+                                                    Some(CompletionHint::Comma {
+                                                        trailing_comma: Some(_),
+                                                        ..
+                                                    })
+                                                ) {
+                                                None
+                                            } else {
+                                                Some(AddTrailingComma)
+                                            };
+
+                                            Some(CompletionHint::InArray {
+                                                add_leading_comma: None,
+                                                add_trailing_comma,
+                                            })
+                                        } else {
+                                            let add_leading_comma = if matches!(
+                                                completion_hint,
+                                                Some(CompletionHint::Comma {
+                                                    leading_comma: Some(_),
+                                                    ..
+                                                })
+                                            ) {
+                                                None
+                                            } else {
+                                                new_item_start_position.map(|start_position| {
+                                                    AddLeadingComma { start_position }
+                                                })
+                                            };
+
+                                            let add_trailing_comma = if matches!(
+                                                completion_hint,
+                                                Some(CompletionHint::Comma {
+                                                    trailing_comma: Some(_),
+                                                    ..
+                                                })
+                                            ) {
+                                                None
+                                            } else if new_item_index != self.len() {
+                                                Some(AddTrailingComma)
+                                            } else {
+                                                None
+                                            };
+
+                                            Some(CompletionHint::InArray {
+                                                add_leading_comma,
+                                                add_trailing_comma,
+                                            })
+                                        }
+                                    } else {
+                                        completion_hint
+                                    },
+                                )
+                                .await;
+
+                            if array_schema.unique_items == Some(true) {
+                                let unique_values = self
+                                    .values()
+                                    .iter()
+                                    .filter_map(Option::<LiteralValueRef>::from)
+                                    .map(|value| value.to_string())
+                                    .collect::<tombi_hashmap::HashSet<_>>();
+
+                                completions = completions
+                                    .into_iter()
+                                    .filter(|completion| {
+                                        !(completion.kind.is_literal()
+                                            && unique_values.contains(&completion.label))
+                                    })
+                                    .collect_vec();
+                            }
+
+                            return completions;
+                        }
+
+                        if let Some(one_of_schema) = array_schema.one_of.as_deref() {
+                            let completion_items = find_one_of_completion_items(
+                                self,
+                                position,
+                                keys,
+                                accessors,
+                                one_of_schema,
+                                current_schema,
+                                schema_context,
+                                completion_hint,
+                            )
+                            .await;
+                            if !completion_items.is_empty() {
+                                return completion_items;
+                            }
+                        }
+                        if let Some(any_of_schema) = array_schema.any_of.as_deref() {
+                            let completion_items = find_any_of_completion_items(
+                                self,
+                                position,
+                                keys,
+                                accessors,
+                                any_of_schema,
+                                current_schema,
+                                schema_context,
+                                completion_hint,
+                            )
+                            .await;
+                            if !completion_items.is_empty() {
+                                return completion_items;
+                            }
+                        }
+                        if let Some(all_of_schema) = array_schema.all_of.as_deref() {
+                            let completion_items = find_all_of_completion_items(
+                                self,
+                                position,
+                                keys,
+                                accessors,
+                                all_of_schema,
+                                current_schema,
+                                schema_context,
+                                completion_hint,
+                            )
+                            .await;
+                            if !completion_items.is_empty() {
+                                return completion_items;
+                            }
+                        }
+
+                        Vec::new()
+                    }
+                    ValueSchema::OneOf(one_of_schema) => {
+                        find_one_of_completion_items(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            one_of_schema,
+                            current_schema,
+                            schema_context,
+                            completion_hint,
+                        )
+                        .await
+                    }
+                    ValueSchema::AnyOf(any_of_schema) => {
+                        find_any_of_completion_items(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            any_of_schema,
+                            current_schema,
+                            schema_context,
+                            completion_hint,
+                        )
+                        .await
+                    }
+                    ValueSchema::AllOf(all_of_schema) => {
+                        find_all_of_completion_items(
+                            self,
+                            position,
+                            keys,
+                            accessors,
+                            all_of_schema,
+                            current_schema,
+                            schema_context,
+                            completion_hint,
+                        )
+                        .await
+                    }
+                    _ => Vec::new(),
+                }
+            } else {
+                let mut new_item_index = 0;
+                let mut new_item_start_position = None;
+                for (index, value) in self.values().iter().enumerate() {
+                    if value.range().end < position {
+                        new_item_index = index + 1;
+                        new_item_start_position = Some(value.range().end);
+                    }
+                    if value.contains(position) {
+                        // Array of tables
+                        if let tombi_document_tree::Value::Table(table) = value
+                            && keys.len() == 1
+                            && table.kind() == tombi_document_tree::TableKind::KeyValue
+                            && !matches!(
+                                completion_hint,
+                                Some(
+                                    CompletionHint::DotTrigger { .. }
+                                        | CompletionHint::EqualTrigger { .. }
+                                )
+                            )
+                        {
+                            let key = &keys.first().unwrap();
+                            return vec![CompletionContent::new_type_hint_key(
+                                &key.value,
+                                key.range(),
+                                None,
+                                Some(CompletionHint::InArray {
+                                    add_leading_comma: None,
+                                    add_trailing_comma: None,
+                                }),
+                            )];
+                        }
+
+                        let accessor = Accessor::Index(index);
+                        let completion_hint = match completion_hint {
+                            Some(
+                                CompletionHint::DotTrigger { .. }
+                                | CompletionHint::EqualTrigger { .. }
+                                | CompletionHint::InTableHeader
+                                | CompletionHint::InArray { .. },
+                            ) => completion_hint,
+                            Some(CompletionHint::Comma { .. }) | None => {
+                                Some(CompletionHint::InArray {
+                                    add_leading_comma: None,
+                                    add_trailing_comma: None,
+                                })
+                            }
+                        };
+                        return value
+                            .find_completion_contents(
+                                position,
+                                keys,
+                                &accessors
+                                    .iter()
+                                    .cloned()
+                                    .chain(std::iter::once(accessor))
+                                    .collect_vec(),
+                                None,
+                                schema_context,
+                                completion_hint,
+                            )
+                            .await;
+                    }
+                }
+
+                let new_item_accessors = accessors
+                    .iter()
+                    .cloned()
+                    .chain(std::iter::once(Accessor::Index(new_item_index)))
+                    .collect_vec();
+
+                if let Some(Ok(document_schema)) = schema_context
+                    .get_subschema(&new_item_accessors, None)
+                    .await
+                    && let Some(current_schema) = document_schema.as_current_schema()
+                {
+                    let new_item_hint = new_item_completion_hint(
+                        self,
+                        new_item_index,
+                        new_item_start_position,
+                        completion_hint,
+                    );
+                    return SchemaCompletion
+                        .find_completion_contents(
+                            position,
+                            keys,
+                            &new_item_accessors,
+                            Some(&current_schema),
+                            schema_context,
+                            new_item_hint,
+                        )
+                        .await;
+                }
+
+                type_hint_value(None, position, None, completion_hint)
+            }
+        }
+        .boxed()
+    }
+}
+
+fn new_item_completion_hint(
+    array: &tombi_document_tree::Array,
+    new_item_index: usize,
+    new_item_start_position: Option<tombi_text::Position>,
+    completion_hint: Option<CompletionHint>,
+) -> Option<CompletionHint> {
+    if array.kind() != ArrayKind::Array {
+        return completion_hint;
+    }
+
+    let has_trailing_comma = matches!(
+        completion_hint,
+        Some(CompletionHint::Comma {
+            trailing_comma: Some(_),
+            ..
+        })
+    );
+    let has_leading_comma = matches!(
+        completion_hint,
+        Some(CompletionHint::Comma {
+            leading_comma: Some(_),
+            ..
+        })
+    );
+
+    if new_item_index == 0 {
+        let add_trailing_comma =
+            (!array.is_empty() && !has_trailing_comma).then_some(AddTrailingComma);
+        return Some(CompletionHint::InArray {
+            add_leading_comma: None,
+            add_trailing_comma,
+        });
+    }
+
+    let add_leading_comma = if has_leading_comma {
+        None
+    } else {
+        new_item_start_position.map(|start_position| AddLeadingComma { start_position })
+    };
+    let add_trailing_comma =
+        (!has_trailing_comma && new_item_index != array.len()).then_some(AddTrailingComma);
+
+    Some(CompletionHint::InArray {
+        add_leading_comma,
+        add_trailing_comma,
+    })
+}
+
+impl FindCompletionContents for ArraySchema {
+    fn find_completion_contents<'a: 'b, 'b>(
+        &'a self,
+        position: tombi_text::Position,
+        keys: &'a [tombi_document_tree::Key],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        _schema_context: &'a tombi_schema_store::SchemaContext<'a>,
+        completion_hint: Option<CompletionHint>,
+    ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        log::trace!("self = {:?}", self);
+        log::trace!("position = {:?}", position);
+        log::trace!("keys = {:?}", keys);
+        log::trace!("accessors = {:?}", accessors);
+        log::trace!("current_schema = {:?}", current_schema);
+        log::trace!("completion_hint = {:?}", completion_hint);
+
+        async move {
+            match completion_hint {
+                Some(CompletionHint::InTableHeader) => Vec::new(),
+                _ => {
+                    let schema_uri = current_schema.map(|schema| schema.schema_uri.as_ref());
+
+                    let mut completion_items =
+                        type_hint_array(position, schema_uri, completion_hint);
+
+                    if let Some(default) = &self.default {
+                        let label = default.to_string();
+                        let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                        completion_items.push(CompletionContent::new_default_value(
+                            label,
+                            self.title.clone(),
+                            self.description.clone(),
+                            edit,
+                            schema_uri,
+                            self.deprecated,
+                        ));
+                    }
+
+                    if let Some(examples) = &self.examples {
+                        for example in examples {
+                            let label = example.to_string();
+                            if completion_items.iter().any(|item| item.label == label) {
+                                continue;
+                            }
+                            let edit =
+                                CompletionEdit::new_literal(&label, position, completion_hint);
+                            completion_items.push(CompletionContent::new_example_value(
+                                label,
+                                self.title.clone(),
+                                self.description.clone(),
+                                edit,
+                                schema_uri,
+                                self.deprecated,
+                            ));
+                        }
+                    }
+
+                    merge_adjacent_schema_completion_items(
+                        position,
+                        keys,
+                        accessors,
+                        current_schema,
+                        _schema_context,
+                        completion_hint,
+                        completion_items,
+                        self.one_of.as_deref(),
+                        self.any_of.as_deref(),
+                        self.all_of.as_deref(),
+                    )
+                    .await
+                }
+            }
+        }
+        .boxed()
+    }
+}
+
+pub fn type_hint_array(
+    position: tombi_text::Position,
+    schema_uri: Option<&SchemaUri>,
+    completion_hint: Option<CompletionHint>,
+) -> Vec<CompletionContent> {
+    let edit = CompletionEdit::new_array_literal(position, completion_hint);
+
+    vec![CompletionContent::new_type_hint_value(
+        CompletionKind::Array,
+        "[]",
+        "Array",
+        edit,
+        schema_uri,
+    )]
+}

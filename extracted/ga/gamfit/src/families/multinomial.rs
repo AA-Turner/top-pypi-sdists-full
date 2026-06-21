@@ -71,10 +71,10 @@ use crate::inference::data::EncodedDataset;
 use crate::inference::formula_dsl::parse_formula;
 use crate::inference::model::ColumnKindTag;
 use crate::model_types::EstimationError;
+use crate::resource::ProblemHints;
 use crate::solver::fit_orchestration::{
     FitConfig, build_termspec_with_geometry_and_overrides, resolved_resource_policy,
 };
-use crate::solver::resource::ProblemHints;
 use crate::terms::smooth::{
     TermCollectionDesign, TermCollectionSpec, build_term_collection_design,
     freeze_term_collection_from_design,
@@ -148,11 +148,17 @@ const MULTINOMIAL_FORMULA_INNER_TOL: f64 = 1.0e-5;
 ///
 /// The term builder's normalized penalties are calibrated on single-response
 /// Gaussian-style score curvature. A reference-coded softmax class block sees
-/// smaller per-row Fisher curvature (`p_a(1-p_a)` with cross-class coupling), so
-/// the same physical penalty scale over-shrinks when the REML surface drives rho
-/// to the effective-df cap. Scaling the adapter's penalty matrices preserves the
-/// selected penalty directions while matching the softmax likelihood curvature.
-const MULTINOMIAL_FORMULA_PENALTY_SCALE: f64 = 0.5;
+/// per-row active-class Fisher diagonal `p_a(1-p_a)` plus negative cross-class
+/// coupling. At the neutral simplex (`p_k = 1/K`) the active diagonal is
+/// `(K-1)/K²`, so the binary-logit calibration is `2·(K-1)/K² = 1/2` and the
+/// three-class calibration is `4/9` rather than the historical hard-coded
+/// `1/2`. Making the scale a function of `K` keeps the physical smoothness
+/// prior tied to the likelihood curvature instead of over-penalizing every
+/// class as the simplex gains categories.
+fn multinomial_formula_penalty_scale(n_classes: usize) -> f64 {
+    let k = n_classes.max(2) as f64;
+    2.0 * (k - 1.0) / (k * k)
+}
 
 /// Largest smoothing-parameter dimension where exact dense outer curvature is
 /// still worth paying for multinomial formula fits.
@@ -181,14 +187,12 @@ fn multinomial_formula_use_outer_hessian(total_rho_dim: usize) -> bool {
 }
 
 /// Logit magnitude beyond which fitted probabilities are saturated at ordinary
-/// double precision diagnostic scale. If a multinomial Newton solve exhausts
-/// its iteration budget at this scale, the returned iterate is a separation
-/// artifact, not a finite MLE. The formula REML path also reads this threshold
-/// as the separation-EVIDENCE gate that arms the Jeffreys/Firth proper prior
-/// for a second, Firth-bounded solve (#715/#753): a logit at this scale means
-/// `p(1−p) < 1.4e-11`, so the softmax Fisher weight `W = diag(p) − ppᵀ` has
-/// collapsed on that row and the likelihood supplies no usable curvature on
-/// the penalty-null directions feeding it.
+/// double precision diagnostic scale. The bare fixed-λ driver has no outer REML
+/// state and still uses this threshold to reject a non-converged saturated
+/// iterate as a separation artifact. The formula REML path does not use this as
+/// a Firth trigger: with smoothing parameters selected, a finite saturated
+/// surface can be the valid near-separated optimum that should be scored
+/// directly.
 const MULTINOMIAL_SEPARATION_ETA_THRESHOLD: f64 = 25.0;
 
 /// Calibrated convergence tolerance for the OUTER REML/LAML smoothing-parameter
@@ -202,6 +206,59 @@ const MULTINOMIAL_SEPARATION_ETA_THRESHOLD: f64 = 25.0;
 /// value for the OUTER loop, while it continues to drive the INNER joint-Newton
 /// KKT target unchanged.
 const MULTINOMIAL_OUTER_REML_TOL: f64 = 1e-7;
+
+/// The first multinomial formula solve is a separation probe: it is accepted
+/// when the unbiased REML criterion converges to a finite interior iterate.
+/// Near-separable data such as the penguin fixture otherwise spend the caller's
+/// full outer budget on an iterate that is discarded before the Firth/Jeffreys
+/// refit. Keep enough iterations for ordinary interior fits to certify quickly,
+/// but hand slow/non-interior probes to the proper-prior refit promptly.
+const MULTINOMIAL_UNBIASED_PROBE_OUTER_MAX_ITER: usize = 20;
+
+/// Flexible lower λ floor for a WELL-SUPPORTED class on the formula path:
+/// smoothing parameters below this level are effectively at the zero-penalty
+/// boundary, so the unbiased REML optimizer is held inside this box bound rather
+/// than accepting a boundary-overfit surface or switching to Firth bias on
+/// finite data. This is the floor in the large-support limit.
+const MULTINOMIAL_FORMULA_MIN_LAMBDA: f64 = 2.0e-4;
+
+/// Strong lower λ floor in the SPARSE-class limit, and the support scale at
+/// which the floor begins to rise. With fewer rows in a class the softmax Fisher
+/// information `JᵀWJ` restricted to that class is smaller, so a boundary-hugging
+/// smooth calibrates worse on held-out data and wants more shrinkage. These two
+/// constants are the empirically-calibrated ENDPOINTS of a continuous
+/// information-scaled floor (see [`multinomial_formula_min_lambda`]); they are
+/// not a hard count threshold.
+const MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_COUNT: f64 = 50.0;
+const MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_LAMBDA: f64 = 1.0e-3;
+
+/// Continuous, information-scaled lower λ floor for the formula path.
+///
+/// The floor scales like the inverse of the minority-class support
+/// (`floor ∝ 1/information ∝ 1/count`), NOT a discontinuous count threshold: a
+/// class with 49 vs 50 rows must not see a 5× jump in its penalty floor. The
+/// form `base · max(1, c0/c)`, clamped to `[base, sparse]`:
+///   * reduces EXACTLY to `base` for well-supported classes (`c ≥ c0`);
+///   * reduces EXACTLY to `sparse` for very sparse classes
+///     (`c ≤ c0·base/sparse`, here `c ≤ 10`);
+///   * interpolates monotonically and continuously between them in the middle.
+/// It anchors on the two empirically-calibrated endpoints while removing the
+/// cliff at `c = c0`. Fixtures whose smallest class has `c ≥ 50` (e.g. penguins)
+/// are unaffected — they sit in the `base` regime exactly as before.
+fn multinomial_formula_min_lambda(y_one_hot: ArrayView2<'_, f64>) -> f64 {
+    let min_class_count = (0..y_one_hot.ncols())
+        .map(|class| y_one_hot.column(class).sum())
+        .fold(f64::INFINITY, f64::min);
+    if !min_class_count.is_finite() || min_class_count <= 0.0 {
+        return MULTINOMIAL_FORMULA_MIN_LAMBDA;
+    }
+    let information_scale =
+        (MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_COUNT / min_class_count).max(1.0);
+    (MULTINOMIAL_FORMULA_MIN_LAMBDA * information_scale).clamp(
+        MULTINOMIAL_FORMULA_MIN_LAMBDA,
+        MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_LAMBDA,
+    )
+}
 
 fn max_abs_eta_location(eta: ArrayView2<'_, f64>) -> (f64, usize, usize) {
     let mut best = (0.0_f64, 0usize, 0usize);
@@ -280,20 +337,14 @@ fn multinomial_formula_separation_diagnostic(
 /// arm" split:
 ///
 /// * a NON-FINITE logit — the inner linear algebra blew up along an unbounded
-///   direction; or
-/// * a SATURATED logit, `|η| ≥` [`MULTINOMIAL_SEPARATION_ETA_THRESHOLD`] —
-///   at that scale `p(1−p) < 1.4e-11`, the likelihood curvature on the rows
-///   driving that logit has collapsed, and the "mode" the unbiased criterion
-///   reports is an artifact of the iteration budget, not a finite MLE.
+///   direction.
 ///
 /// Returns `Some(description)` naming the witnessing logit when evidence is
-/// found, `None` for a finite interior fit (which is then accepted as-is, with
-/// zero Firth bias). A FAILED unbiased solve (`Err` from the rho-prior driver,
-/// e.g. "no startup seed passed") is the third evidence form and is handled
+/// found, `None` for a finite fit (which is then accepted as-is, with zero
+/// Firth bias). A FAILED unbiased solve (`Err` from the rho-prior driver, e.g.
+/// "no startup seed passed") is the second evidence form and is handled
 /// directly at the call site in [`fit_penalized_multinomial_formula`].
 fn multinomial_formula_separation_evidence(block_states: &[ParameterBlockState]) -> Option<String> {
-    let mut max_abs = 0.0_f64;
-    let mut max_at = (0usize, 0usize);
     for (active_class, state) in block_states.iter().enumerate() {
         for (row, &value) in state.eta.iter().enumerate() {
             if !value.is_finite() {
@@ -301,19 +352,43 @@ fn multinomial_formula_separation_evidence(block_states: &[ParameterBlockState])
                     "non-finite logit eta[row {row}, active class {active_class}] = {value}"
                 ));
             }
-            if value.abs() > max_abs {
-                max_abs = value.abs();
-                max_at = (row, active_class);
+        }
+    }
+    None
+}
+
+/// Extra evidence used only for a NON-CONVERGED capped unbiased probe.
+///
+/// A converged finite saturated formula fit is still a valid optimum and must be
+/// scored without Firth bias. A capped probe that failed to converge while it
+/// already carries separation-scale logits is different: spending the full
+/// unbiased outer budget on the same lambda-to-zero surface is the #1082
+/// timeout. Route that case straight to the proper-prior refit.
+fn multinomial_formula_unresolved_probe_separation_evidence(
+    block_states: &[ParameterBlockState],
+) -> Option<String> {
+    if let Some(evidence) = multinomial_formula_separation_evidence(block_states) {
+        return Some(evidence);
+    }
+
+    let mut best = (0.0_f64, 0usize, 0usize);
+    for (active_class, state) in block_states.iter().enumerate() {
+        for (row, &value) in state.eta.iter().enumerate() {
+            let abs = value.abs();
+            if abs > best.0 {
+                best = (abs, row, active_class);
             }
         }
     }
-    (max_abs >= MULTINOMIAL_SEPARATION_ETA_THRESHOLD).then(|| {
-        format!(
-            "saturated logit |eta[row {}, active class {}]| = {max_abs:.3} >= {MULTINOMIAL_SEPARATION_ETA_THRESHOLD} \
-             (softmax Fisher weight collapsed on the separating rows)",
-            max_at.0, max_at.1
-        )
-    })
+    if best.0 >= MULTINOMIAL_SEPARATION_ETA_THRESHOLD {
+        Some(format!(
+            "separation-scale finite logit |eta[row {}, active class {}]| = {:.3e} \
+             after capped unbiased probe",
+            best.1, best.2, best.0
+        ))
+    } else {
+        None
+    }
 }
 
 /// Inputs to [`fit_penalized_multinomial`].
@@ -841,9 +916,11 @@ pub struct MultinomialSmoothSignificance {
 
 /// One-hot-encode the categorical response column and return both the
 /// encoding and the captured level names. The level order matches the order
-/// recorded in the dataset schema, which is itself the order of first
-/// appearance during inferred-schema construction — so it is stable and
-/// deterministic across runs (no silent class permutation).
+/// recorded in the dataset schema, which is the canonical (lexicographically
+/// sorted) factor order produced by inferred-schema construction (#1319) — so
+/// it is a deterministic function of the label *set*, independent of training
+/// row order (no silent class permutation under a row shuffle), and matches the
+/// R `factor()` / pandas `Categorical` convention.
 fn one_hot_categorical_response(
     data: &EncodedDataset,
     y_col: usize,
@@ -931,13 +1008,11 @@ fn build_formula_design_for_multinomial(
     Ok((spec, design, y_col, parsed.response, y_kind))
 }
 
-fn scale_multinomial_formula_penalty(penalty: PenaltyMatrix) -> PenaltyMatrix {
+fn scale_multinomial_formula_penalty(penalty: PenaltyMatrix, scale: f64) -> PenaltyMatrix {
     match penalty {
-        PenaltyMatrix::Dense(matrix) => {
-            PenaltyMatrix::Dense(matrix.mapv(|v| v * MULTINOMIAL_FORMULA_PENALTY_SCALE))
-        }
+        PenaltyMatrix::Dense(matrix) => PenaltyMatrix::Dense(matrix.mapv(|v| v * scale)),
         PenaltyMatrix::KroneckerFactored { left, right } => PenaltyMatrix::KroneckerFactored {
-            left: left.mapv(|v| v * MULTINOMIAL_FORMULA_PENALTY_SCALE),
+            left: left.mapv(|v| v * scale),
             right,
         },
         PenaltyMatrix::Blockwise {
@@ -945,17 +1020,17 @@ fn scale_multinomial_formula_penalty(penalty: PenaltyMatrix) -> PenaltyMatrix {
             col_range,
             total_dim,
         } => PenaltyMatrix::Blockwise {
-            local: local.mapv(|v| v * MULTINOMIAL_FORMULA_PENALTY_SCALE),
+            local: local.mapv(|v| v * scale),
             col_range,
             total_dim,
         },
         PenaltyMatrix::Labeled { label, inner } => PenaltyMatrix::Labeled {
             label,
-            inner: Box::new(scale_multinomial_formula_penalty(*inner)),
+            inner: Box::new(scale_multinomial_formula_penalty(*inner, scale)),
         },
         PenaltyMatrix::Fixed { log_lambda, inner } => PenaltyMatrix::Fixed {
             log_lambda,
-            inner: Box::new(scale_multinomial_formula_penalty(*inner)),
+            inner: Box::new(scale_multinomial_formula_penalty(*inner, scale)),
         },
     }
 }
@@ -974,13 +1049,11 @@ fn scale_multinomial_formula_penalty(penalty: PenaltyMatrix) -> PenaltyMatrix {
 /// declared non-converged after only `max_iter` cycles (#715).
 ///
 /// The Jeffreys/Firth proper prior is engaged CONDITIONALLY: attempt 1 runs
-/// the unbiased penalized-REML criterion; only on separation evidence (a
-/// failed solve, a non-finite logit, or a saturated `|η| ≥ 25` logit — see
-/// [`multinomial_formula_separation_evidence`]) is the fit re-solved once with
-/// the full-span Firth prior armed, which bounds the penalty-null directions
-/// no smoothing parameter can (`S v = 0` ⇒ `(H + S_λ) v = H v → 0` under
-/// softmax saturation, the #715 real-data "all REML startup seeds rejected"
-/// mechanism).
+/// the unbiased penalized-REML criterion; only on separation evidence (a failed
+/// solve or a non-finite logit; see [`multinomial_formula_separation_evidence`])
+/// is the fit re-solved once with the full-span Firth prior armed, which bounds
+/// the penalty-null directions no smoothing parameter can (`S v = 0` ⇒
+/// `(H + S_λ) v = H v → 0` when the softmax likelihood has no finite mode).
 ///
 /// The categorical response column is recognised via the dataset schema
 /// (`ColumnKindTag::Categorical`); reference class = last level. Returns a
@@ -1109,15 +1182,16 @@ pub fn fit_penalized_multinomial_formula(
     // behaviour) forced a single λ per class that scales `Σ_t S_t`, so one
     // shared λ had to over-smooth a rough term while under-smoothing a smooth
     // one — biasing any multi-term class-probability surface.
-    let per_term_penalties: Vec<PenaltyMatrix> = design
-        .penalties_as_penalty_matrix()
-        .into_iter()
-        .map(scale_multinomial_formula_penalty)
-        .collect();
-    let per_term_nullspace_dims = design.nullspace_dims.clone();
     let k = y_one_hot.ncols();
     let m = k - 1;
     let n_obs = y_one_hot.nrows();
+    let penalty_scale = multinomial_formula_penalty_scale(k);
+    let per_term_penalties: Vec<PenaltyMatrix> = design
+        .penalties_as_penalty_matrix()
+        .into_iter()
+        .map(|penalty| scale_multinomial_formula_penalty(penalty, penalty_scale))
+        .collect();
+    let per_term_nullspace_dims = design.nullspace_dims.clone();
 
     // ── Custom-family driven REML/LAML path ───────────────────────────────
     // Each active class becomes one ParameterBlockSpec, all sharing X and the
@@ -1247,6 +1321,7 @@ pub fn fit_penalized_multinomial_formula(
         outer_max_iter,
         outer_tol,
         outer_rel_cost_tol,
+        rho_lower_bound: multinomial_formula_min_lambda(y_one_hot.view()).ln(),
         ridge_floor: MULTINOMIAL_FORMULA_RIDGE_FLOOR,
         // #747: the stabilization floor is SOLVER-ONLY — it keeps the inner
         // joint-Newton linear solve finite during screening (bounding the step
@@ -1299,50 +1374,134 @@ pub fn fit_penalized_multinomial_formula(
     };
     // ── Conditional Firth/Jeffreys engagement (#715 arm (b) / #753) ──────────
     // Attempt 1: the unbiased criterion (Jeffreys disarmed above). If the
-    // returned mode is finite and interior, it is the exact penalized-REML
+    // returned mode is converged, finite, and interior, it is the exact penalized-REML
     // optimum with zero Firth bias — accept it (this is the synthetic-arm /
     // interior-data path, #715 arm (a)). If the solve FAILS (e.g. the
     // (quasi-)separated penguins geometry where `(H + S_λ)v ≈ 0` along
     // penalty-null directions for EVERY ρ rejects every REML startup seed) or
-    // SUCCEEDS only at a saturated artifact (|η| past the diagnostic
-    // threshold), that is direct separation evidence: re-solve once with the
-    // full-span Jeffreys/Firth proper prior armed, which supplies the O(1)
-    // curvature on the quotient-null subspace that smoothing parameters
-    // mathematically cannot (`Sv = 0` ⇒ λ never touches `v`). The Firth refit
-    // is the accepted result for separated data — finite, Firth-bounded
-    // coefficients with calibrated probabilities (83debb24b contract).
+    // returns a non-finite artifact, that is direct separation evidence:
+    // re-solve once with the full-span Jeffreys/Firth proper prior armed, which
+    // supplies the O(1) curvature on the quotient-null subspace that smoothing
+    // parameters mathematically cannot (`Sv = 0` ⇒ λ never touches `v`). The
+    // Firth refit is the accepted result only when the unbiased formula solve
+    // failed, did not converge on its full budget, or blew up; finite
+    // formula-path logits can be large on valid near-separated optima and
+    // should not be shrunk toward the uniform simplex once the unbiased outer
+    // solve has actually certified.
+    let mut unbiased_probe_options = options.clone();
+    unbiased_probe_options.outer_max_iter = unbiased_probe_options
+        .outer_max_iter
+        .min(MULTINOMIAL_UNBIASED_PROBE_OUTER_MAX_ITER);
+    // The FINAL accepted Firth/Jeffreys refit runs to the caller's full outer
+    // budget: it is the result we ship, so it must reach the genuine REML
+    // optimum, not a truncated iterate. The near-separable penguin refit that
+    // motivated #1082's wall-clock concern is now halted honestly at its true
+    // bound optimum by the KKT-stationary-at-bound guard
+    // (`CostStallGuard`, #1082 / 64711ed82) and the Newton-decrement residual
+    // certificate (363af9b56 / 2c9580b1f): on separable data the outer ARC
+    // certifies and stops early on its own, so no artificial iteration cap is
+    // needed to land in budget. On non-separable data (e.g. the
+    // `vgam_smooth_by_factor` double-penalty arm) the refit needs the caller's
+    // full budget to converge, which a `.min(20)` cap would cut off — accepting
+    // a non-converged fit, which is dishonest. So the refit keeps `options`
+    // unchanged. Only the discarded unbiased separation probe above is capped.
+    let firth_refit_options = &options;
+
+    let run_firth_refit = |evidence: String| {
+        let firth_family = family.clone().with_joint_jeffreys_term(true);
+        fit_custom_family_with_rho_prior(
+            &firth_family,
+            &blocks,
+            firth_refit_options,
+            crate::types::RhoPrior::Flat,
+        )
+        .map_err(|err| {
+            EstimationError::InvalidInput(format!(
+                "multinomial REML: Firth/Jeffreys-armed refit (separation evidence: \
+                 {evidence}) failed: {err}"
+            ))
+        })
+    };
+
     let fit = match fit_custom_family_with_rho_prior(
         &family,
         &blocks,
-        &options,
+        &unbiased_probe_options,
         crate::types::RhoPrior::Flat,
     ) {
         Ok(unbiased_fit)
-            if multinomial_formula_separation_evidence(&unbiased_fit.block_states).is_none() =>
+            if unbiased_fit.outer_converged
+                && multinomial_formula_separation_evidence(&unbiased_fit.block_states)
+                    .is_none() =>
         {
             unbiased_fit
         }
-        first_attempt => {
-            let evidence = match &first_attempt {
-                Ok(saturated_fit) => {
-                    multinomial_formula_separation_evidence(&saturated_fit.block_states)
-                        .expect("non-interior arm is only reachable with separation evidence")
-                }
-                Err(err) => format!("unbiased-criterion REML solve failed: {err}"),
-            };
-            let firth_family = family.clone().with_joint_jeffreys_term(true);
-            fit_custom_family_with_rho_prior(
-                &firth_family,
+        Ok(unresolved_fit)
+            if multinomial_formula_unresolved_probe_separation_evidence(
+                &unresolved_fit.block_states,
+            )
+            .is_some() =>
+        {
+            let evidence = multinomial_formula_unresolved_probe_separation_evidence(
+                &unresolved_fit.block_states,
+            )
+            .expect("guard established unresolved-probe separation evidence");
+            run_firth_refit(format!(
+                "unbiased-criterion REML probe did not converge after {} outer iterations; {evidence}",
+                unresolved_fit.outer_iterations
+            ))?
+        }
+        Ok(unresolved_fit)
+            if multinomial_formula_separation_evidence(&unresolved_fit.block_states).is_none() =>
+        {
+            match fit_custom_family_with_rho_prior(
+                &family,
                 &blocks,
                 &options,
                 crate::types::RhoPrior::Flat,
-            )
-            .map_err(|err| {
-                EstimationError::InvalidInput(format!(
-                    "multinomial REML: Firth/Jeffreys-armed refit (separation evidence: \
-                     {evidence}) failed: {err}"
-                ))
-            })?
+            ) {
+                Ok(full_unbiased_fit)
+                    if full_unbiased_fit.outer_converged
+                        && multinomial_formula_separation_evidence(
+                            &full_unbiased_fit.block_states,
+                        )
+                        .is_none() =>
+                {
+                    full_unbiased_fit
+                }
+                full_attempt => {
+                    let evidence = match &full_attempt {
+                        Ok(full_fit) => multinomial_formula_separation_evidence(
+                            &full_fit.block_states,
+                        )
+                        .unwrap_or_else(|| {
+                            format!(
+                                "full unbiased-criterion REML solve did not converge after {} outer iterations",
+                                full_fit.outer_iterations
+                            )
+                        }),
+                        Err(err) => {
+                            format!("full unbiased-criterion REML solve failed: {err}")
+                        }
+                    };
+                    run_firth_refit(evidence)?
+                }
+            }
+        }
+        first_attempt => {
+            let evidence = match &first_attempt {
+                Ok(unresolved_fit) => multinomial_formula_separation_evidence(
+                    &unresolved_fit.block_states,
+                )
+                .unwrap_or_else(|| {
+                    format!(
+                        "unbiased-criterion REML probe did not converge after {} outer iterations",
+                        unresolved_fit.outer_iterations
+                    )
+                }),
+                Err(err) => format!("unbiased-criterion REML solve failed: {err}"),
+            };
+            run_firth_refit(evidence)?
         }
     };
     if let Some(err) = multinomial_formula_separation_diagnostic(
@@ -1769,6 +1928,56 @@ mod fisher_override_tests {
     }
 
     #[test]
+    fn formula_min_lambda_floor_is_continuous_and_information_scaled() {
+        // Build a one-hot label matrix whose smallest class carries `count` rows.
+        fn floor_for_min_count(count: usize) -> f64 {
+            // Two classes: a large one (1000 rows) and a minority one (`count`).
+            let n = 1000 + count;
+            let mut y = Array2::<f64>::zeros((n, 2));
+            for r in 0..1000 {
+                y[[r, 0]] = 1.0;
+            }
+            for r in 1000..n {
+                y[[r, 1]] = 1.0;
+            }
+            multinomial_formula_min_lambda(y.view())
+        }
+
+        // Well-supported (count >= c0=50) sits exactly at the flexible base floor.
+        assert!((floor_for_min_count(50) - MULTINOMIAL_FORMULA_MIN_LAMBDA).abs() < 1e-18);
+        assert!((floor_for_min_count(200) - MULTINOMIAL_FORMULA_MIN_LAMBDA).abs() < 1e-18);
+        // Very sparse (count <= c0*base/sparse = 10) clamps to the strong floor.
+        assert!((floor_for_min_count(10) - MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_LAMBDA).abs() < 1e-18);
+        assert!((floor_for_min_count(5) - MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_LAMBDA).abs() < 1e-18);
+        // No cliff at the old hard threshold: 49 vs 50 differ by < 5% (the old
+        // step jumped 5x). Floor is monotone non-increasing in support.
+        let f49 = floor_for_min_count(49);
+        let f50 = floor_for_min_count(50);
+        assert!(f49 >= f50 && f49 <= f50 * 1.05, "floor must be continuous across c0, got {f49} vs {f50}");
+        let f25 = floor_for_min_count(25);
+        assert!(
+            f25 > f50 && f25 < floor_for_min_count(10),
+            "mid-support floor must interpolate strictly between the two endpoints"
+        );
+    }
+
+    #[test]
+    fn formula_penalty_scale_tracks_softmax_fisher_curvature() {
+        assert!(
+            (multinomial_formula_penalty_scale(2) - 0.5).abs() < 1.0e-12,
+            "binary-logit neutral-simplex curvature scale should remain at 1/2"
+        );
+        assert!(
+            (multinomial_formula_penalty_scale(3) - 4.0 / 9.0).abs() < 1.0e-12,
+            "three-class softmax penalties should be calibrated to 2*(K-1)/K^2"
+        );
+        assert!(
+            multinomial_formula_penalty_scale(5) < multinomial_formula_penalty_scale(3),
+            "active-class Fisher curvature decreases as the simplex gains classes"
+        );
+    }
+
+    #[test]
     fn fixed_lambda_multinomial_reports_complete_separation() {
         let n = 90;
         let design = Array2::<f64>::from_shape_fn((n, 2), |(row, col)| match col {
@@ -1873,7 +2082,7 @@ mod fisher_override_tests {
     }
 
     #[test]
-    fn separation_evidence_gate_arms_firth_only_on_saturation_or_blowup() {
+    fn separation_evidence_gate_arms_firth_only_on_blowup() {
         // Interior fit: finite logits well inside the saturation threshold ⇒ NO
         // separation evidence ⇒ the unbiased criterion's mode is accepted as-is
         // and the Firth/Jeffreys prior stays disarmed (#715 arm (a): no 1/K
@@ -1893,10 +2102,9 @@ mod fisher_override_tests {
             "an interior finite mode must not arm the Firth refit"
         );
 
-        // Saturated logit at the diagnostic threshold ⇒ the softmax Fisher
-        // weight has collapsed on that row ⇒ separation evidence ⇒ Firth refit
-        // (#715 arm (b): penalty-null directions need a proper prior, no λ can
-        // bound them).
+        // Saturated but finite logits are valid formula-path modes on
+        // near-separated real data. They must not arm the Firth refit because
+        // the Jeffreys pull can over-regularize the held-out probabilities.
         let saturated = vec![
             ParameterBlockState {
                 beta: Array1::from_vec(vec![1.0, 2.0]),
@@ -1907,15 +2115,13 @@ mod fisher_override_tests {
                 eta: Array1::from_vec(vec![1.0, 25.5, -0.1]),
             },
         ];
-        let evidence = multinomial_formula_separation_evidence(&saturated)
-            .expect("a saturated |eta| >= 25 logit is separation evidence");
         assert!(
-            evidence.contains("saturated logit") && evidence.contains("row 1"),
-            "evidence must name the witnessing saturated logit, got {evidence}"
+            multinomial_formula_separation_evidence(&saturated).is_none(),
+            "a finite saturated formula-mode logit must not arm the Firth refit"
         );
 
         // Non-finite logit ⇒ inner blow-up along an unbounded direction ⇒
-        // separation evidence (strictly stronger than saturation).
+        // separation evidence.
         let blown_up = vec![ParameterBlockState {
             beta: Array1::from_vec(vec![1.0, 2.0]),
             eta: Array1::from_vec(vec![0.2, f64::NAN, -7.0]),
@@ -1927,8 +2133,8 @@ mod fisher_override_tests {
             "evidence must name the non-finite logit, got {evidence}"
         );
 
-        // Just-below-threshold logits stay interior: the gate is the documented
-        // MULTINOMIAL_SEPARATION_ETA_THRESHOLD boundary, not a softer heuristic.
+        // Large finite logits below the fixed-lambda diagnostic threshold are
+        // likewise accepted on the formula path.
         let near = vec![ParameterBlockState {
             beta: Array1::from_vec(vec![1.0, 2.0]),
             eta: Array1::from_vec(vec![0.2, 24.9, -24.9]),
@@ -1936,6 +2142,42 @@ mod fisher_override_tests {
         assert!(
             multinomial_formula_separation_evidence(&near).is_none(),
             "logits below the saturation threshold must not arm the Firth refit"
+        );
+    }
+
+    #[test]
+    fn unresolved_probe_evidence_arms_firth_on_saturated_finite_logits() {
+        let saturated = vec![
+            ParameterBlockState {
+                beta: Array1::from_vec(vec![1.0, 2.0]),
+                eta: Array1::from_vec(vec![0.2, 4.0, -7.0]),
+            },
+            ParameterBlockState {
+                beta: Array1::from_vec(vec![-1.0, 3.0]),
+                eta: Array1::from_vec(vec![1.0, 25.5, -0.1]),
+            },
+        ];
+
+        assert!(
+            multinomial_formula_separation_evidence(&saturated).is_none(),
+            "a converged finite saturated formula optimum remains unbiased"
+        );
+        let evidence = multinomial_formula_unresolved_probe_separation_evidence(&saturated)
+            .expect("a non-converged saturated probe should arm the Firth refit");
+        assert!(
+            evidence.contains("separation-scale finite logit")
+                && evidence.contains("row 1")
+                && evidence.contains("active class 1"),
+            "unresolved-probe evidence should name the saturated channel, got {evidence}"
+        );
+
+        let near = vec![ParameterBlockState {
+            beta: Array1::from_vec(vec![1.0, 2.0]),
+            eta: Array1::from_vec(vec![0.2, 24.9, -24.9]),
+        }];
+        assert!(
+            multinomial_formula_unresolved_probe_separation_evidence(&near).is_none(),
+            "finite logits below the separation threshold still get the full unbiased retry"
         );
     }
 

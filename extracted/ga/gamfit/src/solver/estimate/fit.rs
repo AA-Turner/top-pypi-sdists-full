@@ -208,6 +208,13 @@ where
             "fit_gam external design path does not support RoystonParmar; use survival training APIs"
         );
     }
+    // Validate the external-design family/link policy before looking at response
+    // support so an unsupported family/link (for example a non-canonical link)
+    // reports the routing problem instead of a secondary y-domain violation.
+    super::external_options::resolve_external_family(
+        &resolved_family,
+        Some(opts.firth_bias_reduction),
+    )?;
     // Per-family response-support validation, owned by the family type.
     // Gamma `y > 0`, Poisson / NegativeBinomial / Tweedie `y ≥ 0`, Beta
     // `y ∈ (0, 1)`. Centralising the rule on `ResponseFamily` means the
@@ -253,7 +260,31 @@ where
         warm_start_beta,
         &ext_opts,
     )?;
-    let log_lambdas = result.lambdas.mapv(|v| v.max(1e-300).ln());
+    // gam#1379 — finite-ceiling the converged smoothing weights before they are
+    // stored in the fit result. The outer REML / spatial-κ optimizer can drive a
+    // redundant penalty direction's log-λ past ~709 (deterministically so on 1-D
+    // `matern(x)` / `bs="gp"` data whose kernel already controls the smoothness an
+    // operator block also penalizes — REML wants λ_stiffness → ∞), and `exp(ρ)`
+    // then overflows to `+∞`. A literal `+∞` λ both poisons the range-penalty
+    // eigensolve (`Σ λ_k S_k` forms `∞ · 0 = NaN`, aborting the fit) and is
+    // rejected outright by the result-finiteness contract
+    // (`fit_result.blocks[..].lambdas must be finite`). `exp(700) ≈ 1.0e304` pins
+    // the over-penalized direction exactly as hard as `+∞` for every
+    // finite-arithmetic consumer while keeping `λ · 0 = 0`, so the block stays a
+    // well-formed PSD matrix and the result validates. Ordinary finite λ pass
+    // through untouched (the clamp only binds above `1e300`), so non-degenerate
+    // fits and their recorded λ̂ are unchanged. The ceiling matches the reparam
+    // range-block and inner-PIRLS λ ceilings so a fully-smoothed direction carries
+    // the SAME finite λ everywhere it is consumed.
+    const LAMBDA_CEILING: f64 = 1.0e300;
+    let result_lambdas = result.lambdas.mapv(|v| {
+        if v.is_nan() {
+            v
+        } else {
+            v.min(LAMBDA_CEILING)
+        }
+    });
+    let log_lambdas = result_lambdas.mapv(|v| v.max(1e-300).ln());
     let edf = result
         .inference
         .as_ref()
@@ -278,10 +309,10 @@ where
             beta: result.beta.clone(),
             role: BlockRole::Mean,
             edf,
-            lambdas: result.lambdas.clone(),
+            lambdas: result_lambdas.clone(),
         }],
         log_lambdas,
-        lambdas: result.lambdas,
+        lambdas: result_lambdas,
         likelihood_family: Some(result.likelihood_family),
         likelihood_scale: result.likelihood_scale,
         log_likelihood_normalization: result.log_likelihood_normalization,

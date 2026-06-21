@@ -1,10 +1,11 @@
 from typing import Literal, cast
 
-RunTrigger = Literal["MANUAL", "RERUN", "SCHEDULE"]
+RunTrigger = Literal["MANUAL", "RERUN", "RETRY", "SCHEDULE"]
 
 RUN_TRIGGER_VALUES: set[RunTrigger] = {
     "MANUAL",
     "RERUN",
+    "RETRY",
     "SCHEDULE",
 }
 

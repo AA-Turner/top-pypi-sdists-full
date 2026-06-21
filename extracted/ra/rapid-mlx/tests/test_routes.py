@@ -59,12 +59,22 @@ def mock_registry():
 
 class TestHealthRoutes:
     def _make_app(self):
-        from vllm_mlx.routes.health import probe_router, router
+        from vllm_mlx.routes.health import admin_router, probe_router, router
 
         app = FastAPI()
         app.include_router(probe_router)
         app.include_router(router)
+        # Destructive control-plane routes (F-150 / F-151) live on a separate
+        # router with the ``X-Rapid-MLX-Internal: true`` gate. Include it here
+        # so the existing test_cache_clear_* / test_health_router_accepts_*
+        # cases still resolve the route — they pass the internal header below.
+        app.include_router(admin_router)
         return app
+
+    # Convenience: every destructive route now needs ``X-Rapid-MLX-Internal:
+    # true`` to even reach the handler (F-150). Tests that care about the
+    # handler's behaviour — not the auth gate — pass this dict via ``headers=``.
+    _INTERNAL_HEADERS = {"X-Rapid-MLX-Internal": "true"}
 
     def _patch_config(self, **kwargs):
         """Patch config fields for testing."""
@@ -237,13 +247,18 @@ class TestHealthRoutes:
         this list — they live on a separate no-auth router so k8s/LB
         liveness checks work when --api-key is set. See
         test_probes_bypass_api_key.
+
+        Destructive routes (``/v1/cache/clear``, ``/v1/cache``) additionally
+        require ``X-Rapid-MLX-Internal: true`` per F-150 — we pass it here
+        so the assertion checks the API-key 401, not the F-150 403. The
+        header-only-403 path is exercised in ``test_internal_route_auth.py``.
         """
         orig = self._patch_config(api_key="test-secret", ready=True)
         try:
             app = self._make_app()
             client = TestClient(app)
 
-            r = getattr(client, method)(path)
+            r = getattr(client, method)(path, headers=self._INTERNAL_HEADERS)
 
             assert r.status_code == 401
             assert r.json()["detail"] == "API key required"
@@ -320,7 +335,12 @@ class TestHealthRoutes:
         ],
     )
     def test_health_router_accepts_valid_api_key(self, method, path, mock_engine):
-        """Valid Bearer token preserves access to protected management routes."""
+        """Valid Bearer token preserves access to protected management routes.
+
+        Destructive routes (``/v1/cache/clear``, ``/v1/cache`` DELETE) also
+        require ``X-Rapid-MLX-Internal: true`` per F-150 — pass it so the
+        success path resolves.
+        """
         orig = self._patch_config(
             api_key="test-secret",
             engine=mock_engine,
@@ -333,7 +353,11 @@ class TestHealthRoutes:
             client = TestClient(app)
 
             r = getattr(client, method)(
-                path, headers={"Authorization": "Bearer test-secret"}
+                path,
+                headers={
+                    "Authorization": "Bearer test-secret",
+                    **self._INTERNAL_HEADERS,
+                },
             )
 
             assert r.status_code != 401
@@ -455,8 +479,13 @@ class TestHealthRoutes:
         orig = self._patch_config(engine=None)
         try:
             app = self._make_app()
-            client = TestClient(app)
-            r = client.post("/v1/cache/clear")
+            # ``TestClient(app)`` defaults to client ``("testclient", 50000)``
+            # which is NOT loopback. ``verify_internal_admin`` (codex r1 fix)
+            # rejects non-loopback callers when ``--api-key`` is unset, so we
+            # pin to 127.0.0.1 here — the auth-gate's loopback branch has its
+            # own coverage in ``test_internal_route_auth.py``.
+            client = TestClient(app, client=("127.0.0.1", 50000))
+            r = client.post("/v1/cache/clear", headers=self._INTERNAL_HEADERS)
             assert r.status_code == 503
         finally:
             self._restore_config(orig)
@@ -467,8 +496,8 @@ class TestHealthRoutes:
         orig = self._patch_config(engine=mock_engine)
         try:
             app = self._make_app()
-            client = TestClient(app)
-            r = client.post("/v1/cache/clear")
+            client = TestClient(app, client=("127.0.0.1", 50000))
+            r = client.post("/v1/cache/clear", headers=self._INTERNAL_HEADERS)
             assert r.status_code == 200
             assert "No prompt cache" in r.json()["message"]
         finally:
@@ -477,6 +506,9 @@ class TestHealthRoutes:
     def test_cache_stats_no_vlm(self):
         """Cache stats returns fallback when mlx_vlm not available."""
         app = self._make_app()
+        # ``/v1/cache/stats`` is a READ route (gated by ``verify_api_key``, no
+        # internal-header requirement), so default TestClient host is fine
+        # here — this test only verifies the fallback envelope shape.
         client = TestClient(app)
         r = client.get("/v1/cache/stats")
         assert r.status_code == 200
@@ -487,8 +519,10 @@ class TestHealthRoutes:
     def test_cache_delete(self):
         """Cache delete endpoint works."""
         app = self._make_app()
-        client = TestClient(app)
-        r = client.delete("/v1/cache")
+        # Destructive route — pin loopback so the codex r1 auth check passes
+        # when ``--api-key`` is unset (this test's posture).
+        client = TestClient(app, client=("127.0.0.1", 50000))
+        r = client.delete("/v1/cache", headers=self._INTERNAL_HEADERS)
         assert r.status_code == 200
 
 
@@ -729,6 +763,115 @@ class TestModelsRoutes:
             )
             assert alias_entry["is_hybrid"] is True
             assert alias_entry["reasoning_parser"] == "qwen3"
+        finally:
+            self._restore(orig)
+
+    # ----- F-067: modality reporting for VL models -----
+
+    def test_vl_alias_reports_image_modality(self):
+        """F-067 regression: aliases that resolve to a Vision-Language
+        checkpoint MUST advertise ``modality="image"`` on the wire so
+        downstream OpenAI-SDK clients know to send PNG/JPEG/etc. image
+        content shapes. Before the fix, all VL aliases (qwen3-vl-2b-4bit,
+        gemma-3n-*, qwen3-vl-4b-4bit) reported ``"text"`` because the
+        ``AliasProfile.modality`` field is an engine-routing
+        discriminator (``text`` = AR lane, ``text-diffusion`` = diffusion
+        lane) — the multimodal path is layered on top of the AR lane
+        via ``MLLMBatchGenerator`` and so keeps ``modality="text"``
+        internally. The route layer now derives the reported value from
+        ``is_mllm_model`` so VL aliases surface ``image`` to clients
+        without disturbing engine routing.
+        """
+        for vl_alias in (
+            "qwen3-vl-2b-4bit",
+            "qwen3-vl-4b-4bit",
+            "gemma-3n-e2b-4bit",
+            "gemma-3n-e4b-4bit",
+        ):
+            orig = self._set_config(
+                model_registry=None,
+                model_name=vl_alias,
+                model_alias=None,
+                api_key=None,
+            )
+            try:
+                client = TestClient(self._make_app())
+                r = client.get(f"/v1/models/{vl_alias}")
+                assert r.status_code == 200, f"VL alias {vl_alias!r} should resolve"
+                body = r.json()
+                assert body["modality"] == "image", (
+                    f"F-067 regression: VL alias {vl_alias!r} reports "
+                    f"modality={body['modality']!r} (expected 'image')"
+                )
+            finally:
+                self._restore(orig)
+
+    def test_vl_alias_reports_image_modality_on_list_endpoint(self):
+        """F-067 regression on the LIST endpoint (the surface clients
+        actually consume on catalog pre-fetch). The per-id retrieval
+        test above pins the same field at the singleton endpoint;
+        this counterpart pins it on ``GET /v1/models`` so a future
+        refactor that fixes one path without the other is caught.
+        """
+        orig = self._set_config(
+            model_registry=None,
+            model_name="qwen3-vl-2b-4bit",
+            model_alias=None,
+            api_key=None,
+        )
+        try:
+            client = TestClient(self._make_app())
+            r = client.get("/v1/models")
+            assert r.status_code == 200
+            entries = r.json()["data"]
+            vl_entry = next((e for e in entries if e["id"] == "qwen3-vl-2b-4bit"), None)
+            assert vl_entry is not None, (
+                "qwen3-vl-2b-4bit must appear in the list endpoint"
+            )
+            assert vl_entry["modality"] == "image", (
+                f"F-067 list-endpoint regression: VL alias reports "
+                f"modality={vl_entry['modality']!r} (expected 'image')"
+            )
+        finally:
+            self._restore(orig)
+
+    def test_text_alias_still_reports_text_modality(self):
+        """Counterpart to F-067: a plain text LLM alias MUST keep
+        ``modality="text"`` so the detector doesn't over-trigger and
+        mislabel non-VL models as multimodal.
+        """
+        orig = self._set_config(
+            model_registry=None,
+            model_name="mlx-community/Qwen3.5-4B-MLX-4bit",
+            model_alias="qwen3.5-4b-4bit",
+            api_key=None,
+        )
+        try:
+            client = TestClient(self._make_app())
+            r = client.get("/v1/models/qwen3.5-4b-4bit")
+            assert r.status_code == 200
+            assert r.json()["modality"] == "text"
+        finally:
+            self._restore(orig)
+
+    def test_diffusion_alias_keeps_text_diffusion_modality(self):
+        """Counterpart to F-067: the text-diffusion routing
+        discriminator on diffusion-gemma-* must pass through unchanged
+        — the multimodal detector only kicks in when the profile
+        modality is the default ``text``, not for already-non-text
+        lanes that have their own dispatch.
+        """
+        orig = self._set_config(
+            model_registry=None,
+            model_name="diffusion-gemma-26b-4bit",
+            model_alias=None,
+            api_key=None,
+        )
+        try:
+            client = TestClient(self._make_app())
+            r = client.get("/v1/models/diffusion-gemma-26b-4bit")
+            assert r.status_code == 200
+            assert r.json()["modality"] == "text-diffusion"
         finally:
             self._restore(orig)
 

@@ -3,42 +3,48 @@ name: "macOS"
 on:
   workflow_call:
 
+env:
+  # A small hack to use anchors as GitHub doesn't allow it to be top level
+  ○_○: &interpreters "3.10 3.11 3.12 3.13 3.14 3.15 pypy3.11"
+
 jobs:
   macos:
-    name: "macos-latest / ${{ matrix.platform.target }}"
-    runs-on: macos-latest
+    name: "${{ matrix.platform.runner }} / ${{ matrix.platform.target }}"
+    runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
       matrix:
         platform:
           - {
             # Intel Mac
-            target: x86_64,
-            interpreter: "3.10 3.11 3.12 3.13 3.14 pypy3.11",
+            runner: macos-26-intel,
+            target: x86_64-apple-darwin,
+            interpreter: *interpreters,
             maturin-build-args: "--features mimalloc",
           }
           - {
             # Apple Silicon M1-M4
-            target: aarch64,
-            interpreter: "3.10 3.11 3.12 3.13 3.14 pypy3.11",
+            runner: macos-latest,
+            target: aarch64-apple-darwin,
+            interpreter: *interpreters,
             maturin-build-args: "--features mimalloc",
           }
           - {
             # Universal binary (Intel + Apple Silicon)
-            target: universal2,
-            interpreter: "3.10 3.11 3.12 3.13 3.14 pypy3.11",
+            runner: macos-latest,
+            target: universal2-apple-darwin,
+            interpreter: *interpreters,
             maturin-build-args: "--features mimalloc",
           }
 
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: "Install uv"
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          # zizmor: ignore[cache-poisoning]
           enable-cache: ${{ github.event_name == 'pull_request' }}
 
       - name: "Build wheels"
@@ -50,7 +56,7 @@ jobs:
             --release
             --out dist
             --interpreter ${{ matrix.platform.interpreter }}
-            ${{ matrix.platform.maturin-build-args }}
+            ${{ matrix.platform.maturin-build-args || '' }}
             --compatibility pypi
 
       - name: "Upload wheels"

@@ -823,6 +823,40 @@ pub(crate) fn spectral_map_symmetric(
     Ok(fast_abt(&fast_ab(&evecs, &diag), &evecs))
 }
 
+/// Thin singular value decomposition of a tall matrix `Y` (`n × k`, `n ≥ k`)
+/// via the symmetric eigendecomposition of the small `k × k` Gram matrix
+/// `YᵀY = V Σ² Vᵀ`: returns `(U, σ, V)` with `Y = U diag(σ) Vᵀ`, where `U` is
+/// `n × k` with orthonormal columns spanning `range(Y)`, `σ` holds the singular
+/// values, and `V` is `k × k` orthogonal. Forming the Gram keeps the
+/// eigenproblem at the small dimension `k`; the two products that carry the
+/// large ambient dimension `n` (`YᵀY` and `U = Y V Σ⁻¹`) are GPU-dispatched.
+///
+/// A numerically-zero singular value (`σ ≤ GEOMETRY_EPS`) leaves the
+/// corresponding `U` column zero rather than dividing through, which is what the
+/// Grassmann/Stiefel geodesic needs (a zero singular value is a vanishing
+/// principal angle); a caller requiring full rank inspects `σ` itself.
+pub(crate) fn thin_svd_gram(
+    y: &Array2<f64>,
+) -> GeometryResult<(Array2<f64>, Array1<f64>, Array2<f64>)> {
+    use crate::linalg::faer_ndarray::{fast_ab, fast_atb};
+    let (n, k) = y.dim();
+    let gram = fast_atb(y, y);
+    let (evals, v) = jacobi_symmetric(&gram)?;
+    let yv = fast_ab(y, &v);
+    let mut sigma = Array1::<f64>::zeros(k);
+    let mut u = Array2::<f64>::zeros((n, k));
+    for j in 0..k {
+        sigma[j] = evals[j].max(0.0).sqrt();
+        if sigma[j] > GEOMETRY_EPS {
+            let inv_sigma = 1.0 / sigma[j];
+            for i in 0..n {
+                u[[i, j]] = yv[[i, j]] * inv_sigma;
+            }
+        }
+    }
+    Ok((u, sigma, v))
+}
+
 /// Dense matrix exponential `exp(A)` via scaling-and-squaring with a truncated
 /// Taylor series. The Frobenius norm of `A` is driven below 1/4 by repeated
 /// halving (`A → A / 2^s`), where Taylor converges rapidly and stably; the

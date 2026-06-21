@@ -3,7 +3,9 @@
 //! The [`Client`] type uses a mixture of GitHub's REST API and
 //! direct Git access, depending on the operation being performed.
 
-use std::{collections::HashSet, fmt::Display, io::Read, ops::Deref, str::FromStr, sync::Arc};
+use std::{
+    collections::HashSet, fmt::Display, io::Read as _, ops::Deref as _, str::FromStr, sync::Arc,
+};
 
 use camino::Utf8Path;
 use flate2::read::GzDecoder;
@@ -25,7 +27,7 @@ use tracing::instrument;
 use crate::{
     CollectionOptions,
     registry::input::{CollectionError, InputGroup, InputKey, InputKind, RepoSlug},
-    utils::{PipeSelf, ZIZMOR_AGENT},
+    utils::{PipeSelf as _, ZIZMOR_AGENT},
 };
 
 mod lineref;
@@ -283,7 +285,12 @@ impl Client {
                             // NOTE(ww): In the context of the retry classifier,
                             // "success" means "don't retry".
                             Some(status) => {
-                                if status.is_client_error() || status.is_server_error() {
+                                if status.is_server_error()
+                                    || matches!(
+                                        status,
+                                        StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS
+                                    )
+                                {
                                     req_rep.retryable()
                                 } else {
                                     req_rep.success()
@@ -672,6 +679,20 @@ impl Client {
             .json()
             .await
             .map_err(Into::into)
+    }
+
+    #[instrument(skip(self))]
+    pub(crate) async fn repo_exists(&self, owner: &str, repo: &str) -> Result<bool, ClientError> {
+        match self.list_refs(owner, repo).await {
+            Ok(_) => Ok(true),
+            Err(ClientError::Inner(inner))
+                if matches!(inner.as_ref(), ClientError::RepoMissingOrPrivate { .. }) =>
+            {
+                Ok(false)
+            }
+            Err(ClientError::RepoMissingOrPrivate { .. }) => Ok(false),
+            Err(e) => Err(e),
+        }
     }
 
     #[instrument(skip(self))]

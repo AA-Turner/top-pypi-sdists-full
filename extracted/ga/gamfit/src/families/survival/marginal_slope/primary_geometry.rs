@@ -270,13 +270,6 @@ pub(crate) struct SurvivalFlexTimepointDirectionalExact {
     pub(crate) chi_uv_dir: Array2<f64>,
     pub(crate) d_u_dir: Array1<f64>,
     pub(crate) d_uv_dir: Array2<f64>,
-    /// #932 debug: for the hardcoded probe block, the 5 base per-term d_uv
-    /// integrals (t1..t5) and the 5 analytic dir per-term integrals
-    /// (t1_dir..t5_dir). The harness FDs the base terms and compares to the
-    /// dir terms to pin which t_i_dir drops a w-cross. Populated only in test
-    /// builds; `None` otherwise.
-    #[cfg(test)]
-    pub(crate) debug_d_uv_terms: Option<([f64; 5], [f64; 5])>,
 }
 
 pub(crate) struct SurvivalFlexTimepointBiDirectionalExact {
@@ -445,35 +438,6 @@ pub(crate) struct TimewiggleMarginalPsiRowLift {
     pub(crate) d_raw: f64,
     pub(crate) mu: f64,
     pub(crate) psi_row: Array1<f64>,
-}
-
-pub(crate) fn unit_primary_direction(idx: usize) -> Array1<f64> {
-    let mut out = Array1::<f64>::zeros(N_PRIMARY);
-    out[idx] = 1.0;
-    out
-}
-
-/// Returns a reference to the static unit-direction table (one Array1<f64>
-/// per primary axis). Reusing these references avoids per-row heap
-/// allocations in third/fourth-order contracted assemblies, where the inner
-/// loop calls into the row-directional kernel 10 (third-order) or 10
-/// (fourth-order) times per row.
-pub(crate) fn unit_primary_direction_table() -> &'static [Array1<f64>; N_PRIMARY] {
-    use std::sync::OnceLock;
-    static TABLE: OnceLock<[Array1<f64>; N_PRIMARY]> = OnceLock::new();
-    TABLE.get_or_init(|| {
-        [
-            unit_primary_direction(0),
-            unit_primary_direction(1),
-            unit_primary_direction(2),
-            unit_primary_direction(3),
-        ]
-    })
-}
-
-#[inline]
-pub(crate) fn unit_primary_direction_ref(idx: usize) -> &'static Array1<f64> {
-    &unit_primary_direction_table()[idx]
 }
 
 /// Returns a reference to the static zero direction in primary space

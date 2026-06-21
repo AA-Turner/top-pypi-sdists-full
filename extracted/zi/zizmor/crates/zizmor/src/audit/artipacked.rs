@@ -12,7 +12,7 @@ use crate::{
     audit::AuditError,
     finding::{Confidence, Finding, Fix, Persona, Severity, location::Routable as _},
     github::{Client, ClientError},
-    models::{StepBodyCommon, StepCommon, uses::RepositoryUsesExt, version::Version},
+    models::{StepBodyCommon, StepCommon, uses::RepositoryUsesExt as _, version::Version},
     state::AuditState,
     utils::split_patterns,
 };
@@ -328,7 +328,7 @@ mod tests {
     /// 4. Executes the provided test closure with the findings
     macro_rules! test_workflow_audit {
         ($audit_type:ty, $filename:expr, $workflow_content:expr, $test_fn:expr) => {{
-            let key = InputKey::local("fakegroup".into(), $filename, None::<&str>);
+            let key = InputKey::local("fakegroup".into(), $filename, None, None);
             let workflow = Workflow::from_string($workflow_content.to_string(), key).unwrap();
             let audit_state = AuditState::default();
             let audit = <$audit_type>::new(&audit_state).unwrap();

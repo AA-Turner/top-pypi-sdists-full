@@ -1,0 +1,3 @@
+[[schemas]]
+path = "tombi://www.schemastore.org/pyproject.json"
+include = ["pyproject.toml"]

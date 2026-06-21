@@ -1,0 +1,33 @@
+[package]
+name = "tombi-document"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+itertools.workspace = true
+serde = { workspace = true, optional = true }
+thiserror.workspace = true
+tombi-ast.workspace = true
+tombi-date-time.workspace = true
+tombi-document-tree.workspace = true
+tombi-hashmap.workspace = true
+tombi-parser.workspace = true
+tombi-text.workspace = true
+tombi-toml-version.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+serde_json.workspace = true
+textwrap.workspace = true
+tombi-test-lib.workspace = true
+
+[features]
+default = ["serde"]
+lsp = ["tombi-text/lsp"]
+serde = ["dep:serde", "tombi-hashmap/serde"]
+
+[lints]
+workspace = true

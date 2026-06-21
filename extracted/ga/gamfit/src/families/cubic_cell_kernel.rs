@@ -1,5 +1,5 @@
 use crate::probability::normal_cdf;
-use crate::solver::resource::{ByteLruCache, ResidentBytes};
+use crate::resource::{ByteLruCache, ResidentBytes};
 use smallvec::{SmallVec, smallvec};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -3750,11 +3750,39 @@ fn evaluate_non_affine_cell_simd<const COMPUTE_VALUE: bool>(
     evaluate_non_affine_cell_with_rule::<COMPUTE_VALUE>(cell, max_degree, &GL_NODES, &GL_WEIGHTS)
 }
 
-#[inline]
-fn evaluate_non_affine_cell_terminal_value(cell: DenestedCubicCell) -> f64 {
-    let (_, value_integral) =
-        evaluate_non_affine_cell_with_rule::<true>(cell, 0, &GL_NODES, &GL_WEIGHTS);
-    value_integral
+/// Value-only evaluation of a non-affine cell on the terminal 384-node rule.
+///
+/// Returns the cell probability integral `∫ exp(-½z²)·Φ(η(z)) dz` (pre the
+/// `1/√τ` normalization) computed bit-for-bit like the value branch of
+/// [`evaluate_non_affine_cell_with_rule`]: the non-fused node map
+/// `z = center + half_width·node`, the expanded (non-Horner)
+/// `η = c0 + c1·z + c2·z² + c3·z³`, the unscaled GL weight, a scalar
+/// `exp(-½z²)`, a plain `+=` in ascending node order, and a single trailing
+/// `·half_width`. The terminal rule has 384 nodes (divisible by 4), so the
+/// general kernel's value path never takes its scalar tail — this loop walks
+/// the same nodes in the same order and therefore reproduces the reference
+/// erfc-noise realization the `1e-13` value contract pins down.
+///
+/// Computing this through `evaluate_non_affine_cell_with_rule::<true>` at
+/// `max_degree = 0` would additionally run the 4-wide SIMD `exp(-q)` moment
+/// sweep and a moment accumulation on every node only to discard the moment
+/// vector. The survival marginal-slope fit evaluates a value per non-affine
+/// partition cell, so that discarded moment work is the dominant waste in the
+/// per-cell pass; this evaluator does only the work the value needs.
+fn evaluate_non_affine_cell_value_terminal(cell: DenestedCubicCell) -> f64 {
+    let center = 0.5 * (cell.left + cell.right);
+    let half_width = 0.5 * (cell.right - cell.left);
+    let c0 = cell.c0;
+    let c1 = cell.c1;
+    let c2 = cell.c2;
+    let c3 = cell.c3;
+    let mut value_integral = 0.0_f64;
+    for (&node, &weight) in GL_NODES.iter().zip(GL_WEIGHTS.iter()) {
+        let z = center + half_width * node;
+        let eta = c0 + c1 * z + c2 * z * z + c3 * z * z * z;
+        value_integral += weight * (-0.5 * z * z).exp() * normal_cdf(eta);
+    }
+    value_integral * half_width
 }
 
 fn evaluate_non_affine_cell_state(
@@ -3763,7 +3791,7 @@ fn evaluate_non_affine_cell_state(
     max_degree: usize,
 ) -> Result<CellMomentState, String> {
     let (moments, _) = evaluate_non_affine_cell_simd::<false>(cell, max_degree);
-    let value_integral = evaluate_non_affine_cell_terminal_value(cell);
+    let value_integral = evaluate_non_affine_cell_value_terminal(cell);
     // Reference structure: `value_integral * half_width / sqrt(TAU)`. The
     // half_width factor is already applied inside the rule evaluator, so divide
     // by sqrt(TAU) here (a true division, NOT multiply-by-reciprocal) to
@@ -4068,6 +4096,98 @@ mod tests {
             rel <= tol,
             "{label}: actual={actual:.17e} expected={expected:.17e} rel={rel:.3e} tol={tol:.3e}"
         );
+    }
+
+    // The link-basis cell coefficient `transformed_link_cubic(span, a, b)` is, in
+    // each of its four output components, a polynomial of TOTAL degree exactly 3 in
+    // (a, b):
+    //   d0 = c0 + c1·s + c2·s² + c3·s³            (s = a − left; deg 3 in a)
+    //   d1 = b·(c1 + 2c2·s + 3c3·s²)              (a²·b → total deg 3)
+    //   d2 = b²·(c2 + 3c3·s)                       (a·b² → total deg 3)
+    //   d3 = c3·b³                                 (b³  → total deg 3)
+    // Therefore EVERY 4th-order total (a,b)-partial (∂⁴/∂aⁱ∂b^{4−i}) is identically
+    // zero, while the 3rd-order partials (∂³/∂aⁱ∂b^{3−i}) are the highest nonzero
+    // ones. This is the exact algebraic fact the bidirectional flex jet relies on:
+    // a "second mixed derivative of a third-a-partial" slot, etc., demands a 4th
+    // total (a,b)-partial and must be hard-zero — substituting a (nonzero) 3rd
+    // partial there is a bug. This test certifies BOTH facts by central FD so the
+    // hard-coded `0.0` fixes are provably correct and provably necessary.
+    #[test]
+    fn link_basis_cell_fourth_ab_partials_vanish_third_are_nonzero() {
+        let span = LocalSpanCubic {
+            left: -0.4,
+            right: 1.6,
+            c0: 0.37,
+            c1: -0.81,
+            c2: 0.53,
+            c3: -0.29,
+        };
+        let a0 = 0.23_f64;
+        let b0 = 0.61_f64;
+        let h = 1e-2_f64;
+
+        // Generic central-difference stencils per derivative order.
+        let stencil = |order: usize| -> &'static [(i64, f64)] {
+            match order {
+                0 => &[(0, 1.0)],
+                1 => &[(-1, -0.5), (1, 0.5)],
+                2 => &[(-1, 1.0), (0, -2.0), (1, 1.0)],
+                3 => &[(-2, -0.5), (-1, 1.0), (1, -1.0), (2, 0.5)],
+                4 => &[(-2, 1.0), (-1, -4.0), (0, 6.0), (1, -4.0), (2, 1.0)],
+                _ => &[(0, 1.0)],
+            }
+        };
+        // FD of component `k` of the cell coefficient: ∂^{na+nb}/∂a^{na}∂b^{nb}.
+        let fd = |k: usize, na: usize, nb: usize| -> f64 {
+            let mut acc = 0.0;
+            for &(ia, wa) in stencil(na) {
+                for &(ib, wb) in stencil(nb) {
+                    let a = a0 + (ia as f64) * h;
+                    let b = b0 + (ib as f64) * h;
+                    acc += wa * wb * link_basis_cell_coefficients(span, a, b)[k];
+                }
+            }
+            acc / h.powi((na + nb) as i32)
+        };
+
+        let (p3_aaa, p3_aab, p3_abb, p3_bbb) = link_basis_cell_third_partials(span);
+
+        // (1) The analytic 3rd partials match FD (within FD truncation) — and at
+        // least one is appreciably nonzero, so these are real signal that a wrong
+        // slot would inject.
+        let mut max_third = 0.0_f64;
+        for k in 0..4 {
+            for (label, (na, nb), analytic) in [
+                ("aaa", (3usize, 0usize), p3_aaa[k]),
+                ("aab", (2, 1), p3_aab[k]),
+                ("abb", (1, 2), p3_abb[k]),
+                ("bbb", (0, 3), p3_bbb[k]),
+            ] {
+                let got = fd(k, na, nb);
+                assert!(
+                    (got - analytic).abs() <= 1e-4 + 1e-3 * analytic.abs(),
+                    "3rd partial {label}[{k}] analytic {analytic:+.6e} vs FD {got:+.6e}"
+                );
+                max_third = max_third.max(analytic.abs());
+            }
+        }
+        assert!(
+            max_third > 1e-1,
+            "expected an appreciable nonzero 3rd (a,b)-partial; max |analytic| = {max_third:.3e}"
+        );
+
+        // (2) EVERY 4th-order total (a,b)-partial vanishes (degree-3 polynomial),
+        // certifying that the hard-coded `0.0` in the bidirectional d12 slots is the
+        // mathematically required value, not an approximation.
+        for k in 0..4 {
+            for (na, nb) in [(4usize, 0usize), (3, 1), (2, 2), (1, 3), (0, 4)] {
+                let got = fd(k, na, nb);
+                assert!(
+                    got.abs() <= 1e-2,
+                    "4th (a,b)-partial ∂^{na}_a∂^{nb}_b of cell coeff[{k}] must vanish, FD = {got:+.6e}"
+                );
+            }
+        }
     }
 
     #[test]

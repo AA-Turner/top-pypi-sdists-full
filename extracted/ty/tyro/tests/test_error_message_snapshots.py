@@ -22,7 +22,16 @@ from typing_extensions import Annotated, Literal
 
 import tyro
 
-_SNAPSHOT_PATH = pathlib.Path(__file__).parent / "error_message_snapshots.json"
+# The single source-of-truth snapshot file lives next to this file in the main
+# ``tests/`` directory. The auto-generated Python 3.11 copy of this test lives in
+# ``tests/test_py311_generated/`` and has no sibling JSON, so it reads/writes the
+# copy one directory up. Keying on the directory name (rather than file
+# existence) keeps the main file always pointed at its own sibling -- so a
+# regeneration run still writes to ``tests/`` even if the file was deleted first.
+_here = pathlib.Path(__file__).parent
+if _here.name == "test_py311_generated":
+    _here = _here.parent
+_SNAPSHOT_PATH = _here / "error_message_snapshots.json"
 
 
 @dataclasses.dataclass

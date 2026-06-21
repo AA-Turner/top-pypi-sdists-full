@@ -15,7 +15,7 @@
 //! A small amount of additional processing is done to remove template
 //! expressions that an attacker can't control.
 
-use std::{env, ops::Deref, sync::LazyLock, vec};
+use std::{env, ops::Deref as _, sync::LazyLock, vec};
 
 use fst::Map;
 use github_actions_expressions::{Expr, context::Context, literal::Literal};
@@ -651,7 +651,7 @@ mod tests {
     /// Macro for testing workflow audits with common boilerplate
     macro_rules! test_workflow_audit {
         ($audit_type:ty, $filename:expr, $workflow_content:expr, $test_fn:expr) => {{
-            let key = InputKey::local("fakegroup".into(), $filename, None::<&str>);
+            let key = InputKey::local("fakegroup".into(), $filename, None, None);
             let workflow = Workflow::from_string($workflow_content.to_string(), key).unwrap();
             let audit_state = AuditState::default();
             let audit = <$audit_type>::new(&audit_state).unwrap();

@@ -1,4 +1,5 @@
 from typing import Callable, Optional
+
 from kiota_abstractions.request_option import RequestOption
 
 import httpx

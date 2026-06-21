@@ -83,10 +83,35 @@ pub(crate) fn resolve_external_family(
     family: &crate::types::LikelihoodSpec,
     firth_override: Option<bool>,
 ) -> Result<(GlmLikelihoodSpec, bool), EstimationError> {
-    if family.is_royston_parmar() {
+    let external_glm_supported = match (&family.response, family.link_function()) {
+        (ResponseFamily::Gaussian, LinkFunction::Identity)
+        | (ResponseFamily::Poisson, LinkFunction::Log)
+        | (ResponseFamily::Gamma, LinkFunction::Log)
+        | (ResponseFamily::Tweedie { .. }, LinkFunction::Log)
+        | (ResponseFamily::NegativeBinomial { .. }, LinkFunction::Log)
+        | (ResponseFamily::Binomial, LinkFunction::Logit)
+        | (ResponseFamily::Binomial, LinkFunction::Probit)
+        | (ResponseFamily::Binomial, LinkFunction::CLogLog)
+        | (ResponseFamily::Binomial, LinkFunction::Sas)
+        | (ResponseFamily::Binomial, LinkFunction::BetaLogistic) => true,
+        // Beta regression with a constant precision φ is a genuine-dispersion
+        // mean family on par with Gamma/Tweedie/Negative-Binomial: the inner
+        // P-IRLS carries its full fixed-φ Fisher information and the outer loop
+        // estimates φ by the Pearson moment estimator (`estimate_beta_phi_from_eta`,
+        // mirroring the Tweedie φ / Gamma shape / NegBin θ locks). A
+        // `noise_formula` upgrades it to a dispersion-location-scale model that
+        // smooths log φ; without one, the external GLM route fits the mean with
+        // a single estimated φ exactly as betareg does by default.
+        (ResponseFamily::Beta { .. }, LinkFunction::Logit) => true,
+        _ => false,
+    };
+    if !external_glm_supported {
         crate::bail_invalid_estim!(
-            "optimize_external_design does not support RoystonParmar; use survival training APIs"
-                .to_string(),
+            "optimize_external_design requires a supported standard GLM family/link; got {}. \
+             The external-design route supports Gaussian(identity), Binomial(logit/probit/cloglog/SAS/Beta-Logistic), \
+             Beta(logit), and Poisson/Gamma/Tweedie/Negative-Binomial(log). For Beta precision modeling \
+             add a noise_formula to upgrade to the dispersion-location-scale route",
+            family.pretty_name(),
         );
     }
 
@@ -103,10 +128,6 @@ pub(crate) fn resolve_external_family(
             crate::bail_invalid_estim!("optimize_external_design requires a GLM family; Tweedie variance power must be finite and strictly between 1 and 2; use PoissonLog or GammaLog for boundary cases"
                     .to_string(),);
         }
-    }
-    if matches!(family.response, ResponseFamily::RoystonParmar) {
-        crate::bail_invalid_estim!("optimize_external_design requires a GLM family; RoystonParmar is survival-specific and not a GLM likelihood"
-                .to_string(),);
     }
     Ok((
         GlmLikelihoodSpec::canonical(family.clone()),

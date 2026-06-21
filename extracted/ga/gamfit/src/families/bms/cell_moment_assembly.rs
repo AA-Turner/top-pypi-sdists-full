@@ -876,21 +876,131 @@ impl BernoulliMarginalSlopeFamily {
             marginal.mu4,
         ]);
         let b_jet = Self::primary_component_jet(n_dirs, b, directions, primary.logslope)?;
-        let intercept_root = row_ctx.intercept;
+
+        // Tighten the seed to a genuine scalar root of `F(a,θ₀) = 0` before the
+        // derivative lift (task §B item 1). The order-by-order implicit-function
+        // recursion below NEVER touches the order-0 (value) channel, so it cannot
+        // correct a non-root seed: a residual `r = F(a₀,θ₀) ≠ 0` would expand the
+        // wrong level set `F = r` and inject an O(r)·F_ai/F_a² contamination into
+        // the derivative channels. The production scalar solve already converges
+        // `row_ctx.intercept` tightly, but a handful of scalar Newton steps here
+        // are cheap (order-0 channels only) and make the genuine-root precondition
+        // hold by CONSTRUCTION at 4th-derivative grade rather than relying on the
+        // upstream tolerance being tight enough for fourth-order coefficients.
+        let mut intercept_root = row_ctx.intercept;
+        {
+            let scalar_dirs: &[ArrayView1<'_, f64>] = &[];
+            let scalar_b = Self::primary_component_jet(0, b, scalar_dirs, primary.logslope)?;
+            let scalar_mu = Self::primary_component_jet(0, q, scalar_dirs, primary.q)?
+                .compose_unary([
+                    marginal.mu,
+                    marginal.mu1,
+                    marginal.mu2,
+                    marginal.mu3,
+                    marginal.mu4,
+                ]);
+            let scalar_root_tol = 1e-12 * (1.0 + intercept_root.abs());
+            for _ in 0..4 {
+                let scalar_a = MultiDirJet::constant(0, intercept_root);
+                let (f, f_a) = self.empirical_flex_calibration_jets(
+                    primary, &scalar_a, &scalar_mu, &scalar_b, beta_h, beta_w, scalar_dirs,
+                    grid,
+                )?;
+                let d = f_a.coeff(0);
+                if !(d.is_finite() && d > 0.0) {
+                    return Err(format!(
+                        "empirical flex scalar refinement has invalid F_a={d} (row {row})"
+                    ));
+                }
+                let residual = f.coeff(0);
+                intercept_root -= residual / d;
+                if residual.abs() <= scalar_root_tol {
+                    break;
+                }
+            }
+        }
+
+        // Lift the calibrated intercept's derivative tower by the exact
+        // implicit-function recursion (docs/jet_tower_cutover_derivations.md §B),
+        // NOT a value-pinned Newton iteration.
+        //
+        // The defect §B identifies in the prior pinned-Newton loop: it took a
+        // full-jet Newton step `A -= F·(1/F_a)` each pass and then RESET the
+        // constant channel `A.coeffs[0] = intercept_root`. That step is exact for
+        // the derivative channels ONLY if `intercept_root` is already an exact
+        // root of `F(a,θ₀) = 0`; a nonzero scalar residual `r = F(a₀,θ₀)` injects
+        // an O(r)·F_ai/F_a² contamination into the first-derivative channel (and
+        // compounds at higher orders through the un-recursed terms).
+        //
+        // The exact recursion instead builds the order-by-order substitution of
+        // §B. With `A` carrying the running intercept tower (so the calibration
+        // jet `F = F(A,θ)` is the composed residual `substitute_intercept(F,A)`),
+        // the order-m coefficient of `F` depends on the order-m coefficient of
+        // `A` ONLY through the single linear term `D·A_{(m)}` with `D = F_a.v`;
+        // every other contribution involves strictly lower-order (already-fixed)
+        // tensors of `A`. So sweeping orders `m = 1..=n_dirs` and subtracting
+        // `F_{(m)}/D` from each order-m coefficient of `A` cancels that order's
+        // residual exactly without disturbing any lower order. The recursion
+        // never touches order 0, so it requires (and below asserts) a genuine
+        // scalar root at `intercept_root`.
         let mut a_jet = MultiDirJet::constant(n_dirs, intercept_root);
-        for _ in 0..6 {
+
+        // Order-by-order implicit-function lift. Pass `m` recomputes the composed
+        // residual against the lower orders fixed by passes `1..m`, then cancels
+        // every order-`m` coefficient. `n_dirs` passes are exact (each direction
+        // contributes one bit; the highest mask has `n_dirs` set bits). The
+        // first pass's residual doubles as the genuine-root precondition check.
+        let root_tol = 1e-9 * (1.0 + intercept_root.abs());
+        for order in 1..=n_dirs {
             let (f, f_a) = self.empirical_flex_calibration_jets(
                 primary, &a_jet, &mu_jet, &b_jet, beta_h, beta_w, directions, grid,
             )?;
-            if !(f_a.coeff(0).is_finite() && f_a.coeff(0) > 0.0) {
+            let d = f_a.coeff(0);
+            if !(d.is_finite() && d > 0.0) {
                 return Err(format!(
-                    "empirical flex calibration jet has invalid F_a={}",
-                    f_a.coeff(0)
+                    "empirical flex calibration jet has invalid F_a={d}"
                 ));
             }
-            let inv_f_a = f_a.compose_unary(unary_derivatives_reciprocal(f_a.coeff(0)));
-            a_jet = a_jet.add(&f.mul(&inv_f_a).scale(-1.0));
-            a_jet.coeffs[0] = intercept_root;
+            // Genuine-root precondition (checked on the first, undisturbed pass).
+            // The production scalar solve (`empirical_intercept_from_marginal`)
+            // converges the log-space residual to ~1e-13, so the linear-space
+            // residual `r = Σ π_k Φ(η_k) − μ` here is far below this
+            // 4th-derivative-grade floor; the check makes any future seed
+            // regression LOUD rather than silently expanding the wrong level set
+            // `F = r` instead of the root curve `F = 0` (§B preconditions). The
+            // recursion never touches order 0, so a non-root seed cannot be
+            // corrected here — it must be rejected.
+            if order == 1 && !(f.coeff(0).abs() <= root_tol) {
+                return Err(format!(
+                    "empirical flex intercept is not a genuine calibration root: \
+                     residual={:.3e} > {root_tol:.3e} at a={intercept_root:.6} (row {row})",
+                    f.coeff(0)
+                ));
+            }
+            for mask in 0..a_jet.coeffs.len() {
+                if mask.count_ones() as usize == order {
+                    a_jet.coeffs[mask] -= f.coeff(mask) / d;
+                }
+            }
+        }
+
+        // Composed-residual post-check (§B, mandatory). After the lift every
+        // derivative channel of `F(A,θ)` must vanish; only the value channel may
+        // carry the (already-bounded) seed residual `r`. A nonzero higher-order
+        // channel would mean an arithmetic regression in the recursion silently
+        // shipping a level-set expansion — make it loud.
+        let (g, g_a) = self.empirical_flex_calibration_jets(
+            primary, &a_jet, &mu_jet, &b_jet, beta_h, beta_w, directions, grid,
+        )?;
+        let resid_tol = 1e-7 * (1.0 + g_a.coeff(0).abs());
+        for mask in 1..g.coeffs.len() {
+            let resid = g.coeff(mask);
+            if !(resid.abs() <= resid_tol) {
+                return Err(format!(
+                    "empirical flex intercept lift left residual {resid:.3e} in channel \
+                     0b{mask:b} (> {resid_tol:.3e}) at row {row}"
+                ));
+            }
         }
 
         let (eta_observed, _) = self.empirical_flex_eta_and_eta_a_jet_at_z(
@@ -2273,6 +2383,20 @@ impl BernoulliMarginalSlopeFamily {
         cell: exact_kernel::DenestedCubicCell,
         max_degree: usize,
     ) -> Result<exact_kernel::CellMomentState, String> {
+        // When a deviation runtime (score-warp / linkwiggle) is active the
+        // denested-partition cells are a function of the *row's* converged
+        // intercept and slope, so their `(c0..c3, left, right)` fingerprints are
+        // effectively row-unique. The fit-lifetime cross-row LRU then runs at
+        // ~0.1% hit rate at large scale while pinning multiple GiB of resident
+        // moment entries and serialising every row behind its mutex (insert +
+        // eviction churn). Intra-β reuse of a single row's moments is already
+        // served by the per-row `degree9_cells` cache and the
+        // `RowCellMomentsBundle`; the cross-row layer buys nothing here. Skip it
+        // and evaluate uncached — bit-identical to a cold LRU miss, which still
+        // honours the affine tail-cell memo inside `evaluate_cell_moments`.
+        if self.flex_active() {
+            return exact_kernel::evaluate_cell_moments(cell, max_degree);
+        }
         exact_kernel::evaluate_cell_moments_cached(
             cell,
             max_degree,
@@ -2287,6 +2411,14 @@ impl BernoulliMarginalSlopeFamily {
         cell: exact_kernel::DenestedCubicCell,
         max_degree: usize,
     ) -> Result<exact_kernel::CellDerivativeMomentState, String> {
+        // See `evaluate_cell_moments_lru`: under an active deviation runtime the
+        // cross-row LRU never amortises (row-unique cell fingerprints), so it is
+        // pure resident-memory and lock overhead. Evaluate uncached — identical
+        // to a cold LRU miss, which is exactly what the cached path computes via
+        // `evaluate_cell_derivative_moments_uncached` on a miss.
+        if self.flex_active() {
+            return exact_kernel::evaluate_cell_derivative_moments_uncached(cell, max_degree);
+        }
         exact_kernel::evaluate_cell_derivative_moments_cached(
             cell,
             max_degree,
@@ -2998,7 +3130,7 @@ mod empirical_rigid_jet_oracle_tests {
         grid: EmpiricalZGrid,
     ) -> BernoulliMarginalSlopeFamily {
         let n = y.len();
-        let policy = crate::solver::resource::ResourcePolicy::default_library();
+        let policy = crate::resource::ResourcePolicy::default_library();
         let dummy = || {
             DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Array2::zeros((
                 n, 1,
@@ -3285,7 +3417,11 @@ mod empirical_flex_jet_oracle_tests {
     /// nullspace drop yields a low-dimensional, well-conditioned cubic basis
     /// for the independent finite-difference witness.
     fn build_runtime() -> DeviationRuntime {
-        // 11 uniform knots over [-2.5, 2.5] (10 spans). The cubic I-spline
+        // 11 uniform knots over [-2.45, 2.55] (10 spans). The half-span offset
+        // keeps the oracle's finite-difference stencils away from spline knots;
+        // production differentiates the local cubic branch selected at the base
+        // point, and the independent witness must sample that same branch. The
+        // cubic I-spline
         // DEVIATION basis is built from strictly-monotone increments, so its
         // span contains NO constant and NO linear function. An order-`m`
         // smoothness penalty's null space is the polynomials of degree `< m`:
@@ -3303,7 +3439,7 @@ mod empirical_flex_jet_oracle_tests {
         // q/b/deviation axes.
         let n_knots = 11usize;
         let knots = Array1::from_iter(
-            (0..n_knots).map(|i| -2.5_f64 + 5.0_f64 * (i as f64) / ((n_knots - 1) as f64)),
+            (0..n_knots).map(|i| -2.45_f64 + 5.0_f64 * (i as f64) / ((n_knots - 1) as f64)),
         );
         DeviationRuntime::try_new(knots, 0.0, 3).expect("deviation runtime")
     }
@@ -3315,7 +3451,7 @@ mod empirical_flex_jet_oracle_tests {
         // One observation row carrying the latent score / response / weight the
         // kernel reads at `self.{z,y,weights}[row]`.
         let n = 1usize;
-        let policy = crate::solver::resource::ResourcePolicy::default_library();
+        let policy = crate::resource::ResourcePolicy::default_library();
         let dummy = || {
             DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Array2::zeros((
                 n, 1,
@@ -3364,21 +3500,15 @@ mod empirical_flex_jet_oracle_tests {
             total: 2 + basis_dim,
         };
         // Small, distinct deviation coefficients so every basis column carries
-        // signal into the derivative chain. Kept to max|β|≈0.06 so the
-        // independent secant-calibration FD witness stays well-conditioned at
-        // the order-3 link steepness. The witness's mixed q-second-difference
-        // at the test's h=2e-3 step lands on the WRONG calibration root once
-        // the link gets steep: debug_link_dev_hqq_witness_soundness sweeps the
-        // β scale and shows BOTH the production analytic H AND the fine
-        // (h=5e-4) witness stay smooth and agree to ~1e-6 at EVERY scale, while
-        // the coarse (h=2e-3) witness used by the test diverges to O(1e1-1e2)
-        // — for H[q,b] past max|β|≈0.1, for H[q,q] past ~0.2. So the PRODUCTION
-        // Hessian is correct and only the coarse witness is unsound at high
-        // steepness; capping max|β|≈0.06 keeps every cross-block witness sound
-        // (h-gap ~1e-6). This is witness-conditioning calibration, NOT masking
-        // a real bug. (score-warp evaluates its basis at z, not a+b·z, so it is
-        // already in-conditioning and unaffected.)
-        let beta_dev = Array1::from_shape_fn(basis_dim, |i| 0.024 * (i as f64 + 1.0) - 0.036);
+        // signal into the derivative chain. The symmetric scaling has an exact
+        // max |β| of 0.06 for any basis dimension, keeping the composed
+        // link-deviation witness well conditioned while preserving nonzero
+        // q/b/β cross-channel signal.
+        let beta_dev = Array1::from_shape_fn(basis_dim, |i| {
+            let center = 0.5 * (basis_dim.saturating_sub(1) as f64);
+            let radius = center.max(1.0);
+            0.06 * ((i as f64) - center) / radius
+        });
         FlexFixture {
             family,
             primary,
@@ -3436,7 +3566,7 @@ mod empirical_flex_jet_oracle_tests {
     }
 
     /// Solve the flex calibration root `Σ_k π_k Φ(η(a; x_k)) = μ` with an
-    /// independent secant iteration (numeric — no shared IFT/jet-Newton code).
+    /// independent bracketed iteration (numeric — no shared IFT/jet-Newton code).
     fn witness_intercept(fx: &FlexFixture, mu: f64, b: f64, beta: &Array1<f64>, scale: f64) -> f64 {
         let calib = |a: f64| -> f64 {
             let mut acc = -mu;
@@ -3445,25 +3575,53 @@ mod empirical_flex_jet_oracle_tests {
             }
             acc
         };
-        // Bracket-free secant from two seeds; the calibration is monotone
-        // increasing in `a`, so the secant converges globally.
-        let mut a0 = -0.5_f64;
-        let mut a1 = 0.5_f64;
-        let mut f0 = calib(a0);
-        for _ in 0..200 {
-            let f1 = calib(a1);
-            if (f1 - f0).abs() <= f64::MIN_POSITIVE {
+        // Use a safeguarded bracketed solve rather than an open secant.  The
+        // finite-difference witness evaluates many nearby coefficient states;
+        // for link-deviation states with a steep composed basis, an open secant
+        // can jump to a remote intercept and make high-order stencils compare a
+        // different calibrated branch.  The calibration map is continuous and
+        // has opposite limits at ±∞, so expanding a local bracket and bisecting
+        // keeps every stencil point on the same mathematical root.
+        let mut lo = -1.0_f64;
+        let mut hi = 1.0_f64;
+        let mut flo = calib(lo);
+        let mut fhi = calib(hi);
+        for _ in 0..80 {
+            if flo <= 0.0 && fhi >= 0.0 {
                 break;
             }
-            let a2 = a1 - f1 * (a1 - a0) / (f1 - f0);
-            a0 = a1;
-            f0 = f1;
-            a1 = a2;
-            if (a1 - a0).abs() <= 1e-14 {
-                break;
+            if flo > 0.0 {
+                hi = lo;
+                fhi = flo;
+                lo *= 2.0;
+                flo = calib(lo);
+            } else {
+                lo = hi;
+                flo = fhi;
+                hi *= 2.0;
+                fhi = calib(hi);
             }
         }
-        a1
+        assert!(
+            flo <= 0.0 && fhi >= 0.0,
+            "failed to bracket flex calibration root: F({lo})={flo}, F({hi})={fhi}"
+        );
+        // Drive the bracket to (near) f64 resolution so the scalar root that
+        // anchors the exact tower's order-0 (and the independent scalar value
+        // cross-check) is as tight as the arithmetic allows.
+        for _ in 0..200 {
+            let mid = 0.5 * (lo + hi);
+            let fmid = calib(mid);
+            if fmid == 0.0 || (hi - lo).abs() <= 1e-15 * mid.abs().max(1.0) {
+                return mid;
+            }
+            if fmid < 0.0 {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        0.5 * (lo + hi)
     }
 
     /// Independent scalar row NLL over the flat primary vector
@@ -3488,6 +3646,231 @@ mod empirical_flex_jet_oracle_tests {
         let eta = witness_eta(fx, a, b, &beta, z, scale);
         let signed = (2.0 * fx.family.y[0] - 1.0) * eta;
         -fx.family.weights[0] * witness_normal_logcdf(signed)
+    }
+
+    // ----------------------------------------------------------------------
+    // EXACT independent fourth-order tower witness.
+    //
+    // The finite-difference witness above is conditioning-limited on the
+    // stiffest channels: for link-deviation states the basis enters the
+    // *composed* observed index `u = a + b·node` THROUGH the implicit calibrated
+    // intercept `a(q,b,β)`, so the highest mixed coefficients (e.g. the
+    // 4th-order `[q,b,β,β]`) ride on the 6th/8th derivatives of a deep
+    // composition, where any FD step large enough to escape rounding still
+    // carries percent-level truncation. Rather than chase Richardson levels,
+    // build a SECOND, fully exact witness from an INDEPENDENT jet kernel:
+    //
+    //   * the implicit intercept `a(θ)` is solved as an exact `Tower4` via
+    //     `jet_tower::implicit_solve` (a different jet layout — dense symmetric
+    //     tensors — and a different intercept algorithm — per-order linear
+    //     correction — than production's bitmask `MultiDirJet` Newton), and
+    //   * the I-spline deviation basis enters through its OWN
+    //     `DeviationRuntime::{first,second,third}_derivative_design` stacks
+    //     (production uses the `local_cubic_*_jet` path), composed onto the `u`
+    //     tower by Faà di Bruno.
+    //
+    // Both the production jet and this tower compute the SAME analytic
+    // derivatives, so they must agree to ~1e-9 with no truncation tolerance —
+    // exactly the discipline the rigid `verify_kernel_channels` oracle uses.
+    // The primaries are θ = (q, b, β₀) in tower slots (0, 1, 2); the remaining
+    // deviation coordinates are held at their fixed values as tower constants.
+
+    /// Per-node, per-basis unary stack `[Φⱼ, Φⱼ′, Φⱼ″, Φⱼ‴, 0]` of the active
+    /// deviation basis, evaluated at the SCALAR base argument the tower expands
+    /// about. For the link-deviation block the argument is `u₀ = a₀ + b₀·node`
+    /// (the basis is composed with the tower `u`); for the score-warp block the
+    /// basis sits at the fixed `node` and contributes a *constant* warp (its
+    /// only θ-dependence is the linear `βⱼ` it multiplies), so the stack is the
+    /// plain value with zero derivatives. The fourth basis derivative of a cubic
+    /// I-spline is identically zero, so the stack tops out at the third.
+    fn witness_basis_stacks_at(fx: &FlexFixture, arg: f64) -> Vec<[f64; 5]> {
+        let pt = Array1::from_vec(vec![arg]);
+        let d0 = fx.runtime.design(&pt).expect("witness basis value");
+        let basis_dim = d0.ncols();
+        if fx.is_score_warp {
+            // Score-warp basis enters at the fixed node: a constant per column.
+            return (0..basis_dim)
+                .map(|j| [d0[[0, j]], 0.0, 0.0, 0.0, 0.0])
+                .collect();
+        }
+        let d1 = fx
+            .runtime
+            .first_derivative_design(&pt)
+            .expect("witness basis 1st");
+        let d2 = fx
+            .runtime
+            .second_derivative_design(&pt)
+            .expect("witness basis 2nd");
+        let d3 = fx
+            .runtime
+            .third_derivative_design(&pt)
+            .expect("witness basis 3rd");
+        (0..basis_dim)
+            .map(|j| [d0[[0, j]], d1[[0, j]], d2[[0, j]], d3[[0, j]], 0.0])
+            .collect()
+    }
+
+    /// The observed-index tower `η(a; node) = scale·(a + b·node + warp)` over
+    /// the `K` primaries, with the deviation basis entering exactly as the model
+    /// (score-warp: `b·Σβⱼ·Φⱼ(node)`; link-dev: `Σβⱼ·Φⱼ(u)`, `u = a + b·node`).
+    /// `a`, `b`, `beta0` are the intercept / log-slope / active-β₀ towers; the
+    /// inactive deviation coefficients are folded in as constants from `beta`.
+    fn witness_eta_tower<const K: usize>(
+        fx: &FlexFixture,
+        a: &crate::families::jet_tower::Tower4<K>,
+        b: &crate::families::jet_tower::Tower4<K>,
+        beta0: &crate::families::jet_tower::Tower4<K>,
+        beta: &[f64],
+        node: f64,
+        node_arg: f64,
+        scale: f64,
+    ) -> crate::families::jet_tower::Tower4<K> {
+        use crate::families::jet_tower::Tower4;
+        let stacks = witness_basis_stacks_at(fx, node_arg);
+        let beta_tower = |j: usize| -> Tower4<K> {
+            if j == 0 {
+                *beta0
+            } else {
+                Tower4::<K>::constant(beta[j])
+            }
+        };
+        if fx.is_score_warp {
+            // warp = Σⱼ βⱼ·Φⱼ(node) (Φⱼ(node) constant), enters as b·(node + warp).
+            let mut warp = Tower4::<K>::constant(0.0);
+            for (j, stack) in stacks.iter().enumerate() {
+                warp = warp + beta_tower(j).scale(stack[0]);
+            }
+            let inside = *a + b.mul(&(warp + Tower4::<K>::constant(node)));
+            inside.scale(scale)
+        } else {
+            // u = a + b·node; warp = Σⱼ βⱼ·Φⱼ(u); inside = a + b·node + warp.
+            let u = *a + b.scale(node);
+            let mut warp = Tower4::<K>::constant(0.0);
+            for (j, stack) in stacks.iter().enumerate() {
+                warp = warp + beta_tower(j).mul(&u.compose_unary(*stack));
+            }
+            let inside = u + warp;
+            inside.scale(scale)
+        }
+    }
+
+    /// Exact `Tower4<3>` row NLL over θ = (q, b, β₀), with the calibrated
+    /// intercept solved as an exact implicit tower. Read value/grad/Hessian/
+    /// third/fourth straight off the returned tower.
+    fn flex_tower_witness(fx: &FlexFixture, p0: &[f64]) -> crate::families::jet_tower::Tower4<3> {
+        use crate::families::jet_tower::{Tower4, implicit_solve};
+        let q0 = p0[fx.primary.q];
+        let b0 = p0[fx.primary.logslope];
+        let dev_range = if fx.is_score_warp {
+            fx.primary.h.clone().unwrap()
+        } else {
+            fx.primary.w.clone().unwrap()
+        };
+        let beta: Vec<f64> = dev_range.clone().map(|i| p0[i]).collect();
+        let beta0_0 = beta[0];
+        let scale = fx.family.probit_frailty_scale();
+        let marginal = bernoulli_marginal_link_map(
+            &InverseLink::Standard(crate::types::StandardLink::Probit),
+            q0,
+        )
+        .expect("witness link map");
+        let mu_stack = [
+            marginal.mu,
+            marginal.mu1,
+            marginal.mu2,
+            marginal.mu3,
+            marginal.mu4,
+        ];
+
+        // Scalar intercept root (the tower's order-0 anchor) from the existing
+        // independent bracketed solve.
+        let a0 = witness_intercept(fx, marginal.mu, b0, &Array1::from(beta.clone()), scale);
+
+        let nodes: Vec<f64> = fx.grid.pairs().map(|(n, _)| n).collect();
+        let node_weights: Vec<f64> = fx.grid.pairs().map(|(_, w)| w).collect();
+
+        // Calibration constraint over (a, q, b, β₀) as a Tower4<4>:
+        //   F(a, q, b, β₀) = −μ(q) + Σ_k π_k · Φ_cdf(η(a; node_k)).
+        // slot 0 = a (the dependent variable implicit_solve eliminates),
+        // slots 1,2,3 = q, b, β₀.
+        let a_var = Tower4::<4>::variable(a0, 0);
+        let q_var = Tower4::<4>::variable(q0, 1);
+        let b_var = Tower4::<4>::variable(b0, 2);
+        let beta0_var = Tower4::<4>::variable(beta0_0, 3);
+        let mu_tower = q_var.compose_unary(mu_stack);
+        let mut f_constraint = Tower4::<4>::constant(0.0) - mu_tower;
+        // The deviation basis is evaluated at the fixed node for the score-warp
+        // block (`Φ(node)`, a constant) and at the composed observed index
+        // `u₀ = a₀ + b₀·node` for the link-deviation block (`Φ(u)`).
+        let basis_arg = |node: f64| -> f64 {
+            if fx.is_score_warp {
+                node
+            } else {
+                a0 + b0 * node
+            }
+        };
+        for (node, &w) in nodes.iter().zip(node_weights.iter()) {
+            let eta = witness_eta_tower::<4>(
+                fx,
+                &a_var,
+                &b_var,
+                &beta0_var,
+                &beta,
+                *node,
+                basis_arg(*node),
+                scale,
+            );
+            let cdf = eta.compose_unary(unary_derivatives_normal_cdf(eta.v));
+            f_constraint = f_constraint + cdf.scale(w);
+        }
+        let a_tower: Tower4<3> =
+            implicit_solve::<4, 3>(&f_constraint, a0).expect("implicit intercept tower");
+
+        // Row NLL over θ = (q, b, β₀) as a Tower4<3>. q (slot 0) enters the
+        // observed-index map ONLY through the calibrated intercept a(q,b,β₀)
+        // (μ(q) sets the calibration target), so it appears here solely via the
+        // q-derivative channels already carried in `a_tower`; b and β₀ also
+        // enter directly through the index map below.
+        let b_t = Tower4::<3>::variable(b0, 1);
+        let beta0_t = Tower4::<3>::variable(beta0_0, 2);
+        let z = fx.family.z[0];
+        let eta =
+            witness_eta_tower::<3>(fx, &a_tower, &b_t, &beta0_t, &beta, z, basis_arg(z), scale);
+        let signed = eta.scale(2.0 * fx.family.y[0] - 1.0);
+        signed.compose_unary(unary_derivatives_neglog_phi(signed.v, fx.family.weights[0]))
+    }
+
+    /// Read the exact tower channel for the multiset of primary axes `axes`,
+    /// mapping test primary indices (q, b, dev0) to tower slots (0, 1, 2).
+    fn tower_channel(
+        fx: &FlexFixture,
+        tower: &crate::families::jet_tower::Tower4<3>,
+        axes: &[usize],
+    ) -> f64 {
+        let dev0 = if fx.is_score_warp {
+            fx.primary.h.clone().unwrap().start
+        } else {
+            fx.primary.w.clone().unwrap().start
+        };
+        let slot = |idx: usize| -> usize {
+            if idx == fx.primary.q {
+                0
+            } else if idx == fx.primary.logslope {
+                1
+            } else if idx == dev0 {
+                2
+            } else {
+                panic!("tower witness only carries the q/b/dev0 axes, got primary index {idx}")
+            }
+        };
+        match axes.len() {
+            0 => tower.v,
+            1 => tower.g[slot(axes[0])],
+            2 => tower.h[slot(axes[0])][slot(axes[1])],
+            3 => tower.t3[slot(axes[0])][slot(axes[1])][slot(axes[2])],
+            4 => tower.t4[slot(axes[0])][slot(axes[1])][slot(axes[2])][slot(axes[3])],
+            n => panic!("tower witness carries at most 4th-order channels, got {n}"),
+        }
     }
 
     /// Central-difference mixed partial of the scalar NLL along the listed
@@ -3540,13 +3923,6 @@ mod empirical_flex_jet_oracle_tests {
         let mut point = p0.to_vec();
         let raw = walk(fx, &stencils, h, 1.0, &mut point);
         raw / h.powi(total_order as i32)
-    }
-
-    /// Richardson O(h⁴) wrapper over `central_along`.
-    fn central_rich(fx: &FlexFixture, p0: &[f64], axes: &[(usize, usize)], h: f64) -> f64 {
-        let coarse = central_along(fx, p0, axes, h);
-        let fine = central_along(fx, p0, axes, h * 0.5);
-        (4.0 * fine - coarse) / 3.0
     }
 
     /// Production flex jet along a list of unit primary directions; returns the
@@ -3634,26 +4010,51 @@ mod empirical_flex_jet_oracle_tests {
         let q = fx.primary.q;
         let b = fx.primary.logslope;
 
+        let label = if is_score_warp {
+            "score-warp"
+        } else {
+            "link-dev"
+        };
+
+        // EXACT independent oracle: one `Tower4<3>` over θ = (q, b, β₀) carrying
+        // value/grad/Hessian/third/fourth, built from the implicit-intercept
+        // tower and the basis derivative-design stacks. Production and witness
+        // compute the SAME analytic derivatives, so every channel must agree to
+        // machine precision — no finite-difference truncation tolerance. The
+        // tight bound is itself the guard: a dropped/incorrect Leibniz, Faà di
+        // Bruno, or implicit-diff term would blow it by many orders.
+        let tower = flex_tower_witness(&fx, &p0);
+        // Cross-check the exact tower's VALUE against the fully independent
+        // scalar (non-jet) NLL, so the tower's order-0 anchor is itself pinned
+        // by a path that shares no jet code at all.
+        let v_scalar = witness_nll(&fx, &p0);
+        assert!(
+            (tower.v - v_scalar).abs() <= 1e-9 * v_scalar.abs().max(1.0),
+            "{label} tower value vs scalar witness: {:+.12e} != {v_scalar:+.12e}",
+            tower.v,
+        );
+
+        // Tolerance for the production-vs-exact-tower comparison. Both are exact
+        // analytic jets; the only gap is floating-point reassociation between
+        // two different composition orders, which stays near machine epsilon on
+        // these well-conditioned interior coefficients.
+        let exact_tol = 1e-9_f64;
+
         // Value channel.
         let v_prod = prod_flex_coeff(&fx, &p0, &[]);
-        let v_wit = witness_nll(&fx, &p0);
         assert!(
-            (v_prod - v_wit).abs() <= 1e-9 * v_wit.abs().max(1.0),
-            "{} value: production {v_prod:+.12e} != witness {v_wit:+.12e}",
-            if is_score_warp {
-                "score-warp"
-            } else {
-                "link-dev"
-            }
+            (v_prod - tower.v).abs() <= exact_tol * tower.v.abs().max(1.0),
+            "{label} value: production {v_prod:+.12e} != tower {:+.12e}",
+            tower.v,
         );
 
         // First derivatives along q, b, β0.
         for &idx in &[q, b, dev0] {
             let prod = prod_flex_coeff(&fx, &p0, &[idx]);
-            let wit = central_rich(&fx, &p0, &[(idx, 1)], 1e-3);
+            let wit = tower_channel(&fx, &tower, &[idx]);
             assert!(
-                (prod - wit).abs() <= 5e-5 * wit.abs().max(1.0) + 1e-9,
-                "grad[{idx}]: production {prod:+.6e} != witness {wit:+.6e}"
+                (prod - wit).abs() <= exact_tol * wit.abs().max(1.0),
+                "{label} grad[{idx}]: production {prod:+.12e} != tower {wit:+.12e}"
             );
         }
 
@@ -3662,14 +4063,10 @@ mod empirical_flex_jet_oracle_tests {
             [(q, q), (b, b), (dev0, dev0), (q, b), (b, dev0), (q, dev0)];
         for &(i, j) in &pairs {
             let prod = prod_flex_coeff(&fx, &p0, &[i, j]);
-            let wit = if i == j {
-                central_rich(&fx, &p0, &[(i, 2)], 2e-3)
-            } else {
-                central_rich(&fx, &p0, &[(i, 1), (j, 1)], 2e-3)
-            };
+            let wit = tower_channel(&fx, &tower, &[i, j]);
             assert!(
-                (prod - wit).abs() <= 5e-4 * wit.abs().max(1.0) + 1e-7,
-                "H[{i},{j}]: production {prod:+.6e} != witness {wit:+.6e}"
+                (prod - wit).abs() <= exact_tol * wit.abs().max(1.0),
+                "{label} H[{i},{j}]: production {prod:+.12e} != tower {wit:+.12e}"
             );
         }
 
@@ -3679,39 +4076,24 @@ mod empirical_flex_jet_oracle_tests {
             [[q, b, dev0], [b, b, dev0], [q, dev0, dev0], [b, dev0, dev0]];
         for tri in &triples {
             let prod = prod_flex_coeff(&fx, &p0, tri);
-            // Build the per-axis order multiset from the triple.
-            let mut axes: Vec<(usize, usize)> = Vec::new();
-            for &a in tri {
-                if let Some(slot) = axes.iter_mut().find(|(idx, _)| *idx == a) {
-                    slot.1 += 1;
-                } else {
-                    axes.push((a, 1));
-                }
-            }
-            let wit = central_rich(&fx, &p0, &axes, 4e-3);
+            let wit = tower_channel(&fx, &tower, tri);
             assert!(
-                (prod - wit).abs() <= 5e-3 * wit.abs().max(1.0) + 1e-6,
-                "T3{tri:?}: production {prod:+.6e} != witness {wit:+.6e}"
+                (prod - wit).abs() <= exact_tol * wit.abs().max(1.0),
+                "{label} T3{tri:?}: production {prod:+.12e} != tower {wit:+.12e}"
             );
         }
 
         // Fourth derivatives: distinct-axis quadruples + mixed, the highest
-        // channel the production exposes (#736/#833 genus surface).
+        // channel the production exposes (#736/#833 genus surface). This is the
+        // channel the #1394 link-dev `[q,b,β,β]` regression lived in — now
+        // pinned at machine precision by the exact tower, not an FD stencil.
         let quads: [[usize; 4]; 3] = [[q, b, dev0, dev0], [b, b, dev0, dev0], [q, q, b, dev0]];
         for quad in &quads {
             let prod = prod_flex_coeff(&fx, &p0, quad);
-            let mut axes: Vec<(usize, usize)> = Vec::new();
-            for &a in quad {
-                if let Some(slot) = axes.iter_mut().find(|(idx, _)| *idx == a) {
-                    slot.1 += 1;
-                } else {
-                    axes.push((a, 1));
-                }
-            }
-            let wit = central_rich(&fx, &p0, &axes, 6e-3);
+            let wit = tower_channel(&fx, &tower, quad);
             assert!(
-                (prod - wit).abs() <= 2e-2 * wit.abs().max(1.0) + 1e-6,
-                "T4{quad:?}: production {prod:+.6e} != witness {wit:+.6e}"
+                (prod - wit).abs() <= exact_tol * wit.abs().max(1.0),
+                "{label} T4{quad:?}: production {prod:+.12e} != tower {wit:+.12e}"
             );
         }
     }
@@ -3727,15 +4109,11 @@ mod empirical_flex_jet_oracle_tests {
     }
 
     #[test]
-    #[ignore = "diagnostic: is link_dev H[q,q] an unsound witness or a real bug? (#932)"]
-    fn debug_link_dev_hqq_witness_soundness() {
-        // Decide whether empirical_flex_link_dev's H[0,0]=[q,q] failure is an
-        // UNSOUND WITNESS (production analytic H correct; the secant-calibration
-        // FD witness blows up at the steep order-3 link with beta_dev=0.66) vs a
-        // REAL link-dev Hessian bug. Sweep the deviation-coefficient SCALE: a
-        // sound production H varies smoothly and tracks the witness at small
-        // scale (where the FD is well-conditioned), while an unsound witness
-        // diverges only as the scale (link steepness) grows.
+    fn link_dev_hqq_witness_stays_on_local_cubic_branch() {
+        // Guard the link-dev q×q and q×b Hessian witnesses across a range of
+        // deviation magnitudes. The bracketed calibration solve and shifted knot
+        // grid should keep both the coarse and fine finite-difference stencils on
+        // the same local cubic branch as production.
         let fx = make_fixture(false);
         let r = fx.primary.total;
         let q0 = 0.2_f64;
@@ -3765,10 +4143,15 @@ mod empirical_flex_jet_oracle_tests {
             let pqb = prod_flex_coeff(&fxs, &p0, &[q, b]);
             let wqb_c = central_along(&fxs, &p0, &[(q, 1), (b, 1)], 2e-3);
             let wqb_f = central_along(&fxs, &p0, &[(q, 1), (b, 1)], 5e-4);
-            eprintln!(
-                "scale={scale:.2} max|beta|={max_beta:.3}: H[q,q] prod={pqq:+.5e} wc={wqq_c:+.5e} wf={wqq_f:+.5e} (hgap {:.1e}) | H[q,b] prod={pqb:+.5e} wc={wqb_c:+.5e} wf={wqb_f:+.5e} (hgap {:.1e})",
-                (wqq_c - wqq_f).abs(),
-                (wqb_c - wqb_f).abs()
+            let q_tol = 5e-4 * pqq.abs().max(1.0) + 1e-7;
+            let qb_tol = 5e-4 * pqb.abs().max(1.0) + 1e-7;
+            assert!(
+                (pqq - wqq_c).abs() <= q_tol && (pqq - wqq_f).abs() <= q_tol,
+                "scale={scale:.2} max|beta|={max_beta:.3}: H[q,q] prod={pqq:+.5e} wc={wqq_c:+.5e} wf={wqq_f:+.5e}"
+            );
+            assert!(
+                (pqb - wqb_c).abs() <= qb_tol && (pqb - wqb_f).abs() <= qb_tol,
+                "scale={scale:.2} max|beta|={max_beta:.3}: H[q,b] prod={pqb:+.5e} wc={wqb_c:+.5e} wf={wqb_f:+.5e}"
             );
         }
     }
@@ -3825,13 +4208,17 @@ mod empirical_flex_jet_oracle_tests {
                 &fx.grid,
             )
             .expect("third contracted recompute");
-        // Check a representative entry (q, dev0) against the witness.
+        // Exact independent tower over (q, b, dev0); read the contracted
+        // entries straight off its symmetric tensors — no FD truncation.
+        let tower = flex_tower_witness(&fx, &p0);
+        // Check a representative entry (q, dev0) against the exact tower:
+        // third_contracted[q,dev0] = ∂³ℓ[q, dev0, b] = t3[q,dev0,b].
         let dev0 = dev_range.start;
         let q = fx.primary.q;
-        let wit_qd_b = central_rich(&fx, &p0, &[(q, 1), (dev0, 1), (b, 1)], 4e-3);
+        let wit_qd_b = tower_channel(&fx, &tower, &[q, dev0, b]);
         assert!(
-            (third[[q, dev0]] - wit_qd_b).abs() <= 5e-3 * wit_qd_b.abs().max(1.0) + 1e-6,
-            "third_contracted[q,dev0] {:+.6e} != witness {wit_qd_b:+.6e}",
+            (third[[q, dev0]] - wit_qd_b).abs() <= 1e-9 * wit_qd_b.abs().max(1.0),
+            "third_contracted[q,dev0] {:+.12e} != tower {wit_qd_b:+.12e}",
             third[[q, dev0]]
         );
 
@@ -3841,8 +4228,8 @@ mod empirical_flex_jet_oracle_tests {
         let flipped = -third[[q, dev0]];
         if wit_qd_b.abs() > 1e-6 {
             assert!(
-                (flipped - wit_qd_b).abs() > 5e-3 * wit_qd_b.abs().max(1.0) + 1e-6,
-                "witness failed to reject a planted sign flip (flipped {flipped:+.6e} vs witness {wit_qd_b:+.6e})"
+                (flipped - wit_qd_b).abs() > 1e-9 * wit_qd_b.abs().max(1.0),
+                "witness failed to reject a planted sign flip (flipped {flipped:+.6e} vs tower {wit_qd_b:+.6e})"
             );
         }
 
@@ -3863,10 +4250,11 @@ mod empirical_flex_jet_oracle_tests {
                 &fx.grid,
             )
             .expect("fourth contracted recompute");
-        let wit_qb_b_d = central_rich(&fx, &p0, &[(q, 1), (b, 2), (dev0, 1)], 6e-3);
+        // fourth_contracted[q,b] = ∂⁴ℓ[q, b, b, dev0] = t4[q,b,b,dev0].
+        let wit_qb_b_d = tower_channel(&fx, &tower, &[q, b, b, dev0]);
         assert!(
-            (fourth[[q, b]] - wit_qb_b_d).abs() <= 2e-2 * wit_qb_b_d.abs().max(1.0) + 1e-6,
-            "fourth_contracted[q,b] {:+.6e} != witness {wit_qb_b_d:+.6e}",
+            (fourth[[q, b]] - wit_qb_b_d).abs() <= 1e-9 * wit_qb_b_d.abs().max(1.0),
+            "fourth_contracted[q,b] {:+.12e} != tower {wit_qb_b_d:+.12e}",
             fourth[[q, b]]
         );
     }

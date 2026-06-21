@@ -25,6 +25,9 @@ class CreateScriptJsonBody:
         content (str):
         language (CreateScriptJsonBodyLanguage):
         parent_hash (Union[Unset, str]):
+        auto_parent (Union[Unset, bool]): When true, the backend resolves the parent to the current deployed head for
+            this path within the transaction (ignoring parent_hash), instead of failing with a "lineage must be linear"
+            error when the supplied parent_hash is stale.
         description (Union[Unset, str]):
         schema (Union[Unset, CreateScriptJsonBodySchema]):
         is_template (Union[Unset, bool]):
@@ -69,6 +72,7 @@ class CreateScriptJsonBody:
     content: str
     language: CreateScriptJsonBodyLanguage
     parent_hash: Union[Unset, str] = UNSET
+    auto_parent: Union[Unset, bool] = UNSET
     description: Union[Unset, str] = UNSET
     schema: Union[Unset, "CreateScriptJsonBodySchema"] = UNSET
     is_template: Union[Unset, bool] = UNSET
@@ -112,6 +116,7 @@ class CreateScriptJsonBody:
         language = self.language.value
 
         parent_hash = self.parent_hash
+        auto_parent = self.auto_parent
         description = self.description
         schema: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.schema, Unset):
@@ -184,6 +189,8 @@ class CreateScriptJsonBody:
         )
         if parent_hash is not UNSET:
             field_dict["parent_hash"] = parent_hash
+        if auto_parent is not UNSET:
+            field_dict["auto_parent"] = auto_parent
         if description is not UNSET:
             field_dict["description"] = description
         if schema is not UNSET:
@@ -271,6 +278,8 @@ class CreateScriptJsonBody:
         language = CreateScriptJsonBodyLanguage(d.pop("language"))
 
         parent_hash = d.pop("parent_hash", UNSET)
+
+        auto_parent = d.pop("auto_parent", UNSET)
 
         description = d.pop("description", UNSET)
 
@@ -368,6 +377,7 @@ class CreateScriptJsonBody:
             content=content,
             language=language,
             parent_hash=parent_hash,
+            auto_parent=auto_parent,
             description=description,
             schema=schema,
             is_template=is_template,

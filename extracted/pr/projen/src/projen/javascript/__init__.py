@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -17,72 +19,34 @@ from jsii._type_checking import check_type
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    Component as _Component_2b0ad27f,
-    DependencyType as _DependencyType_6b786d68,
-    GitOptions as _GitOptions_a65916a3,
-    GroupRunnerOptions as _GroupRunnerOptions_148c59c1,
-    ICompareString as _ICompareString_f119e19c,
-    IgnoreFile as _IgnoreFile_3df2076a,
-    IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
-    JsonFile as _JsonFile_fa8164db,
-    LoggerOptions as _LoggerOptions_eb0f6309,
-    ObjectFile as _ObjectFile_a34b4727,
-    Project as _Project_57d89203,
-    ProjenrcFile as _ProjenrcFile_50432c7e,
-    ProjenrcJsonOptions as _ProjenrcJsonOptions_9c40dd4f,
-    ReleasableCommits as _ReleasableCommits_d481ce10,
-    RenovatebotOptions as _RenovatebotOptions_18e6b8a1,
-    SampleReadmeProps as _SampleReadmeProps_3518b03b,
-    Task as _Task_9fa875b6,
-)
-from ..build import (
-    BuildWorkflow as _BuildWorkflow_bdd5e6cc,
-    BuildWorkflowCommonOptions as _BuildWorkflowCommonOptions_7e3d5c39,
-)
-from ..github import (
-    AutoApproveOptions as _AutoApproveOptions_dac86cbe,
-    AutoMerge as _AutoMerge_f73f9be0,
-    AutoMergeOptions as _AutoMergeOptions_d112cd3c,
-    DependabotOptions as _DependabotOptions_0cedc635,
-    GitHubOptions as _GitHubOptions_21553699,
-    GitHubProject as _GitHubProject_c48bc7ea,
-    GitHubProjectOptions as _GitHubProjectOptions_547f2d08,
-    GitIdentity as _GitIdentity_6effc3de,
-    GithubCredentials as _GithubCredentials_ae257072,
-    GithubWorkflow as _GithubWorkflow_a1772357,
-    StaleOptions as _StaleOptions_929db764,
-)
-from ..github.workflows import (
-    ContainerOptions as _ContainerOptions_f50907af,
-    JobPermissions as _JobPermissions_3b5b53dc,
-    JobStep as _JobStep_c3287c05,
-    JobStepConfiguration as _JobStepConfiguration_9caff420,
-    Triggers as _Triggers_e9ae7617,
-)
-from ..release import (
-    BranchOptions as _BranchOptions_13663d08,
-    Release as _Release_30ee2d91,
-    ReleaseProjectOptions as _ReleaseProjectOptions_929803c8,
-    ReleaseTrigger as _ReleaseTrigger_e4dc221f,
-)
-from .biome_config import (
-    BiomeConfiguration as _BiomeConfiguration_dd1a6c83,
-    CssConfiguration as _CssConfiguration_c97ab361,
-    GraphqlConfiguration as _GraphqlConfiguration_6bc70a0c,
-    GritConfiguration as _GritConfiguration_f4395b5a,
-    HtmlConfiguration as _HtmlConfiguration_eaffc242,
-    JsConfiguration as _JsConfiguration_534ceb12,
-    JsonConfiguration as _JsonConfiguration_dff59c39,
-    OverrideAssistConfiguration as _OverrideAssistConfiguration_1b387d77,
-    OverrideFilesConfiguration as _OverrideFilesConfiguration_d3547db3,
-    OverrideFormatterConfiguration as _OverrideFormatterConfiguration_7cf8b09f,
-    OverrideLinterConfiguration as _OverrideLinterConfiguration_e2446699,
-    OverridePattern as _OverridePattern_c64e7f03,
-    PresetConfig as _PresetConfig_ed2b5461,
-    Rules as _Rules_f79679bb,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import constructs as _constructs_77d1e7e8
+    import projen as _projen_04054675
+    import projen.build as _build_c2d06a81
+    import projen.github as _github_c49f935d
+    import projen.github.workflows as _workflows_2b7f1587
+    import projen.javascript.biome_config as _biome_config_8d74827f
+    import projen.release as _release_1fa091fd
+else:
+
+    _biome_config_8d74827f = _LazyImport("projen.javascript.biome_config")
+    _build_c2d06a81 = _LazyImport("projen.build")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _github_c49f935d = _LazyImport("projen.github")
+    _projen_04054675 = _LazyImport("projen")
+    _release_1fa091fd = _LazyImport("projen.release")
+    _workflows_2b7f1587 = _LazyImport("projen.github.workflows")
 
 
 @jsii.enum(jsii_type="projen.javascript.ArrowParens")
@@ -213,7 +177,7 @@ class AutoRelease(enum.Enum):
 
 
 class Biome(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.Biome",
 ):
@@ -227,7 +191,7 @@ class Biome(
         project: "NodeProject",
         *,
         assist: typing.Optional[builtins.bool] = None,
-        biome_config: typing.Optional[typing.Union["_BiomeConfiguration_dd1a6c83", typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_config: typing.Optional[typing.Union["_biome_config_8d74827f.BiomeConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[builtins.bool] = None,
         ignore_generated_files: typing.Optional[builtins.bool] = None,
         linter: typing.Optional[builtins.bool] = None,
@@ -263,7 +227,7 @@ class Biome(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: "_Project_57d89203") -> typing.Optional["Biome"]:
+    def of(cls, project: "_projen_04054675.Project") -> typing.Optional["Biome"]:
         '''
         :param project: -
 
@@ -294,17 +258,17 @@ class Biome(
     def add_override(
         self,
         *,
-        assist: typing.Optional[typing.Union["_OverrideAssistConfiguration_1b387d77", typing.Dict[builtins.str, typing.Any]]] = None,
-        css: typing.Optional[typing.Union["_CssConfiguration_c97ab361", typing.Dict[builtins.str, typing.Any]]] = None,
-        files: typing.Optional[typing.Union["_OverrideFilesConfiguration_d3547db3", typing.Dict[builtins.str, typing.Any]]] = None,
-        formatter: typing.Optional[typing.Union["_OverrideFormatterConfiguration_7cf8b09f", typing.Dict[builtins.str, typing.Any]]] = None,
-        graphql: typing.Optional[typing.Union["_GraphqlConfiguration_6bc70a0c", typing.Dict[builtins.str, typing.Any]]] = None,
-        grit: typing.Optional[typing.Union["_GritConfiguration_f4395b5a", typing.Dict[builtins.str, typing.Any]]] = None,
-        html: typing.Optional[typing.Union["_HtmlConfiguration_eaffc242", typing.Dict[builtins.str, typing.Any]]] = None,
+        assist: typing.Optional[typing.Union["_biome_config_8d74827f.OverrideAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        css: typing.Optional[typing.Union["_biome_config_8d74827f.CssConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        files: typing.Optional[typing.Union["_biome_config_8d74827f.OverrideFilesConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        formatter: typing.Optional[typing.Union["_biome_config_8d74827f.OverrideFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        graphql: typing.Optional[typing.Union["_biome_config_8d74827f.GraphqlConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        grit: typing.Optional[typing.Union["_biome_config_8d74827f.GritConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        html: typing.Optional[typing.Union["_biome_config_8d74827f.HtmlConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        javascript: typing.Optional[typing.Union["_JsConfiguration_534ceb12", typing.Dict[builtins.str, typing.Any]]] = None,
-        json: typing.Optional[typing.Union["_JsonConfiguration_dff59c39", typing.Dict[builtins.str, typing.Any]]] = None,
-        linter: typing.Optional[typing.Union["_OverrideLinterConfiguration_e2446699", typing.Dict[builtins.str, typing.Any]]] = None,
+        javascript: typing.Optional[typing.Union["_biome_config_8d74827f.JsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        json: typing.Optional[typing.Union["_biome_config_8d74827f.JsonConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        linter: typing.Optional[typing.Union["_biome_config_8d74827f.OverrideLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
     ) -> None:
         '''(experimental) Add a biome override to set rules for a specific file pattern.
@@ -325,7 +289,7 @@ class Biome(
         :see: https://biomejs.dev/reference/configuration/#overrides
         :stability: experimental
         '''
-        override = _OverridePattern_c64e7f03(
+        override = _biome_config_8d74827f.OverridePattern(
             assist=assist,
             css=css,
             files=files,
@@ -351,7 +315,7 @@ class Biome(
         correctness: typing.Any = None,
         nursery: typing.Any = None,
         performance: typing.Any = None,
-        preset: typing.Optional["_PresetConfig_ed2b5461"] = None,
+        preset: typing.Optional["_biome_config_8d74827f.PresetConfig"] = None,
         recommended: typing.Optional[builtins.bool] = None,
         security: typing.Any = None,
         style: typing.Any = None,
@@ -385,7 +349,7 @@ class Biome(
               }
             })
         '''
-        rules = _Rules_f79679bb(
+        rules = _biome_config_8d74827f.Rules(
             a11_y=a11_y,
             complexity=complexity,
             correctness=correctness,
@@ -402,21 +366,21 @@ class Biome(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_JsonFile_fa8164db":
+    def file(self) -> "_projen_04054675.JsonFile":
         '''(experimental) Biome configuration file content.
 
         :stability: experimental
         '''
-        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.JsonFile", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="task")
-    def task(self) -> "_Task_9fa875b6":
+    def task(self) -> "_projen_04054675.Task":
         '''(experimental) Biome task.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "task"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "task"))
 
 
 @jsii.data_type(
@@ -437,7 +401,7 @@ class BiomeOptions:
         self,
         *,
         assist: typing.Optional[builtins.bool] = None,
-        biome_config: typing.Optional[typing.Union["_BiomeConfiguration_dd1a6c83", typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_config: typing.Optional[typing.Union["_biome_config_8d74827f.BiomeConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[builtins.bool] = None,
         ignore_generated_files: typing.Optional[builtins.bool] = None,
         linter: typing.Optional[builtins.bool] = None,
@@ -456,7 +420,7 @@ class BiomeOptions:
         :stability: experimental
         '''
         if isinstance(biome_config, dict):
-            biome_config = _BiomeConfiguration_dd1a6c83(**biome_config)
+            biome_config = _biome_config_8d74827f.BiomeConfiguration(**biome_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b53a2988afa9afc23bda2fe96e2de8ffaff18ab919e00b69a6c8d3d229f3dcc1)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
@@ -494,7 +458,9 @@ class BiomeOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def biome_config(self) -> typing.Optional["_BiomeConfiguration_dd1a6c83"]:
+    def biome_config(
+        self,
+    ) -> typing.Optional["_biome_config_8d74827f.BiomeConfiguration"]:
         '''(experimental) Full Biome configuration.
 
         This configuration dictates the final outcome if value is set.
@@ -503,7 +469,7 @@ class BiomeOptions:
         :stability: experimental
         '''
         result = self._values.get("biome_config")
-        return typing.cast(typing.Optional["_BiomeConfiguration_dd1a6c83"], result)
+        return typing.cast(typing.Optional["_biome_config_8d74827f.BiomeConfiguration"], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional[builtins.bool]:
@@ -579,7 +545,7 @@ class BiomeOptions:
 
 @jsii.data_type(
     jsii_type="projen.javascript.BuildWorkflowOptions",
-    jsii_struct_bases=[_BuildWorkflowCommonOptions_7e3d5c39],
+    jsii_struct_bases=[_build_c2d06a81.BuildWorkflowCommonOptions],
     name_mapping={
         "env": "env",
         "name": "name",
@@ -592,19 +558,19 @@ class BiomeOptions:
         "runs_on_group": "runsOnGroup",
     },
 )
-class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
+class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
     def __init__(
         self,
         *,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
-        permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_triggers: typing.Optional[typing.Union["_workflows_2b7f1587.Triggers", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         mutable_install: typing.Optional[builtins.bool] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Build workflow options for NodeProject.
 
@@ -621,11 +587,11 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :stability: experimental
         '''
         if isinstance(permissions, dict):
-            permissions = _JobPermissions_3b5b53dc(**permissions)
+            permissions = _workflows_2b7f1587.JobPermissions(**permissions)
         if isinstance(workflow_triggers, dict):
-            workflow_triggers = _Triggers_e9ae7617(**workflow_triggers)
+            workflow_triggers = _workflows_2b7f1587.Triggers(**workflow_triggers)
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb5731b72372)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
@@ -680,7 +646,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def permissions(self) -> typing.Optional["_JobPermissions_3b5b53dc"]:
+    def permissions(self) -> typing.Optional["_workflows_2b7f1587.JobPermissions"]:
         '''(experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``.
 
         :default: ``{ contents: JobPermission.WRITE }``
@@ -688,10 +654,12 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :stability: experimental
         '''
         result = self._values.get("permissions")
-        return typing.cast(typing.Optional["_JobPermissions_3b5b53dc"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobPermissions"], result)
 
     @builtins.property
-    def pre_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    def pre_build_steps(
+        self,
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Steps to execute before the build.
 
         :default: []
@@ -699,10 +667,10 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :stability: experimental
         '''
         result = self._values.get("pre_build_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
-    def workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
+    def workflow_triggers(self) -> typing.Optional["_workflows_2b7f1587.Triggers"]:
         '''(experimental) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -710,7 +678,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :stability: experimental
         '''
         result = self._values.get("workflow_triggers")
-        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.Triggers"], result)
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
@@ -758,7 +726,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -766,7 +734,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -794,10 +762,10 @@ class Bundle:
     def __init__(
         self,
         *,
-        bundle_task: "_Task_9fa875b6",
+        bundle_task: "_projen_04054675.Task",
         outdir: builtins.str,
         outfile: builtins.str,
-        watch_task: typing.Optional["_Task_9fa875b6"] = None,
+        watch_task: typing.Optional["_projen_04054675.Task"] = None,
     ) -> None:
         '''
         :param bundle_task: (experimental) The task that produces this bundle.
@@ -822,14 +790,14 @@ class Bundle:
             self._values["watch_task"] = watch_task
 
     @builtins.property
-    def bundle_task(self) -> "_Task_9fa875b6":
+    def bundle_task(self) -> "_projen_04054675.Task":
         '''(experimental) The task that produces this bundle.
 
         :stability: experimental
         '''
         result = self._values.get("bundle_task")
         assert result is not None, "Required property 'bundle_task' is missing"
-        return typing.cast("_Task_9fa875b6", result)
+        return typing.cast("_projen_04054675.Task", result)
 
     @builtins.property
     def outdir(self) -> builtins.str:
@@ -852,13 +820,13 @@ class Bundle:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def watch_task(self) -> typing.Optional["_Task_9fa875b6"]:
+    def watch_task(self) -> typing.Optional["_projen_04054675.Task"]:
         '''(experimental) The "watch" task for this bundle.
 
         :stability: experimental
         '''
         result = self._values.get("watch_task")
-        return typing.cast(typing.Optional["_Task_9fa875b6"], result)
+        return typing.cast(typing.Optional["_projen_04054675.Task"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -912,7 +880,7 @@ class BundleLogLevel(enum.Enum):
 
 
 class Bundler(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.Bundler",
 ):
@@ -925,7 +893,7 @@ class Bundler(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         assets_dir: typing.Optional[builtins.str] = None,
         esbuild_version: typing.Optional[builtins.str] = None,
@@ -956,7 +924,7 @@ class Bundler(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: "_Project_57d89203") -> typing.Optional["Bundler"]:
+    def of(cls, project: "_projen_04054675.Project") -> typing.Optional["Bundler"]:
         '''(experimental) Returns the ``Bundler`` instance associated with a project or ``undefined`` if there is no Bundler.
 
         :param project: The project.
@@ -1070,7 +1038,7 @@ class Bundler(
 
     @builtins.property
     @jsii.member(jsii_name="bundleTask")
-    def bundle_task(self) -> "_Task_9fa875b6":
+    def bundle_task(self) -> "_projen_04054675.Task":
         '''(experimental) Gets or creates the singleton "bundle" task of the project.
 
         If the project doesn't have a "bundle" task, it will be created and spawned
@@ -1078,7 +1046,7 @@ class Bundler(
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "bundleTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "bundleTask"))
 
     @builtins.property
     @jsii.member(jsii_name="esbuildVersion")
@@ -1784,7 +1752,7 @@ class EndOfLine(enum.Enum):
 
 
 class Eslint(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.Eslint",
 ):
@@ -1805,7 +1773,7 @@ class Eslint(
         file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        sort_extends: typing.Optional["_ICompareString_f119e19c"] = None,
+        sort_extends: typing.Optional["_projen_04054675.ICompareString"] = None,
         ts_always_try_types: typing.Optional[builtins.bool] = None,
         tsconfig_path: typing.Optional[builtins.str] = None,
         yaml: typing.Optional[builtins.bool] = None,
@@ -1849,7 +1817,7 @@ class Eslint(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: "_Project_57d89203") -> typing.Optional["Eslint"]:
+    def of(cls, project: "_projen_04054675.Project") -> typing.Optional["Eslint"]:
         '''(experimental) Returns the singleton Eslint component of a project or undefined if there is none.
 
         :param project: -
@@ -1983,21 +1951,21 @@ class Eslint(
 
     @builtins.property
     @jsii.member(jsii_name="eslintTask")
-    def eslint_task(self) -> "_Task_9fa875b6":
+    def eslint_task(self) -> "_projen_04054675.Task":
         '''(experimental) eslint task.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "eslintTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "eslintTask"))
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_ObjectFile_a34b4727":
+    def file(self) -> "_projen_04054675.ObjectFile":
         '''(experimental) The underlying config file.
 
         :stability: experimental
         '''
-        return typing.cast("_ObjectFile_a34b4727", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.ObjectFile", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="ignorePatterns")
@@ -2126,7 +2094,7 @@ class EslintOptions:
         file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        sort_extends: typing.Optional["_ICompareString_f119e19c"] = None,
+        sort_extends: typing.Optional["_projen_04054675.ICompareString"] = None,
         ts_always_try_types: typing.Optional[builtins.bool] = None,
         tsconfig_path: typing.Optional[builtins.str] = None,
         yaml: typing.Optional[builtins.bool] = None,
@@ -2277,7 +2245,7 @@ class EslintOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def sort_extends(self) -> typing.Optional["_ICompareString_f119e19c"]:
+    def sort_extends(self) -> typing.Optional["_projen_04054675.ICompareString"]:
         '''(experimental) The extends array in eslint is order dependent.
 
         This option allows to sort the extends array in any way seen fit.
@@ -2287,7 +2255,7 @@ class EslintOptions:
         :stability: experimental
         '''
         result = self._values.get("sort_extends")
-        return typing.cast(typing.Optional["_ICompareString_f119e19c"], result)
+        return typing.cast(typing.Optional["_projen_04054675.ICompareString"], result)
 
     @builtins.property
     def ts_always_try_types(self) -> typing.Optional[builtins.bool]:
@@ -2686,7 +2654,7 @@ class InstallTrigger:
 
 
 class Jest(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.Jest",
 ):
@@ -2746,7 +2714,7 @@ class Jest(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: "_Project_57d89203") -> typing.Optional["Jest"]:
+    def of(cls, project: "_projen_04054675.Project") -> typing.Optional["Jest"]:
         '''(experimental) Returns the singleton Jest component of a project or undefined if there is none.
 
         :param project: -
@@ -2941,14 +2909,14 @@ class Jest(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> typing.Optional["_JsonFile_fa8164db"]:
+    def file(self) -> typing.Optional["_projen_04054675.JsonFile"]:
         '''(experimental) Jest config file.
 
         ``undefined`` if settings are written to ``package.json``
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_JsonFile_fa8164db"], jsii.get(self, "file"))
+        return typing.cast(typing.Optional["_projen_04054675.JsonFile"], jsii.get(self, "file"))
 
 
 @jsii.data_type(
@@ -4509,7 +4477,7 @@ class JestReporter(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.JestRep
 
 
 class LicenseChecker(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.LicenseChecker",
 ):
@@ -4553,11 +4521,11 @@ class LicenseChecker(
 
     @builtins.property
     @jsii.member(jsii_name="task")
-    def task(self) -> "_Task_9fa875b6":
+    def task(self) -> "_projen_04054675.Task":
         '''
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "task"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "task"))
 
 
 @jsii.data_type(
@@ -4684,7 +4652,7 @@ class LicenseCheckerOptions:
 
 
 class NodePackage(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.NodePackage",
 ):
@@ -4695,7 +4663,7 @@ class NodePackage(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
@@ -4833,7 +4801,7 @@ class NodePackage(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: "_Project_57d89203") -> typing.Optional["NodePackage"]:
+    def of(cls, project: "_projen_04054675.Project") -> typing.Optional["NodePackage"]:
         '''(experimental) Returns the ``NodePackage`` instance associated with a project or ``undefined`` if there is no NodePackage.
 
         :param project: The project.
@@ -5108,12 +5076,12 @@ class NodePackage(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_JsonFile_fa8164db":
+    def file(self) -> "_projen_04054675.JsonFile":
         '''(experimental) The package.json file.
 
         :stability: experimental
         '''
-        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.JsonFile", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="installAndUpdateLockfileCommand")
@@ -5126,12 +5094,12 @@ class NodePackage(
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> "_Task_9fa875b6":
+    def install_ci_task(self) -> "_projen_04054675.Task":
         '''(experimental) The task for installing project dependencies (frozen).
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "installCiTask"))
 
     @builtins.property
     @jsii.member(jsii_name="installCommand")
@@ -5144,12 +5112,12 @@ class NodePackage(
 
     @builtins.property
     @jsii.member(jsii_name="installTask")
-    def install_task(self) -> "_Task_9fa875b6":
+    def install_task(self) -> "_projen_04054675.Task":
         '''(experimental) The task for installing project dependencies (non-frozen).
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "installTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "installTask"))
 
     @builtins.property
     @jsii.member(jsii_name="lockFile")
@@ -6178,7 +6146,7 @@ class NodePackageOptions:
 
 
 class NodeProject(
-    _GitHubProject_c48bc7ea,
+    _github_c49f935d.GitHubProject,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.NodeProject",
 ):
@@ -6207,14 +6175,14 @@ class NodeProject(
         copyright_period: typing.Optional[builtins.str] = None,
         default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_github_c49f935d.DependabotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
         deps_upgrade_options: typing.Optional[typing.Union["UpgradeDependenciesOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["JestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
         prettier_options: typing.Optional[typing.Union["PrettierOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6226,22 +6194,22 @@ class NodeProject(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
-        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_github_c49f935d.GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_github_c49f935d.GithubCredentials"] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_github_c49f935d.StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
@@ -6289,37 +6257,37 @@ class NodeProject(
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_projen_04054675.ReleasableCommits"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_release_1fa091fd.BranchOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
+        release_trigger: typing.Optional["_release_1fa091fd.ReleaseTrigger"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
@@ -6729,9 +6697,9 @@ class NodeProject(
     def render_workflow_setup(
         self,
         *,
-        install_step_configuration: typing.Optional[typing.Union["_JobStepConfiguration_9caff420", typing.Dict[builtins.str, typing.Any]]] = None,
+        install_step_configuration: typing.Optional[typing.Union["_workflows_2b7f1587.JobStepConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable: typing.Optional[builtins.bool] = None,
-    ) -> typing.List["_JobStep_c3287c05"]:
+    ) -> typing.List["_workflows_2b7f1587.JobStep"]:
         '''(experimental) Returns the set of workflow steps which should be executed to bootstrap a workflow.
 
         :param install_step_configuration: (experimental) Configure the install step in the workflow setup. Default: - ``{ name: "Install dependencies" }``
@@ -6745,10 +6713,10 @@ class NodeProject(
             install_step_configuration=install_step_configuration, mutable=mutable
         )
 
-        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.invoke(self, "renderWorkflowSetup", [options]))
+        return typing.cast(typing.List["_workflows_2b7f1587.JobStep"], jsii.invoke(self, "renderWorkflowSetup", [options]))
 
     @jsii.member(jsii_name="runTaskCommand")
-    def run_task_command(self, task: "_Task_9fa875b6") -> builtins.str:
+    def run_task_command(self, task: "_projen_04054675.Task") -> builtins.str:
         '''(experimental) Returns the shell command to execute in order to run a task.
 
         This will
@@ -6837,11 +6805,11 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="workflowBootstrapSteps")
-    def _workflow_bootstrap_steps(self) -> typing.List["_JobStep_c3287c05"]:
+    def _workflow_bootstrap_steps(self) -> typing.List["_workflows_2b7f1587.JobStep"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.get(self, "workflowBootstrapSteps"))
+        return typing.cast(typing.List["_workflows_2b7f1587.JobStep"], jsii.get(self, "workflowBootstrapSteps"))
 
     @builtins.property
     @jsii.member(jsii_name="workflowPackageCache")
@@ -6853,12 +6821,12 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="autoMerge")
-    def auto_merge(self) -> typing.Optional["_AutoMerge_f73f9be0"]:
+    def auto_merge(self) -> typing.Optional["_github_c49f935d.AutoMerge"]:
         '''(experimental) Component that sets up mergify for merging approved pull requests.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_AutoMerge_f73f9be0"], jsii.get(self, "autoMerge"))
+        return typing.cast(typing.Optional["_github_c49f935d.AutoMerge"], jsii.get(self, "autoMerge"))
 
     @builtins.property
     @jsii.member(jsii_name="biome")
@@ -6870,14 +6838,14 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="buildWorkflow")
-    def build_workflow(self) -> typing.Optional["_BuildWorkflow_bdd5e6cc"]:
+    def build_workflow(self) -> typing.Optional["_build_c2d06a81.BuildWorkflow"]:
         '''(experimental) The PR build GitHub workflow.
 
         ``undefined`` if ``buildWorkflow`` is disabled.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_BuildWorkflow_bdd5e6cc"], jsii.get(self, "buildWorkflow"))
+        return typing.cast(typing.Optional["_build_c2d06a81.BuildWorkflow"], jsii.get(self, "buildWorkflow"))
 
     @builtins.property
     @jsii.member(jsii_name="buildWorkflowJobId")
@@ -6929,12 +6897,12 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="npmignore")
-    def npmignore(self) -> typing.Optional["_IgnoreFile_3df2076a"]:
+    def npmignore(self) -> typing.Optional["_projen_04054675.IgnoreFile"]:
         '''(experimental) The .npmignore file.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_IgnoreFile_3df2076a"], jsii.get(self, "npmignore"))
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFile"], jsii.get(self, "npmignore"))
 
     @builtins.property
     @jsii.member(jsii_name="prettier")
@@ -6946,12 +6914,12 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="release")
-    def release(self) -> typing.Optional["_Release_30ee2d91"]:
+    def release(self) -> typing.Optional["_release_1fa091fd.Release"]:
         '''(experimental) Release management.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_Release_30ee2d91"], jsii.get(self, "release"))
+        return typing.cast(typing.Optional["_release_1fa091fd.Release"], jsii.get(self, "release"))
 
     @builtins.property
     @jsii.member(jsii_name="upgradeWorkflow")
@@ -6966,9 +6934,9 @@ class NodeProject(
 @jsii.data_type(
     jsii_type="projen.javascript.NodeProjectOptions",
     jsii_struct_bases=[
-        _GitHubProjectOptions_547f2d08,
+        _github_c49f935d.GitHubProjectOptions,
         NodePackageOptions,
-        _ReleaseProjectOptions_929803c8,
+        _release_1fa091fd.ReleaseProjectOptions,
     ],
     name_mapping={
         "name": "name",
@@ -7103,38 +7071,38 @@ class NodeProject(
     },
 )
 class NodeProjectOptions(
-    _GitHubProjectOptions_547f2d08,
+    _github_c49f935d.GitHubProjectOptions,
     NodePackageOptions,
-    _ReleaseProjectOptions_929803c8,
+    _release_1fa091fd.ReleaseProjectOptions,
 ):
     def __init__(
         self,
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_projen_04054675.GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_projen_04054675.LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional["_Project_57d89203"] = None,
+        parent: typing.Optional["_projen_04054675.Project"] = None,
         project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_projen_04054675.ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_projen_04054675.RenovatebotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_github_c49f935d.GitHubOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
-        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
-        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_github_c49f935d.GithubCredentials"] = None,
+        readme: typing.Optional[typing.Union["_projen_04054675.SampleReadmeProps", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_github_c49f935d.StaleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
@@ -7182,24 +7150,24 @@ class NodeProjectOptions(
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_projen_04054675.ReleasableCommits"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_release_1fa091fd.BranchOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
+        release_trigger: typing.Optional["_release_1fa091fd.ReleaseTrigger"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         artifacts_directory: typing.Optional[builtins.str] = None,
         audit_deps: typing.Optional[builtins.bool] = None,
         audit_deps_options: typing.Optional[typing.Union["AuditOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7216,14 +7184,14 @@ class NodeProjectOptions(
         copyright_period: typing.Optional[builtins.str] = None,
         default_release_branch: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_github_c49f935d.DependabotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
         deps_upgrade_options: typing.Optional[typing.Union["UpgradeDependenciesOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
         jest_options: typing.Optional[typing.Union["JestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
         prettier_options: typing.Optional[typing.Union["PrettierOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7235,8 +7203,8 @@ class NodeProjectOptions(
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -7374,25 +7342,25 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         if isinstance(git_ignore_options, dict):
-            git_ignore_options = _IgnoreFileOptions_86c48b91(**git_ignore_options)
+            git_ignore_options = _projen_04054675.IgnoreFileOptions(**git_ignore_options)
         if isinstance(git_options, dict):
-            git_options = _GitOptions_a65916a3(**git_options)
+            git_options = _projen_04054675.GitOptions(**git_options)
         if isinstance(logging, dict):
-            logging = _LoggerOptions_eb0f6309(**logging)
+            logging = _projen_04054675.LoggerOptions(**logging)
         if isinstance(projenrc_json_options, dict):
-            projenrc_json_options = _ProjenrcJsonOptions_9c40dd4f(**projenrc_json_options)
+            projenrc_json_options = _projen_04054675.ProjenrcJsonOptions(**projenrc_json_options)
         if isinstance(renovatebot_options, dict):
-            renovatebot_options = _RenovatebotOptions_18e6b8a1(**renovatebot_options)
+            renovatebot_options = _projen_04054675.RenovatebotOptions(**renovatebot_options)
         if isinstance(auto_approve_options, dict):
-            auto_approve_options = _AutoApproveOptions_dac86cbe(**auto_approve_options)
+            auto_approve_options = _github_c49f935d.AutoApproveOptions(**auto_approve_options)
         if isinstance(auto_merge_options, dict):
-            auto_merge_options = _AutoMergeOptions_d112cd3c(**auto_merge_options)
+            auto_merge_options = _github_c49f935d.AutoMergeOptions(**auto_merge_options)
         if isinstance(github_options, dict):
-            github_options = _GitHubOptions_21553699(**github_options)
+            github_options = _github_c49f935d.GitHubOptions(**github_options)
         if isinstance(readme, dict):
-            readme = _SampleReadmeProps_3518b03b(**readme)
+            readme = _projen_04054675.SampleReadmeProps(**readme)
         if isinstance(stale_options, dict):
-            stale_options = _StaleOptions_929db764(**stale_options)
+            stale_options = _github_c49f935d.StaleOptions(**stale_options)
         if isinstance(code_artifact_options, dict):
             code_artifact_options = CodeArtifactOptions(**code_artifact_options)
         if isinstance(dev_engines, dict):
@@ -7402,7 +7370,7 @@ class NodeProjectOptions(
         if isinstance(yarn_berry_options, dict):
             yarn_berry_options = YarnBerryOptions(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
-            workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+            workflow_runs_on_group = _projen_04054675.GroupRunnerOptions(**workflow_runs_on_group)
         if isinstance(audit_deps_options, dict):
             audit_deps_options = AuditOptions(**audit_deps_options)
         if isinstance(biome_options, dict):
@@ -7414,19 +7382,19 @@ class NodeProjectOptions(
         if isinstance(check_licenses, dict):
             check_licenses = LicenseCheckerOptions(**check_licenses)
         if isinstance(dependabot_options, dict):
-            dependabot_options = _DependabotOptions_0cedc635(**dependabot_options)
+            dependabot_options = _github_c49f935d.DependabotOptions(**dependabot_options)
         if isinstance(deps_upgrade_options, dict):
             deps_upgrade_options = UpgradeDependenciesOptions(**deps_upgrade_options)
         if isinstance(jest_options, dict):
             jest_options = JestOptions(**jest_options)
         if isinstance(npm_ignore_options, dict):
-            npm_ignore_options = _IgnoreFileOptions_86c48b91(**npm_ignore_options)
+            npm_ignore_options = _projen_04054675.IgnoreFileOptions(**npm_ignore_options)
         if isinstance(prettier_options, dict):
             prettier_options = PrettierOptions(**prettier_options)
         if isinstance(projenrc_js_options, dict):
             projenrc_js_options = ProjenrcOptions(**projenrc_js_options)
         if isinstance(workflow_git_identity, dict):
-            workflow_git_identity = _GitIdentity_6effc3de(**workflow_git_identity)
+            workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7eeaee29)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -7843,25 +7811,27 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
+    def git_ignore_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.IgnoreFileOptions"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFileOptions"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
+    def git_options(self) -> typing.Optional["_projen_04054675.GitOptions"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GitOptions"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
+    def logging(self) -> typing.Optional["_projen_04054675.LoggerOptions"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -7869,7 +7839,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
+        return typing.cast(typing.Optional["_projen_04054675.LoggerOptions"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -7889,13 +7859,13 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional["_Project_57d89203"]:
+    def parent(self) -> typing.Optional["_projen_04054675.Project"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional["_Project_57d89203"], result)
+        return typing.cast(typing.Optional["_projen_04054675.Project"], result)
 
     @builtins.property
     def project_tree(self) -> typing.Optional[builtins.bool]:
@@ -7933,7 +7903,9 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
+    def projenrc_json_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.ProjenrcJsonOptions"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -7941,7 +7913,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
+        return typing.cast(typing.Optional["_projen_04054675.ProjenrcJsonOptions"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -7955,7 +7927,9 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
+    def renovatebot_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.RenovatebotOptions"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -7963,10 +7937,12 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.RenovatebotOptions"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
+    def auto_approve_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.AutoApproveOptions"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -7974,7 +7950,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.AutoApproveOptions"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -7991,7 +7967,9 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
+    def auto_merge_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.AutoMergeOptions"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -8002,7 +7980,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.AutoMergeOptions"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -8040,7 +8018,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
+    def github_options(self) -> typing.Optional["_github_c49f935d.GitHubOptions"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -8048,7 +8026,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GitHubOptions"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -8062,7 +8040,9 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
+    def projen_credentials(
+        self,
+    ) -> typing.Optional["_github_c49f935d.GithubCredentials"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -8070,10 +8050,10 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GithubCredentials"], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
+    def readme(self) -> typing.Optional["_projen_04054675.SampleReadmeProps"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -8085,7 +8065,7 @@ class NodeProjectOptions(
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
+        return typing.cast(typing.Optional["_projen_04054675.SampleReadmeProps"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -8101,7 +8081,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
+    def stale_options(self) -> typing.Optional["_github_c49f935d.StaleOptions"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -8111,7 +8091,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.StaleOptions"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -8749,7 +8729,9 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    def post_build_steps(
+        self,
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Steps to execute after build as part of the release workflow.
 
         :default: []
@@ -8757,7 +8739,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
     def prerelease(self) -> typing.Optional[builtins.str]:
@@ -8796,7 +8778,9 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional["_ReleasableCommits_d481ce10"]:
+    def releasable_commits(
+        self,
+    ) -> typing.Optional["_projen_04054675.ReleasableCommits"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -8804,12 +8788,12 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional["_ReleasableCommits_d481ce10"], result)
+        return typing.cast(typing.Optional["_projen_04054675.ReleasableCommits"], result)
 
     @builtins.property
     def release_branches(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_release_1fa091fd.BranchOptions"]]:
         '''(experimental) Defines additional release branches.
 
         A workflow will be created for each
@@ -8827,7 +8811,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_branches")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_release_1fa091fd.BranchOptions"]], result)
 
     @builtins.property
     def release_environment(self) -> typing.Optional[builtins.str]:
@@ -8887,7 +8871,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_trigger(self) -> typing.Optional["_ReleaseTrigger_e4dc221f"]:
+    def release_trigger(self) -> typing.Optional["_release_1fa091fd.ReleaseTrigger"]:
         '''(experimental) The release trigger to use.
 
         :default: - Continuous releases (``ReleaseTrigger.continuous()``)
@@ -8895,7 +8879,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_trigger")
-        return typing.cast(typing.Optional["_ReleaseTrigger_e4dc221f"], result)
+        return typing.cast(typing.Optional["_release_1fa091fd.ReleaseTrigger"], result)
 
     @builtins.property
     def release_workflow_env(
@@ -8924,13 +8908,13 @@ class NodeProjectOptions(
     @builtins.property
     def release_workflow_setup_steps(
         self,
-    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) A set of workflow steps to execute in order to setup the workflow container.
 
         :stability: experimental
         '''
         result = self._values.get("release_workflow_setup_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
     def versionrc_options(
@@ -8972,7 +8956,9 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def workflow_runs_on_group(
+        self,
+    ) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -8980,7 +8966,7 @@ class NodeProjectOptions(
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
@@ -9166,7 +9152,9 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def dependabot_options(self) -> typing.Optional["_DependabotOptions_0cedc635"]:
+    def dependabot_options(
+        self,
+    ) -> typing.Optional["_github_c49f935d.DependabotOptions"]:
         '''(experimental) Options for dependabot.
 
         :default: - default options
@@ -9174,7 +9162,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("dependabot_options")
-        return typing.cast(typing.Optional["_DependabotOptions_0cedc635"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.DependabotOptions"], result)
 
     @builtins.property
     def deps_upgrade(self) -> typing.Optional[builtins.bool]:
@@ -9243,13 +9231,15 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
+    def npm_ignore_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.IgnoreFileOptions"]:
         '''(experimental) Configuration options for .npmignore file.
 
         :stability: experimental
         '''
         result = self._values.get("npm_ignore_options")
-        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFileOptions"], result)
 
     @builtins.property
     def package(self) -> typing.Optional[builtins.bool]:
@@ -9377,7 +9367,7 @@ class NodeProjectOptions(
     @builtins.property
     def workflow_bootstrap_steps(
         self,
-    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
+    ) -> typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]]:
         '''(experimental) Workflow steps to use in order to bootstrap this repo.
 
         :default: "yarn install --frozen-lockfile && yarn projen"
@@ -9385,10 +9375,10 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("workflow_bootstrap_steps")
-        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
+        return typing.cast(typing.Optional[typing.List["_workflows_2b7f1587.JobStep"]], result)
 
     @builtins.property
-    def workflow_git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
+    def workflow_git_identity(self) -> typing.Optional["_github_c49f935d.GitIdentity"]:
         '''(experimental) The git identity to use in workflows.
 
         :default: - default GitHub Actions user
@@ -9396,7 +9386,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("workflow_git_identity")
-        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GitIdentity"], result)
 
     @builtins.property
     def workflow_node_version(self) -> typing.Optional[builtins.str]:
@@ -9454,7 +9444,7 @@ class NpmAccess(enum.Enum):
 
 
 class NpmConfig(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.NpmConfig",
 ):
@@ -9631,7 +9621,7 @@ class PeerDependencyOptions:
 
 
 class Prettier(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.Prettier",
 ):
@@ -9645,7 +9635,7 @@ class Prettier(
         project: "NodeProject",
         *,
         ignore_file: typing.Optional[builtins.bool] = None,
-        ignore_file_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        ignore_file_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         overrides: typing.Optional[typing.Sequence[typing.Union["PrettierOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
         settings: typing.Optional[typing.Union["PrettierSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         yaml: typing.Optional[builtins.bool] = None,
@@ -9675,7 +9665,7 @@ class Prettier(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: "_Project_57d89203") -> typing.Optional["Prettier"]:
+    def of(cls, project: "_projen_04054675.Project") -> typing.Optional["Prettier"]:
         '''
         :param project: -
 
@@ -9750,12 +9740,12 @@ class Prettier(
 
     @builtins.property
     @jsii.member(jsii_name="ignoreFile")
-    def ignore_file(self) -> typing.Optional["_IgnoreFile_3df2076a"]:
+    def ignore_file(self) -> typing.Optional["_projen_04054675.IgnoreFile"]:
         '''(experimental) The .prettierIgnore file.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_IgnoreFile_3df2076a"], jsii.get(self, "ignoreFile"))
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFile"], jsii.get(self, "ignoreFile"))
 
 
 @jsii.data_type(
@@ -9774,7 +9764,7 @@ class PrettierOptions:
         self,
         *,
         ignore_file: typing.Optional[builtins.bool] = None,
-        ignore_file_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        ignore_file_options: typing.Optional[typing.Union["_projen_04054675.IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         overrides: typing.Optional[typing.Sequence[typing.Union["PrettierOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
         settings: typing.Optional[typing.Union["PrettierSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         yaml: typing.Optional[builtins.bool] = None,
@@ -9790,7 +9780,7 @@ class PrettierOptions:
         :stability: experimental
         '''
         if isinstance(ignore_file_options, dict):
-            ignore_file_options = _IgnoreFileOptions_86c48b91(**ignore_file_options)
+            ignore_file_options = _projen_04054675.IgnoreFileOptions(**ignore_file_options)
         if isinstance(settings, dict):
             settings = PrettierSettings(**settings)
         if __debug__:
@@ -9824,13 +9814,15 @@ class PrettierOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def ignore_file_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
+    def ignore_file_options(
+        self,
+    ) -> typing.Optional["_projen_04054675.IgnoreFileOptions"]:
         '''(experimental) Configuration options for .prettierignore file.
 
         :stability: experimental
         '''
         result = self._values.get("ignore_file_options")
-        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
+        return typing.cast(typing.Optional["_projen_04054675.IgnoreFileOptions"], result)
 
     @builtins.property
     def overrides(self) -> typing.Optional[typing.List["PrettierOverride"]]:
@@ -10440,7 +10432,7 @@ class PrettierSettings:
 
 
 class Projenrc(
-    _ProjenrcFile_50432c7e,
+    _projen_04054675.ProjenrcFile,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.Projenrc",
 ):
@@ -10454,7 +10446,7 @@ class Projenrc(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         filename: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -10589,7 +10581,7 @@ class RenderWorkflowSetupOptions:
     def __init__(
         self,
         *,
-        install_step_configuration: typing.Optional[typing.Union["_JobStepConfiguration_9caff420", typing.Dict[builtins.str, typing.Any]]] = None,
+        install_step_configuration: typing.Optional[typing.Union["_workflows_2b7f1587.JobStepConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options for ``renderWorkflowSetup()``.
@@ -10600,7 +10592,7 @@ class RenderWorkflowSetupOptions:
         :stability: experimental
         '''
         if isinstance(install_step_configuration, dict):
-            install_step_configuration = _JobStepConfiguration_9caff420(**install_step_configuration)
+            install_step_configuration = _workflows_2b7f1587.JobStepConfiguration(**install_step_configuration)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7894334d4e6bef30e70628d87bf6b8f27ab4cf85a14e93ed26d04abcba1356d)
             check_type(argname="argument install_step_configuration", value=install_step_configuration, expected_type=type_hints["install_step_configuration"])
@@ -10614,7 +10606,7 @@ class RenderWorkflowSetupOptions:
     @builtins.property
     def install_step_configuration(
         self,
-    ) -> typing.Optional["_JobStepConfiguration_9caff420"]:
+    ) -> typing.Optional["_workflows_2b7f1587.JobStepConfiguration"]:
         '''(experimental) Configure the install step in the workflow setup.
 
         :default: - ``{ name: "Install dependencies" }``
@@ -10626,7 +10618,7 @@ class RenderWorkflowSetupOptions:
             - { env: { NPM_TOKEN: "token" }} for installing from private npm registry.
         '''
         result = self._values.get("install_step_configuration")
-        return typing.cast(typing.Optional["_JobStepConfiguration_9caff420"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobStepConfiguration"], result)
 
     @builtins.property
     def mutable(self) -> typing.Optional[builtins.bool]:
@@ -12139,7 +12131,7 @@ class TypeScriptModuleResolution(enum.Enum):
 
 
 class TypescriptConfig(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.TypescriptConfig",
 ):
@@ -12149,7 +12141,7 @@ class TypescriptConfig(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         compiler_options: typing.Optional[typing.Union["TypeScriptCompilerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -12295,11 +12287,11 @@ class TypescriptConfig(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_JsonFile_fa8164db":
+    def file(self) -> "_projen_04054675.JsonFile":
         '''
         :stability: experimental
         '''
-        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.JsonFile", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="fileName")
@@ -12513,7 +12505,7 @@ class UpdateSnapshot(enum.Enum):
 
 
 class UpgradeDependencies(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.UpgradeDependencies",
 ):
@@ -12536,7 +12528,7 @@ class UpgradeDependencies(
         signoff: typing.Optional[builtins.bool] = None,
         target: typing.Optional[builtins.str] = None,
         task_name: typing.Optional[builtins.str] = None,
-        types: typing.Optional[typing.Sequence["_DependencyType_6b786d68"]] = None,
+        types: typing.Optional[typing.Sequence["_projen_04054675.DependencyType"]] = None,
         workflow: typing.Optional[builtins.bool] = None,
         workflow_options: typing.Optional[typing.Union["UpgradeDependenciesWorkflowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -12580,7 +12572,7 @@ class UpgradeDependencies(
         jsii.create(self.__class__, self, [project, options])
 
     @jsii.member(jsii_name="addPostBuildSteps")
-    def add_post_build_steps(self, *steps: "_JobStep_c3287c05") -> None:
+    def add_post_build_steps(self, *steps: "_workflows_2b7f1587.JobStep") -> None:
         '''(experimental) Add steps to execute a successful build.
 
         :param steps: workflow steps.
@@ -12594,12 +12586,12 @@ class UpgradeDependencies(
 
     @builtins.property
     @jsii.member(jsii_name="postUpgradeTask")
-    def post_upgrade_task(self) -> "_Task_9fa875b6":
+    def post_upgrade_task(self) -> "_projen_04054675.Task":
         '''(experimental) A task run after the upgrade task.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "postUpgradeTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "postUpgradeTask"))
 
     @builtins.property
     @jsii.member(jsii_name="project")
@@ -12611,37 +12603,39 @@ class UpgradeDependencies(
 
     @builtins.property
     @jsii.member(jsii_name="upgradeTask")
-    def upgrade_task(self) -> "_Task_9fa875b6":
+    def upgrade_task(self) -> "_projen_04054675.Task":
         '''(experimental) The upgrade task.
 
         :stability: experimental
         '''
-        return typing.cast("_Task_9fa875b6", jsii.get(self, "upgradeTask"))
+        return typing.cast("_projen_04054675.Task", jsii.get(self, "upgradeTask"))
 
     @builtins.property
     @jsii.member(jsii_name="workflows")
-    def workflows(self) -> typing.List["_GithubWorkflow_a1772357"]:
+    def workflows(self) -> typing.List["_github_c49f935d.GithubWorkflow"]:
         '''(experimental) The workflows that execute the upgrades.
 
         One workflow per branch.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List["_GithubWorkflow_a1772357"], jsii.get(self, "workflows"))
+        return typing.cast(typing.List["_github_c49f935d.GithubWorkflow"], jsii.get(self, "workflows"))
 
     @builtins.property
     @jsii.member(jsii_name="containerOptions")
-    def container_options(self) -> typing.Optional["_ContainerOptions_f50907af"]:
+    def container_options(
+        self,
+    ) -> typing.Optional["_workflows_2b7f1587.ContainerOptions"]:
         '''(experimental) Container definitions for the upgrade workflow.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_ContainerOptions_f50907af"], jsii.get(self, "containerOptions"))
+        return typing.cast(typing.Optional["_workflows_2b7f1587.ContainerOptions"], jsii.get(self, "containerOptions"))
 
     @container_options.setter
     def container_options(
         self,
-        value: typing.Optional["_ContainerOptions_f50907af"],
+        value: typing.Optional["_workflows_2b7f1587.ContainerOptions"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66ba20de6f144f37e582e192e3ed592a6be0e8bc3d10e3b730af62082afa0010)
@@ -12682,7 +12676,7 @@ class UpgradeDependenciesOptions:
         signoff: typing.Optional[builtins.bool] = None,
         target: typing.Optional[builtins.str] = None,
         task_name: typing.Optional[builtins.str] = None,
-        types: typing.Optional[typing.Sequence["_DependencyType_6b786d68"]] = None,
+        types: typing.Optional[typing.Sequence["_projen_04054675.DependencyType"]] = None,
         workflow: typing.Optional[builtins.bool] = None,
         workflow_options: typing.Optional[typing.Union["UpgradeDependenciesWorkflowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -12879,7 +12873,7 @@ class UpgradeDependenciesOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def types(self) -> typing.Optional[typing.List["_DependencyType_6b786d68"]]:
+    def types(self) -> typing.Optional[typing.List["_projen_04054675.DependencyType"]]:
         '''(experimental) Specify which dependency types the upgrade should operate on.
 
         :default: - All dependency types.
@@ -12887,7 +12881,7 @@ class UpgradeDependenciesOptions:
         :stability: experimental
         '''
         result = self._values.get("types")
-        return typing.cast(typing.Optional[typing.List["_DependencyType_6b786d68"]], result)
+        return typing.cast(typing.Optional[typing.List["_projen_04054675.DependencyType"]], result)
 
     @builtins.property
     def workflow(self) -> typing.Optional[builtins.bool]:
@@ -13031,14 +13025,14 @@ class UpgradeDependenciesWorkflowOptions:
         *,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
         branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-        container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
+        container: typing.Optional[typing.Union["_workflows_2b7f1587.ContainerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
-        permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
-        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
+        permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_github_c49f935d.GithubCredentials"] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         schedule: typing.Optional["UpgradeDependenciesSchedule"] = None,
     ) -> None:
         '''(experimental) Options for ``UpgradeDependencies.workflowOptions``.
@@ -13058,13 +13052,13 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         if isinstance(container, dict):
-            container = _ContainerOptions_f50907af(**container)
+            container = _workflows_2b7f1587.ContainerOptions(**container)
         if isinstance(git_identity, dict):
-            git_identity = _GitIdentity_6effc3de(**git_identity)
+            git_identity = _github_c49f935d.GitIdentity(**git_identity)
         if isinstance(permissions, dict):
-            permissions = _JobPermissions_3b5b53dc(**permissions)
+            permissions = _workflows_2b7f1587.JobPermissions(**permissions)
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59fa39c2475322c21b2f7d03f2f2ada171b7e546b1d88beb8a75baa8238b629e)
             check_type(argname="argument assignees", value=assignees, expected_type=type_hints["assignees"])
@@ -13125,7 +13119,7 @@ class UpgradeDependenciesWorkflowOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def container(self) -> typing.Optional["_ContainerOptions_f50907af"]:
+    def container(self) -> typing.Optional["_workflows_2b7f1587.ContainerOptions"]:
         '''(experimental) Job container options.
 
         :default: - defaults
@@ -13133,7 +13127,7 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         result = self._values.get("container")
-        return typing.cast(typing.Optional["_ContainerOptions_f50907af"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.ContainerOptions"], result)
 
     @builtins.property
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -13147,7 +13141,7 @@ class UpgradeDependenciesWorkflowOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
+    def git_identity(self) -> typing.Optional["_github_c49f935d.GitIdentity"]:
         '''(experimental) The git identity to use for commits.
 
         :default: - default GitHub Actions user
@@ -13155,7 +13149,7 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         result = self._values.get("git_identity")
-        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GitIdentity"], result)
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -13169,7 +13163,7 @@ class UpgradeDependenciesWorkflowOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def permissions(self) -> typing.Optional["_JobPermissions_3b5b53dc"]:
+    def permissions(self) -> typing.Optional["_workflows_2b7f1587.JobPermissions"]:
         '''(experimental) Permissions granted to the upgrade job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``.
 
         :default: ``{ contents: JobPermission.READ }``
@@ -13177,10 +13171,12 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         result = self._values.get("permissions")
-        return typing.cast(typing.Optional["_JobPermissions_3b5b53dc"], result)
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobPermissions"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
+    def projen_credentials(
+        self,
+    ) -> typing.Optional["_github_c49f935d.GithubCredentials"]:
         '''(experimental) Choose a method for authenticating with GitHub for creating the PR.
 
         When using the default github token, PR's created by this workflow
@@ -13194,7 +13190,7 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
+        return typing.cast(typing.Optional["_github_c49f935d.GithubCredentials"], result)
 
     @builtins.property
     def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -13210,7 +13206,7 @@ class UpgradeDependenciesWorkflowOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -13218,7 +13214,7 @@ class UpgradeDependenciesWorkflowOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     @builtins.property
     def schedule(self) -> typing.Optional["UpgradeDependenciesSchedule"]:
@@ -14192,7 +14188,7 @@ class YarnWorkerPoolMode(enum.Enum):
 
 
 class Yarnrc(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.Yarnrc",
 ):
@@ -14202,7 +14198,7 @@ class Yarnrc(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         cache_folder: typing.Optional[builtins.str] = None,
         cache_migration_mode: typing.Optional["YarnCacheMigrationMode"] = None,
@@ -16511,7 +16507,7 @@ def _typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab
     project: NodeProject,
     *,
     assist: typing.Optional[builtins.bool] = None,
-    biome_config: typing.Optional[typing.Union[_BiomeConfiguration_dd1a6c83, typing.Dict[builtins.str, typing.Any]]] = None,
+    biome_config: typing.Optional[typing.Union[_biome_config_8d74827f.BiomeConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     formatter: typing.Optional[builtins.bool] = None,
     ignore_generated_files: typing.Optional[builtins.bool] = None,
     linter: typing.Optional[builtins.bool] = None,
@@ -16522,7 +16518,7 @@ def _typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab
     pass
 
 def _typecheckingstub__02197aa3a69f17c43ff359679227be724559aba6ef0881da4e04e9a0bf66d078(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16536,7 +16532,7 @@ def _typecheckingstub__5609a4432d207b19ee177e477fdf5e275031b8ec1346b00ac4bbfdf93
 def _typecheckingstub__b53a2988afa9afc23bda2fe96e2de8ffaff18ab919e00b69a6c8d3d229f3dcc1(
     *,
     assist: typing.Optional[builtins.bool] = None,
-    biome_config: typing.Optional[typing.Union[_BiomeConfiguration_dd1a6c83, typing.Dict[builtins.str, typing.Any]]] = None,
+    biome_config: typing.Optional[typing.Union[_biome_config_8d74827f.BiomeConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     formatter: typing.Optional[builtins.bool] = None,
     ignore_generated_files: typing.Optional[builtins.bool] = None,
     linter: typing.Optional[builtins.bool] = None,
@@ -16550,29 +16546,29 @@ def _typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb573
     *,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
-    permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
-    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
+    permissions: typing.Optional[typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
+    pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workflow_triggers: typing.Optional[typing.Union[_workflows_2b7f1587.Triggers, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
     mutable_install: typing.Optional[builtins.bool] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__61e51544f8a1488a41b14a0ee08df5b86eb83b8852c5ea8c95747007b7c012de(
     *,
-    bundle_task: _Task_9fa875b6,
+    bundle_task: _projen_04054675.Task,
     outdir: builtins.str,
     outfile: builtins.str,
-    watch_task: typing.Optional[_Task_9fa875b6] = None,
+    watch_task: typing.Optional[_projen_04054675.Task] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b39a2a4441a612906ad5a7b87f1a6c53ed88fb86f4e31bd1a7283a06a2e9ebf7(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     assets_dir: typing.Optional[builtins.str] = None,
     esbuild_version: typing.Optional[builtins.str] = None,
@@ -16583,7 +16579,7 @@ def _typecheckingstub__b39a2a4441a612906ad5a7b87f1a6c53ed88fb86f4e31bd1a7283a06a
     pass
 
 def _typecheckingstub__7bef383122352b305e57b5282e27bdaa8a9889f1dd224d03d28a1c2cc73120b0(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16688,7 +16684,7 @@ def _typecheckingstub__41d20792db723180b2558eb351d1b15e6cc51985fdc95dd8481c5fae7
     file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     prettier: typing.Optional[builtins.bool] = None,
-    sort_extends: typing.Optional[_ICompareString_f119e19c] = None,
+    sort_extends: typing.Optional[_projen_04054675.ICompareString] = None,
     ts_always_try_types: typing.Optional[builtins.bool] = None,
     tsconfig_path: typing.Optional[builtins.str] = None,
     yaml: typing.Optional[builtins.bool] = None,
@@ -16697,7 +16693,7 @@ def _typecheckingstub__41d20792db723180b2558eb351d1b15e6cc51985fdc95dd8481c5fae7
     pass
 
 def _typecheckingstub__9e06eae7f2f48a5d785ab71742d0b102d7eb8b056db43d7828d871b53a8004a5(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16756,7 +16752,7 @@ def _typecheckingstub__26892c968b7bf4d64dd2597bbdabf1f1e9ced92002225a4eedfae6cbe
     file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     prettier: typing.Optional[builtins.bool] = None,
-    sort_extends: typing.Optional[_ICompareString_f119e19c] = None,
+    sort_extends: typing.Optional[_projen_04054675.ICompareString] = None,
     ts_always_try_types: typing.Optional[builtins.bool] = None,
     tsconfig_path: typing.Optional[builtins.str] = None,
     yaml: typing.Optional[builtins.bool] = None,
@@ -16813,7 +16809,7 @@ def _typecheckingstub__7f22158e02967239263c228b0eadfa82f5edd4d7b172b8506a5b32bc4
     pass
 
 def _typecheckingstub__f3f7fcc78583eceb598afdcb95edc0f1b1e50996f7069e12c4379c4826f26209(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17011,7 +17007,7 @@ def _typecheckingstub__5ecb3eb2c80d8dc313b42f1298a6228d79b42581771da7a571d2d56de
     pass
 
 def _typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3e9c846b(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
     allow_library_dependencies: typing.Optional[builtins.bool] = None,
@@ -17058,7 +17054,7 @@ def _typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3
     pass
 
 def _typecheckingstub__ed59ebc5bed88895c144548cfa5a6449f2ddb633539f6c812584b57eb0cd9429(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17251,7 +17247,7 @@ def _typecheckingstub__224de74cc912dc2ec9fe8eebc20f7a52b63c2e04ee88bb72ef9f775a2
     pass
 
 def _typecheckingstub__e0dba0b4edb6058c71da788f75e31bbfa6a73ef88319ba1c5fbe6f3606470049(
-    task: _Task_9fa875b6,
+    task: _projen_04054675.Task,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17267,29 +17263,29 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     *,
     name: builtins.str,
     commit_generated: typing.Optional[builtins.bool] = None,
-    git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-    git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-    logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_ignore_options: typing.Optional[typing.Union[_projen_04054675.IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_options: typing.Optional[typing.Union[_projen_04054675.GitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[typing.Union[_projen_04054675.LoggerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
-    parent: typing.Optional[_Project_57d89203] = None,
+    parent: typing.Optional[_projen_04054675.Project] = None,
     project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
-    projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+    projenrc_json_options: typing.Optional[typing.Union[_projen_04054675.ProjenrcJsonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     renovatebot: typing.Optional[builtins.bool] = None,
-    renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-    auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+    renovatebot_options: typing.Optional[typing.Union[_projen_04054675.RenovatebotOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    auto_approve_options: typing.Optional[typing.Union[_github_c49f935d.AutoApproveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_merge: typing.Optional[builtins.bool] = None,
-    auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+    auto_merge_options: typing.Optional[typing.Union[_github_c49f935d.AutoMergeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     clobber: typing.Optional[builtins.bool] = None,
     dev_container: typing.Optional[builtins.bool] = None,
     github: typing.Optional[builtins.bool] = None,
-    github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+    github_options: typing.Optional[typing.Union[_github_c49f935d.GitHubOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     gitpod: typing.Optional[builtins.bool] = None,
-    projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
-    readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+    projen_credentials: typing.Optional[_github_c49f935d.GithubCredentials] = None,
+    readme: typing.Optional[typing.Union[_projen_04054675.SampleReadmeProps, typing.Dict[builtins.str, typing.Any]]] = None,
     stale: typing.Optional[builtins.bool] = None,
-    stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+    stale_options: typing.Optional[typing.Union[_github_c49f935d.StaleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     vscode: typing.Optional[builtins.bool] = None,
     add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
     allow_library_dependencies: typing.Optional[builtins.bool] = None,
@@ -17337,24 +17333,24 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     min_major_version: typing.Optional[jsii.Number] = None,
     next_version_command: typing.Optional[builtins.str] = None,
     npm_dist_tag: typing.Optional[builtins.str] = None,
-    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+    post_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     prerelease: typing.Optional[builtins.str] = None,
     publish_dry_run: typing.Optional[builtins.bool] = None,
     publish_tasks: typing.Optional[builtins.bool] = None,
-    releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-    release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+    releasable_commits: typing.Optional[_projen_04054675.ReleasableCommits] = None,
+    release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_release_1fa091fd.BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
     release_environment: typing.Optional[builtins.str] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
-    release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+    release_trigger: typing.Optional[_release_1fa091fd.ReleaseTrigger] = None,
     release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
-    release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     workflow_container_image: typing.Optional[builtins.str] = None,
     workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    workflow_runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     artifacts_directory: typing.Optional[builtins.str] = None,
     audit_deps: typing.Optional[builtins.bool] = None,
     audit_deps_options: typing.Optional[typing.Union[AuditOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -17371,14 +17367,14 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     copyright_period: typing.Optional[builtins.str] = None,
     default_release_branch: typing.Optional[builtins.str] = None,
     dependabot: typing.Optional[builtins.bool] = None,
-    dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+    dependabot_options: typing.Optional[typing.Union[_github_c49f935d.DependabotOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deps_upgrade: typing.Optional[builtins.bool] = None,
     deps_upgrade_options: typing.Optional[typing.Union[UpgradeDependenciesOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest: typing.Optional[builtins.bool] = None,
     jest_options: typing.Optional[typing.Union[JestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     npmignore_enabled: typing.Optional[builtins.bool] = None,
-    npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+    npm_ignore_options: typing.Optional[typing.Union[_projen_04054675.IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     package: typing.Optional[builtins.bool] = None,
     prettier: typing.Optional[builtins.bool] = None,
     prettier_options: typing.Optional[typing.Union[PrettierOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -17390,8 +17386,8 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
     release: typing.Optional[builtins.bool] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
-    workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-    workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+    workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workflow_git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_package_cache: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -17440,7 +17436,7 @@ def _typecheckingstub__fc54704eb480a73e451f86bffd16f1d9313443e3d2f9b556889330fd0
     project: NodeProject,
     *,
     ignore_file: typing.Optional[builtins.bool] = None,
-    ignore_file_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+    ignore_file_options: typing.Optional[typing.Union[_projen_04054675.IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     overrides: typing.Optional[typing.Sequence[typing.Union[PrettierOverride, typing.Dict[builtins.str, typing.Any]]]] = None,
     settings: typing.Optional[typing.Union[PrettierSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     yaml: typing.Optional[builtins.bool] = None,
@@ -17449,7 +17445,7 @@ def _typecheckingstub__fc54704eb480a73e451f86bffd16f1d9313443e3d2f9b556889330fd0
     pass
 
 def _typecheckingstub__f1fd367ba7a3d51b9e260e79983f7d6fb9647a9bad81693c033d3218ba83e83f(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17463,7 +17459,7 @@ def _typecheckingstub__564118067a14c8c300f791c1ea85edc55544d5c6098386e20c2b6bc3e
 def _typecheckingstub__83f36238b807da08b92be98c6d4956285442f99303983562db38dda7f23c13ae(
     *,
     ignore_file: typing.Optional[builtins.bool] = None,
-    ignore_file_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+    ignore_file_options: typing.Optional[typing.Union[_projen_04054675.IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     overrides: typing.Optional[typing.Sequence[typing.Union[PrettierOverride, typing.Dict[builtins.str, typing.Any]]]] = None,
     settings: typing.Optional[typing.Union[PrettierSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     yaml: typing.Optional[builtins.bool] = None,
@@ -17512,7 +17508,7 @@ def _typecheckingstub__887661cb2874a1d4a18112ca0d8607d9340a20c3becbf5d16df966a4d
     pass
 
 def _typecheckingstub__1aaddb790f6b7d088afb273f85e8c279374e3017865fb4c91b0780864fb6e306(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     filename: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17528,7 +17524,7 @@ def _typecheckingstub__98c3b878e5a2d5b01df88ea94af1a0f3f101f4340d3dba514d5e748ef
 
 def _typecheckingstub__f7894334d4e6bef30e70628d87bf6b8f27ab4cf85a14e93ed26d04abcba1356d(
     *,
-    install_step_configuration: typing.Optional[typing.Union[_JobStepConfiguration_9caff420, typing.Dict[builtins.str, typing.Any]]] = None,
+    install_step_configuration: typing.Optional[typing.Union[_workflows_2b7f1587.JobStepConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17618,7 +17614,7 @@ def _typecheckingstub__c3368fe3a3107764de1a64c16f7fe4c15d510477a888b2a74df2afb14
     pass
 
 def _typecheckingstub__bdd8e9cd126102b8184e52538d49523cef64724ec6ad410a5e2d5169e1ef0fe0(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     compiler_options: typing.Optional[typing.Union[TypeScriptCompilerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -17701,7 +17697,7 @@ def _typecheckingstub__497e18a2c8dc3200cff8b21dfad7c418d29517aa6d67e2a2555ee78fa
     signoff: typing.Optional[builtins.bool] = None,
     target: typing.Optional[builtins.str] = None,
     task_name: typing.Optional[builtins.str] = None,
-    types: typing.Optional[typing.Sequence[_DependencyType_6b786d68]] = None,
+    types: typing.Optional[typing.Sequence[_projen_04054675.DependencyType]] = None,
     workflow: typing.Optional[builtins.bool] = None,
     workflow_options: typing.Optional[typing.Union[UpgradeDependenciesWorkflowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -17709,13 +17705,13 @@ def _typecheckingstub__497e18a2c8dc3200cff8b21dfad7c418d29517aa6d67e2a2555ee78fa
     pass
 
 def _typecheckingstub__ff92c41406c3198455d1dfec862b6c0109c8239ff2a3eed09afaaaf67774467b(
-    *steps: _JobStep_c3287c05,
+    *steps: _workflows_2b7f1587.JobStep,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__66ba20de6f144f37e582e192e3ed592a6be0e8bc3d10e3b730af62082afa0010(
-    value: typing.Optional[_ContainerOptions_f50907af],
+    value: typing.Optional[_workflows_2b7f1587.ContainerOptions],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17732,7 +17728,7 @@ def _typecheckingstub__0f7b896c11469470869bc4bfc86c9bb13fd308223e316ba71124c00b5
     signoff: typing.Optional[builtins.bool] = None,
     target: typing.Optional[builtins.str] = None,
     task_name: typing.Optional[builtins.str] = None,
-    types: typing.Optional[typing.Sequence[_DependencyType_6b786d68]] = None,
+    types: typing.Optional[typing.Sequence[_projen_04054675.DependencyType]] = None,
     workflow: typing.Optional[builtins.bool] = None,
     workflow_options: typing.Optional[typing.Union[UpgradeDependenciesWorkflowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -17749,14 +17745,14 @@ def _typecheckingstub__59fa39c2475322c21b2f7d03f2f2ada171b7e546b1d88beb8a75baa82
     *,
     assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
     branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-    container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+    container: typing.Optional[typing.Union[_workflows_2b7f1587.ContainerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+    git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     labels: typing.Optional[typing.Sequence[builtins.str]] = None,
-    permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
-    projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+    permissions: typing.Optional[typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
+    projen_credentials: typing.Optional[_github_c49f935d.GithubCredentials] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     schedule: typing.Optional[UpgradeDependenciesSchedule] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17846,7 +17842,7 @@ def _typecheckingstub__9602b94dde7b19c12fda87da7ba816314ccf15910d8899b1a960aa8b7
     pass
 
 def _typecheckingstub__b92a48df0fb86c0bb0ca2fc52f77733ece6a12ab360c8248f866d7bc1270b9b0(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     cache_folder: typing.Optional[builtins.str] = None,
     cache_migration_mode: typing.Optional[YarnCacheMigrationMode] = None,

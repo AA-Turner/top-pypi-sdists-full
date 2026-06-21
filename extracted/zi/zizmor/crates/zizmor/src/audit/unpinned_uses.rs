@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use github_actions_models::common::Uses;
 use subfeature::Subfeature;
 use yamlpatch::{Op, Patch};
@@ -5,10 +7,10 @@ use yamlpatch::{Op, Patch};
 use super::{Audit, AuditLoadError, AuditState, audit_meta};
 use crate::audit::AuditError;
 use crate::config::{Config, UsesPolicy};
-use crate::finding::location::{Locatable, Routable};
+use crate::finding::location::{Locatable, Routable as _};
 use crate::finding::{Confidence, Finding, Fix, Persona, Severity};
 use crate::github;
-use crate::models::uses::{RepositoryUsesExt, RepositoryUsesPattern};
+use crate::models::uses::{RepositoryUsesExt as _, RepositoryUsesPattern};
 use crate::models::version::Version;
 use crate::models::workflow::ReusableWorkflowCallJob;
 use crate::models::{
@@ -70,6 +72,19 @@ impl UnpinnedUses {
             }
         };
 
+        // Resolve the commit back to its longest tag; pinning to the full
+        // version avoids any later `ref-version-mismatch` findings when the
+        // major tag is mutated by the upstream.
+        let longest_tag = match client
+            .longest_tag_for_commit(uses.owner(), uses.repo(), &commit)
+            .await
+        {
+            Ok(Some(tag)) => Cow::Owned(tag.name),
+            // Our original tag -> commit lookup succeeded, but this reverse lookup
+            // failed, which makes no sense. Just fall back to what we know.
+            _ => Cow::Borrowed(uses.git_ref()),
+        };
+
         let action = if let Some(subpath) = uses.subpath() {
             format!("{}/{}", uses.slug(), subpath)
         } else {
@@ -91,7 +106,7 @@ impl UnpinnedUses {
                 Patch {
                     route: parent.route().with_key("uses"),
                     operation: Op::EmplaceComment {
-                        new: format!("# {ref}", ref = uses.git_ref()).into(),
+                        new: format!("# {longest_tag}").into(),
                     },
                 },
             ],
@@ -296,7 +311,7 @@ jobs:
         uses: actions/checkout@v6.0.1
 "#;
 
-        let key = InputKey::local("fakegroup".into(), "test_unpinned_uses.yml", None::<&str>);
+        let key = InputKey::local("fakegroup".into(), "test_unpinned_uses.yml", None, None);
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
 
         let state = crate::state::AuditState::new(
@@ -350,7 +365,7 @@ jobs:
 
         let workflow_content = workflow_content.replace("\n", "\r\n");
 
-        let key = InputKey::local("fakegroup".into(), "test_unpinned_uses.yml", None::<&str>);
+        let key = InputKey::local("fakegroup".into(), "test_unpinned_uses.yml", None, None);
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
 
         let state = crate::state::AuditState::new(
@@ -405,7 +420,8 @@ jobs:
         let key = InputKey::local(
             "fakegroup".into(),
             "test_unpinned_uses_overwrites_comment.yml",
-            None::<&str>,
+            None,
+            None,
         );
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
 
@@ -457,7 +473,7 @@ jobs:
         uses: actions/checkout@v6.0.1
 "#;
 
-        let key = InputKey::local("fakegroup".into(), "test_unpinned_uses.yml", None::<&str>);
+        let key = InputKey::local("fakegroup".into(), "test_unpinned_uses.yml", None, None);
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
 
         let state = crate::state::AuditState::new(
@@ -511,7 +527,8 @@ jobs:
         let key = InputKey::local(
             "fakegroup".into(),
             "test_unpinned_uses_subpath.yml",
-            None::<&str>,
+            None,
+            None,
         );
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
 
@@ -549,6 +566,65 @@ jobs:
         ");
     }
 
+    /// Tests that we expand a major version ref like `@v1` to the full version `v1.2.0`
+    /// in the fix's inserted comment.
+    #[tokio::test]
+    async fn test_fix_major_version_pins_to_full_version() {
+        let workflow_content = r#"
+name: Test
+on: push
+permissions: {}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with major-only ref
+        uses: actions/checkout@v1
+"#;
+
+        let key = InputKey::local(
+            "fakegroup".into(),
+            "test_unpinned_uses_major.yml",
+            None,
+            None,
+        );
+        let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
+
+        let state = crate::state::AuditState::new(
+            false,
+            Some(
+                github::Client::new(
+                    &github::GitHubHost::default(),
+                    &github::GitHubToken::new(&std::env::var("GH_TOKEN").unwrap()).unwrap(),
+                    "/tmp".into(),
+                )
+                .unwrap(),
+            ),
+        );
+
+        let audit = UnpinnedUses::new(&state).unwrap();
+
+        let input = workflow.into();
+        let findings = audit
+            .audit(UnpinnedUses::ident(), &input, &Config::default())
+            .await
+            .unwrap();
+
+        let new_doc = findings[0].fixes[0].apply(input.as_document()).unwrap();
+        insta::assert_snapshot!(new_doc.source(), @"
+
+        name: Test
+        on: push
+        permissions: {}
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - name: Checkout with major-only ref
+                uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e # v1.2.0
+        ");
+    }
+
     #[tokio::test]
     async fn test_no_fix_for_already_pinned() {
         let workflow_content = r#"
@@ -566,7 +642,8 @@ jobs:
         let key = InputKey::local(
             "fakegroup".into(),
             "test_no_fix_for_already_pinned.yml",
-            None::<&str>,
+            None,
+            None,
         );
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
 
@@ -608,7 +685,8 @@ jobs:
         let key = InputKey::local(
             "fakegroup".into(),
             "test_no_fix_for_non_version_ref.yml",
-            None::<&str>,
+            None,
+            None,
         );
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
 

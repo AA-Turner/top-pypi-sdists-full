@@ -1,0 +1,607 @@
+use tower_lsp::lsp_types::InsertTextFormat;
+
+use crate::{
+    TextEdit,
+    completion::completion_hint::{AddLeadingComma, AddTrailingComma},
+};
+
+use super::CompletionHint;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompletionTextEdit {
+    Edit(TextEdit),
+    InsertAndReplace(InsertReplaceEdit),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InsertReplaceEdit {
+    pub new_text: String,
+    pub insert: tombi_text::Range,
+    pub replace: tombi_text::Range,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompletionEdit {
+    pub text_edit: CompletionTextEdit,
+    pub insert_text_format: Option<InsertTextFormat>,
+    pub additional_text_edits: Option<Vec<TextEdit>>,
+}
+
+impl CompletionEdit {
+    pub fn new_literal(
+        label: &str,
+        position: tombi_text::Position,
+        completion_hint: Option<CompletionHint>,
+    ) -> Option<Self> {
+        match completion_hint {
+            Some(
+                CompletionHint::DotTrigger { cleanup_range, .. }
+                | CompletionHint::EqualTrigger { cleanup_range, .. },
+            ) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(" = {label}"),
+                    range: tombi_text::Range::at(position),
+                }),
+                insert_text_format: None,
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::InArray {
+                add_leading_comma,
+                add_trailing_comma,
+            }) => {
+                let new_text = match add_trailing_comma {
+                    Some(_) => format!("${{1:{label}}},$0"),
+                    None => format!("${{0:{label}}}"),
+                };
+                let additional_text_edits =
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, position);
+
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text,
+                        range: tombi_text::Range::at(position),
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits,
+                })
+            }
+            Some(CompletionHint::InTableHeader | CompletionHint::Comma { .. }) | None => None,
+        }
+    }
+
+    pub fn new_selectable_literal(
+        label: &str,
+        position: tombi_text::Position,
+        completion_hint: Option<CompletionHint>,
+    ) -> Option<Self> {
+        match completion_hint {
+            Some(
+                CompletionHint::DotTrigger { cleanup_range, .. }
+                | CompletionHint::EqualTrigger { cleanup_range, .. },
+            ) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(" = ${{0:{label}}}"),
+                    range: tombi_text::Range::at(position),
+                }),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            _ => None,
+        }
+    }
+
+    pub fn new_string_literal(
+        quote: char,
+        position: tombi_text::Position,
+        completion_hint: Option<CompletionHint>,
+    ) -> Option<Self> {
+        match completion_hint {
+            Some(
+                CompletionHint::DotTrigger { cleanup_range, .. }
+                | CompletionHint::EqualTrigger { cleanup_range, .. },
+            ) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(" = {quote}$1{quote}$0"),
+                    range: tombi_text::Range::at(position),
+                }),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::InArray {
+                add_leading_comma,
+                add_trailing_comma,
+            }) => {
+                let new_text = match add_trailing_comma {
+                    Some(_) => format!("{quote}$1{quote},$0"),
+                    None => format!("{quote}$1{quote}$0"),
+                };
+                let additional_text_edits =
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, position);
+
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text,
+                        range: tombi_text::Range::at(position),
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits,
+                })
+            }
+            Some(CompletionHint::InTableHeader | CompletionHint::Comma { .. }) | None => {
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text: format!("{quote}$1{quote}$0"),
+                        range: tombi_text::Range::at(position),
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits: None,
+                })
+            }
+        }
+    }
+
+    pub fn new_string_literal_while_editing(
+        label: &str,
+        value_range: tombi_text::Range,
+    ) -> Option<Self> {
+        Some(Self {
+            text_edit: CompletionTextEdit::Edit(TextEdit {
+                new_text: label.to_string(),
+                range: value_range,
+            }),
+            insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+            additional_text_edits: None,
+        })
+    }
+
+    pub fn new_array_literal(
+        position: tombi_text::Position,
+        completion_hint: Option<CompletionHint>,
+    ) -> Option<Self> {
+        match completion_hint {
+            Some(
+                CompletionHint::DotTrigger { cleanup_range, .. }
+                | CompletionHint::EqualTrigger { cleanup_range, .. },
+            ) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: " = [$1]$0".to_string(),
+                    range: tombi_text::Range::at(position),
+                }),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::InArray {
+                add_leading_comma,
+                add_trailing_comma,
+            }) => {
+                let new_text = match add_trailing_comma {
+                    Some(_) => "[$1],$0".to_string(),
+                    None => "[$1]$0".to_string(),
+                };
+                let additional_text_edits =
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, position);
+
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text,
+                        range: tombi_text::Range::at(position),
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits,
+                })
+            }
+            Some(CompletionHint::InTableHeader | CompletionHint::Comma { .. }) | None => {
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text: "[$1]$0".to_string(),
+                        range: tombi_text::Range::at(position),
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits: None,
+                })
+            }
+        }
+    }
+
+    pub fn new_inline_table(
+        position: tombi_text::Position,
+        completion_hint: Option<CompletionHint>,
+    ) -> Option<Self> {
+        match completion_hint {
+            Some(
+                CompletionHint::DotTrigger { cleanup_range, .. }
+                | CompletionHint::EqualTrigger { cleanup_range, .. },
+            ) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: " = { $1 }$0".to_string(),
+                    range: tombi_text::Range::at(position),
+                }),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::InArray {
+                add_leading_comma,
+                add_trailing_comma,
+            }) => {
+                let new_text = match add_trailing_comma {
+                    Some(_) => "{ $1 },$0".to_string(),
+                    None => "{ $1 }$0".to_string(),
+                };
+                let additional_text_edits =
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, position);
+
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text,
+                        range: tombi_text::Range::at(position),
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits,
+                })
+            }
+            Some(CompletionHint::InTableHeader) => None,
+            Some(CompletionHint::Comma { .. }) | None => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: "{ $1 }$0".to_string(),
+                    range: tombi_text::Range::at(position),
+                }),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                additional_text_edits: None,
+            }),
+        }
+    }
+
+    pub fn new_key(
+        key_name: &str,
+        key_range: tombi_text::Range,
+        completion_hint: Option<CompletionHint>,
+    ) -> Option<Self> {
+        match completion_hint {
+            Some(CompletionHint::InArray {
+                add_leading_comma,
+                add_trailing_comma,
+            }) => {
+                let new_text = match add_trailing_comma {
+                    Some(_) => format!("{{ {key_name}$1 }},$0"),
+                    None => format!("{{ {key_name}$1 }}$0"),
+                };
+                let additional_text_edits =
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_range.start);
+
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text,
+                        range: key_range,
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits,
+                })
+            }
+            Some(CompletionHint::EqualTrigger { cleanup_range, .. }) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(" = {{ {key_name}$1 }}$0"),
+                    range: tombi_text::Range::at(cleanup_range.end),
+                }),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::DotTrigger { cleanup_range, .. }) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(".{key_name}"),
+                    range: tombi_text::Range::at(cleanup_range.end),
+                }),
+                insert_text_format: None,
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::InTableHeader | CompletionHint::Comma { .. }) | None => {
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text: key_name.to_string(),
+                        range: key_range,
+                    }),
+                    insert_text_format: None,
+                    additional_text_edits: None,
+                })
+            }
+        }
+    }
+
+    pub fn new_key_with_literal(
+        key_name: &str,
+        key_range: tombi_text::Range,
+        value_label: &str,
+        completion_hint: Option<CompletionHint>,
+    ) -> Option<Self> {
+        match completion_hint {
+            Some(CompletionHint::InArray {
+                add_leading_comma,
+                add_trailing_comma,
+            }) => {
+                let new_text = match add_trailing_comma {
+                    Some(_) => format!("{{ {key_name} = {value_label} }},$0"),
+                    None => format!("{{ {key_name} = {value_label} }}$0"),
+                };
+                let additional_text_edits =
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_range.start);
+
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text,
+                        range: key_range,
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits,
+                })
+            }
+            Some(CompletionHint::EqualTrigger { cleanup_range, .. }) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(" = {{ {key_name} = {value_label} }}"),
+                    range: tombi_text::Range::at(cleanup_range.end),
+                }),
+                insert_text_format: None,
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::DotTrigger { cleanup_range, .. }) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(".{key_name} = {value_label}"),
+                    range: tombi_text::Range::at(cleanup_range.end),
+                }),
+                insert_text_format: None,
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::Comma { .. }) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!("{key_name} = {value_label}"),
+                    range: key_range,
+                }),
+                insert_text_format: None,
+                additional_text_edits: None,
+            }),
+            Some(CompletionHint::InTableHeader) | None => None,
+        }
+    }
+
+    pub fn new_additional_key(
+        key_name: &str,
+        key_range: tombi_text::Range,
+        completion_hint: Option<CompletionHint>,
+    ) -> Option<Self> {
+        match completion_hint {
+            Some(CompletionHint::InArray {
+                add_leading_comma,
+                add_trailing_comma,
+            }) => {
+                let new_text = match add_trailing_comma {
+                    Some(_) => format!("{{ ${{1:{key_name}}} }},$0"),
+                    None => format!("{{ ${{1:{key_name}}} }}$0"),
+                };
+                let additional_text_edits =
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_range.start);
+
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text,
+                        range: key_range,
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits,
+                })
+            }
+            Some(CompletionHint::EqualTrigger { cleanup_range, .. }) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(" = {{ ${{1:{key_name}}} }}$0"),
+                    range: tombi_text::Range::at(cleanup_range.end),
+                }),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::DotTrigger { cleanup_range, .. }) => Some(Self {
+                text_edit: CompletionTextEdit::Edit(TextEdit {
+                    new_text: format!(".${{0:{key_name}}}"),
+                    range: tombi_text::Range::at(cleanup_range.end),
+                }),
+                insert_text_format: None,
+                additional_text_edits: Some(vec![TextEdit {
+                    range: cleanup_range,
+                    new_text: "".to_string(),
+                }]),
+            }),
+            Some(CompletionHint::InTableHeader | CompletionHint::Comma { .. }) | None => {
+                Some(Self {
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        new_text: format!("${{0:{key_name}}}"),
+                        range: key_range,
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    additional_text_edits: None,
+                })
+            }
+        }
+    }
+
+    pub fn new_magic_trigger(trigger: &str, position: tombi_text::Position) -> Option<Self> {
+        Some(Self {
+            text_edit: CompletionTextEdit::Edit(TextEdit {
+                new_text: trigger.to_string(),
+                range: tombi_text::Range::at(position),
+            }),
+            insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+            additional_text_edits: None,
+        })
+    }
+
+    pub fn new_schema_comment_directive(
+        position: tombi_text::Position,
+        comment_range: tombi_text::Range,
+        text_document_uri: &tombi_uri::Uri,
+    ) -> Option<Self> {
+        let file_name = std::path::Path::new(text_document_uri.path())
+            .file_stem() // "ccc"
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown")
+            .to_lowercase();
+
+        let schema_uri = format!(
+            "https://{}/{}.json",
+            tombi_uri::schemastore_hostname!(),
+            file_name
+        );
+
+        Some(Self {
+            text_edit: CompletionTextEdit::Edit(TextEdit {
+                new_text: format!("#:schema ${{0:{schema_uri}}}"),
+                range: tombi_text::Range::at(position),
+            }),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            additional_text_edits: Some(vec![TextEdit {
+                range: comment_range,
+                new_text: "".to_string(),
+            }]),
+        })
+    }
+
+    pub fn new_comment_directive(
+        directive_name: &str,
+        position: tombi_text::Position,
+        comment_range: tombi_text::Range,
+    ) -> Option<Self> {
+        Some(Self {
+            text_edit: CompletionTextEdit::Edit(TextEdit {
+                new_text: format!("#:{directive_name} "),
+                range: tombi_text::Range::at(position),
+            }),
+            insert_text_format: None,
+            additional_text_edits: Some(vec![TextEdit {
+                range: comment_range,
+                new_text: "".to_string(),
+            }]),
+        })
+    }
+
+    pub fn with_position(mut self, position: tombi_text::Position) -> Self {
+        fn offset(range: tombi_text::Range, position: tombi_text::Position) -> tombi_text::Range {
+            let start = tombi_text::Position::new(
+                range.start.line + position.line,
+                range.start.column + position.column,
+            );
+            let end = tombi_text::Position::new(
+                range.end.line + position.line,
+                range.end.column + position.column,
+            );
+
+            tombi_text::Range::new(start, end)
+        }
+
+        self.text_edit = match self.text_edit {
+            CompletionTextEdit::Edit(text_edit) => CompletionTextEdit::Edit(TextEdit {
+                range: offset(text_edit.range, position),
+                new_text: text_edit.new_text,
+            }),
+            CompletionTextEdit::InsertAndReplace(insert_replace_edit) => {
+                CompletionTextEdit::InsertAndReplace(InsertReplaceEdit {
+                    insert: offset(insert_replace_edit.insert, position),
+                    replace: offset(insert_replace_edit.replace, position),
+                    new_text: insert_replace_edit.new_text,
+                })
+            }
+        };
+
+        if let Some(edits) = &mut self.additional_text_edits {
+            for edit in edits {
+                edit.range = offset(edit.range, position);
+            }
+        }
+
+        self
+    }
+}
+
+fn head_comma_text_edits(
+    add_leading_comma: Option<AddLeadingComma>,
+    _add_trailing_comma: Option<AddTrailingComma>,
+    cursor_position: tombi_text::Position,
+) -> Option<Vec<TextEdit>> {
+    if let Some(AddLeadingComma { start_position }) = add_leading_comma {
+        let new_text = if start_position.line == cursor_position.line {
+            ", ".to_string()
+        } else {
+            format!(
+                ",{newlines}{spaces}",
+                newlines = "\n"
+                    .repeat((cursor_position.line.saturating_sub(start_position.line)) as usize),
+                spaces = " ".repeat(cursor_position.column as usize)
+            )
+        };
+
+        Some(vec![TextEdit {
+            range: tombi_text::Range {
+                start: start_position,
+                end: cursor_position,
+            },
+            new_text,
+        }])
+    } else {
+        None
+    }
+}
+
+impl tombi_text::FromLsp<InsertReplaceEdit> for tower_lsp::lsp_types::InsertReplaceEdit {
+    fn from_lsp(
+        source: InsertReplaceEdit,
+        line_index: &tombi_text::LineIndex,
+    ) -> tower_lsp::lsp_types::InsertReplaceEdit {
+        tower_lsp::lsp_types::InsertReplaceEdit {
+            new_text: source.new_text,
+            insert: tombi_text::IntoLsp::into_lsp(source.insert, line_index),
+            replace: tombi_text::IntoLsp::into_lsp(source.replace, line_index),
+        }
+    }
+}
+
+impl tombi_text::FromLsp<CompletionTextEdit> for tower_lsp::lsp_types::CompletionTextEdit {
+    fn from_lsp(
+        source: CompletionTextEdit,
+        line_index: &tombi_text::LineIndex,
+    ) -> tower_lsp::lsp_types::CompletionTextEdit {
+        match source {
+            CompletionTextEdit::Edit(text_edit) => tower_lsp::lsp_types::CompletionTextEdit::Edit(
+                tombi_text::IntoLsp::into_lsp(text_edit, line_index),
+            ),
+            CompletionTextEdit::InsertAndReplace(insert_replace_edit) => {
+                tower_lsp::lsp_types::CompletionTextEdit::InsertAndReplace(
+                    tombi_text::IntoLsp::into_lsp(insert_replace_edit, line_index),
+                )
+            }
+        }
+    }
+}

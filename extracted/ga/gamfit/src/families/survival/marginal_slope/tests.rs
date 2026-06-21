@@ -7,31 +7,12 @@ use approx::assert_relative_eq;
 use faer::sparse::{SparseColMat, Triplet};
 use ndarray::array;
 
-/// `with_row_context` must splice `at row N` between the reason prefix and
-/// the `:` details separator so a scalar-kernel error reshapes into the
-/// canonical `<reason> at row N: <details>` that downstream consumers
-/// pattern-match on — and must degrade gracefully (append, not corrupt)
-/// when the error carries no `:` separator at all.
-#[test]
-fn with_row_context_matches_canonical_row_tag_shape() {
-    // Canonical reason:detail kernel error -> tag spliced before the colon.
-    assert_eq!(
-        with_row_context(
-            "survival marginal-slope monotonicity violated: qd1=-0.5".to_string(),
-            7,
-        ),
-        "survival marginal-slope monotonicity violated at row 7: qd1=-0.5",
-    );
-    // Only the FIRST colon is the reason/detail boundary; later colons in
-    // the details (e.g. a nested key:value) must be left untouched.
-    assert_eq!(
-        with_row_context("reason: a=1: b=2".to_string(), 3),
-        "reason at row 3: a=1: b=2",
-    );
-    // No colon -> append the tag rather than dropping or mangling it.
-    assert_eq!(
-        with_row_context("bare error with no separator".to_string(), 42),
-        "bare error with no separator at row 42",
+/// Local scalar closeness assertion used throughout this module's exactness
+/// gates. Asserts `|lhs - rhs| <= tol`, reporting both operands on failure.
+fn assert_close(lhs: f64, rhs: f64, tol: f64, label: &str) {
+    assert!(
+        (lhs - rhs).abs() <= tol,
+        "{label} mismatch: lhs={lhs:.12e}, rhs={rhs:.12e}, tol={tol:.3e}"
     );
 }
 
@@ -329,7 +310,7 @@ fn survival_primary_g_fourth_cell_partials_are_zero() {
 
 #[test]
 fn survival_log_likelihood_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_closed_form_test_family(n);
     let states = closed_form_block_states(&family, 0.25);
@@ -339,11 +320,9 @@ fn survival_log_likelihood_subsample_full_equals_unsampled() {
         .expect("baseline ll (no subsample)");
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full_mask = family
         .log_likelihood_only_with_options(&states, &opts_full)
         .expect("ll with mask=full");
@@ -360,7 +339,7 @@ fn survival_log_likelihood_subsample_full_equals_unsampled() {
 
 #[test]
 fn survival_log_likelihood_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_closed_form_test_family(n);
     let states = closed_form_block_states(&family, 0.25);
@@ -369,11 +348,9 @@ fn survival_log_likelihood_subsample_half_scales_correctly() {
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .log_likelihood_only_with_options(&states, &opts_half)
         .expect("ll with mask=even");
@@ -482,80 +459,6 @@ fn max_abs_diff_mat(lhs: &Array2<f64>, rhs: &Array2<f64>) -> f64 {
         .fold(0.0_f64, f64::max)
 }
 
-#[test]
-fn rigid_shared_multi_z_row_kernel_matches_vector_value_and_finite_differences() {
-    let covariance = MarginalSlopeCovariance::Full(array![[1.3, 0.4], [0.4, 0.7]]);
-    let z = [0.6, -1.1];
-    let params = [0.15, 0.55, 0.9, -0.22];
-    let weight = 1.3;
-    let event = 1.0;
-    let derivative_guard = 1e-6;
-    let probit_scale = 0.85;
-    let covariance_ones = covariance.quadratic_form(&[1.0, 1.0]).expect("1'Sigma1");
-    let z_sum = z.iter().sum::<f64>();
-
-    let eval = |p: [f64; 4]| {
-        row_primary_closed_form_shared_score(
-            p[0],
-            p[1],
-            p[2],
-            p[3],
-            z_sum,
-            covariance_ones,
-            weight,
-            event,
-            derivative_guard,
-            probit_scale,
-        )
-        .expect("shared-score row kernel")
-    };
-
-    let (nll, grad, hess) = eval(params);
-    let vector_nll = survival_marginal_slope_vector_neglog(
-        params[0],
-        params[1],
-        params[2],
-        &[params[3], params[3]],
-        &z,
-        &covariance,
-        weight,
-        event,
-        derivative_guard,
-        probit_scale,
-    )
-    .expect("vector row value");
-    assert!(
-        (nll - vector_nll).abs() <= 1e-14,
-        "shared row nll={nll:.17e} vector nll={vector_nll:.17e}"
-    );
-
-    let step = 1e-5;
-    for axis in 0..4 {
-        let mut plus = params;
-        let mut minus = params;
-        plus[axis] += step;
-        minus[axis] -= step;
-        let (nll_plus, grad_plus, _) = eval(plus);
-        let (nll_minus, grad_minus, _) = eval(minus);
-        let fd_grad = (nll_plus - nll_minus) / (2.0 * step);
-        assert!(
-            (grad[axis] - fd_grad).abs() <= 2e-6,
-            "grad[{axis}] analytic={:.12e} fd={:.12e}",
-            grad[axis],
-            fd_grad
-        );
-        for row in 0..4 {
-            let fd_hess = (grad_plus[row] - grad_minus[row]) / (2.0 * step);
-            assert!(
-                (hess[row][axis] - fd_hess).abs() <= 3e-5,
-                "hess[{row},{axis}] analytic={:.12e} fd={:.12e}",
-                hess[row][axis],
-                fd_hess
-            );
-        }
-    }
-}
-
 fn assert_blockwise_matches_joint_principal_blocks(
     family: &SurvivalMarginalSlopeFamily,
     block_states: &[ParameterBlockState],
@@ -635,41 +538,41 @@ fn test_family(
 }
 
 #[test]
-fn validate_spec_rejects_nonstructural_time_block() {
+fn validate_spec_rejects_coordinate_cone_without_guard_offset() {
     let spec = SurvivalMarginalSlopeTermSpec {
-            age_entry: array![0.0, 0.0],
-            age_exit: array![1.0, 1.0],
-            event_target: array![0.0, 1.0],
-            weights: array![1.0, 1.0],
-            z: array![-1.0, 1.0].insert_axis(Axis(1)),
-            base_link: InverseLink::Standard(StandardLink::Probit),
-            marginalspec: empty_termspec(),
-            marginal_offset: Array1::zeros(2),
-            frailty: FrailtySpec::None,
-            derivative_guard: 1e-4,
-            time_block: TimeBlockInput {
-                design_entry: DesignMatrix::from(Array2::zeros((2, 1))),
-                design_exit: DesignMatrix::from(Array2::zeros((2, 1))),
-                design_derivative_exit: DesignMatrix::from(Array2::ones((2, 1))),
-                offset_entry: Array1::zeros(2),
-                offset_exit: Array1::zeros(2),
-                derivative_offset_exit: Array1::zeros(2),
-                time_monotonicity: crate::families::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
-                ..base_time_block()
-            },
-            timewiggle_block: None,
-            logslopespec: empty_termspec(),
-            logslopespecs: None,
-            logslope_offset: Array1::zeros(2),
-            score_warp: None,
-            link_dev: None,
-            score_influence_jacobian: None,
-            latent_z_policy: LatentZPolicy::default(),
-        };
+        age_entry: array![0.0, 0.0],
+        age_exit: array![1.0, 1.0],
+        event_target: array![0.0, 1.0],
+        weights: array![1.0, 1.0],
+        z: array![-1.0, 1.0].insert_axis(Axis(1)),
+        base_link: InverseLink::Standard(StandardLink::Probit),
+        marginalspec: empty_termspec(),
+        marginal_offset: Array1::zeros(2),
+        frailty: FrailtySpec::None,
+        derivative_guard: 1e-4,
+        time_block: TimeBlockInput {
+            design_entry: DesignMatrix::from(Array2::zeros((2, 1))),
+            design_exit: DesignMatrix::from(Array2::zeros((2, 1))),
+            design_derivative_exit: DesignMatrix::from(Array2::ones((2, 1))),
+            offset_entry: Array1::zeros(2),
+            offset_exit: Array1::zeros(2),
+            derivative_offset_exit: Array1::zeros(2),
+            time_monotonicity: crate::families::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
+            ..base_time_block()
+        },
+        timewiggle_block: None,
+        logslopespec: empty_termspec(),
+        logslopespecs: None,
+        logslope_offset: Array1::zeros(2),
+        score_warp: None,
+        link_dev: None,
+        score_influence_jacobian: None,
+        latent_z_policy: LatentZPolicy::default(),
+    };
 
-    let err = validate_spec(&spec).expect_err("non-structural time block should fail");
+    let err = validate_spec(&spec).expect_err("coordinate cone without guard offset should fail");
     assert!(
-        err.contains("requires a row-constraint or structural-I-spline time block"),
+        err.contains("coordinate-cone time block requires derivative offset >= guard"),
         "unexpected error: {err}"
     );
 }
@@ -1252,13 +1155,10 @@ fn rigid_row_kernel_propagates_nan_signed_margin_errors() {
 /// / `_neglog_phi` / `_log_normal_pdf` / `_log`) through
 /// `Tower4::compose_unary`, so no probit/log primitive is re-derived here:
 /// the tower mechanizes only the Leibniz / Faà di Bruno composition that
-/// the hand-written `row_primary_closed_form` + directional MultiDirJet
-/// path code by hand (where #736's cross-block sign flip lived). The
-/// value channel of the returned tower IS the production row NLL — it
-/// mirrors the verified directional path in
-/// `row_neglog_directional_with_scale_jet` term for term — so every
-/// derivative channel is exact by construction and the oracle audit below
-/// is a true correctness proof of the hand kernel.
+/// `row_primary_closed_form` previously coded by hand (where #736's
+/// cross-block sign flip lived). The value channel of the returned tower
+/// is the row NLL expression, so every derivative channel is exact by
+/// construction.
 struct SurvivalMarginalSlopeRigidNllProgram {
     primaries: Vec<[f64; 4]>,
     z: Vec<f64>,
@@ -1387,14 +1287,14 @@ fn oracle_rigid_family(
 
 /// #932 universal oracle on the ONLY production `RowKernel` impl.
 ///
-/// Audits every channel the hand-written `SurvivalMarginalSlopeRowKernel`
+/// Audits every channel the production `SurvivalMarginalSlopeRowKernel`
 /// emits — value / gradient / Hessian / `row_third_contracted(dir)` /
 /// `row_fourth_contracted(u, v)` — against the single-expression
 /// `RowNllProgram<4>`-derived tower truth, over several fixture rows
 /// (mixed event/censored, with and without Gaussian frailty so the probit
 /// scale ≠ 1) and several random direction vectors. The cross blocks that
 /// #736's sign flip corrupted are contracted explicitly. Agreement here is
-/// the proof the hand kernel is correct; the planted-flip test in
+/// the proof the production kernel is correct; the planted-flip test in
 /// `jet_tower` proves the same harness is loud on disagreement.
 #[test]
 fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
@@ -1468,13 +1368,13 @@ fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
             let tower = evaluate_program(&program, row).expect("tower evaluation");
 
             let (value, gradient, hessian) =
-                RowKernel::row_kernel(&kernel, row).expect("hand kernel value/grad/hess");
+                RowKernel::row_kernel(&kernel, row).expect("production kernel value/grad/hess");
 
             let third: Vec<([f64; 4], [[f64; 4]; 4])> = dirs
                 .iter()
                 .map(|dir| {
                     let claim = RowKernel::row_third_contracted(&kernel, row, dir)
-                        .expect("hand kernel third");
+                        .expect("production kernel third");
                     (*dir, claim)
                 })
                 .collect();
@@ -1485,7 +1385,7 @@ fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
                 .map(|(i, u)| {
                     let v = dirs[(i + 1) % dirs.len()];
                     let claim = RowKernel::row_fourth_contracted(&kernel, row, u, &v)
-                        .expect("hand kernel fourth");
+                        .expect("production kernel fourth");
                     (*u, v, claim)
                 })
                 .collect();
@@ -1500,7 +1400,7 @@ fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
 
             verify_kernel_channels(&tower, &claims, 1e-9).unwrap_or_else(|e| {
                     panic!(
-                        "frailty {frailty:?} row {row}: hand RowKernel disagrees with #932 jet-tower truth: {e}"
+                        "frailty {frailty:?} row {row}: production RowKernel disagrees with #932 jet-tower truth: {e}"
                     )
                 });
         }
@@ -2045,13 +1945,26 @@ fn flex_contracted_tower_matches_independent_fd_witness_nonzero_deviation() {
         let d = acc.abs();
         (a, d)
     };
-    // χ1 = ∂η1/∂a at the observed node (FD of the observed index in a).
+    // linkdev'(u) from the link runtime's analytic first-derivative design —
+    // the EXACT slope of the link deviation, no finite difference.
+    let linkdev_prime_eval = |beta_w: &[f64], u: f64| -> f64 {
+        let row = link_runtime
+            .first_derivative_design(&array![u])
+            .expect("link-dev first-derivative basis row");
+        row.row(0).iter().zip(beta_w).map(|(b, c)| b * c).sum()
+    };
+    // χ1 = ∂η1/∂a at the observed node. The index is
+    // a + g·z + g·warp(z) + linkdev(a + g·z), so ∂/∂a = 1 + linkdev'(a + g·z)
+    // exactly. An earlier eps=1e-6 central FD here inherited the same amplified
+    // ~5e-11 cancellation noise #979 removed from the intercept density: each
+    // index value carries ~1e-16 absolute round-off, the FD divides the
+    // difference by 2eps=2e-6, and the third-order witness stencils then
+    // multiply that floor by ~1/h³≈5e7. Taking the slope analytically removes
+    // that amplified noise so the witness third derivatives are limited only by
+    // the (Richardson-extrapolated) truncation of the scalar NLL itself.
     let observed_eta_chi = |a: f64, g: f64, beta_h: &[f64], beta_w: &[f64]| -> (f64, f64) {
         let eta = index(a, g, beta_h, beta_w, z_row);
-        let eps = 1e-6;
-        let chi = (index(a + eps, g, beta_h, beta_w, z_row)
-            - index(a - eps, g, beta_h, beta_w, z_row))
-            / (2.0 * eps);
+        let chi = 1.0 + linkdev_prime_eval(beta_w, a + g * z_row);
         (eta, chi)
     };
     // Independent scalar survival flex row NLL over the primary vector.
@@ -2159,8 +2072,29 @@ fn flex_contracted_tower_matches_independent_fd_witness_nonzero_deviation() {
                 }
             }
         }
+        // Coalesce repeated axes before building stencils. A coordinate that
+        // appears as two separate order-1 entries would be differenced by
+        // COMPOSING two independent ±h shifts, i.e. 0.25·[f(x+2h) − 2f(x) +
+        // f(x−2h)] — a second difference at the DOUBLED step 2h, whose leading
+        // O(h²) truncation is ~16× that of the compact 3-point order-2 stencil
+        // [(-1,1),(0,-2),(1,1)] at step h. Richardson extrapolation cancels the
+        // leading term in both cases, but the residual O(h⁴) constant inherits
+        // the same blow-up, so a cross-derivative that hits one axis twice
+        // (e.g. the ∂³/∂g²∂β_w block, axes [(g,1),(β_w,1),(g,1)]) drifts far
+        // enough to break the tight third-order gate while every all-distinct
+        // block stays well inside it. Summing the orders of repeated indices
+        // keeps each coordinate on its tightest single stencil at step h, so
+        // the witness is a faithful ground truth for repeated-axis blocks too.
+        let mut merged: Vec<(usize, usize)> = Vec::with_capacity(axes.len());
+        for &(idx, ord) in axes {
+            if let Some(slot) = merged.iter_mut().find(|(i, _)| *i == idx) {
+                slot.1 += ord;
+            } else {
+                merged.push((idx, ord));
+            }
+        }
         let mut total_order = 0usize;
-        let stencils: Vec<(usize, &'static [(i64, f64)])> = axes
+        let stencils: Vec<(usize, &'static [(i64, f64)])> = merged
             .iter()
             .map(|&(idx, ord)| {
                 total_order += ord;
@@ -2202,6 +2136,119 @@ fn flex_contracted_tower_matches_independent_fd_witness_nonzero_deviation() {
         prod_hess[[gi, wi0]],
         witness_h_gw
     );
+    {
+        let beta_h_arr = Array1::from(beta_h0.clone());
+        let beta_w_arr = Array1::from(beta_w0.clone());
+        let tp_diag = |label: &str, q: f64, q_index: usize| {
+            let (a, d) = family
+                .solve_row_survival_intercept_with_slot(
+                    q,
+                    gv,
+                    Some(&beta_h_arr),
+                    Some(&beta_w_arr),
+                    Some((
+                        0,
+                        if q_index == primary.q0 {
+                            SurvivalInterceptSlotKind::Entry
+                        } else {
+                            SurvivalInterceptSlotKind::Exit
+                        },
+                    )),
+                )
+                .expect("diagnostic intercept");
+            let cached = family
+                .build_cached_partition(&primary, a, gv, Some(&beta_h_arr), Some(&beta_w_arr))
+                .expect("diagnostic cached partition");
+            let base = family
+                .compute_survival_timepoint_exact_from_cached(
+                    0,
+                    &primary,
+                    q,
+                    q_index,
+                    a,
+                    gv,
+                    d,
+                    Some(&beta_h_arr),
+                    Some(&beta_w_arr),
+                    0.0,
+                    q_index == primary.q1,
+                    &cached,
+                )
+                .expect("diagnostic base timepoint");
+            let ext = family
+                .compute_survival_timepoint_directional_exact_from_cached(
+                    0,
+                    &primary,
+                    q,
+                    q_index,
+                    a,
+                    gv,
+                    Some(&beta_h_arr),
+                    Some(&beta_w_arr),
+                    &cached,
+                    &unit(gi),
+                    q_index == primary.q1,
+                )
+                .expect("diagnostic directional timepoint");
+            let base_at = |s: f64| -> SurvivalFlexTimepointExact {
+                let g = gv + s;
+                let (a, d) = family
+                    .solve_row_survival_intercept_with_slot(
+                        q,
+                        g,
+                        Some(&beta_h_arr),
+                        Some(&beta_w_arr),
+                        Some((
+                            0,
+                            if q_index == primary.q0 {
+                                SurvivalInterceptSlotKind::Entry
+                            } else {
+                                SurvivalInterceptSlotKind::Exit
+                            },
+                        )),
+                    )
+                    .expect("diagnostic perturbed intercept");
+                let cached = family
+                    .build_cached_partition(&primary, a, g, Some(&beta_h_arr), Some(&beta_w_arr))
+                    .expect("diagnostic perturbed cached partition");
+                family
+                    .compute_survival_timepoint_exact_from_cached(
+                        0,
+                        &primary,
+                        q,
+                        q_index,
+                        a,
+                        g,
+                        d,
+                        Some(&beta_h_arr),
+                        Some(&beta_w_arr),
+                        0.0,
+                        q_index == primary.q1,
+                        &cached,
+                    )
+                    .expect("diagnostic perturbed base timepoint")
+            };
+            let fd = |sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64, h: f64| -> f64 {
+                let coarse = (sel(&base_at(h)) - sel(&base_at(-h))) / (2.0 * h);
+                let fine = (sel(&base_at(h * 0.5)) - sel(&base_at(-h * 0.5))) / h;
+                (4.0 * fine - coarse) / 3.0
+            };
+            eprintln!(
+                "#932 {label} [g,w0] eta_uv {:+.6e} fd {:+.6e}; chi_uv {:+.6e} fd {:+.6e}; d_uv {:+.6e} fd {:+.6e}; base eta_uv {:+.6e} chi_uv {:+.6e} d_uv {:+.6e}",
+                ext.eta_uv_dir[[gi, wi0]],
+                fd(&|b| b.eta_uv[[gi, wi0]], 2e-3),
+                ext.chi_uv_dir[[gi, wi0]],
+                fd(&|b| b.chi_uv[[gi, wi0]], 2e-3),
+                ext.d_uv_dir[[gi, wi0]],
+                fd(&|b| b.d_uv[[gi, wi0]], 2e-3),
+                base.eta_uv[[gi, wi0]],
+                base.chi_uv[[gi, wi0]],
+                base.d_uv[[gi, wi0]],
+            );
+        };
+        tp_diag("entry", q0v, primary.q0);
+        tp_diag("exit", q1v, primary.q1);
+    }
 
     // ── Third order: production D_dir H[u,v] vs witness ∂³ along (u,v,dir) ───
     // Contract along the logslope axis g; check cross blocks touching the
@@ -2247,258 +2294,122 @@ fn flex_contracted_tower_matches_independent_fd_witness_nonzero_deviation() {
     }
 }
 
+/// gam#932/#979: the logslope first-sensitivity must include the Leibniz
+/// boundary term for density-normalization cells whose link-knot crossings move
+/// with g.
 #[test]
-#[ignore = "debug FD-localization harness for #932/#979 flex directional third"]
-fn debug_flex_directional_quantities_fd_localize() {
-    // FD-localize WHICH directional timepoint quantity (eta_uv_dir / chi_uv_dir
-    // / d_uv_dir) disagrees with a central difference of its base counterpart
-    // along `dir`, on the zero-deviation rigid fixture where the exit timepoint
-    // depends only on (q1, g). Prints per-quantity, per-(u,v) absolute gaps.
+fn flex_logslope_first_sensitivity_matches_fd() {
     let score_runtime = test_deviation_runtime();
     let link_runtime = test_deviation_runtime();
-    let event = 1.0_f64;
-    let weight = 0.75_f64;
-    let z_row = -0.2_f64;
-    let q0v = -0.4_f64;
-    let q1v = 0.6_f64;
-    let qd1v = 0.85_f64;
-    let gv = 0.32_f64;
-
-    let family = SurvivalMarginalSlopeFamily {
-        n: 1,
-        event: Arc::new(array![event]),
-        weights: Arc::new(array![weight]),
-        z: Arc::new(array![z_row].insert_axis(Axis(1))),
-        score_covariance: unit_score_covariance(),
-        gaussian_frailty_sd: None,
-        derivative_guard: 1e-6,
-        design_entry: DesignMatrix::from(Array2::zeros((1, 1))),
-        design_exit: DesignMatrix::from(Array2::zeros((1, 1))),
-        design_derivative_exit: DesignMatrix::from(Array2::zeros((1, 1))),
-        offset_entry: Arc::new(array![q0v]),
-        offset_exit: Arc::new(array![q1v]),
-        derivative_offset_exit: Arc::new(array![qd1v]),
-        marginal_design: DesignMatrix::from(Array2::zeros((1, 0))),
-        logslope_design: DesignMatrix::from(Array2::zeros((1, 0))),
-        logslope_surface_ranges: empty_logslope_surface_ranges(),
-        score_warp: Some(score_runtime.clone()),
-        link_dev: Some(link_runtime.clone()),
-        influence_absorber: None,
-        time_linear_constraints: None,
-        time_wiggle_knots: None,
-        time_wiggle_degree: None,
-        time_wiggle_ncols: 0,
-        intercept_warm_starts: None,
-        auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
-        auto_subsample_last_rho: Arc::new(Mutex::new(None)),
-    };
-    let primary = flex_primary_slices(&family);
-    let p = primary.total;
     let h_dim = score_runtime.basis_dim();
     let w_dim = link_runtime.basis_dim();
-    // NON-ZERO deviations so the link curvature is live (mirrors the
-    // flex_..._fd_witness test that still fails third[3,6]=[g,w0]).
-    let beta_h: Array1<f64> =
-        Array1::from_iter((0..h_dim).map(|k| 0.04 * ((k as f64 + 1.3).sin())));
-    let beta_w: Array1<f64> =
-        Array1::from_iter((0..w_dim).map(|k| 0.035 * ((k as f64 + 0.7).cos())));
+    let z_row = 0.3_f64;
+    let q0v = -0.25_f64;
+    let q1v = 0.7_f64;
+    let qd1v = 0.9_f64;
+    let gv = 0.4_f64;
+    let weight = 0.85_f64;
+    let event = 1.0_f64;
+    let beta_h0: Vec<f64> = (0..h_dim)
+        .map(|k| 0.04 * ((k as f64 + 1.3).sin()))
+        .collect();
+    let beta_w0: Vec<f64> = (0..w_dim)
+        .map(|k| 0.035 * ((k as f64 + 0.7).cos()))
+        .collect();
 
-    // Contract along e_g ONLY (matches the failing third[3,6] check), so the
-    // FD perturbs g alone.
-    let w_range = primary.w.clone().unwrap();
-    let mut dir = Array1::<f64>::zeros(p);
-    dir[primary.g] = 1.0;
+    // The family carries no logslope value (g is a free parameter supplied to the
+    // intercept solve / timepoint evaluation downstream), so this builder takes
+    // no g: the FD below varies g through `base_at`, which passes it directly.
+    let make = || {
+        let family = SurvivalMarginalSlopeFamily {
+            n: 1,
+            event: Arc::new(array![event]),
+            weights: Arc::new(array![weight]),
+            z: Arc::new(array![z_row].insert_axis(Axis(1))),
+            score_covariance: unit_score_covariance(),
+            gaussian_frailty_sd: None,
+            derivative_guard: 1e-6,
+            design_entry: DesignMatrix::from(Array2::zeros((1, 1))),
+            design_exit: DesignMatrix::from(Array2::zeros((1, 1))),
+            design_derivative_exit: DesignMatrix::from(Array2::zeros((1, 1))),
+            offset_entry: Arc::new(array![q0v]),
+            offset_exit: Arc::new(array![q1v]),
+            derivative_offset_exit: Arc::new(array![qd1v]),
+            marginal_design: DesignMatrix::from(Array2::zeros((1, 0))),
+            logslope_design: DesignMatrix::from(Array2::zeros((1, 0))),
+            logslope_surface_ranges: empty_logslope_surface_ranges(),
+            score_warp: Some(score_runtime.clone()),
+            link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
+            time_linear_constraints: None,
+            time_wiggle_knots: None,
+            time_wiggle_degree: None,
+            time_wiggle_ncols: 0,
+            intercept_warm_starts: None,
+            auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
+            auto_subsample_last_rho: Arc::new(Mutex::new(None)),
+        };
+        family
+    };
+    let family = make();
+    let primary = flex_primary_slices(&family);
+    let g = primary.g;
+    let bh = Array1::from(beta_h0.clone());
+    let bw = Array1::from(beta_w0.clone());
 
-    // Base + directional at the EXIT timepoint.
-    let (a1, d1) = family
-        .solve_row_survival_intercept_with_slot(
-            q1v,
-            gv,
-            Some(&beta_h),
-            Some(&beta_w),
-            Some((0, SurvivalInterceptSlotKind::Exit)),
-        )
-        .expect("exit intercept");
-    let base = family
-        .compute_survival_timepoint_exact(
+    // Exit-timepoint base struct with eta_u/chi_u/d_u and scalars eta/chi/d.
+    let base_at = |gg: f64| -> SurvivalFlexTimepointExact {
+        let fam = make();
+        let (a1, d1) = fam
+            .solve_row_survival_intercept_with_slot(
+                q1v,
+                gg,
+                Some(&bh),
+                Some(&bw),
+                Some((0, SurvivalInterceptSlotKind::Exit)),
+            )
+            .expect("exit intercept");
+        fam.compute_survival_timepoint_exact(
             0,
             &primary,
             q1v,
             primary.q1,
             a1,
-            gv,
+            gg,
             d1,
-            Some(&beta_h),
-            Some(&beta_w),
+            Some(&bh),
+            Some(&bw),
             0.0,
             true,
         )
-        .expect("exit base");
-    let ext = family
-        .compute_survival_timepoint_directional_exact(
-            0,
-            &primary,
-            q1v,
-            primary.q1,
-            a1,
-            gv,
-            Some(&beta_h),
-            Some(&beta_w),
-            &dir,
-            true,
-        )
-        .expect("exit directional");
-
-    // FD of base eta_uv/chi_uv/d_uv along dir: perturb (q1,g) by ±h·dir, re-solve a.
-    let base_at = |s: f64| -> SurvivalFlexTimepointExact {
-        let q = q1v + s * dir[primary.q1];
-        let g = gv + s * dir[primary.g];
-        let (a, d) = family
-            .solve_row_survival_intercept_with_slot(
-                q,
-                g,
-                Some(&beta_h),
-                Some(&beta_w),
-                Some((0, SurvivalInterceptSlotKind::Exit)),
-            )
-            .expect("perturbed exit intercept");
-        family
-            .compute_survival_timepoint_exact(
-                0,
-                &primary,
-                q,
-                primary.q1,
-                a,
-                g,
-                d,
-                Some(&beta_h),
-                Some(&beta_w),
-                0.0,
-                true,
-            )
-            .expect("perturbed exit base")
+        .expect("exit base")
     };
+    let b0 = base_at(gv);
     let fd = |sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64, h: f64| -> f64 {
-        let coarse = (sel(&base_at(h)) - sel(&base_at(-h))) / (2.0 * h);
-        let fine = (sel(&base_at(h * 0.5)) - sel(&base_at(-h * 0.5))) / h;
-        (4.0 * fine - coarse) / 3.0
+        let c = (sel(&base_at(gv + h)) - sel(&base_at(gv - h))) / (2.0 * h);
+        let f = (sel(&base_at(gv + h * 0.5)) - sel(&base_at(gv - h * 0.5))) / h;
+        (4.0 * f - c) / 3.0
     };
-
-    let g = primary.g;
-    let q1 = primary.q1;
-    let w0 = w_range.start;
-    let probe = [(q1, q1), (g, q1), (g, g), (g, w0), (w0, w0)];
-    for &(u, v) in &probe {
-        let eta_fd = fd(&|b| b.eta_uv[[u, v]], 2e-3);
-        let chi_fd = fd(&|b| b.chi_uv[[u, v]], 2e-3);
-        let d_fd = fd(&|b| b.d_uv[[u, v]], 2e-3);
-        // Convergence check: a genuine bug holds the gap as h shrinks; a
-        // knot-crossing kink artifact moves the FD value as h changes.
-        let d_fd_fine = fd(&|b| b.d_uv[[u, v]], 8e-4);
-        eprintln!(
-            "[{u},{v}] eta_uv_dir prod {:+.6e} fd {:+.6e} gap {:.2e} | chi_uv_dir prod {:+.6e} fd {:+.6e} gap {:.2e} | d_uv_dir prod {:+.6e} fd {:+.6e} gap {:.2e} (fine {:+.6e} gap {:.2e})",
-            ext.eta_uv_dir[[u, v]],
-            eta_fd,
-            (ext.eta_uv_dir[[u, v]] - eta_fd).abs(),
-            ext.chi_uv_dir[[u, v]],
-            chi_fd,
-            (ext.chi_uv_dir[[u, v]] - chi_fd).abs(),
-            ext.d_uv_dir[[u, v]],
-            d_fd,
-            (ext.d_uv_dir[[u, v]] - d_fd).abs(),
-            d_fd_fine,
-            (ext.d_uv_dir[[u, v]] - d_fd_fine).abs(),
-        );
-    }
-    // d_u_dir localization too — INCLUDING w0 (the untested deviation index).
-    for &u in &[q1, g, w0] {
-        let d_u_fd = fd(&|b| b.d_u[u], 4e-3);
-        let d_u_fd_fine = fd(&|b| b.d_u[u], 1e-3);
-        eprintln!(
-            "[{u}] d_u_dir prod {:+.6e} fd {:+.6e} gap {:.2e} (fine {:+.6e} gap {:.2e})",
-            ext.d_u_dir[u],
-            d_u_fd,
-            (ext.d_u_dir[u] - d_u_fd).abs(),
-            d_u_fd_fine,
-            (ext.d_u_dir[u] - d_u_fd_fine).abs()
-        );
-    }
-    // Per-term d_uv_dir localization at the (w0,w0) probe block: FD each base
-    // term integral T_i (from the directional struct's debug_d_uv_terms.0) and
-    // compare to the analytic dir term integral T_i_dir (debug_d_uv_terms.1).
-    {
-        let dir_terms_base = |s: f64| -> [f64; 5] {
-            let q = q1v + s * dir[primary.q1];
-            let g = gv + s * dir[primary.g];
-            let (a, _d) = family
-                .solve_row_survival_intercept_with_slot(
-                    q,
-                    g,
-                    Some(&beta_h),
-                    Some(&beta_w),
-                    Some((0, SurvivalInterceptSlotKind::Exit)),
-                )
-                .expect("perturbed dir intercept");
-            let e = family
-                .compute_survival_timepoint_directional_exact(
-                    0,
-                    &primary,
-                    q,
-                    primary.q1,
-                    a,
-                    g,
-                    Some(&beta_h),
-                    Some(&beta_w),
-                    &dir,
-                    true,
-                )
-                .expect("perturbed dir");
-            e.debug_d_uv_terms.expect("debug terms").0
-        };
-        let dir_terms = ext.debug_d_uv_terms.expect("debug terms").1;
-        let h = 2e-3_f64;
-        let plus = dir_terms_base(h);
-        let minus = dir_terms_base(-h);
-        for i in 0..5 {
-            let fd_i = (plus[i] - minus[i]) / (2.0 * h);
-            eprintln!(
-                "[w0,w0] term t{}: T_i_dir(analytic)={:+.6e} D_dir(T_i)(fd)={:+.6e} gap={:.2e}",
-                i + 1,
-                dir_terms[i],
-                fd_i,
-                (dir_terms[i] - fd_i).abs()
-            );
-        }
-    }
-    // Scalar/first-order base quantities to localize the eta_uv_dir error:
-    // chi_dir (=D_dir chi), eta_dir (=D_dir eta), and D_dir eta_u[u].
-    eprintln!(
-        "scalar: chi base {:+.6e} D_dir(chi) fd {:+.6e} | eta base {:+.6e} D_dir(eta) fd {:+.6e}",
-        base.chi,
-        fd(&|b| b.chi, 4e-3),
-        base.eta,
-        fd(&|b| b.eta, 4e-3),
+    let fd_d = fd(&|b| b.d, 2e-3);
+    let fd_eta = fd(&|b| b.eta, 2e-3);
+    let fd_chi = fd(&|b| b.chi, 2e-3);
+    assert!(
+        (b0.d_u[g] - fd_d).abs() <= 5e-4 * fd_d.abs().max(1.0),
+        "d_u[g] production={:+.8e} fd={:+.8e}",
+        b0.d_u[g],
+        fd_d
     );
-    for &u in &[q1, g, w0] {
-        eprintln!(
-            "[{u}] eta_u base {:+.6e} D_dir(eta_u) prod {:+.6e} fd {:+.6e} gap {:.2e} | chi_u base {:+.6e} D_dir(chi_u) prod {:+.6e} fd {:+.6e} gap {:.2e}",
-            base.eta_u[u],
-            ext.eta_u_dir[u],
-            fd(&|b| b.eta_u[u], 4e-3),
-            (ext.eta_u_dir[u] - fd(&|b| b.eta_u[u], 4e-3)).abs(),
-            base.chi_u[u],
-            ext.chi_u_dir[u],
-            fd(&|b| b.chi_u[u], 4e-3),
-            (ext.chi_u_dir[u] - fd(&|b| b.chi_u[u], 4e-3)).abs(),
-        );
-    }
-    // Direct cross-check: FD of base eta_uv[q1,q1] sanity (recompute from a
-    // wider/narrower h to confirm the harness isn't aliasing the q-self term).
-    eprintln!(
-        "[q1,q1] eta_uv base {:+.6e} | eta_uv(+h) {:+.6e} eta_uv(-h) {:+.6e}",
-        base.eta_uv[[q1, q1]],
-        base_at(4e-3).eta_uv[[q1, q1]],
-        base_at(-4e-3).eta_uv[[q1, q1]],
+    assert!(
+        (b0.eta_u[g] - fd_eta).abs() <= 5e-4 * fd_eta.abs().max(1.0),
+        "eta_u[g] production={:+.8e} fd={:+.8e}",
+        b0.eta_u[g],
+        fd_eta
+    );
+    assert!(
+        (b0.chi_u[g] - fd_chi).abs() <= 5e-4 * fd_chi.abs().max(1.0),
+        "chi_u[g] production={:+.8e} fd={:+.8e}",
+        b0.chi_u[g],
+        fd_chi
     );
 }
 
@@ -3028,9 +2939,12 @@ fn link_flex_bidirectional_timepoint_returns_finite_transport() {
         dir_v[w_range.start] = -0.01;
     }
 
+    let cached = family
+        .build_cached_partition(&primary, a1, g, beta_h, beta_w)
+        .expect("active bidirectional cached partition");
     let active = family
-        .compute_survival_timepoint_bidirectional_exact(
-            0, &primary, q_geom.q1, primary.q1, a1, g, beta_h, beta_w, &dir_u, &dir_v,
+        .compute_survival_timepoint_bidirectional_exact_from_cached(
+            0, &primary, q_geom.q1, primary.q1, a1, g, beta_h, beta_w, &cached, &dir_u, &dir_v,
         )
         .expect("active bidirectional transport");
     assert!(active.eta_uv_uv.iter().all(|value| value.is_finite()));
@@ -4177,214 +4091,11 @@ fn censored_rows_still_reject_invalid_time_derivative() {
     );
 }
 
-fn assert_close(lhs: f64, rhs: f64, tol: f64, label: &str) {
-    assert!(
-        (lhs - rhs).abs() <= tol,
-        "{label} mismatch: lhs={lhs:.12e}, rhs={rhs:.12e}, tol={tol:.3e}"
-    );
-}
-
 fn standard_test_time_wiggle() -> (Array1<f64>, usize, usize) {
     let knots = array![0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0];
     let degree = 3usize;
     let ncols = time_wiggle_basis_ncols(&knots, degree).expect("timewiggle basis width");
     (knots, degree, ncols)
-}
-
-fn assert_closed_form_row_matches_exact_directional_derivatives(
-    family: SurvivalMarginalSlopeFamily,
-    block_states: Vec<ParameterBlockState>,
-) {
-    let (nll_closed, grad_closed, hess_closed) = family
-        .compute_row_primary_gradient_hessian_uncached(0, &block_states)
-        .expect("closed-form row derivatives");
-    let dir0 = unit_primary_direction(0);
-    let nll_exact = family
-        .row_neglog_directional_jet_batched(0, &block_states, &[dir0.view()])
-        .map(|jet| jet.coeff(0))
-        .expect("exact row objective");
-    assert_close(nll_closed, nll_exact, 1e-12, "nll");
-
-    for a in 0..N_PRIMARY {
-        let dir_a = unit_primary_direction(a);
-        let grad_exact = family
-            .row_neglog_directional_jet_batched(0, &block_states, &[dir_a.view()])
-            .map(|jet| jet.coeff(jet.full_mask()))
-            .expect("exact row gradient");
-        assert_close(grad_closed[a], grad_exact, 1e-10, &format!("grad[{a}]"));
-        for b in 0..N_PRIMARY {
-            let dir_b = unit_primary_direction(b);
-            let hess_exact = family
-                .row_neglog_directional_jet_batched(0, &block_states, &[dir_a.view(), dir_b.view()])
-                .map(|jet| jet.coeff(jet.full_mask()))
-                .expect("exact row hessian");
-            assert_close(
-                hess_closed[[a, b]],
-                hess_exact,
-                1e-9,
-                &format!("hess[{a},{b}]"),
-            );
-        }
-    }
-}
-
-#[test]
-fn closed_form_row_matches_exact_directional_derivatives() {
-    assert!(file!().ends_with(".rs"));
-    let family = SurvivalMarginalSlopeFamily {
-        n: 1,
-        event: Arc::new(array![1.0]),
-        weights: Arc::new(array![1.2]),
-        z: Arc::new(array![0.3].insert_axis(Axis(1))),
-        score_covariance: unit_score_covariance(),
-        gaussian_frailty_sd: None,
-        derivative_guard: 1e-6,
-        design_entry: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
-        design_exit: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[0.8]])),
-        design_derivative_exit: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
-            array![[1.4]],
-        )),
-        offset_entry: Arc::new(array![0.1]),
-        offset_exit: Arc::new(array![-0.2]),
-        derivative_offset_exit: Arc::new(array![0.05]),
-        marginal_design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
-        logslope_design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
-        logslope_surface_ranges: empty_logslope_surface_ranges(),
-        score_warp: None,
-        link_dev: None,
-        influence_absorber: None,
-        time_linear_constraints: None,
-        time_wiggle_knots: None,
-        time_wiggle_degree: None,
-        time_wiggle_ncols: 0,
-        intercept_warm_starts: None,
-        auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
-        auto_subsample_last_rho: Arc::new(Mutex::new(None)),
-    };
-    let block_states = vec![
-        ParameterBlockState {
-            beta: array![0.4],
-            eta: array![0.0],
-        },
-        ParameterBlockState {
-            beta: array![-0.1],
-            eta: array![0.0],
-        },
-        ParameterBlockState {
-            beta: array![0.7],
-            eta: array![0.7],
-        },
-    ];
-    assert_closed_form_row_matches_exact_directional_derivatives(family, block_states);
-}
-
-#[test]
-fn closed_form_row_matches_exact_directional_derivatives_with_gaussian_frailty() {
-    assert!(file!().ends_with(".rs"));
-    let family = SurvivalMarginalSlopeFamily {
-        n: 1,
-        event: Arc::new(array![1.0]),
-        weights: Arc::new(array![1.2]),
-        z: Arc::new(array![0.3].insert_axis(Axis(1))),
-        score_covariance: unit_score_covariance(),
-        gaussian_frailty_sd: Some(0.65),
-        derivative_guard: 1e-6,
-        design_entry: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
-        design_exit: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[0.8]])),
-        design_derivative_exit: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
-            array![[1.4]],
-        )),
-        offset_entry: Arc::new(array![0.1]),
-        offset_exit: Arc::new(array![-0.2]),
-        derivative_offset_exit: Arc::new(array![0.05]),
-        marginal_design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
-        logslope_design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
-        logslope_surface_ranges: empty_logslope_surface_ranges(),
-        score_warp: None,
-        link_dev: None,
-        influence_absorber: None,
-        time_linear_constraints: None,
-        time_wiggle_knots: None,
-        time_wiggle_degree: None,
-        time_wiggle_ncols: 0,
-        intercept_warm_starts: None,
-        auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
-        auto_subsample_last_rho: Arc::new(Mutex::new(None)),
-    };
-    let block_states = vec![
-        ParameterBlockState {
-            beta: array![0.4],
-            eta: array![0.0],
-        },
-        ParameterBlockState {
-            beta: array![-0.1],
-            eta: array![0.0],
-        },
-        ParameterBlockState {
-            beta: array![0.7],
-            eta: array![0.7],
-        },
-    ];
-    assert_closed_form_row_matches_exact_directional_derivatives(family, block_states);
-}
-
-#[test]
-fn closed_form_row_matches_exact_directional_derivatives_with_timewiggle() {
-    assert!(file!().ends_with(".rs"));
-    let time_wiggle_knots = array![0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0];
-    let time_wiggle_degree = 3;
-    let base_q0 = array![0.09];
-    let time_wiggle_ncols = monotone_wiggle_basis_with_derivative_order(
-        base_q0.view(),
-        &time_wiggle_knots,
-        time_wiggle_degree,
-        0,
-    )
-    .expect("timewiggle basis")
-    .ncols();
-    let family = SurvivalMarginalSlopeFamily {
-        n: 1,
-        event: Arc::new(array![1.0]),
-        weights: Arc::new(array![1.1]),
-        z: Arc::new(array![0.15].insert_axis(Axis(1))),
-        score_covariance: unit_score_covariance(),
-        gaussian_frailty_sd: Some(0.4),
-        derivative_guard: 1e-6,
-        design_entry: DesignMatrix::from(array![[0.2, 0.0, 0.0, 0.0]]),
-        design_exit: DesignMatrix::from(array![[0.35, 0.0, 0.0, 0.0]]),
-        design_derivative_exit: DesignMatrix::from(array![[1.1, 0.0, 0.0, 0.0]]),
-        offset_entry: Arc::new(array![0.05]),
-        offset_exit: Arc::new(array![0.12]),
-        derivative_offset_exit: Arc::new(array![0.9]),
-        marginal_design: DesignMatrix::from(array![[0.6]]),
-        logslope_design: DesignMatrix::from(array![[1.0]]),
-        logslope_surface_ranges: empty_logslope_surface_ranges(),
-        score_warp: None,
-        link_dev: None,
-        influence_absorber: None,
-        time_linear_constraints: None,
-        time_wiggle_knots: Some(time_wiggle_knots),
-        time_wiggle_degree: Some(time_wiggle_degree),
-        time_wiggle_ncols,
-        intercept_warm_starts: None,
-        auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
-        auto_subsample_last_rho: Arc::new(Mutex::new(None)),
-    };
-    let block_states = vec![
-        ParameterBlockState {
-            beta: array![0.2, 0.08, -0.03, 0.02],
-            eta: array![0.0],
-        },
-        ParameterBlockState {
-            beta: array![0.05],
-            eta: array![0.03],
-        },
-        ParameterBlockState {
-            beta: array![0.35],
-            eta: array![0.35],
-        },
-    ];
-    assert_closed_form_row_matches_exact_directional_derivatives(family, block_states);
 }
 
 #[test]
@@ -5399,7 +5110,7 @@ fn rel_diff_array2_survival(a: &Array2<f64>, b: &Array2<f64>) -> f64 {
 
 #[test]
 fn survival_sigma_psi_terms_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_sigma_aware_closed_form_test_family(n);
     let states = closed_form_block_states(&family, 0.25);
@@ -5411,11 +5122,9 @@ fn survival_sigma_psi_terms_subsample_full_equals_unsampled() {
         .expect("some");
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full = family
         .sigma_exact_joint_psi_terms_with_options(&states, &specs, &opts_full)
         .expect("with full mask")
@@ -5431,7 +5140,7 @@ fn survival_sigma_psi_terms_subsample_full_equals_unsampled() {
 
 #[test]
 fn survival_sigma_psi_terms_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_sigma_aware_closed_form_test_family(n);
     let states = closed_form_block_states(&family, 0.25);
@@ -5441,11 +5150,9 @@ fn survival_sigma_psi_terms_subsample_half_scales_correctly() {
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .sigma_exact_joint_psi_terms_with_options(&states, &specs, &opts_half)
         .expect("scaled")
@@ -5471,7 +5178,7 @@ fn survival_sigma_psi_terms_subsample_half_scales_correctly() {
 
 #[test]
 fn survival_sigma_psi_second_order_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_sigma_aware_closed_form_test_family(n);
     let states = closed_form_block_states(&family, 0.25);
@@ -5482,11 +5189,9 @@ fn survival_sigma_psi_second_order_subsample_full_equals_unsampled() {
         .expect("some");
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full = family
         .sigma_exact_joint_psisecond_order_terms_with_options(&states, &opts_full)
         .expect("with full mask")
@@ -5502,7 +5207,7 @@ fn survival_sigma_psi_second_order_subsample_full_equals_unsampled() {
 
 #[test]
 fn survival_sigma_psi_second_order_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_sigma_aware_closed_form_test_family(n);
     let states = closed_form_block_states(&family, 0.25);
@@ -5511,11 +5216,9 @@ fn survival_sigma_psi_second_order_subsample_half_scales_correctly() {
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .sigma_exact_joint_psisecond_order_terms_with_options(&states, &opts_half)
         .expect("scaled")
@@ -5541,7 +5244,7 @@ fn survival_sigma_psi_second_order_subsample_half_scales_correctly() {
 
 #[test]
 fn survival_sigma_psihessian_directional_derivative_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_sigma_aware_closed_form_test_family(n);
     let states = closed_form_block_states(&family, 0.25);
@@ -5554,11 +5257,9 @@ fn survival_sigma_psihessian_directional_derivative_subsample_full_equals_unsamp
         .expect("some");
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full = family
         .sigma_exact_joint_psihessian_directional_derivative_with_options(
             &states,
@@ -5574,7 +5275,7 @@ fn survival_sigma_psihessian_directional_derivative_subsample_full_equals_unsamp
 
 #[test]
 fn survival_sigma_psihessian_directional_derivative_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_sigma_aware_closed_form_test_family(n);
     let states = closed_form_block_states(&family, 0.25);
@@ -5585,11 +5286,9 @@ fn survival_sigma_psihessian_directional_derivative_subsample_half_scales_correc
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .sigma_exact_joint_psihessian_directional_derivative_with_options(
             &states,
@@ -5759,7 +5458,7 @@ fn block_psi_test_dual_derivative_blocks(
 
 #[test]
 fn survival_psi_terms_inner_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -5771,11 +5470,9 @@ fn survival_psi_terms_inner_subsample_full_equals_unsampled() {
         .expect("some");
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full = family
         .psi_terms_inner_with_options(&states, &derivative_blocks, 0, None, &opts_full)
         .expect("with full mask")
@@ -5791,7 +5488,7 @@ fn survival_psi_terms_inner_subsample_full_equals_unsampled() {
 
 #[test]
 fn survival_psi_terms_inner_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -5801,11 +5498,9 @@ fn survival_psi_terms_inner_subsample_half_scales_correctly() {
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .psi_terms_inner_with_options(&states, &derivative_blocks, 0, None, &opts_half)
         .expect("scaled")
@@ -5893,7 +5588,7 @@ fn survival_psi_terms_inner_batched_matches_per_axis() {
 fn survival_psi_terms_inner_batched_subsample_matches_per_axis() {
     // Same equivalence under a half-row Horvitz-Thompson mask, exercising
     // the per-row weight branch of the batched fast path.
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -5901,7 +5596,9 @@ fn survival_psi_terms_inner_batched_subsample_matches_per_axis() {
 
     let even_mask: Vec<usize> = (0..n).filter(|i| i % 2 == 0).collect();
     let mut opts = BlockwiseFitOptions::default();
-    opts.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(even_mask, n, 0xC0FFEE)));
+    opts.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::from_uniform_inclusion_mask(
+        even_mask, n, 0xC0FFEE,
+    )));
 
     let per_axis_0 = family
         .psi_terms_inner_with_options(&states, &derivative_blocks, 0, None, &opts)
@@ -5950,7 +5647,7 @@ fn survival_psi_terms_inner_batched_subsample_matches_per_axis() {
 
 #[test]
 fn survival_psi_second_order_terms_inner_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -5962,11 +5659,9 @@ fn survival_psi_second_order_terms_inner_subsample_full_equals_unsampled() {
         .expect("some");
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full = family
         .psi_second_order_terms_inner_with_options(
             &states,
@@ -5989,7 +5684,7 @@ fn survival_psi_second_order_terms_inner_subsample_full_equals_unsampled() {
 
 #[test]
 fn survival_psi_second_order_terms_inner_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -5999,11 +5694,9 @@ fn survival_psi_second_order_terms_inner_subsample_half_scales_correctly() {
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .psi_second_order_terms_inner_with_options(
             &states,
@@ -6043,7 +5736,7 @@ fn survival_psi_second_order_terms_inner_subsample_half_scales_correctly() {
 
 #[test]
 fn survival_psi_hessian_directional_derivative_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -6059,11 +5752,9 @@ fn survival_psi_hessian_directional_derivative_subsample_full_equals_unsampled()
         .expect("some");
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full = family
         .psi_hessian_directional_derivative_with_options(
             &states,
@@ -6081,7 +5772,7 @@ fn survival_psi_hessian_directional_derivative_subsample_full_equals_unsampled()
 
 #[test]
 fn survival_psi_hessian_directional_derivative_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -6095,11 +5786,9 @@ fn survival_psi_hessian_directional_derivative_subsample_half_scales_correctly()
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .psi_hessian_directional_derivative_with_options(
             &states,
@@ -6179,7 +5868,7 @@ fn survival_psi_workspace_hessian_directional_derivative_is_operator_and_matches
 
 #[test]
 fn survival_psi_hessian_directional_derivative_operator_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -6202,11 +5891,9 @@ fn survival_psi_hessian_directional_derivative_operator_subsample_full_equals_un
     let baseline_dense = baseline.to_dense();
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full = family
         .psi_hessian_directional_derivative_operator_with_options(
             &states,
@@ -6225,7 +5912,7 @@ fn survival_psi_hessian_directional_derivative_operator_subsample_full_equals_un
 
 #[test]
 fn survival_psi_hessian_directional_derivative_operator_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 200usize;
     let family = make_block_psi_test_family(n);
     let states = block_psi_test_block_states(&family, 0.15, 0.25);
@@ -6239,11 +5926,9 @@ fn survival_psi_hessian_directional_derivative_operator_subsample_half_scales_co
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .psi_hessian_directional_derivative_operator_with_options(
             &states,
@@ -6552,7 +6237,7 @@ fn step6_joint_beta_pullback_matches_cpu_dense_assembly_flex_no_wiggle() {
 
 #[test]
 fn survival_jointhessian_flex_no_wiggle_operator_subsample_full_equals_unsampled() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 40usize;
     let family = make_flex_no_wiggle_test_family(n);
     let states = flex_no_wiggle_test_block_states(&family);
@@ -6573,11 +6258,9 @@ fn survival_jointhessian_flex_no_wiggle_operator_subsample_full_equals_unsampled
     let baseline_dense = baseline.to_dense();
 
     let mut opts_full = BlockwiseFitOptions::default();
-    opts_full.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        (0..n).collect(),
-        n,
-        0xDEADBEEF,
-    )));
+    opts_full.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask((0..n).collect(), n, 0xDEADBEEF),
+    ));
     let with_full = family
         .exact_newton_joint_hessian_directional_derivative_operator_flex_no_wiggle_with_options(
             &states,
@@ -6597,7 +6280,7 @@ fn survival_jointhessian_flex_no_wiggle_operator_subsample_full_equals_unsampled
 
 #[test]
 fn survival_jointhessian_flex_no_wiggle_operator_subsample_half_scales_correctly() {
-    use crate::solver::outer_subsample::OuterScoreSubsample;
+    use crate::outer_subsample::OuterScoreSubsample;
     let n = 40usize;
     let family = make_flex_no_wiggle_test_family(n);
     let states = flex_no_wiggle_test_block_states(&family);
@@ -6612,11 +6295,9 @@ fn survival_jointhessian_flex_no_wiggle_operator_subsample_half_scales_correctly
     let m = even_mask.len();
 
     let mut opts_half = BlockwiseFitOptions::default();
-    opts_half.outer_score_subsample = Some(Arc::new(OuterScoreSubsample::new(
-        even_mask.clone(),
-        n,
-        0xCAFE,
-    )));
+    opts_half.outer_score_subsample = Some(Arc::new(
+        OuterScoreSubsample::from_uniform_inclusion_mask(even_mask.clone(), n, 0xCAFE),
+    ));
     let scaled = family
         .exact_newton_joint_hessian_directional_derivative_operator_flex_no_wiggle_with_options(
             &states,
@@ -6647,155 +6328,6 @@ fn survival_jointhessian_flex_no_wiggle_operator_subsample_half_scales_correctly
         "joint Hessian flex-no-wiggle dH operator HT rel {}",
         rel
     );
-}
-
-/// Regression: the batched k=5 / k=6 jet path for `row_primary_third_contracted`
-/// and `row_primary_fourth_contracted` must agree to ~1e-12 relative with
-/// the legacy 10-call path that built a fresh k=3 / k=4 jet per
-/// upper-triangular (a, b) cell. Exercises both score_warp and link_dev
-/// in the same fixture as the operator-vs-dense regression so the
-/// composed-unary derivative chain is non-trivial.
-#[test]
-fn row_third_and_fourth_contracted_batched_matches_legacy_per_cell() {
-    let score_runtime = test_deviation_runtime();
-    let link_runtime = test_deviation_runtime();
-    let marginal_design = array![[0.7, -0.2], [0.1, 0.6]];
-    let marginal_beta = array![0.35, -0.1];
-    let logslope_design = array![[1.0], [0.5]];
-    let logslope_beta = array![0.2];
-    let (time_wiggle_knots, time_wiggle_degree, time_wiggle_ncols) = standard_test_time_wiggle();
-    let family = SurvivalMarginalSlopeFamily {
-        n: 2,
-        event: Arc::new(array![1.0, 0.0]),
-        weights: Arc::new(array![1.0, 0.8]),
-        z: Arc::new(array![0.15, -0.25].insert_axis(Axis(1))),
-        score_covariance: unit_score_covariance(),
-        gaussian_frailty_sd: None,
-        derivative_guard: 1e-6,
-        design_entry: DesignMatrix::from(array![
-            [0.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0]
-        ]),
-        design_exit: DesignMatrix::from(array![
-            [0.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0]
-        ]),
-        design_derivative_exit: DesignMatrix::from(array![
-            [1.0, 0.0, 0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0, 0.0]
-        ]),
-        offset_entry: Arc::new(array![0.05, -0.02]),
-        offset_exit: Arc::new(array![0.15, 0.08]),
-        derivative_offset_exit: Arc::new(array![0.9, 1.1]),
-        marginal_design: DesignMatrix::from(marginal_design.clone()),
-        logslope_design: DesignMatrix::from(logslope_design.clone()),
-        logslope_surface_ranges: empty_logslope_surface_ranges(),
-        score_warp: Some(score_runtime.clone()),
-        link_dev: Some(link_runtime.clone()),
-        influence_absorber: None,
-        time_linear_constraints: None,
-        time_wiggle_knots: Some(time_wiggle_knots),
-        time_wiggle_degree: Some(time_wiggle_degree),
-        time_wiggle_ncols,
-        intercept_warm_starts: None,
-        auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
-        auto_subsample_last_rho: Arc::new(Mutex::new(None)),
-    };
-    let block_states = vec![
-        ParameterBlockState {
-            beta: array![0.0, 0.08, -0.03, 0.02, -0.01],
-            eta: array![0.0, 0.0],
-        },
-        ParameterBlockState {
-            beta: marginal_beta.clone(),
-            eta: marginal_design.dot(&marginal_beta),
-        },
-        ParameterBlockState {
-            beta: logslope_beta.clone(),
-            eta: logslope_design.dot(&logslope_beta),
-        },
-        ParameterBlockState {
-            beta: Array1::zeros(score_runtime.basis_dim()),
-            eta: Array1::zeros(2),
-        },
-        ParameterBlockState {
-            beta: Array1::zeros(link_runtime.basis_dim()),
-            eta: Array1::zeros(2),
-        },
-    ];
-
-    // Use two non-axis-aligned, non-orthogonal directions so the
-    // contracted tensors stress every term of the Faà di Bruno expansion
-    // (especially the diagonal cells that hit a degenerate `[e_a, e_a, …]`
-    // jet in the batched path).
-    let dir_u = array![0.31, -0.42, 0.18, 0.27];
-    let dir_v = array![-0.11, 0.55, -0.07, 0.14];
-
-    for row in 0..family.n {
-        // Legacy third: 10 k=3 jet calls.
-        let mut legacy_third = [[0.0_f64; 4]; 4];
-        for a in 0..N_PRIMARY {
-            let da = unit_primary_direction_ref(a).view();
-            for b in a..N_PRIMARY {
-                let db = unit_primary_direction_ref(b).view();
-                let value = family
-                    .row_neglog_directional_jet_batched(row, &block_states, &[da, db, dir_u.view()])
-                    .map(|jet| jet.coeff(jet.full_mask()))
-                    .expect("legacy third per-cell");
-                legacy_third[a][b] = value;
-                legacy_third[b][a] = value;
-            }
-        }
-        let batched_third = family
-            .row_primary_third_contracted_batched(row, &block_states, dir_u.view())
-            .expect("batched third");
-        for a in 0..N_PRIMARY {
-            for b in 0..N_PRIMARY {
-                let l = legacy_third[a][b];
-                let r = batched_third[a][b];
-                let denom = l.abs().max(1.0);
-                let rel = (l - r).abs() / denom;
-                assert!(
-                    rel <= 1e-12,
-                    "row {row} third[{a}][{b}]: legacy={l:.17e} batched={r:.17e} rel={rel:.3e}",
-                );
-            }
-        }
-
-        // Legacy fourth: 10 k=4 jet calls.
-        let mut legacy_fourth = [[0.0_f64; 4]; 4];
-        for a in 0..N_PRIMARY {
-            let da = unit_primary_direction_ref(a).view();
-            for b in a..N_PRIMARY {
-                let db = unit_primary_direction_ref(b).view();
-                let value = family
-                    .row_neglog_directional_jet_batched(
-                        row,
-                        &block_states,
-                        &[da, db, dir_u.view(), dir_v.view()],
-                    )
-                    .map(|jet| jet.coeff(jet.full_mask()))
-                    .expect("legacy fourth per-cell");
-                legacy_fourth[a][b] = value;
-                legacy_fourth[b][a] = value;
-            }
-        }
-        let batched_fourth = family
-            .row_primary_fourth_contracted_batched(row, &block_states, dir_u.view(), dir_v.view())
-            .expect("batched fourth");
-        for a in 0..N_PRIMARY {
-            for b in 0..N_PRIMARY {
-                let l = legacy_fourth[a][b];
-                let r = batched_fourth[a][b];
-                let denom = l.abs().max(1.0);
-                let rel = (l - r).abs() / denom;
-                assert!(
-                    rel <= 1e-12,
-                    "row {row} fourth[{a}][{b}]: legacy={l:.17e} batched={r:.17e} rel={rel:.3e}",
-                );
-            }
-        }
-    }
 }
 
 #[test]
@@ -7080,32 +6612,117 @@ fn flex_primary_timepoint_jets_for_test(
         Some((row, SurvivalInterceptSlotKind::Exit)),
     )?;
 
-    let entry_base = family.compute_survival_timepoint_exact(
-        row, &primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, 0.0, false,
+    let entry_cached = family.build_cached_partition(&primary, a0, g, beta_h, beta_w)?;
+    let exit_cached = family.build_cached_partition(&primary, a1, g, beta_h, beta_w)?;
+
+    let entry_base = family.compute_survival_timepoint_exact_from_cached(
+        row,
+        &primary,
+        q0,
+        primary.q0,
+        a0,
+        g,
+        d0,
+        beta_h,
+        beta_w,
+        0.0,
+        false,
+        &entry_cached,
     )?;
-    let exit_base = family.compute_survival_timepoint_exact(
-        row, &primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, 0.0, true,
+    let exit_base = family.compute_survival_timepoint_exact_from_cached(
+        row,
+        &primary,
+        q1,
+        primary.q1,
+        a1,
+        g,
+        d1,
+        beta_h,
+        beta_w,
+        0.0,
+        true,
+        &exit_cached,
     )?;
 
-    let entry_ext1 = family.compute_survival_timepoint_directional_exact(
-        row, &primary, q0, primary.q0, a0, g, beta_h, beta_w, dir1, false,
+    let entry_ext1 = family.compute_survival_timepoint_directional_exact_from_cached(
+        row,
+        &primary,
+        q0,
+        primary.q0,
+        a0,
+        g,
+        beta_h,
+        beta_w,
+        &entry_cached,
+        dir1,
+        false,
     )?;
-    let exit_ext1 = family.compute_survival_timepoint_directional_exact(
-        row, &primary, q1, primary.q1, a1, g, beta_h, beta_w, dir1, true,
+    let exit_ext1 = family.compute_survival_timepoint_directional_exact_from_cached(
+        row,
+        &primary,
+        q1,
+        primary.q1,
+        a1,
+        g,
+        beta_h,
+        beta_w,
+        &exit_cached,
+        dir1,
+        true,
     )?;
 
     let (entry_ext2, exit_ext2, entry_bi, exit_bi) = if let Some(dir2_arr) = dir2 {
-        let entry_ext2 = family.compute_survival_timepoint_directional_exact(
-            row, &primary, q0, primary.q0, a0, g, beta_h, beta_w, dir2_arr, false,
+        let entry_ext2 = family.compute_survival_timepoint_directional_exact_from_cached(
+            row,
+            &primary,
+            q0,
+            primary.q0,
+            a0,
+            g,
+            beta_h,
+            beta_w,
+            &entry_cached,
+            dir2_arr,
+            false,
         )?;
-        let exit_ext2 = family.compute_survival_timepoint_directional_exact(
-            row, &primary, q1, primary.q1, a1, g, beta_h, beta_w, dir2_arr, true,
+        let exit_ext2 = family.compute_survival_timepoint_directional_exact_from_cached(
+            row,
+            &primary,
+            q1,
+            primary.q1,
+            a1,
+            g,
+            beta_h,
+            beta_w,
+            &exit_cached,
+            dir2_arr,
+            true,
         )?;
-        let entry_bi = family.compute_survival_timepoint_bidirectional_exact(
-            row, &primary, q0, primary.q0, a0, g, beta_h, beta_w, dir1, dir2_arr,
+        let entry_bi = family.compute_survival_timepoint_bidirectional_exact_from_cached(
+            row,
+            &primary,
+            q0,
+            primary.q0,
+            a0,
+            g,
+            beta_h,
+            beta_w,
+            &entry_cached,
+            dir1,
+            dir2_arr,
         )?;
-        let exit_bi = family.compute_survival_timepoint_bidirectional_exact(
-            row, &primary, q1, primary.q1, a1, g, beta_h, beta_w, dir1, dir2_arr,
+        let exit_bi = family.compute_survival_timepoint_bidirectional_exact_from_cached(
+            row,
+            &primary,
+            q1,
+            primary.q1,
+            a1,
+            g,
+            beta_h,
+            beta_w,
+            &exit_cached,
+            dir1,
+            dir2_arr,
         )?;
         (
             Some(entry_ext2),

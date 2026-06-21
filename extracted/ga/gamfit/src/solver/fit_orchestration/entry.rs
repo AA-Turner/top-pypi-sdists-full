@@ -132,12 +132,12 @@ pub fn fit_model(request: FitRequest<'_>) -> Result<FitResult, WorkflowError> {
             .map_err(wrap_solver_err),
     }
 }
-/// Resolve the [`crate::solver::resource::ResourcePolicy`] backing term construction
+/// Resolve the [`crate::resource::ResourcePolicy`] backing term construction
 /// for a given [`FitConfig`] + dataset.
 ///
 /// If the caller hasn't supplied an explicit policy override, derive one from
 /// the shape of the problem via
-/// [`crate::solver::resource::ResourcePolicy::for_problem`]. At large scale (n_rows
+/// [`crate::resource::ResourcePolicy::for_problem`]. At large scale (n_rows
 /// >= 100k or the marginal-slope large-scale path active) this returns
 /// > `analytic_operator_required` so that any silent dense materialization in
 /// > the term-construction layer fails fast rather than allocating tens of GiB;
@@ -150,16 +150,16 @@ pub fn fit_model(request: FitRequest<'_>) -> Result<FitResult, WorkflowError> {
 pub(crate) fn resolved_resource_policy(
     config: &FitConfig,
     data: &Dataset,
-    hints: crate::solver::resource::ProblemHints,
-) -> crate::solver::resource::ResourcePolicy {
+    hints: crate::resource::ProblemHints,
+) -> crate::resource::ResourcePolicy {
     if let Some(p) = config.resource_policy.clone() {
         return p;
     }
-    crate::solver::resource::ResourcePolicy::for_problem(data.values.nrows(), 0, hints)
+    crate::resource::ResourcePolicy::for_problem(data.values.nrows(), 0, hints)
 }
 
-pub(crate) fn marginal_slope_hints(config: &FitConfig) -> crate::solver::resource::ProblemHints {
-    crate::solver::resource::ProblemHints {
+pub(crate) fn marginal_slope_hints(config: &FitConfig) -> crate::resource::ProblemHints {
+    crate::resource::ProblemHints {
         marginal_slope_large_scale_active: config.logslope_formula.is_some()
             || config.z_column.is_some(),
     }
@@ -326,10 +326,16 @@ fn constant_gaussian_standard_fit(
         .map_err(|err| WorkflowError::IntegrationFailed {
             reason: format!("constant Gaussian shortcut produced invalid fit: {err}"),
         })?;
+    let resolvedspec =
+        freeze_term_collection_from_design(&request.spec, &design).map_err(|err| {
+            WorkflowError::InvalidConfig {
+                reason: format!("constant Gaussian shortcut could not freeze design: {err}"),
+            }
+        })?;
     Ok(StandardFitResult {
         fit,
         design,
-        resolvedspec: request.spec.clone(),
+        resolvedspec,
         adaptive_diagnostics: None,
         kappa_timing: None,
         saved_link_state: crate::estimate::FittedLinkState::Standard(None),
@@ -600,12 +606,16 @@ fn fit_expectile_laws(
 ///   dims;
 /// - the term collection is exactly one smooth term — no linear terms, no
 ///   random effects, no by-variables / factor interactions;
-/// - that smooth is a plain 1-D cubic (degree 3) B-spline with a single
-///   order-2 penalty (`double_penalty=false` — the default `s(x)` adds a
-///   second null-space shrinkage penalty, which the scan's diffuse `{1, x}`
-///   null space deliberately does NOT shrink, so it is not the same
-///   posterior and is excluded), open (non-cyclic) boundary, free endpoint
-///   conditions, and no shape constraint;
+/// - that smooth is a plain 1-D B-spline whose penalty order is compatible
+///   with the exact scan and whose null space is unshrunk
+///   (`double_penalty=false`). `double_penalty` (mgcv `select = TRUE`) on a free
+///   B-spline emits a second REML coordinate — the Marra & Wood (2011) null-space
+///   shrinkage block — that the scan cannot represent (its polynomial null space
+///   is an improper diffuse prior it can never shrink); routing such a fit
+///   through the scan would silently drop that penalty and select λ from the
+///   bending penalty alone, which is exactly the EDF inflation #1266 reports.
+///   Those fits fall through to the dense two-rho path, which owns both penalties
+///   jointly;
 /// - the offset is identically zero and every weight is finite and positive;
 /// - at least 3 distinct finite abscissae (the scan's diffuse rank plus one).
 ///
@@ -676,6 +686,23 @@ pub fn spline_scan_fast_path(request: &StandardFitRequest<'_>) -> Option<SplineS
     // smoother (#1044) handles the m−1 partially-diffuse leading nodes for all
     // m ≤ MAX_ORDER; m > MAX_ORDER falls through to the dense path.
     let order = bspec.penalty_order;
+    // Double-penalty (mgcv `select = TRUE`) is NOT representable by the scan and
+    // must fall through to the dense two-rho path (#1266). On a free B-spline the
+    // double penalty emits a *second* REML coordinate — the Marra & Wood (2011)
+    // null-space shrinkage block `Z Zᵀ` (see `bspline_penalty_candidates`) —
+    // whose entire purpose is to let REML shrink the unpenalized `{1, x, …}`
+    // polynomial null space toward `EDF → 0` for an unsupported term. The scan,
+    // by construction, carries that null space as an *improper diffuse* prior it
+    // can never shrink (its EDF floor is the null-space dimension `order`), so
+    // routing a `double_penalty` fit through it silently DROPS the second penalty
+    // and selects λ from the single bending penalty alone. The scan's own exact
+    // diffuse REML then genuinely prefers a mildly wiggly fit at finite λ for
+    // some noise realizations (an interior REML optimum, EDF ≈ 3–4), which is the
+    // EDF inflation #1266 reports. The dense path owns both penalties jointly and
+    // its outer REML, seeded into the over-smoothing basin, drives the null space
+    // out (EDF → null-space dim) when the data are truly polynomial. Excluding
+    // `double_penalty` here keeps such a fit on the dense path; single-penalty
+    // and boundary-conditioned single-penalty B-splines keep the exact O(n) scan.
     if !(1..=3).contains(&order)
         || bspec.degree != 2 * order - 1
         || bspec.double_penalty

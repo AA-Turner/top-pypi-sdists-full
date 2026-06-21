@@ -71,7 +71,10 @@ class SHCIntrusionSystem:
 
     @property
     def arming_state(self) -> ArmingState:
-        return self.ArmingState(self._raw_arming_state["state"])
+        try:
+            return self.ArmingState(self._raw_arming_state["state"])
+        except ValueError:
+            return self.ArmingState.SYSTEM_DISARMED
 
     @property
     def remaining_time_until_armed(self) -> int:
@@ -81,15 +84,21 @@ class SHCIntrusionSystem:
 
     @property
     def alarm_state(self) -> AlarmState:
-        return self.AlarmState(self._raw_alarm_state["value"])
+        try:
+            return self.AlarmState(self._raw_alarm_state["value"])
+        except ValueError:
+            return self.AlarmState.ALARM_OFF
 
     @property
     def alarm_state_incidents(self):
-        return self._raw_alarm_state["incidents"]
+        return self._raw_alarm_state.get("incidents", [])
 
     @property
     def active_configuration_profile(self) -> Profile:
-        return self.Profile(int(self._raw_active_configuration_profile["profileId"]))
+        try:
+            return self.Profile(int(self._raw_active_configuration_profile["profileId"]))
+        except (ValueError, KeyError):
+            return self.Profile.FULL_PROTECTION
 
     @property
     def security_gaps(self):
@@ -159,6 +168,8 @@ MODEL_MAPPING = {"IDS": SHCIntrusionSystem}
 SUPPORTED_DOMAINS = MODEL_MAPPING.keys()
 
 
-def build(api, domain_model, raw_domain_state):
+def build(api, domain_model, raw_domain_state, root_device_id):
     assert domain_model in SUPPORTED_DOMAINS, "Domain model is supported"
-    return MODEL_MAPPING[domain_model](api=api, raw_domain_state=raw_domain_state)
+    return MODEL_MAPPING[domain_model](
+        api=api, raw_domain_state=raw_domain_state, root_device_id=root_device_id
+    )

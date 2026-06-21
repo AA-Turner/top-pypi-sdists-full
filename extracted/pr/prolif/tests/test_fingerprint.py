@@ -82,7 +82,31 @@ class TestFingerprint:
 
     def test_init_all(self) -> None:
         fp = Fingerprint("all")
-        assert set(fp.interactions) == set(_INTERACTIONS)
+        assert set(fp.interactions) == set(_INTERACTIONS) - {
+            "ImplicitHBDonor",
+            "ImplicitHBAcceptor",
+        }
+
+    def test_init_implicit(self) -> None:
+        fp = Fingerprint(implicit_hydrogens=True)
+        assert "ImplicitHBDonor" in fp.interactions
+        assert "ImplicitHBDonor" in fp.interactions
+
+    def test_init_implicit_all(self) -> None:
+        fp = Fingerprint("all", implicit_hydrogens=True)
+        assert set(fp.interactions) == set(_INTERACTIONS) - {"HBDonor", "HBAcceptor"}
+
+    def test_init_implicit_with_explicit_params(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match=(
+                "The following interactions were requested in their implicit-hydrogen "
+                "form but parametrized for the explicit-hydrogen form"
+            ),
+        ):
+            Fingerprint(
+                implicit_hydrogens=True, parameters={"HBDonor": {"distance": 4.2}}
+            )
 
     def test_n_interactions(self, fp: Fingerprint) -> None:
         assert fp.n_interactions == len(fp.interactions)
@@ -169,6 +193,13 @@ class TestFingerprint:
         int_data = ifp[key]
         assert "Hydrophobic" in int_data
 
+    def test_generate_ignore(
+        self, ligand_mol: "Molecule", protein_mol: "Molecule"
+    ) -> None:
+        fp = Fingerprint(["Hydrophobic"], ignore=lambda _res1, _res2: True)
+        ifp = fp.generate(ligand_mol, protein_mol, metadata=True)
+        assert not ifp
+
     @pytest.mark.parametrize(
         "trajectory_slice",
         [
@@ -224,6 +255,40 @@ class TestFingerprint:
         lig_suppl = list(sdf_supplier(path))
         fp_simple.run_from_iterable(lig_suppl[:2], protein_mol, progress=False)
         assert len(fp_simple.ifp) == 2
+
+    @pytest.mark.parametrize("n_jobs", [None, 1])
+    def test_run_ignore(
+        self,
+        u: mda.Universe,
+        ligand_ag: "AtomGroup",
+        protein_ag: "AtomGroup",
+        n_jobs: int | None,
+    ) -> None:
+        fp_ignore = Fingerprint(["Hydrophobic"], ignore=lambda _res1, _res2: True)
+        fp_ignore.run(
+            u.trajectory[0],
+            ligand_ag,
+            protein_ag,
+            progress=False,
+            n_jobs=n_jobs,
+        )
+        assert fp_ignore.ifp == {0: {}}
+
+    @pytest.mark.parametrize("n_jobs", [None, 1])
+    def test_run_from_iterable_ignore(
+        self,
+        ligand_mol: "Molecule",
+        protein_mol: "Molecule",
+        n_jobs: int | None,
+    ) -> None:
+        fp_ignore = Fingerprint(["Hydrophobic"], ignore=lambda _res1, _res2: True)
+        fp_ignore.run_from_iterable(
+            [ligand_mol],
+            protein_mol,
+            progress=False,
+            n_jobs=n_jobs,
+        )
+        assert fp_ignore.ifp == {0: {}}
 
     def test_to_df(
         self,

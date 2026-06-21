@@ -391,6 +391,21 @@ def _parse_filing_date(d) -> Optional[date]:
     return None
 
 
+def _plus_three_years(d: date) -> date:
+    """The Rule 415(a)(5) expiry date: three years after ``d``."""
+    try:
+        return d.replace(year=d.year + 3)
+    except ValueError:
+        # Feb 29 -> Feb 28
+        return d.replace(year=d.year + 3, day=d.day - 1)
+
+
+_ASR_BASE_FORMS = {'S-3ASR', 'F-3ASR'}
+# 'RW' withdraws the registration; 'RW WD' rescinds an earlier 'RW' (the
+# registration is then NOT withdrawn). 'AW' withdraws only an amendment, not the
+# registration, so it is deliberately excluded.
+
+
 class ShelfLifecycle:
     """Lifecycle position and insights for a 424B filing within its shelf registration.
 
@@ -427,46 +442,79 @@ class ShelfLifecycle:
 
     @cached_property
     def shelf_registration(self) -> Optional['Filing']:
-        """The S-3/F-3/S-1 filing that initiated this shelf."""
-        for f in self._related:
-            base_form = f.form.replace('/A', '')
-            if base_form in _SHELF_BASE_FORMS:
-                return f
-        return None
+        """The S-3/F-3/S-1 filing that *initiated* this shelf.
+
+        The earliest shelf-base-form filing in the family (selected explicitly by
+        filing date, not by ``_related`` ordering). Establishes the shelf's vintage;
+        for the date the expiry clock currently runs from, see
+        :attr:`current_effective_date`.
+        """
+        candidates = [f for f in self._related
+                      if f.form.replace('/A', '') in _SHELF_BASE_FORMS]
+        return min(candidates, key=lambda f: f.filing_date) if candidates else None
 
     @cached_property
-    def _effective_filing(self) -> Optional['Filing']:
-        """The EFFECT filing that declared the shelf effective."""
-        for f in self._related:
-            if f.form == 'EFFECT':
-                return f
-        return None
+    def _initial_effective_filing(self) -> Optional['Filing']:
+        """The EFFECT filing that *first* declared the shelf effective (earliest)."""
+        effects = [f for f in self._related if f.form == 'EFFECT']
+        return min(effects, key=lambda f: f.filing_date) if effects else None
+
+    @cached_property
+    def _current_effective_filing(self) -> Optional['Filing']:
+        """The filing establishing *current* effectiveness (latest).
+
+        The most recent effectiveness event — an EFFECT notice or an automatic
+        (S-3ASR/F-3ASR) shelf filing, whichever is later. Automatic shelves are
+        effective on filing and never receive an EFFECT notice, so both kinds are
+        considered together; a genuine Rule 415(a)(6) re-registration of either
+        kind advances this past cosmetic amendments. Stays consistent with
+        :attr:`_generations`.
+        """
+        candidates = [f for f in self._related
+                      if f.form == 'EFFECT'
+                      or f.form.replace('/A', '') in _ASR_BASE_FORMS]
+        return max(candidates, key=lambda f: f.filing_date) if candidates else None
 
     @cached_property
     def shelf_filed_date(self) -> Optional[str]:
-        """Date the shelf registration was filed (string)."""
+        """Date the shelf registration was *originally* filed (string)."""
         reg = self.shelf_registration
         return str(reg.filing_date) if reg else None
 
     @cached_property
     def effective_date(self) -> Optional[str]:
-        """Date the shelf was declared effective (string)."""
-        eff = self._effective_filing
+        """Date the shelf *first* became effective (string).
+
+        The original effectiveness; immutable for a given registration statement
+        and used to measure the initial SEC review period. For the operative
+        effectiveness today (which advances on re-registration), see
+        :attr:`current_effective_date`.
+        """
+        eff = self._initial_effective_filing
+        return str(eff.filing_date) if eff else None
+
+    @cached_property
+    def current_effective_date(self) -> Optional[str]:
+        """Date of the shelf's *current* effectiveness (string).
+
+        The latest EFFECT (or, for automatic shelves, the latest ASR filing).
+        This is the date the Rule 415(a)(5) three-year clock currently runs from,
+        so a re-registration moves it forward while cosmetic amendments do not.
+        Equals :attr:`effective_date` for a shelf that has never been re-registered.
+        """
+        eff = self._current_effective_filing
         return str(eff.filing_date) if eff else None
 
     @cached_property
     def shelf_expires(self) -> Optional[date]:
-        """Expiration date of the shelf (filed date + 3 years)."""
-        if not self.shelf_filed_date:
-            return None
-        filed = _parse_filing_date(self.shelf_filed_date)
-        if not filed:
-            return None
-        try:
-            return filed.replace(year=filed.year + 3)
-        except ValueError:
-            # Feb 29 -> Feb 28
-            return filed.replace(year=filed.year + 3, day=filed.day - 1)
+        """Expiration date of the shelf (current effective date + 3 years).
+
+        Anchored on *current* effectiveness per Rule 415(a)(5): a genuine
+        415(a)(6) re-registration resets the clock, while a cosmetic POS AM or
+        S-3/A does not. Returns None for a shelf that is not yet effective.
+        """
+        eff = _parse_filing_date(self.current_effective_date)
+        return _plus_three_years(eff) if eff else None
 
     @cached_property
     def days_to_expiry(self) -> Optional[int]:
@@ -539,6 +587,158 @@ class ShelfLifecycle:
         return None
 
     # ------------------------------------------------------------------
+    # Derived lifecycle signals
+    # ------------------------------------------------------------------
+
+    @cached_property
+    def _generations(self) -> List[date]:
+        """Effective dates of each shelf generation, ascending.
+
+        One entry per effectiveness event: each EFFECT notice, plus each
+        automatic (ASR) shelf filing — automatic shelves are effective on
+        filing and never receive an EFFECT notice. A re-registration adds a
+        generation; this underpins re-registration and continuity detection.
+        """
+        dates = {_parse_filing_date(f.filing_date)
+                 for f in self._related if f.form == 'EFFECT'}
+        dates |= {_parse_filing_date(f.filing_date) for f in self._related
+                  if f.form.replace('/A', '') in _ASR_BASE_FORMS}
+        return sorted(d for d in dates if d is not None)
+
+    @cached_property
+    def is_automatic_shelf(self) -> bool:
+        """Whether this is an automatic (WKSI) shelf — S-3ASR/F-3ASR.
+
+        Automatic shelves are effective on filing with no SEC review. An
+        issuer-class signal: only well-known seasoned issuers may use them.
+        """
+        return any(f.form.replace('/A', '') in _ASR_BASE_FORMS for f in self._related)
+
+    @cached_property
+    def is_effective(self) -> bool:
+        """Whether the shelf has been declared effective.
+
+        True if an effectiveness event exists (EFFECT or automatic shelf) OR any
+        takedown exists — a takedown proves effectiveness even when the EFFECT
+        notice has scrolled out of the recent filing window.
+        """
+        return bool(self._generations) or self.total_takedowns > 0
+
+    @cached_property
+    def is_withdrawn(self) -> bool:
+        """Whether the shelf registration has been withdrawn and not rescinded.
+
+        A shelf is withdrawn if it has an 'RW' (Registration Withdrawal) request
+        that has not been undone by a later 'RW WD' (withdrawal of that request).
+        'AW' (withdrawal of an amendment) does not withdraw the registration.
+        """
+        rw_dates = [_parse_filing_date(f.filing_date)
+                    for f in self._related if f.form == 'RW']
+        rw_dates = [d for d in rw_dates if d is not None]
+        if not rw_dates:
+            return False
+        rescind_dates = [_parse_filing_date(f.filing_date)
+                         for f in self._related if f.form == 'RW WD']
+        rescind_dates = [d for d in rescind_dates if d is not None]
+        if not rescind_dates:
+            return True
+        # Withdrawn only if the latest request is more recent than the latest rescission.
+        return max(rw_dates) > max(rescind_dates)
+
+    @cached_property
+    def is_re_registered(self) -> bool:
+        """Whether the shelf has been re-registered (more than one generation).
+
+        When true, the visible vintage (:attr:`shelf_filed_date`) is not the
+        operative document; the operative effectiveness is
+        :attr:`current_effective_date`.
+        """
+        return len(self._generations) > 1
+
+    @cached_property
+    def continuity(self) -> Optional[str]:
+        """Whether shelf coverage has been continuous across re-registrations.
+
+        ``'continuous'`` when each generation became effective on or before the
+        prior generation's expiry (Rule 415(a)(6) renewal — securities and fees
+        carry forward, no gap). ``'lapsed'`` when any generation became effective
+        only after the prior one expired (a revival after a gap with no shelf
+        access). None when there is no effectiveness event. A single generation
+        is trivially continuous.
+        """
+        gens = self._generations
+        if not gens:
+            return None
+        for prev, nxt in zip(gens, gens[1:]):
+            if nxt > _plus_three_years(prev):
+                return 'lapsed'
+        return 'continuous'
+
+    @cached_property
+    def has_registration_gap(self) -> bool:
+        """Data-quality flag: a generation became effective after the prior expired.
+
+        Within a single file number this should not happen under Rule 415 — it
+        usually means a revival (a fresh registration reusing the file number)
+        and is worth investigating the filing linkage rather than treating the
+        shelf as continuously registered.
+        """
+        return self.continuity == 'lapsed'
+
+    @cached_property
+    def status(self) -> str:
+        """Lifecycle status: withdrawn | expired | effective | registered.
+
+        Precedence: a withdrawal is terminal; then an effective shelf past its
+        expiry is expired; then effective; otherwise registered (filed but not
+        yet effective).
+        """
+        if self.is_withdrawn:
+            return 'withdrawn'
+        if self.is_effective:
+            exp = self.shelf_expires
+            if exp and date.today() > exp:
+                return 'expired'
+            if exp is None and self.takedowns:
+                # Effectiveness proven by a takedown but the EFFECT/ASR date is
+                # outside the loaded window, so shelf_expires is unknown. A shelf
+                # cannot take down after it expires, so the latest takedown + 3y
+                # is a guaranteed upper bound on expiry: past it means expired.
+                last_td = _parse_filing_date(self.takedowns[-1].filing_date)
+                if last_td and date.today() > _plus_three_years(last_td):
+                    return 'expired'
+            return 'effective'
+        return 'registered'
+
+    @cached_property
+    def program_mode(self) -> str:
+        """Takedown cadence: 'high_frequency' (> 50 takedowns) else 'standard'."""
+        return 'high_frequency' if self.total_takedowns > 50 else 'standard'
+
+    @cached_property
+    def days_since_last_takedown(self) -> Optional[int]:
+        """Days from the most recent takedown to today. None if no takedowns."""
+        if not self.takedowns:
+            return None
+        last = _parse_filing_date(self.takedowns[-1].filing_date)
+        return (date.today() - last).days if last else None
+
+    @cached_property
+    def program_age_days(self) -> Optional[int]:
+        """Age of the shelf program in days.
+
+        Measured from the *original* effectiveness only when coverage has been
+        continuous; for a lapsed/revived shelf it measures from the *current*
+        effectiveness, since the original program no longer applies. None when
+        not yet effective.
+        """
+        gens = self._generations
+        if not gens:
+            return None
+        anchor = gens[0] if self.continuity == 'continuous' else gens[-1]
+        return (date.today() - anchor).days
+
+    # ------------------------------------------------------------------
     # Shelf capacity
     # ------------------------------------------------------------------
 
@@ -579,14 +779,25 @@ class ShelfLifecycle:
         summary.add_column("field", style="bold deep_sky_blue1", min_width=24)
         summary.add_column("value")
 
+        status_label = self.status.capitalize()
+        if self.continuity == 'lapsed':
+            status_label += " (re-registered after a gap)"
+        elif self.is_re_registered:
+            status_label += " (re-registered)"
+        summary.add_row("Status", status_label)
+
         reg = self.shelf_registration
         if reg:
             summary.add_row("Shelf Registration", f"{reg.form} filed {reg.filing_date}")
 
-        eff = self._effective_filing
+        eff = self._initial_effective_filing
         if eff:
             review = f" ({self.review_period_days} days review)" if self.review_period_days is not None else ""
             summary.add_row("Effective Date", f"{eff.filing_date}{review}")
+
+        cur = self._current_effective_filing
+        if cur and (eff is None or cur.filing_date != eff.filing_date):
+            summary.add_row("Current Effective", f"{cur.filing_date} (re-registered)")
 
         exp = self.shelf_expires
         if exp:
@@ -1427,7 +1638,10 @@ class Prospectus424B:
     def underwriting(self) -> Optional[UnderwritingInfo]:
         """Underwriting syndicate or placement agent info.
         Uses table extraction first, falls back to cover page text."""
-        from edgar.offerings._424b_tables import extract_underwriting_from_tables
+        from edgar.offerings._424b_tables import (
+            extract_underwriting_from_tables,
+            is_plausible_underwriter_name,
+        )
         from edgar.offerings._424b_cover import extract_underwriting_from_text
 
         doc = self._document
@@ -1440,16 +1654,20 @@ class Prospectus424B:
         entries: list[UnderwriterEntry] = []
         fee_type = 'underwriting_discount'
 
-        # Prefer allocation tables (have full legal names)
+        # Prefer allocation tables (have full legal names). Guard every name:
+        # 424B2 structured-note/debt covers leak legalese paragraphs and lone
+        # bullets into the name slot (edgartools-2h4c).
         alloc = [r for r in table_results if r['type'] == 'allocation' and r['names']]
         if alloc:
             for name, amt in zip(alloc[0]['names'], alloc[0].get('allocations', [])):
-                entries.append(UnderwriterEntry(name=name, shares_allocated=amt))
+                if is_plausible_underwriter_name(name):
+                    entries.append(UnderwriterEntry(name=name, shares_allocated=amt))
         else:
             # Use cover grid or role listing names
             for tr in table_results:
                 for name in tr['names']:
-                    if not any(e.name == name for e in entries):
+                    if is_plausible_underwriter_name(name) \
+                            and not any(e.name == name for e in entries):
                         entries.append(UnderwriterEntry(name=name))
 
         # Fall back to text-based extraction if no tables found
@@ -1457,7 +1675,8 @@ class Prospectus424B:
             text_results = extract_underwriting_from_text(self._filing, document=doc)
             for tx in text_results:
                 for name in tx['names']:
-                    if not any(e.name == name for e in entries):
+                    if is_plausible_underwriter_name(name) \
+                            and not any(e.name == name for e in entries):
                         entries.append(UnderwriterEntry(name=name))
                 if tx['role'] in ('sole_placement_agent', 'placement_agent'):
                     fee_type = 'placement_agent_fees'

@@ -1,0 +1,14 @@
+toml-version = "v1.1.0"
+
+[files]
+include = ["**/*.toml"]
+
+[[schemas]]
+path = "schemas/name.schema.json"
+include = ["product.toml"]
+
+[extensions]
+"tombi-toml/tombi" = {
+  lsp.document-link.path.enabled = true,
+  lsp.goto-definition.path.enabled = true,
+}

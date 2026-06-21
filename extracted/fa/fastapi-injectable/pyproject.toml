@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-injectable"
-version = "1.5.0"
+version = "1.6.0"
 description = "Use FastAPI's Depends() anywhere — in CLI tools, Celery tasks, background workers, and more. No refactoring needed."
 authors = [{ name = "Jasper Sui", email = "suiyang03@gmail.com" }]
 requires-python = ">=3.10"
@@ -43,6 +43,9 @@ Homepage = "https://github.com/JasperSui/fastapi-injectable"
 Repository = "https://github.com/JasperSui/fastapi-injectable"
 Documentation = "https://fastapi-injectable.readthedocs.io"
 Changelog = "https://github.com/JasperSui/fastapi-injectable/releases"
+
+[project.entry-points.pytest11]
+fastapi_injectable = "fastapi_injectable.pytest_plugin"
 
 [dependency-groups]
 dev = [

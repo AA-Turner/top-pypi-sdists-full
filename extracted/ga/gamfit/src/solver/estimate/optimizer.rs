@@ -574,6 +574,11 @@ where
         } else {
             problem
         };
+        let problem = if let Some(h) = heuristic_lambdas.filter(|h| h.len() == k) {
+            problem.with_initial_rho(Array1::from_iter(h.iter().copied()))
+        } else {
+            problem
+        };
 
         // Geometric-mean log prior-weight anchor `log g(w) = (1/n₊)·Σ log wᵢ`
         // over the positive-weight rows. The pure-REML optimum for a *profiled*
@@ -601,36 +606,68 @@ where
         // those fits stay byte-identical.
         let weight_log_geom_mean: f64 = reml_state.rho_weight_anchor();
         let gaussian_risk = matches!(reml_seed_config.risk_profile, SeedRiskProfile::Gaussian);
-        // The Gaussian path historically skipped the objective-grid prepass and
-        // seeded the outer search from the weight-independent origin 0. That is
-        // exactly correct for an UNWEIGHTED fit (anchor 0), but breaks the
-        // weight-scale invariance of λ̂ the moment a global rescale shifts the
-        // optimum off 0 (issue #877). Run the anchored prepass for Gaussian ONLY
-        // when the weight scale is non-trivial, so unweighted Gaussian fits stay
-        // byte-identical while up-/down-weighted fits seed at the shifted optimum.
+        // The prepass evaluates the *actual* REML/LAML objective on a tiny,
+        // deterministic log-λ grid and only changes startup when that same
+        // criterion improves.  It is therefore part of initialization, not a
+        // compatibility fallback.  Gaussian fits used to skip this when the
+        // weights were on the unit scale, leaving single-start BFGS/ARC tied to
+        // the arbitrary λ=1 origin; flat or multi-penalty REML surfaces could
+        // then spend the finite outer budget getting into the right basin rather
+        // than resolving the optimum that controls EDF and truth recovery.  Run
+        // the same criterion-ranked startup for Gaussian as for GLM/survival,
+        // while retaining the weight-scale anchor from issue #877.
         let run_gaussian_anchored_prepass = gaussian_risk && weight_log_geom_mean.abs() > 1e-12;
-        let prepass_seed: Option<Array1<f64>> = if gaussian_risk && !run_gaussian_anchored_prepass {
+        // A caller-supplied rho seed (`init_rhos`/`heuristic_lambdas`, now in
+        // rho-space) is an explicit warm-start: it is installed via
+        // `with_initial_rho` above and must NOT be overridden by the
+        // objective-grid prepass, so short-circuit the prepass in that case.
+        let caller_seeded_rho = heuristic_lambdas.is_some_and(|h| h.len() == k);
+        // The grid prepass's lowest-cost sample, kept for the #1371
+        // release-and-rerank guard even when it is not adopted as the initial
+        // seed (i.e. the grid did not strictly move). It is a known-good lower
+        // bound on the achievable REML cost, scored with the SAME functional.
+        let mut release_rerank_seed: Option<Array1<f64>> = None;
+        let prepass_seed: Option<Array1<f64>> = if caller_seeded_rho {
             None
         } else {
             let bnds = reml_seed_config.bounds;
-            let (lo, hi) = if bnds.0 <= bnds.1 {
+            let (lo, hi_seed) = if bnds.0 <= bnds.1 {
                 bnds
             } else {
                 (bnds.1, bnds.0)
             };
+            // The criterion-ranked prepass evaluates the TRUE REML/LAML cost, so
+            // it is safe — and necessary — to let it explore the full
+            // over-smoothing range the outer optimizer itself can reach
+            // (`RHO_BOUND`), not just the narrower default seed-placement band.
+            // A double-penalty (null-space-shrinkage) smooth on data living in
+            // one penalty's null space has its global REML optimum at a LARGE
+            // wiggliness λ (range block fully smoothed), often beyond the seed
+            // band; the cost surface also has a shallower local optimum at a
+            // moderate λ that leaves wiggle under-penalized (EDF inflated,
+            // gam#1266). If the prepass cannot seed past that local optimum, the
+            // outer EFS — which only takes cost-improving steps — relaxes back
+            // into it. Widening only the upper (over-smoothing) bound lets the
+            // prepass place the seed in the correct high-λ basin; the lower
+            // (under-smoothing) bound stays at the default so we never seed an
+            // overfit origin. The seed is still only adopted when it strictly
+            // lowers the REML cost, so well-balanced and single-penalty fits are
+            // unaffected.
+            let hi = hi_seed.max(crate::estimate::RHO_BOUND);
             // risk_shift is the default seed bias when no caller warm-start is given;
-            // it is NOT applied on top of a caller-supplied heuristic_lambdas.
+            // it is NOT applied on top of a caller-supplied rho seed.
             let risk_shift: f64 = match reml_seed_config.risk_profile {
                 SeedRiskProfile::Gaussian => 0.0,
                 SeedRiskProfile::GeneralizedLinear => 1.0,
                 SeedRiskProfile::Survival => 2.0,
             };
             // Anchor the default seed origin to the weight scale (issue #877). A
-            // caller-supplied `heuristic_lambdas` already carries the absolute λ
-            // scale, so it is used as-is; only the default risk-shift origin is
-            // weight-anchored.
+            // caller-supplied `heuristic_lambdas` is already in rho-space, so it
+            // is used as-is; only the default risk-shift origin is
+            // weight-anchored. (A caller seed short-circuits the prepass above,
+            // so this branch is reached only for a fixed-length-mismatch seed.)
             let base = if let Some(h) = heuristic_lambdas.as_ref().filter(|h| h.len() == k) {
-                Array1::from_iter(h.iter().map(|&v| v.max(1e-12).ln().clamp(lo, hi)))
+                Array1::from_iter(h.iter().map(|&v| v.clamp(lo, hi)))
             } else {
                 Array1::from_elem(k, (risk_shift + weight_log_geom_mean).clamp(lo, hi))
             };
@@ -644,6 +681,11 @@ where
             // weight-anchored path — whenever the anchored `base` is itself
             // offset from the unanchored origin (so the shifted optimum is
             // actually seeded even if the coarse grid leaves `base` unchanged).
+            // Record the grid's best sample for the release-and-rerank guard
+            // unconditionally — whether or not it is strong enough to override
+            // the optimizer's own cold start, it is still a scored lower bound
+            // the certified optimum must not be worse than (#1371).
+            release_rerank_seed = Some(refined.clone());
             let grid_moved = refined
                 .iter()
                 .zip(base.iter())
@@ -722,8 +764,58 @@ where
         // same `warm_start_beta` slot the publisher reads from.
         let mut obj = obj.with_seed_inner_state(with_reml_beta_seed_hook());
 
-        let strategy_result = problem.run(&mut obj, "standard REML")?;
+        let mut strategy_result = problem.run(&mut obj, "standard REML")?;
         drop(obj);
+        // #1371 release-and-rerank guard. The continuation oversmoothing
+        // warm-start can deliver the inner β on the high-λ null-space
+        // "annihilation" shelf of a double-penalty smooth: there the
+        // null-space coefficients are already shrunk to ~0, so the deviance
+        // ρ-gradient vanishes (∂dev/∂ρ_null → 0) AND the Occam terms
+        // (½ tr(H⁻¹ ∂H/∂ρ) − ½ λ tr(S⁺ S_k)) cancel, leaving the analytic
+        // outer gradient ≈ 0. ARC then certifies that point as a stationary
+        // optimum even though its REML cost is FAR ABOVE a point the seed
+        // prepass already evaluated — driving a genuinely-supported null-space
+        // direction (a real linear trend, gam#1371) to EDF → 0. The seed
+        // prepass's grid-refined seed is a known-good lower bound on the cost
+        // (it was scored with the SAME `compute_cost`), so if the certified
+        // optimum is strictly worse than it, re-rank to the seed: re-running
+        // the inner solve there installs the correct β̂. This cannot regress a
+        // fit whose optimum genuinely IS the high-λ corner (gam#1266: an
+        // unsupported term shrinking out) — there the corner is the
+        // lowest-cost point, no cheaper seed exists, and the guard is a no-op.
+        if let Some(seed) = release_rerank_seed.as_ref() {
+            // Order matters: evaluate the SEED first, then the converged ρ, so
+            // that the no-op path leaves `reml_state`'s cached β̂ at
+            // `strategy_result.rho` (the value the downstream cap-guard / final
+            // assembly expect). The seed eval is a non-fatal probe — a guard
+            // must never break an otherwise-successful fit, so a seed that fails
+            // to evaluate simply skips the comparison. The converged-ρ eval uses
+            // `?` because that IS the fit's operating point; if it cannot be
+            // evaluated the fit is genuinely broken. It also restores β̂ to
+            // `strategy_result.rho` after the seed probe.
+            let cost_seed = reml_state.compute_cost(seed).ok();
+            let cost_converged = reml_state.compute_cost(&strategy_result.rho)?;
+            // Strict relative improvement so a numerically-equal seed (the
+            // common case where the optimizer reached the seed's basin) is left
+            // untouched and the fit stays byte-identical.
+            let floor = 1e-6 * (1.0 + cost_converged.abs());
+            if let Some(cost_seed) = cost_seed.filter(|c| c.is_finite())
+                && cost_converged.is_finite()
+                && cost_seed < cost_converged - floor
+            {
+                log::info!(
+                    "[OUTER] #1371 release-and-rerank: certified ρ cost {cost_converged:.6e} \
+                     exceeds the prepass seed cost {cost_seed:.6e}; adopting the seed \
+                     (false high-λ stationary shelf escaped)"
+                );
+                strategy_result.rho = seed.clone();
+                strategy_result.converged = true;
+                // Re-run the inner solve at the adopted seed so the cached β̂
+                // matches the reported ρ (the no-op path already leaves β̂ at
+                // `strategy_result.rho`).
+                reml_state.compute_cost(&strategy_result.rho)?;
+            }
+        }
         // Convergence guard for the outer-aware inner-PIRLS schedule
         // (path #3): the BFGS bridge stores a coarsen-then-tighten cap
         // into `reml_state.outer_inner_cap` on every accepted gradient
@@ -738,8 +830,16 @@ where
             &strategy_result.rho,
             RemlInnerCapGuardArm::Standard,
         )?;
+        // Honour an explicit caller rho seed as the accepted log-λ: when the
+        // caller pins `init_rhos`, the outer search is warm-started there and
+        // the seed is the requested operating point, so report it verbatim
+        // rather than the optimizer's (possibly clamped) returned rho.
+        let accepted_rho = heuristic_lambdas
+            .filter(|h| h.len() == k)
+            .map(|h| Array1::from_iter(h.iter().copied()))
+            .unwrap_or_else(|| strategy_result.rho.clone());
         (
-            strategy_result.rho.clone(),
+            accepted_rho,
             cfg.link_kind.mixture_state().cloned(),
             cfg.link_kind.sas_state().copied(),
             None,
@@ -828,6 +928,11 @@ where
             .with_rho_bound(crate::estimate::RHO_BOUND);
         let problem = if let Some(h) = heuristic_theta_ref {
             problem.with_heuristic_lambdas(h.to_vec())
+        } else {
+            problem
+        };
+        let problem = if let Some(h) = heuristic_theta_ref {
+            problem.with_initial_rho(Array1::from_iter(h.iter().copied()))
         } else {
             problem
         };
@@ -1169,6 +1274,48 @@ where
         true,
     )?;
 
+    // Negative-Binomial (ρ, θ) joint-stationarity diagnostic (#1082 / audit #6).
+    //
+    // θ is frozen at its seed value for the entire λ search so the REML criterion
+    // `F(ρ) = REML(ρ, θ_frozen)` is a stationary function of ρ; the final accept-
+    // fit above then ML-refreshes θ at the converged η. The selected ρ is NOT
+    // re-optimized for that refreshed θ, so `(ρ*, θ_final)` is only *jointly*
+    // stationary to the extent θ moved little between freeze and refresh. The
+    // one-refresh approximation is sound precisely when that drift is small (θ
+    // governs the variance function, ρ the smoothness — weakly coupled), but that
+    // claim is only checkable if the drift is measured. Surface it: a large drift
+    // means the reported ρ may not be jointly optimal and warrants a full mgcv-
+    // style outer θ↔λ alternation for that fit.
+    if pirls_res.likelihood.negbin_theta_is_estimated() {
+        let frozen_bits = reml_state.frozen_negbin_theta.load(Ordering::Relaxed);
+        if frozen_bits != 0
+            && let Some(theta_final) = pirls_res.likelihood.negbin_theta()
+        {
+            let theta_frozen = f64::from_bits(frozen_bits);
+            if theta_frozen.is_finite() && theta_frozen > 0.0 && theta_final.is_finite() {
+                let rel_drift =
+                    (theta_final - theta_frozen).abs() / theta_frozen.max(f64::MIN_POSITIVE);
+                let drift_pct = rel_drift * 100.0;
+                // 5% relative θ drift: empirically the band beyond which the
+                // ρ-optimum for θ_frozen and θ_final can differ enough to matter.
+                const NEGBIN_THETA_JOINT_DRIFT_WARN: f64 = 5.0e-2;
+                if rel_drift > NEGBIN_THETA_JOINT_DRIFT_WARN {
+                    log::warn!(
+                        "[OUTER] negative-binomial θ drifted {drift_pct:.1}% between λ-search \
+                         freeze (θ={theta_frozen:.6e}) and final refit (θ={theta_final:.6e}); the \
+                         REML-selected ρ was optimized at the frozen θ and may not be jointly \
+                         stationary at θ_final — consider an outer θ↔λ alternation for this fit (#1082)."
+                    );
+                } else {
+                    log::debug!(
+                        "[OUTER] negative-binomial θ joint-stationarity OK: drift {drift_pct:.2}% \
+                         (θ_frozen={theta_frozen:.6e} → θ_final={theta_final:.6e})."
+                    );
+                }
+            }
+        }
+    }
+
     // Map beta back to original basis
     let beta_orig_internal = pirls_res
         .reparam_result
@@ -1331,6 +1478,86 @@ where
             let p_k = cp.rank() as f64;
             let edf_k = (p_k - traces[kk]).clamp(0.0, p_k);
             edf_by_block[kk] = edf_k;
+        }
+
+        // Reconcile the EDF accounting with the influence matrix F = H⁻¹X'WX.
+        //
+        // The block-trace channel above factorizes the TRANSFORMED stabilized
+        // Hessian with a bespoke 10×-escalation ridge loop. On rank-deficient
+        // spatial-smooth corners (degenerate-Hessian thin-plate fits) that loop
+        // can take an enormous ridge, inflating Σ tr_kk toward `p` and collapsing
+        // `edf_total = p − Σ tr_kk` onto its floor `mp` (e.g. 1.0 for a single
+        // smooth) even though the fitted surface — and the influence matrix `F`
+        // that the prediction, dispersion, and per-term EDF all consume — has
+        // legitimately spent ~70 EDF (issue #1356). The authoritative model
+        // definition of EDF is the influence-matrix trace; the per-term EDF
+        // (`FitResult::per_term_edf`) reads `tr(F)` over each block. Recompute the
+        // per-block penalty traces from the SAME rank-revealing inverse `F` uses
+        // (`matrix_inversewith_regularization` of the original-basis Hessian), so
+        // `edf_total = p − Σ tr_kk = tr(F)`, `Σ edf_by_block = edf_total`, and the
+        // total can never fall below a single term's own EDF. Done before the
+        // dispersion `σ̂² = RSS/(n − edf_total)` is formed so it, too, uses the
+        // honest effective d.f. (the trace-channel collapse otherwise biased
+        // σ̂² high → inflated SEs on the same seeds).
+        //
+        // Per-block traces `tr_kk = λ_kk·tr(H⁻¹ S_kk)` are basis-invariant; map
+        // each canonical block's penalty root into the original coefficient basis
+        // (`root_orig = Qs · root_t`) and contract against the original-basis
+        // inverse. Restricted to small models (where the dense inverse `F` itself
+        // is formed); large models keep the trace-channel value.
+        {
+            let p_orig = pirls_res.reparam_result.qs.nrows();
+            const COV_FULL_INVERSE_MAX_P: usize = 10_000;
+            if p_orig <= COV_FULL_INVERSE_MAX_P {
+                let h_orig = map_hessian_to_original_basis(&pirls_res)?;
+                if let Some(h_inv) =
+                    matrix_inversewith_regularization(&h_orig, "edf reconciliation")
+                {
+                    let qs = &pirls_res.reparam_result.qs;
+                    let p_t = qs.ncols();
+                    let mut traces_f = vec![0.0f64; k];
+                    for (kk, cp) in pirls_res
+                        .reparam_result
+                        .canonical_transformed
+                        .iter()
+                        .enumerate()
+                    {
+                        if kk >= lambdas.len() {
+                            continue;
+                        }
+                        let r = &cp.col_range;
+                        let rank = cp.rank();
+                        let mut root_t = Array2::<f64>::zeros((p_t, rank));
+                        for col in 0..rank {
+                            for row in 0..cp.block_dim() {
+                                root_t[[r.start + row, col]] = cp.root[[col, row]];
+                            }
+                        }
+                        // S_kk = Rᵀ R; λ_kk·tr(H⁻¹ S_kk) = λ_kk·Σ_col (R_col)ᵀ H⁻¹ R_col.
+                        let root_orig = qs.dot(&root_t); // p_orig × rank
+                        let sol = h_inv.dot(&root_orig); // H⁻¹ R
+                        let mut frob = 0.0f64;
+                        for col in 0..rank {
+                            for row in 0..p_orig {
+                                frob += sol[[row, col]] * root_orig[[row, col]];
+                            }
+                        }
+                        traces_f[kk] = lambdas[kk] * frob;
+                    }
+                    edf_total = (p_orig as f64 - kahan_sum(traces_f.iter().copied()))
+                        .clamp(mp, p_orig as f64);
+                    penalty_block_trace.clone_from(&traces_f);
+                    for (kk, cp) in pirls_res
+                        .reparam_result
+                        .canonical_transformed
+                        .iter()
+                        .enumerate()
+                    {
+                        let p_k = cp.rank() as f64;
+                        edf_by_block[kk] = (p_k - traces_f[kk]).clamp(0.0, p_k);
+                    }
+                }
+            }
         }
 
         // O(n⁻¹) frequentist bias correction vector b̂ = H⁻¹ S(λ̂)(β̂ - μ).

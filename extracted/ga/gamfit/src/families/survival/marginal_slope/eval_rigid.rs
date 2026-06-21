@@ -5,59 +5,6 @@
 use super::*;
 
 impl SurvivalMarginalSlopeFamily {
-    pub(crate) fn row_primary_closed_form_rigid(
-        &self,
-        row: usize,
-        q0: f64,
-        q1: f64,
-        qd1: f64,
-        block_states: &[ParameterBlockState],
-        probit_scale: f64,
-    ) -> Result<(f64, [f64; N_PRIMARY], [[f64; N_PRIMARY]; N_PRIMARY]), String> {
-        let logslope_eta = &block_states[2].eta;
-        let k = self.score_dim();
-        if k == 1 {
-            return row_primary_closed_form(
-                q0,
-                q1,
-                qd1,
-                logslope_eta[row],
-                self.z[[row, 0]],
-                self.weights[row],
-                self.event[row],
-                self.derivative_guard,
-                probit_scale,
-            )
-            .map_err(|err| with_row_context(err, row));
-        }
-        if logslope_eta.len() != self.n {
-            return Err(SurvivalMarginalSlopeError::IncompatibleDimensions {
-                reason: format!(
-                    "survival marginal-slope exact rigid row calculus for K={k} requires one shared log-slope surface (eta len n={}); got eta len {}. Per-z log-slope derivatives require a {}-primary row kernel.",
-                    self.n,
-                    logslope_eta.len(),
-                    3 + k
-                ),
-            }
-            .into());
-        }
-        let (z_sum, covariance_ones) =
-            self.exact_shared_score_summary(row, block_states, "row_primary_closed_form_rigid")?;
-        row_primary_closed_form_shared_score(
-            q0,
-            q1,
-            qd1,
-            logslope_eta[row],
-            z_sum,
-            covariance_ones,
-            self.weights[row],
-            self.event[row],
-            self.derivative_guard,
-            probit_scale,
-        )
-        .map_err(|err| with_row_context(err, row))
-    }
-
     pub(crate) fn ensure_scalar_flex_exact_score_geometry(
         &self,
         context: &str,
@@ -135,10 +82,17 @@ impl SurvivalMarginalSlopeFamily {
             .map(|v| if *v > 0.5 { 1u8 } else { 0u8 })
             .collect();
         let z_key = self.z_subsample_key();
+        let tiny_fixture_auto = self.n >= 500 && self.n < 1_000;
+        let small_fixture_auto = self.n >= 500 && self.n < 30_000;
+        let secondary_strata = if tiny_fixture_auto {
+            None
+        } else {
+            Some(event_secondary.as_slice())
+        };
         crate::families::marginal_slope_shared::maybe_install_auto_outer_subsample(
             options,
             z_key.as_slice().expect("z key must be contiguous"),
-            Some(&event_secondary),
+            secondary_strata,
             ctx.rho.as_slice().expect("outer rho must be contiguous"),
             &self.auto_subsample_phase_counter,
             &self.auto_subsample_last_rho,
@@ -157,6 +111,21 @@ impl SurvivalMarginalSlopeFamily {
             // before the identifiability gate even gets a chance to
             // veto rank-deficient configurations.
             250_000,
+            if small_fixture_auto { 500 } else { 30_000 },
+            if tiny_fixture_auto {
+                100
+            } else if small_fixture_auto {
+                200
+            } else {
+                10_000
+            },
+            if tiny_fixture_auto {
+                100
+            } else if small_fixture_auto {
+                200
+            } else {
+                1_000
+            },
         )
     }
 }

@@ -84,11 +84,19 @@ class SHCInformation:
 
     @property
     def version(self):
-        return self._pub_info["softwareUpdateState"]["swInstalledVersion"]
+        sw = self._pub_info.get("softwareUpdateState", {})
+        return sw.get("swInstalledVersion", None)
 
     @property
     def updateState(self) -> UpdateState:
-        return self.UpdateState(self._pub_info["softwareUpdateState"]["swUpdateState"])
+        sw = self._pub_info.get("softwareUpdateState", {})
+        raw = sw.get("swUpdateState", None)
+        if raw is None:
+            return None
+        try:
+            return self.UpdateState(raw)
+        except ValueError:
+            return None
 
     @property
     def shcIpAddress(self):
@@ -159,6 +167,7 @@ class SHCInformation:
             )
         elif self.shcIpAddress is not None:
             host = self.shcIpAddress
+            mac_address = None
             try:
                 mac_address = get_mac_address(ip=host)
                 if not mac_address:

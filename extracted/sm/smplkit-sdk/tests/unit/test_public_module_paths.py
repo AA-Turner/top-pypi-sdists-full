@@ -78,7 +78,7 @@ _SUBNAMESPACE_ACCESSORS = {
     "config": (),
     "flags": (),
     "logging": ("loggers", "log_groups"),
-    "jobs": ("runs",),
+    "jobs": ("runs", "retry_policies"),
     "platform": ("environments", "services", "contexts", "context_types"),
     "account": ("settings",),
 }

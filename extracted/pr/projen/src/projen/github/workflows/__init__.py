@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -16,7 +18,22 @@ from jsii._type_checking import check_type
 
 from ..._jsii import *
 
-from ... import GroupRunnerOptions as _GroupRunnerOptions_148c59c1
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import projen as _projen_04054675
+else:
+
+    _projen_04054675 = _LazyImport("projen")
 
 
 @jsii.enum(jsii_type="projen.github.workflows.AppPermission")
@@ -1668,7 +1685,7 @@ class Job(CommonJobDefinition):
         environment: typing.Any = None,
         outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["JobStepOutput", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         services: typing.Optional[typing.Mapping[builtins.str, typing.Union["ContainerOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
         tools: typing.Optional[typing.Union["Tools", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1705,7 +1722,7 @@ class Job(CommonJobDefinition):
         if isinstance(defaults, dict):
             defaults = JobDefaults(**defaults)
         if isinstance(runs_on_group, dict):
-            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
+            runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if isinstance(tools, dict):
             tools = Tools(**tools)
         if __debug__:
@@ -1951,7 +1968,7 @@ class Job(CommonJobDefinition):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+    def runs_on_group(self) -> typing.Optional["_projen_04054675.GroupRunnerOptions"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -1959,7 +1976,7 @@ class Job(CommonJobDefinition):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
+        return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
 
     @builtins.property
     def services(
@@ -6015,7 +6032,7 @@ def _typecheckingstub__6b405f548924ed15a8a6902fcc20e3f048e3450d8a016b7904ed920f6
     environment: typing.Any = None,
     outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[JobStepOutput, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     services: typing.Optional[typing.Mapping[builtins.str, typing.Union[ContainerOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
     tools: typing.Optional[typing.Union[Tools, typing.Dict[builtins.str, typing.Any]]] = None,

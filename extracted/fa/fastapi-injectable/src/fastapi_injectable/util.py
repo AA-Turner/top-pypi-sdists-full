@@ -1,8 +1,10 @@
 import atexit
 import inspect
 import signal
+import threading
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Sequence
 from functools import partial
+from types import FrameType
 from typing import Annotated, Any, ParamSpec, TypeVar, cast, get_type_hints, overload
 
 from fastapi import Depends
@@ -11,11 +13,15 @@ from .async_exit_stack import async_exit_stack_manager
 from .cache import dependency_cache
 from .concurrency import run_coroutine_sync
 from .decorator import injectable
+from .logging import logger
 from .scope import InjectableScope, _current_scope
 
 T = TypeVar("T")
 T2 = TypeVar("T2")
 P = ParamSpec("P")
+
+# Signature of a Python-level OS signal handler, as accepted by ``signal.signal``.
+_SignalHandler = Callable[[int, FrameType | None], Any]
 
 PROVIDER_TO_WRAPPER_FUNC_MAP: dict[Callable[..., Any], list[Callable[[Any], Any]]] = {}
 
@@ -322,8 +328,35 @@ async def async_get_injected_obj(
 ) -> T: ...
 
 
+@overload
 async def async_get_injected_obj(
-    func: Callable[P, Awaitable[T]] | Callable[P, AsyncGenerator[T, Any]],
+    func: Callable[..., Generator[T, Any, Any]],
+    args: list[Any] | None = None,
+    kwargs: dict[str, Any] | None = None,
+    *,
+    use_cache: bool = True,
+    scope: InjectableScope | None = None,
+) -> T: ...
+
+
+@overload
+async def async_get_injected_obj(
+    func: Callable[..., T],
+    args: list[Any] | None = None,
+    kwargs: dict[str, Any] | None = None,
+    *,
+    use_cache: bool = True,
+    scope: InjectableScope | None = None,
+) -> T: ...
+
+
+async def async_get_injected_obj(
+    func: (
+        Callable[P, T]
+        | Callable[P, Awaitable[T]]
+        | Callable[P, Generator[T, Any, Any]]
+        | Callable[P, AsyncGenerator[T, Any]]
+    ),
     args: list[Any] | None = None,
     kwargs: dict[str, Any] | None = None,
     *,
@@ -336,12 +369,17 @@ async def async_get_injected_obj(
     contexts like Kafka consumers, async callbacks, or other scenarios where
     an event loop is already running.
 
-    This function only accepts async functions (coroutines) and async generators.
-    For sync functions, use get_injected_obj() instead.
+    Unlike get_injected_obj(), this works in already-running event loops. It accepts
+    every provider kind that get_injected_obj() does -- sync/async functions, classes,
+    and sync/async generators -- because FastAPI resolves sync providers just like async
+    ones. The async API is preferred whenever an event loop is already running.
 
     Args:
-        func: The async dependency function to inject. Must be:
+        func: The dependency function (or class) to inject. Can be:
+            - A regular synchronous function
             - An async function (coroutine)
+            - A class (its constructor is used as the provider)
+            - A synchronous generator
             - An async generator
         args: Positional arguments to pass to the dependency function.
         kwargs: Keyword arguments to pass to the dependency function.
@@ -378,9 +416,8 @@ async def async_get_injected_obj(
 
     Notes:
         - This function must be called from an async context (use await)
-        - Only accepts async functions and async generators
-        - For sync functions, use get_injected_obj() instead
-        - For async generators, only the first yielded value is returned
+        - Accepts sync/async functions, classes, and sync/async generators
+        - For generator functions, only the first yielded value is returned
         - Cleanup code in generators will be executed when calling cleanup functions
         - Uses FastAPI's dependency injection system under the hood
         - Unlike get_injected_obj(), this works in already-running event loops
@@ -455,7 +492,12 @@ async def clear_dependency_cache() -> None:
     await dependency_cache.clear()
 
 
-def setup_graceful_shutdown(signals: Sequence[signal.Signals] | None = None, *, raise_exception: bool = False) -> None:
+def setup_graceful_shutdown(
+    signals: Sequence[signal.Signals] | None = None,
+    *,
+    raise_exception: bool = False,
+    install_signal_handlers: bool = True,
+) -> None:
     """Register handlers to perform cleanup during application shutdown.
 
     Args:
@@ -463,11 +505,25 @@ def setup_graceful_shutdown(signals: Sequence[signal.Signals] | None = None, *, 
                  Defaults to [SIGINT, SIGTERM].
         raise_exception: Whether to raise exceptions during cleanup.
             If False, exceptions are logged as warnings. Defaults to False.
+        install_signal_handlers: Whether to install OS signal handlers for ``signals``.
+            When False, only the ``atexit`` cleanup is registered (useful when embedding
+            in a framework that owns signal handling, or when running off the main thread).
+            Defaults to True.
 
     Notes:
-        - When a registered signal is received, this function ensures that all resources
-          (e.g., exit stacks) are properly released before the application exits.
-        - Also registers a cleanup routine via `atexit` to handle unexpected shutdown scenarios.
+        - When a registered signal is received, the handler runs cleanup, invokes any
+          handler that was already installed for that signal (so your own shutdown logic
+          is chained, not overwritten), and then propagates termination: ``SIGINT`` raises
+          ``KeyboardInterrupt`` and every other signal raises ``SystemExit(0)``. This means
+          the process still terminates on ``SIGTERM``/``SIGINT`` after cleanup, exactly as
+          it would without this helper installed.
+        - A cleanup routine is also registered via ``atexit`` so resources are released on
+          normal interpreter exit.
+        - ``signal.signal()`` may only be called from the main thread of the main
+          interpreter. When called from another thread, signal-handler registration is
+          skipped with a warning and only the ``atexit`` cleanup is registered; the
+          function never raises ``ValueError`` in that case. Pass
+          ``install_signal_handlers=False`` to skip signal handling explicitly.
 
     Raises:
         DependencyCleanupError: When cleanup fails and raise_exception is True
@@ -475,9 +531,41 @@ def setup_graceful_shutdown(signals: Sequence[signal.Signals] | None = None, *, 
     if signals is None:
         signals = [signal.SIGINT, signal.SIGTERM]
 
-    def sync_cleanup(*_: Any) -> None:  # noqa: ANN401
+    def run_cleanup() -> None:
         run_coroutine_sync(cleanup_all_exit_stacks(raise_exception=raise_exception))
 
-    atexit.register(sync_cleanup)
+    # Always clean up on normal interpreter exit, regardless of signal handling.
+    atexit.register(run_cleanup)
+
+    if not install_signal_handlers:
+        return
+
+    # signal.signal() only works in the main thread of the main interpreter; calling it
+    # elsewhere raises ValueError. Degrade gracefully instead of crashing at startup.
+    if threading.current_thread() is not threading.main_thread():
+        logger.warning(
+            "setup_graceful_shutdown() can only install OS signal handlers from the main "
+            "thread of the main interpreter; skipping signal registration (atexit cleanup "
+            "is still active). Call it from the main thread, or pass "
+            "install_signal_handlers=False to silence this warning.",
+        )
+        return
+
+    def build_handler(target_signal: signal.Signals, previous_handler: _SignalHandler | int | None) -> _SignalHandler:
+        def handler(signum: int, frame: FrameType | None) -> None:
+            run_cleanup()
+            # Chain the handler that was installed before us instead of clobbering it.
+            # SIG_DFL/SIG_IGN (and an unset handler) are not callable, so they are skipped.
+            if callable(previous_handler):
+                previous_handler(signum, frame)
+            # Restore the default "terminate" disposition we replaced so the process still
+            # exits: SIGINT raises KeyboardInterrupt, anything else raises SystemExit.
+            if target_signal == signal.SIGINT:
+                raise KeyboardInterrupt
+            raise SystemExit(0)
+
+        return handler
+
     for sig in signals:
-        signal.signal(sig, sync_cleanup)
+        previous_handler = signal.getsignal(sig)
+        signal.signal(sig, build_handler(sig, previous_handler))

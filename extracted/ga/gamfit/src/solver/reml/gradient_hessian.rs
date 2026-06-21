@@ -504,10 +504,69 @@ impl<'a> RemlState<'a> {
         penalty_subspace: Option<&PenaltySubspace>,
         bundle: &EvalShared,
         mode: super::reml_outer_engine::EvalMode,
+        free_basis: Option<&Array2<f64>>,
     ) -> Result<(usize, super::reml_outer_engine::PenaltyLogdetDerivs), EstimationError> {
         let logdet_s_start = std::time::Instant::now();
         let lambdas = rho.mapv(f64::exp);
         let ridge = ridge_passport.penalty_logdet_ridge();
+
+        // Active-constraint projection consistency (#1380). When an active
+        // shape/box constraint reduces the smooth to a constraint-free subspace
+        // `Z` (columns = `null(A_active)`), the LAML cost's `½(log|H| − log|S|₊)`
+        // pair must be evaluated on ONE common subspace. The Hessian side is
+        // already projected (`h_for_operator = ZᵀHZ`, see `build_dense_assembly`),
+        // but the penalty side below is assembled from the FULL-width canonical
+        // penalties `Σ λ_k S_k` (rank/value/derivatives over the unprojected
+        // p-space). That mismatch makes `log|S|₊` grow like `(rank_full/2)·Σρ`
+        // while the projected `log|H|` grows only like `(dim(Z)/2)·Σρ`, so the
+        // pair `½(log|H| − log|S|₊) → −((rank_full − dim Z)/2)·Σρ` decreases
+        // without bound as λ → ∞ — the REML objective then rails λ to its
+        // ceiling and the convex/concave smooth collapses to the flat linear
+        // corner (EDF pinned, R² ≈ 0) even on a clean convex signal an
+        // unconstrained `s(x)` recovers at R² ≈ 0.99.
+        //
+        // Fix: when `Z` is active, project each per-component penalty root onto
+        // `Z` (`R_k ← R_k·Z`, so `S_k ↦ Zᵀ S_k Z`) and form the penalty logdet,
+        // rank, and exact ρ-derivatives from the SAME projected components. Both
+        // halves of the LAML pair then live in `range(Z)`; `log|S|₊` and
+        // `log|H|` grow at the matched rate and the objective regains the proper
+        // interior minimum in λ. The unconstrained / no-active-constraint path
+        // (`free_basis = None`) is byte-for-byte unchanged.
+        if let Some(z) = free_basis
+            && !self.canonical_penalties.is_empty()
+            && self.canonical_penalties.len() == rho.len()
+        {
+            let projected_roots: Vec<Array2<f64>> = self
+                .canonical_penalties
+                .iter()
+                .map(|penalty| penalty.full_width_root().dot(z))
+                .collect();
+            let (value, penalty_rank, det1, det2_full) = self
+                .structural_penalty_logdet_value_and_derivatives(
+                    &projected_roots,
+                    &lambdas,
+                    ridge,
+                )?;
+            log::info!(
+                "[STAGE] logdet S (Z-projected) rho_dim={} penalty_rank={} elapsed={:.3}s",
+                rho.len(),
+                penalty_rank,
+                logdet_s_start.elapsed().as_secs_f64(),
+            );
+            let det2 = if mode == super::reml_outer_engine::EvalMode::ValueGradientHessian {
+                Some(det2_full)
+            } else {
+                None
+            };
+            return Ok((
+                penalty_rank,
+                super::reml_outer_engine::PenaltyLogdetDerivs {
+                    value,
+                    first: det1,
+                    second: det2,
+                },
+            ));
+        }
         // Value, rank, and ρ-derivatives of `log|Σ λ_k S_k|₊` ALL come from one
         // [`PenaltyPseudologdet`] (one eigendecomposition, one positive
         // eigenspace) so the analytic gradient differentiates exactly the value
@@ -2975,24 +3034,7 @@ impl<'a> RemlState<'a> {
         let n = d_array.len();
         let mut e_array = Array1::<f64>::zeros(n);
 
-        let link_function = self.config.link_function();
-        let inverse_link = if let Some(state) = self.runtime_mixture_link_state.clone() {
-            InverseLink::Mixture(state)
-        } else if let Some(state) = self.runtime_sas_link_state {
-            if matches!(link_function, LinkFunction::BetaLogistic) {
-                InverseLink::BetaLogistic(state)
-            } else {
-                InverseLink::Sas(state)
-            }
-        } else {
-            // SAFETY: when neither mixture nor sas state is present, the
-            // configured link is necessarily one of the five legal
-            // `StandardLink` variants — Sas/BetaLogistic always carry state.
-            InverseLink::Standard(
-                StandardLink::try_from(link_function)
-                    .expect("state-bearing link without runtime state in hessian_cde_arrays"),
-            )
-        };
+        let inverse_link = self.runtime_inverse_link();
 
         // Use the same saturation contract as PIRLS observed-Hessian
         // assembly.  If PIRLS evaluated W_obs at a clamped eta, the
@@ -5909,21 +5951,7 @@ impl<'a> RemlState<'a> {
             // materially slow subsequent PIRLS convergence.
             if cached.cache_compacted {
                 let mut pirls_config = self.config.as_pirls_config();
-                pirls_config.link_kind =
-                    if let Some(state) = self.runtime_mixture_link_state.clone() {
-                        InverseLink::Mixture(state)
-                    } else if let Some(state) = self.runtime_sas_link_state {
-                        if matches!(self.config.link_function(), LinkFunction::BetaLogistic) {
-                            InverseLink::BetaLogistic(state)
-                        } else {
-                            InverseLink::Sas(state)
-                        }
-                    } else {
-                        InverseLink::Standard(
-                            StandardLink::try_from(self.config.link_function())
-                                .expect("state-bearing link without runtime state"),
-                        )
-                    };
+                pirls_config.link_kind = self.runtime_inverse_link();
                 return Ok(Arc::new(cached.rehydrate_after_reml_cache(
                     self.x(),
                     self.y,
@@ -5949,6 +5977,36 @@ impl<'a> RemlState<'a> {
         // between the two derivations.
         let screening_cap = self.screening_max_inner_iterations.load(Ordering::Relaxed);
         let in_screening = screening_cap > 0;
+        // The shallow (~3-iteration) screening cap ranks candidate ρ by the
+        // partial-fit `min_penalized_deviance` proxy. That proxy is only a
+        // ρ-comparable quality signal when the inner solve descends toward its
+        // optimum at a rate that does not itself depend on ρ — true for the
+        // unconstrained penalized least-squares / P-IRLS Newton solve, which
+        // reaches (near) its minimizer within the cap at every ρ.
+        //
+        // It is FALSE for an inequality-constrained inner solve. With box /
+        // linear shape constraints the inner solver is an active-set QP whose
+        // traversal length varies with ρ: an under-smoothing ρ (the seed that
+        // recovers genuine curvature) must walk OFF the cone vertex / linear
+        // corner and RELEASE many curvature bounds before its penalized
+        // deviance drops, while an over-smoothing ρ sits at the linear corner —
+        // its constrained optimum — from the first iterate. Truncating both at
+        // ~3 iterations therefore makes the under-smoothing seed's proxy look
+        // far worse than its true converged cost, so screening systematically
+        // ranks the flat over-smoothed corner first and the real fit launches
+        // from it. REML then parks at the linear corner (EDF pinned to the
+        // affine null, R²≈0) on a clean convex signal an unconstrained s(x)
+        // recovers — the #1380 collapse, and exactly why it is a sharp SNR×n
+        // cliff (stronger signal lets even a 3-iteration partial solve overtake
+        // the flat seed). The fix is to let each constrained candidate ρ be
+        // judged at its CONVERGED constrained optimum: keep `in_screening`'s
+        // cache/KKT-suppression semantics (these results must still stay out of
+        // cross-call state), but do not apply the iteration cap to the
+        // active-set solve. The other (non-constrained) terms in the same fit
+        // still converge fast, so the screening pass stays cheap.
+        let screening_iteration_cap_applies = in_screening
+            && self.coefficient_lower_bounds.is_none()
+            && self.linear_constraints.is_none();
         // Outer-aware cap: a sibling atomic that only caps the inner Newton
         // iteration count. Unlike `screening_cap`, it does NOT suppress
         // cache writes / warm-start updates / KKT enforcement — it is purely
@@ -5989,7 +6047,7 @@ impl<'a> RemlState<'a> {
             let warm_start_ref = predicted_warm_start.as_ref().or(fallback_warm_start_ref);
             let mut pirls_config = self.config.as_pirls_config();
             let original_cap = pirls_config.max_iterations;
-            if in_screening {
+            if screening_iteration_cap_applies {
                 pirls_config.max_iterations = pirls_config.max_iterations.min(screening_cap);
             }
             if outer_cap > 0 {
@@ -6000,7 +6058,7 @@ impl<'a> RemlState<'a> {
                     "[PIRLS cap] inner_max_iterations={} (full={} screening={} outer={})",
                     pirls_config.max_iterations,
                     original_cap,
-                    if in_screening {
+                    if screening_iteration_cap_applies {
                         screening_cap as i64
                     } else {
                         -1
@@ -6008,20 +6066,7 @@ impl<'a> RemlState<'a> {
                     if outer_cap > 0 { outer_cap as i64 } else { -1 },
                 );
             }
-            pirls_config.link_kind = if let Some(state) = self.runtime_mixture_link_state.clone() {
-                InverseLink::Mixture(state)
-            } else if let Some(state) = self.runtime_sas_link_state {
-                if matches!(self.config.link_function(), LinkFunction::BetaLogistic) {
-                    InverseLink::BetaLogistic(state)
-                } else {
-                    InverseLink::Sas(state)
-                }
-            } else {
-                InverseLink::Standard(
-                    StandardLink::try_from(self.config.link_function())
-                        .expect("state-bearing link without runtime state"),
-                )
-            };
+            pirls_config.link_kind = self.runtime_inverse_link();
             // Negative-Binomial λ-search θ freeze (#1082). With θ estimated,
             // the inner solver re-derives θ from each outer iterate's warm-start
             // η, so the NB working response / deviance / penalty-logdet — and
@@ -6498,20 +6543,7 @@ impl<'a> RemlState<'a> {
         rho: &Array1<f64>,
     ) -> Result<Arc<PirlsResult>, EstimationError> {
         let mut pirls_config = self.config.as_pirls_config();
-        pirls_config.link_kind = if let Some(state) = self.runtime_mixture_link_state.clone() {
-            InverseLink::Mixture(state)
-        } else if let Some(state) = self.runtime_sas_link_state {
-            if matches!(self.config.link_function(), LinkFunction::BetaLogistic) {
-                InverseLink::BetaLogistic(state)
-            } else {
-                InverseLink::Sas(state)
-            }
-        } else {
-            InverseLink::Standard(
-                StandardLink::try_from(self.config.link_function())
-                    .expect("state-bearing link without runtime state"),
-            )
-        };
+        pirls_config.link_kind = self.runtime_inverse_link();
         // Pin the same λ-search-frozen NB θ the outer loop converged under
         // (#1082), so the rho-uncertainty sigma-point criterion is evaluated on
         // the identical stationary surface F(ρ) = REML(ρ, θ_frozen) rather than

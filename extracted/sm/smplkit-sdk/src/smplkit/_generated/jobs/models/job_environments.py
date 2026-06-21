@@ -19,8 +19,9 @@ class JobEnvironments:
     """Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled`
     (whether the job is enabled — scheduled, for a recurring job, or triggerable, for a manual job — in that
     environment), an optional `schedule` override (a cron expression for recurring jobs; omit to inherit the base
-    `schedule`), and an optional `configuration` override (omit to inherit the base `configuration`); it also reports
-    the read-only `next_run_at` for that environment. A job with no entry for an environment is disabled there. For a
+    `schedule`), an optional `timezone` override (an IANA zone for recurring jobs; omit to inherit the base `timezone`,
+    else UTC), and an optional `configuration` override (omit to inherit the base `configuration`); it also reports the
+    read-only `next_run_at` for that environment. A job with no entry for an environment is disabled there. For a
     recurring or manual job, supply this map to choose where it runs. For a one-off job, the environment it is created
     in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment
     must exist for the account.

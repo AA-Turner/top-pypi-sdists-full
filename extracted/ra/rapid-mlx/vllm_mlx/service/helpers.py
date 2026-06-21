@@ -40,6 +40,31 @@ _FALLBACK_TEMPERATURE = 0.7
 _FALLBACK_TOP_P = 0.9
 
 
+# ── SSE response headers (F-070 / F-073) ───────────────────────────
+# Anti-buffering headers shared by every ``StreamingResponse`` that
+# yields ``text/event-stream`` chunks. Without them, an intermediate
+# nginx / Cloudflare / haproxy / Vercel-style reverse proxy will
+# buffer the entire SSE response and emit it as one blob at end of
+# generation, defeating streaming entirely. Both headers are
+# documented anti-buffering knobs:
+#
+#   - ``Cache-Control: no-cache, no-transform`` tells caches not to
+#     store the response AND tells transforming proxies (gzip, etc.)
+#     to leave the byte stream alone. Mirrors what OpenAI's API
+#     emits on its own SSE responses.
+#   - ``X-Accel-Buffering: no`` is the nginx-specific opt-out
+#     (consulted by ``ngx_http_proxy_module`` to disable
+#     ``proxy_buffering`` per-response). Cloudflare, Vercel, and
+#     several SaaS gateways also honour the same header.
+#
+# Use ``SSE_RESPONSE_HEADERS`` in every ``StreamingResponse(...)``
+# that returns ``media_type="text/event-stream"``.
+SSE_RESPONSE_HEADERS: dict[str, str] = {
+    "Cache-Control": "no-cache, no-transform",
+    "X-Accel-Buffering": "no",
+}
+
+
 def _check_admission_or_503(engine) -> None:
     """Atomic admission gate for route handlers — reserves a slot.
 
@@ -222,11 +247,43 @@ def _finalize_content_and_reasoning(
             return cleaned_text, _truncate_reasoning_only(
                 engine_reasoning_text, reasoning_max_tokens
             )
+        # F-041 (2026-06-19): the ``cleaned_text``-gated check above misses
+        # the case where the OutputRouter consumed the structural
+        # ``<think>`` token before it ever reached ``cleaned_text`` — the
+        # router emits ``content=None`` AND sets ``text=""`` (engine
+        # ``_route_tokens_for_channels`` lines 1588-1589), so the engine-
+        # routed branch falls through to ``_apply_reasoning_cap`` with
+        # ``cleaned_text=""``. With ``reasoning_max_tokens`` set, the cap
+        # then prepends the over-cap reasoning suffix back into
+        # ``cleaned_text`` (the empty-content fallback), shipping the
+        # truncated-thought trace into ``content``. Mirror the
+        # cleaned-text-gated truncated_think plug: when the engine routed
+        # reasoning AND ``raw_text`` shows an unclosed ``<think>`` (model
+        # was still mid-thought at ``finish_reason=length``), use the
+        # reasoning-only cap so the over-cap suffix is dropped rather
+        # than leaking into the user-visible answer channel.
+        if (
+            raw_text
+            and "<think>" in raw_text
+            and "</think>" not in raw_text
+            and not (cleaned_text and cleaned_text.strip())
+        ):
+            return cleaned_text or "", _truncate_reasoning_only(
+                engine_reasoning_text, reasoning_max_tokens
+            )
         return _apply_reasoning_cap(
-            cleaned_text, engine_reasoning_text, reasoning_max_tokens
+            cleaned_text,
+            engine_reasoning_text,
+            reasoning_max_tokens,
+            has_tool_calls=bool(tool_calls),
         )
     if reasoning_parser is None:
-        return _apply_reasoning_cap(cleaned_text, reasoning_text, reasoning_max_tokens)
+        return _apply_reasoning_cap(
+            cleaned_text,
+            reasoning_text,
+            reasoning_max_tokens,
+            has_tool_calls=bool(tool_calls),
+        )
     # #575 — thread the request-level ``enable_thinking`` so the
     # underlying ``BaseThinkingReasoningParser.extract_reasoning``
     # can apply its symmetric-with-streaming Case-4 fallback when
@@ -363,6 +420,24 @@ def _finalize_content_and_reasoning(
         # MUST survive (codex R2 BLOCKING).
         if enable_thinking is True and first_parse_was_case4:
             cleaned_text = ""
+            # F-041 (2026-06-19): same rationale as the codex r3 P2 plug
+            # below for ``first_parse_was_truncated_think`` — when the
+            # chat template pre-injected ``<think>`` and the model was
+            # truncated mid-thought emitting NO tags at all, the
+            # accumulated text IS the thought trace. Letting it fall
+            # through to ``_apply_reasoning_cap`` would prepend the
+            # over-cap reasoning suffix back into the (now-blank)
+            # ``cleaned_text`` and ship the leaked thought trace as
+            # ``content``. Live VibeThinker repro at
+            # ``reasoning_max_tokens=30`` (max_tokens=200, finish=length):
+            # the Case-4 fallback routed the no-tag output to reasoning,
+            # the cap truncated to 120 chars, and the remaining
+            # ~500 chars of thought trace surfaced verbatim as
+            # ``content`` — the leak shape F-041 was filed against.
+            # Use the reasoning-only cap so the overflow is dropped.
+            return cleaned_text, _truncate_reasoning_only(
+                reasoning_text, reasoning_max_tokens
+            )
         # Truncated-``<think>`` plug (2026-06-17). Mirrors the #575
         # Case-4 plug above but fires on the explicit-start-no-end
         # signal independent of ``enable_thinking`` — see the
@@ -383,7 +458,12 @@ def _finalize_content_and_reasoning(
             return cleaned_text, _truncate_reasoning_only(
                 reasoning_text, reasoning_max_tokens
             )
-    return _apply_reasoning_cap(cleaned_text, reasoning_text, reasoning_max_tokens)
+    return _apply_reasoning_cap(
+        cleaned_text,
+        reasoning_text,
+        reasoning_max_tokens,
+        has_tool_calls=bool(tool_calls),
+    )
 
 
 def _truncate_reasoning_only(
@@ -420,6 +500,8 @@ def _apply_reasoning_cap(
     cleaned_text: str,
     reasoning_text: str | None,
     reasoning_max_tokens: int | None,
+    *,
+    has_tool_calls: bool = False,
 ) -> tuple[str, str | None]:
     """Truncate ``reasoning_text`` to the per-request cap and reroute
     the overflow into ``cleaned_text`` (upstream vLLM PR #20859
@@ -433,6 +515,28 @@ def _apply_reasoning_cap(
     of truth for "how many tokens does this text approximate" so the
     OpenAI usage block, the streaming SSE deltas, and this non-stream
     finalize all agree on a single token count.
+
+    F-041 (2026-06-19): the overflow-into-``cleaned_text`` reroute is
+    only meaningful when there is NO real visible payload — i.e. the
+    parser found no closed ``</think>`` AND no tool calls fired, so
+    the model never produced a user-visible answer (we'd be silently
+    dropping the whole response otherwise). When the response DOES
+    have a real payload (closed ``<think>…</think>answer`` split, OR
+    structured ``tool_calls`` — codex r1 follow-up: tool-only responses
+    legitimately ship ``content=""`` per the OpenAI spec, so an empty
+    ``cleaned_text`` alone isn't proof that the response is empty),
+    prepending the over-cap reasoning bytes pollutes the visible
+    payload with the truncated thought trace. The vibethinker repro at
+    ``reasoning_max_tokens=30`` shipped the entire post-cap reasoning
+    suffix + the model's training-time system prompt into ``content``
+    BEFORE the actual answer ``"The capital of Japan is **Tokyo**."``
+    — exactly the leak shape PR #722 closed for the multi-block
+    ``<think>`` case. The user opting into a small reasoning cap
+    explicitly asked us to drop the reasoning past the cap; they did
+    not ask us to reclassify those bytes as content. Drop the
+    overflow when a real payload exists; preserve the prepend-into-
+    content fallback only when both ``cleaned_text`` is empty AND no
+    tool calls fired (the model emitted nothing visible).
     """
     if (
         reasoning_max_tokens is None
@@ -445,6 +549,18 @@ def _apply_reasoning_cap(
         return cleaned_text, reasoning_text
     overflow = reasoning_text[max_chars:]
     truncated = reasoning_text[:max_chars]
+    # F-041 plug: when the response already carries a real visible
+    # payload (parser routed the post-``</think>`` final content into
+    # ``cleaned_text``, OR the tool parser surfaced structured
+    # ``tool_calls`` — the OpenAI-compat ``tool_choice`` paths
+    # legitimately ship ``content=""`` alongside ``tool_calls``),
+    # the model gave us its visible answer — the user-requested cap
+    # is the contract, not a "best-effort don't-drop-bytes" hint, so
+    # drop the over-cap reasoning suffix rather than letting it bleed
+    # into ``content`` ahead of the answer / alongside the tool call.
+    has_visible_content = bool(cleaned_text and cleaned_text.strip())
+    if has_visible_content or has_tool_calls:
+        return cleaned_text, truncated
     # Codex round-11 BLOCKING: prepend overflow rather than appending
     # it. In the source ordering, the overflow bytes were emitted by
     # the model BEFORE any post-``</think>`` final content. Appending
@@ -588,6 +704,113 @@ def _rescue_silent_drop_from_reasoning(
     if finish_reason == "length" and reasoning_is_case4:
         return final_content
     return reasoning_text
+
+
+# OpenAI-spec closed enum for ``response_format.type``. Any value outside
+# this set used to be silently accepted (defaulted to "text" by
+# ``build_json_system_prompt``) so a client typo like ``"xml"`` or an
+# empty string returned HTTP 200 with no structure enforcement — the
+# client received plain prose instead of the JSON they asked for and had
+# no signal anything was wrong (F-013 silent-accept arm). The validator
+# below pins the enum + the ``json_schema``-requires-schema invariant so
+# malformed requests get a clean 400 BEFORE
+# ``build_json_system_prompt`` is reached (which used to leak the raw
+# Python ``AttributeError: 'NoneType' object has no attribute 'get'`` in
+# the 400 body — F-013 raw-leak arm).
+_VALID_RESPONSE_FORMAT_TYPES = ("text", "json_object", "json_schema")
+
+
+def _validate_response_format(response_format) -> None:
+    """Raise a clean HTTP 400 for malformed ``response_format`` payloads.
+
+    Pins three invariants the previous ``try/except`` in routes/chat.py
+    failed to enforce:
+
+    1. ``response_format.type`` must be one of ``text``,
+       ``json_object``, ``json_schema``. Any other value (``"xml"``,
+       ``""``, etc.) used to slip through to ``build_json_system_prompt``
+       which fell back to ``"text"`` semantics — client received no
+       structure enforcement and a misleading 200. Now → 400.
+    2. ``type:"json_schema"`` requires a non-empty ``json_schema``
+       field. Previously the missing field raised
+       ``AttributeError: 'NoneType' object has no attribute 'get'``
+       deep inside ``build_json_system_prompt`` which surfaced
+       verbatim in the 400 body (F-013 raw-leak arm). Now → clean
+       400 message naming the missing field.
+    3. Empty ``response_format={}`` used to fall through with no
+       ``type`` so ``rf_dict.get("type", "text")`` produced silent
+       "text" semantics — fine in isolation but indistinguishable from
+       a client bug that meant to send a real format. Now → clean
+       400 requiring ``type``.
+
+    Accepts either a Pydantic ``ResponseFormat`` instance or a raw
+    ``dict`` (the request field is declared as
+    ``ResponseFormat | dict | None`` so both shapes reach the route).
+    """
+    if response_format is None:
+        return
+
+    # Normalize to the shape we actually validate against.
+    if isinstance(response_format, dict):
+        rf_type = response_format.get("type")
+        # ``{}`` — no ``type`` key at all. Pydantic-typed path has a
+        # default of "text" so this branch is only the raw-dict shape.
+        if "type" not in response_format:
+            raise HTTPException(
+                status_code=400,
+                detail="response_format.type is required",
+            )
+        json_schema_field = response_format.get("json_schema")
+    else:
+        rf_type = getattr(response_format, "type", None)
+        json_schema_field = getattr(response_format, "json_schema", None)
+
+    if rf_type not in _VALID_RESPONSE_FORMAT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "response_format.type must be 'text', 'json_object', or 'json_schema'"
+            ),
+        )
+
+    if rf_type == "json_schema":
+        # Treat None / empty dict / missing-``schema``-member all the
+        # same — each fails the "non-empty json_schema spec" contract.
+        # The raw-leak path was specifically ``json_schema=None``
+        # (omitted entirely); the silent-200 path was either
+        # ``json_schema={}`` or ``json_schema={"name":"r"}`` (present
+        # but with no ``schema`` member — codex r1 BLOCKING) because
+        # ``extract_json_schema_for_guided`` then bails out at
+        # ``if not schema: return None`` and the request proceeds
+        # unconstrained. The Pydantic-typed ``ResponseFormatJsonSchema``
+        # branch declares ``schema_`` as a required field so the typed
+        # path already rejects this shape — the explicit check here
+        # closes the raw-dict arm (the ``ResponseFormat | dict`` union
+        # on the request field).
+        if not json_schema_field:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "response_format.type='json_schema' requires "
+                    "non-empty 'json_schema' field"
+                ),
+            )
+        # Extract the inner ``schema`` member through both shapes:
+        # raw dict (json_schema_field is a dict) and Pydantic
+        # ``ResponseFormatJsonSchema`` (the field is aliased to
+        # ``schema_`` to dodge the BaseModel.schema collision).
+        if isinstance(json_schema_field, dict):
+            inner_schema = json_schema_field.get("schema")
+        else:
+            inner_schema = getattr(json_schema_field, "schema_", None)
+        if not inner_schema:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "response_format.type='json_schema' requires "
+                    "'json_schema.schema' to be a non-empty object"
+                ),
+            )
 
 
 def _is_structured_output_requested(response_format) -> bool:
@@ -821,6 +1044,21 @@ def _resolve_frequency_penalty(request_value: float | None) -> float | None:
     return float(value) if value is not None else None
 
 
+def _resolve_seed(request_value: int | None) -> int | None:
+    """Resolve per-request seed (H-11).
+
+    Unlike the other extended sampling params, seed has no CLI / alias /
+    generation_config cascade — it is purely a runtime knob the client
+    flips per request when they want deterministic output. Returning
+    ``None`` signals "do not forward" so the scheduler keeps the
+    fast-path interned sampler (cached by ``(temp, top_p, min_p,
+    top_k)``) instead of building a fresh per-request sampler closure
+    on every call. That matters: the seeded sampler MUST be uncached
+    because it carries mutable per-call key state.
+    """
+    return request_value
+
+
 def _extract_thinking_from_request(request) -> bool | None:
     """Read enable_thinking from a request without consulting global config.
 
@@ -872,6 +1110,56 @@ def _resolve_enable_thinking(request) -> bool | None:
     return _extract_thinking_from_request(request)
 
 
+# L-05: the set of reasoning parsers that actually honor
+# ``chat_template_kwargs.enable_thinking``. Only ``qwen3`` consults the
+# flag as a strict on/off switch (its chat template skips the ``<think>``
+# pre-injection when ``False``, and the parser's Case-4 fallback only
+# fires under ``True``). All other registered parsers either:
+#
+#   * accept the flag for signature parity but ``del enable_thinking``
+#     immediately (gemma4, gpt_oss, harmony, minimax, glm4), or
+#   * only consult ``enable_thinking=True`` for Case-4 routing and
+#     ignore ``False`` entirely (deepseek_r1, vibethinker, think_parser).
+#
+# When a client explicitly sets ``chat_template_kwargs.enable_thinking``
+# on a server running a non-honoring parser, we surface the silent-drop
+# via the ``X-RapidMLX-Warning`` response header rather than the previous
+# zero-signal behavior. See L-05 in 0.8TODO.md for the dogfooding repro
+# (Theo on phi-4-mini-reasoning → deepseek_r1 parser).
+_THINKING_FLAG_HONORING_PARSERS: frozenset[str] = frozenset({"qwen3"})
+
+
+def enable_thinking_warning_header(request, parser_name: str | None) -> dict[str, str]:
+    """Build the response-header dict that surfaces a silent
+    ``enable_thinking`` drop. Empty dict means "no warning needed".
+
+    Conditions to fire (all must hold):
+      1. The client EXPLICITLY set ``chat_template_kwargs.enable_thinking``
+         (the OpenAI-extension key — the top-level ``enable_thinking``
+         field is the rapid-mlx extension and is already auth-traceable
+         via per-request docs, so we skip it to keep the surface narrow).
+      2. The active reasoning parser is not in
+         ``_THINKING_FLAG_HONORING_PARSERS``.
+
+    The CLI ``--no-thinking`` mode does NOT silence the warning: an
+    operator who pinned thinking off server-side is still receiving
+    a request from a client that thinks the flag is doing something,
+    and the client-facing signal is what L-05 is about.
+
+    Returns a single-entry dict ``{"X-RapidMLX-Warning": "..."}`` so
+    callers can ``**spread`` it into ``Response(headers=...)`` /
+    ``StreamingResponse(headers=...)`` without conditional wiring.
+    """
+    if not parser_name:
+        return {}
+    if parser_name in _THINKING_FLAG_HONORING_PARSERS:
+        return {}
+    ctk = getattr(request, "chat_template_kwargs", None)
+    if not isinstance(ctk, dict) or "enable_thinking" not in ctk:
+        return {}
+    return {"X-RapidMLX-Warning": (f"enable_thinking ignored for parser={parser_name}")}
+
+
 def _effective_enable_thinking(
     resolved: bool | None, model_name: str | None
 ) -> bool | None:
@@ -919,6 +1207,13 @@ def build_extended_sampling_kwargs(request) -> dict:
         ("repetition_penalty", _resolve_repetition_penalty),
         ("presence_penalty", _resolve_presence_penalty),
         ("frequency_penalty", _resolve_frequency_penalty),
+        # H-11: seed flows through the same cascade-resolver pattern so
+        # all four routes (chat, completions, responses, anthropic) pick
+        # it up automatically without each having to opt in. ``seed=0``
+        # is a legitimate request value (PRNG seeds are routinely zero in
+        # eval harnesses), so the ``value is not None`` gate below must
+        # NOT collapse it.
+        ("seed", _resolve_seed),
     ):
         value = resolver(getattr(request, name, None))
         if value is not None:
@@ -1140,6 +1435,142 @@ def _resolve_reasoning_enabled(model_name: str | None) -> bool:
     return cfg.reasoning_parser is not None or bool(cfg.reasoning_parser_name)
 
 
+# ── Unicode validation (F-130 / F-131) ─────────────────────────────
+
+
+def _find_lone_surrogate(s: str) -> int | None:
+    """Return the offset of the first lone surrogate codepoint in ``s``,
+    or ``None`` when the string is encodable as UTF-8.
+
+    A Python ``str`` is a sequence of Unicode codepoints; ``json.loads``
+    happily decodes ``"\\uD800"`` into a single-code-unit ``str``
+    carrying codepoint U+D800. That codepoint is RESERVED for the
+    high half of a UTF-16 surrogate pair and is not valid UTF-8 on its
+    own — every downstream consumer (HuggingFace ``tokenizers`` /
+    chat-template renderers / ``str.encode("utf-8")``) raises when
+    handed one. F-130 (non-stream 500) and F-131 (stream 200 + raw
+    Python error leak via SSE) are the same crash class surfacing on
+    different lanes; rejecting the payload at the JSON-input boundary
+    closes both at once.
+
+    Properly-paired surrogates from JSON ``\\uD83D\\uDE00`` are
+    coalesced by ``json.loads`` into a single astral codepoint
+    (U+1F600 😀, ``len(s)==1``) before the ``str`` reaches Python, so
+    valid emoji never hit this branch — we only catch the unpaired
+    case the spec leaves ambiguous.
+
+    Returning the offset (instead of just a bool) lets the caller
+    surface a precise location in the error message, matching the
+    diagnostic surface of the sibling ``max_tokens`` / ``top_p``
+    validators in the chat route.
+    """
+    for i, ch in enumerate(s):
+        cp = ord(ch)
+        # Surrogate range per Unicode 15.1 §3.8: high surrogates
+        # U+D800–U+DBFF, low surrogates U+DC00–U+DFFF. Any codepoint
+        # in the combined range that survived ``json.loads`` is by
+        # definition unpaired (paired surrogates from JSON are
+        # coalesced into the astral codepoint they encode).
+        if 0xD800 <= cp <= 0xDFFF:
+            return i
+    return None
+
+
+def _scan_messages_for_lone_surrogates(messages: list) -> None:
+    """Raise ``HTTPException(400)`` if any message slot carries a lone
+    surrogate codepoint (F-130 / F-131).
+
+    Covered slots — every string surface a client can populate that
+    eventually flows into the chat template / tokenizer:
+
+      * ``messages[i].content`` — plain string AND every ``text`` /
+        ``image_url.url`` / ``video_url.url`` / ``audio_url.url`` slot
+        of the multimodal ``list[ContentPart|dict]`` form
+      * ``messages[i].tool_call_id`` — tool-response messages
+      * ``messages[i].tool_calls[].function.name`` /
+        ``messages[i].tool_calls[].function.arguments`` /
+        ``messages[i].tool_calls[].id`` — assistant turns replaying
+        prior tool calls
+      * ``messages[i].name`` — OpenAI optional message author name
+
+    Running at the route layer (sibling to the ``_valid_roles`` /
+    ``max_tokens`` / ``top_p`` block) means the gate fires BEFORE the
+    streaming branch opens an SSE response, so F-131's
+    ``200 + data: chunk-with-Python-error`` leak cannot happen — the
+    client sees a clean 400 with the precise offset before any byte
+    of SSE is flushed.
+    """
+
+    def _check(value, path: str) -> None:
+        if isinstance(value, str):
+            offset = _find_lone_surrogate(value)
+            if offset is not None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Invalid unicode in {path}: lone surrogate "
+                        f"codepoint U+{ord(value[offset]):04X} at offset "
+                        f"{offset} (surrogates must appear as paired "
+                        "high/low to encode an astral codepoint)."
+                    ),
+                )
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                _check(v, f"{path}.{k}" if isinstance(k, str) else path)
+        elif isinstance(value, list):
+            for j, item in enumerate(value):
+                _check(item, f"{path}[{j}]")
+        elif hasattr(value, "model_dump"):
+            # Pydantic ``BaseModel`` instance — e.g. ``ContentPart`` for
+            # multimodal messages, or ``ImageUrl`` / ``VideoUrl`` /
+            # ``AudioUrl`` nested URLs. Recurse via ``model_dump`` so the
+            # scan covers every string field without enumerating each
+            # pydantic class by hand (declared on ``api/models.py``).
+            # Without this branch, ``content=[ContentPart(text="\\uD801")]``
+            # bypasses the scan (the value is neither str/dict/list) and
+            # the lone surrogate falls through to the tokenizer crash —
+            # exactly the F-130 surface in the "multimodal text part"
+            # slot.
+            _check(value.model_dump(), path)
+
+    for i, msg in enumerate(messages):
+        # Pydantic Message or raw dict — normalize via attribute lookup.
+        # ``content`` may be str | list[ContentPart] | list[dict] | None;
+        # the recursive ``_check`` walks all three shapes uniformly.
+        content = msg.content if hasattr(msg, "content") else msg.get("content")
+        if content is not None:
+            _check(content, f"messages[{i}].content")
+
+        tcid = (
+            msg.tool_call_id
+            if hasattr(msg, "tool_call_id")
+            else (msg.get("tool_call_id") if isinstance(msg, dict) else None)
+        )
+        if tcid is not None:
+            _check(tcid, f"messages[{i}].tool_call_id")
+
+        # ``name`` is an OpenAI-spec optional message-author field. Not
+        # declared on our ``Message`` pydantic model today (silently
+        # dropped on parse), but client SDKs still send it and a
+        # future-proof scanner shouldn't depend on whether the field
+        # makes it past pydantic — check the raw dict form too.
+        name = (
+            msg.name
+            if hasattr(msg, "name") and getattr(msg, "name", None) is not None
+            else (msg.get("name") if isinstance(msg, dict) else None)
+        )
+        if name is not None:
+            _check(name, f"messages[{i}].name")
+
+        tcs = (
+            msg.tool_calls
+            if hasattr(msg, "tool_calls")
+            else (msg.get("tool_calls") if isinstance(msg, dict) else None)
+        )
+        if tcs:
+            _check(tcs, f"messages[{i}].tool_calls")
+
+
 def _validate_model_name(request_model: str) -> None:
     """Validate that the request model name matches a served model."""
     if request_model is None:
@@ -1283,11 +1714,61 @@ def _parse_tool_calls_with_parser(
 
 
 def _validate_tool_call_params(tool_calls: list, tools: list) -> None:
-    """Validate tool call parameter values against their schemas (post-generation)."""
+    """Validate tool call parameter values against their schemas (post-generation).
+
+    F-141 scoped fix: enforce JSON-schema constraints on the model's
+    emitted ``tool_calls[].function.arguments`` instead of merely
+    logging. When a violation is detected we raise ``HTTPException(400)``
+    so the caller can decide how to recover (retry with a stricter
+    prompt, fall back to text, etc.) rather than silently propagating a
+    schema-violating payload as a normal success. This matches the
+    OpenAI contract: when a ``tool_calls[i]`` is present, its arguments
+    are expected to satisfy the declared parameter schema.
+
+    Enforced today (intentionally narrow, see ``validate_param_value``):
+    ``type``, ``enum``, ``minimum``/``maximum``, ``minLength``/``maxLength``.
+    Deferred (TODO(F-141-followup)): ``pattern``, ``format``,
+    ``multipleOf``, ``uniqueItems``. Non-JSON ``arguments`` and non-dict
+    parsed args remain warn-only because they indicate a model/parser
+    issue rather than a schema violation, and the upstream parser layer
+    already surfaces them.
+
+    H-05 scope refactor: the iteration is strictly **per emitted call**.
+    For each ``tc`` we look up the tool spec by its ``function.name``
+    and validate the call's arguments against THAT spec's properties
+    only. Tool specs the model did not call are never consulted — this
+    makes "validate the called tool, not every declared tool" a
+    structural invariant of the function instead of an emergent
+    property of a keyed-schemas dict (which was functionally correct,
+    just less self-evident: a future change to ``_extract_param_schemas``
+    keying could silently re-introduce the cross-tool leak). A model
+    emitting a call to a function not in ``tools`` is treated as
+    schema-unknown (no constraint), mirroring the previous keyed-lookup
+    behaviour.
+    """
     from ..api.tool_logits import _extract_param_schemas, validate_param_value
 
     tool_defs = [t.model_dump() if hasattr(t, "model_dump") else t for t in tools]
-    schemas = _extract_param_schemas(tool_defs)
+
+    # Per-tool index: name -> {param_name: schema}. Reuses
+    # ``_extract_param_schemas`` on a single-tool list so the schema
+    # normalisation logic (handles ``parameters`` being null /
+    # non-dict, ``properties`` being non-dict, etc.) stays in exactly
+    # one place. Strip the ``<name>.`` prefix from the keys so the
+    # per-call inner loop only does a ``param_name`` lookup against
+    # the tool we actually matched.
+    tool_by_name: dict[str, dict] = {}
+    for tool in tool_defs:
+        if not isinstance(tool, dict):
+            continue
+        func = tool.get("function", tool)
+        if not isinstance(func, dict):
+            continue
+        name = func.get("name", "")
+        if not name:
+            continue
+        scoped = _extract_param_schemas([tool])
+        tool_by_name[name] = {k.split(".", 1)[1]: v for k, v in scoped.items()}
 
     for tc in tool_calls:
         func = tc.function if hasattr(tc, "function") else tc.get("function", {})
@@ -1297,6 +1778,14 @@ def _validate_tool_call_params(tool_calls: list, tools: list) -> None:
             if hasattr(func, "arguments")
             else func.get("arguments", "{}")
         )
+
+        # Find the called tool's schema. If the model called a tool not
+        # in ``tools`` (parser hallucination), skip — the upstream
+        # tool_choice / parser layers own that case; we have no schema
+        # to validate against here.
+        called_tool_schemas = tool_by_name.get(func_name)
+        if called_tool_schemas is None:
+            continue
 
         try:
             args = json.loads(args_str)
@@ -1310,13 +1799,20 @@ def _validate_tool_call_params(tool_calls: list, tools: list) -> None:
             continue
 
         for param_name, param_value in args.items():
-            schema_key = f"{func_name}.{param_name}"
-            schema = schemas.get(schema_key)
+            schema = called_tool_schemas.get(param_name)
             if not schema:
                 continue
             is_valid, error = validate_param_value(json.dumps(param_value), schema)
             if not is_valid:
-                logger.warning(f"Tool call '{func_name}' param '{param_name}': {error}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Tool call '{func_name}' parameter '{param_name}' "
+                        f"violates declared schema: {error}. The model "
+                        "produced a schema-violating argument value; retry "
+                        "with a more constrained prompt or relax the schema."
+                    ),
+                )
 
 
 # ── Message helpers ────────────────────────────────────────────────
@@ -1423,11 +1919,176 @@ def _maybe_pin_system_prompt(messages: list) -> None:
 # ── Disconnect detection ───────────────────────────────────────────
 
 
+def _resolve_sync_scheduler_for_abort(engine):
+    """C-01 codex r1 BLOCKING #2 helper: find the SYNC scheduler-side
+    ``abort_request`` entry point for the **currently active**
+    backend.
+
+    The codex reviewer pointed out that ``engine.abort_request`` may
+    be a coroutine (``BatchedEngine.abort_request`` when the LLM path
+    is loaded, because ``AsyncEngineCore.abort_request`` is async).
+    Fire-and-forget via ``asyncio.ensure_future`` doesn't actually
+    free the GPU on the next ``step()`` — the coroutine has to run
+    to reach ``scheduler.abort_request`` (which IS sync). So we walk
+    the engine's backend graph to find that sync entry point
+    directly.
+
+    codex r2 BLOCKING #1: the walk MUST respect the engine's active
+    path. ``BatchedEngine`` declares BOTH ``_engine`` (AsyncEngineCore
+    for the text path) AND ``_mllm_scheduler`` (MLLM path) as
+    instance attributes. They start at ``None`` and get populated by
+    ``start()`` based on the model's modality — but only ONE is the
+    active backend the live ``request_id`` was admitted into. Calling
+    ``_mllm_scheduler.abort_request(rid)`` on a request that lives in
+    ``_engine.scheduler`` would enqueue the abort into the wrong
+    pending set and leave the real request running. The
+    ``_is_mllm`` flag is the canonical active-path signal — same
+    predicate ``stream_generate`` uses to pick which backend to call
+    in the first place.
+
+    Resolution order:
+
+      * ``engine.scheduler``                          — plain engines
+                                                       exposing the
+                                                       scheduler
+                                                       directly (eg.
+                                                       AsyncEngineCore
+                                                       passed in
+                                                       unwrapped).
+      * MLLM-active: ``engine._mllm_scheduler``       — only when
+                                                       ``engine._is_mllm``
+                                                       is True.
+      * text-active: ``engine._engine.scheduler``     — only when
+                                                       ``engine._is_mllm``
+                                                       is False (or
+                                                       absent).
+
+    Returns the first callable found, or ``None`` when none of the
+    paths resolve (caller falls back to the public async
+    ``engine.abort_request`` as a last resort with documented
+    fire-and-forget semantics).
+    """
+    # Plain engines that expose .scheduler directly (no active-path
+    # ambiguity). Includes AsyncEngineCore and the fake engines used
+    # in tests.
+    direct_scheduler = getattr(engine, "scheduler", None)
+    if direct_scheduler is not None:
+        abort = getattr(direct_scheduler, "abort_request", None)
+        if abort is not None and not asyncio.iscoroutinefunction(abort):
+            return abort
+    # BatchedEngine and similar wrappers — gate on the active path.
+    # Default to text-active (``_is_mllm = False``) when the flag is
+    # missing so older engine shapes still resolve sanely.
+    is_mllm_active = bool(getattr(engine, "_is_mllm", False))
+    if is_mllm_active:
+        mllm = getattr(engine, "_mllm_scheduler", None)
+        if mllm is not None:
+            abort = getattr(mllm, "abort_request", None)
+            if abort is not None and not asyncio.iscoroutinefunction(abort):
+                return abort
+    else:
+        inner = getattr(engine, "_engine", None)
+        if inner is not None:
+            inner_sched = getattr(inner, "scheduler", None)
+            if inner_sched is not None:
+                abort = getattr(inner_sched, "abort_request", None)
+                if abort is not None and not asyncio.iscoroutinefunction(abort):
+                    return abort
+    return None
+
+
+def _force_abort_request(engine, request_id_holder) -> bool:
+    """C-01: synchronously enqueue an abort for the live request id.
+
+    Looks up ``request_id_holder[0]`` (populated by
+    ``BatchedEngine.stream_generate`` once ``add_request`` returns)
+    and invokes the loaded backend's SYNC
+    ``scheduler.abort_request(rid)`` — a thread-safe, non-blocking
+    ``set.add`` per ``Scheduler.abort_request`` docstring. The
+    sync-path resolver (``_resolve_sync_scheduler_for_abort``) walks
+    ``engine.scheduler`` first, then the active-backend branch on
+    ``BatchedEngine`` (gated by ``engine._is_mllm`` per codex r2
+    BLOCKING #1): MLLM → ``engine._mllm_scheduler``, text →
+    ``engine._engine.scheduler``.
+
+    Falls back to ``engine.abort_request(rid)`` (the public engine
+    surface — may be async on engines that haven't been refactored)
+    only when no sync path exists. In that case the async coroutine
+    is scheduled with ``asyncio.ensure_future`` so the caller stays
+    synchronous, and we log a warning so operators can see that the
+    abort is NOT guaranteed to be in flight by the time the
+    disconnect path returns (codex r1 BLOCKING #2). The cascade via
+    ``generator.aclose()`` remains as the safety net for that case.
+
+    Returns ``True`` when a sync abort was issued (force-abort
+    contract satisfied), ``False`` for the no-op cases (holder unset,
+    engine missing, no request id yet) AND for the
+    async-fallback-only case where the abort was scheduled but
+    didn't reach the scheduler synchronously. Never raises — log on
+    the warning channel and swallow so disconnect handling never
+    derails on an engine-side error.
+    """
+    if request_id_holder is None or engine is None:
+        return False
+    try:
+        request_id = request_id_holder[0]
+    except (IndexError, TypeError):
+        return False
+    if not request_id:
+        return False
+    try:
+        sync_abort = _resolve_sync_scheduler_for_abort(engine)
+        if sync_abort is not None:
+            result = sync_abort(request_id)
+            logger.info(
+                f"[disconnect_guard] force-abort scheduler.abort_request("
+                f"{str(request_id)[:12]}) -> {result}"
+            )
+            return True
+        # No sync path resolved — the engine is wrapping its scheduler
+        # behind an async-only ``abort_request``. Best-effort fire-and-
+        # forget; return ``False`` so the contract reflects that the
+        # abort did NOT land synchronously and the cascade through
+        # ``generator.aclose()`` is the operative defense (codex r1
+        # BLOCKING #2). Tests that pin the "force-abort fired sync"
+        # contract should fail loudly on this fallback path.
+        public_abort = getattr(engine, "abort_request", None)
+        if public_abort is not None:
+            result = public_abort(request_id)
+            if asyncio.iscoroutine(result):
+                asyncio.ensure_future(result)
+                logger.warning(
+                    f"[disconnect_guard] force-abort fell back to async "
+                    f"engine.abort_request({str(request_id)[:12]}); the "
+                    f"scheduler abort is NOT guaranteed in flight by the "
+                    f"time disconnect handling returns. The "
+                    f"generator-close cascade is the remaining defense."
+                )
+                # ``False`` so the contract reflects async-fallback;
+                # callers / tests treat that as "I tried, cascade is
+                # the remaining defense".
+                return False
+            logger.info(
+                f"[disconnect_guard] force-abort engine.abort_request("
+                f"{str(request_id)[:12]}) -> {result}"
+            )
+            return True
+    except Exception:
+        logger.warning(
+            "[disconnect_guard] force-abort raised; falling back to "
+            "generator-close cascade",
+            exc_info=True,
+        )
+    return False
+
+
 async def _disconnect_guard(
     generator: AsyncIterator[str],
     raw_request: Request,
     poll_interval: float = 0.5,
     engine=None,
+    keepalive_seconds: float | None = None,
+    request_id_holder: list | None = None,
 ) -> AsyncIterator[str]:
     """Wrap streaming generator to abort on client disconnect.
 
@@ -1438,6 +2099,37 @@ async def _disconnect_guard(
     generator raises). The release is the safety net for the
     streaming path; non-streaming routes mirror it via
     ``_wait_with_disconnect``.
+
+    SSE keepalive (F-070): when ``keepalive_seconds > 0`` (default
+    falls through to ``ServerConfig.sse_keepalive_seconds``), emit an
+    SSE comment line (``: keepalive\\n\\n``) whenever the upstream
+    generator stalls for that many seconds without producing a chunk.
+    SSE comments start with ``:`` per the WHATWG spec, are dropped by
+    every conforming consumer (``EventSource``, OpenAI SDK), and
+    serve as TCP-level heartbeats that prevent intermediate proxies
+    (nginx ``proxy_read_timeout=60``, Cloudflare 100 s, EventSource
+    ~45 s) from tearing down the connection during long prefills. Set
+    ``keepalive_seconds=0`` or ``RAPID_MLX_SSE_KEEPALIVE_SECONDS=0``
+    to disable.
+
+    C-01 force-abort (Astrid r3 dogfooding): when
+    ``request_id_holder`` is a mutable list AND the engine publishes
+    the admitted scheduler ``request_id`` into ``holder[0]``, the
+    guard force-calls ``engine.scheduler.abort_request(holder[0])`` (or
+    ``engine.abort_request(holder[0])`` as a thread-safe alternative)
+    the moment a client disconnect is detected. Pre-C-01 the abort
+    relied entirely on the generator-close cascade
+    (``generator.aclose()`` in the ``finally`` → ``GeneratorExit``
+    propagates upstream → ``stream_generate.finally`` calls
+    ``scheduler.abort_request``). That cascade still runs as a
+    belt-and-suspenders, but the EXPLICIT abort here closes Astrid's
+    failure mode where a runaway no-EOS generation kept consuming GPU
+    for >35 s after the client TCP-RST'd because nothing on the path
+    actually reached into the scheduler with an abort signal until
+    the generation hit its token cap. ``holder=None`` (default)
+    preserves the pre-C-01 contract for non-streaming callers and for
+    cloud-routed streams that don't have a local scheduler request
+    id.
     """
     import time as _time
 
@@ -1446,7 +2138,22 @@ async def _disconnect_guard(
     def _elapsed():
         return f"{_time.monotonic() - _t0:.1f}s"
 
-    logger.info(f"[disconnect_guard] START poll_interval={poll_interval}s")
+    # Resolve keepalive interval from the live ServerConfig at start
+    # time. Per-call ``keepalive_seconds`` argument wins (lets
+    # ``stream_chat_completion_guided`` and tests pin a value); else
+    # consult the config singleton. A non-positive value disables
+    # heartbeats entirely.
+    if keepalive_seconds is None:
+        try:
+            keepalive_seconds = float(get_config().sse_keepalive_seconds)
+        except Exception:
+            keepalive_seconds = 20.0
+    keepalive_enabled = keepalive_seconds and keepalive_seconds > 0
+
+    logger.info(
+        f"[disconnect_guard] START poll_interval={poll_interval}s "
+        f"keepalive_seconds={keepalive_seconds}"
+    )
 
     async def _wait_disconnect():
         poll_count = 0
@@ -1463,35 +2170,113 @@ async def _disconnect_guard(
                 return
 
     chunk_count = 0
+    keepalive_count = 0
     disconnect_task: asyncio.Task | None = None
     anext_task: asyncio.Task | None = None
+    # C-01 codex r1 NIT #3: track whether we got to a clean
+    # ``StopAsyncIteration`` exhaust (normal stream end). When True,
+    # the ``finally`` block skips the belt-and-suspenders force-abort —
+    # otherwise every successful response would enqueue a spurious
+    # abort against an already-finished request id, making the abort
+    # logs/metrics indistinguishable from real disconnect cleanup.
+    finished_normally = False
     try:
         aiter = generator.__aiter__()
         disconnect_task = asyncio.create_task(_wait_disconnect())
+        # Single in-flight ``__anext__`` future at any time. We
+        # re-create it at the TOP of each iteration (NOT eagerly after
+        # ``yield chunk``) so each iteration begins with the consumer
+        # having pulled the previous chunk before we schedule the next
+        # one. Codex r3 BLOCKING on PR #732: eagerly scheduling the
+        # next anext_task right after ``yield`` lets the upstream
+        # generator advance one token ahead of the response stream,
+        # wasting inference work if the consumer is about to
+        # disconnect. Lazy re-creation keeps the generator at most one
+        # token ahead — and that token is the one whose yield we're
+        # already awaiting from the wait below.
+        #
+        # The ``anext_task`` reference is preserved across keepalive
+        # ticks: a keepalive cycle returns to the loop top without
+        # consuming the still-pending anext, so the upstream's work in
+        # flight (the long prefill) is not cancelled mid-step.
         while True:
-            anext_task = asyncio.ensure_future(aiter.__anext__())
-            done, _ = await asyncio.wait(
+            # Lazy (re)create the in-flight ``__anext__``:
+            #   * first iteration: ``anext_task`` is None.
+            #   * after a real chunk: ``anext_task.done()`` is True
+            #     (we consumed ``.result()`` last iteration), and now
+            #     the consumer has pulled the yielded chunk — safe to
+            #     ask the upstream for another token.
+            #   * during a keepalive cycle: ``anext_task.done()`` is
+            #     False (upstream still mid-prefill), so we keep the
+            #     existing future. The wait below ignores it.
+            if anext_task is None or anext_task.done():
+                anext_task = asyncio.ensure_future(aiter.__anext__())
+            wait_kwargs: dict = {"return_when": asyncio.FIRST_COMPLETED}
+            if keepalive_enabled:
+                wait_kwargs["timeout"] = keepalive_seconds
+            done, _pending = await asyncio.wait(
                 [anext_task, disconnect_task],
-                return_when=asyncio.FIRST_COMPLETED,
+                **wait_kwargs,
             )
             if disconnect_task in done:
                 logger.info(
                     f"[disconnect_guard] CLIENT DISCONNECTED after "
-                    f"{chunk_count} chunks, elapsed={_elapsed()}"
+                    f"{chunk_count} chunks ({keepalive_count} keepalives), "
+                    f"elapsed={_elapsed()}"
                 )
+                # C-01 force-abort: call into the scheduler directly
+                # the moment the disconnect signal fires, BEFORE we
+                # cancel the in-flight ``anext_task`` and close the
+                # upstream generator. Pre-C-01 the abort relied solely
+                # on the close cascade kicking ``stream_generate.finally``
+                # → ``scheduler.abort_request``; Astrid r3 showed that
+                # path can stall for ~35s under a runaway no-EOS
+                # generation because the cancellation of ``anext_task``
+                # only interrupts the in-flight ``__anext__``, while
+                # the upstream batch step continues to chew GPU until
+                # the next yield boundary. Hitting the scheduler's
+                # ``_pending_abort_ids`` set NOW means the very next
+                # ``step()`` drops the request and frees the slot. This
+                # is purely defense in depth — the cascade still runs
+                # via ``generator.aclose()`` in ``finally`` and
+                # ``scheduler.abort_request`` is idempotent against
+                # double-enqueue.
+                _force_abort_request(engine, request_id_holder)
                 anext_task.cancel()
                 try:
                     await anext_task
                 except (asyncio.CancelledError, StopAsyncIteration):
                     pass
                 break
+            if anext_task not in done:
+                # Neither completed within ``keepalive_seconds``: the
+                # upstream generator is still working (e.g. mid-prefill
+                # on a 64k-token prompt). Emit an SSE comment line so
+                # the connection stays alive across proxies + browser
+                # EventSource. The comment is a no-op to the parsed
+                # event stream — F-070 fix.
+                keepalive_count += 1
+                if keepalive_count == 1 or keepalive_count % 5 == 0:
+                    logger.info(
+                        f"[disconnect_guard] emitting keepalive "
+                        f"#{keepalive_count}, elapsed={_elapsed()}"
+                    )
+                yield ": keepalive\n\n"
+                continue
             try:
                 chunk = anext_task.result()
             except StopAsyncIteration:
                 logger.info(
                     f"[disconnect_guard] generator exhausted normally, "
-                    f"{chunk_count} chunks, elapsed={_elapsed()}"
+                    f"{chunk_count} chunks ({keepalive_count} keepalives), "
+                    f"elapsed={_elapsed()}"
                 )
+                # C-01 codex r1 NIT #3: mark the clean-exit case so
+                # ``finally`` skips the force-abort. The upstream
+                # generator already drained, the scheduler already
+                # marked the request as finished — a defensive abort
+                # here would only pollute logs.
+                finished_normally = True
                 break
             except Exception as exc:
                 logger.error(
@@ -1501,11 +2286,28 @@ async def _disconnect_guard(
                 )
                 import json as _json
 
+                # F-131 belt-and-suspenders: never leak the raw Python
+                # exception message or class name through the SSE
+                # ``data:`` payload. Pre-fix, a tokenizer crash (e.g.
+                # the lone-surrogate ``TypeError``) surfaced inline in
+                # the stream as
+                # ``{"error":{"message":"Internal error during
+                # streaming: TextEncodeInput must be …","type":
+                # "TypeError"}}`` — useful for HuggingFace-library
+                # fingerprinting and breaking the OpenAI SSE contract
+                # (error payloads should not carry Python type names).
+                # The route-level ``_scan_messages_for_lone_surrogates``
+                # gate closes the primary path; this sanitization
+                # remains for any OTHER mid-stream exception so the
+                # ``200 + raw Python traceback in SSE`` shape can never
+                # surface from this entry point. The full exception is
+                # logged above with ``exc_info`` so operators retain
+                # the diagnostic detail server-side.
                 error_data = _json.dumps(
                     {
                         "error": {
-                            "message": f"Internal error during streaming: {exc}",
-                            "type": type(exc).__name__,
+                            "message": "Internal error during streaming",
+                            "type": "internal_error",
                         }
                     }
                 )
@@ -1518,19 +2320,62 @@ async def _disconnect_guard(
                     f"[disconnect_guard] first chunk arrived, elapsed={_elapsed()}"
                 )
             yield chunk
+            # Loop top will re-create the anext_task now that the
+            # consumer has pulled this chunk. Do NOT eagerly schedule
+            # the next ``__anext__`` here — see the docstring at loop
+            # entry for the rationale (codex r3 BLOCKING).
     except GeneratorExit:
         logger.info(
             f"[disconnect_guard] GeneratorExit after {chunk_count} chunks, elapsed={_elapsed()}"
         )
+        # Codex r3 BLOCKING follow-up: ensure any in-flight
+        # ``anext_task`` is cancelled the moment the consumer aborts
+        # the iteration — the ``finally`` block below also cancels,
+        # but doing it here makes the ordering explicit and avoids a
+        # tiny window where the upstream might advance one more token
+        # before the cleanup runs.
+        if anext_task is not None and not anext_task.done():
+            anext_task.cancel()
+        # C-01: GeneratorExit means the consumer (Starlette's
+        # ``StreamingResponse`` task) is tearing down — usually
+        # because uvicorn detected a write failure to the closed
+        # socket. Force-abort the scheduler request before we close
+        # the generator so the upstream doesn't get one more
+        # token-worth of GPU work between here and the cascade.
+        _force_abort_request(engine, request_id_holder)
     finally:
         if disconnect_task and not disconnect_task.done():
             disconnect_task.cancel()
         if anext_task and not anext_task.done():
             anext_task.cancel()
+        # Drive the cascade first: ``generator.aclose()`` propagates
+        # ``GeneratorExit`` into the upstream so its ``finally`` runs
+        # (calls ``stream_generate.finally`` → ``scheduler.abort_request``).
+        # Then the belt-and-suspenders below covers the case where the
+        # cascade itself raised or the upstream's finally didn't reach
+        # the abort. Ordering ``aclose()`` before the belt-and-
+        # suspenders also gives the test layer a clean observable
+        # discriminator between the ``except GeneratorExit`` branch
+        # (which runs BEFORE the cascade) and this finally fallback
+        # (which runs AFTER the cascade).
         try:
             await generator.aclose()
         except Exception:
             pass
+        # C-01 belt-and-suspenders: cover the abnormal-exit paths the
+        # explicit ``if disconnect_task in done`` and ``except
+        # GeneratorExit`` branches don't see — e.g. an exception
+        # raised mid-stream that escaped the ``except Exception`` inline
+        # handler. Codex r1 NIT #3 fix: skip when the stream
+        # exhausted cleanly via ``StopAsyncIteration`` — the upstream
+        # generator already finished and the scheduler already marked
+        # the request finished, so a defensive abort here would just
+        # pollute logs without freeing any GPU work. The
+        # ``Scheduler.abort_request`` idempotency contract still
+        # protects against the case where this fires concurrently
+        # with the cascade.
+        if not finished_normally:
+            _force_abort_request(engine, request_id_holder)
         if engine is not None:
             release = getattr(engine, "release_admission_reservation", None)
             if release is not None:

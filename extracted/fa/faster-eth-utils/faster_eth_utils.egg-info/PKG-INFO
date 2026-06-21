@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faster-eth-utils
-Version: 5.3.27
+Version: 5.3.28
 Summary: A faster fork of eth-utils: Common utility functions for python code that interacts with Ethereum. Implemented in C.
 Home-page: https://github.com/BobTheBuidler/faster-eth-utils
 Author: The Ethereum Foundation
@@ -27,7 +27,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cchecksum==0.4.3
+Requires-Dist: cchecksum==0.4.4
 Requires-Dist: eth-hash>=0.3.1
 Requires-Dist: eth-typing==5.2.1
 Requires-Dist: eth-utils==5.3.1
@@ -64,13 +64,13 @@ Requires-Dist: mypy[mypyc]<2.2,>=2.1; extra == "test"
 Requires-Dist: pytest-xdist>=2.4.0; extra == "test"
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Provides-Extra: codspeed
-Requires-Dist: pytest-codspeed<5.1,>=5; extra == "codspeed"
+Requires-Dist: pytest-codspeed<5.1,>=5.0.3; extra == "codspeed"
 Requires-Dist: pytest-test-groups; extra == "codspeed"
 Requires-Dist: pytest>=7.0.0; extra == "codspeed"
 Provides-Extra: benchmark
 Requires-Dist: eth-utils==5.3.1; extra == "benchmark"
 Requires-Dist: pytest-benchmark<5.3,>=5.2; extra == "benchmark"
-Requires-Dist: pytest-codspeed<5.1,>=5; extra == "benchmark"
+Requires-Dist: pytest-codspeed<5.1,>=5.0.3; extra == "benchmark"
 Requires-Dist: pytest-test-groups; extra == "benchmark"
 Requires-Dist: pytest>=7.0.0; extra == "benchmark"
 Dynamic: author

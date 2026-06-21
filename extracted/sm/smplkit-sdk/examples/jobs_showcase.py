@@ -16,13 +16,21 @@ import asyncio
 from datetime import datetime, timedelta
 
 from smplkit import AsyncJobsClient, ConflictError
-from smplkit.jobs import HttpConfig, JobKind, RunTrigger
+from smplkit.jobs import (
+    Backoff,
+    HttpConfig,
+    JobKind,
+    RetryOn,
+    RetryReason,
+    RunTrigger,
+)
 
 from setup.jobs_setup import cleanup_showcase, setup_showcase
 
 RECURRING_JOB_ID = "showcase-recurring"
 MANUAL_JOB_ID = "showcase-manual"
 ONEOFF_JOB_ID = "showcase-oneoff"
+RETRY_POLICY_ID = "showcase-retry"
 
 
 async def main() -> None:
@@ -31,12 +39,29 @@ async def main() -> None:
     async with AsyncJobsClient() as jobs:
         await setup_showcase(jobs)
         try:
-            # create a recurring job: a base schedule and configuration every
-            # environment inherits, with per-environment overrides
+            # create a retry policy
+            retry_policy = jobs.retry_policies.new(
+                RETRY_POLICY_ID,
+                name="Retry on server errors",
+                max_retries=5,
+                backoff=Backoff.EXPONENTIAL,
+                delay_seconds=2,
+                max_delay_seconds=60,
+                retry_on=RetryOn(
+                    statuses=[429, 503], reasons=[RetryReason.TIMEOUT]
+                ),
+            )
+            await retry_policy.save()
+            assert RETRY_POLICY_ID in {
+                p.id for p in await jobs.retry_policies.list()
+            }
+            print(f"Created retry policy {retry_policy.id!r}")
+
+            # create a recurring job
             job = jobs.new_recurring_job(
                 RECURRING_JOB_ID,
                 name="Nightly cache warm",
-                description="Warms the product cache every night at 02:00 UTC.",
+                description="Warms the product cache nightly.",
                 schedule="0 2 * * *",
                 configuration=HttpConfig(
                     method="POST",
@@ -46,9 +71,13 @@ async def main() -> None:
                     timeout=30,
                 ),
             )
-            job.set_enabled(True, environment="production")
             job.set_enabled(True, environment="development")
-            job.set_schedule("0 */6 * * *", environment="development")
+            job.set_enabled(True, environment="production")
+            job.set_schedule(
+                "0 */6 * * *",
+                timezone="America/New_York",
+                environment="development",
+            )
             job.set_configuration(
                 HttpConfig(
                     method="POST",
@@ -60,7 +89,11 @@ async def main() -> None:
             )
             await job.save()
             assert job.is_recurring() is True
+            assert job.is_enabled(environment="development") is True
             assert job.is_enabled(environment="production") is True
+            assert (
+                job.environments["development"].timezone == "America/New_York"
+            )
             assert (
                 job.get_configuration(environment="development").url
                 == "https://development.example.com/cache/warm"
@@ -69,7 +102,9 @@ async def main() -> None:
 
             # get a job
             fetched = await jobs.get(RECURRING_JOB_ID)
-            assert fetched.environments["development"].schedule == "0 */6 * * *"
+            assert (
+                fetched.environments["development"].schedule == "0 */6 * * *"
+            )
             print(f"Fetched job {RECURRING_JOB_ID!r}")
 
             # list jobs, filtered to recurring jobs
@@ -79,7 +114,12 @@ async def main() -> None:
 
             # update a job
             job.name = "Nightly cache warm (v2)"
-            job.set_schedule("30 2 * * *", environment="production")
+            job.set_retry_policy(retry_policy, environment="production")
+            job.set_schedule(
+                "30 2 * * *",
+                timezone="America/Los_Angeles",
+                environment="production",
+            )
             await job.save()
             assert job.version == 2
             print(f"Updated job to v{job.version}")
@@ -95,6 +135,12 @@ async def main() -> None:
             runs = await job.list_runs(environment="production")
             assert any(r.id == run.id for r in runs)
             print(f"Listed {len(runs)} production run(s)")
+
+            # get the last completed run in production
+            recent = await job.list_runs(
+                environment="production", last_run_only=True
+            )
+            print(f"Last completed production run(s): {len(recent)}")
 
             # get a run
             run = await jobs.runs.get(run.id)
@@ -131,7 +177,9 @@ async def main() -> None:
             assert manual.is_manual() is True
             manual_run = await manual.trigger(environment="production")
             assert manual_run.trigger == RunTrigger.MANUAL
-            print(f"Created manual job {manual.id!r} and triggered it on demand")
+            print(
+                f"Created manual job {manual.id!r} and triggered it on demand"
+            )
 
             # schedule a one-off job to run tomorrow
             tomorrow = datetime.now() + timedelta(days=1)
@@ -153,8 +201,11 @@ async def main() -> None:
             # delete a job
             await job.delete()
             assert RECURRING_JOB_ID not in {j.id for j in await jobs.list()}
+
+            # delete the retry policy
+            await retry_policy.delete()
             print(
-                f"Deleted job {RECURRING_JOB_ID!r} — jobs showcase complete."
+                f"Deleted job {RECURRING_JOB_ID!r} and retry policy — jobs showcase complete."
             )
         finally:
             await cleanup_showcase(jobs)

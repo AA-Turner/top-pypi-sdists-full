@@ -18,7 +18,7 @@ from __future__ import annotations
 import datetime
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
@@ -40,23 +40,40 @@ from smplkit._generated.jobs.api.runs import (
     list_runs as _gen_list_runs,
     rerun_run as _gen_rerun_run,
 )
+from smplkit._generated.jobs.api.retry_policies import (
+    create_retry_policy as _gen_create_retry_policy,
+    delete_retry_policy as _gen_delete_retry_policy,
+    get_retry_policy as _gen_get_retry_policy,
+    list_retry_policies as _gen_list_retry_policies,
+    update_retry_policy as _gen_update_retry_policy,
+)
 from smplkit._generated.jobs.api.usage import get_usage as _gen_get_usage
 from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClient
 from smplkit._generated.jobs.models.job_create_request import JobCreateRequest
 from smplkit._generated.jobs.models.job_request import JobRequest
+from smplkit._generated.jobs.models.retry_policy_create_request import RetryPolicyCreateRequest
+from smplkit._generated.jobs.models.retry_policy_request import RetryPolicyRequest
 
 __all__ = [
     "HttpConfig",
     "JobEnvironment",
     "JobKind",
     "RunTrigger",
+    "Backoff",
+    "RetryReason",
+    "RetryOn",
+    "RunRetry",
     "Job",
     "AsyncJob",
     "Run",
     "AsyncRun",
     "Usage",
+    "RetryPolicy",
+    "AsyncRetryPolicy",
     "RunsClient",
     "AsyncRunsClient",
+    "RetryPoliciesClient",
+    "AsyncRetryPoliciesClient",
     "JobsClient",
     "AsyncJobsClient",
 ]
@@ -85,12 +102,41 @@ class RunTrigger(str, Enum):
     Attributes:
         MANUAL: A ``run``/``trigger`` call started it on demand.
         RERUN: It repeats an earlier run.
+        RETRY: An automatic retry of a failed run, per the job's retry policy.
         SCHEDULE: The job's schedule fired.
     """
 
     MANUAL = "MANUAL"
     RERUN = "RERUN"
+    RETRY = "RETRY"
     SCHEDULE = "SCHEDULE"
+
+
+class Backoff(str, Enum):
+    """How the wait between retries grows (a retry policy's backoff strategy).
+
+    Attributes:
+        EXPONENTIAL: Double the wait each retry — ``delay_seconds``, then ``2×``,
+            ``4×``, … — capped at ``max_delay_seconds``.
+        FIXED: Wait a constant ``delay_seconds`` before every retry.
+    """
+
+    EXPONENTIAL = "exponential"
+    FIXED = "fixed"
+
+
+class RetryReason(str, Enum):
+    """A failure category a retry policy can retry on.
+
+    Attributes:
+        CONNECTION_ERROR: The endpoint could not be reached.
+        NON_SUCCESS_STATUS: Any non-success response, regardless of ``statuses``.
+        TIMEOUT: The run did not complete in time.
+    """
+
+    CONNECTION_ERROR = "CONNECTION_ERROR"
+    NON_SUCCESS_STATUS = "NON_SUCCESS_STATUS"
+    TIMEOUT = "TIMEOUT"
 
 
 def _parse_dt(value: Any) -> Optional[datetime.datetime]:
@@ -229,6 +275,47 @@ class HttpConfig:
 
 
 @dataclass(slots=True)
+class RetryOn:
+    """Which failures a retry policy retries.
+
+    An empty :class:`RetryOn` (both lists empty) retries nothing.
+
+    Attributes:
+        statuses: Response status codes to retry when a run fails because the
+            response did not match the job's success status (e.g. ``[429, 503]``
+            for rate-limit and unavailable). Each is a 3-digit HTTP code.
+        reasons: Failure categories to retry — see :class:`RetryReason`. Accepts
+            :class:`RetryReason` members or their raw string values.
+    """
+
+    statuses: list[int] = field(default_factory=list)
+    reasons: list[RetryReason] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "statuses": list(self.statuses),
+            "reasons": [RetryReason(r).value for r in self.reasons],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "RetryOn":
+        """Build a :class:`RetryOn` from its dictionary representation.
+
+        Args:
+            d: Mapping with optional ``statuses`` (list of HTTP codes) and
+                ``reasons`` (list of :class:`RetryReason` values). Omitted keys
+                default to empty lists.
+
+        Returns:
+            The corresponding :class:`RetryOn`.
+        """
+        return cls(
+            statuses=list(d.get("statuses") or []),
+            reasons=[RetryReason(r) for r in (d.get("reasons") or [])],
+        )
+
+
+@dataclass(slots=True)
 class JobEnvironment:
     """Per-environment enablement, schedule, and configuration override for a job.
 
@@ -243,17 +330,30 @@ class JobEnvironment:
         schedule: Optional per-environment cron override that varies the cadence
             for this environment. ``None`` (the default) inherits the job's base
             :attr:`Job.schedule`.
+        timezone: Optional per-environment IANA timezone override (e.g.
+            ``"America/New_York"``) for evaluating this environment's cron
+            schedule (recurring jobs only). ``None`` (the default) inherits the
+            job's base :attr:`Job.timezone`, else UTC. It may be set on an
+            environment that inherits the base schedule — it need not also
+            override :attr:`schedule`. Sent on writes only when not ``None``.
+        retry_policy: Optional per-environment retry-policy override — the id of
+            a :class:`RetryPolicy` (or ``"Default"``). ``None`` (the default)
+            inherits the job's base :attr:`Job.retry_policy`. Sent on writes
+            only when not ``None``.
         configuration: Optional per-environment request configuration that
             fully replaces the job's base :attr:`Job.configuration` for this
             environment. ``None`` (the default) inherits the base
             configuration.
         next_run_at: Read-only next scheduled fire time in this environment, as
-            reported by the server. ``None`` when the environment is not enabled
-            or once a one-off run has fired. Never sent on save.
+            reported by the server, always a UTC instant. ``None`` when the
+            environment is not enabled or once a one-off run has fired. Never
+            sent on save.
     """
 
     enabled: bool = False
     schedule: Optional[str] = None
+    timezone: Optional[str] = None
+    retry_policy: Optional[str] = None
     configuration: Optional[HttpConfig] = None
     next_run_at: Optional[datetime.datetime] = None
 
@@ -263,6 +363,8 @@ class JobEnvironment:
         return cls(
             enabled=bool(raw.get("enabled", False)),
             schedule=raw.get("schedule"),
+            timezone=raw.get("timezone"),
+            retry_policy=raw.get("retry_policy"),
             configuration=HttpConfig.from_dict(cfg) if cfg else None,
             next_run_at=_parse_dt(raw.get("next_run_at")),
         )
@@ -271,6 +373,10 @@ class JobEnvironment:
         payload: dict[str, Any] = {"enabled": self.enabled}
         if self.schedule is not None:
             payload["schedule"] = self.schedule
+        if self.timezone is not None:
+            payload["timezone"] = self.timezone
+        if self.retry_policy is not None:
+            payload["retry_policy"] = self.retry_policy
         if self.configuration is not None:
             payload["configuration"] = self.configuration.to_dict()
         return payload
@@ -296,6 +402,8 @@ def _normalize_environments(
             out[env_key] = JobEnvironment(
                 enabled=bool(value.get("enabled", False)),
                 schedule=value.get("schedule"),
+                timezone=value.get("timezone"),
+                retry_policy=value.get("retry_policy"),
                 configuration=cfg,
             )
     return out
@@ -335,6 +443,8 @@ class _JobBase:
         id: str,
         name: str,
         schedule: Optional[str] = None,
+        timezone: Optional[str] = None,
+        retry_policy: Optional[str] = None,
         configuration: HttpConfig,
         description: Optional[str] = None,
         environments: Optional[dict[str, JobEnvironment]] = None,
@@ -358,6 +468,16 @@ class _JobBase:
         self.kind = kind
         self.type = type
         self.schedule = schedule
+        # Base IANA timezone the cron schedule is evaluated in (e.g.
+        # "America/New_York"); ``None`` means UTC. The base every environment
+        # inherits unless it sets its own timezone. The cron fires on this
+        # zone's wall clock (DST-aware) while next_run_at stays a UTC instant.
+        # Only meaningful on a recurring job. Sent on writes only when not None.
+        self.timezone = timezone
+        # Base retry policy for failed runs — the id of a RetryPolicy (or the
+        # built-in "Default", which never retries), overridable per environment.
+        # ``None`` (omitted on the wire) means Default. Sent only when not None.
+        self.retry_policy = retry_policy
         self.configuration = configuration
         self.concurrency_policy = concurrency_policy
         self.created_at = created_at
@@ -439,7 +559,7 @@ class _JobBase:
                 return override.configuration
         return self.configuration
 
-    def set_schedule(self, schedule: str, environment: Optional[str] = None) -> None:
+    def set_schedule(self, schedule: str, timezone: Optional[str] = None, environment: Optional[str] = None) -> None:
         """Set the job's schedule — base (``environment=None``) or per-environment.
 
         With ``environment=None`` (the default) this sets the job's base
@@ -448,11 +568,59 @@ class _JobBase:
         override that varies the cadence for just that environment (recurring
         jobs only); pass the environment's base cadence back, or clear the
         override, to fall back to the base schedule.
+
+        Because the timezone is an integral part of a cron cadence, a
+        ``timezone`` may be supplied alongside the schedule; when given it sets
+        the same scope's timezone too (equivalent to a follow-up
+        :meth:`set_timezone`). Omit it to leave the timezone untouched. For a
+        timezone-only change, use :meth:`set_timezone`.
         """
         if environment is None:
             self.schedule = schedule
         else:
             self._environment_override(environment).schedule = schedule
+        if timezone is not None:
+            self.set_timezone(timezone, environment)
+
+    def set_timezone(self, timezone: str, environment: Optional[str] = None) -> None:
+        """Set the IANA timezone the cron schedule runs in — base or per-environment.
+
+        With ``environment=None`` (the default) this sets the job's base
+        :attr:`timezone`, the zone every environment inherits unless it
+        overrides it; ``None``/unset means UTC. With an ``environment``, this
+        sets a per-environment timezone override for just that environment,
+        creating the override entry if it doesn't exist yet (preserving any
+        already-set ``enabled`` / ``schedule`` / ``configuration`` on it). A
+        timezone is only meaningful on a recurring (cron) job, and an
+        environment may set one even while inheriting the base schedule.
+        :attr:`next_run_at` is still reported as a UTC instant.
+        """
+        if environment is None:
+            self.timezone = timezone
+        else:
+            self._environment_override(environment).timezone = timezone
+
+    def set_retry_policy(
+        self, retry_policy: "RetryPolicy | AsyncRetryPolicy | str", environment: Optional[str] = None
+    ) -> None:
+        """Set the retry policy for failed runs — base or per-environment.
+
+        With ``environment=None`` (the default) this sets the job's base
+        :attr:`retry_policy`, the policy every environment inherits unless it
+        overrides it. With an ``environment``, this sets a per-environment
+        override for just that environment, creating the override entry if it
+        doesn't exist yet (preserving any already-set ``enabled`` / ``schedule``
+        / ``timezone`` / ``configuration`` on it).
+
+        Accepts either a :class:`RetryPolicy` / :class:`AsyncRetryPolicy`
+        instance (its id is used) or a policy id string — pass ``"Default"`` for
+        the built-in never-retry policy.
+        """
+        policy_id = retry_policy.id if isinstance(retry_policy, _RetryPolicyBase) else retry_policy
+        if environment is None:
+            self.retry_policy = policy_id
+        else:
+            self._environment_override(environment).retry_policy = policy_id
 
     def _attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -463,6 +631,14 @@ class _JobBase:
             "configuration": self.configuration.to_dict(),
             "concurrency_policy": self.concurrency_policy,
         }
+        # Timezone is the IANA zone the cron is evaluated in (recurring jobs
+        # only); ``None`` is omitted, leaving the server default of UTC.
+        if self.timezone is not None:
+            attrs["timezone"] = self.timezone
+        # Retry policy id; ``None`` is omitted, leaving the server default
+        # (the built-in ``Default`` policy, which never retries).
+        if self.retry_policy is not None:
+            attrs["retry_policy"] = self.retry_policy
         if self.environments:
             attrs["environments"] = {env_key: env._to_payload() for env_key, env in self.environments.items()}
         return attrs
@@ -486,6 +662,8 @@ def _job_base_from_resource(resource: dict[str, Any]) -> _JobBase:
         kind=JobKind(raw_kind) if raw_kind else None,
         type=a.get("type", "http"),
         schedule=a.get("schedule"),
+        timezone=a.get("timezone"),
+        retry_policy=a.get("retry_policy"),
         configuration=HttpConfig.from_dict(a["configuration"]),
         concurrency_policy=a.get("concurrency_policy", "ALLOW"),
         created_at=_parse_dt(a.get("created_at")),
@@ -505,7 +683,14 @@ class Job(_JobBase):
     @classmethod
     def _from_resource(cls, resource: dict[str, Any], client: "JobsClient") -> "Job":
         base = _job_base_from_resource(resource)
-        job = cls(client, id=base.id, name=base.name, schedule=base.schedule, configuration=base.configuration)
+        job = cls(
+            client,
+            id=base.id,
+            name=base.name,
+            schedule=base.schedule,
+            timezone=base.timezone,
+            configuration=base.configuration,
+        )
         job._apply(base)
         return job
 
@@ -541,6 +726,8 @@ class Job(_JobBase):
         self,
         *,
         environment: Optional[str] = None,
+        triggers: Optional[list[RunTrigger]] = None,
+        last_run_only: bool = False,
         page_size: Optional[int] = None,
         after: Optional[str] = None,
     ) -> "list[Run]":
@@ -549,6 +736,11 @@ class Job(_JobBase):
         Args:
             environment: Restrict to runs stamped with this environment. ``None``
                 covers every environment you can access.
+            triggers: Restrict to runs started by any of these triggers (see
+                :class:`RunTrigger`) — e.g. ``[RunTrigger.RETRY]`` for automatic
+                retries. ``None`` covers every trigger.
+            last_run_only: When ``True``, return only the last completed run per
+                environment (in-flight runs excluded). Defaults to ``False``.
             page_size: Maximum number of runs to return in this page.
             after: Opaque cursor from a previous page.
 
@@ -560,6 +752,8 @@ class Job(_JobBase):
         return self._client.runs.list(
             job=self.id,
             environments=[environment] if environment is not None else None,
+            triggers=triggers,
+            last_run_only=last_run_only,
             page_size=page_size,
             after=after,
         )
@@ -575,7 +769,14 @@ class AsyncJob(_JobBase):
     @classmethod
     def _from_resource(cls, resource: dict[str, Any], client: "AsyncJobsClient") -> "AsyncJob":
         base = _job_base_from_resource(resource)
-        job = cls(client, id=base.id, name=base.name, schedule=base.schedule, configuration=base.configuration)
+        job = cls(
+            client,
+            id=base.id,
+            name=base.name,
+            schedule=base.schedule,
+            timezone=base.timezone,
+            configuration=base.configuration,
+        )
         job._apply(base)
         return job
 
@@ -609,6 +810,8 @@ class AsyncJob(_JobBase):
         self,
         *,
         environment: Optional[str] = None,
+        triggers: Optional[list[RunTrigger]] = None,
+        last_run_only: bool = False,
         page_size: Optional[int] = None,
         after: Optional[str] = None,
     ) -> "list[AsyncRun]":
@@ -617,20 +820,42 @@ class AsyncJob(_JobBase):
         Args:
             environment: Restrict to runs stamped with this environment. ``None``
                 covers every environment you can access.
+            triggers: Restrict to runs started by any of these triggers (see
+                :class:`RunTrigger`) — e.g. ``[RunTrigger.RETRY]`` for automatic
+                retries. ``None`` covers every trigger.
+            last_run_only: When ``True``, return only the last completed run per
+                environment (in-flight runs excluded). Defaults to ``False``.
             page_size: Maximum number of runs to return in this page.
             after: Opaque cursor from a previous page.
 
         Returns:
-            The runs in this page, as a list of :class:`Run`.
+            The runs in this page, as a list of :class:`AsyncRun`.
         """
         if self._client is None:
             raise RuntimeError("AsyncJob was constructed without a client; cannot list runs")
         return await self._client.runs.list(
             job=self.id,
             environments=[environment] if environment is not None else None,
+            triggers=triggers,
+            last_run_only=last_run_only,
             page_size=page_size,
             after=after,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class RunRetry:
+    """Where a ``RETRY`` run sits in its retry chain (read-only).
+
+    Attributes:
+        of: Id of the chain's original run — the first attempt that failed and
+            started the chain.
+        attempt: Which retry this run is — ``1`` for the first retry, ``2`` for
+            the second, and so on.
+    """
+
+    of: str
+    attempt: int
 
 
 class _RunBase:
@@ -644,6 +869,9 @@ class _RunBase:
         # Raw trigger string; compare against the :class:`RunTrigger` constants.
         self.trigger: str = attributes["trigger"]
         self.rerun_of: Optional[str] = attributes.get("rerun_of")
+        # Retry-chain position, present only when ``trigger`` is ``RETRY``.
+        retry = attributes.get("retry")
+        self.retry: Optional[RunRetry] = RunRetry(of=str(retry["of"]), attempt=retry["attempt"]) if retry else None
         self.scheduled_for = _parse_dt(attributes.get("scheduled_for"))
         self.status: str = attributes["status"]
         self.started_at = _parse_dt(attributes.get("started_at"))
@@ -727,15 +955,175 @@ class Usage:
         return f"Usage(period={self.period!r}, runs_used={self.runs_used!r}/{self.runs_included!r})"
 
 
+class _RetryPolicyBase:
+    """Shared state for ``RetryPolicy`` / ``AsyncRetryPolicy``."""
+
+    def __init__(
+        self,
+        *,
+        id: str,
+        name: str,
+        max_retries: int,
+        backoff: Backoff,
+        delay_seconds: int,
+        max_delay_seconds: Optional[int] = None,
+        retry_on: Optional[RetryOn] = None,
+        created_at: Optional[datetime.datetime] = None,
+        updated_at: Optional[datetime.datetime] = None,
+        deleted_at: Optional[datetime.datetime] = None,
+        version: Optional[int] = None,
+    ) -> None:
+        self.id = id
+        self.name = name
+        self.max_retries = max_retries
+        self.backoff = backoff
+        self.delay_seconds = delay_seconds
+        # Ceiling on the wait between retries, for ``exponential`` backoff only;
+        # ``None`` (omitted) leaves it uncapped. Invalid with ``fixed`` backoff.
+        self.max_delay_seconds = max_delay_seconds
+        # Which failures to retry; an empty RetryOn retries nothing.
+        self.retry_on = retry_on if retry_on is not None else RetryOn()
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.deleted_at = deleted_at
+        self.version = version
+
+    def _apply(self, other: "_RetryPolicyBase") -> None:
+        self.__dict__.update({k: v for k, v in other.__dict__.items() if not k.startswith("_client")})
+
+    def _attributes(self) -> dict[str, Any]:
+        attrs: dict[str, Any] = {
+            "name": self.name,
+            "max_retries": self.max_retries,
+            "backoff": Backoff(self.backoff).value,
+            "delay_seconds": self.delay_seconds,
+            "retry_on": self.retry_on.to_dict(),
+        }
+        # Only valid with exponential backoff; omitted when unset.
+        if self.max_delay_seconds is not None:
+            attrs["max_delay_seconds"] = self.max_delay_seconds
+        return attrs
+
+    def __repr__(self) -> str:
+        return f"RetryPolicy(id={self.id!r}, name={self.name!r}, max_retries={self.max_retries!r})"
+
+
+def _retry_policy_base_from_resource(resource: dict[str, Any]) -> _RetryPolicyBase:
+    a = resource["attributes"]
+    retry_on = a.get("retry_on")
+    return _RetryPolicyBase(
+        id=resource["id"],
+        name=a["name"],
+        max_retries=a["max_retries"],
+        backoff=Backoff(a["backoff"]),
+        delay_seconds=a["delay_seconds"],
+        max_delay_seconds=a.get("max_delay_seconds"),
+        retry_on=RetryOn.from_dict(retry_on) if retry_on else None,
+        created_at=_parse_dt(a.get("created_at")),
+        updated_at=_parse_dt(a.get("updated_at")),
+        deleted_at=_parse_dt(a.get("deleted_at")),
+        version=a.get("version"),
+    )
+
+
+class RetryPolicy(_RetryPolicyBase):
+    """A named, reusable retry policy (sync). Mutate fields, then call :meth:`save`."""
+
+    def __init__(self, client: "Optional[RetryPoliciesClient]" = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._client = client
+
+    @classmethod
+    def _from_resource(cls, resource: dict[str, Any], client: "RetryPoliciesClient") -> "RetryPolicy":
+        base = _retry_policy_base_from_resource(resource)
+        policy = cls(
+            client,
+            id=base.id,
+            name=base.name,
+            max_retries=base.max_retries,
+            backoff=base.backoff,
+            delay_seconds=base.delay_seconds,
+        )
+        policy._apply(base)
+        return policy
+
+    def save(self) -> None:
+        """Create this policy, or full-replace it if it already exists."""
+        if self._client is None:
+            raise RuntimeError("RetryPolicy was constructed without a client; cannot save")
+        other = self._client._create(self) if self.created_at is None else self._client._update(self)
+        self._apply(other)
+
+    def delete(self) -> None:
+        """Delete this policy."""
+        if self._client is None:
+            raise RuntimeError("RetryPolicy was constructed without a client; cannot delete")
+        self._client.delete(self.id)
+
+
+class AsyncRetryPolicy(_RetryPolicyBase):
+    """A named, reusable retry policy (async). Mutate fields, then ``await save()``."""
+
+    def __init__(self, client: "Optional[AsyncRetryPoliciesClient]" = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._client = client
+
+    @classmethod
+    def _from_resource(cls, resource: dict[str, Any], client: "AsyncRetryPoliciesClient") -> "AsyncRetryPolicy":
+        base = _retry_policy_base_from_resource(resource)
+        policy = cls(
+            client,
+            id=base.id,
+            name=base.name,
+            max_retries=base.max_retries,
+            backoff=base.backoff,
+            delay_seconds=base.delay_seconds,
+        )
+        policy._apply(base)
+        return policy
+
+    async def save(self) -> None:
+        if self._client is None:
+            raise RuntimeError("AsyncRetryPolicy was constructed without a client; cannot save")
+        other = await self._client._create(self) if self.created_at is None else await self._client._update(self)
+        self._apply(other)
+
+    async def delete(self) -> None:
+        if self._client is None:
+            raise RuntimeError("AsyncRetryPolicy was constructed without a client; cannot delete")
+        await self._client.delete(self.id)
+
+
+def _retry_policy_body(policy: _RetryPolicyBase, *, request_cls: Any) -> Any:
+    return request_cls.from_dict(
+        {"data": {"id": policy.id, "type": "retry_policy", "attributes": policy._attributes()}}
+    )
+
+
+def _retry_policy_list_kwargs(name, page_number, page_size) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {}
+    if name is not None:
+        kwargs["filtername"] = name
+    if page_number is not None:
+        kwargs["pagenumber"] = page_number
+    if page_size is not None:
+        kwargs["pagesize"] = page_size
+    return kwargs
+
+
 def _job_body(job: _JobBase, *, request_cls: Any) -> Any:
     return request_cls.from_dict({"data": {"id": job.id, "type": "job", "attributes": job._attributes()}})
 
 
-def _new_kwargs(id, *, name, schedule, configuration, description, environments, concurrency_policy):
+def _new_kwargs(
+    id, *, name, schedule, timezone, retry_policy, configuration, description, environments, concurrency_policy
+):
     return {
         "id": id,
         "name": name,
         "schedule": schedule,
+        "timezone": timezone,
+        "retry_policy": retry_policy,
         "configuration": configuration,
         "description": description,
         "environments": environments,
@@ -743,10 +1131,21 @@ def _new_kwargs(id, *, name, schedule, configuration, description, environments,
     }
 
 
-def _run_list_kwargs(job: Optional[str], page_size: Optional[int], after: Optional[str]) -> dict[str, Any]:
+def _run_list_kwargs(
+    job: Optional[str],
+    triggers: Optional[list[RunTrigger]],
+    last_run_only: bool,
+    page_size: Optional[int],
+    after: Optional[str],
+) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     if job is not None:
         kwargs["filterjob"] = job
+    if triggers:
+        kwargs["filtertrigger"] = ",".join(t.value for t in triggers)
+    # The generated default (False) would emit ``last_run_only=false`` on every
+    # call; pass UNSET unless explicitly requested so the param stays off the wire.
+    kwargs["last_run_only"] = True if last_run_only else UNSET
     if page_size is not None:
         kwargs["pagesize"] = page_size
     if after is not None:
@@ -786,6 +1185,8 @@ class RunsClient:
         *,
         job: Optional[str] = None,
         environments: Optional[list[str]] = None,
+        triggers: Optional[list[RunTrigger]] = None,
+        last_run_only: bool = False,
         page_size: Optional[int] = None,
         after: Optional[str] = None,
     ) -> list[Run]:
@@ -797,6 +1198,13 @@ class RunsClient:
             environments: Restrict to runs stamped with any of these environment
                 keys. ``None`` falls back to the client's configured environment
                 (if any), otherwise covers every environment you can access.
+            triggers: Restrict to runs started by any of these triggers (see
+                :class:`RunTrigger`) — e.g. ``[RunTrigger.RETRY]`` for automatic
+                retries. ``None`` covers every trigger.
+            last_run_only: When ``True``, collapse the result to the last
+                completed (succeeded / failed / canceled) run per
+                job-and-environment; in-flight runs are excluded. The other
+                filters apply first, then the collapse. Defaults to ``False``.
             page_size: Maximum number of runs to return in this page. ``None``
                 uses the server default.
             after: Opaque cursor from a previous page; returns the runs that
@@ -808,7 +1216,7 @@ class RunsClient:
         resp = _gen_list_runs.sync_detailed(
             client=self._auth,
             filterenvironment=_resolve_environment_filter(environments, self._environment),
-            **_run_list_kwargs(job, page_size, after),
+            **_run_list_kwargs(job, triggers, last_run_only, page_size, after),
         )
         _check(resp)
         return [Run._from_resource(r, self) for r in _data(resp)]
@@ -871,6 +1279,8 @@ class AsyncRunsClient:
         *,
         job: Optional[str] = None,
         environments: Optional[list[str]] = None,
+        triggers: Optional[list[RunTrigger]] = None,
+        last_run_only: bool = False,
         page_size: Optional[int] = None,
         after: Optional[str] = None,
     ) -> list[AsyncRun]:
@@ -882,6 +1292,13 @@ class AsyncRunsClient:
             environments: Restrict to runs stamped with any of these environment
                 keys. ``None`` falls back to the client's configured environment
                 (if any), otherwise covers every environment you can access.
+            triggers: Restrict to runs started by any of these triggers (see
+                :class:`RunTrigger`) — e.g. ``[RunTrigger.RETRY]`` for automatic
+                retries. ``None`` covers every trigger.
+            last_run_only: When ``True``, collapse the result to the last
+                completed (succeeded / failed / canceled) run per
+                job-and-environment; in-flight runs are excluded. The other
+                filters apply first, then the collapse. Defaults to ``False``.
             page_size: Maximum number of runs to return in this page. ``None``
                 uses the server default.
             after: Opaque cursor from a previous page; returns the runs that
@@ -893,7 +1310,7 @@ class AsyncRunsClient:
         resp = await _gen_list_runs.asyncio_detailed(
             client=self._auth,
             filterenvironment=_resolve_environment_filter(environments, self._environment),
-            **_run_list_kwargs(job, page_size, after),
+            **_run_list_kwargs(job, triggers, last_run_only, page_size, after),
         )
         _check(resp)
         return [AsyncRun._from_resource(r, self) for r in _data(resp)]
@@ -936,6 +1353,215 @@ class AsyncRunsClient:
         resp = await _gen_rerun_run.asyncio_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
         return AsyncRun._from_resource(_data(resp), self)
+
+
+class RetryPoliciesClient:
+    """Manage reusable retry policies (``jobs.retry_policies``).
+
+    Reached as ``client.jobs.retry_policies``. A :class:`RetryPolicy` is an
+    active record: build one with :meth:`new`, set fields, and call ``save()``;
+    then reference it from a job's ``retry_policy`` (see
+    :meth:`JobsClient.new_recurring_job` and :meth:`Job.set_retry_policy`).
+    Retry policies are account-global — never environment-scoped.
+    """
+
+    def __init__(self, auth: _JobsAuthClient) -> None:
+        self._auth = auth
+
+    def new(
+        self,
+        id: str,
+        *,
+        name: str,
+        max_retries: int,
+        backoff: Backoff,
+        delay_seconds: int,
+        max_delay_seconds: Optional[int] = None,
+        retry_on: Optional[RetryOn] = None,
+    ) -> RetryPolicy:
+        """Return an unsaved :class:`RetryPolicy`. Call ``.save()`` to create it.
+
+        Args:
+            id: Caller-supplied unique identifier for the policy. Unique within
+                the account and immutable; the service returns 409 if another
+                live policy already uses this id.
+            name: Human-readable name for the policy.
+            max_retries: How many times a failed run is retried after the
+                initial attempt — ``3`` means up to 4 attempts total. ``0``
+                disables retries. Maximum 10.
+            backoff: How the wait between retries grows (see :class:`Backoff`).
+            delay_seconds: The wait before a retry, in seconds — the constant
+                wait for ``fixed`` backoff, or the base that doubles each retry
+                for ``exponential``.
+            max_delay_seconds: Ceiling on the wait between retries, for
+                ``exponential`` backoff only. ``None`` (the default) leaves it
+                uncapped; omit it for ``fixed`` backoff.
+            retry_on: Which failures to retry (see :class:`RetryOn`). ``None``
+                (the default) retries nothing.
+
+        Returns:
+            An unsaved :class:`RetryPolicy` bound to this client.
+        """
+        return RetryPolicy(
+            self,
+            id=id,
+            name=name,
+            max_retries=max_retries,
+            backoff=backoff,
+            delay_seconds=delay_seconds,
+            max_delay_seconds=max_delay_seconds,
+            retry_on=retry_on,
+        )
+
+    def list(
+        self,
+        *,
+        name: Optional[str] = None,
+        page_number: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> list[RetryPolicy]:
+        """List retry policies in the account.
+
+        Args:
+            name: Return only policies whose name contains this text
+                (case-insensitive). ``None`` lists all.
+            page_number: 1-based page to return. ``None`` returns the first page.
+            page_size: Maximum number of policies to return in this page.
+                ``None`` uses the server default.
+
+        Returns:
+            The policies in this page, as a list of :class:`RetryPolicy`.
+        """
+        resp = _gen_list_retry_policies.sync_detailed(
+            client=self._auth, **_retry_policy_list_kwargs(name, page_number, page_size)
+        )
+        _check(resp)
+        return [RetryPolicy._from_resource(r, self) for r in _data(resp)]
+
+    def get(self, id: str) -> RetryPolicy:
+        """Fetch a single retry policy by its id.
+
+        Args:
+            id: Identifier of the policy to fetch.
+
+        Returns:
+            The matching :class:`RetryPolicy`.
+        """
+        resp = _gen_get_retry_policy.sync_detailed(id, client=self._auth)
+        _check(resp)
+        return RetryPolicy._from_resource(_data(resp), self)
+
+    def delete(self, id: str) -> None:
+        """Delete a retry policy by its id.
+
+        Args:
+            id: Identifier of the policy to delete.
+        """
+        resp = _gen_delete_retry_policy.sync_detailed(id, client=self._auth)
+        _check(resp)
+
+    def _create(self, policy: RetryPolicy) -> RetryPolicy:
+        resp = _gen_create_retry_policy.sync_detailed(
+            client=self._auth, body=_retry_policy_body(policy, request_cls=RetryPolicyCreateRequest)
+        )
+        _check(resp)
+        return RetryPolicy._from_resource(_data(resp), self)
+
+    def _update(self, policy: RetryPolicy) -> RetryPolicy:
+        resp = _gen_update_retry_policy.sync_detailed(
+            policy.id, client=self._auth, body=_retry_policy_body(policy, request_cls=RetryPolicyRequest)
+        )
+        _check(resp)
+        return RetryPolicy._from_resource(_data(resp), self)
+
+
+class AsyncRetryPoliciesClient:
+    """Manage reusable retry policies (``jobs.retry_policies``), awaited.
+
+    Async counterpart of :class:`RetryPoliciesClient`, reached as
+    ``client.jobs.retry_policies`` on an async client.
+    """
+
+    def __init__(self, auth: _JobsAuthClient) -> None:
+        self._auth = auth
+
+    def new(
+        self,
+        id: str,
+        *,
+        name: str,
+        max_retries: int,
+        backoff: Backoff,
+        delay_seconds: int,
+        max_delay_seconds: Optional[int] = None,
+        retry_on: Optional[RetryOn] = None,
+    ) -> AsyncRetryPolicy:
+        """Return an unsaved :class:`AsyncRetryPolicy`. ``await .save()`` to create it.
+
+        See :meth:`RetryPoliciesClient.new` for the argument semantics.
+
+        Returns:
+            An unsaved :class:`AsyncRetryPolicy` bound to this client.
+        """
+        return AsyncRetryPolicy(
+            self,
+            id=id,
+            name=name,
+            max_retries=max_retries,
+            backoff=backoff,
+            delay_seconds=delay_seconds,
+            max_delay_seconds=max_delay_seconds,
+            retry_on=retry_on,
+        )
+
+    async def list(
+        self,
+        *,
+        name: Optional[str] = None,
+        page_number: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> list[AsyncRetryPolicy]:
+        """List retry policies in the account.
+
+        See :meth:`RetryPoliciesClient.list` for the argument semantics.
+
+        Returns:
+            The policies in this page, as a list of :class:`AsyncRetryPolicy`.
+        """
+        resp = await _gen_list_retry_policies.asyncio_detailed(
+            client=self._auth, **_retry_policy_list_kwargs(name, page_number, page_size)
+        )
+        _check(resp)
+        return [AsyncRetryPolicy._from_resource(r, self) for r in _data(resp)]
+
+    async def get(self, id: str) -> AsyncRetryPolicy:
+        """Fetch a single retry policy by its id.
+
+        Returns:
+            The matching :class:`AsyncRetryPolicy`.
+        """
+        resp = await _gen_get_retry_policy.asyncio_detailed(id, client=self._auth)
+        _check(resp)
+        return AsyncRetryPolicy._from_resource(_data(resp), self)
+
+    async def delete(self, id: str) -> None:
+        """Delete a retry policy by its id."""
+        resp = await _gen_delete_retry_policy.asyncio_detailed(id, client=self._auth)
+        _check(resp)
+
+    async def _create(self, policy: AsyncRetryPolicy) -> AsyncRetryPolicy:
+        resp = await _gen_create_retry_policy.asyncio_detailed(
+            client=self._auth, body=_retry_policy_body(policy, request_cls=RetryPolicyCreateRequest)
+        )
+        _check(resp)
+        return AsyncRetryPolicy._from_resource(_data(resp), self)
+
+    async def _update(self, policy: AsyncRetryPolicy) -> AsyncRetryPolicy:
+        resp = await _gen_update_retry_policy.asyncio_detailed(
+            policy.id, client=self._auth, body=_retry_policy_body(policy, request_cls=RetryPolicyRequest)
+        )
+        _check(resp)
+        return AsyncRetryPolicy._from_resource(_data(resp), self)
 
 
 class JobsClient:
@@ -995,6 +1621,7 @@ class JobsClient:
             self._owns_transport = True
         self._environment = environment
         self.runs = RunsClient(self._auth, environment=environment)
+        self.retry_policies = RetryPoliciesClient(self._auth)
 
     def _new_job(
         self,
@@ -1002,6 +1629,8 @@ class JobsClient:
         *,
         name: str,
         schedule: Optional[str],
+        timezone: Optional[str],
+        retry_policy: Optional[str],
         configuration: HttpConfig,
         description: Optional[str],
         environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
@@ -1014,6 +1643,8 @@ class JobsClient:
                 id,
                 name=name,
                 schedule=schedule,
+                timezone=timezone,
+                retry_policy=retry_policy,
                 configuration=configuration,
                 description=description,
                 environments=_normalize_environments(environments),
@@ -1029,6 +1660,8 @@ class JobsClient:
         *,
         name: str,
         schedule: str,
+        timezone: Optional[str] = None,
+        retry_policy: Optional[str] = None,
         configuration: HttpConfig,
         description: Optional[str] = None,
         environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
@@ -1042,8 +1675,15 @@ class JobsClient:
                 live job already uses this id.
             name: Human-readable name for the job.
             schedule: The base cadence — a 5-field cron expression evaluated in
-                UTC (e.g. ``"0 2 * * *"``) — that every environment inherits
-                unless it sets its own override.
+                the job's ``timezone`` (UTC by default), e.g. ``"0 2 * * *"`` —
+                that every environment inherits unless it sets its own override.
+            timezone: Base IANA timezone the cron ``schedule`` is evaluated in
+                (e.g. ``"America/New_York"``), DST-aware. ``None`` (the default)
+                means UTC. Every environment inherits it unless it overrides it.
+            retry_policy: Base retry policy for failed runs — the id of a
+                :class:`RetryPolicy`, overridable per environment. ``None`` (the
+                default) uses the built-in ``Default`` policy, which never
+                retries.
             configuration: The HTTP request the job sends each time it fires.
             description: Free-text description for the job. Defaults to none.
             environments: Per-environment overrides keyed by environment key —
@@ -1062,6 +1702,8 @@ class JobsClient:
             id,
             name=name,
             schedule=schedule,
+            timezone=timezone,
+            retry_policy=retry_policy,
             configuration=configuration,
             description=description,
             environments=environments,
@@ -1078,6 +1720,7 @@ class JobsClient:
         description: Optional[str] = None,
         environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
         concurrency_policy: str = "ALLOW",
+        retry_policy: Optional[str] = None,
     ) -> Job:
         """Return an unsaved manual :class:`Job`. Call ``.save()`` to create it.
 
@@ -1099,6 +1742,10 @@ class JobsClient:
             concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
                 (the default and only value today) permits a new run to start
                 while a previous one is still in flight.
+            retry_policy: Retry policy for failed runs — the id of a
+                :class:`RetryPolicy`, overridable per environment. ``None`` (the
+                default) uses the built-in ``Default`` policy, which never
+                retries.
 
         Returns:
             An unsaved manual :class:`Job` bound to this client.
@@ -1107,6 +1754,8 @@ class JobsClient:
             id,
             name=name,
             schedule=None,
+            timezone=None,
+            retry_policy=retry_policy,
             configuration=configuration,
             description=description,
             environments=environments,
@@ -1123,6 +1772,7 @@ class JobsClient:
         configuration: HttpConfig,
         description: Optional[str] = None,
         concurrency_policy: str = "ALLOW",
+        retry_policy: Optional[str] = None,
         environment: Optional[str] = None,
     ) -> Job:
         """Return an unsaved one-off :class:`Job`. Call ``.save()`` to create it.
@@ -1140,6 +1790,9 @@ class JobsClient:
             concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
                 (the default and only value today) permits a new run to start
                 while a previous one is still in flight.
+            retry_policy: Retry policy for failed runs — the id of a
+                :class:`RetryPolicy`. ``None`` (the default) uses the built-in
+                ``Default`` policy, which never retries.
             environment: The environment the job is born in. Defaults to the
                 client's configured environment.
 
@@ -1150,6 +1803,8 @@ class JobsClient:
             id,
             name=name,
             schedule=schedule.isoformat(),
+            timezone=None,
+            retry_policy=retry_policy,
             configuration=configuration,
             description=description,
             environments=None,
@@ -1321,6 +1976,7 @@ class AsyncJobsClient:
             self._owns_transport = True
         self._environment = environment
         self.runs = AsyncRunsClient(self._auth, environment=environment)
+        self.retry_policies = AsyncRetryPoliciesClient(self._auth)
 
     def _new_job(
         self,
@@ -1328,6 +1984,8 @@ class AsyncJobsClient:
         *,
         name: str,
         schedule: Optional[str],
+        timezone: Optional[str],
+        retry_policy: Optional[str],
         configuration: HttpConfig,
         description: Optional[str],
         environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
@@ -1340,6 +1998,8 @@ class AsyncJobsClient:
                 id,
                 name=name,
                 schedule=schedule,
+                timezone=timezone,
+                retry_policy=retry_policy,
                 configuration=configuration,
                 description=description,
                 environments=_normalize_environments(environments),
@@ -1355,6 +2015,8 @@ class AsyncJobsClient:
         *,
         name: str,
         schedule: str,
+        timezone: Optional[str] = None,
+        retry_policy: Optional[str] = None,
         configuration: HttpConfig,
         description: Optional[str] = None,
         environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
@@ -1368,8 +2030,15 @@ class AsyncJobsClient:
                 live job already uses this id.
             name: Human-readable name for the job.
             schedule: The base cadence — a 5-field cron expression evaluated in
-                UTC (e.g. ``"0 2 * * *"``) — that every environment inherits
-                unless it sets its own override.
+                the job's ``timezone`` (UTC by default), e.g. ``"0 2 * * *"`` —
+                that every environment inherits unless it sets its own override.
+            timezone: Base IANA timezone the cron ``schedule`` is evaluated in
+                (e.g. ``"America/New_York"``), DST-aware. ``None`` (the default)
+                means UTC. Every environment inherits it unless it overrides it.
+            retry_policy: Base retry policy for failed runs — the id of a
+                :class:`RetryPolicy`, overridable per environment. ``None`` (the
+                default) uses the built-in ``Default`` policy, which never
+                retries.
             configuration: The HTTP request the job sends each time it fires.
             description: Free-text description for the job. Defaults to none.
             environments: Per-environment overrides keyed by environment key —
@@ -1388,6 +2057,8 @@ class AsyncJobsClient:
             id,
             name=name,
             schedule=schedule,
+            timezone=timezone,
+            retry_policy=retry_policy,
             configuration=configuration,
             description=description,
             environments=environments,
@@ -1404,6 +2075,7 @@ class AsyncJobsClient:
         description: Optional[str] = None,
         environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]] = None,
         concurrency_policy: str = "ALLOW",
+        retry_policy: Optional[str] = None,
     ) -> AsyncJob:
         """Return an unsaved manual :class:`AsyncJob`. ``await .save()`` to create it.
 
@@ -1425,6 +2097,10 @@ class AsyncJobsClient:
             concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
                 (the default and only value today) permits a new run to start
                 while a previous one is still in flight.
+            retry_policy: Retry policy for failed runs — the id of a
+                :class:`RetryPolicy`, overridable per environment. ``None`` (the
+                default) uses the built-in ``Default`` policy, which never
+                retries.
 
         Returns:
             An unsaved manual :class:`AsyncJob` bound to this client.
@@ -1433,6 +2109,8 @@ class AsyncJobsClient:
             id,
             name=name,
             schedule=None,
+            timezone=None,
+            retry_policy=retry_policy,
             configuration=configuration,
             description=description,
             environments=environments,
@@ -1449,6 +2127,7 @@ class AsyncJobsClient:
         configuration: HttpConfig,
         description: Optional[str] = None,
         concurrency_policy: str = "ALLOW",
+        retry_policy: Optional[str] = None,
         environment: Optional[str] = None,
     ) -> AsyncJob:
         """Return an unsaved one-off :class:`AsyncJob`. ``await .save()`` to create it.
@@ -1466,6 +2145,9 @@ class AsyncJobsClient:
             concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
                 (the default and only value today) permits a new run to start
                 while a previous one is still in flight.
+            retry_policy: Retry policy for failed runs — the id of a
+                :class:`RetryPolicy`. ``None`` (the default) uses the built-in
+                ``Default`` policy, which never retries.
             environment: The environment the job is born in. Defaults to the
                 client's configured environment.
 
@@ -1476,6 +2158,8 @@ class AsyncJobsClient:
             id,
             name=name,
             schedule=schedule.isoformat(),
+            timezone=None,
+            retry_policy=retry_policy,
             configuration=configuration,
             description=description,
             environments=None,

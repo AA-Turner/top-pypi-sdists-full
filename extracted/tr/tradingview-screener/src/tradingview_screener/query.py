@@ -227,7 +227,7 @@ class Query:
     By default, the `Query` will select the columns: `name`, `close`, `volume`, `market_cap_basic`,
     but you override that
     >>> (Query()
-    ...  .select('open', 'high', 'low', 'VWAP', 'MACD.macd', 'RSI', 'Price to Earnings Ratio (TTM)')
+    ...  .select('open', 'high', 'low', 'VWAP', 'MACD.macd', 'RSI', 'price_earnings_ttm')
     ...  .get_scanner_data())
     (18060,
               ticker    open     high  ...  MACD.macd        RSI  price_earnings_ttm
@@ -244,12 +244,12 @@ class Query:
      49     AMEX:XLK  161.17  162.750  ...  -1.520828  36.868658                 NaN
      [50 rows x 8 columns])
 
-    You can find the 250+ columns available in `tradingview_screener.constants.COLUMNS`.
+    You can find the 250+ columns available in the [Fields](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html) page.
 
     Now let's do some queries using the `WHERE` statement, select all the stocks that the `close` is
     bigger or equal than 350
     >>> (Query()
-    ...  .select('close', 'volume', '52 Week High')
+    ...  .select('close', 'volume', 'price_52_week_high')
     ...  .where(Column('close') >= 350)
     ...  .get_scanner_data())
     (159,
@@ -364,6 +364,7 @@ class Query:
      48  NASDAQ:GBNH   GBNH  0.273000     500412                  9.076764
      49    OTC:CLRMF  CLRMF  0.032500     496049                 17.560935
      [50 rows x 5 columns])
+
     """
 
     def __init__(self, market: str = 'america') -> None:
@@ -411,9 +412,9 @@ class Query:
            ```
 
            This query filters entities where:
-           - The `type` is `'stock'` and `typespecs` contains `'common'` or `'preferred'`, **OR**
-           - The `type` is `'fund'` and `typespecs` does not contain `'etf'`, **OR**
-           - The `type` is `'dr'`.
+           - The [type](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=type&expand) is `'stock'` and [typespecs](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=typespecs&expand) contains `'common'` or `'preferred'`, **OR**
+           - The [type](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=type&expand) is `'fund'` and [typespecs](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=typespecs&expand) does not contain `'etf'`, **OR**
+           - The [type](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=type&expand) is `'dr'`.
 
         2. **Mixing conditions with `OR`:**
            ```python
@@ -425,8 +426,8 @@ class Query:
            )
            ```
            This query filters entities where:
-           - The `type` is `'stock'` and `typespecs` contains `'common'`, **OR**
-           - The `type` is `'fund'`.
+           - The [type](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=type&expand) is `'stock'` and [typespecs](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=typespecs&expand) contains `'common'`, **OR**
+           - The [type](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=type&expand) is `'fund'`.
 
         3. **Combining conditions with `AND`:**
            ```python
@@ -442,6 +443,7 @@ class Query:
            This query filters entities in the `'crypto'` market where:
            - The `exchange` is one of `'UNISWAP3POLYGON', 'VERSEETH', 'a', 'fffffffff'`, **AND**
            - The `currency_id` is `'USD'`.
+
         """
         self.query['filter2'] = operation['operation']
         return self
@@ -485,11 +487,11 @@ class Query:
         This method allows you to select the market/s which you want to query.
 
         By default, the screener will only scan US equities, but you can change it to scan any
-        market or country, that includes a list of 67 countries, and also the following
+        market or [country](https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html?field=country&expand), that includes a list of 67 countries, and also the following
         asset classes: `bonds`, `cfd`, `coin`, `crypto`, `euronext`, `forex`,
         `futures`, `options`.
 
-        You may choose any value from `tradingview_screener.constants.MARKETS`.
+        You may choose any value from the [Markets](https://shner-elmo.github.io/TradingView-Screener/markets.html) page.
 
         If you select multiple countries, you might want to
 
@@ -557,7 +559,7 @@ class Query:
          49                    CRYPTOCAP:OP  ...     cfd
          [50 rows x 3 columns])
 
-        :param markets: one or more markets from `tradingview_screener.constants.MARKETS`
+        :param markets: one or more markets
         :return: Self
         """
         if len(markets) == 1:
@@ -584,18 +586,17 @@ class Query:
                  ticker  name   market  close   volume    VWAP  MACD.macd
          0  NASDAQ:TSLA  TSLA  america    186  3519931  185.53   2.371601)
 
-        To set tickers from multiple markets we need to update the markets that include them:
+        To set multiple tickers:
         >>> (Query()
-        ...  .set_markets('america', 'italy', 'vietnam')
-        ...  .set_tickers('NYSE:GME', 'AMEX:SPY', 'MIL:RACE', 'HOSE:VIX')
+        ...  .select('name', 'close', 'volume', 'market_cap_basic')
+        ...  .set_tickers('NYSE:GME', 'MIL:RACE', 'HOSE:VIX')
         ...  .get_scanner_data())
-        (4,
-              ticker  name     close    volume  market_cap_basic
-         0  HOSE:VIX   VIX  16700.00  33192500      4.568961e+08
-         1  AMEX:SPY   SPY    544.35   1883562               NaN
-         2  NYSE:GME   GME     23.80   3116758      1.014398e+10
-         3  MIL:RACE  RACE    393.30    122878      1.006221e+11)
-
+        (3,
+            ticker  name    close    volume  market_cap_basic
+        0  MIL:RACE  RACE    300.4    351982      8.161551e+10
+        1  NYSE:GME   GME     21.8   6429236      9.781469e+09
+        2  HOSE:VIX   VIX  17750.0  26524292      1.666686e+09)
+ 
         :param tickers: One or more tickers, syntax: `exchange:symbol`
         :return: Self
         """
@@ -641,9 +642,7 @@ class Query:
          8           NSE:LT          LT   3532.500000    5879660      5.816100e+10
          9         LSE:SHEL        SHEL   2732.500000    7448315      2.210064e+11)
 
-        You can find the full list of indices in [`constants.INDICES`](constants.html#INDICES),
-        just note that the syntax is
-        `SYML:{source};{symbol}`.
+        Note that the syntax to specify an index is `SYML:{source};{symbol}`.
 
         :param indexes: One or more strings representing the financial indexes to filter by
         :return: An instance of the `Query` class with the filter applied

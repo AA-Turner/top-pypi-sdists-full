@@ -26,13 +26,13 @@ use crate::inference::formula_dsl::{
     option_usize_any, option_usize_any_strict, option_usize_strict, strip_quotes,
 };
 use crate::inference::model::ColumnKindTag;
+use crate::resource::ResourcePolicy;
 use crate::smooth::{
-    BySmoothKind, ByVarKind, ByVariableSpec, FactorSmoothFlavour, FactorSmoothSpec,
+    ByVarKind, FactorSmoothFlavour, FactorSmoothSpec,
     LinearCoefficientGeometry, LinearTermSpec, RandomEffectTermSpec, ShapeConstraint,
     SmoothBasisSpec, SmoothTermSpec, TensorBSplineIdentifiability,
     TensorBSplinePenaltyDecomposition, TensorBSplineSpec, TermCollectionSpec,
 };
-use crate::solver::resource::ResourcePolicy;
 use crate::types::ColIdx;
 
 /// Fraction of the data bounding-box diameter used as the default Matérn
@@ -54,12 +54,39 @@ const DEFAULT_BSPLINE_DEGREE: usize = 3;
 /// `m=`) option is absent. Second-order (curvature) is the standard P-spline
 /// convention.
 const DEFAULT_PENALTY_ORDER: usize = 2;
+
+/// Default basis dimension for one-dimensional cyclic cubic P-splines.
+///
+/// Periodic smooths spend no coefficients on free endpoints, so they should not
+/// inherit the larger open B-spline knot ceiling by default.  This is still only
+/// a default: callers can request a richer periodic space with `k=`.
+const CYCLIC_DEFAULT_BASIS_DIM: usize = 12;
+
 /// Default shared-marginal basis dimension for `bs="fs"`/`bs="sz"` factor smooths,
 /// matching mgcv's factor-smooth default `k=10`. A factor smooth shares one
 /// marginal across all levels; a modest basis recovers the shared signal without
 /// over-fitting each group's within-group noise (gam#903). Overridden by an
 /// explicit `k`/`basis_dim`.
 const FACTOR_SMOOTH_DEFAULT_BASIS_DIM: usize = 10;
+
+/// Default total basis dimension for a *univariate* (`d == 1`) thin-plate
+/// smooth `s(x, bs="tp")`, matching mgcv's 1-D `s()` default of `k = 10`.
+///
+/// The generic spatial center heuristic ([`default_num_centers`]) scales the
+/// center count with `n` (≈75 centers at `n = 300`), which is appropriate for a
+/// genuinely multi-dimensional spatial smooth but pathological for a 1-D
+/// thin-plate term: the oversized basis carries two penalty blocks whose REML
+/// ρ-surface has a weakly-identified flat valley. The outer optimizer then
+/// stalls on that valley at a point that depends on the row order of the
+/// training data, so a pure row permutation moves the fitted curve (#1378).
+/// Capping the *default* 1-D center count to an mgcv-sized basis keeps the
+/// ρ-surface well-identified and the fit row-permutation invariant, while still
+/// recovering smooth 1-D signal. Overridden by an explicit `k`/`centers`.
+///
+/// The center count is the total basis dimension minus the linear Duchon
+/// polynomial null space (dimension 2 in 1-D: constant + linear), so a `k = 10`
+/// basis corresponds to 8 kernel centers.
+const THIN_PLATE_1D_DEFAULT_BASIS_DIM: usize = 10;
 
 /// Default row-chunk size for the out-of-core PCA-basis smooth when the
 /// `chunk_size=` option is absent. Streams the design in row blocks to bound
@@ -460,105 +487,27 @@ pub fn build_termspec(
                 kind,
                 options,
             } => {
-                let mut smooth_vars = vars.clone();
+                let smooth_vars = vars.clone();
                 let by_name = options.get("by").cloned();
-                let bs_name = options
-                    .get("bs")
-                    .or_else(|| options.get("type"))
-                    .map(|v| v.to_ascii_lowercase());
-                let is_sz = matches!(
-                    bs_name.as_deref(),
-                    Some("sz") | Some("sum-to-zero") | Some("sum_to_zero")
-                );
-                // For a sum-to-zero factor smooth, identify the categorical
-                // factor AMONG the supplied variables rather than assuming a
-                // fixed position. mgcv's `s(x, fac, bs="sz")` is
-                // continuous-first (the factor acts like a `by=` producing
-                // sum-to-zero per-level deviations), exactly like `bs="fs"`,
-                // whose builder already detects the factor by column kind. We
-                // mirror that here so `s(x, g, bs="sz")` and `s(g, x, ...)` both
-                // resolve `g` as the factor — one consistent convention across
-                // factor-smooth families.
-                let sz_factor_var: Option<String> = if is_sz {
-                    if vars.len() < 2 {
-                        return Err(format!(
-                            "bs=sz smooth '{}' expects a categorical factor and one or more smooth variables",
-                            label
-                        )
-                        .into());
-                    }
-                    let mut factor_positions = vars.iter().enumerate().filter(|(_, v)| {
-                        resolve_col(col_map, v).is_ok_and(|c| {
-                            matches!(ds.column_kinds.get(c), Some(ColumnKindTag::Categorical))
-                        })
-                    });
-                    let factor_pos = factor_positions.next().map(|(idx, _)| idx);
-                    if factor_positions.next().is_some() {
-                        return Err(format!(
-                            "bs=sz smooth '{}' expects exactly one categorical factor among its variables; found more than one",
-                            label
-                        )
-                        .into());
-                    }
-                    let Some(factor_pos) = factor_pos else {
-                        return Err(format!(
-                            "bs=sz smooth '{}' requires one categorical factor variable; none of its variables is categorical",
-                            label
-                        )
-                        .into());
-                    };
-                    smooth_vars = vars
-                        .iter()
-                        .enumerate()
-                        .filter(|(idx, _)| *idx != factor_pos)
-                        .map(|(_, v)| v.clone())
-                        .collect();
-                    Some(vars[factor_pos].clone())
-                } else {
-                    None
-                };
+                // `bs="sz"` (sum-to-zero), like `bs="fs"`/`bs="re"`, is a
+                // factor-smooth family handled natively by `build_smooth_basis`'s
+                // fs/sz/re path: it detects the categorical factor among the
+                // variables and emits a `SmoothBasisSpec::FactorSmooth { Sz }`
+                // with the correct single-penalty marginal and modest default
+                // basis. Route sz straight through `build_smooth_basis` rather
+                // than intercepting it into a legacy `FactorSumToZero` envelope
+                // here (which left `sz(fac, x)` mis-typed as `FactorSumToZero`
+                // instead of the expected `FactorSmooth { Sz }`).
                 let cols = smooth_vars
                     .iter()
                     .map(|v| resolve_col(col_map, v))
                     .collect::<Result<Vec<_>, _>>()?;
                 let mut inner_options = options.clone();
                 inner_options.remove("by");
-                if is_sz {
-                    inner_options.remove("bs");
-                    inner_options.remove("type");
-                    // mgcv's `bs="sz"` is a SINGLE-penalty smooth: the marginal
-                    // wiggliness penalty is replicated across levels and the
-                    // marginal's polynomial null space (the per-level linear
-                    // trend, once centred) is left UNPENALISED, exactly as the
-                    // default thin-plate marginal leaves its null space free.
-                    // gam's 1-D smooth otherwise defaults to a double penalty
-                    // (an added null-space shrinkage ridge, mgcv `select=TRUE`
-                    // semantics). Replicated across the sz deviation blocks that
-                    // extra ridge shrinks every level's linear-trend deviation
-                    // toward zero — signal that the truth carries (e.g. the
-                    // linear projection of sin(2*pi*x) is non-zero) — so REML
-                    // over-shrinks the per-level deviations and truth recovery
-                    // degrades relative to mgcv's free null space. Force the
-                    // inner marginal to a single penalty so the per-level null
-                    // space stays free, matching mgcv's sz construction. An
-                    // explicit user `double_penalty=` still wins.
-                    inner_options
-                        .entry("double_penalty".to_string())
-                        .or_insert_with(|| "false".to_string());
-                    // A `bs="sz"` factor smooth shares ONE marginal replicated
-                    // across the level-deviation blocks, so — exactly like `fs` —
-                    // the pooled knot heuristic over-equips it (~24 functions vs
-                    // mgcv's sz default k=10) and REML over-fits the shared shape
-                    // (gam#903: gam 0.068 vs mgcv 0.046 truth RMSE). The inner
-                    // smooth is built as a plain 1-D smooth below, which would
-                    // otherwise take the full pooled basis, so inject mgcv's
-                    // modest default here. An explicit user `k`/`basis_dim` wins
-                    // (it precedes `basis_dim` in the basis-count lookup, and
-                    // `or_insert` leaves a user `basis_dim` untouched).
-                    inner_options
-                        .entry("basis_dim".to_string())
-                        .or_insert_with(|| FACTOR_SMOOTH_DEFAULT_BASIS_DIM.to_string());
-                }
+                // `ordered=` is consumed here (ByVarKind::Factor routing) and
+                // must not propagate to the inner basis builder, which has no
+                // allow-list entry for it and would reject it as an unknown option.
+                inner_options.remove("ordered");
                 // Pop the shape constraint before `build_smooth_basis` runs so
                 // it never reaches the per-kind `validate_known_options`
                 // allow-lists (the constraint is a property of the smooth term,
@@ -579,40 +528,28 @@ pub fn build_termspec(
                     policy,
                     smooth_coordinate_count,
                 )?;
-                if let Some(factor_var) = sz_factor_var {
-                    // `factor_var` was already confirmed categorical when it was
-                    // selected above; resolve its column for the level scan.
-                    let by_col = resolve_col(col_map, &factor_var)?;
-                    let mut levels: Vec<u64> = ds
-                        .values
-                        .column(by_col)
-                        .iter()
-                        .map(|v| v.to_bits())
-                        .collect();
-                    levels.sort_unstable();
-                    levels.dedup();
-                    smooth_terms.push(SmoothTermSpec {
-                        name: label.clone(),
-                        basis: SmoothBasisSpec::FactorSumToZero {
-                            inner: Box::new(inner_basis),
-                            by_col,
-                            levels,
-                            frozen_global_orthogonality: None,
-                        },
-                        shape,
-                        joint_null_rotation: None,
-                    });
-                } else if let Some(by_name) = by_name {
+                if let Some(by_name) = by_name {
                     let by_col = resolve_col(col_map, &by_name)?;
                     match ds.column_kinds.get(by_col).copied().ok_or_else(|| {
                         format!("internal column-kind lookup failed for by variable '{by_name}'")
                     })? {
                         ColumnKindTag::Categorical => {
                             let levels = encoded_levels_for_column(ds, ColIdx::new(by_col));
-                            // Add an unpenalized treatment-coded fixed main effect for the factor, unless present already.
+                            let penalized_group_owner_present = terms.iter().any(|other| {
+                                matches!(other, ParsedTerm::RandomEffect { name } if name == &by_name)
+                            });
+                            // Add an unpenalized treatment-coded fixed main
+                            // effect for a standalone factor-by smooth, unless
+                            // the same factor already has an explicit
+                            // `group(factor)` term.  In that mixed-model form
+                            // the penalized random intercept is the coherent
+                            // owner of level offsets; adding a no-pooling fixed
+                            // factor effect would bypass random-effect
+                            // shrinkage and degrade BLUP-style predictions.
                             if !random_terms
                                 .iter()
                                 .any(|rt| rt.name == by_name && !rt.penalized)
+                                && !penalized_group_owner_present
                             {
                                 random_terms.push(RandomEffectTermSpec {
                                     name: by_name.clone(),
@@ -622,31 +559,34 @@ pub fn build_termspec(
                                     frozen_levels: None,
                                 });
                             }
-                            for (level_bits, level_label) in levels {
-                                smooth_terms.push(SmoothTermSpec {
-                                    name: format!("{}:{}", label, level_bits),
-                                    basis: SmoothBasisSpec::ByVariable {
-                                        inner: Box::new(inner_basis.clone()),
-                                        by_col,
-                                        kind: BySmoothKind::Level { level_bits },
-                                        by: ByVariableSpec::Level {
-                                            value_bits: level_bits,
-                                            label: level_label,
-                                        },
+                            // Route to a single BySmooth::Factor term with
+                            // frozen levels pre-populated from the training data.
+                            // Design building later gates each level into its own
+                            // column block (see build_by_smooth_local in term_specs).
+                            let frozen_levels: Vec<u64> =
+                                levels.iter().map(|(bits, _)| *bits).collect();
+                            smooth_terms.push(SmoothTermSpec {
+                                name: label.clone(),
+                                basis: SmoothBasisSpec::BySmooth {
+                                    smooth: Box::new(inner_basis),
+                                    by_kind: ByVarKind::Factor {
+                                        feature_col: by_col,
+                                        ordered: option_bool(options, "ordered").unwrap_or(false),
+                                        frozen_levels: Some(frozen_levels),
                                     },
-                                    shape,
-                                    joint_null_rotation: None,
-                                });
-                            }
+                                },
+                                shape,
+                                joint_null_rotation: None,
+                            });
                         }
                         ColumnKindTag::Binary | ColumnKindTag::Continuous => {
                             smooth_terms.push(SmoothTermSpec {
                                 name: label.clone(),
-                                basis: SmoothBasisSpec::ByVariable {
-                                    inner: Box::new(inner_basis),
-                                    by_col,
-                                    kind: BySmoothKind::Numeric,
-                                    by: ByVariableSpec::Numeric,
+                                basis: SmoothBasisSpec::BySmooth {
+                                    smooth: Box::new(inner_basis),
+                                    by_kind: ByVarKind::Numeric {
+                                        feature_col: by_col,
+                                    },
                                 },
                                 shape,
                                 joint_null_rotation: None,
@@ -1924,7 +1864,21 @@ pub fn build_smooth_basis(
             if ds.values.nrows() <= 32 && smooth_coordinate_count >= 5 {
                 default_internal = default_internal.min(1);
             }
-            let default_basis = default_internal + degree + 1;
+            // A periodic cubic spline has no free endpoint behaviour to spend
+            // degrees of freedom on: the wrap constraint removes the ordinary
+            // boundary wiggle, and the cyclic second-difference penalty leaves
+            // only the constant direction (handled by the smooth
+            // identifiability constraint).  Reusing the open-spline default
+            // ceiling (often 20 internal knots, i.e. 24 cyclic coefficients)
+            // gives small binomial/continuation-ratio fits a large penalized
+            // nuisance space whose REML/LAML optimum is driven by finite-sample
+            // Bernoulli noise rather than the low-frequency periodic signal.
+            // Match the mgcv `bs="cc"` spirit: default to a modest cyclic
+            // basis unless the caller explicitly requests `k=...`; high-
+            // frequency periodic structure remains available through that
+            // explicit contract.
+            let cyclic_default_basis_cap = CYCLIC_DEFAULT_BASIS_DIM.max(degree + 1);
+            let default_basis = (default_internal + degree + 1).min(cyclic_default_basis_cap);
             let num_basis = option_usize_any(options, &["k", "basis_dim", "basis-dim", "basisdim"])
                 .unwrap_or(default_basis);
             if num_basis < degree + 1 {
@@ -2190,10 +2144,27 @@ pub fn build_smooth_basis(
                 policy,
             )
             .map_err(|e| e.to_string())?;
+            // A *univariate* (`d == 1`) thin-plate smooth `s(x, bs="tp")` is the
+            // routine 1-D smooth, not a spatial field: the generic spatial
+            // center heuristic (which scales with `n`) over-sizes it, producing
+            // a weakly-identified two-penalty ρ-surface whose REML optimum is
+            // row-order dependent (#1378). When no explicit center count / `k`
+            // is given, default the 1-D basis to mgcv's `k = 10` total
+            // dimension (kernel centers = total − linear-nullspace dim), capped
+            // by the heuristic so tiny-`n` plans are never inflated. An explicit
+            // `k`/`centers` still takes full effect via `parse_countwith_basis_alias`.
+            let default_centers = if cols.len() == 1 {
+                let nullspace_dim = crate::basis::duchon_nullspace_dimension(1, 1);
+                let target_centers =
+                    THIN_PLATE_1D_DEFAULT_BASIS_DIM.saturating_sub(nullspace_dim);
+                plan.centers.min(target_centers.max(1))
+            } else {
+                plan.centers
+            };
             let centers = parse_countwith_basis_alias(
                 options,
                 "centers",
-                cap_default_spatial_centers(options, plan.centers),
+                cap_default_spatial_centers(options, default_centers),
             )?;
             let center_strategy = if has_explicit_countwith_basis_alias(options, "centers") {
                 spatial_center_strategy_for_dimension(centers, cols.len())
@@ -2557,7 +2528,10 @@ pub fn build_smooth_basis(
             let centers = parse_countwith_basis_alias(
                 options,
                 "centers",
-                cap_default_spatial_centers(options, plan.centers),
+                cap_default_spatial_centers(
+                    options,
+                    default_matern_center_count(ds.values.nrows(), cols.len(), plan.centers),
+                ),
             )?;
             let center_strategy = if has_explicit_countwith_basis_alias(options, "centers") {
                 spatial_center_strategy_for_dimension(centers, cols.len())
@@ -2789,6 +2763,7 @@ pub fn build_smooth_basis(
                     } else {
                         OneDimensionalBoundary::Open
                     },
+                    radial_reparam: None,
                 },
                 input_scales: None,
             })
@@ -2838,108 +2813,20 @@ pub fn build_smooth_basis(
             }
             let dim = cols.len();
 
-            // Genuine thin-plate tensor for explicit `te(..., bs=c('tp','tp',...))`
-            // (#1082). The default `te()` realizes B-spline marginal bases with
-            // 2nd-difference marginal penalties (the arm below). That B-spline
-            // tensor over-smooths a noisy wiggly surface relative to mgcv's
-            // thin-plate tensor: on the gaulss-tensor truth recovery mgcv reaches
-            // RMSE(mu)=0.123 while the B-spline tensor lands at 0.151, because the
-            // difference-penalty REML shrinks the genuine signal harder than
-            // thin-plate bending energy does at n=200 under noise. When the user
-            // EXPLICITLY asks for thin-plate margins (`bs=c('tp',...)`, every
-            // margin tp/tps), honor that by building gam's mature multi-D
-            // thin-plate basis (the same one `s(x,y,bs='tps')` uses — full design /
-            // bending-energy penalty / freeze / predict support) instead of
-            // substituting B-splines. This is a true root fix (match mgcv's
-            // construction), not a tune.
-            //
-            // Scope is strict: it fires ONLY for `te` (not `ti`/`t2`, whose
-            // marginal-sum-to-zero null-space semantics differ) with an explicit
-            // all-thin-plate `bs`/`type` VECTOR and no periodic axes and no
-            // B-spline-only knobs (degree / penalty_order / knot placement — those
-            // signal the user wants the B-spline tensor). Plain `te(x,z)` and every
-            // non-tp margin vector fall straight through to the unchanged B-spline
-            // tensor arm below, so the 7 passing `te_2d_*` tests and
-            // `te_tensor_2d_hifreq` are byte-identical. The only current test that
-            // passes `bs=c('tp','tp')` to gam's `te()` is the gaulss-tensor one.
-            let all_thin_plate_margins = matches!(kind, SmoothKind::Te)
-                && options
-                    .get("bs")
-                    .or_else(|| options.get("type"))
-                    .is_some_and(|raw| {
-                        bs_selector_is_vector(raw) && {
-                            let per_margin = parse_option_list(raw);
-                            per_margin.len() == dim
-                                && per_margin.iter().all(|m| {
-                                    matches!(
-                                        m.trim().to_ascii_lowercase().as_str(),
-                                        "tp" | "tps" | "thinplate" | "thin-plate"
-                                    )
-                                })
-                        }
-                    })
-                && parse_tensor_periodic_axes(options, dim)?.iter().all(|p| !p)
-                && !options.contains_key("degree")
-                && !options.contains_key("penalty_order")
-                && !options.contains_key("knot_placement")
-                && !options.contains_key("knot-placement")
-                && !options.contains_key("knotplacement")
-                // mgcv's `k=c(k1, k2, ...)` is a per-margin marginal-basis-size
-                // request — semantically a B-spline (or other margin) tensor with
-                // each axis carrying its own basis dim — NOT a single multi-D
-                // thin-plate radial budget. The fast path here aggregates the
-                // budget into one `centers` count, so honoring a list-valued `k`
-                // would silently fold the per-margin sizes into one number and
-                // change what the user asked for. Worse, the multi-D thin-plate
-                // path routes `k`/`basis_dim` through `parse_countwith_basis_alias`
-                // which is strict-scalar and would reject `c(5,5)` with a
-                // misleading "not a non-negative integer" diagnostic before the
-                // tensor builder ever sees it (the `quality_vs_lifelines_smooth_
-                // tensor_baseline` failure mode). When `k`/`basis_dim` is a list
-                // literal, fall through to the B-spline tensor arm below so
-                // `parse_tensor_k_list` handles the per-margin sizes correctly.
-                && !k_option_is_list(options);
-            if all_thin_plate_margins {
-                // mgcv's `te(tp,tp)` leaves the tensor null space unpenalized
-                // (`select = FALSE`); the multi-D thin-plate's bending penalty
-                // already spans only the range space and leaves the polynomial
-                // null space free, so no double penalty is added (an explicit
-                // user `double_penalty=`/`select=` still wins, matching the
-                // B-spline tensor arm below).
-                let tp_double_penalty = option_bool(options, "double_penalty").unwrap_or(false);
-                let plan = plan_spatial_basis(
-                    ds.values.nrows(),
-                    dim,
-                    CenterCountRequest::Default,
-                    DuchonNullspaceOrder::Linear,
-                    option_bool(options, "scale_dims").unwrap_or(false),
-                    policy,
-                )
-                .map_err(|e| e.to_string())?;
-                let centers = parse_countwith_basis_alias(
-                    options,
-                    "centers",
-                    cap_default_spatial_centers(options, plan.centers),
-                )?;
-                let center_strategy = if has_explicit_countwith_basis_alias(options, "centers") {
-                    spatial_center_strategy_for_dimension(centers, dim)
-                } else {
-                    auto_spatial_center_strategy(centers, dim)
-                };
-                return Ok(SmoothBasisSpec::ThinPlate {
-                    feature_cols: cols.to_vec(),
-                    spec: ThinPlateBasisSpec {
-                        center_strategy,
-                        periodic: parse_periodic_axes_option(options, dim)?,
-                        length_scale: option_f64(options, "length_scale").unwrap_or(0.0),
-                        double_penalty: tp_double_penalty,
-                        identifiability: parse_spatial_identifiability(options)
-                            .map_err(|e| e.to_string())?,
-                        radial_reparam: None,
-                    },
-                    input_scales: None,
-                });
-            }
+            // Tensor-product contract (#1082). `te(x1, x2, ...)` ALWAYS builds a
+            // genuine anisotropic tensor product of per-margin bases (the arm
+            // below), exactly as mgcv's `te()` does — one smoothing parameter per
+            // margin, a marginal-Kronecker-sum penalty, and the bilinear null
+            // space left unpenalized under the default `select = FALSE`. A margin
+            // vector `bs=c('tp','tp')` requests a thin-plate FUNCTION SPACE per
+            // axis; the tensor realizes each axis as a 1-D penalized B-spline
+            // margin spanning that same per-axis space (tp/ps/cr/bs/cc all share
+            // it). We deliberately do NOT silently swap the requested tensor for a
+            // single multi-D ISOTROPIC thin-plate radial smooth (`s(x,y,bs='tp')`):
+            // that is a different model — one isotropic smoothing parameter, no
+            // per-margin anisotropy — and substituting it while the user wrote a
+            // tensor formula is dishonest. A user who genuinely wants the isotropic
+            // radial smooth asks for it directly with `s(x1, x2, bs='tp')`.
             // Per-margin basis vector (`bs=c('tp','tp')` / `bs=['ps','cr']`):
             // validate each requested margin is a penalized-spline basis that
             // the tensor product realizes as a 1-D B-spline margin. mgcv's
@@ -3230,12 +3117,13 @@ pub fn enable_scale_dimensions(spec: &mut TermCollectionSpec) {
 // ---------------------------------------------------------------------------
 
 pub fn spatial_center_strategy_for_dimension(num_centers: usize, d: usize) -> CenterStrategy {
-    if d == 1 {
-        // In one dimension, an explicit `k` is a resolution request rather than
-        // a request for quantile-midpoint centers. Use the same maximin geometry
-        // as the automatic 1D path so Duchon REML sees a well-resolved native
-        // kernel block instead of compensating for endpoint under-resolution by
-        // over-smoothing easy low-noise signals (#504).
+    if d <= 3 {
+        // In low-dimensional spatial smooths, an explicit `k` is a resolution
+        // request rather than a request for marginal quantile-midpoint centers.
+        // Use deterministic maximin geometry so Matérn/GP and Duchon REML see a
+        // well-resolved native kernel block with small fill distance instead of
+        // compensating for holes or endpoint under-resolution by over-smoothing
+        // low-noise signals (#504).
         CenterStrategy::FarthestPoint { num_centers }
     } else {
         default_spatial_center_strategy(num_centers, d)
@@ -3616,26 +3504,6 @@ fn knots_option_is_list(options: &BTreeMap<String, String>) -> bool {
         .unwrap_or(false)
 }
 
-/// True when any of the `k=`/`basis_dim=` aliases carries a *list* literal
-/// (`[k0, k1, ...]`, `c(k0, k1, ...)`, or `(k0, k1, ...)`) rather than a scalar.
-///
-/// mgcv's tensor smooths take `k=c(k1, k2, ...)` as per-margin basis dims.
-/// Dispatch sites that aggregate `k` into a single integer (e.g. the multi-D
-/// thin-plate radial fast path) must NOT consume a list value — they would
-/// either reject it with a misleading scalar-integer error, or silently fold
-/// the per-margin sizes into one budget and change the smoothing geometry.
-/// The tensor builder's `parse_tensor_k_list` is the correct consumer for the
-/// list form.
-fn k_option_is_list(options: &BTreeMap<String, String>) -> bool {
-    ["k", "basis_dim", "basis-dim", "basisdim"]
-        .iter()
-        .filter_map(|key| options.get(*key))
-        .any(|raw| {
-            let t = raw.trim();
-            t.starts_with('[') || t.starts_with("c(") || t.starts_with("C(") || t.starts_with('(')
-        })
-}
-
 /// Parse `knots=[k0, k1, ...]` (or `c(...)` / `(...)`) into explicit internal
 /// knot positions. Returns `Ok(None)` when `knots` is absent or a scalar count
 /// (handled by [`parse_ps_internal_knots`]); `Ok(Some(positions))` when it is a
@@ -3829,6 +3697,16 @@ pub(crate) fn cap_default_spatial_centers(
         Some(cap) => default_count.min(cap),
         None => default_count,
     }
+}
+
+fn default_matern_center_count(n: usize, d: usize, planned_count: usize) -> usize {
+    // The generic spatial heuristic intentionally caps defaults at n/4 for
+    // high-dimensional operator conditioning.  A 1-D Matérn smooth with very
+    // small n needs a few more centers to avoid a two-column centered kernel
+    // block that is numerically fragile and too stiff for simple polynomial
+    // recovery tests.  Keep this Matérn-specific and still bounded by n.
+    let low_n_floor = (d + 4).min(n);
+    planned_count.max(low_n_floor).max(1)
 }
 
 pub fn parse_countwith_basis_alias(
@@ -4168,6 +4046,75 @@ mod tests {
         }
     }
 
+    /// #1378: the DEFAULT univariate `s(x, bs="tp")` must build a *modest*
+    /// mgcv-sized basis, not the n-scaled spatial heuristic. The oversized
+    /// default basis left the two-penalty REML ρ-surface with a flat valley
+    /// whose optimizer landing point depended on row order, breaking
+    /// row-permutation invariance. Pin the default 1-D center count so a
+    /// regression that reinstates the n-scaled default trips here, fast, with
+    /// no fit/optimizer in the loop.
+    #[test]
+    fn default_univariate_thinplate_basis_dim_is_modest() {
+        // n = 300 (the #1378 scenario): the n-scaled spatial heuristic would
+        // request ~75 centers here. The modest default must stay near k = 10.
+        let n = 300usize;
+        let rows: Vec<Vec<f64>> = (0..n)
+            .map(|i| {
+                let x = -3.0 + 6.0 * (i as f64) / ((n - 1) as f64);
+                vec![x.sin(), x]
+            })
+            .collect();
+        let ds = continuous_dataset(&["y", "x"], rows);
+
+        let mut options = BTreeMap::new();
+        options.insert("bs".to_string(), "tp".to_string());
+
+        let mut notes = Vec::new();
+        let basis = build_smooth_basis(
+            SmoothKind::S,
+            &["x".to_string()],
+            &[1],
+            &options,
+            &ds,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+            1,
+        )
+        .expect("build default univariate tp smooth");
+
+        let centers = match &basis {
+            SmoothBasisSpec::ThinPlate { spec, .. } => match &spec.center_strategy {
+                CenterStrategy::Auto(inner) => match inner.as_ref() {
+                    CenterStrategy::FarthestPoint { num_centers }
+                    | CenterStrategy::EqualMass { num_centers }
+                    | CenterStrategy::EqualMassCovarRepresentative { num_centers }
+                    | CenterStrategy::KMeans { num_centers, .. } => *num_centers,
+                    other => panic!("unexpected auto inner center strategy: {other:?}"),
+                },
+                CenterStrategy::FarthestPoint { num_centers }
+                | CenterStrategy::EqualMass { num_centers }
+                | CenterStrategy::EqualMassCovarRepresentative { num_centers }
+                | CenterStrategy::KMeans { num_centers, .. } => *num_centers,
+                other => panic!("unexpected center strategy: {other:?}"),
+            },
+            other => panic!("expected ThinPlate basis, got {other:?}"),
+        };
+
+        // Total 1-D basis dim is centers + the linear Duchon null space (dim 2).
+        let nullspace = crate::basis::duchon_nullspace_dimension(1, 1);
+        let basis_dim = centers + nullspace;
+        assert!(
+            basis_dim <= THIN_PLATE_1D_DEFAULT_BASIS_DIM,
+            "default univariate tp basis dim {basis_dim} (centers={centers}) exceeds the \
+             modest mgcv-sized ceiling {THIN_PLATE_1D_DEFAULT_BASIS_DIM}; the n-scaled \
+             spatial default reintroduces the #1378 flat-valley non-invariance",
+        );
+        assert!(
+            centers >= 1,
+            "default univariate tp must still build a usable basis (centers={centers})",
+        );
+    }
+
     fn inferred_tensor_basis_product(ds: &Dataset) -> usize {
         let parsed = parse_formula("y ~ te(theta, h)").expect("parse tensor formula");
         let col_map = ds.column_map();
@@ -4354,7 +4301,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("periodic boundary should build");
         let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4391,7 +4338,7 @@ mod tests {
                 &ds,
                 &col_map,
                 &mut notes,
-                &crate::solver::resource::ResourcePolicy::default_library(),
+                &crate::resource::ResourcePolicy::default_library(),
             )
             .unwrap_or_else(|err| panic!("bs='{selector}' must build a 1-D smooth, got: {err:?}"));
             let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4438,7 +4385,7 @@ mod tests {
                 &ds,
                 &col_map,
                 &mut notes,
-                &crate::solver::resource::ResourcePolicy::default_library(),
+                &crate::resource::ResourcePolicy::default_library(),
             )
             .unwrap_or_else(|err| {
                 panic!("`{formula}` must degree-reduce, not error; got: {err:?}")
@@ -4498,7 +4445,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("monotone smooth should build");
         assert_eq!(
@@ -4513,7 +4460,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes_bad,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect_err("bogus shape must error");
         assert!(
@@ -4543,7 +4490,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build sphere termspec");
         let SmoothBasisSpec::Sphere { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4574,7 +4521,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build default duchon termspec");
         let SmoothBasisSpec::Duchon { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4602,7 +4549,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build hybrid duchon termspec");
         let SmoothBasisSpec::Duchon { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4729,7 +4676,7 @@ mod tests {
                 &ds,
                 &col_map,
                 &mut notes,
-                &crate::solver::resource::ResourcePolicy::default_library(),
+                &crate::resource::ResourcePolicy::default_library(),
             )
             .unwrap_or_else(|err| panic!("fs k={k} should degree-reduce, got: {err:?}"));
             let SmoothBasisSpec::FactorSmooth { spec } = &terms.smooth_terms[0].basis else {
@@ -4799,7 +4746,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build tensor terms");
         let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4863,7 +4810,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build tensor with binary margin");
         let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4901,14 +4848,12 @@ mod tests {
     fn tensor_all_tp_margins_with_per_margin_k_routes_to_bspline_tensor() {
         // `te(x1, x2, bs=c('tp','tp'), k=c(5,5))` is mgcv's per-margin tp tensor
         // with per-margin basis sizes — a tensor product of two 1-D bases, each
-        // of dimension 5. The all-thin-plate fast path that swaps the tensor for
-        // a multi-D thin-plate radial basis aggregates the budget into a single
-        // `centers` count via `parse_countwith_basis_alias`, which is strict-
-        // scalar over `k`/`basis_dim`. Routing `k=c(5,5)` through it would
-        // reject the formula with a "not a non-negative integer" diagnostic
-        // (the `quality_vs_lifelines_smooth_tensor_baseline` failure mode).
-        // With a list-valued `k`, the fast path must defer to the B-spline
-        // tensor arm so `parse_tensor_k_list` honors the per-margin sizes.
+        // of dimension 5. The list-valued `k=c(5,5)` is honored by
+        // `parse_tensor_k_list`, producing one penalized B-spline margin per axis
+        // (each spanning the requested per-axis thin-plate function space). This
+        // is the same anisotropic-tensor routing the scalar/no-`k` case takes —
+        // a `te()` request is ALWAYS a tensor product, never a silent isotropic
+        // thin-plate substitution.
         let ds = continuous_dataset(
             &["y", "x1", "x2"],
             (0..32)
@@ -4927,7 +4872,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build tensor terms with per-margin k");
         let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4950,14 +4895,14 @@ mod tests {
     }
 
     #[test]
-    fn tensor_all_tp_margins_without_per_margin_k_keeps_thin_plate_fast_path() {
-        // The companion to `tensor_all_tp_margins_with_per_margin_k_routes_to_bspline_tensor`:
-        // when the user passes `bs=c('tp','tp')` WITHOUT a list-valued `k`, the
-        // all-thin-plate fast path swaps the per-margin tp tensor for gam's
-        // multi-D thin-plate radial basis (the only test currently exercising
-        // this is `quality_vs_mgcv_gaulss_tensor`). The k-is-list gate must
-        // not regress this routing — only the explicit per-margin-sizes case
-        // should drop through to the B-spline tensor arm.
+    fn tensor_all_tp_margins_without_per_margin_k_builds_anisotropic_tensor() {
+        // `te(x1, x2, bs=c('tp','tp'))` is a tensor-product request and must
+        // build a genuine anisotropic tensor product (one smoothing parameter
+        // per margin), NOT a silently-substituted multi-D isotropic thin-plate
+        // radial smooth — that would be a different model (`s(x1,x2,bs='tp')`).
+        // The routing is now consistent whether or not `k` is list-valued: a tp
+        // margin vector always realizes each axis as a 1-D penalized B-spline
+        // margin spanning the same per-axis thin-plate function space (#1082).
         let ds = continuous_dataset(
             &["y", "x1", "x2"],
             (0..32)
@@ -4975,16 +4920,20 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build tensor terms without per-margin k");
-        assert!(
-            matches!(
-                terms.smooth_terms[0].basis,
-                SmoothBasisSpec::ThinPlate { .. }
-            ),
-            "te(...,bs=c('tp','tp')) without k=c(...) should route to multi-D thin-plate; got {:?}",
-            terms.smooth_terms[0].basis
+        let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
+            panic!(
+                "te(...,bs=c('tp','tp')) must route to an anisotropic tensor product, not a \
+                 silent isotropic thin-plate substitution; got {:?}",
+                terms.smooth_terms[0].basis
+            );
+        };
+        assert_eq!(
+            spec.marginalspecs.len(),
+            2,
+            "tp tensor must carry one penalized B-spline margin per axis"
         );
     }
 
@@ -5008,7 +4957,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build multi-smooth terms");
         let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -5049,7 +4998,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::solver::resource::ResourcePolicy::default_library(),
+            &crate::resource::ResourcePolicy::default_library(),
         )
         .expect("build multi-smooth terms");
         let SmoothBasisSpec::Duchon { spec, .. } = &terms.smooth_terms[0].basis else {

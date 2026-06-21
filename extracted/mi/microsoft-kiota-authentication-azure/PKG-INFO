@@ -1,30 +1,27 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-authentication-azure
-Version: 1.10.3
+Version: 1.11.5
 Summary: Core abstractions for kiota generated libraries in Python
-License: MIT
-License-File: LICENSE
 Keywords: kiota,openAPI,Microsoft,Graph
-Author: Microsoft
-Author-email: graphtooling+python@microsoft.com
-Requires-Python: >=3.10,<4.0
+Author-email: Microsoft <graphtooling+python@microsoft.com>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: aiohttp (>=3.8.0)
-Requires-Dist: azure-core (>=1.21.1)
-Requires-Dist: microsoft-kiota-abstractions (>=1.10.3,<1.11.0)
-Requires-Dist: opentelemetry-api (>=1.27.0)
-Requires-Dist: opentelemetry-sdk (>=1.27.0)
+Classifier: License :: OSI Approved :: MIT License
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.0
+Requires-Dist: azure-core>=1.21.1
+Requires-Dist: microsoft-kiota-abstractions>=1.11.1,<2.0.0
+Requires-Dist: opentelemetry-api>=1.27.0
+Requires-Dist: opentelemetry-sdk>=1.27.0
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/
 Project-URL: Homepage, https://github.com/microsoft/kiota#readme
 Project-URL: Repository, https://github.com/microsoft/kiota-python
-Description-Content-Type: text/markdown
 
 # Microsoft Kiota Authentication Azure Library for Python
 

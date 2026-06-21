@@ -1,0 +1,18 @@
+[package]
+name = "tombi-future"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+futures.workspace = true
+
+[features]
+native = []
+wasm = []
+
+[lints]
+workspace = true

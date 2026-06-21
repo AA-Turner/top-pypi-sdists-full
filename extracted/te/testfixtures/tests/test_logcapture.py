@@ -1,10 +1,10 @@
 import atexit
-from logging import getLogger, ERROR, Filter, shutdown
+from logging import getLogger, INFO, WARNING, ERROR, Filter, shutdown
 from textwrap import dedent
 from unittest import TestCase
 
-from testfixtures import Replacer, LogCapture, compare, Replace, ShouldWarn
-from testfixtures.logcapture import LoggingSource
+from testfixtures import Replacer, LogCapture, compare, Replace, ShouldRaise, ShouldWarn
+from testfixtures.logcapture import Entry, LoggingSource
 from testfixtures.mock import Mock, call
 from testfixtures.shouldraise import ShouldAssert
 
@@ -17,6 +17,20 @@ child = getLogger('one.child')
 class DummyFilter(Filter):
     def filter(self, _):
         return True
+
+
+class LevellessSource:
+    # A minimal CaptureSource for a framework that has no comparable numeric
+    # level, so its entries are captured with level=None.
+
+    def install(self, collector):
+        self.collector = collector
+
+    def uninstall(self):
+        self.collector = None
+
+    def log(self, *actual):
+        self.collector(Entry(raw=actual, actual=actual, level=None))
 
 
 class TestLogCapture(TestCase):
@@ -390,6 +404,137 @@ class LogCaptureTests(TestCase):
         shutdown()
 
 
+class TestCheck:
+
+    def test_raises_false_no_difference(self):
+        with LogCapture() as log:
+            root.info('hello')
+        compare(log.check(('root', 'INFO', 'hello'), raises=False), expected=None)
+
+    def test_raises_false_with_difference(self):
+        with LogCapture() as log:
+            root.info('hello')
+        compare(log.check(('root', 'INFO', 'world'), raises=False), expected=(
+            "sequence not as expected:\n\n"
+            "same:\n()\n\n"
+            "expected:\n(('root', 'INFO', 'world'),)\n\n"
+            "actual:\n(('root', 'INFO', 'hello'),)"
+        ))
+
+    def test_level(self):
+        with LogCapture() as log:
+            root.debug('noisy')
+            root.info('one')
+            root.error('two')
+        log.check(
+            ('root', 'INFO', 'one'),
+            ('root', 'ERROR', 'two'),
+            level=INFO,
+        )
+
+    def test_level_order_doesnt_matter(self):
+        with LogCapture() as log:
+            root.debug('noisy')
+            root.error('two')
+            root.info('one')
+        log.check(
+            ('root', 'INFO', 'one'),
+            ('root', 'ERROR', 'two'),
+            level=INFO,
+            order_matters=False,
+        )
+
+    def test_level_keeps_none_level(self):
+        source = LevellessSource()
+        with LogCapture(source) as log:
+            source.log('custom', 'a message')
+        log.check(('custom', 'a message'), level=ERROR)
+
+    def test_predicate(self):
+        with LogCapture() as log:
+            root.info('one')
+            root.error('two')
+        log.check(
+            ('root', 'ERROR', 'two'),
+            predicate=lambda entry: entry.level is not None and entry.level >= ERROR,
+        )
+
+    def test_level_and_predicate_compose(self):
+        with LogCapture() as log:
+            root.debug('skip: too low')
+            root.info('keep')
+            root.warning('skip: predicate')
+        log.check(
+            ('root', 'INFO', 'keep'),
+            level=INFO,
+            predicate=lambda entry: 'skip' not in entry.actual[2],
+        )
+
+    def test_excluded_entries_not_marked_checked(self):
+        log_capture = LogCapture(ensure_checks_above=ERROR)
+        root.info('info')
+        root.error('boom')
+        log_capture.uninstall()
+        log_capture.check(
+            ('root', 'INFO', 'info'),
+            predicate=lambda entry: entry.level is not None and entry.level < ERROR,
+        )
+        with ShouldAssert("Not asserted ERROR log(s): [('root', 'ERROR', 'boom')]"):
+            log_capture.ensure_checked()
+
+
+class TestCheckEmpty:
+
+    def test_empty(self):
+        with LogCapture() as log:
+            pass
+        log.check_empty()
+
+    def test_not_empty(self):
+        with LogCapture() as log:
+            root.info('boom')
+        with ShouldAssert(
+            "sequence not as expected:\n\n"
+            "same:\n()\n\n"
+            "expected:\n()\n\n"
+            "actual:\n(('root', 'INFO', 'boom'),)"
+        ):
+            log.check_empty()
+
+    def test_level_excludes_lower(self):
+        with LogCapture() as log:
+            root.debug('noisy')
+            root.info('chatter')
+        log.check_empty(level=WARNING)
+
+    def test_level_not_empty(self):
+        with LogCapture() as log:
+            root.debug('noisy')
+            root.error('boom')
+        with ShouldAssert(
+            "sequence not as expected:\n\n"
+            "same:\n()\n\n"
+            "expected:\n()\n\n"
+            "actual:\n(('root', 'ERROR', 'boom'),)"
+        ):
+            log.check_empty(level=WARNING)
+
+    def test_predicate_excludes_all(self):
+        with LogCapture() as log:
+            root.info('chatter')
+            root.warning('still fine')
+        log.check_empty(predicate=lambda entry: entry.level is not None and entry.level >= ERROR)
+
+    def test_level_and_predicate_compose(self):
+        with LogCapture() as log:
+            root.debug('debug noise')
+            root.error('expected error')
+        log.check_empty(
+            level=WARNING,
+            predicate=lambda entry: 'expected' not in entry.actual[2],
+        )
+
+
 class TestCheckPresent:
 
     def test_order_matters_ok(self):
@@ -673,21 +818,6 @@ class TestCheckPresent:
                 order_matters=False
             )
 
-    def test_check_raises_false_no_difference(self):
-        with LogCapture() as log:
-            root.info('hello')
-        compare(log.check(('root', 'INFO', 'hello'), raises=False), expected=None)
-
-    def test_check_raises_false_with_difference(self):
-        with LogCapture() as log:
-            root.info('hello')
-        compare(log.check(('root', 'INFO', 'world'), raises=False), expected=(
-            "sequence not as expected:\n\n"
-            "same:\n()\n\n"
-            "expected:\n(('root', 'INFO', 'world'),)\n\n"
-            "actual:\n(('root', 'INFO', 'hello'),)"
-        ))
-
     def test_check_present_raises_false_no_difference(self):
         with LogCapture() as log:
             root.info('hello')
@@ -702,3 +832,25 @@ class TestCheckPresent:
             "expected:\n[('root', 'INFO', 'world')]\n\n"
             "actual:\n[]"
         ))
+
+
+class TestDisabled:
+
+    def test_disabled(self):
+        with LogCapture() as log:
+            root.info('before')
+            with log.disabled():
+                root.info('noise')
+            root.info('after')
+        log.check(
+            ('root', 'INFO', 'before'),
+            ('root', 'INFO', 'after'),
+        )
+
+    def test_disabled_restores_on_exception(self):
+        with LogCapture() as log:
+            with ShouldRaise(ValueError('boom')):
+                with log.disabled():
+                    raise ValueError('boom')
+            root.info('after')
+        log.check(('root', 'INFO', 'after'))

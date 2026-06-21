@@ -1,6 +1,6 @@
-use pyo3::prelude::*;
-use pyo3::exceptions::PyValueError;
 use ::centaur_technical_indicators::chart_trends as ct;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 /// The `chart_trends` module provides utilities for detecting, analyzing, and breaking down trends in price charts.
 ///
@@ -19,6 +19,8 @@ pub fn chart_trends(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(valley_trend, m)?)?;
     m.add_function(wrap_pyfunction!(overall_trend, m)?)?;
     m.add_function(wrap_pyfunction!(break_down_trends, m)?)?;
+    m.add_function(wrap_pyfunction!(peak_favorable_move, m)?)?;
+    m.add_function(wrap_pyfunction!(valley_favorable_move, m)?)?;
     Ok(())
 }
 
@@ -33,7 +35,8 @@ pub fn chart_trends(m: &Bound<'_, PyModule>) -> PyResult<()> {
 ///     List of tuples containing (peak value, peak index)
 #[pyfunction]
 fn peaks(prices: Vec<f64>, period: usize, closest_neighbor: usize) -> PyResult<Vec<(f64, usize)>> {
-    Ok(ct::peaks(&prices, period, closest_neighbor).map_err(|e| PyValueError::new_err(e.to_string()))?)
+    Ok(ct::peaks(&prices, period, closest_neighbor)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?)
 }
 
 /// Calculates all valleys for a given period
@@ -51,7 +54,8 @@ fn valleys(
     period: usize,
     closest_neighbor: usize,
 ) -> PyResult<Vec<(f64, usize)>> {
-    Ok(ct::valleys(&prices, period, closest_neighbor).map_err(|e| PyValueError::new_err(e.to_string()))?)
+    Ok(ct::valleys(&prices, period, closest_neighbor)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?)
 }
 
 /// Returns the slope and intercept of the trend line fitted to peaks
@@ -134,5 +138,44 @@ fn break_down_trends(
             hard_durbin_watson_min,
             hard_durbin_watson_max,
         },
-    ).map_err(|e| PyValueError::new_err(e.to_string()))
+    )
+    .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Calculates the peak favorable move for the price at a given index.
+///
+/// The favorable move is the largest drop from `prices[index]` to the lowest price in the
+/// inclusive forward window `[index + 1, index + period]`. The result is signed: it is negative
+/// when no price in the window falls below `prices[index]`.
+///
+/// Args:
+///     prices: List of prices
+///     index: Index of the reference price
+///     period: Number of bars in the forward window
+///
+/// Returns:
+///     The signed favorable move (`prices[index] - min(window)`)
+#[pyfunction]
+fn peak_favorable_move(prices: Vec<f64>, index: usize, period: usize) -> PyResult<f64> {
+    ct::peak_favorable_move(&prices, index, period)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Calculates the valley favorable move for the price at a given index.
+///
+/// The favorable move is the largest rise from `prices[index]` to the highest price in the
+/// inclusive forward window `[index + 1, index + period]`. The result is signed: it is negative
+/// when no price in the window rises above `prices[index]`.
+///
+/// Args:
+///     prices: List of prices
+///     index: Index of the reference price
+///     period: Number of bars in the forward window
+///
+/// Returns:
+///     The signed favorable move (`max(window) - prices[index]`)
+#[pyfunction]
+fn valley_favorable_move(prices: Vec<f64>, index: usize, period: usize) -> PyResult<f64> {
+    ct::valley_favorable_move(&prices, index, period)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }

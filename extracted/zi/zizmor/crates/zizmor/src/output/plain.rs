@@ -1,11 +1,11 @@
 //! "plain" (i.e. cargo-style) output.
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use std::collections::{HashMap, hash_map::Entry};
 
 use annotate_snippets::{Annotation, AnnotationKind, Group, Level, Renderer, Snippet};
 use anstream::{eprintln, print, println};
-use owo_colors::OwoColorize;
+use owo_colors::OwoColorize as _;
 
 use crate::{
     RenderLinks, ShowAuditUrls,
@@ -13,7 +13,7 @@ use crate::{
         Finding, FixDisposition, Severity,
         location::{Location, LocationKind},
     },
-    models::AsDocument,
+    models::AsDocument as _,
     registry::{
         FindingRegistry,
         input::{InputKey, InputRegistry},
@@ -69,7 +69,6 @@ pub(crate) fn finding_snippets<'doc>(
     let mut snippets = vec![];
     for (input_key, locations) in locations_by_workflow {
         let input = registry.get_input(input_key);
-
         let path = match render_links_mode {
             RenderLinks::Always => input.link().unwrap_or(input_key.presentation_path()),
             RenderLinks::Never => input_key.presentation_path(),

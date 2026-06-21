@@ -1,6 +1,6 @@
 from base64 import b64decode
 from dataclasses import dataclass, replace
-from typing import Callable, FrozenSet, List, Optional, Tuple, Union
+from typing import Any, Callable, FrozenSet, List, Optional, Tuple, Union, cast
 from warnings import warn
 
 import cryptography.exceptions
@@ -158,8 +158,11 @@ class XMLVerifier(XMLSignatureProcessor):
                 key_data = b64decode(public_key.text)[1:]
                 x = bytes_to_long(key_data[: len(key_data) // 2])
                 y = bytes_to_long(key_data[len(key_data) // 2 :])
-                curve_class = self.known_ecdsa_curves[named_curve.get("URI")]
-                ecpn = ec.EllipticCurvePublicNumbers(x=x, y=y, curve=curve_class())  # type: ignore[abstract]
+                curve_uri = named_curve.get("URI")
+                if curve_uri is None:
+                    raise InvalidInput("NamedCurve element is missing a URI attribute")
+                curve = self.known_ecdsa_curves[curve_uri]
+                ecpn = ec.EllipticCurvePublicNumbers(x=x, y=y, curve=curve)
                 key = ecpn.public_key()
             elif not isinstance(key, ec.EllipticCurvePublicKey):
                 raise InvalidInput("DER encoded key value does not match specified signature algorithm")
@@ -309,8 +312,8 @@ class XMLVerifier(XMLSignatureProcessor):
         uri_resolver: Optional[Callable] = None,
         id_attribute: Optional[str] = None,
         expect_config: SignatureConfiguration = SignatureConfiguration(),
-        ee_policy: Optional[x509.verification.PolicyBuilder] = None,
-        ca_policy: Optional[x509.verification.PolicyBuilder] = None,
+        ee_policy: Optional[x509.verification.ExtensionPolicy] = None,
+        ca_policy: Optional[x509.verification.ExtensionPolicy] = None,
         **deprecated_kwargs,
     ) -> Union[VerifyResult, List[VerifyResult]]:
         """
@@ -386,9 +389,9 @@ class XMLVerifier(XMLSignatureProcessor):
             Expected signature configuration. Pass a :class:`SignatureConfiguration` object to describe expected
             properties of the verified signature. Signatures with unexpected configurations will fail validation.
         :param ee_policy:
-            Custom x509.verification.PolicyBuilder to use for validating the end-entity certificate.
+            Custom x509.verification.ExtensionPolicy to use for validating the end-entity certificate.
         :param ca_policy:
-            Custom x509.verification.PolicyBuilder to use for validating the CA certificate.
+            Custom x509.verification.ExtensionPolicy to use for validating the CA certificate.
         :param deprecated_kwargs:
             Direct application of the parameters **require_x509**, **expect_references**, and
             **ignore_ambiguous_key_info** is deprecated. Use **expect_config** instead.
@@ -418,7 +421,7 @@ class XMLVerifier(XMLSignatureProcessor):
                 "SignXML received a PyOpenSSL object as x509_cert input. Please pass a Cryptography.X509 object instead.",
                 DeprecationWarning,
             )
-            x509_cert = x509_cert.to_cryptography()  # type: ignore[union-attr]
+            x509_cert = cast(Any, x509_cert).to_cryptography()
 
         self.x509_cert = x509_cert
 
@@ -610,13 +613,16 @@ class XMLVerifier(XMLSignatureProcessor):
             key_data = b64decode(pub_key.text)[1:]
             x = bytes_to_long(key_data[: len(key_data) // 2])
             y = bytes_to_long(key_data[len(key_data) // 2 :])
-            curve_class = self.known_ecdsa_curves[named_curve.get("URI")]
+            curve_uri = named_curve.get("URI")
+            if curve_uri is None:
+                return False
+            curve = self.known_ecdsa_curves[curve_uri]
 
             pubk_curve = public_key.public_numbers().curve
             pubk_x = public_key.public_numbers().x
             pubk_y = public_key.public_numbers().y
 
-            return isinstance(pubk_curve, curve_class) and x == pubk_x and y == pubk_y
+            return pubk_curve.name == curve.name and x == pubk_x and y == pubk_y
 
         elif signature_alg.name.startswith("DSA_") and isinstance(public_key, dsa.DSAPublicKey):
             dsa_key_value = self._find(key_value, "DSAKeyValue")

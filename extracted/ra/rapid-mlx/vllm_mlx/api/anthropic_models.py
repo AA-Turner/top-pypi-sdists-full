@@ -10,7 +10,14 @@ Claude Code to communicate with rapid-mlx.
 import uuid
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from .models import (
+    _enforce_max_generation_tokens_ceiling,
+    _scrub_nonfinite_sampling_raw,
+    _validate_finite_in_range,
+    _validate_nonnegative_int,
+)
 
 # =============================================================================
 # Request Models
@@ -33,6 +40,54 @@ class AnthropicContentBlock(BaseModel):
     is_error: bool | None = None
     # image block
     source: dict | None = None
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def _reject_non_string_text(cls, value: Any) -> Any:
+        """Reject non-string ``text`` with a clean, field-named error
+        message (H-15).
+
+        ``text: str | None`` already 422s on a non-string value, but
+        Pydantic's default message buries ``text`` under a
+        ``messages.0.content.str: Input should be a valid string`` loc
+        trail because the parent ``AnthropicMessage.content`` is a
+        ``str | list[AnthropicContentBlock]`` union (the str-arm fails
+        first, then the list-arm fails on ``text`` — two confusing
+        union errors). Run an explicit before-validator so the client
+        sees a single actionable message naming ``content[].text``
+        directly.
+        """
+        if value is None or isinstance(value, str):
+            return value
+        raise ValueError(
+            f"content[].text must be a string (got {type(value).__name__})"
+        )
+
+    @model_validator(mode="after")
+    def _validate_image_source_type(self) -> "AnthropicContentBlock":
+        """Reject non-string ``source.data`` / ``source.url`` (H-15
+        sibling).
+
+        Anthropic image blocks ship the payload inside ``source`` with
+        either ``{"type":"base64","media_type":"…","data":"…"}`` or
+        ``{"type":"url","url":"…"}``. ``source`` is declared ``dict``
+        (no inner schema) so a non-string ``data`` / ``url`` value
+        (e.g. a nested list — the same H-15 shape) used to fall through
+        the schema layer and surface as an uninformative downstream
+        error. Pin a string-typed check here for parity with the
+        OpenAI-side ``image_url.url`` rule (F-066) so the failure
+        names the field cleanly at the schema layer.
+        """
+        if self.type == "image" and isinstance(self.source, dict):
+            for key in ("data", "url"):
+                if key in self.source:
+                    val = self.source[key]
+                    if val is not None and not isinstance(val, str):
+                        raise ValueError(
+                            f"image source.{key} must be a string "
+                            f"(got {type(val).__name__})"
+                        )
+        return self
 
 
 class AnthropicMessage(BaseModel):
@@ -144,13 +199,24 @@ class AnthropicRequest(BaseModel):
     messages: list[AnthropicMessage]
     system: str | list[dict] | None = None
     max_tokens: int  # Required in Anthropic API
-    temperature: float | None = None
-    top_p: float | None = None
+    # H-10: Anthropic spec narrows ``temperature`` to ``[0, 1]`` (the
+    # OpenAI ``[0, 2]`` range is a different surface). Pre-H-10 this
+    # field had no Field bound AND no finite check — a NaN ``temperature``
+    # HTTP-200'd into the Metal kernel and crashed the server, same
+    # silent-burn class as F-011 on the OpenAI route. The ``ge``/``le``
+    # bound catches finite out-of-range; the ``_reject_nonfinite_sampling``
+    # validator below catches NaN/inf (Field bounds skip NaN).
+    temperature: float | None = Field(default=None, ge=0.0, le=1.0)
+    # H-10: same finite-range gate on ``top_p`` (Anthropic spec: ``(0, 1]``).
+    top_p: float | None = Field(default=None, gt=0.0, le=1.0)
     stream: bool = False
     stop_sequences: list[str] | None = None
     tools: list[AnthropicToolDef] | None = None
     tool_choice: dict | None = None
     metadata: dict | None = None
+    # H-10: ``top_k`` range gate — the ``_validate_top_k`` validator
+    # below 4xx's negative values (mlx-lm would otherwise silently
+    # ignore them, same family as M-14).
     top_k: int | None = None
     # Upstream vLLM PR #42396 (v0.22.0) — native structured output on
     # /v1/messages via ``output_config.format = json_schema`` AND
@@ -164,6 +230,116 @@ class AnthropicRequest(BaseModel):
     # The adapter consults ``thinking.budget_tokens`` only when
     # ``output_config.effort`` is unset (newer surface wins).
     thinking: dict | None = None
+
+    # H-10: NaN/inf scrub BEFORE Pydantic coerces a non-finite value
+    # onto the typed ``float | None`` slot. Mirrors the
+    # ``ChatCompletionRequest`` / ``CompletionRequest`` block — without
+    # this, ``temperature=NaN`` would survive into the
+    # ``ValidationError.input_value`` and starlette's JSONResponse
+    # would crash serializing the error body (``allow_nan=False``),
+    # turning the intended 422 into a silent 500 (or worse — uvicorn
+    # death on the engine path). One source of truth: the helper
+    # lives in ``models.py`` so every API surface scrubs identically.
+    @model_validator(mode="before")
+    @classmethod
+    def _scrub_nonfinite_sampling(cls, data):
+        return _scrub_nonfinite_sampling_raw(data)
+
+    # H-10: belt-and-braces finite + range check on the typed slots.
+    # The Field ``ge``/``le`` bounds already 422 finite out-of-range,
+    # but the field-level call lets us pin the exact spec range
+    # (Anthropic ``[0, 1]`` for temperature) in one shared helper and
+    # keeps the contract sound even if a future cleanup drops the
+    # Field bound. ``_validate_finite_in_range`` emits a message that
+    # names the field, so the unified validation-error handler
+    # renders something a client can act on.
+    @field_validator("temperature")
+    @classmethod
+    def _validate_temperature(cls, v: float | None) -> float | None:
+        return _validate_finite_in_range(
+            v, min_value=0.0, max_value=1.0, field_name="temperature"
+        )
+
+    @field_validator("top_p")
+    @classmethod
+    def _validate_top_p(cls, v: float | None) -> float | None:
+        return _validate_finite_in_range(
+            v,
+            min_value=0.0,
+            max_value=1.0,
+            min_inclusive=False,
+            field_name="top_p",
+        )
+
+    # H-10: ``top_k`` range gate — mirrors the OpenAI surfaces.
+    @field_validator("top_k", mode="before")
+    @classmethod
+    def _validate_top_k(cls, v) -> int | None:
+        return _validate_nonnegative_int(v, field_name="top_k")
+
+    # M-03 (#742 follow-up): the Anthropic Messages spec only accepts
+    # four ``tool_choice.type`` values — ``auto``, ``any``, ``tool``,
+    # ``none``. Without parse-time validation, unknown types like
+    # ``{"type": "banana"}`` silently fall through ``_convert_tool_choice``'s
+    # final ``return "auto"`` (anthropic_adapter.py L452) and the
+    # request HTTP 200s with plain text instead of the 400 the OpenAI
+    # route surfaces. The validator below mirrors the strict-Literal
+    # discipline ``AnthropicOutputConfig.effort`` already uses (codex
+    # round-6 NIT precedent): fail loud + fast at the schema boundary
+    # so a client typo can't silently degrade tool-forcing semantics.
+    #
+    # Pre-Pydantic-coercion so the ``dict`` type slot doesn't strip
+    # the keys we need to inspect, and so the typed ``tool_choice``
+    # field remains ``dict`` for the downstream adapter (which
+    # already calls ``.get("type")`` + ``.get("name")``). Keeping the
+    # field type unchanged means zero churn on the adapter and on
+    # the downstream chat route.
+    @field_validator("tool_choice", mode="before")
+    @classmethod
+    def _validate_tool_choice(cls, v):
+        if v is None:
+            return v
+        if not isinstance(v, dict):
+            raise ValueError(
+                "tool_choice must be an object with a 'type' field "
+                f"(got {type(v).__name__})."
+            )
+        # Match the Anthropic public spec — see
+        # https://docs.anthropic.com/en/api/messages#body-tool-choice.
+        # Includes ``none`` because the adapter (anthropic_adapter.py
+        # L449) already maps it through to OpenAI's ``"none"``; the
+        # existing TestConvertToolChoice.test_none_type test pins this.
+        # An entirely missing ``type`` key (``tool_choice={}``) is
+        # preserved as a no-op by the adapter (defaults to ``"auto"``,
+        # TestConvertToolChoice.test_missing_type_defaults_to_auto);
+        # only EXPLICITLY-set unknown values trip the gate so we
+        # don't tighten beyond M-03's wording.
+        allowed = ("auto", "any", "tool", "none")
+        if "type" not in v:
+            return v
+        choice_type = v["type"]
+        if choice_type not in allowed:
+            raise ValueError(
+                "tool_choice.type must be one of "
+                f"{list(allowed)} (got {choice_type!r}). "
+                "See https://docs.anthropic.com/en/api/messages."
+            )
+        # Anthropic's spec requires ``name`` on the forced-tool form.
+        # The Anthropic SDK enforces this client-side but a raw HTTP
+        # client can omit it; without this guard the adapter builds
+        # an OpenAI ``{"type":"function","function":{"name":""}}`` and
+        # the chat-route ``tool_choice with type='function' requires
+        # function.name`` 400 fires deep into the routing stack, with
+        # a less Anthropic-shape error message. Surface the contract
+        # at parse time so the message points at the right field.
+        if choice_type == "tool":
+            name = v.get("name")
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError(
+                    "tool_choice with type='tool' requires a non-empty "
+                    "string 'name' field."
+                )
+        return v
 
     @model_validator(mode="after")
     def _validate_thinking_budget(self) -> "AnthropicRequest":
@@ -194,6 +370,18 @@ class AnthropicRequest(BaseModel):
                 )
             if budget < 1:
                 raise ValueError("thinking.budget_tokens must be >= 1 when set.")
+        return self
+
+    # M-04: opt-in per-request generation-budget ceiling, mirroring the
+    # OpenAI surfaces (``ChatCompletionRequest`` /
+    # ``CompletionRequest``). Anthropic ``max_tokens`` is required (not
+    # ``int | None``), so the ceiling check fires on every request when
+    # the env var is set. See ``models._enforce_max_generation_tokens_ceiling``
+    # for the opt-in contract — the cap is only applied when
+    # ``RAPID_MLX_MAX_GENERATION_TOKENS`` is set to a positive integer.
+    @model_validator(mode="after")
+    def _enforce_generation_budget_ceiling(self) -> "AnthropicRequest":
+        _enforce_max_generation_tokens_ceiling(self.max_tokens)
         return self
 
 

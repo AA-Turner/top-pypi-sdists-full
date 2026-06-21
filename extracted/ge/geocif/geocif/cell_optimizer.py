@@ -208,19 +208,57 @@ def fitness(
     y: np.ndarray,
     lam: float,
     min_cells: int,
+    *,
+    T_norm: float = 0.0,
+    afi: Optional[np.ndarray] = None,
+    T_max: float = 50.0,
 ) -> float:
-    """GA objective. Negative-infinity when the mask violates the
-    MIN_CELLS floor, which keeps tournament selection from ever picking
-    a degenerate genome. Otherwise LOOCV R² minus the L0 share penalty.
+    """GA objective. Negative-infinity when the EFFECTIVE mask violates
+    the MIN_CELLS floor (keeps tournament selection from ever picking a
+    degenerate genome). Otherwise LOOCV R² minus the L0 share penalty.
+
+    With the joint (mask, T) optimization (0.4.756+), each candidate
+    carries its own AFI threshold ``T_norm ∈ [0, 1]`` (normalized; the
+    raw % is ``T_norm × T_max``). When ``T_norm > 0`` and ``afi`` is
+    supplied, the effective mask is ``mask & (afi ≥ T_pct × 100)``,
+    i.e. cells must pass BOTH the GA's bit AND the per-region AFI
+    floor T_pct. When ``T_norm == 0`` or ``afi is None`` (the legacy
+    opt-out path), eligibility is universal and the function returns
+    the same value as the pre-0.4.756 mask-only signature.
     """
-    sel = int(mask.sum())
+    if T_norm > 0.0 and afi is not None:
+        T_pct = T_norm * T_max
+        eligible = afi >= T_pct * 100.0
+        effective = mask & eligible
+    else:
+        effective = mask
+    sel = int(effective.sum())
     if sel < min_cells:
         return float("-inf")
-    x = aggregate_over_mask(per_cell, mask)
+    x = aggregate_over_mask(per_cell, effective)
     r2 = loocv_r2_multivariate(x, y)
     if not np.isfinite(r2):
         return float("-inf")
+    # L0 penalty on the EFFECTIVE share — staying consistent with the
+    # in-use cell count. When the AFI filter is a no-op, this equals
+    # the legacy raw-mask penalty.
     return r2 - lam * (sel / mask.size)
+
+
+def _effective_mask(
+    raw_mask: np.ndarray, T_pct: float, afi: Optional[np.ndarray],
+) -> np.ndarray:
+    """The mask production extraction actually applies: ``raw_mask AND
+    (afi >= T_pct * 100)`` when the AFI threshold T is in play, just
+    ``raw_mask`` otherwise. Centralises the rule so summary stats,
+    diagnostic plots, and the production parquet stay in lockstep —
+    early prototypes had each surface re-derive the effective mask
+    inconsistently and the summary's per-variable r disagreed with
+    the production parquet's `included` flag.
+    """
+    if T_pct > 0.0 and afi is not None:
+        return raw_mask & (np.asarray(afi) >= T_pct * 100.0)
+    return raw_mask
 
 
 def aggregate_held_out(
@@ -282,6 +320,24 @@ class GAConfig:
     init_inclusion_prob: float = 0.5     # fallback when afi prior is disabled
     afi_prior_beta: float = 1.0          # 0 → no prior (uniform 0.5); 1 → P = afi/100 clipped
     seed: Optional[int] = None           # set for reproducibility
+    # Joint optimization of AFI threshold T% alongside the cell mask.
+    # When True (default 0.4.756+), every candidate carries its own
+    # ``T_norm ∈ [threshold_min_pct/threshold_max_pct, 1]`` and the
+    # fitness function applies ``effective_mask = mask & (afi ≥ T*100)``
+    # before the LOOCV R² + L0 penalty. Operators wanting the legacy
+    # mask-only behaviour set this to False; T then stays at 0 and the
+    # AFI eligibility filter is a no-op.
+    optimize_threshold: bool = True
+    threshold_min_pct: float = 0.0       # lower bound on T in raw % units
+    threshold_max_pct: float = 50.0      # upper bound on T in raw % units
+    # Seed value for the T population: when None, draw uniform random
+    # in [threshold_min_pct, threshold_max_pct]; when set, every genome
+    # starts near this value with small jitter so the GA can refine
+    # from a known good T (e.g. one threshold_optimizer found earlier).
+    threshold_init_pct: Optional[float] = None
+    # Gaussian σ for per-generation T mutation, in normalized [0, 1]
+    # space (0.05 ≈ 2.5 percentage points at threshold_max_pct=50%).
+    threshold_mutation_sigma: float = 0.05
 
 
 @dataclass
@@ -292,10 +348,45 @@ class GAResult:
     best_mask: np.ndarray            # (n_cells,) bool
     best_fitness: float
     best_r2: float                   # fitness without the L0 penalty
-    history: pd.DataFrame            # columns: generation, best_fit, mean_fit, best_r2, n_selected
+    history: pd.DataFrame            # columns: generation, best_fit, mean_fit, best_r2, n_selected, best_T_pct
     n_cells: int
     n_generations_run: int
     baseline_r2: float               # LOOCV R² with mask = all-True (no selection)
+    best_T_pct: float = 0.0          # AFI threshold (raw %) for the best mask; 0 when optimize_threshold=False
+
+
+def init_T_pop(
+    rng: np.random.Generator,
+    pop_size: int,
+    cfg: "GAConfig",
+) -> np.ndarray:
+    """Initialize the per-candidate AFI threshold gene (T_pop), shape
+    ``(pop_size,) float`` in normalized [0, 1] space.
+
+    * ``cfg.optimize_threshold == False`` (legacy opt-out) → all zeros;
+      AFI filter is a no-op, GA reduces to mask-only search.
+    * ``optimize_threshold == True`` + ``threshold_init_pct is None``
+      (default) → uniform random in ``[T_min_norm, 1.0]`` so the seed
+      population spans the full configured T range.
+    * ``optimize_threshold == True`` + ``threshold_init_pct`` set →
+      small jitter (σ=0.02 in normalized space) around the seed, so the
+      GA can refine from a known-good T (e.g. one threshold_optimizer
+      already found) without losing population diversity.
+
+    Extracted to a module-level helper so it's unit-testable in
+    isolation (T_pop is otherwise local to ``run_ga``).
+    """
+    T_max = cfg.threshold_max_pct
+    T_min_norm = cfg.threshold_min_pct / T_max if T_max > 0 else 0.0
+    if not cfg.optimize_threshold:
+        return np.zeros(pop_size, dtype=float)
+    if cfg.threshold_init_pct is None:
+        return rng.uniform(T_min_norm, 1.0, size=pop_size)
+    seed_norm = float(cfg.threshold_init_pct) / T_max if T_max > 0 else 0.0
+    return np.clip(
+        seed_norm + rng.normal(0.0, 0.02, size=pop_size),
+        T_min_norm, 1.0,
+    )
 
 
 def init_prob_from_afi(
@@ -332,13 +423,17 @@ def init_prob_from_afi(
     return np.clip(prob, p_min, p_max).astype(float)
 
 
-def _tournament_select(
-    pop: np.ndarray, fits: np.ndarray, k: int, rng: np.random.Generator,
-) -> np.ndarray:
-    """Pick one parent via k-way tournament. Returns the picked genome."""
-    idx = rng.integers(0, pop.shape[0], size=k)
-    winner = idx[np.argmax(fits[idx])]
-    return pop[winner].copy()
+def _tournament_idx(
+    n_pop: int, fits: np.ndarray, k: int, rng: np.random.Generator,
+) -> int:
+    """Pick one parent via k-way tournament. Returns the WINNER INDEX
+    (rather than the genome) so callers can use it to slice into
+    multiple parallel population arrays — e.g. ``pop[idx]`` AND
+    ``T_pop[idx]`` — keeping the mask and T genes paired through
+    selection.
+    """
+    candidates = rng.integers(0, n_pop, size=k)
+    return int(candidates[np.argmax(fits[candidates])])
 
 
 def _uniform_crossover(
@@ -358,6 +453,24 @@ def _mutate(
     """Bit-flip mutation with per-bit probability p."""
     flip = rng.random(g.shape) < p
     return np.logical_xor(g, flip)
+
+
+def _mutate_T(
+    t_norm: float,
+    sigma: float,
+    t_min_norm: float,
+    t_max_norm: float,
+    rng: np.random.Generator,
+) -> float:
+    """Gaussian perturbation of the T gene, clipped to its valid range.
+
+    Used by run_ga when ``cfg.optimize_threshold`` is True. The mutation
+    operates in the normalized ``[T_min_norm, T_max_norm]`` space — the
+    same space ``init_T_pop`` returns. Caller is responsible for
+    multiplying by ``cfg.threshold_max_pct`` when reporting in raw %.
+    """
+    new = float(t_norm) + float(rng.normal(0.0, sigma))
+    return float(np.clip(new, t_min_norm, t_max_norm))
 
 
 def run_ga(
@@ -440,34 +553,65 @@ def run_ga(
             need = min_cells - pop[i].sum()
             pop[i, rng.choice(off, size=need, replace=False)] = True
 
-    fits = np.array([fitness(g, per_cell, y, cfg.l0_lambda, min_cells) for g in pop])
+    # T_pop: per-candidate AFI-threshold gene (normalized [0, 1]). See
+    # ``init_T_pop`` for the init rule (depends on optimize_threshold +
+    # threshold_init_pct). When optimize_threshold is False, T_pop is
+    # all zeros and the AFI filter is a no-op.
+    T_pop = init_T_pop(rng, pop_size, cfg)
+    T_min_norm = (
+        cfg.threshold_min_pct / cfg.threshold_max_pct
+        if cfg.threshold_max_pct > 0 else 0.0
+    )
+
+    fits = np.array([
+        fitness(
+            pop[i], per_cell, y, cfg.l0_lambda, min_cells,
+            T_norm=float(T_pop[i]), afi=afi, T_max=cfg.threshold_max_pct,
+        )
+        for i in range(pop.shape[0])
+    ])
 
     history_rows = []
     best_seen = -np.inf
     stagnant = 0
 
     for gen in range(cfg.n_generations):
-        # Track stats
+        # Track stats. The per-generation best_r2 / n_selected use the
+        # EFFECTIVE mask (raw mask AND AFI eligibility), matching what
+        # the fitness function actually scored — so the curve in
+        # fitness_history.png reflects the cells that genuinely
+        # contributed to the regression, not the cells the genome
+        # nominally selected. When optimize_threshold=False (T=0 for
+        # all candidates) the effective mask equals the raw mask, so
+        # the legacy behaviour is preserved byte-for-byte.
         cur_best_idx = int(np.argmax(fits))
         cur_best = float(fits[cur_best_idx])
         cur_mean = float(np.mean(fits[np.isfinite(fits)])) if np.isfinite(fits).any() else float("nan")
         best_mask_now = pop[cur_best_idx]
+        cur_T_norm = float(T_pop[cur_best_idx])
+        cur_T_pct = cur_T_norm * cfg.threshold_max_pct
+        if cur_T_norm > 0.0 and afi is not None:
+            effective_now = best_mask_now & (afi >= cur_T_pct * 100.0)
+        else:
+            effective_now = best_mask_now
         cur_r2 = loocv_r2_multivariate(
-            aggregate_over_mask(per_cell, best_mask_now), y
+            aggregate_over_mask(per_cell, effective_now), y
         )
         history_rows.append({
             "generation":  gen,
             "best_fit":    cur_best,
             "mean_fit":    cur_mean,
             "best_r2":     cur_r2,
-            "n_selected":  int(best_mask_now.sum()),
+            "n_selected":  int(effective_now.sum()),
+            "best_T_pct":  cur_T_pct,
         })
 
         if logger is not None and (gen % 25 == 0 or gen == cfg.n_generations - 1):
             logger.info(
                 f"  gen {gen:>4d}/{cfg.n_generations}: best_fit={cur_best:.4f} "
                 f"best_r2={cur_r2:.4f} mean_fit={cur_mean:.4f} "
-                f"n_selected={int(best_mask_now.sum())}/{n_cells}"
+                f"n_selected={int(effective_now.sum())}/{n_cells} "
+                f"T={cur_T_pct:.1f}%"
             )
 
         # Early stop
@@ -484,24 +628,65 @@ def run_ga(
                     )
                 break
 
-        # Build next population: elitism + tournament-selected offspring
+        # Build next population: elitism + tournament-selected offspring.
+        # Mask and T are evolved together — tournament returns a single
+        # winner_idx that's used to slice BOTH ``pop[idx]`` and
+        # ``T_pop[idx]``, keeping the two genes paired through
+        # selection. Crossover is per-bit uniform for the mask and a
+        # 50/50 coin flip for T (mirrors the mask operator at p=0.5).
+        # Mutation is bit-flip for the mask + Gaussian for T.
         elite_idx = np.argsort(fits)[-cfg.elitism:][::-1]
         new_pop = [pop[i].copy() for i in elite_idx]
+        new_T_pop = [float(T_pop[i]) for i in elite_idx]
         while len(new_pop) < pop_size:
-            p1 = _tournament_select(pop, fits, cfg.tournament_k, rng)
-            p2 = _tournament_select(pop, fits, cfg.tournament_k, rng)
-            child = _uniform_crossover(p1, p2, cfg.crossover_p, rng)
-            child = _mutate(child, mut_rate, rng)
-            new_pop.append(child)
+            p1_idx = _tournament_idx(pop.shape[0], fits, cfg.tournament_k, rng)
+            p2_idx = _tournament_idx(pop.shape[0], fits, cfg.tournament_k, rng)
+            # Mask: per-bit uniform crossover, then bit-flip mutation.
+            child_mask = _uniform_crossover(
+                pop[p1_idx], pop[p2_idx], cfg.crossover_p, rng,
+            )
+            child_mask = _mutate(child_mask, mut_rate, rng)
+            # T: 50/50 swap from either parent, then Gaussian mutation
+            # (only when optimize_threshold=True; otherwise T_pop stays
+            # all zeros and mutate is a no-op).
+            child_T = (
+                float(T_pop[p1_idx]) if rng.random() < 0.5
+                else float(T_pop[p2_idx])
+            )
+            if cfg.optimize_threshold:
+                child_T = _mutate_T(
+                    child_T, cfg.threshold_mutation_sigma,
+                    T_min_norm, 1.0, rng,
+                )
+            new_pop.append(child_mask)
+            new_T_pop.append(child_T)
         pop = np.asarray(new_pop, dtype=bool)
-        fits = np.array([fitness(g, per_cell, y, cfg.l0_lambda, min_cells) for g in pop])
+        T_pop = np.asarray(new_T_pop, dtype=float)
+        fits = np.array([
+            fitness(
+                pop[i], per_cell, y, cfg.l0_lambda, min_cells,
+                T_norm=float(T_pop[i]), afi=afi, T_max=cfg.threshold_max_pct,
+            )
+            for i in range(pop.shape[0])
+        ])
 
-    # Final pick
+    # Final pick. best_T_pct comes from the winning candidate's T_pop
+    # entry (raw % units, denormalized from [0,1]). best_r2 is computed
+    # on the EFFECTIVE mask — same convention as the per-generation
+    # history rows above — so the reported R² matches what the GA
+    # scored. Downstream callers use best_mask as the raw mask and
+    # apply T separately if they want the effective view.
     final_idx = int(np.argmax(fits))
     best_mask = pop[final_idx].copy()
     best_fit = float(fits[final_idx])
+    best_T_norm = float(T_pop[final_idx])
+    best_T_pct = best_T_norm * cfg.threshold_max_pct
+    if best_T_norm > 0.0 and afi is not None:
+        best_effective = best_mask & (afi >= best_T_pct * 100.0)
+    else:
+        best_effective = best_mask
     best_r2 = loocv_r2_multivariate(
-        aggregate_over_mask(per_cell, best_mask), y
+        aggregate_over_mask(per_cell, best_effective), y
     )
 
     return GAResult(
@@ -512,6 +697,7 @@ def run_ga(
         n_cells=n_cells,
         n_generations_run=len(history_rows),
         baseline_r2=baseline_r2 if np.isfinite(baseline_r2) else float("nan"),
+        best_T_pct=float(best_T_pct),
     )
 
 
@@ -566,6 +752,19 @@ class CellOptimizer(base.BaseGeo):
             init_inclusion_prob=float(self._get("init_inclusion_prob", defaults.init_inclusion_prob)),
             afi_prior_beta=float(self._get("afi_prior_beta", defaults.afi_prior_beta)),
             seed=int(self._get("seed", "0")) if self._get("seed", "") else None,
+            optimize_threshold=self._get(
+                "optimize_threshold", str(defaults.optimize_threshold),
+            ).strip().lower() in ("true", "1", "yes"),
+            threshold_min_pct=float(self._get("threshold_min_pct", defaults.threshold_min_pct)),
+            threshold_max_pct=float(self._get("threshold_max_pct", defaults.threshold_max_pct)),
+            threshold_init_pct=(
+                float(self._get("threshold_init_pct", "nan"))
+                if self._get("threshold_init_pct", "")
+                else None
+            ),
+            threshold_mutation_sigma=float(self._get(
+                "threshold_mutation_sigma", defaults.threshold_mutation_sigma,
+            )),
         )
         # Runner-level knobs (not GA inner-loop hyperparams).
         self.n_jobs = int(self._get("n_jobs", "-1"))
@@ -893,17 +1092,32 @@ class CellOptimizer(base.BaseGeo):
     # Per-region runner
     # ------------------------------------------------------------------
 
-    def _build_production_rows(self, country, region, cell_meta, mask):
+    def _build_production_rows(
+        self, country, region, cell_meta, mask, T_pct=0.0,
+    ):
         """Shape the per-cell included/excluded decisions into the
         production-parquet row contract. Used once per GA run (pooled
-        or per-year-leave-out)."""
+        or per-year-leave-out).
+
+        ``mask`` is the RAW GA mask (boolean per cell). ``T_pct`` is
+        the GA-selected AFI threshold in raw % units (0 when the
+        opt-out path was active). The written ``included`` column is
+        the EFFECTIVE decision (``_effective_mask`` helper) — i.e.
+        what geoextract should respect. A new column
+        ``region_threshold_pct`` carries T_pct broadcast across every
+        cell of the region so geoextract or downstream consumers can
+        recover the optimizer's T choice without re-deriving it.
+        """
+        afi_vals = cell_meta["afi"].to_numpy(dtype=float)
+        effective = _effective_mask(mask, T_pct, afi_vals)
         rows = cell_meta.copy()
         rows["country"] = country
         rows["region"] = region
-        rows["included"] = mask
+        rows["included"] = effective
+        rows["region_threshold_pct"] = float(T_pct)
         return rows[[
             "country", "region", "region_id", "cell_id",
-            "lat", "lon", "afi", "included",
+            "lat", "lon", "afi", "included", "region_threshold_pct",
         ]]
 
     def process_region(
@@ -960,6 +1174,7 @@ class CellOptimizer(base.BaseGeo):
         production_by_year: dict = {
             None: self._build_production_rows(
                 country, region, cell_meta, result.best_mask,
+                T_pct=result.best_T_pct,
             ),
         }
         results_by_year: dict = {}   # int year -> GAResult, used for held-out diagnostics
@@ -984,10 +1199,12 @@ class CellOptimizer(base.BaseGeo):
                 self.logger.info(
                     f"  annual y={int(held_out_year)}: R²="
                     f"{result_y.best_r2:.3f} (baseline {result_y.baseline_r2:.3f}), "
-                    f"{int(result_y.best_mask.sum())}/{n_cells} cells"
+                    f"{int(result_y.best_mask.sum())}/{n_cells} cells, "
+                    f"T={result_y.best_T_pct:.1f}%"
                 )
                 production_by_year[int(held_out_year)] = self._build_production_rows(
                     country, region, cell_meta, result_y.best_mask,
+                    T_pct=result_y.best_T_pct,
                 )
                 results_by_year[int(held_out_year)] = result_y
         masks_by_year = {y: r.best_mask for y, r in results_by_year.items()}
@@ -1009,11 +1226,19 @@ class CellOptimizer(base.BaseGeo):
             )
 
         # Per-variable Pearson r — pooled (yield vs aggregated EO using
-        # the pooled mask) AND, when annual_mask is on, held-out (each
-        # year's EO aggregated by mask_Y). Both flavours flow into the
-        # summary row so the cross-region rollup can split them.
+        # the pooled EFFECTIVE mask) AND, when annual_mask is on,
+        # held-out (each year's EO aggregated by mask_Y AND eligible).
+        # Both flavours flow into the summary row so the cross-region
+        # rollup can split them. Using the EFFECTIVE mask here (not the
+        # raw mask) keeps the summary's optimized_r_<var> column in
+        # lockstep with the production parquet's `included` flag —
+        # otherwise operators see one r in the diagnostic and a
+        # different one downstream.
         base_x = aggregate_over_mask(per_cell, np.ones(n_cells, dtype=bool))
-        opt_x = aggregate_over_mask(per_cell, result.best_mask)
+        effective_pooled = _effective_mask(
+            result.best_mask, result.best_T_pct, afi_vec,
+        )
+        opt_x = aggregate_over_mask(per_cell, effective_pooled)
         per_var_r: dict = {}
         for vi, vname in enumerate(var_cols):
             for tag, x_full in (("baseline", base_x), ("optimized", opt_x)):
@@ -1026,14 +1251,23 @@ class CellOptimizer(base.BaseGeo):
                 per_var_r[f"{tag}_r_{vname}"] = r_val
 
         # Held-out (per-year) diagnostics — only when annual_mask is on.
-        # x_held_out[i] = aggregate of year-i per-cell EO using mask_Y
-        # (the mask trained without year i's yield). loocv_r2 on
-        # (x_held_out, y) is then a truly out-of-sample R² — comparable
-        # to the pooled optimized_r2 above but without the leak.
+        # x_held_out[i] = aggregate of year-i per-cell EO using
+        # mask_Y AND eligible-by-T_Y (the EFFECTIVE mask for that
+        # year's GA). Production extraction for year Y applies T_Y's
+        # AFI filter on top of mask_Y, so the held-out R² must use
+        # effective masks too — otherwise summary's held_out R² would
+        # disagree with what the per-year parquet's `included` column
+        # actually drives in production.
         held_out_summary: dict = {}
         x_held_out = None
-        if self.annual_mask and masks_by_year:
-            x_held_out = aggregate_held_out(per_cell, years, masks_by_year)
+        if self.annual_mask and results_by_year:
+            effective_masks_by_year = {
+                yr: _effective_mask(r.best_mask, r.best_T_pct, afi_vec)
+                for yr, r in results_by_year.items()
+            }
+            x_held_out = aggregate_held_out(
+                per_cell, years, effective_masks_by_year,
+            )
             held_out_r2 = loocv_r2_multivariate(x_held_out, y)
             held_out_per_var: dict = {}
             for vi, vname in enumerate(var_cols):
@@ -1052,6 +1286,15 @@ class CellOptimizer(base.BaseGeo):
                 f"{len(masks_by_year)}/{len(years)} years contributed"
             )
 
+            # Held-out T stats — mean and stddev of best_T_pct across
+            # the leave-one-out years. Lets operators see whether each
+            # year's GA agreed on a similar T (low stddev = stable
+            # signal) or scattered (high stddev = T didn't matter or
+            # data is noisy).
+            per_year_T = np.array(
+                [float(r.best_T_pct) for r in results_by_year.values()],
+                dtype=float,
+            )
             held_out_summary = {
                 "held_out_optimized_r2": (
                     float(held_out_r2) if np.isfinite(held_out_r2)
@@ -1062,6 +1305,8 @@ class CellOptimizer(base.BaseGeo):
                     if np.isfinite(held_out_r2) else float("nan")
                 ),
                 "held_out_n_years_used": int(len(masks_by_year)),
+                "held_out_mean_T_pct": float(per_year_T.mean()) if per_year_T.size else 0.0,
+                "held_out_std_T_pct":  float(per_year_T.std())  if per_year_T.size else 0.0,
                 **held_out_per_var,
             }
 
@@ -1141,6 +1386,14 @@ class CellOptimizer(base.BaseGeo):
         # rollup). Pooled stats + held_out stats (NaN when annual_mask
         # is off). Per-year stats would multiply rows by n_years;
         # aggregate analysis is downstream.
+        # n_effective: cells the GA actually kept after applying its
+        # chosen T (= what geoextract will aggregate over). When T=0
+        # this equals n_selected; when T>0 it can be smaller.
+        if result.best_T_pct > 0.0:
+            eligible_pooled = afi_vec >= result.best_T_pct * 100.0
+            n_effective = int((result.best_mask & eligible_pooled).sum())
+        else:
+            n_effective = int(result.best_mask.sum())
         summary = {
             "country":         country,
             "crop":            crop,
@@ -1154,6 +1407,13 @@ class CellOptimizer(base.BaseGeo):
             "lift":            float(result.best_r2 - result.baseline_r2),
             "n_gens_run":      int(result.n_generations_run),
             "annual_mask":     bool(self.annual_mask),
+            # T-gene: the AFI threshold the GA picked for the pooled
+            # mask, in raw % units. 0 when optimize_threshold=False
+            # (opt-out path). n_effective is the per-region cell count
+            # AFTER applying T's eligibility filter — what production
+            # extraction will actually aggregate over.
+            "best_T_pct":      float(result.best_T_pct),
+            "n_effective":     n_effective,
             **per_var_r,
             **held_out_summary,
         }
@@ -1598,8 +1858,16 @@ class CellOptimizer(base.BaseGeo):
             out_dir=out_dir, stem=stem, region=region,
             mode_label="pooled",
         )
+        # Use the EFFECTIVE mask (raw mask AND eligible-by-T) so the
+        # right panel of cells_comparison reflects exactly what
+        # production extraction will aggregate. Matches per_var_r and
+        # the parquet's `included` column.
+        afi_vec = cell_meta["afi"].to_numpy(dtype=float)
+        effective_pooled = _effective_mask(
+            result.best_mask, result.best_T_pct, afi_vec,
+        )
         base_x = aggregate_over_mask(per_cell, np.ones(per_cell.shape[0], dtype=bool))
-        opt_x = aggregate_over_mask(per_cell, result.best_mask)
+        opt_x = aggregate_over_mask(per_cell, effective_pooled)
         self._plot_cells_comparison(
             base_x=base_x, opt_x=opt_x, y=y, var_cols=var_cols,
             years=years if years is not None
@@ -2705,6 +2973,19 @@ def run(path_config_files):
         f"{opt.ga.min_cell_floor_frac:.0%} of cells), "
         f"early_stop={opt.ga.early_stop_patience}",
     )
+    if opt.ga.optimize_threshold:
+        seed_hint = (
+            f", seed={opt.ga.threshold_init_pct:g}%"
+            if opt.ga.threshold_init_pct is not None else ""
+        )
+        t_row = (
+            f"on, T ∈ [{opt.ga.threshold_min_pct:g}, "
+            f"{opt.ga.threshold_max_pct:g}] %  "
+            f"σ={opt.ga.threshold_mutation_sigma:g}{seed_hint}"
+        )
+    else:
+        t_row = "off (legacy mask-only path)"
+    table.add_row("T optimization", t_row)
     table.add_row("n_jobs", str(opt.n_jobs))
     table.add_row("plot", str(opt.do_plot))
     table.add_row("write_production_mask", str(opt.write_production_mask))

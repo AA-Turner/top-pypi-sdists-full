@@ -153,15 +153,20 @@ def extract_cover_page_fields(filing: 'Filing', document=None) -> dict:
 # Text-based underwriter / agent extraction
 # ---------------------------------------------------------------------------
 
-# Cover page role label patterns: "Sole Placement Agent\nTungsten Advisors"
+# Cover page role label patterns: "Sole Placement Agent\nTungsten Advisors".
+# The name capture grabs the grid cell — the label's value plus up to two wrapped
+# continuation lines, bounded by the blank line that separates the cell from the
+# next content. A firm name in a cover grid often wraps ("Ladenburg\nThalmann");
+# whether to stitch those lines is decided in extract_underwriting_from_text.
+_CELL = r'([^\n]+(?:\n[^\n]+){0,2})'
 _COVER_ROLE_PATTERNS = [
-    (r'Sole\s+Book[-\s]Running\s+Manager\s*\n+([^\n]+)', 'sole_book_runner'),
-    (r'Joint\s+Book[-\s]Running\s+Managers?\s*\n+([^\n]+)', 'joint_book_runners'),
-    (r'Sole\s+Placement\s+Agent\s*\n+([^\n]+)', 'sole_placement_agent'),
-    (r'Placement\s+Agent\s*\n+([^\n]+)', 'placement_agent'),
-    (r'Sole\s+(?:Lead\s+)?Manager\s*\n+([^\n]+)', 'sole_manager'),
-    (r'(?:Sole\s+)?Underwriter\s*\n+([^\n]+)', 'underwriter'),
-    (r'Sales\s+Agent\s*\n+([^\n]+)', 'sales_agent'),
+    (r'Sole\s+Book[-\s]Running\s+Manager\s*\n+' + _CELL, 'sole_book_runner'),
+    (r'Joint\s+Book[-\s]Running\s+Managers?\s*\n+' + _CELL, 'joint_book_runners'),
+    (r'Sole\s+Placement\s+Agent\s*\n+' + _CELL, 'sole_placement_agent'),
+    (r'Placement\s+Agent\s*\n+' + _CELL, 'placement_agent'),
+    (r'Sole\s+(?:Lead\s+)?Manager\s*\n+' + _CELL, 'sole_manager'),
+    (r'(?:Sole\s+)?Underwriter\s*\n+' + _CELL, 'underwriter'),
+    (r'Sales\s+Agent\s*\n+' + _CELL, 'sales_agent'),
 ]
 
 # ATM sales agreement text patterns
@@ -172,6 +177,38 @@ _ATM_TEXT_PATTERNS = [
     r'through\s+([A-Z][^\n\(\)]{3,60}?(?:LLC|Inc\.|Corp\.|L\.P\.|&\s+Co\.))\s*[,\(]',
 ]
 
+# Best-efforts / agency deals (registered directs, ATMs) name the agent inline in
+# prose rather than in an allocation table: "We have engaged <Firm>, which we
+# refer to as the placement agent", "engaged <Firm> (the 'placement agent')", or
+# "Sales Agreement ... with <Firm> relating to ...". A firm name mid-sentence may
+# carry a country parenthetical ("(UK)"), commas, and abbreviation periods, so the
+# capture is bounded by the role/clause marker that follows it rather than by a
+# fixed suffix list. is_plausible_underwriter_name guards the result downstream.
+_AGENT_NAME = r"([A-Z][A-Za-z0-9.,&'()\- ]{3,60}?)"
+
+_AGENCY_TEXT_PATTERNS = [
+    # "engaged <Firm>, which we refer to as the placement agent" /
+    # "engaged <Firm> (the 'placement agent')" / "engaged <Firm> as our sales agent"
+    (re.compile(
+        r'\bengaged\s+' + _AGENT_NAME +
+        r'(?=\s*,?\s*(?:which\s+we\s+refer'
+        r'|\(\s*(?:the\s+)?["“]?\s*(?:placement|sales|selling)'
+        r'|(?:as|to\s+act\s+as)\s+(?:our|the)))', re.IGNORECASE),
+     'placement_agent'),
+    # "Sales Agreement ... with <Firm> relating to ..." / "... as sales agent"
+    (re.compile(
+        r'(?:Sales|Equity\s+Distribution|At[\s\-]the[\s\-]Market(?:\s+Issuance)?)'
+        r'\s+Agreement[^.]{0,90}?\bwith\s+' + _AGENT_NAME +
+        r'(?=\s+relating\b|\s+as\s+(?:our\s+)?sales)', re.IGNORECASE),
+     'sales_agent'),
+]
+
+
+def _light_clean_agent_name(name: str) -> str:
+    """Whitespace-normalize and trim trailing separators, keeping internal
+    parentheticals ('(UK)') and abbreviation periods ('Ltd.')."""
+    return re.sub(r'\s+', ' ', name).strip().strip(',').strip()
+
 
 def _clean_agent_name(name: str) -> str:
     """Clean extracted agent name."""
@@ -180,6 +217,35 @@ def _clean_agent_name(name: str) -> str:
                    r'\s+joint\s+book', r'\s+co-?manager', r'\s+\([^)]*\)']:
         name = re.sub(suffix, '', name, flags=re.IGNORECASE)
     return re.sub(r'\s+', ' ', name).strip()
+
+
+# Structured-note / debt covers label the distributor inline in a summary box —
+# "Selling Agent:   BofAS" — rather than on its own line, and usually as a defined
+# abbreviation ('BofA Securities, Inc. ("BofAS")'). The 2+ space gap is the
+# table-cell layout: prose "selling agent ..." is lowercase (we stay
+# case-sensitive) and the note-title banner is newline-separated, so both are
+# excluded. The lead agent is the token before " and " (e.g. "BofAS and UBS").
+_SELLING_AGENT_RE = re.compile(
+    r'Selling\s+Agents?:?[ \t]{2,}'
+    r"([A-Z][A-Za-z0-9&.' ]{1,48}?)"
+    r'(?=\s{2,}|[.,;]|\sand\s|\sCUSIP|\sISIN|\n|$)')
+
+# Defined-abbreviation pattern: '<Full Name> ("ABBR")'.
+_ABBREV_DEF_RE = re.compile(
+    r"([A-Z][A-Za-z0-9 ,.&'-]{3,45}?)\s*\(\s*[\"“]([A-Za-z&.']{2,10})[\"”]\s*\)")
+
+
+def _resolve_abbreviation(name: str, text: str) -> str:
+    """Expand a defined abbreviation to its full name.
+
+    Structured-note covers reference the agent by a short tag ("BofAS") defined
+    once as ``BofA Securities, Inc. ("BofAS")``. Resolve the tag to that full
+    name; return ``name`` unchanged when it is not a defined abbreviation.
+    """
+    for m in _ABBREV_DEF_RE.finditer(text):
+        if m.group(2).strip() == name:
+            return m.group(1).strip()
+    return name
 
 
 def extract_underwriting_from_text(filing: 'Filing', document=None) -> list:
@@ -209,12 +275,19 @@ def extract_underwriting_from_text(filing: 'Filing', document=None) -> list:
     for pattern, role in _COVER_ROLE_PATTERNS:
         m = re.search(pattern, cover, re.IGNORECASE)
         if m:
-            name = m.group(1).strip()
+            block = m.group(1).strip()
+            first_line = block.split('\n', 1)[0].strip()
+            # Stitch wrapped continuation lines only when the first line is a
+            # single bare word ("Ladenburg" -> "Ladenburg Thalmann"). A multi-word
+            # first line is already a complete name — and could be the first firm
+            # in a multi-line list — so keep just that line.
+            raw = block if (first_line and ' ' not in first_line) else first_line
+            name = _clean_agent_name(raw)
             if 2 < len(name) < 100 and not name.lower().startswith('table') \
                     and not name.startswith('The date'):
                 results.append({
                     'role': role,
-                    'names': [_clean_agent_name(name)],
+                    'names': [name],
                     'source': 'cover_page',
                 })
 
@@ -227,6 +300,34 @@ def extract_underwriting_from_text(filing: 'Filing', document=None) -> list:
                 results.append({
                     'role': 'atm_sales_agent',
                     'names': [_clean_agent_name(name)],
+                    'source': 'cover_text',
+                })
+                break
+
+    # Signal: structured-note / debt cover "Selling Agent:" field. Searches the
+    # full text (the summary box can sit past the 8000-char cover window) for the
+    # specific labeled layout; the first match is the cover field.
+    m = _SELLING_AGENT_RE.search(text)
+    if m:
+        agent = _resolve_abbreviation(_clean_agent_name(m.group(1)), text)
+        if 1 < len(agent) < 80:
+            results.append({
+                'role': 'selling_agent',
+                'names': [agent],
+                'source': 'cover_selling_agent',
+            })
+
+    # Signal: best-efforts / agency deal — agent named inline in cover prose.
+    # Tried after the labeled signals so a structured-note "Selling Agent" field
+    # stays the lead; the first matching agency phrase wins.
+    for pattern, role in _AGENCY_TEXT_PATTERNS:
+        m = pattern.search(cover)
+        if m:
+            name = _light_clean_agent_name(m.group(1))
+            if 3 < len(name) < 80:
+                results.append({
+                    'role': role,
+                    'names': [name],
                     'source': 'cover_text',
                 })
                 break

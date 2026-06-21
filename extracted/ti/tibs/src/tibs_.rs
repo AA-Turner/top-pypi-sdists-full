@@ -11,43 +11,12 @@ use crate::helpers::{
 use crate::iterator::{BoolIterator, ChunksIterator, FindAllIterator, ValuesIterator};
 use crate::mutibs::Mutibs;
 use crate::view::View;
-use bitvec::prelude::*;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PySlice, PyType};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::ops::Not;
 use std::sync::Arc;
-
-impl Hash for Tibs {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.len().hash(state);
-
-        let bits = self.to_bitslice();
-
-        let mut words = bits.chunks_exact(64);
-        for chunk in words.by_ref() {
-            state.write_u64(chunk.load_be::<u64>());
-        }
-
-        let mut bytes = words.remainder().chunks_exact(8);
-        for chunk in bytes.by_ref() {
-            state.write_u8(chunk.load_be::<u8>());
-        }
-
-        let tail = bytes.remainder();
-        if !tail.is_empty() {
-            let mut last = 0u8;
-            for bit in tail {
-                last = (last << 1) | (*bit as u8);
-            }
-            last <<= 8 - tail.len();
-            state.write_u8(last);
-        }
-    }
-}
 
 // ---- Tibs private helper methods. Not part of the Python interface. ----
 
@@ -226,10 +195,29 @@ pub(crate) fn bv_from_value(dtype: &Dtype, value: &Bound<'_, PyAny>) -> PyResult
         DtypeKind::Bytes => {
             bv_from_bytes_slice(value.extract::<Vec<u8>>()?, Some(0), Some(dtype.length))
         }
-        DtypeKind::Bin => bv_from_bin(&value.extract::<String>()?),
-        DtypeKind::Oct => bv_from_oct(&value.extract::<String>()?),
-        DtypeKind::Hex => bv_from_hex(&value.extract::<String>()?),
+        DtypeKind::Bin => {
+            validate_dtype_value_length(dtype, bv_from_bin(&value.extract::<String>()?)?)
+        }
+        DtypeKind::Oct => {
+            validate_dtype_value_length(dtype, bv_from_oct(&value.extract::<String>()?)?)
+        }
+        DtypeKind::Hex => {
+            validate_dtype_value_length(dtype, bv_from_hex(&value.extract::<String>()?)?)
+        }
     }
+}
+
+fn validate_dtype_value_length(dtype: &Dtype, bv: BV) -> PyResult<BV> {
+    let value_length = bv.len();
+    if value_length != dtype.length {
+        return Err(PyValueError::new_err(format!(
+            "Dtype length is {} bits, but {} value produced {} bits.",
+            dtype.length,
+            dtype.kind.repr_name(),
+            value_length
+        )));
+    }
+    Ok(bv)
 }
 
 pub(crate) fn bv_from_values_iter(
@@ -661,13 +649,8 @@ impl Tibs {
         *self.to_bitslice() == *other.as_bitslice()
     }
 
-    #[pyo3(name = "__hash__")]
-    /// Return a hash of the Tibs.
-    pub fn __hash__(&self) -> isize {
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
-        hasher.finish() as isize
-    }
+    #[classattr]
+    const __hash__: Option<Py<PyAny>> = None;
 
     /// Find all occurrences of a bit sequence.
     ///
@@ -1419,7 +1402,7 @@ impl Tibs {
 
     /// Create a new instance with all bits randomly set.
     ///
-    /// :param int length: The number of bits to set. Must be positive.
+    /// :param int length: The number of bits to set. Must be non-negative.
     /// :param bool secure: If ``True``, use the OS's cryptographically secure generator. Default is ``False``.
     /// :param bytes | bytearray | None seed: A bytes or bytearray to use as an optional seed, only if ``secure`` is ``False``.
     /// :return: A newly constructed ``Tibs`` with random data.
@@ -2063,10 +2046,12 @@ impl Tibs {
     ///
     /// .. code-block:: pycon
     ///
+    ///     >>> t = Tibs('0b101')
     ///     >>> b = t.encode()
     ///     >>> b
-    ///     b'\xb7'
+    ///     b'\x8d'
     ///     >>> Tibs.decode(b)
+    ///     Tibs('0b101')
     ///
     #[pyo3(signature = (codec=Codec::Auto), text_signature = "($self, codec=Codec.Auto)")]
     pub fn encode(&self, codec: Option<Codec>) -> PyResult<Vec<u8>> {

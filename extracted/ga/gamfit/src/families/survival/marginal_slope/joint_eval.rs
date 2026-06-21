@@ -445,15 +445,9 @@ impl SurvivalMarginalSlopeFamily {
                         &primary,
                     )?
                 } else {
-                    let (nll, grad_arr, _) = self.row_primary_closed_form_rigid(
-                        row,
-                        q_geom.q0,
-                        q_geom.q1,
-                        q_geom.qd1,
-                        block_states,
-                        self.probit_frailty_scale(),
-                    )?;
-                    (nll, Array1::from_vec(grad_arr.to_vec()))
+                    let (nll, grad, _) =
+                        self.compute_row_primary_gradient_hessian_uncached(row, block_states)?;
+                    (nll, grad)
                 };
                 acc.0 -= row_nll;
                 self.accumulate_dynamic_q_core_gradient_first_order(
@@ -1440,6 +1434,68 @@ impl SurvivalMarginalSlopeFamily {
 
     /// Exact first directional derivative for flex without timewiggle.
     /// J is constant (no wiggle), so DH[d] = J^T T[u^d] J + Σ (Hu^d)_r K_r.
+    /// Scatter one row's directional-derivative primary quantities
+    /// (`primary_gradient` = directional change of the primary gradient, i.e.
+    /// `H_primary · u`; `primary_hessian` = directional change of the primary
+    /// Hessian) through the q-geometry / identity-block pullback into the joint
+    /// `acc`. This is the per-row inner body shared by both the
+    /// first-directional (`t_ud`, `h_ud`) and second-directional (`q_de`,
+    /// `gamma`) flex-no-wiggle paths, and by the batched all-axes Jeffreys
+    /// override — so the three callers cannot drift.
+    pub(crate) fn accumulate_directional_joint_hessian_row(
+        &self,
+        row: usize,
+        slices: &BlockSlices,
+        q_geom: &SurvivalMarginalSlopeDynamicRow,
+        identity_blocks: &[(std::ops::Range<usize>, std::ops::Range<usize>)],
+        primary_gradient: ndarray::ArrayView1<'_, f64>,
+        primary_hessian: ndarray::ArrayView2<'_, f64>,
+        acc: &mut Array2<f64>,
+    ) -> Result<(), String> {
+        // Core q-geometry pullback (Hessian only)
+        self.accumulate_dynamic_q_core_hessian(
+            row,
+            slices,
+            q_geom,
+            primary_gradient,
+            primary_hessian,
+            acc,
+        )?;
+        // Identity block Hessian: cross + diagonal + cross-cross
+        for (primary_range, joint_range) in identity_blocks {
+            for local in 0..primary_range.len() {
+                self.accumulate_identity_primary_cross_hessian(
+                    row,
+                    slices,
+                    q_geom,
+                    primary_hessian.slice(s![0..N_PRIMARY, primary_range.start + local]),
+                    joint_range,
+                    local,
+                    acc,
+                )?;
+            }
+            self.add_dense_submatrix(
+                acc,
+                joint_range,
+                joint_range,
+                primary_hessian.slice(s![primary_range.clone(), primary_range.clone()]),
+            );
+        }
+        for li in 0..identity_blocks.len() {
+            for ri in li + 1..identity_blocks.len() {
+                let (lp, lj) = &identity_blocks[li];
+                let (rp, rj) = &identity_blocks[ri];
+                self.add_dense_symmetric_cross_submatrix(
+                    acc,
+                    lj,
+                    rj,
+                    primary_hessian.slice(s![lp.clone(), rp.clone()]),
+                );
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn exact_newton_joint_hessian_directional_derivative_flex_no_wiggle(
         &self,
         block_states: &[ParameterBlockState],
@@ -1473,47 +1529,15 @@ impl SurvivalMarginalSlopeFamily {
                     let t_ud =
                         self.row_flex_primary_third_contracted_exact(row, block_states, &u_d)?;
                     let h_ud = h_pi.dot(&u_d);
-                    // Core q-geometry pullback (Hessian only)
-                    self.accumulate_dynamic_q_core_hessian(
+                    self.accumulate_directional_joint_hessian_row(
                         row,
                         &slices,
                         &q_geom,
+                        &identity_blocks,
                         h_ud.view(),
                         t_ud.view(),
                         &mut acc,
                     )?;
-                    // Identity block Hessian: cross + diagonal + cross-cross
-                    for (primary_range, joint_range) in &identity_blocks {
-                        for local in 0..primary_range.len() {
-                            self.accumulate_identity_primary_cross_hessian(
-                                row,
-                                &slices,
-                                &q_geom,
-                                t_ud.slice(s![0..N_PRIMARY, primary_range.start + local]),
-                                joint_range,
-                                local,
-                                &mut acc,
-                            )?;
-                        }
-                        self.add_dense_submatrix(
-                            &mut acc,
-                            joint_range,
-                            joint_range,
-                            t_ud.slice(s![primary_range.clone(), primary_range.clone()]),
-                        );
-                    }
-                    for li in 0..identity_blocks.len() {
-                        for ri in li + 1..identity_blocks.len() {
-                            let (lp, lj) = &identity_blocks[li];
-                            let (rp, rj) = &identity_blocks[ri];
-                            self.add_dense_symmetric_cross_submatrix(
-                                &mut acc,
-                                lj,
-                                rj,
-                                t_ud.slice(s![lp.clone(), rp.clone()]),
-                            );
-                        }
-                    }
                     Ok(acc)
                 },
             )
@@ -1565,45 +1589,15 @@ impl SurvivalMarginalSlopeFamily {
                         self.row_flex_primary_third_contracted_exact(row, block_states, &ud)?;
                     let gamma = t_d.dot(&ue);
                     // Hessian-only: accumulate q-core + identity block Hessian
-                    self.accumulate_dynamic_q_core_hessian(
+                    self.accumulate_directional_joint_hessian_row(
                         row,
                         &slices,
                         &q_geom,
+                        &identity_blocks,
                         gamma.view(),
                         q_de.view(),
                         &mut acc,
                     )?;
-                    for (primary_range, joint_range) in &identity_blocks {
-                        for local in 0..primary_range.len() {
-                            self.accumulate_identity_primary_cross_hessian(
-                                row,
-                                &slices,
-                                &q_geom,
-                                q_de.slice(s![0..N_PRIMARY, primary_range.start + local]),
-                                joint_range,
-                                local,
-                                &mut acc,
-                            )?;
-                        }
-                        self.add_dense_submatrix(
-                            &mut acc,
-                            joint_range,
-                            joint_range,
-                            q_de.slice(s![primary_range.clone(), primary_range.clone()]),
-                        );
-                    }
-                    for li in 0..identity_blocks.len() {
-                        for ri in li + 1..identity_blocks.len() {
-                            let (lp, lj) = &identity_blocks[li];
-                            let (rp, rj) = &identity_blocks[ri];
-                            self.add_dense_symmetric_cross_submatrix(
-                                &mut acc,
-                                lj,
-                                rj,
-                                q_de.slice(s![lp.clone(), rp.clone()]),
-                            );
-                        }
-                    }
                     Ok(acc)
                 },
             )

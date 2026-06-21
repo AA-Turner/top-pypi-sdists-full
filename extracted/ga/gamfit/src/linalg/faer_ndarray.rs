@@ -1614,14 +1614,7 @@ impl<S: Data<Elem = f64>> FaerEigh for ArrayBase<S, Ix2> {
         }
 
         let mut repaired = owned.clone();
-        let n = repaired.nrows();
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let avg = 0.5 * (repaired[[i, j]] + repaired[[j, i]]);
-                repaired[[i, j]] = avg;
-                repaired[[j, i]] = avg;
-            }
-        }
+        crate::matrix::symmetrize_in_place(&mut repaired);
 
         let scale = repaired
             .iter()
@@ -1642,6 +1635,7 @@ impl<S: Data<Elem = f64>> FaerEigh for ArrayBase<S, Ix2> {
         for &jitter in &jitter_schedule {
             let mut candidate = scaled.clone();
             if jitter > 0.0 {
+                let n = candidate.nrows();
                 for i in 0..n {
                     candidate[[i, i]] += jitter;
                 }
@@ -2037,6 +2031,11 @@ pub fn rrqr_from_gram_with_permutation<S: Data<Elem = f64>>(
 mod tests {
     use super::*;
     use ndarray::{array, s};
+
+    /// Local mirror of the audit's `JOINT_GRAM_RRQR_MIN_VERDICT_MARGIN` fallback
+    /// threshold, used only by the regression tests below to assert the verdict
+    /// margin lands on the correct side of the cliff. Kept in sync by value (1e3).
+    const JOINT_GRAM_RRQR_TRUST_MARGIN_FOR_TEST: f64 = 1.0e3;
 
     #[test]
     fn rrqr_nullspace_basis_is_orthonormal_and_annihilates_transpose() {
@@ -2434,9 +2433,3 @@ mod tests {
         );
     }
 }
-
-/// Local mirror of the audit's `JOINT_GRAM_RRQR_MIN_VERDICT_MARGIN` fallback
-/// threshold, used only by the regression tests above to assert the verdict
-/// margin lands on the correct side of the cliff. Kept in sync by value (1e3).
-#[cfg(test)]
-const JOINT_GRAM_RRQR_TRUST_MARGIN_FOR_TEST: f64 = 1.0e3;

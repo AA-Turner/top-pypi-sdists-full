@@ -740,19 +740,21 @@ fn decompose_kronecker_factors(
         if analysis.rank == 0 {
             return Ok(None);
         }
+        // Build the factor root from ONLY the range (positive-curvature)
+        // directions via the canonical classifier — never the null or
+        // negative-curvature directions (#1425).
+        let factor_classes =
+            crate::basis::SpectralClassification::new(&analysis.eigenvalues, analysis.tol);
         let mut root_j = Array2::zeros((analysis.rank, q_j));
         let mut pos_eigs = Vec::with_capacity(analysis.rank);
-        let mut row_idx = 0;
-        for (i, &eigenval) in analysis.eigenvalues.iter().enumerate() {
-            if eigenval > analysis.tol {
-                let sqrt_ev = eigenval.sqrt();
-                let evec = analysis.eigenvectors.column(i);
-                for (c, &v) in evec.iter().enumerate() {
-                    root_j[[row_idx, c]] = sqrt_ev * v;
-                }
-                pos_eigs.push(eigenval);
-                row_idx += 1;
+        for (row_idx, &i) in factor_classes.range_idx.iter().enumerate() {
+            let eigenval = analysis.eigenvalues[i];
+            let sqrt_ev = eigenval.sqrt();
+            let evec = analysis.eigenvectors.column(i);
+            for (col, &v) in evec.iter().enumerate() {
+                root_j[[row_idx, col]] = sqrt_ev * v;
             }
+            pos_eigs.push(eigenval);
         }
         decomps.push(KroneckerFactorDecomp {
             root: root_j,
@@ -1240,35 +1242,60 @@ pub fn canonicalize_penalty_spec(
         return Ok(None);
     }
 
-    // Reuse eigendecomposition from analyze_penalty_block — no double eigendecomp.
+    // Reuse the eigendecomposition from analyze_penalty_block and route the
+    // range / null / negative-curvature split through the one canonical
+    // classifier, so this root construction cannot disagree with the block's
+    // own `rank` / `nullity` / `negative_dim` about which directions are
+    // penalized, unpenalized, or non-PSD (#1425).
     let tolerance = analysis.tol;
-    let rank_k = analysis.rank;
+    let classes = crate::basis::SpectralClassification::new(&analysis.eigenvalues, tolerance);
+    let rank_k = classes.rank();
+    assert_eq!(
+        rank_k, analysis.rank,
+        "penalty-root rank disagreement: SpectralClassification rank={rank_k} vs analyze_penalty_block rank={} (#1425 canonical-classifier invariant)",
+        analysis.rank
+    );
 
+    // Build the penalty root R from ONLY the range directions (positive
+    // curvature): R has one row per range eigenpair, scaled by sqrt(ev), so
+    // RᵀR reconstructs S on range(S). Null directions contribute nothing
+    // (their eigenvalue is zero); negative-curvature directions are NEVER
+    // square-rooted into R (their sqrt is imaginary) and are NOT null — they
+    // are simply dropped from R, exactly as the closed-form Duchon kernels at
+    // high d require to preserve the q_pen / q_null invariant downstream.
     let mut root = Array2::zeros((rank_k, block_dim));
     let mut positive_eigenvalues = Vec::with_capacity(rank_k);
-    let mut row_idx = 0;
-    for (i, &eigenval) in analysis.eigenvalues.iter().enumerate() {
-        if eigenval > tolerance {
-            let sqrt_eigenval = eigenval.sqrt();
-            let eigenvec = analysis.eigenvectors.column(i);
-            root.row_mut(row_idx).assign(&(&eigenvec * sqrt_eigenval));
-            positive_eigenvalues.push(eigenval);
-            row_idx += 1;
-        }
+    for (row_idx, &i) in classes.range_idx.iter().enumerate() {
+        let eigenval = analysis.eigenvalues[i];
+        let eigenvec = analysis.eigenvectors.column(i);
+        root.row_mut(row_idx).assign(&(&eigenvec * eigenval.sqrt()));
+        positive_eigenvalues.push(eigenval);
     }
 
-    // Store the PSD reconstruction R^T R rather than the raw symmetrised input so
-    // the cached `local` matches the rank truncation embedded in `root`. Closed-
-    // form Duchon kernels at high d can leave |O(1)| negative eigenvalues in the
-    // symmetrised input that the canonical root drops; keeping them in `local`
-    // poisons the balanced-sum eigendecomposition and breaks the q_pen / q_null
-    // invariant that downstream stages require.
+    // Surface any genuine negative curvature honestly: it is neither range
+    // (dropped from R) nor null (excluded from `nullity`), so it would
+    // otherwise vanish without a trace. A non-PSD penalty reaching this path
+    // is a real geometric fact (e.g. high-d Duchon kernels) the operator
+    // should be able to see.
+    if classes.is_indefinite() {
+        log::debug!(
+            "{context}: penalty block idx={idx} carries {} negative-curvature \
+             eigendirection(s) below -tol={tolerance:e}; dropped from the canonical \
+             root and NOT counted as null space (rank={rank_k}, nullity={})",
+            classes.negative_dim(),
+            classes.nullity()
+        );
+    }
+
+    // Store the PSD reconstruction RᵀR rather than the raw symmetrised input so
+    // the cached `local` matches the rank truncation embedded in `root`
+    // (negative-curvature directions are excluded from both, as above).
     let local = root.t().dot(&root);
     Ok(Some(CanonicalPenalty {
         root,
         col_range,
         total_dim: p,
-        nullity: analysis.nullity,
+        nullity: classes.nullity(),
         local,
         prior_mean,
         positive_eigenvalues,
@@ -1957,6 +1984,44 @@ pub fn stable_reparameterizationwith_invariant(
 
     // No separate length check needed — penalties are matched against lambdas above,
     // and the invariant's qs_base is p x p (dimension-checked by the split).
+
+    // gam#1379 — finite-ceiling the per-penalty smoothing weights before they
+    // weight any penalty block. `λ_k = exp(ρ_k)` overflows to `+∞` once the
+    // outer REML/κ optimizer drives a redundant penalty direction's log-λ past
+    // ~709 (it happens deterministically on 1-D `matern(x)` / `bs="gp"` data
+    // whose kernel already controls the smoothness the stiffness operator also
+    // penalizes, so REML wants λ_stiffness → ∞). The range block is then
+    // assembled as `Σ_k λ_k S_k`; wherever a transformed `S_k` entry is exactly
+    // `0.0`, `∞ · 0 = NaN`, so the *entire* block comes back non-finite with
+    // zero finite content and the downstream eigensolve aborts the fit
+    // ("range penalty block contains non-finite entries, max finite magnitude
+    // 0.000e0"). A `λ` of `1e300` pins the penalized direction exactly as hard
+    // as `+∞` would for every finite-arithmetic consumer here (the eigensolve,
+    // the trace/logdet derivatives — which already tolerate a wide λ dynamic
+    // range via the eigenvalue floor below), but keeps `λ · 0 = 0`, so the
+    // block stays a well-formed PSD matrix. We only clamp non-finite or
+    // above-ceiling weights; ordinary finite λ pass through untouched, so the
+    // REML optimum (and its recorded λ̂) is unchanged on every non-degenerate fit.
+    const LAMBDA_CEILING: f64 = 1e300;
+    let lambdas_storage: Vec<f64>;
+    let lambdas: &[f64] = if lambdas
+        .iter()
+        .any(|&l| !l.is_finite() || l > LAMBDA_CEILING)
+    {
+        lambdas_storage = lambdas
+            .iter()
+            .map(|&l| {
+                if l.is_nan() {
+                    0.0
+                } else {
+                    l.min(LAMBDA_CEILING)
+                }
+            })
+            .collect();
+        &lambdas_storage
+    } else {
+        lambdas
+    };
 
     if m == 0 {
         return Ok(ReparamResult {
@@ -2939,6 +3004,47 @@ mod tests {
         assert!(
             max_abs <= 1e-10,
             "u_truncated frame mismatch: max_abs={max_abs}"
+        );
+    }
+
+    #[test]
+    fn infinite_lambda_keeps_range_penalty_block_finite_1379() {
+        // gam#1379 regression: when the outer optimizer drives one penalty's
+        // λ = exp(ρ) to +∞ (a redundant operator direction REML wants pinned),
+        // the range block Σ_k λ_k S_k must NOT come back non-finite. The defect
+        // was `∞ · 0 = NaN` wherever a transformed S_k entry was exactly 0,
+        // poisoning the whole block ("range penalty block contains non-finite
+        // entries, max finite magnitude 0.000e0") and aborting the fit.
+        //
+        // Fixture: two penalties on a 3-wide block. The first penalizes only
+        // coordinate 0 (so its block S_k has structural zeros everywhere except
+        // [0,0]); give it λ = +∞. The second penalizes coordinate 1 at a normal
+        // λ. With the finite-ceiling clamp the reparam succeeds and every output
+        // matrix entry is finite; without it the eigensolve aborts.
+        let p = 3usize;
+        let rs_list = vec![array![[1.0, 0.0, 0.0]], array![[0.0, 1.0, 0.0]]];
+        let canonical = canonical_from_roots(&rs_list, p);
+        let lambdas = vec![f64::INFINITY, 3.0];
+        let inv = precompute_reparam_invariant_from_canonical(&canonical, p)
+            .expect("precompute invariant");
+        let rep = stable_reparameterizationwith_invariant(&canonical, &lambdas, p, &inv, None)
+            .expect("stable reparam must not abort on an infinite lambda (gam#1379)");
+
+        assert!(
+            rep.s_transformed.iter().all(|v| v.is_finite()),
+            "transformed penalty must be finite with an infinite lambda"
+        );
+        assert!(
+            rep.qs.iter().all(|v| v.is_finite()),
+            "reparam rotation must be finite with an infinite lambda"
+        );
+        assert!(
+            rep.log_det.is_finite(),
+            "penalty log-det must be finite with an infinite lambda"
+        );
+        assert!(
+            rep.det1.iter().all(|v| v.is_finite()),
+            "penalty log-det derivatives must be finite with an infinite lambda"
         );
     }
 

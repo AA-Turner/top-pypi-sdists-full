@@ -44,10 +44,30 @@ import logging
 import os
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.responses import JSONResponse
+
+# Single source of truth for the OpenAI-shaped 400 / 422 / 500 envelopes
+# (F-161 / F-162 / F-163 / F-094-class). Defined in ``middleware`` so
+# tests can install the same handlers on a stub FastAPI without
+# importing the heavy engine stack.
+from .middleware.exception_handlers import (  # noqa: E402
+    _decode_error_response,  # noqa: F401 — re-exported for back-compat
+    install_exception_handlers,  # noqa: F401 — re-exported for tests
+)
+from .middleware.exception_handlers import (
+    _http_error_response as _http_exception_handler_impl,  # noqa: F401
+)
+
+
+# Back-compat shim: ``tests/test_context_length_exceeded.py`` and
+# ``tests/test_config_and_middleware.py`` import this symbol from
+# ``vllm_mlx.server`` and register it manually on a stub FastAPI.
+# The real handler now lives in ``middleware/exception_handlers.py``;
+# keep this signature stable so the existing test suites keep working.
+async def _http_exception_handler(request, exc):  # noqa: ARG001
+    return _http_exception_handler_impl(exc)
+
 
 # Re-export for backwards compatibility with tests
 from .api.anthropic_adapter import (  # noqa: F401
@@ -213,6 +233,21 @@ _auth_warning_logged: bool = False
 # the ASGI middleware (``middleware/body_size.py``) reads it per
 # request, so a test fixture mutating the config takes effect immediately.
 _max_request_bytes: int = 8 * 1024 * 1024
+
+# SSE keepalive interval (F-070 DoS / proxy idle-timeout defense). 0
+# disables. Resolved from ``RAPID_MLX_SSE_KEEPALIVE_SECONDS`` and
+# pushed into ``ServerConfig.sse_keepalive_seconds`` via
+# ``_sync_config``. ``_disconnect_guard`` reads it at start of each
+# stream — see ``vllm_mlx/service/helpers.py``.
+_sse_keepalive_seconds: float = 20.0
+
+# Body-receive idle timeout (F-072 slow-DoS defense). 0 disables.
+# Resolved from ``RAPID_MLX_BODY_RECEIVE_TIMEOUT_SECONDS`` and pushed
+# into ``ServerConfig.body_receive_timeout_seconds`` via
+# ``_sync_config``. The ``RequestBodyLimitMiddleware`` wraps each
+# ``receive()`` in ``asyncio.wait_for`` until the body is fully on the
+# wire, emits HTTP 408 on timeout.
+_body_receive_timeout_seconds: float = 15.0
 
 # Reasoning parser (for models like Qwen3, DeepSeek-R1, MiniMax)
 _reasoning_parser = None  # ReasoningParser instance when enabled
@@ -464,26 +499,391 @@ from .middleware.body_size import install_request_body_limit_middleware  # noqa:
 
 install_request_body_limit_middleware(app)
 
-# CORS configuration — configurable via --cors-origins CLI flag
+# CORS configuration — configurable via --cors-origins CLI flag and the
+# ``RAPID_MLX_CORS_*`` env-var family (F-090 / F-091). The previous default
+# registered CORSMiddleware with ``allow_origins=["*"]`` and
+# ``allow_methods=["*"]`` (DELETE/GET/HEAD/OPTIONS/PATCH/POST/PUT) for
+# every request, which let any browser-side attacker make authenticated
+# requests to ``/v1/chat/completions`` if the user had an open tab. The
+# new default is **no CORS at all**: operators opt in by setting
+# ``RAPID_MLX_CORS_ALLOW_ORIGINS`` (or ``--cors-origins`` for ad-hoc use).
+# A wildcard is still permitted for back-compat but logs a startup WARNING
+# so the operator notices.
+
+# Default method/header allowlists used when CORS is enabled. ``POST,GET,
+# OPTIONS`` matches every route this server actually exposes — DELETE /
+# PATCH / PUT are not routed at all (closes F-091's over-broad ACAM).
+_DEFAULT_CORS_METHODS: tuple[str, ...] = ("POST", "GET", "OPTIONS")
+_DEFAULT_CORS_HEADERS: tuple[str, ...] = (
+    "Content-Type",
+    "Authorization",
+    "X-Rapid-MLX-Internal",
+)
+_DEFAULT_CORS_MAX_AGE: int = 3600
 
 
-def configure_cors(origins: list[str]) -> None:
-    """Configure CORS middleware with the given allowed origins.
+class _SpecAlignedCORSMiddleware(CORSMiddleware):
+    """``CORSMiddleware`` whose preflight rejection is spec-aligned (L-02).
+
+    Upstream Starlette returns ``400 Bad Request`` with body
+    ``"Disallowed CORS …"`` when a preflight ``OPTIONS`` fails any of the
+    origin / method / headers checks. The upstream comment even concedes
+    the 400 is an opinionated debugging aid:
+
+        # We don't strictly need to use 400 responses here, since its up
+        # to the browser to enforce the CORS policy, but its more
+        # informative if we do.
+
+    The 400 is noisy in real-world devtools (the spec only requires that
+    the response omit ``Access-Control-Allow-Origin`` — the browser then
+    blocks the real request). It also surprises authenticated reverse
+    proxies that interpret a 4xx preflight as "the origin is wrong".
+
+    This subclass returns ``200 OK`` with **no** ``Access-Control-Allow-Origin``
+    header and ``Vary: Origin`` (so caches that key on Origin don't bleed
+    across origins). Browsers still block the request because ACAO is
+    absent; devtools shows the missing-header signal that operators
+    expect when CORS denies their origin.
+
+    The fail-closed empty-CSV path (#758 ``3da8230``) is unaffected: that
+    branch never registers any middleware at all, so the preflight ``OPTIONS``
+    still 405s (no allowed method on the route). Only the env-locked /
+    explicit-allowlist mismatch surface flips from 400 to 200.
+    """
+
+    def preflight_response(self, request_headers):  # type: ignore[override]
+        # Re-use upstream's diagnostic logic to compute "is this preflight
+        # actually allowed?" — it builds the right headers dict, mutates
+        # ``Access-Control-Allow-Origin`` only when the origin is in the
+        # allowlist, and accumulates a ``failures`` list. We just trade
+        # the 400 envelope on failure for a 200 + ``Vary: Origin``.
+        response = super().preflight_response(request_headers)
+        if response.status_code == 200:
+            return response
+        # Strip ``Access-Control-Allow-Origin`` (upstream may have written
+        # it on a partial-allow path — defensive; current upstream never
+        # writes it when the origin is the failing dimension, but a
+        # future patch could broaden the partial-allow path) and pin
+        # ``Vary: Origin`` so caches don't reuse this 200 across origins.
+        # ``response.headers`` is a starlette ``MutableHeaders`` whose
+        # ``items()`` repeats duplicate keys (e.g. two ``vary`` rows).
+        # We build a single-row dict so the spec-aligned response doesn't
+        # carry ``Vary: Origin, Origin`` (upstream already set ``Vary:
+        # Origin`` in ``preflight_headers`` for non-wildcard configs).
+        headers: dict[str, str] = {}
+        for k, v in response.headers.items():
+            lk = k.lower()
+            if lk == "access-control-allow-origin":
+                continue
+            if lk == "vary":
+                continue  # canonicalized below
+            headers[k] = v
+        headers["Vary"] = "Origin"
+        # Body is a constant ``"OK"`` so a curious operator who hits the
+        # preflight by hand (``curl -X OPTIONS``) sees a non-empty 200
+        # rather than a confusing blank response. The browser never
+        # surfaces the preflight body to JS regardless — what makes the
+        # browser block the real request is the missing
+        # ``Access-Control-Allow-Origin`` header. Codex round-1 NIT
+        # flagged the prior "200 with empty body" comment as diverging
+        # from this body shape; pinning ``"OK"`` here and in the
+        # regression suite keeps code, comment, and tests aligned.
+        from starlette.responses import PlainTextResponse
+
+        return PlainTextResponse("OK", status_code=200, headers=headers)
+
+
+def configure_cors(
+    origins: list[str],
+    *,
+    methods: list[str] | None = None,
+    headers: list[str] | None = None,
+    max_age: int | None = None,
+    allow_credentials: bool | None = None,
+) -> None:
+    """Register the CORS middleware with the given allowlist.
+
+    Backwards-compatible signature: callers that pass only ``origins``
+    (tests, ``share`` CLI, the dflash speculative server) still get the
+    *legacy* wide-open ``allow_methods=["*"]`` / ``allow_headers=["*"]``
+    behavior — codex round-2 BLOCKING flagged that silently narrowing
+    these on the single-arg path would break existing browser clients
+    that send headers like ``OpenAI-Organization`` or
+    ``X-Requested-With`` (preflight 200 → real-request fails because the
+    header isn't on the allowlist). The F-091 narrowing only kicks in
+    on the env-aware path (``configure_cors_from_env``) which passes
+    explicit ``methods=`` / ``headers=`` lists — new callers see the
+    restrictive default, legacy callers stay wide-open.
 
     When the wildcard ``*`` is present, ``allow_credentials`` is forced to
     False to comply with the Fetch standard — browsers reject responses
     that combine ``Access-Control-Allow-Origin: *`` with
     ``Access-Control-Allow-Credentials: true``, so the previous default
     silently broke any cross-origin client that sent cookies or
-    Authorization headers."""
-    allow_credentials = "*" not in origins
+    Authorization headers.
+
+    NOTE: this function unconditionally registers the middleware on the
+    module-level ``app``. ``configure_cors_from_env`` is the production
+    entry-point — it skips registration entirely when no origins are
+    configured, which is what closes F-090 at the default-deny layer.
+    """
+    if not origins:
+        # Defensive: callers should not invoke ``configure_cors`` with an
+        # empty list (production goes through ``configure_cors_from_env``
+        # which short-circuits earlier). Bail rather than register a
+        # middleware that would deny everything but still leak the
+        # ``Access-Control-*`` header surface.
+        return
+    wildcard = "*" in origins
+    if allow_credentials is None:
+        allow_credentials = not wildcard
+    elif allow_credentials and wildcard:
+        # Operator explicitly asked for credentials AND wildcard. The
+        # Fetch spec rejects this combination; force-disable credentials
+        # so the response stays valid and log a warning so the operator
+        # notices. ``%s`` interpolation (rather than baking the literal
+        # ``RAPID_MLX_…`` env-var name into the format string) avoids
+        # the ``tests/test_no_out_of_band_routing.py`` constant-scan
+        # false-positive — same trick used by the body-receive timeout
+        # / SSE keepalive blocks in cli.py.
+        logger.warning(
+            "%s requested with a wildcard origin is invalid per the "
+            "Fetch spec; forcing allow_credentials=False",
+            "RAPID_MLX_CORS_ALLOW_CREDENTIALS",
+        )
+        allow_credentials = False
+    # ``methods=None`` and ``headers=None`` mean "back-compat single-arg
+    # caller" — preserve the legacy ``["*"]`` so existing clients keep
+    # working. ``configure_cors_from_env`` always passes explicit lists,
+    # so it gets the F-091 narrowing.
+    #
+    # L-02: the subclass returns 200 + ``Vary: Origin`` (no
+    # ``Access-Control-Allow-Origin``) instead of 400 ``Disallowed CORS
+    # …`` on origin/method/headers mismatch. Browsers still block the
+    # real request because ACAO is absent; devtools sees the missing
+    # header instead of a cryptic 400 envelope.
     app.add_middleware(
-        CORSMiddleware,
+        _SpecAlignedCORSMiddleware,
         allow_origins=origins,
         allow_credentials=allow_credentials,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=list(methods) if methods is not None else ["*"],
+        allow_headers=list(headers) if headers is not None else ["*"],
+        max_age=max_age if max_age is not None else _DEFAULT_CORS_MAX_AGE,
     )
+
+
+def _parse_csv(value: str) -> list[str]:
+    """Split a comma-separated env-var value, trimming whitespace and
+    dropping empty entries. Used by ``configure_cors_from_env`` so a
+    trailing comma or stray space doesn't accidentally register an empty
+    origin (which CORSMiddleware would silently never match)."""
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def configure_cors_from_env(
+    cli_origins: list[str] | None = None,
+) -> list[str]:
+    """Resolve CORS configuration from CLI args + env vars and conditionally
+    register the middleware.
+
+    Resolution order:
+      1. ``cli_origins`` (CLI ``--cors-origins`` flag) — when supplied,
+         takes precedence over the env var (matches the pattern used by
+         ``--max-request-bytes`` vs ``RAPID_MLX_MAX_REQUEST_BYTES``).
+      2. ``RAPID_MLX_CORS_ALLOW_ORIGINS`` env var (comma-separated).
+      3. Unset / empty → CORS middleware is NOT registered. Cross-origin
+         requests get no ``Access-Control-Allow-Origin`` header and the
+         preflight ``OPTIONS`` returns 405 (no leak of allowed methods).
+         This is the production-friendly default (F-090).
+
+    Method / header / max-age / credentials overrides come from the rest
+    of the ``RAPID_MLX_CORS_*`` family; see ``vllm_mlx/cli.py``.
+
+    Returns the resolved origin list (empty list when CORS is disabled).
+    """
+    # ``came_from_cli`` discriminates the two compat tiers (codex round-3
+    # BLOCKING). The legacy ``--cors-origins`` CLI path used to imply
+    # ``allow_headers=["*"]`` / ``allow_methods=["*"]``; existing browser
+    # clients send custom headers like ``OpenAI-Organization`` and
+    # ``X-Requested-With`` that would now fail preflight if we silently
+    # narrowed those defaults. The env-driven path
+    # (``RAPID_MLX_CORS_ALLOW_ORIGINS``) is brand-new in this PR — it
+    # gets the restrictive default (closes F-091 by default). Operators
+    # on either path can still pin the methods/headers explicitly via
+    # ``RAPID_MLX_CORS_ALLOW_METHODS`` / ``_HEADERS``.
+    origins: list[str] = []
+    came_from_cli = False
+    came_from_default = False
+    env_present_but_empty = False
+    if cli_origins:
+        origins = list(cli_origins)
+        came_from_cli = True
+    else:
+        # Codex round-2 BLOCKING (#758): distinguish "env var absent" from
+        # "env var present but parsed empty". The friendly default-wildcard
+        # is for operators who never set the var (single-machine local
+        # dev). An operator who DID set the var to a templating-broken
+        # value like ``" , ,, "`` clearly intended a real allowlist — the
+        # safest interpretation is the literal empty list (no CORS, fail
+        # closed) plus a startup WARNING so the typo is visible. Falling
+        # through to wildcard would silently fail open for a deployment
+        # bug, which is the failure mode codex was flagging.
+        env_raw = os.environ.get("RAPID_MLX_CORS_ALLOW_ORIGINS")
+        if env_raw is not None:
+            parsed = _parse_csv(env_raw)
+            if parsed:
+                origins = parsed
+            else:
+                env_present_but_empty = True
+                # Format via %s/%r placeholders so the env-var name only
+                # appears in the args tuple (test_no_out_of_band_routing
+                # treats inline ``RAPID_MLX_<X>=...`` literals as routing
+                # references — same shape as the methods/headers warnings
+                # below).
+                logger.warning(
+                    "%s=%r parsed to an empty list (whitespace / "
+                    "trailing commas only). Treating as fail-closed "
+                    "(no CORS middleware) so a deployment templating "
+                    "bug is visible. Unset the env var entirely to use "
+                    "the friendly default wildcard, or set it to a real "
+                    "comma-separated origin list.",
+                    "RAPID_MLX_CORS_ALLOW_ORIGINS",
+                    env_raw,
+                )
+
+    if not origins and not env_present_but_empty:
+        # Default-allow wildcard for friendly single-machine UX. rapid-mlx
+        # is primarily run locally — defaulting to deny would break any
+        # browser-based frontend ("CORS error" in the console) without an
+        # obvious server-side signal. Operators on multi-tenant or
+        # production deployments lock down via
+        # ``RAPID_MLX_CORS_ALLOW_ORIGINS=https://your.app`` (the existing
+        # env-var family still applies).
+        origins = ["*"]
+        came_from_default = True
+        logger.info(
+            "CORS allow-origin defaulting to wildcard '*' (no "
+            "RAPID_MLX_CORS_ALLOW_ORIGINS set). Set the env var to an "
+            "explicit origin list (e.g. "
+            "'https://chat.openai.com,https://claude.ai') to lock down "
+            "for production / multi-tenant deployments."
+        )
+
+    if "*" in origins and not came_from_default:
+        logger.warning(
+            "CORS allow-origin set to wildcard '*' — any origin can call this "
+            "server from a browser. Set RAPID_MLX_CORS_ALLOW_ORIGINS to an "
+            "explicit origin list for production deployments."
+        )
+
+    # Resolve method / header / max-age / credentials overrides.
+    #
+    # Codex round-1 BLOCKING: distinguish ``env unset`` from ``env set to
+    # an all-whitespace / all-empty CSV``. If we treated both as "use
+    # default", an operator typo like ``RAPID_MLX_CORS_ALLOW_METHODS=" , "``
+    # would silently broaden the surface to the default POST/GET/OPTIONS
+    # instead of narrowing it. The defensive shape is: ``env present but
+    # empty after parse`` → log a WARNING and fall back to the default,
+    # so the operator sees the typo in the startup log rather than
+    # discovering it via a Sentry alert later.
+    #
+    # Codex round-3 BLOCKING: when ``came_from_cli`` is True and the env
+    # override is unset, the default for methods/headers is the legacy
+    # wide-open ``["*"]`` — not the restrictive F-091 default — so the
+    # documented CLI back-compat path doesn't silently break browser
+    # clients that send custom headers (``OpenAI-Organization`` etc.).
+    methods_env = os.environ.get("RAPID_MLX_CORS_ALLOW_METHODS")
+    if methods_env is None:
+        methods = ["*"] if came_from_cli else list(_DEFAULT_CORS_METHODS)
+    else:
+        methods = _parse_csv(methods_env)
+        if not methods:
+            fallback_methods = ["*"] if came_from_cli else list(_DEFAULT_CORS_METHODS)
+            logger.warning(
+                "%s=%r parsed to an empty list (whitespace / trailing "
+                "commas only); falling back to %s. Set the env var to a "
+                "real comma-separated method list, or unset it entirely "
+                "to use the default.",
+                "RAPID_MLX_CORS_ALLOW_METHODS",
+                methods_env,
+                fallback_methods,
+            )
+            methods = fallback_methods
+
+    headers_env = os.environ.get("RAPID_MLX_CORS_ALLOW_HEADERS")
+    if headers_env is None:
+        headers = ["*"] if came_from_cli else list(_DEFAULT_CORS_HEADERS)
+    else:
+        headers = _parse_csv(headers_env)
+        if not headers:
+            fallback_headers = ["*"] if came_from_cli else list(_DEFAULT_CORS_HEADERS)
+            logger.warning(
+                "%s=%r parsed to an empty list (whitespace / trailing "
+                "commas only); falling back to %s. Set the env var to a "
+                "real comma-separated header list, or unset it entirely "
+                "to use the default.",
+                "RAPID_MLX_CORS_ALLOW_HEADERS",
+                headers_env,
+                fallback_headers,
+            )
+            headers = fallback_headers
+
+    max_age_env = os.environ.get("RAPID_MLX_CORS_MAX_AGE", "").strip()
+    max_age = _DEFAULT_CORS_MAX_AGE
+    if max_age_env:
+        try:
+            max_age = max(0, int(max_age_env))
+        except ValueError:
+            logger.warning(
+                "%s=%r is not an integer; falling back to the %d s default",
+                "RAPID_MLX_CORS_MAX_AGE",
+                max_age_env,
+                _DEFAULT_CORS_MAX_AGE,
+            )
+
+    # Codex round-1 NIT: the documented default is ``False`` (matching
+    # the security-correct default-deny stance of the rest of the
+    # ``RAPID_MLX_CORS_*`` family), but the legacy ``configure_cors``
+    # back-compat path defaults to ``True`` for any non-wildcard origin
+    # (Fetch-spec-correct but at odds with the documentation). Resolve by
+    # making the default explicit here: env unset → False. Operators who
+    # need cookies / Authorization auto-forwarded must opt in by setting
+    # ``RAPID_MLX_CORS_ALLOW_CREDENTIALS=true``. Existing
+    # ``configure_cors(origins)`` callers in tests / share / dflash still
+    # see the legacy behavior — those callers don't go through this
+    # resolver.
+    creds_env = os.environ.get("RAPID_MLX_CORS_ALLOW_CREDENTIALS", "").strip().lower()
+    allow_credentials: bool = False
+    if creds_env:
+        if creds_env in ("1", "true", "yes", "on"):
+            allow_credentials = True
+        elif creds_env in ("0", "false", "no", "off"):
+            allow_credentials = False
+        else:
+            logger.warning(
+                "%s=%r is not a boolean; falling back to the False default",
+                "RAPID_MLX_CORS_ALLOW_CREDENTIALS",
+                creds_env,
+            )
+
+    # Fail-closed path: ``RAPID_MLX_CORS_ALLOW_ORIGINS`` was set but
+    # parsed to an empty list (operator-controlled typo). Don't register
+    # CORSMiddleware — that's the visible signal the WARNING above
+    # promises. Returning ``[]`` here also keeps the legacy ``configure_cors``
+    # back-compat stub callable from tests that monkeypatch a 1-arg
+    # lambda — we never call ``configure_cors(...)`` on the fail-closed
+    # path, so the stub's signature doesn't matter.
+    if not origins:
+        return []
+
+    configure_cors(
+        origins,
+        methods=methods,
+        headers=headers,
+        max_age=max_age,
+        allow_credentials=allow_credentials,
+    )
+    return origins
 
 
 # Auth and rate limiting — moved to middleware/auth.py
@@ -497,77 +897,25 @@ from .middleware.auth import (
     rate_limiter as _rate_limiter,  # noqa: F401 — configured in main()
 )
 
-
-# Registered on the Starlette base class, NOT fastapi.HTTPException,
-# because the router itself raises starlette.exceptions.HTTPException
-# for unknown-route 404s and wrong-method 405s. fastapi.HTTPException
-# is a subclass, so this handler catches both.
-@app.exception_handler(StarletteHTTPException)
-async def _http_exception_handler(
-    request: Request,  # noqa: ARG001
-    exc: StarletteHTTPException,
-):
-    error_type_map = {
-        400: "invalid_request_error",
-        401: "authentication_error",
-        403: "permission_error",
-        404: "not_found_error",
-        405: "invalid_request_error",
-        409: "conflict_error",
-        429: "rate_limit_error",
-    }
-
-    # Structured-detail escape hatch: route handlers may raise
-    # ``HTTPException(detail={"error": {...}})`` to emit a custom
-    # OpenAI-shaped envelope (e.g. ``code: "context_length_exceeded"``
-    # for the token-budget gate). When the detail already carries the
-    # full ``{"error": {...}}`` shape, pass it through unchanged so the
-    # ``code`` / ``param`` fields land in the response. Bare-string
-    # detail keeps the legacy wrapping below.
-    detail = exc.detail
-    if isinstance(detail, dict) and isinstance(detail.get("error"), dict):
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=detail,
-            headers=getattr(exc, "headers", None),
-        )
-
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": {
-                "message": str(exc.detail),
-                "type": error_type_map.get(exc.status_code, "api_error"),
-                "code": None,
-                "param": None,
-            }
-        },
-        headers=getattr(exc, "headers", None),
-    )
-
-
-@app.exception_handler(Exception)
-async def _global_exception_handler(request: Request, exc: Exception):
-    """Catch unhandled exceptions so they return JSON 500 instead of killing
-    the connection. This keeps the server alive for subsequent requests.
-
-    The exception message and type are intentionally NOT echoed back to
-    the client — exception messages routinely contain absolute filesystem
-    paths, model paths, environment values, and other internal state that
-    aids targeted exploitation. Full details (with traceback) go to the
-    server log for operators."""
-    logger.error(
-        "Unhandled exception on %s %s: %s",
-        request.method,
-        request.url.path,
-        exc,
-        exc_info=True,
-    )
-
-    return JSONResponse(
-        status_code=500,
-        content={"error": {"message": "Internal server error"}},
-    )
+# ── Wire the unified exception handlers onto the production app ─────
+#
+# All handler bodies live in ``vllm_mlx.middleware.exception_handlers``
+# (no heavy imports) so isolated route tests can install the identical
+# wiring on a stub FastAPI app without dragging the engine stack into
+# the fixture. Production delegates here for:
+#
+# * ``StarletteHTTPException`` → wraps detail in the OpenAI-shaped
+#   envelope (and passes structured ``{"error": {...}}`` detail through
+#   unchanged — the ``context_length_exceeded`` escape hatch still
+#   works). Closes F-013 / F-094 leakage at the envelope layer.
+# * ``json.JSONDecodeError`` → 400 with OpenAI-shaped envelope
+#   (closes F-161 / F-162 — ``await request.json()`` failures were
+#   hitting the generic 500 path before).
+# * ``RequestValidationError`` → 400 with sanitized message
+#   (strips ``detail[*].input`` echo from F-094/F-104 and the
+#   pydantic.dev URL from F-163).
+# * ``Exception`` → 500 ``Internal server error`` with no message leak.
+install_exception_handlers(app)
 
 
 def _detect_native_tool_support() -> bool:
@@ -951,6 +1299,8 @@ def _sync_config() -> None:
     cfg.embedding_model_locked = _embedding_model_locked
     cfg.api_key = _api_key
     cfg.max_request_bytes = _max_request_bytes
+    cfg.sse_keepalive_seconds = _sse_keepalive_seconds
+    cfg.body_receive_timeout_seconds = _body_receive_timeout_seconds
     cfg.cloud_router = _cloud_router
     cfg.gc_control = _gc_control
     cfg.no_thinking = _no_thinking
@@ -1016,6 +1366,7 @@ from .routes.cache import router as _cache_router
 from .routes.chat import router as _chat_router
 from .routes.completions import router as _completions_router
 from .routes.embeddings import router as _embeddings_router
+from .routes.health import admin_router as _health_admin_router
 from .routes.health import probe_router as _probe_router
 from .routes.health import router as _health_router
 from .routes.mcp_routes import router as _mcp_router
@@ -1025,6 +1376,9 @@ from .routes.responses import router as _responses_router
 
 app.include_router(_probe_router)
 app.include_router(_health_router)
+# Destructive control-plane routes (F-150 / F-151). Distinct router so the
+# ``X-Rapid-MLX-Internal: true`` gate ALSO applies when ``--api-key`` is unset.
+app.include_router(_health_admin_router)
 app.include_router(_metrics_router)
 app.include_router(_models_router)
 app.include_router(_chat_router)

@@ -46,6 +46,7 @@ impl AuditRegistry {
 
         register_audit!(audit::artipacked::Artipacked);
         register_audit!(audit::unsound_contains::UnsoundContains);
+        register_audit!(audit::unsound_ternary::UnsoundTernary);
         register_audit!(audit::excessive_permissions::ExcessivePermissions);
         register_audit!(audit::dangerous_triggers::DangerousTriggers);
         register_audit!(audit::impostor_commit::ImpostorCommit);
@@ -75,11 +76,13 @@ impl AuditRegistry {
         register_audit!(audit::dependabot_cooldown::DependabotCooldown);
         register_audit!(audit::concurrency_limits::ConcurrencyLimits);
         register_audit!(audit::archived_uses::ArchivedUses);
+        register_audit!(audit::typosquat_uses::TyposquatUses);
         register_audit!(audit::misfeature::Misfeature);
         register_audit!(audit::secrets_outside_env::SecretsOutsideEnvironment);
         register_audit!(audit::superfluous_actions::SuperfluousActions);
         register_audit!(audit::github_app::GitHubApp);
         register_audit!(audit::unpinned_tools::UnpinnedTools);
+        register_audit!(audit::adhoc_packages::AdhocPackages);
 
         Ok(registry)
     }

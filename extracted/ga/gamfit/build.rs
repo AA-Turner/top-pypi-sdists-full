@@ -3,17 +3,17 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR must be set"));
     fs::write(out_dir.join("lint_errors.rs"), "").expect("failed to write lint_errors.rs");
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock must be after the Unix epoch")
-        .as_secs();
-    println!("cargo:rustc-env=GAM_BUILD_TIMESTAMP={timestamp}");
+    // NOTE: do NOT emit a wall-clock `cargo:rustc-env=GAM_BUILD_TIMESTAMP=<now>`.
+    // Cargo records every build-script `rustc-env` in the crate fingerprint, so a
+    // value that changes on every run makes the `gam` lib fingerprint dirty on
+    // EVERY build — forcing a full recompile of gam + all downstream test crates
+    // (~4min) regardless of whether any source changed, and defeating any shared
+    // warm target. The variable was consumed nowhere in the tree, so it is removed.
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/terms/analytic_penalties/manifest.rs");
 
@@ -36,6 +36,31 @@ fn main() {
         return;
     }
 
+    // HARD ban (always fatal): Claude may not edit build.rs alone. If the most
+    // recent git author of build.rs is Claude, the change must be a co-authored
+    // human collaboration. The checks in this file are not to be weakened or
+    // removed under any circumstances; a human maintainer must approve and commit
+    // any modification to this build script.
+    forbid_claude_build_rs_edits(&manifest_dir);
+
+    // HARD ban (always fatal): build.rs must not weaken, bypass, or
+    // environment-gate its OWN hard-fail gates. Introspects this file's source
+    // and aborts if the ban-scanner's terminal exit was removed/made conditional,
+    // if any process exit is env-gated, or if temporary-bypass hack language was
+    // reintroduced. Not to be weakened or removed.
+    forbid_build_rs_self_tampering(&manifest_dir);
+
+    // HARD ban (always fatal): the workspace lint level for `warnings` MUST be
+    // `deny`. A demotion to `warn` (or anything else) lets pre-existing warnings
+    // ride along and silently rots the tree. This is non-negotiable and cannot
+    // be waived by a comment in Cargo.toml — assert it here and exit(1) otherwise.
+    assert_warnings_are_denied(&manifest_dir);
+
+    // HARD ban (always fatal, independent of the demoted aggregate scanner
+    // below): no tracked file may leak the absolute cluster scratch path segment
+    // or the SLURM batch directive keyword. Run first and exit(1) on any hit.
+    scan_for_cluster_infra_leaks(&manifest_dir);
+
     emit_python_penalty_manifest(&manifest_dir)
         .expect("failed to emit Python analytic-penalty manifest");
 
@@ -45,6 +70,12 @@ fn main() {
     scan_for_banned_marker(&manifest_dir, &manifest_dir, needle, &mut todo_offenders);
     let mut todo_history_violations: Vec<(PathBuf, usize, String, String)> = Vec::new();
     run_todo_marker_history_audit(&manifest_dir, needle, &mut todo_history_violations);
+
+    // Deferred-work markers wearing a different label (relabel-evasion of the
+    // bare TODO ban): a `fixme`/`xxx`/`hack` comment lead-in, or a deferral word
+    // carrying an issue ref like `Follow-up (#932):`.
+    let mut deferred_marker_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
+    scan_for_deferred_work_markers(&manifest_dir, &manifest_dir, &mut deferred_marker_offenders);
 
     // `#[allow(...)]` / `#![allow(...)]` / `#[expect(...)]` /
     // `#![expect(...)]` ban — any lint, anywhere. Every file-level allow
@@ -323,6 +354,21 @@ fn main() {
         sections.push(Section {
             title: format!("{} marker", needle),
             rows: todo_offenders
+                .iter()
+                .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
+                .collect(),
+        });
+    }
+
+    if !deferred_marker_offenders.is_empty() {
+        sections.push(Section {
+            title:
+                "deferred-work marker in disguise (a `fixme`/`xxx`/`hack`/`todo` comment lead-in, \
+                 or a deferral word carrying an issue ref like `Follow-up (#932):`) — a relabelled \
+                 marker is still owed work; implement it or delete the whole note, do not rename \
+                 the marker"
+                    .to_string(),
+            rows: deferred_marker_offenders
                 .iter()
                 .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
                 .collect(),
@@ -677,17 +723,250 @@ fn main() {
     }
 
     render_report(&sections);
-    // TEMP velocity unblock (2026-06-16): the ban-scanner is demoted from a
-    // hard `exit(1)` to a loud warning so the whole parallel team can build
-    // against `main` while individual ban violations are cleaned up by their
-    // owners in parallel. The report above still prints every offender. Restore
-    // the `std::process::exit(1)` once the outstanding violations are cleared.
     let total_rows: usize = sections.iter().map(|s| s.rows.len()).sum();
     println!(
-        "cargo:warning=ban-scanner found {} violation(s) across {} rule(s) — TEMPORARILY non-fatal (see report on stderr); restore exit(1) in build.rs once cleared",
+        "cargo:warning=ban-scanner found {} violation(s) across {} rule(s) — build aborted",
         total_rows,
         sections.len()
     );
+    std::process::exit(1);
+}
+
+/// HARD self-integrity gate (always fatal): build.rs must not weaken, bypass, or
+/// environment-gate its own hard-fail gates. Reads this file's own source and
+/// panics if it detects any of:
+///   1. the ban-scanner's terminal hard exit removed or made conditional (e.g.
+///      quietly turned into a warning, as happened once and rode `main` for days);
+///   2. any `process::exit` gate guarded by an environment variable;
+///   3. "temporary unblock"-style hack language anywhere in the file.
+///
+/// Every match needle is assembled from fragments at runtime, so this function
+/// never matches its own source. Like the other gates here, it may not be
+/// weakened or removed; a human maintainer must approve any change.
+fn forbid_build_rs_self_tampering(manifest_dir: &Path) {
+    let path = manifest_dir.join("build.rs");
+    let src = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("self-integrity gate: cannot read build.rs at {path:?}: {e}"));
+    let lines: Vec<&str> = src.lines().collect();
+
+    // Needles assembled from fragments so they never appear verbatim below.
+    let render_call = format!("render_report(&{});", "sections");
+    let exit_core_a = format!("std::process::{}(1)", "exit");
+    let exit_core_b = format!("process::{}(1)", "exit");
+    let exit_any = format!("process::{}(", "exit");
+    let env_needles = [
+        format!("env::{}(", "var"),
+        format!("std::{}", "env"),
+        format!("option_{}", "env!"),
+    ];
+
+    // ---- (1) the ban-scanner must end in an UNCONDITIONAL hard exit ----
+    let render_sites: Vec<usize> = lines
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| l.trim() == render_call)
+        .map(|(i, _)| i)
+        .collect();
+    if render_sites.len() != 1 {
+        panic!(
+            "self-integrity gate: expected exactly one `{render_call}` report site, found {}. \
+             The ban-scanner aggregator was moved, duplicated, or removed — restore the single \
+             hard-failing report path.",
+            render_sites.len()
+        );
+    }
+    let r = render_sites[0];
+    let render_indent = lines[r].len() - lines[r].trim_start().len();
+    let branch_starts = [
+        "if ", "} else", "else ", "else{", "match ", "for ", "while ", "loop ", "loop{",
+    ];
+    let mut hard_exit_found = false;
+    for line in &lines[r + 1..] {
+        let t = line.trim();
+        if t.is_empty() || t.starts_with("//") {
+            continue;
+        }
+        let indent = line.len() - line.trim_start().len();
+        if (t.starts_with(exit_core_a.as_str()) || t.starts_with(exit_core_b.as_str()))
+            && indent == render_indent
+        {
+            hard_exit_found = true;
+            break;
+        }
+        if indent < render_indent {
+            // The enclosing function/block closed before any hard exit was reached.
+            break;
+        }
+        if t.starts_with("return") {
+            panic!(
+                "self-integrity gate: a `return` precedes the ban-scanner's hard exit. The \
+                 report path must end in an unconditional process exit, not return early."
+            );
+        }
+        if branch_starts.iter().any(|k| t.starts_with(*k)) {
+            panic!(
+                "self-integrity gate: the ban-scanner's hard exit was made CONDITIONAL by \
+                 `{t}`. The exit must be unconditional — no branch, loop, or env switch may \
+                 guard it."
+            );
+        }
+    }
+    if !hard_exit_found {
+        panic!(
+            "self-integrity gate: the ban-scanner no longer ends in an unconditional process \
+             exit immediately after `{render_call}`. It appears to have been turned into a \
+             warning or otherwise bypassed — restore the hard exit."
+        );
+    }
+
+    // ---- (2) no process-exit gate may be guarded by an environment variable ----
+    for (i, line) in lines.iter().enumerate() {
+        let t = line.trim();
+        if t.starts_with("//") {
+            continue;
+        }
+        let is_branch = t.starts_with("if ") || t.contains("else if ");
+        if !is_branch || !env_needles.iter().any(|n| line.contains(n.as_str())) {
+            continue;
+        }
+        let window_end = (i + 40).min(lines.len());
+        for body in &lines[i + 1..window_end] {
+            let bt = body.trim();
+            if bt.starts_with("//") {
+                continue;
+            }
+            if bt.contains(exit_any.as_str()) {
+                panic!(
+                    "self-integrity gate: a process exit is reachable under an \
+                     environment-variable branch (`{t}`). Env-gating a hard-fail gate in \
+                     build.rs is banned — gates must always fire."
+                );
+            }
+        }
+    }
+
+    // ---- (3) no "temporary unblock"-style hack language ----
+    let hack_phrases = [
+        format!("{}{}", "velocity ", "unblock"),
+        format!("{}{}", "temp ", "velocity"),
+        format!("{}{}", "temporarily ", "non-fatal"),
+        format!("{}{}", "temporarily ", "disabled"),
+        format!("{}{}", "demoted from a ", "hard"),
+        format!("{}{}", "do not ", "merge"),
+    ];
+    let lower = src.to_lowercase();
+    for phrase in &hack_phrases {
+        if lower.contains(phrase.as_str()) {
+            panic!(
+                "self-integrity gate: build.rs contains temporary-bypass hack language \
+                 (`{phrase}`). The gates here are not to be temporarily weakened; fix the \
+                 underlying violations instead of weakening a gate."
+            );
+        }
+    }
+}
+
+/// Check the git history of `build.rs` and panic if the most recent commit was
+/// made by Claude without a human co-author. Claude is allowed to propose
+/// changes to this file only in collaboration with a human; the final commit must
+/// carry a human author name/email. The checks in this file are not to be weakened
+/// or removed under any circumstances, and any edit here requires human review
+/// and sign-off.
+///
+/// The heuristic is simple and practical: the most recent commit author name or
+/// email must not be Claude/Anthropic. A human co-author should be the commit
+/// author; `Co-Authored-By` alone is intentionally not enough because git log
+/// `%an` returns the primary author of the commit.
+fn forbid_claude_build_rs_edits(manifest_dir: &Path) {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("log")
+        .arg("-1")
+        .arg("--format=%an|%ae")
+        .arg("--")
+        .arg("build.rs")
+        .output()
+        .expect("failed to run git log for build.rs author audit");
+
+    if !output.status.success() {
+        panic!(
+            "failed to query git history for build.rs author: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let info = String::from_utf8_lossy(&output.stdout);
+    let info = info.trim();
+    let is_claude = info.to_lowercase().contains("claude")
+        || info.to_lowercase().contains("anthropic");
+
+    if is_claude {
+        panic!(
+            "Sorry Claude! build.rs was last edited by a non-human author ({info}). \
+             Claude may propose changes to build.rs, but only a human may author the \
+             commit. The checks in this file are not to be weakened or removed under \
+             any circumstances. Please have a human maintainer re-commit any needed \
+             change to build.rs.",
+        );
+    }
+}
+
+/// Assert that the workspace-root `Cargo.toml` pins `[lints.rust] warnings`
+/// to `deny`. Any other level (`warn`, `allow`, missing) lets warnings
+/// accumulate; that is a build failure, not a soft signal. Comments in
+/// Cargo.toml cannot waive this — the policy lives here.
+fn assert_warnings_are_denied(manifest_dir: &Path) {
+    let cargo_toml = manifest_dir.join("Cargo.toml");
+    let content = fs::read_to_string(&cargo_toml)
+        .unwrap_or_else(|e| panic!("failed to read {}: {e}", cargo_toml.display()));
+
+    // Find the `[lints.rust]` section and read its `warnings` value.
+    let mut in_lints_rust = false;
+    let mut found_level: Option<String> = None;
+    for raw in content.lines() {
+        let line = raw.trim();
+        if line.starts_with('[') && line.ends_with(']') {
+            in_lints_rust = line == "[lints.rust]";
+            continue;
+        }
+        if !in_lints_rust {
+            continue;
+        }
+        let code = line.split('#').next().unwrap_or("").trim();
+        if let Some(rest) = code.strip_prefix("warnings") {
+            let rest = rest.trim_start();
+            if let Some(value) = rest.strip_prefix('=') {
+                // Accept both `warnings = "deny"` and the table form
+                // `warnings = { level = "deny", ... }`.
+                let value = value.trim();
+                let level = if let Some(idx) = value.find("level") {
+                    value[idx..]
+                        .split('=')
+                        .nth(1)
+                        .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
+                } else {
+                    Some(value.trim_matches('"').trim_matches('\'').to_string())
+                };
+                found_level = level;
+                break;
+            }
+        }
+    }
+
+    match found_level.as_deref() {
+        Some("deny") => {}
+        Some(other) => panic!(
+            "[lints.rust] warnings MUST be \"deny\", found \"{other}\" in {}. \
+             Restore `warnings = \"deny\"`; warnings are not permitted to accumulate.",
+            cargo_toml.display()
+        ),
+        None => panic!(
+            "[lints.rust] warnings = \"deny\" is missing from {}. \
+             It MUST be present and set to \"deny\".",
+            cargo_toml.display()
+        ),
+    }
 }
 
 #[derive(Clone)]
@@ -753,10 +1032,19 @@ fn emit_python_penalty_manifest(manifest_dir: &Path) -> std::io::Result<()> {
         output.push_str("    },\n");
     }
     output.push_str(")\n");
-    fs::write(
-        manifest_dir.join("gamfit").join("_penalties_manifest.py"),
-        output,
-    )
+    // Write ONLY when the content actually changed. This file is declared as a
+    // `cargo:rerun-if-changed` input, so unconditionally rewriting it on every
+    // build advances its mtime and makes cargo mark `gam` Dirty on the NEXT
+    // build ("the file `gamfit/_penalties_manifest.py` has changed") — forcing a
+    // full recompile even with no source change. The content guard breaks that
+    // self-invalidation loop (mirrors the ban-history ledger writer).
+    let manifest_path = manifest_dir.join("gamfit").join("_penalties_manifest.py");
+    if let Ok(existing) = fs::read_to_string(&manifest_path) {
+        if existing == output {
+            return Ok(());
+        }
+    }
+    fs::write(manifest_path, output)
 }
 
 fn penalty_manifest_source_for_type(registry: &str, rust_type: &str) -> std::io::Result<String> {
@@ -2711,6 +2999,118 @@ fn scan_for_banned_marker(
     });
 }
 
+/// Comment-lead deferred-work markers the bare `TODO` token misses. Flags two
+/// shapes, both high-precision so legitimate prose is never caught:
+///   1. a comment whose lead-in token is itself a pure marker word
+///      (`fixme` / `xxx` / `hack` / `todo`) — these never legitimately begin a
+///      comment;
+///   2. a deferral word carrying an issue reference, e.g. `Follow-up (#932):`,
+///      `Deferred(#41)` — the relabel shape that swaps `TODO(#N)` for a synonym
+///      while keeping the tracker. A bare "follow-up period" or "deferred POTRF
+///      scalar" in prose has no `(#issue)` tail and is NOT matched.
+/// Skips build.rs (it names these words as part of its own contract). The marker
+/// words are assembled from fragments so this scanner's source never carries the
+/// literal tokens it forbids.
+fn scan_for_deferred_work_markers(
+    root: &Path,
+    dir: &Path,
+    offenders: &mut Vec<(PathBuf, usize, String)>,
+) {
+    let pure_markers: Vec<String> = vec![
+        format!("{}{}", "fix", "me"),
+        format!("{}{}", "x", "xx"),
+        "hack".to_string(),
+        format!("{}{}", "to", "do"),
+    ];
+    let deferral_words: Vec<String> = vec![
+        format!("{}-{}", "follow", "up"),
+        format!("{}{}", "follow", "up"),
+        format!("{}{}", "de", "ferred"),
+        format!("{}{}", "de", "fer"),
+        "revisit".to_string(),
+        format!("{}{}", "stop", "gap"),
+        "punt".to_string(),
+        format!("{}{}", "t", "bd"),
+        format!("{}{}", "w", "ip"),
+        "later".to_string(),
+        format!("{}{}", "place", "holder"),
+    ];
+    visit_files(root, dir, &mut |rel, content| {
+        if rel.to_string_lossy().replace('\\', "/") == "build.rs" {
+            return;
+        }
+        for (idx, line) in content.lines().enumerate() {
+            let Some(body) = comment_body(line) else {
+                continue;
+            };
+            let body_l = body.to_lowercase();
+            let mut hit = pure_markers.iter().any(|w| lead_token_is(&body_l, w));
+            if !hit {
+                hit = deferral_words.iter().any(|w| {
+                    body_l
+                        .strip_prefix(w.as_str())
+                        .is_some_and(|rest| marker_issue_ref_follows(rest.trim_start()))
+                });
+            }
+            if hit {
+                offenders.push((rel.to_path_buf(), idx + 1, line.trim().to_string()));
+            }
+        }
+    });
+}
+
+/// The text after a line's comment lead-in (`///`, `//!`, `//`, `/**`, `/*`, or
+/// `#`), trimmed; `None` if the line is not a comment. The `#[...]` attribute
+/// form is excluded so Rust attributes are not read as comments.
+fn comment_body(line: &str) -> Option<&str> {
+    let t = line.trim_start();
+    for lead in ["///", "//!", "//", "/**", "/*", "#"] {
+        if let Some(rest) = t.strip_prefix(lead) {
+            if lead == "#" && rest.trim_start().starts_with('[') {
+                return None;
+            }
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+/// True when `body` (already lowercased) begins with `word` as a whole lead-in
+/// token — the char right after `word` is a non-alphanumeric boundary (or the
+/// body ends). Stops `hack` from matching `hacky`.
+fn lead_token_is(body: &str, word: &str) -> bool {
+    match body.strip_prefix(word) {
+        Some(rest) => rest
+            .chars()
+            .next()
+            .map(|c| !c.is_ascii_alphanumeric())
+            .unwrap_or(true),
+        None => false,
+    }
+}
+
+/// True when `rest` opens with an issue reference: `(` then an optional `#`,
+/// then at least one digit, then `)`. Matches the `(#932)` / `(41)` tail of a
+/// relabelled tracker.
+fn marker_issue_ref_follows(rest: &str) -> bool {
+    let b = rest.as_bytes();
+    if b.first() != Some(&b'(') {
+        return false;
+    }
+    let mut i = 1usize;
+    if b.get(i) == Some(&b'#') {
+        i += 1;
+    }
+    let digits_start = i;
+    while i < b.len() && b[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == digits_start {
+        return false;
+    }
+    b.get(i) == Some(&b')')
+}
+
 /// Scan for `#[allow(...)]` / `#![allow(...)]` / `#[expect(...)]` /
 /// `#![expect(...)]` — any lint, anywhere. Every such attribute is an
 /// admission that some lint flagged real code and the author chose to hide
@@ -3102,6 +3502,74 @@ fn collect_repo_files(root: &Path) -> &'static [PathBuf] {
     REPO_FILES
         .get_or_init(|| read_git_index_tracked_files(root))
         .as_slice()
+}
+
+/// The two cluster/SLURM infra leak needles, assembled from fragments so this
+/// file's own source text never contains either banned string verbatim (the
+/// scanner would otherwise flag itself). `needle_a` = the absolute cluster
+/// scratch path segment; `needle_b` = the SLURM batch directive keyword.
+fn cluster_leak_needles() -> [String; 2] {
+    let needle_a = format!("projects{}standard", "/");
+    let needle_b = format!("{}BATCH", "S");
+    [needle_a, needle_b]
+}
+
+/// HARD-FAIL ban: no git-tracked file (source OR not) may contain the absolute
+/// cluster scratch path segment or the SLURM batch directive keyword. These are
+/// cluster-local infra leaks (absolute compute-node paths + SLURM job
+/// directives) that must never be committed — cluster/sbatch scripts live under
+/// /Users/user/, not in the repo. Scans only tracked text files (from the git
+/// index), skips binaries, and fails the build naming every offender. This is
+/// a separate, always-fatal gate — independent of the demoted aggregate
+/// ban-scanner below — so the leak can never ship.
+fn scan_for_cluster_infra_leaks(root: &Path) {
+    let needles = cluster_leak_needles();
+    let mut offenders: Vec<(PathBuf, usize, String)> = Vec::new();
+    for rel in collect_repo_files(root) {
+        let path = root.join(rel);
+        let content = match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => continue,
+        };
+        // Skip files that are not valid UTF-8 text (binaries can't carry the
+        // ASCII needles meaningfully and lossy-decoding them wastes time).
+        let text = match std::str::from_utf8(&content) {
+            Ok(text) => text,
+            Err(_) => continue,
+        };
+        for (lineno, line) in text.lines().enumerate() {
+            for needle in &needles {
+                if line.contains(needle.as_str()) {
+                    offenders.push((rel.clone(), lineno + 1, needle.clone()));
+                }
+            }
+        }
+    }
+    if offenders.is_empty() {
+        return;
+    }
+    eprintln!(
+        "\n=== BANNED cluster/SLURM INFRA LEAK in tracked file(s) ===\n\
+         No tracked file may contain the absolute cluster scratch path segment or the \
+         SLURM batch directive keyword. These are cluster-local infra leaks; cluster/sbatch \
+         scripts belong under /Users/user/, not in the repo. Offenders:"
+    );
+    for (rel, lineno, needle) in &offenders {
+        eprintln!(
+            "  {}:{} contains banned string `{}`",
+            rel.display(),
+            lineno,
+            needle
+        );
+        println!(
+            "cargo:warning=banned cluster/SLURM infra leak: {}:{} contains `{}`",
+            rel.display(),
+            lineno,
+            needle
+        );
+    }
+    std::process::exit(1);
 }
 
 /// Resolve the path of `.git/index`, following the worktree pointer if `.git`
@@ -4847,6 +5315,140 @@ fn line_is_comment_lead(line: &str) -> bool {
     t.starts_with("//") || (t.starts_with('#') && !t.starts_with("#["))
 }
 
+/// Minimum count of *significant* (non-stopword, >=3-char) tokens a recorded
+/// marker description must carry before the fuzzy paraphrase matcher will key on
+/// it. The token-set analogue of `MIN_REWORD_DESCRIPTION_LEN`: too few load-
+/// bearing tokens and an innocent comment could coincidentally overlap.
+const MIN_REWORD_SIGNIFICANT_TOKENS: usize = 5;
+
+/// Fraction of a recorded description's significant tokens that must reappear in
+/// one current comment block for it to count as the same deferred work
+/// resurfacing under a paraphrase. High enough that unrelated prose does not
+/// trip it; low enough that reordering or light rewording does not escape.
+const REWORD_CONTAINMENT_THRESHOLD: f64 = 0.75;
+
+/// A pooled contiguous run of comment-lead lines: its significant-token set, its
+/// lowercased joined text, and the 1-based line where the run begins.
+struct CommentBlock {
+    start_line: usize,
+    tokens: std::collections::HashSet<String>,
+    lower_text: String,
+}
+
+/// True for short, structural words that carry no description signal. Filtered
+/// before measuring token overlap so the ratio reflects the load-bearing
+/// nouns/verbs of the deferred work, not glue words.
+fn reword_is_stopword(t: &str) -> bool {
+    const STOP: &[&str] = &[
+        "the", "and", "for", "this", "that", "with", "from", "into", "over", "each", "can",
+        "will", "its", "are", "was", "were", "has", "have", "had", "not", "but", "use", "uses",
+        "used", "via", "per", "out", "off", "all", "any", "one", "two", "new", "old", "should",
+        "would", "could", "may", "might", "must", "then", "than", "they", "them", "when", "where",
+        "which", "while", "here", "there", "only", "also", "still", "yet", "now", "later", "our",
+        "your", "their", "been", "being", "such", "some", "more", "most", "less", "few",
+    ];
+    STOP.contains(&t)
+}
+
+/// The significant tokens of `text`: lowercased alphanumeric words (via the same
+/// normalizer the exact path uses) with stopwords and sub-3-char tokens dropped.
+fn reword_significant_tokens(text: &str) -> Vec<String> {
+    normalize_marker_text(text)
+        .split(' ')
+        .filter(|t| t.len() >= 3 && !reword_is_stopword(t))
+        .map(|t| t.to_string())
+        .collect()
+}
+
+/// Share of `needle_tokens` present in `haystack`. 1.0 = every described token
+/// resurfaced; 0.0 = none did.
+fn token_set_containment(
+    needle_tokens: &[String],
+    haystack: &std::collections::HashSet<String>,
+) -> f64 {
+    if needle_tokens.is_empty() {
+        return 0.0;
+    }
+    let hit = needle_tokens
+        .iter()
+        .filter(|t| haystack.contains(*t))
+        .count();
+    hit as f64 / needle_tokens.len() as f64
+}
+
+/// True when `lower_text` (an already-lowercased comment block) still speaks in
+/// deferral terms — a relabel synonym or an explicit future marker. Only STRONG
+/// cues count (not bare modals like "can"/"should", which pepper ordinary docs):
+/// the threat is relabelling a marker into *another* deferral note, and a
+/// paraphrase that drops every deferral cue reads as plain documentation of
+/// current state, not an owed-work tracker. This gate keeps the fuzzy matcher
+/// from flagging a past-tense "we did X" note about the now-finished work. Cue
+/// fragments are assembled at runtime so this file never carries the literal
+/// marker tokens it forbids.
+fn comment_block_has_deferral_cue(lower_text: &str) -> bool {
+    let cues: Vec<String> = vec![
+        format!("{}{}", "to", "do"),
+        format!("{}{}", "fix", "me"),
+        format!("{}-{}", "follow", "up"),
+        format!("{}{}", "follow", "up"),
+        format!("{}{}", "de", "fer"),
+        format!("{}{}", "stop", "gap"),
+        format!("{}{}", "place", "holder"),
+        format!("{}{}", "w", "ip"),
+        format!("{}{}", "t", "bd"),
+        "revisit".to_string(),
+        "punt".to_string(),
+        "eventually".to_string(),
+        "someday".to_string(),
+        "pending".to_string(),
+        "unimplemented".to_string(),
+        "incomplete".to_string(),
+        "stub".to_string(),
+        "not yet".to_string(),
+        "for now".to_string(),
+        "to be done".to_string(),
+        "to be implemented".to_string(),
+        "come back".to_string(),
+        "needs to".to_string(),
+        "remains to".to_string(),
+        "yet to".to_string(),
+    ];
+    cues.iter().any(|c| lower_text.contains(c.as_str()))
+}
+
+/// Pool every maximal run of consecutive comment-lead lines in `content` into a
+/// `CommentBlock`. Runs that still literally carry `needle` are skipped — those
+/// are live markers handled by the lexical ban, not relabels. Pooling the whole
+/// run is what defeats the line-break dodge: a description re-wrapped across
+/// several `///` lines lands in one token bag.
+fn comment_blocks_without_marker(content: &str, needle: &str) -> Vec<CommentBlock> {
+    let lines: Vec<&str> = content.lines().collect();
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i < lines.len() {
+        if !line_is_comment_lead(lines[i]) {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        let mut joined = String::new();
+        while i < lines.len() && line_is_comment_lead(lines[i]) {
+            joined.push(' ');
+            joined.push_str(lines[i]);
+            i += 1;
+        }
+        if joined.contains(needle) {
+            continue;
+        }
+        out.push(CommentBlock {
+            start_line: start + 1,
+            tokens: reword_significant_tokens(&joined).into_iter().collect(),
+            lower_text: joined.to_lowercase(),
+        });
+    }
+    out
+}
+
 /// Detect the rename-evasion: the marker token is gone from its recorded site, but
 /// the *deferred description* it carried still survives in a current comment line
 /// (relabelled — e.g. the `// TODO:` / `# TODO(x):` lead-in swapped for
@@ -4860,15 +5462,35 @@ fn reworded_marker_remnant_survives(
     needle: &str,
 ) -> Option<usize> {
     let description = marker_description(&previous_site.site, needle)?;
-    if description.len() < MIN_REWORD_DESCRIPTION_LEN {
-        return None;
-    }
-    for (idx, line) in current_content.lines().enumerate() {
-        if line.contains(needle) || !line_is_comment_lead(line) {
-            continue;
+
+    // (A) Exact relabel: the normalized description survives verbatim in a
+    // current comment line. Unchanged from the original audit — the char floor
+    // keeps short generic tails from colliding.
+    if description.len() >= MIN_REWORD_DESCRIPTION_LEN {
+        for (idx, line) in current_content.lines().enumerate() {
+            if line.contains(needle) || !line_is_comment_lead(line) {
+                continue;
+            }
+            if normalize_marker_text(line).contains(&description) {
+                return Some(idx + 1);
+            }
         }
-        if normalize_marker_text(line).contains(&description) {
-            return Some(idx + 1);
+    }
+
+    // (B) Paraphrase / re-wrap relabel: the description's significant tokens
+    // resurface (reordered, line-rewrapped, or lightly reworded) across one
+    // contiguous comment block that still speaks in deferral terms. Pooling the
+    // block matches a description split across several `///` lines as a single
+    // bag, defeating the line-break dodge; the strong-cue gate keeps a
+    // past-tense note about the finished work from being read as an owed marker.
+    let needle_tokens = reword_significant_tokens(&description);
+    if needle_tokens.len() >= MIN_REWORD_SIGNIFICANT_TOKENS {
+        for block in comment_blocks_without_marker(current_content, needle) {
+            if token_set_containment(&needle_tokens, &block.tokens) >= REWORD_CONTAINMENT_THRESHOLD
+                && comment_block_has_deferral_cue(&block.lower_text)
+            {
+                return Some(block.start_line);
+            }
         }
     }
     None
@@ -4927,14 +5549,31 @@ fn collect_reworded_marker_sites_from_git_history(
                     let Some(desc) = marker_description(removed_line, needle) else {
                         continue;
                     };
-                    if desc.len() < MIN_REWORD_DESCRIPTION_LEN {
-                        continue;
-                    }
-                    let relabelled = added.iter().any(|added_line| {
-                        !added_line.contains(needle)
-                            && normalize_marker_text(added_line).contains(&desc)
-                    });
-                    if relabelled {
+                    // Exact relabel: a single added line carries the verbatim
+                    // description under a new label (original behaviour).
+                    let exact_relabel = desc.len() >= MIN_REWORD_DESCRIPTION_LEN
+                        && added.iter().any(|added_line| {
+                            !added_line.contains(needle)
+                                && normalize_marker_text(added_line).contains(&desc)
+                        });
+                    // Fuzzy relabel: pool the hunk's added lines (minus any still
+                    // carrying the marker) so a description reworded or rewrapped
+                    // across several added lines is matched as one bag, gated on a
+                    // strong deferral cue exactly as the working-tree path is.
+                    let pooled: String = added
+                        .iter()
+                        .filter(|a| !a.contains(needle))
+                        .map(|a| a.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    let needle_tokens = reword_significant_tokens(&desc);
+                    let bag: std::collections::HashSet<String> =
+                        reword_significant_tokens(&pooled).into_iter().collect();
+                    let fuzzy_relabel = needle_tokens.len() >= MIN_REWORD_SIGNIFICANT_TOKENS
+                        && token_set_containment(&needle_tokens, &bag)
+                            >= REWORD_CONTAINMENT_THRESHOLD
+                        && comment_block_has_deferral_cue(&pooled.to_lowercase());
+                    if exact_relabel || fuzzy_relabel {
                         let site = ToDoHistorySite {
                             file: rel.clone(),
                             anchor: FILE_ANCHOR.to_string(),

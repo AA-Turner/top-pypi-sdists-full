@@ -141,11 +141,48 @@ pub(crate) struct SurvivalJointQuantities {
     pub(crate) d2qdot_ls: Array1<f64>,
     pub(crate) d2qdot_lstd: Array1<f64>,
     pub(crate) d2qdot_lslsd: Array1<f64>,
-    pub(crate) d3qdot_tls_ls: Array1<f64>,
-    pub(crate) d3qdot_tls_lsd: Array1<f64>,
-    pub(crate) d3qdot_td_ls_ls: Array1<f64>,
-    pub(crate) d3qdot_ls_ls_ls: Array1<f64>,
-    pub(crate) d3qdot_ls_ls_lsd: Array1<f64>,
+    // NOTE: the 3rd-order qdot maps (d3qdot_tls_ls / _tls_lsd / _td_ls_ls /
+    // _ls_ls_ls / _ls_ls_lsd) were only consumed by the dense `Tower4<9>`
+    // location-scale directional path, which is currently disabled (see
+    // `row_kernel_directional_supported` → false). They are re-added — here and
+    // in `SurvivalDynamicGeometry` — when that path is re-enabled (#932).
+}
+
+/// Per-row negative-log-likelihood **curvatures** of the three functionally
+/// independent time-channel indices `(h0, h1, d_raw)` — i.e. the diagonal of
+/// the row NLL Hessian in time-channel space.
+///
+/// The stored `SurvivalJointQuantities` fields (`h_time_h0`, `h_time_h1`,
+/// `h_time_d`) all hold the *log-likelihood* second derivatives `+∂²ℓ/∂·²`
+/// (they are `-tower.h[i][i]` of the NLL jet, double-negated). The NLL Hessian
+/// negates each **uniformly** — `H = -∂²ℓ`. Historically each assembly site
+/// hand-applied that minus per channel, and one site drifted to `+h_time_d`,
+/// flipping the event-Jacobian (`g`) self-term and every `g`-coupled
+/// cross-block term (gam#1396). This type makes the sign live in exactly one
+/// place: the three channels are negated together at construction, so a
+/// per-channel sign skew is structurally unrepresentable.
+pub(crate) struct TimeChannelNllCurvatures {
+    /// `-∂²ℓ/∂h0²` (entry-survival channel).
+    pub(crate) h0: Array1<f64>,
+    /// `-∂²ℓ/∂h1²` (exit-survival/event-density channel).
+    pub(crate) h1: Array1<f64>,
+    /// `-∂²ℓ/∂d_raw²` (event-Jacobian `g = d_raw + qdot` channel).
+    pub(crate) d: Array1<f64>,
+}
+
+impl SurvivalJointQuantities {
+    /// Build the time-channel NLL curvature triple, applying the `H = -∂²ℓ`
+    /// negation once and uniformly across `(h0, h1, d_raw)`. Every diagonal
+    /// time-channel Hessian assembly site (block-diagonal time-time, full-joint
+    /// time-time, and the `g`-coupled time×{threshold,log_sigma,wiggle} cross
+    /// blocks) consumes this so the three channels can never disagree on sign.
+    pub(crate) fn time_channel_nll_curvatures(&self) -> TimeChannelNllCurvatures {
+        TimeChannelNllCurvatures {
+            h0: -&self.h_time_h0,
+            h1: -&self.h_time_h1,
+            d: -&self.h_time_d,
+        }
+    }
 }
 
 pub(crate) struct SurvivalJointPsiDirection {
@@ -503,7 +540,7 @@ pub(crate) fn row_set_from_survival_mask(
         .iter()
         .enumerate()
         .filter_map(|(index, &weight)| {
-            (weight != 0.0).then_some(crate::solver::outer_subsample::WeightedOuterRow {
+            (weight != 0.0).then_some(crate::outer_subsample::WeightedOuterRow {
                 index,
                 weight,
                 stratum: 0,
@@ -731,16 +768,30 @@ impl SurvivalLocationScaleFamily {
     /// current trait contract.
     #[inline]
     pub(crate) fn row_kernel_joint_hessian_supported(&self) -> bool {
-        self.x_link_wiggle.is_none()
+        // Keep the coefficient working-set path on the bespoke exact
+        // assembler. Besides avoiding the oversized `Tower4<9>` cache, the
+        // bespoke path is the derivative path that currently tracks the
+        // survival location-scale likelihood for every supported residual
+        // distribution and time-varying channel layout.
+        false
     }
 
     /// First directional derivatives require third qdot map derivatives when
-    /// threshold/log-sigma derivative designs are present; those live in
-    /// `SurvivalJointQuantities`, so every non-wiggle shape can use the
-    /// `RowKernel<9>` path.
+    /// threshold/log-sigma derivative designs are present.
     #[inline]
     pub(crate) fn row_kernel_directional_supported(&self) -> bool {
-        self.x_link_wiggle.is_none()
+        // The dense `Tower4<9>` directional path materializes a complete
+        // fourth-order tensor over the nine survival location-scale primary
+        // channels. That is the wrong representation here: every row program
+        // builds multiple ~50 KiB tower values and operator chains copy them
+        // by value, which has caused stack overflows and severe timeouts in
+        // exact location-scale survival fits.  The non-wiggle family already
+        // has an exact hand-derived first-directional implementation below
+        // this gate (the same path required for link-wiggle, where the
+        // coefficient-to-primary Jacobian is beta-dependent), so route all
+        // first directional derivatives through that exact implementation
+        // until the generic tower grows a packed/heap-backed tensor layout.
+        false
     }
 
     pub(crate) fn survival_ls_row_kernel<'a>(
@@ -1315,11 +1366,6 @@ impl SurvivalLocationScaleFamily {
             d2qdot_ls: dynamic.d2qdot_ls,
             d2qdot_lstd: dynamic.d2qdot_lstd,
             d2qdot_lslsd: dynamic.d2qdot_lslsd,
-            d3qdot_tls_ls: dynamic.d3qdot_tls_ls,
-            d3qdot_tls_lsd: dynamic.d3qdot_tls_lsd,
-            d3qdot_td_ls_ls: dynamic.d3qdot_td_ls_ls,
-            d3qdot_ls_ls_ls: dynamic.d3qdot_ls_ls_ls,
-            d3qdot_ls_ls_lsd: dynamic.d3qdot_ls_ls_lsd,
         })
     }
 
@@ -1346,13 +1392,13 @@ impl SurvivalLocationScaleFamily {
     ///   ∂²(−ell_i)/∂dRaw² =   w_i d / g²
     ///
     /// The fields `grad_time_eta_*` / `h_time_*` produced by
-    /// [`Self::row_derivatives`] are the corresponding log-likelihood (not
-    /// NLL) partials; we negate `grad_time_eta_*` and the entry/exit second
-    /// derivatives (`h_time_h0`, `h_time_h1`) to recover the NLL convention.
-    /// The derivative-channel Hessian field `h_time_d` is already stored in
-    /// NLL sign (the joint Hessian builder uses `+h_time_d` whereas it uses
-    /// `−h_time_h0` / `−h_time_h1` for entry/exit; see the exact joint
-    /// `safe_fast_xt_diag_x` assembly).
+    /// [`Self::row_derivatives`] are log-likelihood (not NLL) partials. All
+    /// three time channels (h0, h1, d_raw) are stored as `+∂ℓ`/`+∂²ℓ`, so the
+    /// NLL gradient/curvature negates each **uniformly**. This site delegates
+    /// that to [`SurvivalRowDerivatives::time_channel_nll_gradient`] /
+    /// [`SurvivalRowDerivatives::time_channel_nll_curvature_diag`], which own
+    /// the sign in one place (gam#1396 — a prior `+h_time_d` outlier here and
+    /// in the joint assembler flipped the event-Jacobian self-term).
     pub(crate) fn offset_channel_geometry(
         &self,
         block_states: &[ParameterBlockState],
@@ -1420,19 +1466,17 @@ impl SurvivalLocationScaleFamily {
                     let Some(row) = self.row_derivatives(i, state)? else {
                         return Ok((i, 0.0, 0.0, 0.0, [[0.0; 3]; 3]));
                     };
-                    // Convert ℓ-partials (h_time_*, grad_time_eta_*) to NLL partials.
-                    // grad_time_eta_* hold ∂ℓ/∂{h0,h1,d_raw}; ∂NLL/∂o = −∂ℓ/∂h.
-                    let r_entry = -row.grad_time_eta_h0;
-                    let r_exit = -row.grad_time_eta_h1;
-                    let r_deriv = -row.grad_time_eta_d;
-                    // NLL Hessian on (h0,h1,d_raw): diagonal because the row likelihood
-                    // factors through (u0, u1, g) which are functionally independent
-                    // in (h0, h1, d_raw). Signs follow the exact-joint Hessian assembly
-                    // which uses (−h_time_h0, −h_time_h1, +h_time_d) for the NLL block.
+                    // NLL gradient + curvature on the three time channels
+                    // (h0, h1, d_raw). Both helpers own the `-∂ℓ`/`-∂²ℓ` sign
+                    // so the channels are negated uniformly (gam#1396); the
+                    // row likelihood factors through the independent indices
+                    // (u0, u1, g), so the curvature is diagonal.
+                    let [r_entry, r_exit, r_deriv] = row.time_channel_nll_gradient();
+                    let curv_diag = row.time_channel_nll_curvature_diag();
                     let mut curv = [[0.0_f64; 3]; 3];
-                    curv[0][0] = -row.h_time_h0;
-                    curv[1][1] = -row.h_time_h1;
-                    curv[2][2] = row.h_time_d;
+                    curv[0][0] = curv_diag[0];
+                    curv[1][1] = curv_diag[1];
+                    curv[2][2] = curv_diag[2];
                     Ok((i, r_entry, r_exit, r_deriv, curv))
                 },
             )
@@ -1904,16 +1948,15 @@ impl SurvivalLocationScaleFamily {
         }
     }
 
-    /// Survival log value and ratio derivatives, with the same signature as the
-    /// rescaled PDF path.  The CLogLog survival ratio is
+    /// Survival log value and ratio derivatives.  The CLogLog survival ratio is
     /// `r = exp(eta)`, and its derivatives are also `exp(eta)`; these are not
     /// derivative-rescaled because they are already ratio derivatives with
-    /// respect to the unshifted predictor.  The function value
-    /// (`-exp(eta)` = `log S`) is returned unshifted.
+    /// respect to the unshifted predictor.  Unlike the rescaled PDF path, this
+    /// evaluator therefore does not depend on the derivative log-scale.  The
+    /// function value (`-exp(eta)` = `log S`) is returned unshifted.
     pub(crate) fn exact_survival_neglog_derivatives_fourth_rescaled(
         inverse_link: &InverseLink,
         eta: f64,
-        deriv_log_scale: f64,
     ) -> Result<(f64, f64, f64, f64, f64), String> {
         match inverse_link {
             InverseLink::Standard(StandardLink::Probit) => {
@@ -1936,7 +1979,6 @@ impl SurvivalLocationScaleFamily {
                 ))
             }
             InverseLink::Standard(StandardLink::CLogLog) => {
-                let _ = deriv_log_scale;
                 let t = eta.exp();
                 Ok((-t, t, t, t, t))
             }
@@ -2081,14 +2123,10 @@ impl SurvivalLocationScaleFamily {
         let u1 = state.h1 + state.q1;
 
         let (log_s0, r0, dr0, ddr0, dddr0) =
-            Self::exact_survival_neglog_derivatives_fourth_rescaled(
-                &self.inverse_link,
-                u0,
-                deriv_log_scale,
-            )
-            .map_err(|e| {
-                format!("inverse-link survival evaluation failed at row {row} entry: {e}")
-            })?;
+            Self::exact_survival_neglog_derivatives_fourth_rescaled(&self.inverse_link, u0)
+                .map_err(|e| {
+                    format!("inverse-link survival evaluation failed at row {row} entry: {e}")
+                })?;
 
         // Fast path: for CLogLog the survival and log-pdf evaluators both need
         // `exp(u1)`, and the PDF derivatives also need
@@ -2101,14 +2139,13 @@ impl SurvivalLocationScaleFamily {
             ) {
                 Self::clglog_exit_pair(u1, deriv_log_scale)
             } else {
-                let surv = Self::exact_survival_neglog_derivatives_fourth_rescaled(
-                    &self.inverse_link,
-                    u1,
-                    deriv_log_scale,
-                )
-                .map_err(|e| {
-                    format!("inverse-link survival evaluation failed at row {row} exit: {e}")
-                })?;
+                let surv =
+                    Self::exact_survival_neglog_derivatives_fourth_rescaled(&self.inverse_link, u1)
+                        .map_err(|e| {
+                            format!(
+                                "inverse-link survival evaluation failed at row {row} exit: {e}"
+                            )
+                        })?;
 
                 let pdf = Self::exact_log_pdf_derivatives_rescaled(
                     &self.inverse_link,

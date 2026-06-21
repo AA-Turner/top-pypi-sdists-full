@@ -370,6 +370,268 @@ pub(crate) fn periodic_duchon_kernel_bernoulli_triplet(
     Ok((phi, dphi_dr, d2phi_dr2))
 }
 
+/// Scaled Bernoulli function ``kᵥ(t) = Bᵥ(t) / ν!`` and its first derivative
+/// ``k'ᵥ(t) = B'ᵥ(t)/ν! = Bᵥ₋₁(t)/(ν−1)! = kᵥ₋₁(t)`` for the degrees the
+/// mixed-periodicity Sobolev kernel needs (``ν ∈ {0,1,2,3,4}``).
+///
+/// These are the standard Sobolev-spline reproducing-kernel building blocks
+/// (Wahba 1990; Gu, *Smoothing Spline ANOVA*). ``Bᵥ`` is the (ordinary, not
+/// periodised) Bernoulli polynomial:
+///   ``B₀=1``, ``B₁=t−½``, ``B₂=t²−t+1/6``, ``B₃=t³−(3/2)t²+(1/2)t``,
+///   ``B₄=t⁴−2t³+t²−1/30``.
+fn scaled_bernoulli_value_and_derivative(nu: usize, t: f64) -> Result<(f64, f64), BasisError> {
+    // (value of Bᵥ(t), value of B'ᵥ(t)=ν·Bᵥ₋₁(t)); we then divide by ν!.
+    let (bv, dbv) = match nu {
+        0 => (1.0, 0.0),
+        1 => (t - 0.5, 1.0),
+        2 => (t * t - t + 1.0 / 6.0, 2.0 * t - 1.0),
+        3 => {
+            let t2 = t * t;
+            (t2 * t - 1.5 * t2 + 0.5 * t, 3.0 * t2 - 3.0 * t + 0.5)
+        }
+        4 => {
+            let t2 = t * t;
+            (
+                t2 * t2 - 2.0 * t2 * t + t2 - 1.0 / 30.0,
+                4.0 * t2 * t - 6.0 * t2 + 2.0 * t,
+            )
+        }
+        other => {
+            crate::bail_invalid_basis!(
+                "mixed-periodicity Sobolev kernel needs Bernoulli degree ν ≤ 4; got {other}"
+            )
+        }
+    };
+    let factorial = (1..=nu).map(|v| v as f64).product::<f64>();
+    Ok((bv / factorial, dbv / factorial))
+}
+
+/// Penalised part of the 1-D Sobolev (smoothing-spline) reproducing kernel of
+/// order ``m`` on ``[0, 1]`` for a NON-periodic axis:
+///
+/// ```text
+///     R(x, y) = kₘ(x) kₘ(y) + (−1)^{m−1} k_{2m}(|x − y|)
+/// ```
+///
+/// with ``kᵥ(t) = Bᵥ(t)/ν!`` (Wahba 1990; Gu 2013, the ``R₁`` reproducing
+/// kernel of the seminorm ``∫ (f^{(m)})²``). This kernel is **positive
+/// semidefinite** and its null space is exactly the polynomials of degree
+/// ``< m`` — precisely the unpenalised directions the cylinder/torus Duchon
+/// nullspace must contain on a non-periodic axis (gam#1423). Using it as the
+/// per-axis factor (instead of the conditionally-PD chord-polyharmonic kernel)
+/// is what restores positive semidefiniteness to the mixed-periodicity penalty
+/// (gam#1422).
+///
+/// The caller passes the RAW axis coordinates ``x, y`` together with the
+/// per-axis ``(lo, hi)`` from the centers; both are affine-mapped to ``[0, 1]``
+/// so ``Bᵥ`` is evaluated on its canonical domain and the same map is replayed
+/// identically at prediction time.
+fn nonperiodic_sobolev_kernel_1d(
+    x: f64,
+    y: f64,
+    m: usize,
+    lo: f64,
+    hi: f64,
+) -> Result<f64, BasisError> {
+    if m == 0 {
+        crate::bail_invalid_basis!("non-periodic Sobolev kernel order m must be at least 1");
+    }
+    let span = (hi - lo).max(1e-300);
+    let xs = ((x - lo) / span).clamp(0.0, 1.0);
+    let ys = ((y - lo) / span).clamp(0.0, 1.0);
+    let (kx, _) = scaled_bernoulli_value_and_derivative(m, xs)?;
+    let (ky, _) = scaled_bernoulli_value_and_derivative(m, ys)?;
+    let diff = (xs - ys).abs();
+    let sign = if m % 2 == 1 { 1.0 } else { -1.0 };
+    let k2m = even_bernoulli_polynomial(2 * m, diff)? / factorial_f64(2 * m);
+    Ok(kx * ky + sign * k2m)
+}
+
+/// Radial-style jet ``(R, ∂R/∂x, ∂²R/∂x²)`` of
+/// [`nonperiodic_sobolev_kernel_1d`] w.r.t. the first (data) coordinate ``x``,
+/// for the prediction/position-API path. Derivatives carry the chain-rule
+/// ``1/span`` factor from the affine map to ``[0, 1]``; the ``|x − y|`` term's
+/// first derivative picks up ``sign(x − y)`` (its second derivative is the even
+/// Bernoulli second derivative, continuous across ``x = y``).
+pub(crate) fn nonperiodic_sobolev_kernel_1d_triplet(
+    x: f64,
+    y: f64,
+    m: usize,
+    lo: f64,
+    hi: f64,
+) -> Result<(f64, f64, f64), BasisError> {
+    if m == 0 {
+        crate::bail_invalid_basis!("non-periodic Sobolev kernel order m must be at least 1");
+    }
+    let span = (hi - lo).max(1e-300);
+    let xs = ((x - lo) / span).clamp(0.0, 1.0);
+    let ys = ((y - lo) / span).clamp(0.0, 1.0);
+    let (kx, dkx) = scaled_bernoulli_value_and_derivative(m, xs)?;
+    let (ky, _) = scaled_bernoulli_value_and_derivative(m, ys)?;
+    // d/dx [kₘ(xs)] = k'ₘ(xs)/span; d²/dx² = k''ₘ(xs)/span². k''ₘ = kₘ₋₂ etc.;
+    // reuse the even-Bernoulli second-derivative only via the |x−y| term and
+    // build kₘ's second derivative from the (m−1) scaled-Bernoulli derivative.
+    let (_, d2kx_inner) = if m >= 1 {
+        scaled_bernoulli_value_and_derivative(m.saturating_sub(1), xs)?
+    } else {
+        (0.0, 0.0)
+    };
+    let sign = if m % 2 == 1 { 1.0 } else { -1.0 };
+    let diff = xs - ys;
+    let adiff = diff.abs();
+    let (b1, b2) = even_bernoulli_polynomial_derivatives(2 * m, adiff)?;
+    let fac2m = factorial_f64(2 * m);
+    let k2m = even_bernoulli_polynomial(2 * m, adiff)? / fac2m;
+    let dsign = if diff >= 0.0 { 1.0 } else { -1.0 };
+
+    let value = kx * ky + sign * k2m;
+    // ∂/∂x: kₘ'(xs)·ky/span + sign·(B'_{2m}(|d|)/((2m)!))·sgn(d)/span
+    let d1 = (dkx * ky / span) + sign * (b1 / fac2m) * dsign / span;
+    // ∂²/∂x²: kₘ''(xs)·ky/span² + sign·B''_{2m}(|d|)/((2m)!)/span²
+    // kₘ''(xs) = (d/dxs) k'ₘ(xs) = (d/dxs) kₘ₋₁(xs) = k'ₘ₋₁(xs) = d2kx_inner.
+    let d2 = (d2kx_inner * ky / (span * span)) + sign * (b2 / fac2m) / (span * span);
+    Ok((value, d1, d2))
+}
+
+#[inline]
+fn factorial_f64(n: usize) -> f64 {
+    (1..=n).map(|v| v as f64).product::<f64>()
+}
+
+/// Per-axis ``[lo, hi]`` bounds of the centers along every NON-periodic axis,
+/// used to affine-map that axis to ``[0, 1]`` for the Sobolev kernel. Periodic
+/// axes carry a placeholder (their kernel uses the period, not these bounds).
+/// Mirrored byte-for-byte between the forward builder and the prediction/jet
+/// path so the realized design and the frozen-center replay agree.
+pub(crate) fn mixed_periodicity_axis_bounds(
+    centers: ArrayView2<'_, f64>,
+    periodic_per_axis: &[bool],
+) -> Vec<(f64, f64)> {
+    let d = centers.ncols();
+    (0..d)
+        .map(|j| {
+            if periodic_per_axis[j] {
+                (0.0, 1.0)
+            } else {
+                let col = centers.column(j);
+                let lo = col.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+                let hi = col.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+                (lo, hi)
+            }
+        })
+        .collect()
+}
+
+/// Additive mixed-periodicity Duchon kernel value
+/// ``K(x, c) = Σ_j R_j(x_j, c_j)``, the sum of per-axis positive-semidefinite
+/// reproducing kernels: the periodic Bernoulli Green's function on periodic
+/// axes and the 1-D Sobolev kernel on non-periodic axes. As a SUM of PSD
+/// kernels it is PSD, and its null space is the polynomials of degree ``< m``
+/// in the non-periodic coordinates only (constants on the periodic axes),
+/// which is exactly the correct cylinder/torus Duchon null space
+/// (gam#1422 / gam#1423). This replaces the conditionally-PD
+/// polyharmonic-of-chord-distance kernel.
+pub(crate) fn mixed_periodicity_additive_kernel(
+    x: ArrayView1<'_, f64>,
+    c: ArrayView1<'_, f64>,
+    m: usize,
+    periodic_per_axis: &[bool],
+    periods: &[f64],
+    axis_bounds: &[(f64, f64)],
+) -> Result<f64, BasisError> {
+    let d = x.len();
+    let mut acc = 0.0_f64;
+    for j in 0..d {
+        acc += if periodic_per_axis[j] {
+            let r = periodic_distance_1d(x[j], c[j], periods[j]);
+            periodic_duchon_kernel_bernoulli(r, m, periods[j])?
+        } else {
+            let (lo, hi) = axis_bounds[j];
+            nonperiodic_sobolev_kernel_1d(x[j], c[j], m, lo, hi)?
+        };
+    }
+    Ok(acc)
+}
+
+/// Per-axis value + first/second self-derivative of the additive
+/// mixed-periodicity kernel for one ``(x, c)`` pair. Because the kernel is the
+/// SUM of per-axis 1-D kernels, the gradient w.r.t. ``x`` is per-axis
+/// (``∂K/∂x_a = R_a'(x_a, c_a)``, no cross terms) and the Hessian is DIAGONAL
+/// (``∂²K/∂x_a∂x_c = δ_{ac} R_a''``). Returns ``(value, grad_a, hess_aa)`` with
+/// length-``d`` per-axis vectors, so the caller can assemble the input-location
+/// jet/Hessian directly. This is the exact analytic derivative of
+/// [`mixed_periodicity_additive_kernel`].
+#[allow(clippy::type_complexity)]
+pub(crate) fn mixed_periodicity_additive_kernel_jet(
+    x: ArrayView1<'_, f64>,
+    c: ArrayView1<'_, f64>,
+    m: usize,
+    periodic_per_axis: &[bool],
+    periods: &[f64],
+    axis_bounds: &[(f64, f64)],
+) -> Result<(f64, Vec<f64>, Vec<f64>), BasisError> {
+    let d = x.len();
+    let mut value = 0.0_f64;
+    let mut grad = vec![0.0_f64; d];
+    let mut hess = vec![0.0_f64; d];
+    for a in 0..d {
+        let (v, d1, d2) = if periodic_per_axis[a] {
+            // The Bernoulli triplet differentiates w.r.t. the unsigned radial
+            // distance `r = |x_a − c_a|` reduced mod period; convert to the
+            // derivative w.r.t. `x_a` via the chain rule (sign of the reduced
+            // signed offset). The second derivative is sign-independent.
+            let p = periods[a];
+            let signed = {
+                let raw = (x[a] - c[a]).rem_euclid(p);
+                if raw > 0.5 * p { raw - p } else { raw }
+            };
+            let r = signed.abs();
+            let (phi, dphi_dr, d2phi_dr2) = periodic_duchon_kernel_bernoulli_triplet(r, m, p)?;
+            let dsign = if signed >= 0.0 { 1.0 } else { -1.0 };
+            (phi, dphi_dr * dsign, d2phi_dr2)
+        } else {
+            let (lo, hi) = axis_bounds[a];
+            nonperiodic_sobolev_kernel_1d_triplet(x[a], c[a], m, lo, hi)?
+        };
+        value += v;
+        grad[a] = d1;
+        hess[a] = d2;
+    }
+    Ok((value, grad, hess))
+}
+
+/// Polynomial side-condition block for the mixed-periodicity Duchon null space:
+/// monomials of total degree ``< m`` in the NON-periodic coordinates only
+/// (periodic axes contribute only the constant, which is the degree-0 monomial
+/// shared by all axes). For the cylinder ``(θ periodic, y free)`` with ``m = 2``
+/// this yields ``{1, y}`` — so ``f(θ, y) = a + b y`` is correctly unpenalised
+/// (gam#1423).
+pub(crate) fn mixed_periodicity_nullspace_poly_block(
+    points: ArrayView2<'_, f64>,
+    m: usize,
+    periodic_per_axis: &[bool],
+) -> Array2<f64> {
+    let n = points.nrows();
+    let nonperiodic_axes: Vec<usize> = (0..points.ncols())
+        .filter(|&j| !periodic_per_axis[j])
+        .collect();
+    let max_degree = m.saturating_sub(1);
+    // Monomial exponents of total degree ≤ (m−1) over the non-periodic axes.
+    let exps = monomial_exponents(nonperiodic_axes.len(), max_degree);
+    let mut block = Array2::<f64>::zeros((n, exps.len()));
+    for (col, exp) in exps.iter().enumerate() {
+        for row in 0..n {
+            let mut value = 1.0_f64;
+            for (local_axis, &power) in exp.iter().enumerate() {
+                let axis = nonperiodic_axes[local_axis];
+                value *= points[[row, axis]].powi(power as i32);
+            }
+            block[[row, col]] = value;
+        }
+    }
+    block
+}
+
 /// Drop centers that periodically identify with the leftmost anchor.
 ///
 /// When the user describes a closed periodic lattice by including BOTH
@@ -649,93 +911,49 @@ pub(crate) fn build_periodic_duchon_basis_1d(
             input_scales: None,
             aniso_log_scales: None,
             operator_collocation_points: None,
+            radial_reparam: None,
         },
         kronecker_factored: None,
     })
 }
 
-/// Per-pair generalized distance for the mixed-periodicity Duchon basis.
+/// Build a multi-dimensional Duchon basis with per-axis periodicity
+/// (cylinder ``(True, False)``, torus ``(True, True)``, …).
 ///
-/// For each axis ``j``:
-///   * **periodic** axis with period ``P_j``: ``d_j(x, y) = (P_j / π) · sin(π·(x − y)/P_j)``,
-///     the chord distance on the circle of circumference ``P_j``. The chord
-///     metric recovers the Euclidean limit ``d_j → x − y`` as ``P_j → ∞`` and
-///     is invariant under the periodic identification ``x ≡ x + P_j``.
-///   * **non-periodic** axis: ``d_j(x, y) = x − y``.
+/// ## Construction (gam#1422 / gam#1423)
 ///
-/// Then ``r = sqrt(Σ d_j²)``. This is the cylinder/torus "extrinsic chord"
-/// distance — the same metric used implicitly by the spherical S² basis when
-/// embedding in ℝ³. The radial polyharmonic kernel φ(r) defined on this
-/// distance yields a positive-definite kernel on the mixed-periodicity
-/// product manifold whose nullspace contains the constant function.
-#[inline]
-pub(crate) fn duchon_mixed_periodicity_distance(
-    x: ArrayView1<'_, f64>,
-    y: ArrayView1<'_, f64>,
-    periodic_per_axis: &[bool],
-    periods: &[f64],
-) -> f64 {
-    let d = x.len();
-    assert_eq!(d, y.len());
-    assert_eq!(d, periodic_per_axis.len());
-    assert_eq!(d, periods.len());
-    let mut acc = 0.0_f64;
-    for j in 0..d {
-        let delta = if periodic_per_axis[j] {
-            let p = periods[j];
-            // Chord distance on circle of circumference P_j.
-            (p / std::f64::consts::PI) * (std::f64::consts::PI * (x[j] - y[j]) / p).sin()
-        } else {
-            x[j] - y[j]
-        };
-        acc += delta * delta;
-    }
-    acc.sqrt()
-}
-
-/// Build a multi-dimensional Duchon basis with per-axis periodicity.
+/// The penalty is built from an **additive tensor (ANOVA) reproducing
+/// kernel** — the sum of per-axis positive-semidefinite 1-D reproducing
+/// kernels — NOT the polyharmonic kernel evaluated at the cylinder/torus
+/// chord distance. The chord-polyharmonic kernel is only *conditionally*
+/// positive-definite (PD orthogonal to the chord-embedding linear span), so
+/// projecting out only the constants leaves indefinite linear modes and the
+/// center Gram ``Ω = Zᵀ K Z`` carries large negative eigenvalues (gam#1422).
 ///
-/// Generalizes the 1D `build_periodic_duchon_basis_1d` to mixed-periodicity
-/// settings (cylinder ``(True, False)``, torus ``(True, True)``, etc.) by:
+///   * **periodic** axis (period ``P_j``): the periodic Bernoulli Green's
+///     function ``(−1)^{m+1} B_{2m}(Δ/P_j)`` ([`periodic_duchon_kernel_bernoulli`]),
+///     which is PSD (every Fourier coefficient ``∝ 1/n^{2m} > 0``) with null
+///     space ``{constants}``.
+///   * **non-periodic** axis: the 1-D Sobolev smoothing-spline reproducing
+///     kernel ([`nonperiodic_sobolev_kernel_1d`]), which is PSD with null
+///     space the polynomials of degree ``< m``.
 ///
-///   1. Replacing the Euclidean per-pair distance with a generalized
-///      cylinder/torus distance: for periodic axes use the chord distance
-///      on the circle ``(P_j/π) · sin(π·(x−y)/P_j)``; for non-periodic axes
-///      use the plain difference (see [`duchon_mixed_periodicity_distance`]).
-///   2. Evaluating the radial polyharmonic Duchon kernel
-///      ``φ(r) = c · r^(2m − d)`` (or ``r^(2m−d) · log r`` in the log case)
-///      at the generalized distance. The polyharmonic coefficient ``c`` is
-///      computed by [`PolyharmonicBlockCoeff::new(m, d)`].
-///   3. Forcing the constraint nullspace to ``{constants}`` (the only
-///      polynomial that is periodic on every periodic axis). This mirrors
-///      the 1D periodic path.
-///   4. Returning a single Primary penalty matrix
-///      ``Ω = Zᵀ · K_centers · Z`` (the kernel-Gram identity).
-///
-/// Notes
-/// -----
-/// * **Math (1D)**: for ``d = 1`` with one periodic axis, this path uses the
-///   polyharmonic-of-chord-distance kernel
-///   ``c · |(P/π) sin(π Δ/P)|^(2m − 1)``. This is the principled
-///   generalization on the circle and is also the kernel the pyffi
-///   dispatcher uses for the 1D periodic case; the older Bernoulli
-///   Green's-function ``B_{2m}(Δ/P)`` builder is no longer dispatched
-///   from pyffi.
-/// * **Nullspace audit**: a more principled choice for the cylinder
-///   (``d = 2``, axis 0 periodic, axis 1 non-periodic) is the polynomial
-///   nullspace ``{1, x_1, x_1², …, x_1^{m−1}}`` — polynomials in the
-///   non-periodic axes only, of total degree ``< m``. We keep
-///   ``{constants}`` here to match the existing periodic-Duchon convention
-///   and avoid widening the polynomial-block construction; users who need
-///   richer null spaces on the non-periodic factor can layer a separate
-///   tensor smooth.
+/// The total center kernel ``K_CC = Σ_j R_j`` is PSD (sum of PSD), and its
+/// null space is the polynomials of total degree ``< m`` in the **non-periodic
+/// coordinates only** (periodic coordinates contribute only constants) — the
+/// correct cylinder/torus Duchon null space (gam#1423). We build
+/// ``Z = null(Pᵀ)`` from that polynomial block ([`mixed_periodicity_nullspace_poly_block`]),
+/// append the matching unpenalised polynomial columns to the design, and form
+/// the single Primary penalty ``Ω = Zᵀ K_CC Z``, which is PSD by congruence.
+/// The per-axis kernels are evaluated on each axis's own coordinate, so the
+/// design wraps cleanly at every periodic seam.
 pub(crate) fn build_duchon_basis_mixed_periodicity(
     data: ArrayView2<'_, f64>,
     spec: &DuchonBasisSpec,
     centers: Array2<f64>,
     periodic_per_axis: &[bool],
     periods: &[f64],
-    workspace: &mut BasisWorkspace,
+    _workspace: &mut BasisWorkspace,
 ) -> Result<BasisBuildResult, BasisError> {
     let d = data.ncols();
     if d == 0 {
@@ -783,31 +1001,38 @@ pub(crate) fn build_duchon_basis_mixed_periodicity(
     }
 
     let user_m = duchon_p_from_nullspace_order(spec.nullspace_order);
-    // Force constant-only nullspace (only periodic-in-every-axis polynomial).
-    let effective_nullspace_order = DuchonNullspaceOrder::Zero;
     let s_order_int = 0usize;
     validate_duchon_kernel_orders(None, user_m, s_order_int as f64, d)?;
 
-    let z = kernel_constraint_nullspace(
-        centers.view(),
-        effective_nullspace_order,
-        &mut workspace.cache,
-    )?;
-    let kernel_cols = z.ncols();
-
-    // Polyharmonic kernel coefficient for radial order ``m_kernel`` in
-    // ``d`` dimensions. We use ``m_kernel = user_m`` so the kernel
-    // smoothness order tracks the user's requested ``m``, not the
-    // (forced-to-constant) nullspace order.
-    let m_kernel = pure_duchon_block_order(user_m, s_order_int as f64);
-    let ppc = PolyharmonicBlockCoeff::new(m_kernel, d);
+    // gam#1422 / gam#1423 — PSD mixed-periodicity Duchon via an ADDITIVE
+    // tensor (ANOVA) reproducing kernel, NOT the conditionally-PD
+    // polyharmonic-of-chord-distance kernel. The center Gram is the sum of
+    // per-axis positive-semidefinite reproducing kernels: the periodic
+    // Bernoulli Green's function on periodic axes (PSD, null = constants) and
+    // the 1-D Sobolev kernel on non-periodic axes (PSD, null = polynomials of
+    // degree < m). The sum is PSD (sum of PSD), and its null space is the
+    // polynomials of degree < m in the NON-periodic coordinates only — exactly
+    // the cylinder/torus Duchon null space. We build `Z` from that null space
+    // (`{1, y, …}` on the cylinder), append the matching polynomial columns to
+    // the design (so `a + b·y` is representable AND unpenalised), and form
+    // `Ω = Zᵀ K_CC Z`, which is PSD by congruence.
+    let axis_bounds = mixed_periodicity_axis_bounds(centers.view(), periodic_per_axis);
 
     let centers_owned = centers.clone();
     let k_centers = centers_owned.nrows();
     let n_data = data.nrows();
 
-    // Row-parallel raw kernel: K[i, j] = φ(r_mixed(x_i, c_j)).
+    // Non-periodic-only polynomial side condition → translation-aware null
+    // space `Z = null(Pᵀ)`. For the cylinder (m=2) `P = [1, y]`.
+    let poly_block_centers =
+        mixed_periodicity_nullspace_poly_block(centers_owned.view(), user_m, periodic_per_axis);
+    let z = kernel_constraint_nullspace_from_matrix(poly_block_centers.view())?;
+    let kernel_cols = z.ncols();
+    let n_poly = poly_block_centers.ncols();
+
+    // Row-parallel additive kernel: K[i, j] = Σ_a R_a(x_i[a], c_j[a]).
     let mut raw_kernel = Array2::<f64>::zeros((n_data, k_centers));
+    let kernel_err: std::sync::Mutex<Option<BasisError>> = std::sync::Mutex::new(None);
     raw_kernel
         .axis_chunks_iter_mut(ndarray::Axis(0), 1024)
         .into_par_iter()
@@ -818,34 +1043,52 @@ pub(crate) fn build_duchon_basis_mixed_periodicity(
                 let i = row_offset + local_i;
                 let x_row = data.row(i);
                 for j in 0..k_centers {
-                    let c_row = centers_owned.row(j);
-                    let r =
-                        duchon_mixed_periodicity_distance(x_row, c_row, periodic_per_axis, periods);
-                    out_row[j] = ppc.eval(r);
+                    match mixed_periodicity_additive_kernel(
+                        x_row,
+                        centers_owned.row(j),
+                        user_m,
+                        periodic_per_axis,
+                        periods,
+                        &axis_bounds,
+                    ) {
+                        Ok(v) => out_row[j] = v,
+                        Err(e) => {
+                            *kernel_err.lock().unwrap() = Some(e);
+                            return;
+                        }
+                    }
                 }
             }
         });
+    if let Some(e) = kernel_err.into_inner().unwrap() {
+        return Err(e);
+    }
 
-    // Design = [raw_kernel @ z, ones] (constant column carries the
-    // constant-only nullspace).
+    // Design = [K @ Z, P(data)] — the kernel columns plus the explicit
+    // unpenalised polynomial columns (in the non-periodic coordinates only).
     let design_kernel = fast_ab(&raw_kernel, &z);
-    let mut basis = Array2::<f64>::zeros((n_data, kernel_cols + 1));
+    let poly_block_data = mixed_periodicity_nullspace_poly_block(data, user_m, periodic_per_axis);
+    let mut basis = Array2::<f64>::zeros((n_data, kernel_cols + n_poly));
     basis
         .slice_mut(s![.., 0..kernel_cols])
         .assign(&design_kernel);
-    basis.column_mut(kernel_cols).fill(1.0);
+    basis
+        .slice_mut(s![.., kernel_cols..kernel_cols + n_poly])
+        .assign(&poly_block_data);
 
-    // Penalty: Ω = Zᵀ K_centers Z (kernel-Gram identity in the projected
-    // basis), padded with a zero row/col for the constant column.
+    // Penalty: Ω = Zᵀ K_CC Z (kernel-Gram identity in the projected basis),
+    // padded with zero rows/cols for the unpenalised polynomial columns. PSD
+    // because K_CC is PSD and Z is real (congruence preserves PSD).
     let mut center_kernel = Array2::<f64>::zeros((k_centers, k_centers));
     fill_symmetric_from_row_kernel(&mut center_kernel, |i, j| {
-        let r = duchon_mixed_periodicity_distance(
+        mixed_periodicity_additive_kernel(
             centers_owned.row(i),
             centers_owned.row(j),
+            user_m,
             periodic_per_axis,
             periods,
-        );
-        Ok(ppc.eval(r))
+            &axis_bounds,
+        )
     })?;
     let omega = fast_ab(&fast_atb(&z, &center_kernel), &z);
     let mut penalty = Array2::<f64>::zeros((basis.ncols(), basis.ncols()));
@@ -896,11 +1139,15 @@ pub(crate) fn build_duchon_basis_mixed_periodicity(
                     .collect(),
             ),
             power: spec.power,
-            nullspace_order: effective_nullspace_order,
+            // Record the user's requested order so the prediction/jet replay
+            // rebuilds the SAME non-periodic-only polynomial null space and the
+            // SAME order-`m` additive kernel (gam#1423).
+            nullspace_order: spec.nullspace_order,
             identifiability_transform,
             input_scales: None,
             aniso_log_scales: None,
             operator_collocation_points: None,
+            radial_reparam: None,
         },
         kronecker_factored: None,
     })
@@ -1011,25 +1258,27 @@ pub fn duchon_cubic_default(dim: usize) -> (DuchonNullspaceOrder, f64) {
 /// coefficient-space penalty scales by `α²`. The null-space ridge penalizes the
 /// affine trend's slope (mean-free: the constant is absorbed by the model
 /// intercept) so the trend is not left fully unpenalized.
-pub(crate) fn duchon_native_penalty_candidates(
+/// The constrained native bending penalty `Ω_c = α² · Zᵀ K_CC Z` (m×m, in the
+/// kernel-coefficient frame, pre-identifiability). This is exactly the `omega`
+/// block that `duchon_native_penalty_candidates` builds; it is exposed so the
+/// data-metric radial reparameterization (#1355) can solve the generalized
+/// eigenproblem `Ω_c v = μ G_c v` against the realized design Gram `G_c`.
+pub(crate) fn duchon_constrained_bending_penalty(
     centers: ArrayView2<'_, f64>,
     length_scale: Option<f64>,
     power: f64,
     nullspace_order: DuchonNullspaceOrder,
     aniso_log_scales: Option<&[f64]>,
     kernel_transform: &Array2<f64>,
-    outer_identifiability: Option<&Array2<f64>>,
-    poly_cols: usize,
-) -> Result<Vec<PenaltyCandidate>, BasisError> {
+) -> Result<Array2<f64>, BasisError> {
     let dim = centers.ncols();
     if dim == 0 {
         crate::bail_invalid_basis!(
-            "duchon_native_penalty_candidates: centers must have at least one column"
+            "duchon_constrained_bending_penalty: centers must have at least one column"
         );
     }
     let k = centers.nrows();
     let z = kernel_transform;
-    let n_kernel = z.ncols();
     let p_order = duchon_p_from_nullspace_order(nullspace_order);
     let s_int = duchon_power_to_usize(power);
     let pure = length_scale.is_none();
@@ -1077,14 +1326,102 @@ pub(crate) fn duchon_native_penalty_candidates(
         }
     })?;
 
+    let amp2 = kernel_amp * kernel_amp;
+    let zt_k = fast_atb(z, &center_kernel);
+    let omega = fast_ab(&zt_k, z).mapv(|v| v * amp2);
+
+    // gam#1424 — the hybrid (Duchon–Matérn) kernel's exact spectral density
+    // `ρ^{-2p}(κ²+ρ²)^{-s}` is nonnegative, so the constrained bending Gram
+    // `Ω_c = α²·Zᵀ K_CC Z` is positive semidefinite in exact arithmetic. The
+    // historical failure was numerical: `duchon_matern_kernel_general_from_distance`
+    // assembled the kernel from an ALTERNATING partial-fraction expansion
+    // (polyharmonic `r^{2m−d}` minus Matérn `r^ν K_ν(κr)` blocks) whose
+    // individually-enormous terms cancel to the float noise floor at high
+    // dimension / spectral power (d=16, s=7: largest block ~1e3, true value
+    // ~1e-13), pushing λ_min to ≈ −0.26 after normalization. That kernel
+    // evaluation now routes through the cancellation-free single-integral form
+    // (`duchon_hybrid_kernel_stable_integral`), so the constrained spectrum is
+    // genuinely nonnegative to machine precision. Rather than silently
+    // projecting (which would mask a true loss of positive-definiteness), we
+    // REJECT a materially-negative spectrum and only clamp float-noise
+    // negatives — per gam#1424's required PSD check before normalization.
+    reject_nonpsd_then_clamp_noise(&symmetrize_penalty(&omega))
+}
+
+/// Enforce the PSD contract on a constrained Duchon bending penalty before
+/// normalization (gam#1424).
+///
+/// The kernel's spectral density is nonnegative, so the constrained Gram must
+/// be PSD in exact arithmetic. A genuinely PSD matrix only ever carries
+/// negative eigenvalues at the float noise floor; those are clamped to zero. A
+/// *materially* negative eigenvalue means the numerical kernel has stopped
+/// representing the stated kernel — that is rejected with a clear, actionable
+/// error rather than masked, because clamping a −0.26 mode silently fabricates
+/// a different penalty.
+fn reject_nonpsd_then_clamp_noise(matrix: &Array2<f64>) -> Result<Array2<f64>, BasisError> {
+    use crate::linalg::faer_ndarray::FaerEigh;
+    use faer::Side;
+    let sym = symmetrize_penalty(matrix);
+    let n = sym.nrows();
+    if n == 0 || n != sym.ncols() {
+        return Ok(sym);
+    }
+    let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).map_err(|e| {
+        BasisError::InvalidInput(format!("Duchon penalty PSD check failed: {e}"))
+    })?;
+    if evals.is_empty() {
+        return Ok(sym);
+    }
+    let max_abs_ev = evals
+        .iter()
+        .copied()
+        .fold(0.0_f64, |acc, v| acc.max(v.abs()));
+    let min_ev = evals.iter().copied().fold(f64::INFINITY, f64::min);
+    // Noise-floor tolerance in eigenvalue units, so uniform scaling of the
+    // penalty does not change the PSD decision (matches `spectral_tolerance`).
+    let tol = (n as f64) * 1e-10 * max_abs_ev;
+    if min_ev < -tol {
+        crate::bail_invalid_basis!(
+            "Duchon constrained penalty is not positive semidefinite: λ_min={min_ev:.6e} \
+             (tol=−{tol:.6e}, λ_max={max_abs_ev:.6e}). The hybrid kernel's spectral density is \
+             nonnegative, so a materially-negative mode indicates the kernel evaluation lost \
+             positive-definiteness numerically (see gam#1424)."
+        );
+    }
+    // λ_min is at the noise floor: clamp the harmless negative residue to zero.
+    Ok(project_penalty_to_psd_cone(&sym))
+}
+
+pub(crate) fn duchon_native_penalty_candidates(
+    centers: ArrayView2<'_, f64>,
+    length_scale: Option<f64>,
+    power: f64,
+    nullspace_order: DuchonNullspaceOrder,
+    aniso_log_scales: Option<&[f64]>,
+    kernel_transform: &Array2<f64>,
+    outer_identifiability: Option<&Array2<f64>>,
+    poly_cols: usize,
+) -> Result<Vec<PenaltyCandidate>, BasisError> {
+    let dim = centers.ncols();
+    if dim == 0 {
+        crate::bail_invalid_basis!(
+            "duchon_native_penalty_candidates: centers must have at least one column"
+        );
+    }
+    let z = kernel_transform;
+    let n_kernel = z.ncols();
+
     // ω = α² · Zᵀ K_CC Z, embedded in the kernel block of the
     // (n_kernel + poly) pre-identifiability frame (polynomial columns carry no
     // native roughness), then mapped through the outer identifiability `T`.
-    let amp2 = kernel_amp * kernel_amp;
-    let omega = {
-        let zt_k = fast_atb(z, &center_kernel);
-        fast_ab(&zt_k, z).mapv(|v| v * amp2)
-    };
+    let omega = duchon_constrained_bending_penalty(
+        centers,
+        length_scale,
+        power,
+        nullspace_order,
+        aniso_log_scales,
+        z,
+    )?;
     let n_pre = n_kernel + poly_cols;
     let mut primary_pre = Array2::<f64>::zeros((n_pre, n_pre));
     primary_pre
@@ -1288,4 +1625,363 @@ pub(crate) fn duchon_operator_penalty_candidates(
         }
     }
     Ok(candidates)
+}
+
+#[cfg(test)]
+mod mixed_periodicity_psd_tests {
+    //! Regression tests for gam#1422 (mixed-periodicity Duchon penalty must be
+    //! PSD — the additive ANOVA reproducing kernel replaces the conditionally-PD
+    //! polyharmonic-of-chord-distance kernel) and gam#1423 (the cylinder null
+    //! space must contain polynomials of total degree `< m` in the NON-periodic
+    //! coordinates, not just constants).
+    use super::*;
+    use crate::linalg::faer_ndarray::FaerEigh;
+    use faer::Side;
+    use ndarray::{Array2, array};
+
+    fn cylinder_spec() -> DuchonBasisSpec {
+        // m = 2 ⇒ Linear null-space order; pure polyharmonic (no length scale,
+        // power = 0) — the only spectrum the mixed-periodicity path supports.
+        DuchonBasisSpec {
+            center_strategy: CenterStrategy::UserProvided(Array2::<f64>::zeros((0, 0))),
+            periodic: None,
+            length_scale: None,
+            power: 0.0,
+            nullspace_order: DuchonNullspaceOrder::Linear,
+            identifiability: SpatialIdentifiability::None,
+            aniso_log_scales: None,
+            operator_penalties: DuchonOperatorPenaltySpec::default(),
+            boundary: OneDimensionalBoundary::Open,
+            radial_reparam: None,
+        }
+    }
+
+    /// Build the cylinder (`θ` periodic on `[0, 2π]`, `y` free on `[0, 1]`)
+    /// Primary penalty via the public mixed-periodicity driver and return it.
+    fn cylinder_primary_penalty() -> (Array2<f64>, usize) {
+        // Anchor the periodic span to exactly [0, 2π] so the auto-derived period
+        // is the geometric period; this mirrors the Python cylinder fixture.
+        let two_pi = std::f64::consts::TAU;
+        let theta = [
+            0.0, 0.6, 1.2, 1.9, 2.5, 3.1, 3.8, 4.4, 5.0, 5.6, two_pi,
+        ];
+        let y = [
+            0.5, 0.1, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6, 0.15, 0.5,
+        ];
+        let mut centers = Array2::<f64>::zeros((theta.len(), 2));
+        for i in 0..theta.len() {
+            centers[[i, 0]] = theta[i];
+            centers[[i, 1]] = y[i];
+        }
+        let mut spec = cylinder_spec();
+        spec.center_strategy = CenterStrategy::UserProvided(centers.clone());
+        let periodic_per_axis = [true, false];
+        let built = build_duchon_basis_mixed_periodicity_auto(
+            centers.view(),
+            &spec,
+            &periodic_per_axis,
+            None,
+        )
+        .expect("cylinder mixed-periodicity basis must build");
+        let idx = built
+            .penaltyinfo
+            .iter()
+            .position(|info| matches!(info.source, PenaltySource::Primary))
+            .expect("cylinder build must emit a Primary penalty");
+        (built.penalties[idx].clone(), centers.nrows())
+    }
+
+    #[test]
+    fn cylinder_penalty_is_symmetric_psd_gam1422() {
+        // gam#1422: with the conditionally-PD chord-polyharmonic kernel this
+        // fixture produced λ_min ≈ −0.426 (3 materially negative eigenvalues).
+        // The additive ANOVA kernel (sum of PSD per-axis reproducing kernels)
+        // is PSD by construction. Tolerance matches the Python
+        // `_assert_symmetric_psd` slack (1e-8); do NOT weaken it.
+        let (penalty, k) = cylinder_primary_penalty();
+        assert_eq!(penalty.nrows(), k);
+        assert_eq!(penalty.ncols(), k);
+        // Symmetry.
+        for i in 0..k {
+            for j in 0..k {
+                assert!(
+                    (penalty[[i, j]] - penalty[[j, i]]).abs() <= 1e-9,
+                    "cylinder penalty must be symmetric at ({i}, {j})"
+                );
+            }
+        }
+        let sym = symmetrize(&penalty);
+        let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).expect("eigh");
+        let lambda_min = evals.iter().copied().fold(f64::INFINITY, f64::min);
+        assert!(
+            lambda_min > -1e-8,
+            "cylinder Duchon penalty not PSD; λ_min = {lambda_min:.3e} (gam#1422)"
+        );
+    }
+
+    #[test]
+    fn torus_penalty_is_psd_gam1422() {
+        // gam#1422: the torus fixture previously gave λ_min ≈ −0.885 (4 negative
+        // eigenvalues). With both axes periodic the additive kernel is the sum of
+        // two PSD Bernoulli-Green kernels, hence PSD.
+        let two_pi = std::f64::consts::TAU;
+        let theta = [0.0, 0.7, 1.5, 2.3, 3.0, 3.9, 4.6, 5.4, two_pi];
+        let phi = [0.0, 1.1, 2.0, 0.4, 3.3, 4.8, 5.9, 2.7, two_pi];
+        let mut centers = Array2::<f64>::zeros((theta.len(), 2));
+        for i in 0..theta.len() {
+            centers[[i, 0]] = theta[i];
+            centers[[i, 1]] = phi[i];
+        }
+        let mut spec = cylinder_spec();
+        spec.center_strategy = CenterStrategy::UserProvided(centers.clone());
+        let periodic_per_axis = [true, true];
+        let built = build_duchon_basis_mixed_periodicity_auto(
+            centers.view(),
+            &spec,
+            &periodic_per_axis,
+            None,
+        )
+        .expect("torus mixed-periodicity basis must build");
+        let idx = built
+            .penaltyinfo
+            .iter()
+            .position(|info| matches!(info.source, PenaltySource::Primary))
+            .expect("torus build must emit a Primary penalty");
+        let sym = symmetrize(&built.penalties[idx]);
+        let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).expect("eigh");
+        let lambda_min = evals.iter().copied().fold(f64::INFINITY, f64::min);
+        assert!(
+            lambda_min > -1e-8,
+            "torus Duchon penalty not PSD; λ_min = {lambda_min:.3e} (gam#1422)"
+        );
+    }
+
+    #[test]
+    fn cylinder_nullspace_contains_one_and_y_gam1423() {
+        // gam#1423: on S¹×ℝ with m = 2 the Duchon null space is {1, y} — both the
+        // constant AND the linear-in-the-nonperiodic-coordinate term have zero
+        // seminorm, so both must be unpenalised. The polynomial block driving the
+        // null space must therefore have exactly 2 columns: a constant column and
+        // a `y` column (NOT a θ column — periodic axes contribute only the
+        // constant).
+        let points = array![
+            [0.0_f64, 0.10],
+            [1.0, 0.40],
+            [2.0, 0.70],
+            [3.0, 0.95],
+        ];
+        let periodic_per_axis = [true, false];
+        let block = mixed_periodicity_nullspace_poly_block(points.view(), 2, &periodic_per_axis);
+        assert_eq!(
+            block.ncols(),
+            2,
+            "cylinder (m=2) null space must be {{1, y}} — 2 columns (gam#1423)"
+        );
+        // One column must be the all-ones constant; another must equal the
+        // non-periodic coordinate `y` (column 1 of `points`). The block does not
+        // depend on θ (column 0).
+        let n = points.nrows();
+        let mut has_const = false;
+        let mut has_y = false;
+        let mut depends_on_theta = false;
+        for col in 0..block.ncols() {
+            let is_const = (0..n).all(|r| (block[[r, col]] - 1.0).abs() < 1e-12);
+            let is_y = (0..n).all(|r| (block[[r, col]] - points[[r, 1]]).abs() < 1e-12);
+            let is_theta = (0..n).all(|r| (block[[r, col]] - points[[r, 0]]).abs() < 1e-12);
+            has_const |= is_const;
+            has_y |= is_y;
+            depends_on_theta |= is_theta && !is_const;
+        }
+        assert!(has_const, "null space must include the constant 1");
+        assert!(has_y, "null space must include the nonperiodic coordinate y (gam#1423)");
+        assert!(
+            !depends_on_theta,
+            "periodic axis θ must contribute only the constant, never a linear θ column"
+        );
+    }
+
+    #[test]
+    fn cylinder_linear_in_y_is_unpenalised_gam1423() {
+        // gam#1423: build the center Gram K_CC and the non-periodic null-space
+        // projector Z, then confirm the linear-in-y direction lies in the kernel
+        // null space — i.e. f(θ, y) = a + b·y has EXACTLY zero penalty energy.
+        let two_pi = std::f64::consts::TAU;
+        let theta = [0.0, 0.7, 1.5, 2.3, 3.0, 3.9, 4.6, 5.4, two_pi];
+        let y = [0.0, 0.2, 0.45, 0.6, 0.3, 0.8, 0.95, 0.1, 0.5];
+        let mut centers = Array2::<f64>::zeros((theta.len(), 2));
+        for i in 0..theta.len() {
+            centers[[i, 0]] = theta[i];
+            centers[[i, 1]] = y[i];
+        }
+        let periodic_per_axis = [true, false];
+        let periods = [two_pi, 1.0];
+        let axis_bounds = mixed_periodicity_axis_bounds(centers.view(), &periodic_per_axis);
+        let k = centers.nrows();
+        let m = 2usize;
+
+        // Z = null(Pᵀ) for P = [1, y].
+        let poly_block =
+            mixed_periodicity_nullspace_poly_block(centers.view(), m, &periodic_per_axis);
+        let z = kernel_constraint_nullspace_from_matrix(poly_block.view())
+            .expect("null-space basis must build");
+
+        // K_CC = additive kernel at center pairs.
+        let mut k_cc = Array2::<f64>::zeros((k, k));
+        fill_symmetric_from_row_kernel(&mut k_cc, |i, j| {
+            mixed_periodicity_additive_kernel(
+                centers.row(i),
+                centers.row(j),
+                m,
+                &periodic_per_axis,
+                &periods,
+                &axis_bounds,
+            )
+        })
+        .expect("center kernel must build");
+
+        // Ω = Zᵀ K_CC Z is the realized penalty in the kernel-coefficient frame.
+        let omega = fast_ab(&fast_atb(&z, &k_cc), &z);
+        let sym = symmetrize(&omega);
+        let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).expect("eigh");
+        let lambda_min = evals.iter().copied().fold(f64::INFINITY, f64::min);
+        assert!(
+            lambda_min > -1e-8,
+            "Ω = ZᵀK_CC Z must be PSD; λ_min = {lambda_min:.3e}"
+        );
+
+        // The linear-in-y trend is carried by the explicit polynomial columns
+        // (which receive a zero penalty block), so the kernel-coefficient penalty
+        // Ω never sees it. Confirm directly that evaluating the penalty quadratic
+        // form on the constant and linear-in-y design directions yields zero: any
+        // design coefficient vector that is purely in the polynomial block has
+        // zero penalty because Ω only occupies the kernel block. We model that by
+        // checking that K_CC applied to the {1, y} span sits inside the column
+        // space the polynomial block already spans — i.e. Pᵀ K_CC P has no energy
+        // that Z can pick up. Concretely, Z is orthogonal to {1, y} by
+        // construction, so Zᵀ·(linear-in-y vector) = 0.
+        let ones: Vec<f64> = vec![1.0; k];
+        let yvec: Vec<f64> = (0..k).map(|i| centers[[i, 1]]).collect();
+        for (label, v) in [("constant", &ones), ("linear-in-y", &yvec)] {
+            let mut proj = vec![0.0f64; z.ncols()];
+            for c in 0..z.ncols() {
+                let mut acc = 0.0;
+                for r in 0..k {
+                    acc += z[[r, c]] * v[r];
+                }
+                proj[c] = acc;
+            }
+            let norm: f64 = proj.iter().map(|p| p * p).sum::<f64>().sqrt();
+            assert!(
+                norm < 1e-9,
+                "{label} direction must lie in the unpenalised null space \
+                 (Zᵀv = 0); got ‖Zᵀv‖ = {norm:.3e} (gam#1423)"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod hybrid_high_dim_psd_tests {
+    //! Regression tests for gam#1424: the high-dimensional hybrid
+    //! (Duchon–Matérn) constrained bending penalty must be positive
+    //! semidefinite. Before the fix, the kernel was assembled from an
+    //! alternating partial-fraction sum whose individually-huge polyharmonic /
+    //! Matérn blocks cancelled to the float noise floor; for d=16, p=2, s=7 the
+    //! constrained spectrum was λ_min ≈ −0.264 after normalization. The
+    //! cancellation-free single-integral kernel evaluation
+    //! (`duchon_hybrid_kernel_stable_integral`) restores genuine PSD-ness.
+    use super::*;
+    use crate::linalg::faer_ndarray::FaerEigh;
+    use faer::Side;
+    use ndarray::Array2;
+
+    /// Deterministic pseudo-random centers in `[-1, 1]^d` (no RNG dependency in
+    /// the core crate). A 64-bit SplitMix-style generator seeded from `(d, k)`.
+    fn deterministic_centers(d: usize, k: usize) -> Array2<f64> {
+        let mut state: u64 = 0x9E37_79B9_7F4A_7C15u64
+            .wrapping_mul(d as u64 + 1)
+            .wrapping_add(k as u64);
+        let mut next = || {
+            state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^= z >> 31;
+            // Map to (−1, 1).
+            (z as f64 / u64::MAX as f64) * 2.0 - 1.0
+        };
+        let mut c = Array2::<f64>::zeros((k, d));
+        for i in 0..k {
+            for j in 0..d {
+                c[[i, j]] = next();
+            }
+        }
+        c
+    }
+
+    /// Constrained bending-penalty spectrum λ_min for a hybrid Duchon smooth at
+    /// the resolved (p, s) for the given dimension. Mirrors the construction in
+    /// `duchon_native_penalty_candidates` (Z = null(Pᵀ), Ω = α²·ZᵀK_CC Z) but
+    /// stops at the eigenvalues so the test can assert PSD-ness directly.
+    fn hybrid_constrained_lambda_min(d: usize, s_order: usize) -> f64 {
+        let centers = deterministic_centers(d, 4 * d);
+        let nullspace = DuchonNullspaceOrder::Linear; // m = 2 ⇒ p = 2.
+        let effective = duchon_effective_nullspace_order(centers.view(), nullspace);
+        let poly_block = polynomial_block_from_order(centers.view(), effective);
+        let z = kernel_constraint_nullspace_from_matrix(poly_block.view())
+            .expect("kernel null-space basis must build");
+        let omega = duchon_constrained_bending_penalty(
+            centers.view(),
+            Some(1.0),
+            s_order as f64,
+            effective,
+            None,
+            &z,
+        )
+        .expect("hybrid constrained bending penalty must build and pass the PSD check");
+        let sym = symmetrize(&omega);
+        let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).expect("eigh");
+        let max_abs = evals.iter().copied().fold(0.0_f64, |a, v| a.max(v.abs()));
+        let lambda_min = evals.iter().copied().fold(f64::INFINITY, f64::min);
+        // Report in spectral (scale-relative) units so the assertion is
+        // invariant to the penalty's overall magnitude.
+        lambda_min / max_abs.max(f64::MIN_POSITIVE)
+    }
+
+    #[test]
+    fn hybrid_d16_m2_s7_constrained_spectrum_is_psd_gam1424() {
+        // The exact spectral density ρ^{-2p}(κ²+ρ²)^{-s} is nonnegative, so the
+        // constrained Gram is PSD in exact arithmetic. Before gam#1424 the
+        // partial-fraction kernel evaluation lost every significant digit here
+        // and the normalized λ_min was ≈ −0.264. The stable single-integral
+        // kernel keeps λ_min at the float noise floor. Tolerance is the same
+        // scale-relative noise floor used by the penalty pipeline
+        // (`spectral_tolerance`: n·1e-10); do NOT weaken it.
+        let d = 16;
+        let n = 4 * d; // penalty dimension upper bound (kernel coeff frame).
+        let tol = (n as f64) * 1e-10;
+        let lambda_min_rel = hybrid_constrained_lambda_min(d, 7);
+        assert!(
+            lambda_min_rel >= -tol,
+            "d=16, m=2, s=7 hybrid constrained spectrum not PSD: \
+             λ_min/λ_max = {lambda_min_rel:.6e} (tol = −{tol:.6e}) (gam#1424)"
+        );
+    }
+
+    #[test]
+    fn hybrid_other_high_dims_constrained_spectrum_is_psd_gam1424() {
+        // A spread of high-d hybrid orders that also lost positive-definiteness
+        // through partial-fraction cancellation (d=8: ~7 digits lost; d=12: ~13;
+        // d=10). Each must now be PSD to the float noise floor.
+        for (d, s) in [(8usize, 3usize), (10, 4), (12, 5)] {
+            let n = 4 * d;
+            let tol = (n as f64) * 1e-10;
+            let lambda_min_rel = hybrid_constrained_lambda_min(d, s);
+            assert!(
+                lambda_min_rel >= -tol,
+                "d={d}, m=2, s={s} hybrid constrained spectrum not PSD: \
+                 λ_min/λ_max = {lambda_min_rel:.6e} (tol = −{tol:.6e}) (gam#1424)"
+            );
+        }
+    }
 }

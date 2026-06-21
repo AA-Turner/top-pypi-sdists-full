@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.6.3
+Version: 0.6.6
 Summary: SDK for the HUD platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-python
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-python/issues
@@ -70,6 +70,7 @@ Requires-Dist: ruff<0.15.0,>=0.11.8; extra == 'dev'
 Provides-Extra: modal
 Requires-Dist: modal>=1.0; extra == 'modal'
 Provides-Extra: robot
+Requires-Dist: av>=12; extra == 'robot'
 Requires-Dist: numpy>=1.24; extra == 'robot'
 Requires-Dist: openpi-client>=0.1.2; extra == 'robot'
 Provides-Extra: train

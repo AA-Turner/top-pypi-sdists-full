@@ -1,5 +1,5 @@
 use super::*;
-use crate::model_types::CERTIFICATE_Z_GATE;
+use crate::model_types::result_types::CERTIFICATE_Z_GATE;
 use ::opt::FixedPointObjective;
 use ndarray::array;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -1753,8 +1753,13 @@ fn constrained_stationary_probe_replaces_stale_nonstationary_best() {
     let stale_seed = array![0.0, 0.0];
     guard.observe_seed(&stale_seed, 1.0, 2.0);
 
+    // Genuine near-separable case: the REML criterion decreases monotonically
+    // toward the λ→0 lower bound, so the bound probe carries a cost AT OR BELOW
+    // the seed. It is the certificate-bearing optimum and must be published with
+    // a converged verdict — superseding the (non-stationary, higher raw-cost)
+    // seed.
     let boundary_probe = array![-10.0, -10.0];
-    let verdict = guard.observe_constrained_stationary(&boundary_probe, 1.25, 0.0);
+    let verdict = guard.observe_constrained_stationary(&boundary_probe, 0.5, 0.0);
     assert!(
         matches!(verdict, CostStallVerdict::Converged),
         "a finite constrained-stationary separation probe should halt immediately"
@@ -1769,9 +1774,182 @@ fn constrained_stationary_probe_replaces_stale_nonstationary_best() {
         published.rho, boundary_probe,
         "publish the KKT-certified boundary probe, not the older raw-cost best"
     );
-    assert_eq!(published.value, 1.25);
+    assert_eq!(published.value, 0.5);
     assert_eq!(published.grad_norm, 0.0);
     assert!(published.converged);
+}
+
+/// #1355 regression: a constrained-stationary (lower-bound separation) probe
+/// that REGRESSES materially on the best feasible iterate must NOT be adopted.
+///
+/// For a multi-penalty RKHS smooth (duchon/matern) an over-smoothing collapse
+/// corner — some operator penalties railed at the λ→0 lower bound, OTHERS railed
+/// at the λ→∞ upper bound shrinking the fit to a bare constant — passes the
+/// `lower_bound_outward_active_count` separation test yet has a REML cost far
+/// worse than the interior optimum the optimizer already found (typically the
+/// grid-prepass seed). Adopting it published a degenerate EDF≈1 constant fit.
+/// The guard must keep the strictly-better incumbent instead.
+#[test]
+fn constrained_stationary_probe_keeps_better_incumbent() {
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let mut guard = CostStallGuard::new(1.0e-6, 3, 1.0e-3, exit.clone());
+    // A good interior fit (the prepass seed): low cost on a genuinely flat
+    // valley floor — a residual outer gradient modestly above tolerance but
+    // below FLAT_VALLEY_STALL_GRAD_CEILING (not yet certified stationary, yet a
+    // legitimate flat-valley floor rather than a #1426 stuck stall, so the guard
+    // halts-and-publishes it rather than escaping to keep descending).
+    let good_seed = array![3.0, 30.0, 3.0, 3.0];
+    let good_seed_grad = FLAT_VALLEY_STALL_GRAD_CEILING * 0.5;
+    guard.observe_seed(&good_seed, -231.86, good_seed_grad);
+
+    // The collapse corner: two axes pinned at the λ→0 lower bound (looks like a
+    // separation probe) while two more rail at λ→∞; its cost is hundreds of
+    // units WORSE than the incumbent.
+    let collapse_corner = array![30.0, 29.95, -30.0, -30.0];
+    let verdict = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0);
+
+    // The probe regresses, so the guard must NOT halt-and-publish it as the
+    // optimum on this single observation; it folds in as an ordinary
+    // non-improving step (the window has not yet filled).
+    assert!(
+        matches!(verdict, CostStallVerdict::Continue),
+        "a constrained-stationary probe that regresses the incumbent must not be \
+         adopted as the optimum"
+    );
+    // `observe_seed` seeds the shared exit cell with the feasible best (#1371),
+    // so the cell tracks the GOOD incumbent — never the regressing corner —
+    // while the no-improvement window is still filling.
+    {
+        let cell = exit.lock().unwrap();
+        let best = cell.as_ref().expect("seed best tracked in exit cell");
+        assert_eq!(
+            best.rho, good_seed,
+            "the exit cell must track the good incumbent, not the regressing corner"
+        );
+    }
+
+    // Driving the no-improvement window to its limit halts on the GOOD
+    // incumbent, never on the collapse corner.
+    let _ = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0);
+    let final_verdict = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0);
+    assert!(
+        !matches!(final_verdict, CostStallVerdict::Continue),
+        "the stall window should eventually fill and halt"
+    );
+    let published = exit
+        .lock()
+        .unwrap()
+        .take()
+        .expect("incumbent best published on stall");
+    assert_eq!(
+        published.rho, good_seed,
+        "halt back to the good interior incumbent, not the collapse corner"
+    );
+    assert_eq!(published.value, -231.86);
+}
+
+/// #1426 regression: a cost stall whose best-iterate projected gradient is FAR
+/// above the outer tolerance is NOT a flat-valley floor and must NOT be halted
+/// as one. On ~7% of gamma/log datasets at default k the inner PIRLS hit its
+/// iteration cap, leaving the outer objective and analytic gradient
+/// inconsistent: the cost flatlined while the projected gradient stayed at
+/// |g|≈11. The old guard classified that as a `FlatValleyStall`, halted, and
+/// shipped a silent near-unpenalized full-basis overfit. The fixed guard must
+/// instead return `StuckKeepDescending` (no halt) so the optimizer keeps
+/// descending toward the well-penalized optimum, for a bounded number of escapes
+/// before it falls back to a halt so a genuinely pathological surface still
+/// terminates.
+#[test]
+fn cost_stall_far_above_tolerance_keeps_descending_not_flat_valley() {
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let mut guard = CostStallGuard::new(1.0e-6, 3, 1.0e-3, exit.clone());
+    let seed = array![0.0, 0.0];
+    // Best iterate has a HUGE residual gradient (the #1426 |g|≈11 signature),
+    // orders of magnitude above the ceiling — the inner solve did not converge.
+    let stuck_grad = 10.9;
+    assert!(
+        stuck_grad > FLAT_VALLEY_STALL_GRAD_CEILING,
+        "test premise: the stuck residual must exceed the flat-valley ceiling"
+    );
+    guard.observe_seed(&seed, 10.0, stuck_grad);
+
+    // Drive the no-improvement window to the stall via infeasible λ→0 probes,
+    // exactly as the outer loop does when ARC/BFGS keep probing the unpenalized
+    // ridge. The third probe fills the window and reaches the stall verdict.
+    let probe = array![-10.0, -10.0];
+    assert!(matches!(
+        guard.observe_infeasible(&probe),
+        CostStallVerdict::Continue
+    ));
+    assert!(matches!(
+        guard.observe_infeasible(&probe),
+        CostStallVerdict::Continue
+    ));
+    let verdict = guard.observe_infeasible(&probe);
+    assert!(
+        matches!(verdict, CostStallVerdict::StuckKeepDescending { .. }),
+        "a cost stall with |g|≈11 ≫ ceiling must NOT be classified as a \
+         flat-valley floor and halted (#1426); it must keep descending. Got {:?}",
+        std::mem::discriminant(&verdict)
+    );
+    // Crucially: no halt was shipped — the optimizer is allowed to continue.
+    // (The exit cell still tracks the running best via `publish_best_so_far`,
+    // but the verdict did not request a halt.)
+
+    // The escape budget is finite: after STUCK_STALL_MAX_ESCAPES escapes the
+    // guard falls back to a FlatValleyStall halt so the loop still terminates.
+    let mut last = verdict;
+    for _ in 0..(STUCK_STALL_MAX_ESCAPES + 3) {
+        // Re-fill the window each round (each escape reset it).
+        let _ = guard.observe_infeasible(&probe);
+        let _ = guard.observe_infeasible(&probe);
+        last = guard.observe_infeasible(&probe);
+        if matches!(last, CostStallVerdict::FlatValleyStall { .. }) {
+            break;
+        }
+    }
+    assert!(
+        matches!(last, CostStallVerdict::FlatValleyStall { .. }),
+        "after exhausting the bounded escape budget the guard must eventually \
+         halt (reported non-converged) so the loop terminates"
+    );
+    let published = exit
+        .lock()
+        .unwrap()
+        .take()
+        .expect("best published on eventual halt");
+    assert!(
+        !published.converged,
+        "a stuck halt above tolerance must report converged=false (never claim \
+         a converged result with |g| far above tolerance)"
+    );
+}
+
+/// #1426 companion: a GENUINE flat-valley floor — cost flatlined AND the
+/// projected gradient is only modestly above tolerance (well below the ceiling)
+/// — must still halt as a `FlatValleyStall` (the legitimately-flat REML surface
+/// of #1082/#1237). The #1426 escape must not weaken that path.
+#[test]
+fn cost_stall_modestly_above_tolerance_still_halts_as_flat_valley() {
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let mut guard = CostStallGuard::new(1.0e-6, 3, 1.0e-3, exit.clone());
+    let seed = array![0.0, 0.0];
+    // Residual modestly above tolerance but BELOW the ceiling: a real flat
+    // valley floor (the surface has genuinely flattened).
+    let valley_grad = FLAT_VALLEY_STALL_GRAD_CEILING * 0.5;
+    guard.observe_seed(&seed, 10.0, valley_grad);
+
+    let probe = array![-10.0, -10.0];
+    let _ = guard.observe_infeasible(&probe);
+    let _ = guard.observe_infeasible(&probe);
+    let verdict = guard.observe_infeasible(&probe);
+    assert!(
+        matches!(verdict, CostStallVerdict::FlatValleyStall { .. }),
+        "a modest residual below the ceiling is a genuine flat-valley floor and \
+         must halt as before (#1082/#1237 unaffected by the #1426 fix)"
+    );
+    let published = exit.lock().unwrap().take().expect("best published");
+    assert!(!published.converged);
 }
 
 #[test]

@@ -3,9 +3,10 @@
 
 import logging
 import os
+import re
 import tempfile
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from starlette.responses import Response
 
 from ..middleware.auth import verify_api_key
@@ -26,6 +27,162 @@ _AUDIO_READ_CHUNK_SIZE = 1024 * 1024  # 1 MB chunks
 # Audio engines (lazy loaded, module-level to persist across requests)
 _stt_engine = None
 _tts_engine = None
+
+# OpenAI-style STT model alias → MLX repo. Promoted to module scope so
+# the route can validate the model BEFORE streaming the upload (F-165):
+# unknown names previously rode the body through the upload cap, then
+# collapsed into a generic 500 "could not open/decode file" once
+# ``STTEngine.load`` failed deep inside mlx-audio. Mirror the
+# ``/v1/chat/completions`` and ``/v1/responses`` contract: validate the
+# model name first and surface 404 with a distinct error type.
+STT_MODEL_ALIASES: dict[str, str] = {
+    "whisper-large-v3": "mlx-community/whisper-large-v3-mlx",
+    "whisper-large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
+    "whisper-medium": "mlx-community/whisper-medium-mlx",
+    "whisper-small": "mlx-community/whisper-small-mlx",
+    "parakeet": "mlx-community/parakeet-tdt-0.6b-v2",
+    "parakeet-v3": "mlx-community/parakeet-tdt-0.6b-v3",
+}
+
+# F-210: model strings must canonicalize to either a bare alias name
+# (matches an entry in ``STT_MODEL_ALIASES``) or a single-slash
+# HuggingFace-style ``<org>/<repo>`` id. Anything else — multi-slash
+# paths (``foo/bar/baz``), all-slash strings (``////``), control
+# characters, leading/trailing slashes, etc. — bypasses the alias lookup
+# and trips a downstream codec-open failure that surfaces as a generic
+# 500 ``transcription_failed``. Reject these BEFORE attempting decode so
+# the canonical 404 ``model_not_found_error`` fires instead.
+#
+# Allowed characters mirror HuggingFace's repo-id conventions
+# (alphanumeric, underscore, dot, hyphen). ``+`` is intentionally NOT
+# allowed — HF repo ids are restricted to ``[A-Za-z0-9._-]`` (see
+# huggingface_hub.utils.validate_repo_id).
+#
+# Codex r3 BLOCKING: the *total* repo_id length cap is 96 chars (not
+# per-component). The per-component bound stays at 96 too because the
+# total bound already implies it. Anchor the regex with the 96-char
+# overall cap (enforced as a separate ``len(model) <= 96`` check below
+# so the regex itself stays cheap to read).
+_STT_MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)?$")
+_HF_REPO_ID_MAX_LEN = 96
+
+
+def _is_valid_repo_component(comp: str) -> bool:
+    """Codex r2 / r3 BLOCKING follow-up: mirror HF's structural rules.
+
+    A bare regex character-class check accepts strings that HF itself
+    rejects (e.g. ``.hidden``, ``repo..name``, components starting/
+    ending with ``.`` or ``-``, or ``.git`` suffix). Those still
+    crash inside ``STTEngine.load`` as a 500 because the HF resolver
+    fails the same way for them. Enforce the structural rules HF
+    documents (``huggingface_hub.utils.validate_repo_id``).
+
+    Codex r3 BLOCKING: ``.ipynb`` is NOT a HF-rejected suffix, only
+    ``.git`` is. Removed the over-eager ``.ipynb`` check.
+    """
+    if not comp:
+        return False
+    if comp.startswith((".", "-")) or comp.endswith((".", "-")):
+        return False
+    # ``..`` is a parent-directory traversal sentinel; HF rejects it
+    # to keep repo ids resolvable as filesystem paths.
+    if ".." in comp:
+        return False
+    # ``--`` is rejected by HF's repo-id validator as well.
+    if "--" in comp:
+        return False
+    # Only ``.git`` is explicitly reserved by HF (codex r3 — ``.ipynb``
+    # was an over-rejection on my part).
+    if comp.endswith(".git"):
+        return False
+    return True
+
+
+def _resolve_stt_model(model: str) -> str:
+    """Resolve an OpenAI-style STT model alias to the MLX repo path.
+
+    Returns the resolved repo path for known aliases or passes through
+    ``mlx-community/...`` / ``<org>/...`` style repo specs verbatim.
+    Raises a 404 ``HTTPException`` for everything else so unknown
+    ``model`` form fields don't reach the ``STTEngine.load`` call and
+    collapse into a generic 500 "could not open/decode file" (F-165).
+
+    Pass-through is intentionally restrictive — any string with a ``/``
+    is treated as a HuggingFace-style repo id. Bare names without a
+    slash that aren't in ``STT_MODEL_ALIASES`` are rejected up front.
+    """
+    if not isinstance(model, str) or not model:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "message": "`model` must be a non-empty string",
+                    "type": "invalid_request_error",
+                    "code": "invalid_request",
+                    "param": "model",
+                }
+            },
+        )
+    if model in STT_MODEL_ALIASES:
+        return STT_MODEL_ALIASES[model]
+
+    # F-210: path-shaped / malformed model ids (``foo/bar/baz``,
+    # ``////``, leading/trailing slashes, control chars) used to slip
+    # past the simple ``"/" in model`` heuristic, then crash inside
+    # ``STTEngine.load`` as a generic 500 ``transcription_failed``.
+    # Canonicalize these to the same 404 ``model_not_found_error`` the
+    # bogus-alias path returns (F-167 / PR #735) by enforcing the
+    # repo-id regex BEFORE attempting any codec open.
+    #
+    # codex r2: char-class alone isn't enough — HF also rejects
+    # ``..``/``--``/``.hidden``/``trailing-dot.``/``repo.git`` shapes.
+    # Apply the regex (cheap fast-path), then the 96-char total cap
+    # (codex r3 BLOCKING — was per-component, HF's actual rule is
+    # ``len(repo_id) <= 96``), then per-component structural rules.
+    _regex_ok = bool(_STT_MODEL_NAME_RE.fullmatch(model))
+    _length_ok = len(model) <= _HF_REPO_ID_MAX_LEN
+    _components_ok = (
+        _regex_ok
+        and _length_ok
+        and all(_is_valid_repo_component(c) for c in model.split("/"))
+    )
+    if not _components_ok:
+        available = ", ".join(sorted(STT_MODEL_ALIASES.keys()))
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": {
+                    "message": (
+                        f"The model `{model}` does not exist. "
+                        f"Available STT aliases: {available}"
+                    ),
+                    "type": "model_not_found_error",
+                    "code": "model_not_found",
+                    "param": "model",
+                }
+            },
+        )
+
+    if "/" in model:
+        # Looks like a HuggingFace repo id — let STTEngine attempt to
+        # load it. ImportError / model-load errors still surface, but
+        # the client is explicitly opting in by passing a repo path.
+        return model
+    available = ", ".join(sorted(STT_MODEL_ALIASES.keys()))
+    raise HTTPException(
+        status_code=404,
+        detail={
+            "error": {
+                "message": (
+                    f"The model `{model}` does not exist. "
+                    f"Available STT aliases: {available}"
+                ),
+                "type": "model_not_found_error",
+                "code": "model_not_found",
+                "param": "model",
+            }
+        },
+    )
 
 
 class AudioBodyLimitMiddleware:
@@ -229,9 +386,25 @@ async def _stream_upload_to_tempfile(file: UploadFile, tmp) -> None:
 @router.post("/v1/audio/transcriptions", dependencies=[Depends(verify_api_key)])
 async def create_transcription(
     file: UploadFile,
-    model: str = "whisper-large-v3",
-    language: str | None = None,
-    response_format: str = "json",
+    # ``model``, ``language``, ``response_format`` are sent as multipart
+    # form fields by OpenAI-compatible clients (the official Whisper
+    # API puts them in the ``multipart/form-data`` body). Pre-F-165
+    # this route declared them as plain ``str`` parameters, which
+    # FastAPI then resolves as query parameters — meaning a curl /
+    # OpenAI-SDK client putting them in the body silently fell back to
+    # the default ``whisper-large-v3`` and never reached
+    # ``_resolve_stt_model``. To repair the OpenAI contract WITHOUT
+    # breaking any pre-existing internal caller that still passes
+    # ``?model=...`` on the query string (codex-bundled review on the
+    # F-165 PR), accept both sources and prefer the form field when
+    # it is provided. ``...`` (Ellipsis) is *not* used as a default —
+    # leaving both unset still resolves to ``whisper-large-v3``.
+    model_form: str | None = Form(None, alias="model"),
+    language_form: str | None = Form(None, alias="language"),
+    response_format_form: str | None = Form(None, alias="response_format"),
+    model_query: str | None = Query(None, alias="model"),
+    language_query: str | None = Query(None, alias="language"),
+    response_format_query: str | None = Query(None, alias="response_format"),
 ):
     """Transcribe audio to text (OpenAI Whisper API compatible).
 
@@ -256,6 +429,30 @@ async def create_transcription(
     """
     global _stt_engine
 
+    # Form wins over query when both are present (form is the OpenAI
+    # contract; query is the pre-F-165 internal contract we're keeping
+    # for back-compat). Defaults match the original signature.
+    model = (
+        model_form
+        if model_form is not None
+        else (model_query if model_query is not None else "whisper-large-v3")
+    )
+    language = language_form if language_form is not None else language_query
+    response_format = (
+        response_format_form
+        if response_format_form is not None
+        else (response_format_query if response_format_query is not None else "json")
+    )
+
+    # Resolve / validate the requested model BEFORE draining the upload.
+    # Previously every failure mode (unknown alias, missing mlx-audio,
+    # bad audio bytes) collapsed into a 500 "could not open/decode
+    # file" because ``STTEngine.load`` for a bogus name raised generic
+    # ``Exception`` caught by the catch-all below. Move the alias check
+    # up front so unknown ``model`` form fields fail fast with a 404
+    # "model_not_found_error" and never trigger a model load (F-165).
+    model_name = _resolve_stt_model(model)
+
     tmp_path: str | None = None
     try:
         # SECURITY: Stream the upload to a bounded temp file *before* doing
@@ -268,16 +465,6 @@ async def create_transcription(
             await _stream_upload_to_tempfile(file, tmp)
 
         from ..audio.stt import STTEngine
-
-        model_map = {
-            "whisper-large-v3": "mlx-community/whisper-large-v3-mlx",
-            "whisper-large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
-            "whisper-medium": "mlx-community/whisper-medium-mlx",
-            "whisper-small": "mlx-community/whisper-small-mlx",
-            "parakeet": "mlx-community/parakeet-tdt-0.6b-v2",
-            "parakeet-v3": "mlx-community/parakeet-tdt-0.6b-v3",
-        }
-        model_name = model_map.get(model, model)
 
         if _stt_engine is None or _stt_engine.model_name != model_name:
             _stt_engine = STTEngine(model_name)
@@ -300,12 +487,26 @@ async def create_transcription(
             detail="mlx-audio not installed. Install with: pip install mlx-audio",
         )
     except HTTPException:
-        # Preserve our own status codes (e.g. 413 for oversized uploads)
-        # instead of downgrading them to 500 via the catch-all below.
+        # Preserve our own status codes (e.g. 413 for oversized uploads,
+        # 404 for unknown STT alias) instead of downgrading them to 500
+        # via the catch-all below.
         raise
     except Exception as e:
-        logger.error(f"Transcription failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Full traceback goes to the operator log; the client sees a
+        # generic message so we don't leak filesystem paths or
+        # mlx-audio internals (mirrors the global server handler).
+        logger.exception("Transcription failed: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "message": "Audio transcription failed",
+                    "type": "api_error",
+                    "code": "transcription_failed",
+                    "param": None,
+                }
+            },
+        )
     finally:
         if tmp_path is not None:
             try:

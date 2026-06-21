@@ -1,27 +1,30 @@
 Metadata-Version: 2.4
 Name: uuid7-rs
-Version: 0.0.9
+Version: 0.0.10
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
+Classifier: Development Status :: 5 - Production/Stable
 License-File: UNLICENSE
 Summary: Fast UUID v7 generator written in Rust
 Author-email: chirizxc <chirizxc@proton.me>
 License-Expression: Unlicense
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Bug Tracker, https://github.com/lava-sh/uuid7-rs/issues
+Description-Content-Type: text/markdown
 Project-URL: Homepage, https://github.com/lava-sh/uuid7-rs
-Project-URL: Source, https://github.com/lava-sh/uuid7-rs
+Project-URL: Issues, https://github.com/lava-sh/uuid7-rs/issues
+Project-URL: Repository, https://github.com/lava-sh/uuid7-rs
 
 <div align="center">
 
@@ -46,7 +49,11 @@ Project-URL: Source, https://github.com/lava-sh/uuid7-rs
 ## Installation
 
 <p>
-  <img src=".assets/python.svg" alt="pip" width="14" height="14">
+  <img
+    src="https://thesvg.org/icons/python/default.svg"
+    alt="Python"
+    height="14"
+  />
   Using <a href="https://github.com/pypa/pip">pip</a>:
 </p>
 
@@ -55,12 +62,29 @@ pip install uuid7-rs
 ```
 
 <p>
-  <img src=".assets/uv.svg" alt="uv" width="14" height="14">
+  <img
+    src="https://thesvg.org/icons/uv/default.svg"
+    alt="uv"
+    height="14"
+  />
   Using <a href="https://github.com/astral-sh/uv">uv</a>:
 </p>
 
 ```bash
 uv pip install uuid7-rs
+```
+
+<p>
+  <img
+    src="https://thesvg.org/icons/poetry/default.svg"
+    alt="Poetry"
+    height="14"
+  />
+  Using <a href="https://github.com/python-poetry/poetry">poetry</a>:
+</p>
+
+```bash
+poetry add uuid7-rs
 ```
 
 ## Example

@@ -1,6 +1,6 @@
 [package]
 name = "gam"
-version = "0.3.118"
+version = "0.3.120"
 edition = "2024"
 rust-version = "1.93"
 autobins = false
@@ -18,7 +18,6 @@ include = [
     "/build.rs",
     "/Cargo.toml",
     "/rust-toolchain.toml",
-    "/rustfmt.toml",
     "/README.md",
     "/LICENSE",
 ]
@@ -34,25 +33,7 @@ members = ["crates/gam-pyffi"]
 resolver = "3"
 
 [lints.rust]
-# TEMPORARY (issue-team velocity): demoted from "deny" to "warn" so in-flight
-# refactor churn (transient dead code / unused imports) does not block the whole
-# tree from compiling and running tests. Restore to "deny" after the dead-code
-# cleanup pass lands.
-warnings = "warn"
-
-# Clippy is not part of this repo's enforcement. Silence the whole tool so
-# rust-analyzer / agent loops / `cargo clippy` don't surface it as build noise.
-[lints.clippy]
-all = { level = "allow", priority = -1 }
-pedantic = { level = "allow", priority = -1 }
-nursery = { level = "allow", priority = -1 }
-cargo = { level = "allow", priority = -1 }
-restriction = { level = "allow", priority = -1 }
-correctness = { level = "allow", priority = -1 }
-suspicious = { level = "allow", priority = -1 }
-complexity = { level = "allow", priority = -1 }
-perf = { level = "allow", priority = -1 }
-style = { level = "allow", priority = -1 }
+warnings = "deny"
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }

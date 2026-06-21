@@ -17,9 +17,13 @@ Usage:
 
 from __future__ import annotations
 
+import datetime
 import json
 import logging
+import math
 import re
+import uuid
+from collections.abc import Callable
 from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
@@ -36,10 +40,25 @@ def _extract_param_schemas(tools: list[dict] | None) -> dict[str, dict]:
 
     schemas: dict[str, dict] = {}
     for tool in tools:
+        if not isinstance(tool, dict):
+            continue
         func = tool.get("function", tool)
+        if not isinstance(func, dict):
+            continue
         tool_name = func.get("name", "")
         params = func.get("parameters", {})
+        # Tolerate malformed tool schemas: ``parameters`` may legally be
+        # omitted (treated as no-args) but client JSON sometimes ships it
+        # as ``null``, a bare string, a list, or a number. Skip cleanly
+        # instead of letting ``params.get(...)`` raise ``AttributeError``
+        # — that bubbles up as an unmapped 500 and leaks raw Python error
+        # text. ``properties`` has the same exposure (F-140 / retires
+        # F-031).
+        if not isinstance(params, dict):
+            continue
         properties = params.get("properties", {})
+        if not isinstance(properties, dict):
+            continue
         for param_name, param_schema in properties.items():
             key = f"{tool_name}.{param_name}"
             schemas[key] = param_schema
@@ -403,11 +422,57 @@ def create_tool_logits_processor(
     return None
 
 
+# JSON-Schema → Python type predicate. Booleans are explicitly excluded
+# from ``integer`` / ``number`` because Python treats ``True``/``False``
+# as ``int`` subclasses (``isinstance(True, int) is True``); JSON-Schema
+# and pydantic both consider them their own type.
+def _matches_single_json_type(parsed: object, t: str) -> bool:
+    if t == "string":
+        return isinstance(parsed, str)
+    if t == "integer":
+        return isinstance(parsed, int) and not isinstance(parsed, bool)
+    if t == "number":
+        return isinstance(parsed, (int, float)) and not isinstance(parsed, bool)
+    if t == "boolean":
+        return isinstance(parsed, bool)
+    if t == "array":
+        return isinstance(parsed, list)
+    if t == "object":
+        return isinstance(parsed, dict)
+    if t == "null":
+        return parsed is None
+    # Unknown type name — treat as no constraint (skip), matching the
+    # `allowed_types` normalisation in ``validate_param_value`` which
+    # already drops non-string entries.
+    return False
+
+
+def _value_matches_any_type(parsed: object, allowed_types: set[str]) -> bool:
+    """Return True if ``parsed`` matches at least one type in
+    ``allowed_types``.
+
+    Codex round 2 BLOCKING on PR #736 caught that the original
+    branch tree never visited union-typed schemas (``"type": [...]``).
+    Splitting the predicate into a single-type helper lets the union
+    case fall out as a simple ``any()`` over the set.
+    """
+    if not allowed_types:
+        return True  # No declared type → no constraint
+    return any(_matches_single_json_type(parsed, t) for t in allowed_types)
+
+
 def validate_param_value(value: str, schema: dict) -> tuple[bool, str | None]:
     """
     Validate a parameter value against its JSON schema (lightweight).
 
-    Lightweight validation of a parameter value against its JSON schema.
+    Enforced constraints (F-141 scoped fix): ``type`` (strict — booleans
+    are NOT accepted for ``integer``/``number`` even though
+    ``isinstance(True, int)`` is True in Python), ``enum``, ``minimum`` /
+    ``maximum`` (numeric only), ``minLength`` / ``maxLength`` (string
+    only). Other JSON-schema keywords (``pattern``, ``format``,
+    ``multipleOf``, ``uniqueItems``, ``required``, ``oneOf``/``anyOf``,
+    ``additionalProperties``) are intentionally left pass-through and
+    tracked as a follow-up — see TODO below.
 
     Args:
         value: The parameter value string.
@@ -416,33 +481,335 @@ def validate_param_value(value: str, schema: dict) -> tuple[bool, str | None]:
     Returns:
         (is_valid, error_message) tuple.
     """
+    # Defensive guard: ``_extract_param_schemas`` may publish a non-dict
+    # entry when a future change to the extraction shape is bug-prone
+    # (e.g. earlier ``properties`` of mixed types reaching here as the
+    # leaf schema). Treat non-dict as "no constraint" rather than letting
+    # ``schema.get(...)`` raise ``AttributeError`` and 500. (F-140)
+    if not isinstance(schema, dict):
+        return True, None
     param_type = schema.get("type", "")
+
+    # JSON Schema lets ``type`` be either a single string or a list of
+    # strings (a "union" type — e.g. ``{"type": ["string", "null"]}``).
+    # Normalise to a set of allowed scalar names; an empty set means
+    # "no type constraint declared" (the schema may still carry an
+    # ``enum`` / range / length constraint which we honour below).
+    # Anything we don't recognise (e.g. a stray int that survived the
+    # F-140 guards upstream) is dropped from the allowed set so it
+    # doesn't accidentally permit every type — codex round 2 BLOCKING
+    # on PR #736 caught the original branch leaving union schemas
+    # unchecked.
+    if isinstance(param_type, str):
+        allowed_types: set[str] = {param_type} if param_type else set()
+    elif isinstance(param_type, list):
+        allowed_types = {t for t in param_type if isinstance(t, str)}
+    else:
+        allowed_types = set()
 
     # Try to parse as JSON first
     try:
         parsed = json.loads(value)
     except (json.JSONDecodeError, ValueError):
         # Not valid JSON — check if it's a bare string (common for string params)
-        if param_type == "string":
+        if "string" in allowed_types:
             return True, None  # Bare strings are acceptable for string params
         return False, f"Invalid JSON value: {value!r}"
 
-    # Type check
-    if param_type == "string" and not isinstance(parsed, str):
-        return False, f"Expected string, got {type(parsed).__name__}"
-    elif param_type == "integer" and not isinstance(parsed, int):
-        return False, f"Expected integer, got {type(parsed).__name__}"
-    elif param_type == "number" and not isinstance(parsed, (int, float)):
-        return False, f"Expected number, got {type(parsed).__name__}"
-    elif param_type == "boolean" and not isinstance(parsed, bool):
-        return False, f"Expected boolean, got {type(parsed).__name__}"
-    elif param_type == "array" and not isinstance(parsed, list):
-        return False, f"Expected array, got {type(parsed).__name__}"
-    elif param_type == "object" and not isinstance(parsed, dict):
-        return False, f"Expected object, got {type(parsed).__name__}"
+    # Type check (strict — exclude bool from integer/number; pydantic
+    # treats ``True``/``False`` as their own type, not as ``1``/``0``).
+    # For union ``type`` ([...]) the value is valid if it matches ANY
+    # allowed type. ``allowed_types == set()`` means the schema omitted
+    # ``type`` entirely — we skip this branch and fall through to the
+    # enum / range / length checks. Unrecognised type names (anything
+    # outside the six JSON-schema scalars + ``"null"``) are ignored
+    # rather than silently permitting; if the schema lists ONLY
+    # unknown types we skip the type check entirely.
+    if allowed_types:
+        type_matches = _value_matches_any_type(parsed, allowed_types)
+        if not type_matches:
+            display = (
+                next(iter(allowed_types))
+                if len(allowed_types) == 1
+                else f"one of {sorted(allowed_types)}"
+            )
+            return (
+                False,
+                f"Expected {display}, got {type(parsed).__name__}",
+            )
 
     # Enum check
     if "enum" in schema and parsed not in schema["enum"]:
         return False, f"Value {parsed!r} not in enum {schema['enum']}"
 
+    # Numeric range (only when the parsed value is actually numeric —
+    # the type-check branch above already rejected non-numeric values
+    # for declared ``integer``/``number`` types, but a schema may omit
+    # ``type`` and still carry ``minimum``/``maximum``).
+    if isinstance(parsed, (int, float)) and not isinstance(parsed, bool):
+        minimum = schema.get("minimum")
+        if isinstance(minimum, (int, float)) and not isinstance(minimum, bool):
+            if parsed < minimum:
+                return False, f"Value {parsed} below minimum {minimum}"
+        maximum = schema.get("maximum")
+        if isinstance(maximum, (int, float)) and not isinstance(maximum, bool):
+            if parsed > maximum:
+                return False, f"Value {parsed} above maximum {maximum}"
+
+    # String length
+    if isinstance(parsed, str):
+        min_length = schema.get("minLength")
+        if isinstance(min_length, int) and not isinstance(min_length, bool):
+            if len(parsed) < min_length:
+                return (
+                    False,
+                    f"String length {len(parsed)} below minLength {min_length}",
+                )
+        max_length = schema.get("maxLength")
+        if isinstance(max_length, int) and not isinstance(max_length, bool):
+            if len(parsed) > max_length:
+                return (
+                    False,
+                    f"String length {len(parsed)} above maxLength {max_length}",
+                )
+
+    # F-141a: pattern / format / multipleOf / uniqueItems
+    #
+    # These were deferred from PR #736 (F-141 scoped). The follow-up
+    # set is intentionally narrow — only constraints with an
+    # unambiguous JSON-schema semantics. ``required``, ``oneOf``,
+    # ``anyOf``, ``additionalProperties`` are still deferred (compound
+    # semantics, multiple violation classes per call, schema-traversal
+    # rework).
+
+    # pattern — regex match (``re.fullmatch`` per operator note,
+    # NOT ``re.match`` which only anchors the start). Only string
+    # parsed values are checked; non-string parsed values fall
+    # through (the upstream ``type`` branch already rejected those
+    # when ``type:"string"`` was declared).
+    if isinstance(parsed, str):
+        pattern = schema.get("pattern")
+        if isinstance(pattern, str) and pattern:
+            try:
+                if re.fullmatch(pattern, parsed) is None:
+                    return (
+                        False,
+                        f"String {parsed!r} does not match pattern {pattern!r}",
+                    )
+            except re.error:
+                # Bogus regex in the *schema* — fall back to advisory
+                # (the schema author is at fault, not the model).
+                pass
+
+    # format — best-effort, narrow allow-list. Unknown formats
+    # intentionally pass through as advisory (operator note:
+    # "reject unknown formats as 200 OK passthrough rather than
+    # 400, to stay loose"). Only string parsed values are checked.
+    if isinstance(parsed, str):
+        fmt = schema.get("format")
+        if isinstance(fmt, str) and fmt in _FORMAT_VALIDATORS:
+            if not _FORMAT_VALIDATORS[fmt](parsed):
+                return (
+                    False,
+                    f"String {parsed!r} is not a valid {fmt}",
+                )
+
+    # multipleOf — integer / float. ``value % multipleOf == 0`` for
+    # integers; ``math.isclose`` for floats (operator note) so a
+    # 0.1 + 0.2 == 0.3 float-drift case doesn't 400.
+    if isinstance(parsed, (int, float)) and not isinstance(parsed, bool):
+        multiple_of = schema.get("multipleOf")
+        if isinstance(multiple_of, (int, float)) and not isinstance(multiple_of, bool):
+            if multiple_of <= 0:
+                # JSON-schema requires multipleOf > 0; bogus schema,
+                # treat as advisory rather than 400.
+                pass
+            elif isinstance(parsed, int) and isinstance(multiple_of, int):
+                if parsed % multiple_of != 0:
+                    return (
+                        False,
+                        f"Value {parsed} is not a multiple of {multiple_of}",
+                    )
+            else:
+                # Float arithmetic — use ``math.isclose`` on the
+                # remainder. ``abs(parsed / multiple_of -
+                # round(parsed / multiple_of))`` is the canonical
+                # "distance to nearest multiple" measure.
+                #
+                # codex r3 BLOCKING: the default ``rel_tol=1e-9`` lets
+                # large non-multiples through because the relative
+                # error stays small (e.g. ``quotient = 1e10 +
+                # epsilon`` rounds to ``1e10`` with relative drift
+                # well under 1e-9). Pin ``rel_tol=0.0`` so only the
+                # absolute tolerance applies, which is the operator's
+                # intent for "the model emitted a value that *should*
+                # be a multiple but is off by a few floating-point
+                # ulps".
+                quotient = parsed / multiple_of
+                if not math.isclose(
+                    quotient, round(quotient), rel_tol=0.0, abs_tol=1e-9
+                ):
+                    return (
+                        False,
+                        f"Value {parsed} is not a multiple of {multiple_of}",
+                    )
+
+    # uniqueItems — for arrays. JSON-schema uses *value* equality, not
+    # JSON-text equality, so we need a canonicalisation that respects
+    # number equality (``1`` and ``1.0`` are duplicates per spec) and
+    # nested-dict structural equality. codex r2 BLOCKING: the previous
+    # ``json.dumps`` keying treated ``1`` and ``1.0`` as different and
+    # let real duplicates through.
+    if isinstance(parsed, list) and schema.get("uniqueItems") is True:
+        try:
+            canonical = [_uniqueitems_canonical(item) for item in parsed]
+        except TypeError:
+            # Non-JSON-serialisable item somehow leaked in (parsed came
+            # from ``json.loads``, so this is unreachable in practice
+            # but defensive). Skip the uniqueness check.
+            canonical = None
+        if canonical is not None and len(set(canonical)) != len(canonical):
+            return False, f"Array {parsed!r} has duplicate items (uniqueItems)"
+
     return True, None
+
+
+# ---------------------------------------------------------------------
+# F-141a — narrow ``format`` validators.
+#
+# Per operator scope: ``email`` / ``uri`` / ``uuid`` / ``date`` /
+# ``date-time``. Unknown ``format`` values pass through (advisory) so
+# we stay loose for real-world schemas that ship bespoke format hints.
+# ---------------------------------------------------------------------
+
+
+def _is_email(value: str) -> bool:
+    # RFC 5321 / 5322 compliance is impossible without a real parser.
+    # Use a defensive regex: one ``@``, non-empty local part, non-empty
+    # domain part with at least one dot, no whitespace, no control
+    # chars. Mirrors what the openapi-style "loose email" check does.
+    if not value or len(value) > 254:
+        return False
+    if any(c.isspace() or ord(c) < 0x20 for c in value):
+        return False
+    return bool(_EMAIL_RE.fullmatch(value))
+
+
+def _is_uri(value: str) -> bool:
+    # Loose URI shape: ``scheme:rest`` with a non-empty scheme that
+    # starts with a letter and only contains letters / digits / ``+`` /
+    # ``-`` / ``.`` (RFC 3986 §3.1 scheme grammar). Doesn't validate
+    # the path / query — schema-level guards are best-effort.
+    if not value or any(c.isspace() for c in value):
+        return False
+    return bool(_URI_RE.match(value))
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        # ``UUID(str)`` accepts hyphenated 8-4-4-4-12, urn:uuid:..., and
+        # raw 32-char hex. JSON-schema's ``format: uuid`` is canonically
+        # the hyphenated form, so verify after a normalising round-trip.
+        u = uuid.UUID(value)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    return str(u) == value.lower().removeprefix("urn:uuid:")
+
+
+def _is_date(value: str) -> bool:
+    # JSON-schema ``date`` = RFC 3339 ``full-date`` = ``YYYY-MM-DD``.
+    try:
+        datetime.date.fromisoformat(value)
+    except (ValueError, TypeError):
+        return False
+    # ``fromisoformat`` accepts e.g. ``2024-01-01T00:00:00`` on Python
+    # 3.11+; reject anything carrying a time component.
+    return len(value) == 10 and value[4] == "-" and value[7] == "-"
+
+
+def _is_date_time(value: str) -> bool:
+    # JSON-schema ``date-time`` = RFC 3339 ``date-time``. ``Z`` is the
+    # UTC shorthand; ``datetime.fromisoformat`` doesn't accept it on
+    # pre-3.11 Pythons, so swap it for ``+00:00`` first.
+    candidate = value.replace("Z", "+00:00") if value.endswith("Z") else value
+    try:
+        dt = datetime.datetime.fromisoformat(candidate)
+    except (ValueError, TypeError):
+        return False
+    # codex r4 BLOCKING: JSON-schema ``date-time`` is RFC 3339 ``date-time``
+    # whose grammar requires the literal ``T`` separator between
+    # ``full-date`` and ``full-time``. The space form is a NOTE in the
+    # spec ("Applications that generate this format SHOULD use uppercase
+    # T") and is NOT part of the production rule we enforce here.
+    # ``fromisoformat`` accepts a bare ``YYYY-MM-DD`` on 3.11+ (wrong
+    # format — date, not date-time) and ``"2024-01-15 10:30:00+00:00"``
+    # (RFC-non-conformant separator), so reject both.
+    if "T" not in value:
+        return False
+    # codex r2 BLOCKING: RFC 3339 also requires a timezone offset (``Z``
+    # or ``±HH:MM``). ``datetime.fromisoformat`` accepts a bare
+    # ``2024-01-15T10:30:00`` as a naive datetime, which JSON-schema's
+    # ``date-time`` format does NOT permit. Reject naive results.
+    if dt.tzinfo is None:
+        return False
+    return True
+
+
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+_URI_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+\-.]*:")
+_FORMAT_VALIDATORS: dict[str, Callable[[str], bool]] = {
+    "email": _is_email,
+    "uri": _is_uri,
+    "uuid": _is_uuid,
+    "date": _is_date,
+    "date-time": _is_date_time,
+}
+
+
+def _uniqueitems_canonical(value: object) -> object:
+    """Build a hashable key for ``value`` that respects JSON-schema's
+    value-equality rules.
+
+    codex r2 BLOCKING fix: ``json.dumps`` keying made ``1`` and ``1.0``
+    distinct, but JSON-schema considers numerically-equal numbers as
+    duplicates. Walk the structure recursively, normalising every
+    numeric leaf to a ``float`` (with bools kept separate) and every
+    dict / list to a tuple that hashable ``set()`` can compare.
+    """
+    if isinstance(value, bool):
+        # Booleans are their own JSON type — keep separate from ints.
+        return ("bool", value)
+    if isinstance(value, (int, float)):
+        # Normalise int / float to a single canonical numeric form so
+        # ``1`` and ``1.0`` hash equal (per JSON-schema value equality).
+        #
+        # codex r3 BLOCKING: ``float(value)`` is lossy for large ints
+        # (``9007199254740992`` and ``9007199254740993`` collapse to
+        # the same float), so two genuinely distinct JSON integers
+        # would be falsely flagged as duplicates. Use ``Decimal`` to
+        # preserve the full numeric value while still hashing
+        # ``Decimal("1")`` and ``Decimal("1.0")`` equal (their
+        # internal coefficients differ but ``__hash__`` is computed
+        # from the numeric value).
+        from decimal import Decimal
+
+        # ``Decimal(str(value))`` is the round-trip-safe constructor
+        # — going through ``str`` preserves int exactness and reads
+        # float values at full ``repr`` precision.
+        return ("num", Decimal(str(value)))
+    if isinstance(value, str):
+        return ("str", value)
+    if value is None:
+        return ("null",)
+    if isinstance(value, list):
+        return ("arr", tuple(_uniqueitems_canonical(v) for v in value))
+    if isinstance(value, dict):
+        # Sort by key for structural-equality semantics regardless of
+        # JSON object key order.
+        return (
+            "obj",
+            tuple(sorted((k, _uniqueitems_canonical(v)) for k, v in value.items())),
+        )
+    # Unknown type — fall back to repr so ``set()`` still works without
+    # raising ``TypeError``. Practically unreachable from ``json.loads``.
+    return ("other", repr(value))

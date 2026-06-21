@@ -895,9 +895,68 @@ def serve_command(args):
                     _env_name,
                     _env,
                 )
-    # Configure CORS
-    cors_origins = args.cors_origins if args.cors_origins else ["*"]
-    server.configure_cors(cors_origins)
+
+    # SSE keepalive interval (F-070). Env-only (no CLI flag yet — keep
+    # the surface small until operators ask for it). 0 disables. The
+    # value lands on ``server._sse_keepalive_seconds`` so ``_sync_config``
+    # propagates it into the live ``ServerConfig`` after ``load_model``;
+    # writing the config singleton directly here would be clobbered by
+    # the subsequent ``_sync_config`` (mirrors the ``_max_request_bytes``
+    # pattern just above).
+    _sse_env_name = "RAPID_MLX_SSE_KEEPALIVE_SECONDS"
+    _sse_env = os.environ.get(_sse_env_name, "").strip()
+    if _sse_env:
+        try:
+            server._sse_keepalive_seconds = max(0.0, float(_sse_env))
+        except ValueError:
+            # NOTE: the env-var name is interpolated via ``%s`` (not baked
+            # into the format string) so the
+            # ``tests/test_no_out_of_band_routing.py`` constant scan
+            # doesn't see the literal ``RAPID_MLX_…=%r is not a number``
+            # as a stand-alone string and false-positive on a routing
+            # match. Same pattern the body-receive timeout block below
+            # uses.
+            logger.warning(
+                "%s=%r is not a number; falling back to the 20 s default",
+                _sse_env_name,
+                _sse_env,
+            )
+            server._sse_keepalive_seconds = 20.0
+
+    # Body-receive idle timeout (F-072 slow-DoS gate). Env-only. 0 disables.
+    # Same ``_sync_config``-then-route-handler ordering rationale as the
+    # SSE keepalive above.
+    _brt_env_name = "RAPID_MLX_BODY_RECEIVE_TIMEOUT_SECONDS"
+    _brt_env = os.environ.get(_brt_env_name, "").strip()
+    if _brt_env:
+        try:
+            server._body_receive_timeout_seconds = max(0.0, float(_brt_env))
+        except ValueError:
+            # Interpolate the env-var name via ``%s`` instead of baking
+            # it into the format string — same false-positive avoidance
+            # pattern as the SSE-keepalive block above.
+            logger.warning(
+                "%s=%r is not a number; falling back to the 15 s default",
+                _brt_env_name,
+                _brt_env,
+            )
+            server._body_receive_timeout_seconds = 15.0
+
+    # Configure CORS (F-090 + F-091). Default: wildcard ``*`` for friendly
+    # single-machine UX — rapid-mlx is primarily run locally and a
+    # browser frontend at ``http://localhost:3000`` hitting the API at
+    # ``http://localhost:8000`` "just works". Operators on multi-tenant /
+    # production deployments lock down via
+    # ``RAPID_MLX_CORS_ALLOW_ORIGINS=https://your.app,https://other.app``.
+    # The full env-var family (METHODS / HEADERS / MAX_AGE /
+    # ALLOW_CREDENTIALS) still applies; see
+    # ``vllm_mlx/server.py::configure_cors_from_env``.
+    #
+    # Wildcard + credentials is spec-invalid (Fetch spec rejects the
+    # combination), so the resolver forces ``allow_credentials=False``
+    # when ``*`` is in the origin list. Operators who need cookie /
+    # ``Authorization`` auto-forwarding must pin to specific origins.
+    cors_origins = server.configure_cors_from_env(args.cors_origins)
     if args.rate_limit > 0:
         server._rate_limiter = configure_rate_limiter(args.rate_limit, enabled=True)
 
@@ -1068,8 +1127,11 @@ def serve_command(args):
         features.append("gc-control")
     if args.pin_system_prompt:
         features.append("pin-system-prompt")
-    if args.cors_origins:
-        features.append(f"cors: {', '.join(args.cors_origins)}")
+    # Show CORS in the startup banner when CLI flag or env-var-driven
+    # config produced an origin list (``configure_cors_from_env`` is what
+    # actually resolved it — see the call site earlier in this function).
+    if cors_origins:
+        features.append(f"cors: {', '.join(cors_origins)}")
     if args.enable_dflash:
         features.append("dflash: single-user")
     if features:

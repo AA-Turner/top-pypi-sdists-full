@@ -8,6 +8,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.error_response import ErrorResponse
 from ...models.run_response import RunResponse
 from uuid import UUID
 
@@ -26,11 +27,23 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> RunResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | RunResponse | None:
     if response.status_code == 200:
         response_200 = RunResponse.from_dict(response.json())
 
         return response_200
+
+    if response.status_code == 404:
+        response_404 = ErrorResponse.from_dict(response.json())
+
+        return response_404
+
+    if response.status_code == 409:
+        response_409 = ErrorResponse.from_dict(response.json())
+
+        return response_409
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -38,7 +51,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[RunResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | RunResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -51,14 +66,17 @@ def sync_detailed(
     run_id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[RunResponse]:
+) -> Response[ErrorResponse | RunResponse]:
     r"""Cancel Run
 
      Cancel a pending or running run.
 
-    Returns `409` if the run is already in a terminal state. Canceling a
-    running run stops us tracking it, but the HTTP request may already be in
-    flight — cancel means \"stop tracking,\" not \"guaranteed it didn't happen.\"
+    Returns `404` if the run does not exist and `409` if it is already in a
+    terminal state. Canceling a running run stops us tracking it, but the HTTP
+    request may already be in flight — cancel means \"stop tracking,\" not
+    \"guaranteed it didn't happen.\" A run that has already started running still
+    counts toward your monthly run allowance even if you cancel it; a run
+    canceled while it is still pending does not count.
 
     Args:
         run_id (UUID):
@@ -68,7 +86,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[RunResponse]
+        Response[ErrorResponse | RunResponse]
     """
 
     kwargs = _get_kwargs(
@@ -86,14 +104,17 @@ def sync(
     run_id: UUID,
     *,
     client: AuthenticatedClient,
-) -> RunResponse | None:
+) -> ErrorResponse | RunResponse | None:
     r"""Cancel Run
 
      Cancel a pending or running run.
 
-    Returns `409` if the run is already in a terminal state. Canceling a
-    running run stops us tracking it, but the HTTP request may already be in
-    flight — cancel means \"stop tracking,\" not \"guaranteed it didn't happen.\"
+    Returns `404` if the run does not exist and `409` if it is already in a
+    terminal state. Canceling a running run stops us tracking it, but the HTTP
+    request may already be in flight — cancel means \"stop tracking,\" not
+    \"guaranteed it didn't happen.\" A run that has already started running still
+    counts toward your monthly run allowance even if you cancel it; a run
+    canceled while it is still pending does not count.
 
     Args:
         run_id (UUID):
@@ -103,7 +124,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        RunResponse
+        ErrorResponse | RunResponse
     """
 
     return sync_detailed(
@@ -116,14 +137,17 @@ async def asyncio_detailed(
     run_id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[RunResponse]:
+) -> Response[ErrorResponse | RunResponse]:
     r"""Cancel Run
 
      Cancel a pending or running run.
 
-    Returns `409` if the run is already in a terminal state. Canceling a
-    running run stops us tracking it, but the HTTP request may already be in
-    flight — cancel means \"stop tracking,\" not \"guaranteed it didn't happen.\"
+    Returns `404` if the run does not exist and `409` if it is already in a
+    terminal state. Canceling a running run stops us tracking it, but the HTTP
+    request may already be in flight — cancel means \"stop tracking,\" not
+    \"guaranteed it didn't happen.\" A run that has already started running still
+    counts toward your monthly run allowance even if you cancel it; a run
+    canceled while it is still pending does not count.
 
     Args:
         run_id (UUID):
@@ -133,7 +157,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[RunResponse]
+        Response[ErrorResponse | RunResponse]
     """
 
     kwargs = _get_kwargs(
@@ -149,14 +173,17 @@ async def asyncio(
     run_id: UUID,
     *,
     client: AuthenticatedClient,
-) -> RunResponse | None:
+) -> ErrorResponse | RunResponse | None:
     r"""Cancel Run
 
      Cancel a pending or running run.
 
-    Returns `409` if the run is already in a terminal state. Canceling a
-    running run stops us tracking it, but the HTTP request may already be in
-    flight — cancel means \"stop tracking,\" not \"guaranteed it didn't happen.\"
+    Returns `404` if the run does not exist and `409` if it is already in a
+    terminal state. Canceling a running run stops us tracking it, but the HTTP
+    request may already be in flight — cancel means \"stop tracking,\" not
+    \"guaranteed it didn't happen.\" A run that has already started running still
+    counts toward your monthly run allowance even if you cancel it; a run
+    canceled while it is still pending does not count.
 
     Args:
         run_id (UUID):
@@ -166,7 +193,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        RunResponse
+        ErrorResponse | RunResponse
     """
 
     return (

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -16,15 +18,22 @@ from jsii._type_checking import check_type
 
 from .._jsii import *
 
-from .. import (
-    Component as _Component_2b0ad27f,
-    DevEnvironmentDockerImage as _DevEnvironmentDockerImage_4a8d8ffd,
-    DevEnvironmentOptions as _DevEnvironmentOptions_b10d89d1,
-    IDevEnvironment as _IDevEnvironment_9a084622,
-    JsonFile as _JsonFile_fa8164db,
-    Project as _Project_57d89203,
-    Task as _Task_9fa875b6,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import projen as _projen_04054675
+else:
+
+    _projen_04054675 = _LazyImport("projen")
 
 
 @jsii.enum(jsii_type="projen.vscode.Console")
@@ -113,7 +122,7 @@ class DevContainerFeature:
 
 @jsii.data_type(
     jsii_type="projen.vscode.DevContainerOptions",
-    jsii_struct_bases=[_DevEnvironmentOptions_b10d89d1],
+    jsii_struct_bases=[_projen_04054675.DevEnvironmentOptions],
     name_mapping={
         "docker_image": "dockerImage",
         "ports": "ports",
@@ -122,13 +131,13 @@ class DevContainerFeature:
         "features": "features",
     },
 )
-class DevContainerOptions(_DevEnvironmentOptions_b10d89d1):
+class DevContainerOptions(_projen_04054675.DevEnvironmentOptions):
     def __init__(
         self,
         *,
-        docker_image: typing.Optional["_DevEnvironmentDockerImage_4a8d8ffd"] = None,
+        docker_image: typing.Optional["_projen_04054675.DevEnvironmentDockerImage"] = None,
         ports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tasks: typing.Optional[typing.Sequence["_Task_9fa875b6"]] = None,
+        tasks: typing.Optional[typing.Sequence["_projen_04054675.Task"]] = None,
         vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         features: typing.Optional[typing.Sequence[typing.Union["DevContainerFeature", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -165,13 +174,15 @@ class DevContainerOptions(_DevEnvironmentOptions_b10d89d1):
             self._values["features"] = features
 
     @builtins.property
-    def docker_image(self) -> typing.Optional["_DevEnvironmentDockerImage_4a8d8ffd"]:
+    def docker_image(
+        self,
+    ) -> typing.Optional["_projen_04054675.DevEnvironmentDockerImage"]:
         '''(experimental) A Docker image or Dockerfile for the container.
 
         :stability: experimental
         '''
         result = self._values.get("docker_image")
-        return typing.cast(typing.Optional["_DevEnvironmentDockerImage_4a8d8ffd"], result)
+        return typing.cast(typing.Optional["_projen_04054675.DevEnvironmentDockerImage"], result)
 
     @builtins.property
     def ports(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -183,13 +194,13 @@ class DevContainerOptions(_DevEnvironmentOptions_b10d89d1):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tasks(self) -> typing.Optional[typing.List["_Task_9fa875b6"]]:
+    def tasks(self) -> typing.Optional[typing.List["_projen_04054675.Task"]]:
         '''(experimental) An array of tasks that should be run when the container starts.
 
         :stability: experimental
         '''
         result = self._values.get("tasks")
-        return typing.cast(typing.Optional[typing.List["_Task_9fa875b6"]], result)
+        return typing.cast(typing.Optional[typing.List["_projen_04054675.Task"]], result)
 
     @builtins.property
     def vscode_extensions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -222,7 +233,10 @@ class DevContainerOptions(_DevEnvironmentOptions_b10d89d1):
 
 
 @jsii.interface(jsii_type="projen.vscode.IDevContainerEnvironment")
-class IDevContainerEnvironment(_IDevEnvironment_9a084622, typing_extensions.Protocol):
+class IDevContainerEnvironment(
+    _projen_04054675.IDevEnvironment,
+    typing_extensions.Protocol,
+):
     '''
     :stability: experimental
     '''
@@ -239,7 +253,7 @@ class IDevContainerEnvironment(_IDevEnvironment_9a084622, typing_extensions.Prot
 
 
 class _IDevContainerEnvironmentProxy(
-    jsii.proxy_for(_IDevEnvironment_9a084622), # type: ignore[misc]
+    jsii.proxy_for(_projen_04054675.IDevEnvironment), # type: ignore[misc]
 ):
     '''
     :stability: experimental
@@ -428,7 +442,7 @@ class ServerReadyAction:
 
 
 class VsCode(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.vscode.VsCode",
 ):
@@ -436,7 +450,7 @@ class VsCode(
     :stability: experimental
     '''
 
-    def __init__(self, project: "_Project_57d89203") -> None:
+    def __init__(self, project: "_projen_04054675.Project") -> None:
         '''
         :param project: -
 
@@ -473,7 +487,7 @@ class VsCode(
 
 
 class VsCodeLaunchConfig(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.vscode.VsCodeLaunchConfig",
 ):
@@ -653,11 +667,11 @@ class VsCodeLaunchConfig(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_JsonFile_fa8164db":
+    def file(self) -> "_projen_04054675.JsonFile":
         '''
         :stability: experimental
         '''
-        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.JsonFile", jsii.get(self, "file"))
 
 
 @jsii.data_type(
@@ -1242,7 +1256,7 @@ class VsCodeLaunchPromptStringInputEntry(VsCodeLaunchInputEntry):
 
 
 class VsCodeRecommendedExtensions(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.vscode.VsCodeRecommendedExtensions",
 ):
@@ -1292,15 +1306,15 @@ class VsCodeRecommendedExtensions(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_JsonFile_fa8164db":
+    def file(self) -> "_projen_04054675.JsonFile":
         '''
         :stability: experimental
         '''
-        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.JsonFile", jsii.get(self, "file"))
 
 
 class VsCodeSettings(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.vscode.VsCodeSettings",
 ):
@@ -1363,16 +1377,16 @@ class VsCodeSettings(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> "_JsonFile_fa8164db":
+    def file(self) -> "_projen_04054675.JsonFile":
         '''
         :stability: experimental
         '''
-        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
+        return typing.cast("_projen_04054675.JsonFile", jsii.get(self, "file"))
 
 
 @jsii.implements(IDevContainerEnvironment)
 class DevContainer(
-    _Component_2b0ad27f,
+    _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.vscode.DevContainer",
 ):
@@ -1386,12 +1400,12 @@ class DevContainer(
 
     def __init__(
         self,
-        project: "_Project_57d89203",
+        project: "_projen_04054675.Project",
         *,
         features: typing.Optional[typing.Sequence[typing.Union["DevContainerFeature", typing.Dict[builtins.str, typing.Any]]]] = None,
-        docker_image: typing.Optional["_DevEnvironmentDockerImage_4a8d8ffd"] = None,
+        docker_image: typing.Optional["_projen_04054675.DevEnvironmentDockerImage"] = None,
         ports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tasks: typing.Optional[typing.Sequence["_Task_9fa875b6"]] = None,
+        tasks: typing.Optional[typing.Sequence["_projen_04054675.Task"]] = None,
         vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
@@ -1418,7 +1432,10 @@ class DevContainer(
         jsii.create(self.__class__, self, [project, options])
 
     @jsii.member(jsii_name="addDockerImage")
-    def add_docker_image(self, image: "_DevEnvironmentDockerImage_4a8d8ffd") -> None:
+    def add_docker_image(
+        self,
+        image: "_projen_04054675.DevEnvironmentDockerImage",
+    ) -> None:
         '''(experimental) Add a custom Docker image or Dockerfile for the container.
 
         :param image: -
@@ -1457,7 +1474,7 @@ class DevContainer(
         return typing.cast(None, jsii.invoke(self, "addPorts", [*ports]))
 
     @jsii.member(jsii_name="addTasks")
-    def add_tasks(self, *tasks: "_Task_9fa875b6") -> None:
+    def add_tasks(self, *tasks: "_projen_04054675.Task") -> None:
         '''(experimental) Adds tasks to run when the container starts.
 
         Tasks will be run in sequence.
@@ -1597,9 +1614,9 @@ def _typecheckingstub__5a7f73b2b024ecc62d8491484836d55c16fc65fe902d48c89e27920fb
 
 def _typecheckingstub__b22d9ca6de29afcacfab2404c9835e6e3021ec640c49dfdad9bfb651e564c725(
     *,
-    docker_image: typing.Optional[_DevEnvironmentDockerImage_4a8d8ffd] = None,
+    docker_image: typing.Optional[_projen_04054675.DevEnvironmentDockerImage] = None,
     ports: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tasks: typing.Optional[typing.Sequence[_Task_9fa875b6]] = None,
+    tasks: typing.Optional[typing.Sequence[_projen_04054675.Task]] = None,
     vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     features: typing.Optional[typing.Sequence[typing.Union[DevContainerFeature, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -1631,7 +1648,7 @@ def _typecheckingstub__66fa6feb4bea9673155e5f489baae5bbdd6d528f7ce29ff754c691509
     pass
 
 def _typecheckingstub__f494cab4044809f412c6dee4a08eb9aa6d128399b6c0dfdbe5d9be6e2622fed5(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1738,19 +1755,19 @@ def _typecheckingstub__fa3e27ee6b180fccd6eab5d9670c7024eb3f8067cb08859636119e69f
     pass
 
 def _typecheckingstub__50747b0b39db339de569d0b44aea84c4de3c0d9d7b268479f1a3852dfb712c0b(
-    project: _Project_57d89203,
+    project: _projen_04054675.Project,
     *,
     features: typing.Optional[typing.Sequence[typing.Union[DevContainerFeature, typing.Dict[builtins.str, typing.Any]]]] = None,
-    docker_image: typing.Optional[_DevEnvironmentDockerImage_4a8d8ffd] = None,
+    docker_image: typing.Optional[_projen_04054675.DevEnvironmentDockerImage] = None,
     ports: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tasks: typing.Optional[typing.Sequence[_Task_9fa875b6]] = None,
+    tasks: typing.Optional[typing.Sequence[_projen_04054675.Task]] = None,
     vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__24cf7d35da522ed5017c6db46a2565a5b5a09fbffc1dafabdf917aa798fea91d(
-    image: _DevEnvironmentDockerImage_4a8d8ffd,
+    image: _projen_04054675.DevEnvironmentDockerImage,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1768,7 +1785,7 @@ def _typecheckingstub__3898b547dc05a8cd9427e24743e3ec87b3108cfb90befb94e77c24e15
     pass
 
 def _typecheckingstub__4eccb3fb9f6eca40de5ffa59e4b75a85830e1113729bd9b08dc7e4128c2bfde0(
-    *tasks: _Task_9fa875b6,
+    *tasks: _projen_04054675.Task,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -667,12 +667,27 @@ impl<'a> RemlState<'a> {
             }
         };
 
-        let log_likelihood = crate::pirls::calculate_loglikelihood_omitting_constants(
-            self.y,
-            &pirls_result.finalmu,
-            &pirls_result.likelihood,
-            self.weights,
-        );
+        // For the Gaussian family the omitting-constants log-likelihood is
+        // exactly `-0.5 * deviance` for any phi (deviance = Σ w·(y-μ)²/phi,
+        // log-lik = Σ -0.5·w·(y-μ)²/phi). PIRLS already carries the k-space
+        // `deviance` on `pirls_result`, computed from the sufficient statistics
+        // on the #1033 ψ-tensor fast path where `finalmu` is a STALE reference
+        // surface (`= offset`). Recomputing the log-likelihood from `finalmu`
+        // here would (a) cost an O(n) row reduction every outer trial and
+        // (b) read the stale rows, yielding a β̂/ψ-independent wrong value.
+        // Reuse the cached deviance to stay n-free AND correct; this is
+        // bit-identical to the recompute whenever the rows are live. Non-
+        // Gaussian families never arm the n-free cache, so they recompute.
+        let log_likelihood = if is_gaussian_identity {
+            -0.5 * pirls_result.deviance
+        } else {
+            crate::pirls::calculate_loglikelihood_omitting_constants(
+                self.y,
+                &pirls_result.finalmu,
+                &pirls_result.likelihood,
+                self.weights,
+            )
+        };
 
         // Construct barrier config for monotonicity constraints when no
         // active-set projection is in effect (barrier indices are in the
@@ -785,12 +800,23 @@ impl<'a> RemlState<'a> {
             )
         };
 
-        let log_likelihood = crate::pirls::calculate_loglikelihood_omitting_constants(
-            self.y,
-            &pirls_result.finalmu,
-            &pirls_result.likelihood,
-            self.weights,
-        );
+        // Gaussian: omitting-constants log-likelihood ≡ -0.5·deviance for any
+        // phi. PIRLS carries the k-space `deviance` on the result; on the #1033
+        // ψ-tensor fast path `finalmu` is a STALE reference surface (= offset),
+        // so recomputing from it would be an O(n) row reduction AND a wrong,
+        // β̂/ψ-independent value. Reuse the cached deviance: n-free + correct,
+        // bit-identical to the recompute when the rows are live. Non-Gaussian
+        // families never arm the n-free cache, so they keep the row recompute.
+        let log_likelihood = if is_gaussian_identity {
+            -0.5 * pirls_result.deviance
+        } else {
+            crate::pirls::calculate_loglikelihood_omitting_constants(
+                self.y,
+                &pirls_result.finalmu,
+                &pirls_result.likelihood,
+                self.weights,
+            )
+        };
 
         // Construct barrier config for monotonicity constraints.
         // The sparse path operates in the original (non-reparameterized)
@@ -1058,6 +1084,7 @@ impl<'a> RemlState<'a> {
             penalty_subspace.as_ref(),
             bundle,
             mode,
+            free_basis_opt.as_ref(),
         )?;
 
         let beta = if let Some(z) = free_basis_opt.as_ref() {
@@ -1114,6 +1141,51 @@ impl<'a> RemlState<'a> {
             } else {
                 (0.0, None)
             };
+
+        // #1271 diagnostic: dump the REML logdet internals at every dense
+        // evaluation so the rank/logdet mechanism is visible in the test log.
+        // Pure logging — no numeric behavior change. Routed through `log::info!`
+        // so it is harmless in production (default off) and captured by a
+        // test-installed logger in the #1271 probe.
+        if log::log_enabled!(log::Level::Info) {
+            use crate::faer_ndarray::FaerEigh;
+            use faer::Side;
+            let h_logdet = hessian_op.logdet();
+            let (h_above_one, h_min, h_max) = match h_for_operator.as_ref().eigh(Side::Lower) {
+                Ok((evals, _)) => {
+                    let above = evals.iter().filter(|&&s| s > 1.0).count();
+                    let mn = evals.iter().copied().fold(f64::INFINITY, f64::min);
+                    let mx = evals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                    (above as i64, mn, mx)
+                }
+                Err(_) => (-1, f64::NAN, f64::NAN),
+            };
+            let rho_str = rho
+                .iter()
+                .map(|r| format!("{r:.4}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            let lam_str = rho
+                .iter()
+                .map(|r| format!("{:.3e}", r.exp()))
+                .collect::<Vec<_>>()
+                .join(",");
+            log::info!(
+                "[#1271-diag] p={p} penalty_rank={pr} nullspace_dim={nd} \
+                 logS={ls:.6} logH={lh:.6} half_diff={hd:.6} \
+                 h_above1={ha} h_min={hmin:.3e} h_max={hmax:.3e} \
+                 rho=[{rho_str}] lambda=[{lam_str}]",
+                p = h_for_operator.ncols(),
+                pr = penalty_rank,
+                nd = nullspace_dim,
+                ls = penalty_logdet.value,
+                lh = h_logdet,
+                hd = 0.5 * (h_logdet - penalty_logdet.value),
+                ha = h_above_one,
+                hmin = h_min,
+                hmax = h_max,
+            );
+        }
 
         let ctx =
             self.build_dense_derivative_context(pirls_result, bundle, &free_basis_opt, true)?;
@@ -1404,6 +1476,9 @@ impl<'a> RemlState<'a> {
             penalty_subspace.as_ref(),
             bundle,
             mode,
+            // Original-basis assembly is only used when there are no active
+            // constraints, so no constraint-free projection applies here.
+            None,
         )?;
 
         let nullspace_dim = beta.len().saturating_sub(penalty_rank) as f64;
@@ -1435,6 +1510,80 @@ impl<'a> RemlState<'a> {
             } else {
                 (0.0, None)
             };
+
+        // #1271 diagnostic (twin of the build_dense_assembly probe): this is the
+        // path the unconstrained Gaussian tp fit actually takes. Dump REML
+        // logdet internals per dense original-basis evaluation. Pure logging via
+        // log::info! (default-off in production, no numeric behavior change).
+        if log::log_enabled!(log::Level::Info) {
+            use crate::faer_ndarray::FaerEigh;
+            use faer::Side;
+            let h_logdet = hessian_op.logdet();
+            let (h_above_one, h_min, h_max, h_eig_str) = match h_total_original.eigh(Side::Lower) {
+                Ok((evals, _)) => {
+                    let above = evals.iter().filter(|&&s| s > 1.0).count();
+                    let mn = evals.iter().copied().fold(f64::INFINITY, f64::min);
+                    let mx = evals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                    let mut sorted: Vec<f64> = evals.to_vec();
+                    sorted.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+                    let s = sorted
+                        .iter()
+                        .map(|v| format!("{v:.3e}"))
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    (above as i64, mn, mx, s)
+                }
+                Err(_) => (-1, f64::NAN, f64::NAN, String::from("err")),
+            };
+            // Penalty Sλ = EᵀE eigenvalues (the SAME e_for_logdet that feeds
+            // log|S|+). Sorted spectrum is basis-invariant; compare per-mode λ·d_i
+            // against the sorted H spectrum to see which modes are data-dominated
+            // (high EDF: λ·d ≪ H eig) vs penalty-crushed (λ·d ≈ H eig).
+            let s_eig_str = {
+                let s_lambda = e_for_logdet.t().dot(e_for_logdet);
+                match s_lambda.eigh(Side::Lower) {
+                    Ok((mut evals, _)) => {
+                        let v = evals.as_slice_mut().unwrap();
+                        v.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+                        v.iter()
+                            .map(|x| format!("{x:.3e}"))
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    }
+                    Err(_) => String::from("err"),
+                }
+            };
+            let rho_str = rho
+                .iter()
+                .map(|r| format!("{r:.4}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            let lam_str = rho
+                .iter()
+                .map(|r| format!("{:.3e}", r.exp()))
+                .collect::<Vec<_>>()
+                .join(",");
+            let rss = pirls_result.deviance;
+            let pen = pirls_result.stable_penalty_term;
+            let dp = rss + pen;
+            let pedf = pirls_result.edf;
+            log::info!(
+                "[#1271-diag] path=orig p={p} penalty_rank={pr} nullspace_dim={nd} \
+                 rss={rss:.6} pen={pen:.6} Dp={dp:.6} pirls_edf={pedf:.4} \
+                 logS={ls:.6} logH={lh:.6} half_diff={hd:.6} \
+                 h_above1={ha} h_min={hmin:.3e} h_max={hmax:.3e} \
+                 rho=[{rho_str}] lambda=[{lam_str}]\n  H_eig=[{h_eig_str}]\n  Slam_eig=[{s_eig_str}]",
+                p = beta.len(),
+                pr = penalty_rank,
+                nd = nullspace_dim,
+                ls = penalty_logdet.value,
+                lh = h_logdet,
+                hd = 0.5 * (h_logdet - penalty_logdet.value),
+                ha = h_above_one,
+                hmin = h_min,
+                hmax = h_max,
+            );
+        }
 
         let ctx = self.build_sparse_derivative_context(pirls_result, bundle)?;
         Ok(self.finish_assembly(
@@ -2567,6 +2716,17 @@ impl<'a> RemlState<'a> {
         );
         let t_assemble = std::time::Instant::now();
         if bundle.backend_kind() == GeometryBackendKind::SparseExactSpd {
+            // Exact analytic LAML ρ-gradient for any penalty layout, including
+            // repeated/shared col_range `by`-factor smooths. `rho_derivatives_
+            // from_penalties` maps every component into its merged eigenspace
+            // block span and forms tr(W'S_kW) and the cross-terms tr(Y_kY_l)
+            // within that shared span, so penalties that share a coefficient
+            // block contribute the correct coupled logdet derivative. This is
+            // the exact gradient of the (un-barriered) REML cost `result.cost`;
+            // the screening barrier `+0.5·r_g²` carries no ρ-gradient and is a
+            // partial-inner-state tie-break, not part of the objective being
+            // descended, so the analytic gradient is the honest REML descent
+            // direction even at a screened seed.
             let result = self.evaluate_unified_sparse(
                 p,
                 &bundle,
@@ -2797,6 +2957,14 @@ impl<'a> RemlState<'a> {
         // ρ/ψ, producing the stall-with-nonzero-final-grad-norm signature of
         // the #1122 matern iso-κ optimizer.
         let cost = screening_residual_penalty(result.cost, bundle.pirls_result.as_ref());
+        // The reported cost carries the screening barrier `+0.5·r_g²` (active
+        // only on a partial, screened inner state) to keep the seed-screening
+        // VALUE monotonic, but the gradient is the exact analytic ρ-gradient of
+        // the un-barriered REML objective on every backend — including the
+        // sparse-exact `by`-factor layout, whose shared-block logdet derivative
+        // is handled exactly by `rho_derivatives_from_penalties`. The barrier
+        // has no ρ-gradient and vanishes at every converged point, so this is
+        // the honest REML descent direction; no numerical-difference fallback.
         let eval = OuterEval {
             cost,
             gradient,

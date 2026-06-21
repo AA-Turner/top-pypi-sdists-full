@@ -501,13 +501,8 @@ def test_guardian_run_continues_after_exception(monkeypatch):
 
     guardian.start()
     try:
-        assert _wait_until(
-            lambda: crash_reported.is_set() or guardian.status().get("crash_count", 0) >= 1,
-            timeout=30.0,
-        ), "Expected guardian crash status to be published"
-        assert _wait_until(lambda: continued_after_crash.is_set() or len(calls) >= 2), (
-            "Expected guardian loop to continue probing"
-        )
+        assert crash_reported.wait(timeout=10.0), "Expected guardian crash status to be published"
+        assert continued_after_crash.wait(timeout=10.0), "Expected guardian loop to continue probing"
     finally:
         guardian.stop(timeout=2.0)
 
