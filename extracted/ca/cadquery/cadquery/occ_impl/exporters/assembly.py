@@ -12,6 +12,12 @@ from vtkmodules.vtkRenderingCore import vtkRenderWindow
 from OCP.XSControl import XSControl_WorkSession
 from OCP.STEPCAFControl import STEPCAFControl_Writer
 from OCP.STEPControl import STEPControl_StepModelType
+from OCP.STEPConstruct import STEPConstruct
+from OCP.StepShape import (
+    StepShape_AdvancedFace,
+    StepShape_GeometricCurveSet,
+)
+from OCP.StepGeom import StepGeom_TrimmedCurve
 from OCP.IFSelect import IFSelect_ReturnStatus
 from OCP.TDF import TDF_Label
 from OCP.TDataStd import TDataStd_Name
@@ -28,7 +34,11 @@ from OCP.BinXCAFDrivers import (
 )
 
 
-from OCP.TCollection import TCollection_ExtendedString, TCollection_AsciiString
+from OCP.TCollection import (
+    TCollection_ExtendedString,
+    TCollection_AsciiString,
+    TCollection_HAsciiString,
+)
 from OCP.PCDM import PCDM_StoreStatus
 from OCP.RWGltf import RWGltf_CafWriter
 from OCP.TColStd import TColStd_IndexedDataMapOfStringString
@@ -38,6 +48,7 @@ from OCP.Interface import Interface_Static
 from ..assembly import AssemblyProtocol, toCAF, toVTK, toFusedCAF
 from ..geom import Location
 from ..shapes import Shape, Compound
+from ...types import UnitLiterals
 
 
 class ExportModes:
@@ -52,6 +63,8 @@ def exportAssembly(
     assy: AssemblyProtocol,
     path: str,
     mode: STEPExportModeLiterals = "default",
+    unit: UnitLiterals = "MM",
+    outputUnit: Optional[UnitLiterals] = None,
     **kwargs,
 ) -> bool:
     """
@@ -63,6 +76,12 @@ def exportAssembly(
     :param path: Path and filename for writing
     :param mode: STEP export mode. The options are "default", and "fused" (a single fused compound).
         It is possible that fused mode may exhibit low performance.
+    :param unit: The internal unit of the model's geometry values. Default "MM".
+    :type unit: UnitLiterals
+    :param outputUnit: The unit to use in the STEP file header. If None, defaults to the value of ``unit``.
+        Use this when you want the output file to declare a different unit than the model's internal unit,
+        for example to export a MM model as a STEP file declaring meters.
+    :type outputUnit: UnitLiterals or None
     :param fuzzy_tol: OCCT fuse operation tolerance setting used only for fused assembly export.
     :type fuzzy_tol: float
     :param glue: Enable gluing mode for improved performance during fused assembly export.
@@ -76,6 +95,8 @@ def exportAssembly(
     :param precision_mode: Controls the uncertainty value for STEP entities. Specify -1, 0, or 1. Default 0.
         See OCCT documentation.
     :type precision_mode: int
+    :param name_geometries: Propagate subshape names to geometric STEP entities.
+    :type name_geometries: bool
     """
 
     # Handle the extra settings for the STEP export
@@ -85,22 +106,60 @@ def exportAssembly(
     precision_mode = kwargs["precision_mode"] if "precision_mode" in kwargs else 0
     fuzzy_tol = kwargs["fuzzy_tol"] if "fuzzy_tol" in kwargs else None
     glue = kwargs["glue"] if "glue" in kwargs else False
+    name_geometries = kwargs.get("name_geometries", False)
 
     # Handle the doc differently based on which mode we are using
     if mode == "fused":
         _, doc = toFusedCAF(assy, glue, fuzzy_tol)
     else:  # Includes "default"
-        _, doc = toCAF(assy, True)
+        _, doc = toCAF(assy, True,)
 
     session = XSControl_WorkSession()
     writer = STEPCAFControl_Writer(session, False)
     writer.SetColorMode(True)
     writer.SetLayerMode(True)
     writer.SetNameMode(True)
+
     Interface_Static.SetIVal_s("write.surfacecurve.mode", pcurves)
     Interface_Static.SetIVal_s("write.precision.mode", precision_mode)
     Interface_Static.SetIVal_s("write.stepcaf.subshapes.name", 1)
+    Interface_Static.SetCVal_s("xstep.cascade.unit", unit.upper())
+    Interface_Static.SetCVal_s(
+        "write.step.unit", outputUnit if outputUnit is not None else unit.upper()
+    )
     writer.Transfer(doc, STEPControl_StepModelType.STEPControl_AsIs)
+
+    if name_geometries:
+        finder = session.TransferWriter().FinderProcess()
+
+        # iterate over all named subshapes
+        for child in assy.objects.values():
+            for subshape, name in child._subshape_names.items():
+                # find the topological STEP entity
+                entity = STEPConstruct.FindEntity_s(finder, subshape.wrapped)
+
+                occ_name = TCollection_HAsciiString(name)
+
+                # rename the underlying geometric entities
+                if isinstance(entity, StepShape_AdvancedFace):
+                    entity.FaceGeometry().SetName(occ_name)
+
+                elif isinstance(
+                    entity, StepShape_GeometricCurveSet
+                ):  # pragma: no branch
+                    for i in range(entity.NbElements()):
+                        el = entity.ElementsValue(i + 1)
+                        case = el.CaseNumber()
+
+                        if case == 2:  # pragma: no branch
+                            crv = el.Curve()
+                            crv.SetName(occ_name)
+
+                            # trimmed curves also have a basis curve
+                            if isinstance(
+                                crv, StepGeom_TrimmedCurve
+                            ):  # pragma: no branch
+                                crv.BasisCurve().SetName(occ_name)
 
     status = writer.Write(path)
 
@@ -112,6 +171,8 @@ def exportStepMeta(
     path: str,
     write_pcurves: bool = True,
     precision_mode: int = 0,
+    unit: UnitLiterals = "MM",
+    outputUnit: Optional[UnitLiterals] = None,
 ) -> bool:
     """
     Export an assembly to a STEP file with faces tagged with names and colors. This is done as a
@@ -127,6 +188,12 @@ def exportStepMeta(
         If False, writes STEP file without pcurves. This decreases the size of the resulting STEP file.
     :param precision_mode: Controls the uncertainty value for STEP entities. Specify -1, 0, or 1. Default 0.
         See OCCT documentation.
+    :param unit: The internal unit of the model's geometry values. Default "MM".
+    :type unit: UnitLiterals
+    :param outputUnit: The unit to use in the STEP file header. If None, defaults to the value of ``unit``.
+        Use this when you want the output file to declare a different unit than the model's internal unit,
+        for example to export a MM model as a STEP file declaring meters.
+    :type outputUnit: UnitLiterals or None
     """
 
     pcurves = 1
@@ -266,6 +333,10 @@ def exportStepMeta(
     writer.SetNameMode(True)
     Interface_Static.SetIVal_s("write.surfacecurve.mode", pcurves)
     Interface_Static.SetIVal_s("write.precision.mode", precision_mode)
+    Interface_Static.SetCVal_s("xstep.cascade.unit", unit.upper())
+    Interface_Static.SetCVal_s(
+        "write.step.unit", outputUnit if outputUnit is not None else unit.upper()
+    )
     writer.Transfer(doc, STEPControl_StepModelType.STEPControl_AsIs)
 
     status = writer.Write(path)
@@ -290,7 +361,6 @@ def exportCAF(assy: AssemblyProtocol, path: str, binary: bool = False) -> bool:
 
     # XBF
     if binary:
-        ret = XmlXCAFDrivers_DocumentRetrievalDriver()
         format_name = TCollection_AsciiString("BinXCAF")
         format_desc = TCollection_AsciiString("Binary XCAF Document")
         store = BinXCAFDrivers_DocumentStorageDriver()

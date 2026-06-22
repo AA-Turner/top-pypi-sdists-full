@@ -1,4 +1,3 @@
-# fmt: off
 from importlib.metadata import PackageNotFoundError, version
 
 import pytest
@@ -16,4 +15,5 @@ def test_versionnumber():
     else:
         assert ase.__version__ == version_seen_by_python, (
             f'ASE is version {ase.__version__} but python thinks it is '
-            f'{version_seen_by_python} - perhaps rerun "pip install -e"')
+            f'{version_seen_by_python} - perhaps rerun "pip install -e"'
+        )

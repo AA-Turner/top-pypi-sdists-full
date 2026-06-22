@@ -16,9 +16,8 @@ jobs:
           "3.11",
           "3.12",
           "3.13",
-          "3.13t",
-          "3.14",
-          "3.14t",
+          "3.14", "3.14t",
+          "3.15", "3.15t",
           "pypy3.11",
         ]
         os: [
@@ -27,17 +26,17 @@ jobs:
         ]
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: "Install uv"
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: false
 
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        if: github.ref_type != 'tag'
+        if: github.event_name == 'pull_request' && github.run_attempt == 1
         with:
           lookup-only: false # zizmor: ignore[cache-poisoning]
           shared-key: ${{ matrix.os }}-${{ matrix.python-version }}

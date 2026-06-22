@@ -2,10 +2,10 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use anyhow::{Context, Result};
-use ast_grep_config::Fixer;
+use ast_grep_config::{Fixer, Rule, parse_selector};
 use ast_grep_core::{MatchStrictness, Matcher, Pattern};
 use ast_grep_language::{Language, LanguageExt};
-use clap::{builder::PossibleValue, Parser, ValueEnum};
+use clap::{Args, Parser, ValueEnum, builder::PossibleValue};
 use ignore::WalkParallel;
 
 use crate::config::ProjectConfig;
@@ -15,7 +15,7 @@ use crate::print::{
   Printer,
 };
 use crate::utils::ErrorContext as EC;
-use crate::utils::{filter_file_pattern, ContextArgs, InputArgs, MatchUnit, OutputArgs};
+use crate::utils::{ContextArgs, InputArgs, MatchUnit, OutputArgs, filter_file_pattern};
 use crate::utils::{DebugFormat, FileTrace, RunTrace};
 use crate::utils::{Items, PathWorker, StdInWorker, Worker};
 
@@ -45,12 +45,12 @@ impl ValueEnum for Strictness {
   fn to_possible_value(&self) -> Option<PossibleValue> {
     use MatchStrictness as M;
     Some(match &self.0 {
-      M::Cst => PossibleValue::new("cst").help("Match exact all node"),
-      M::Smart => PossibleValue::new("smart").help("Match all node except source trivial nodes"),
+      M::Cst => PossibleValue::new("cst").help("Match all nodes exactly"),
+      M::Smart => PossibleValue::new("smart").help("Match all nodes except source trivial nodes"),
       M::Ast => PossibleValue::new("ast").help("Match only ast nodes"),
-      M::Relaxed => PossibleValue::new("relaxed").help("Match ast node except comments"),
+      M::Relaxed => PossibleValue::new("relaxed").help("Match ast nodes except comments"),
       M::Signature => {
-        PossibleValue::new("signature").help("Match ast node except comments, without text")
+        PossibleValue::new("signature").help("Match ast nodes except comments, without text")
       }
       M::Template => PossibleValue::new("template")
         .help("Similar to smart but match text only, node kinds are ignored"),
@@ -58,19 +58,73 @@ impl ValueEnum for Strictness {
   }
 }
 
-#[derive(Parser)]
-pub struct RunArg {
-  // search pattern related options
+#[derive(Args)]
+#[group(required = true)]
+struct MatcherArg {
   /// AST pattern to match.
-  #[clap(short, long)]
-  pattern: String,
-
+  #[clap(short, long, value_name = "PATTERN")]
+  pattern: Option<String>,
   /// AST kind to extract sub-part of pattern to match.
   ///
   /// selector defines the sub-syntax node kind that is the actual matcher of the pattern.
   /// See https://ast-grep.github.io/guide/rule-config/atomic-rule.html#pattern-object.
-  #[clap(long, value_name = "KIND")]
+  #[clap(
+    long,
+    value_name = "KIND",
+    requires = "pattern",
+    conflicts_with = "kind"
+  )]
   selector: Option<String>,
+
+  /// The strictness of the pattern.
+  ///
+  /// See https://ast-grep.github.io/guide/rule-config/atomic-rule.html#strictness
+  #[clap(
+    long,
+    value_name = "STRICTNESS",
+    requires = "pattern",
+    conflicts_with = "kind"
+  )]
+  strictness: Option<Strictness>,
+  /// AST kind to match.
+  ///
+  /// It accepts ESQuery style selector.
+  /// See https://ast-grep.github.io/guide/rule-config/atomic-rule.html#esquery-style-kind
+  #[clap(short, long, value_name = "KIND", conflicts_with = "pattern")]
+  kind: Option<String>,
+}
+
+impl MatcherArg {
+  fn build_matcher(&self, lang: SgLang) -> Result<Rule> {
+    if let Some(kind) = &self.kind {
+      parse_selector(kind, lang).context(EC::ParseSelector)
+    } else if let Some(pattern) = &self.pattern {
+      self.build_pattern(pattern, lang).map(Rule::Pattern)
+    } else {
+      Err(anyhow::anyhow!("Impossible code path"))
+    }
+  }
+
+  fn build_pattern(&self, pattern: &str, lang: SgLang) -> Result<Pattern> {
+    let pattern = if let Some(sel) = &self.selector {
+      Pattern::contextual(pattern, sel, lang)
+    } else {
+      Pattern::try_new(pattern, lang)
+    }
+    .context(EC::ParsePattern)?;
+    if let Some(strictness) = &self.strictness {
+      Ok(pattern.with_strictness(strictness.0.clone()))
+    } else {
+      Ok(pattern)
+    }
+  }
+}
+
+#[derive(Parser)]
+pub struct RunArg {
+  // search pattern related options
+  #[clap(flatten)]
+  matcher: MatcherArg,
 
   /// String to replace the matched AST node.
   #[clap(short, long, value_name = "FIX", required_if_eq("update_all", "true"))]
@@ -90,10 +144,6 @@ pub struct RunArg {
       default_missing_value = "pattern"
   )]
   debug_query: Option<DebugFormat>,
-
-  /// The strictness of the pattern.
-  #[clap(long)]
-  strictness: Option<Strictness>,
 
   /// input related options
   #[clap(flatten)]
@@ -118,29 +168,21 @@ pub struct RunArg {
 }
 
 impl RunArg {
-  fn build_pattern(&self, lang: SgLang) -> Result<Pattern> {
-    let pattern = if let Some(sel) = &self.selector {
-      Pattern::contextual(&self.pattern, sel, lang)
-    } else {
-      Pattern::try_new(&self.pattern, lang)
-    }
-    .context(EC::ParsePattern)?;
-    if let Some(strictness) = &self.strictness {
-      Ok(pattern.with_strictness(strictness.0.clone()))
-    } else {
-      Ok(pattern)
-    }
+  fn build_matcher(&self, lang: SgLang) -> Result<Rule> {
+    self.matcher.build_matcher(lang)
   }
 
   // do not unwrap pattern here, we should allow non-pattern to be debugged as tree
-  fn debug_pattern_if_needed(&self, pattern_ret: &Result<Pattern>, lang: SgLang) {
+  fn debug_pattern_if_needed(&self, rule_ret: &Result<Rule>, lang: SgLang) {
     let Some(debug_query) = &self.debug_query else {
       return;
     };
     let colored = self.output.color.should_use_color();
     if !matches!(debug_query, DebugFormat::Pattern) {
-      debug_query.debug_tree(&self.pattern, lang, colored);
-    } else if let Ok(pattern) = pattern_ret {
+      if let Some(pattern) = &self.matcher.pattern {
+        debug_query.debug_tree(pattern, lang, colored);
+      }
+    } else if let Ok(Rule::Pattern(pattern)) = rule_ret {
       debug_query.debug_pattern(pattern, lang, colored);
     }
   }
@@ -224,12 +266,12 @@ impl PathWorker for RunWithInferredLang {
       return Ok(vec![]);
     };
     self.trace.print_file(path, lang)?;
-    let matcher = self.arg.build_pattern(lang)?;
+    let matcher = self.arg.build_matcher(lang)?;
     // match sub region
     let sub_langs = lang.injectable_sg_langs().into_iter().flatten();
     let sub_matchers = sub_langs
       .filter_map(|l| {
-        let maybe_pattern = self.arg.build_pattern(l);
+        let maybe_pattern = self.arg.build_matcher(l);
         maybe_pattern.ok().map(|pattern| (l, pattern))
       })
       .collect::<Vec<_>>();
@@ -259,7 +301,7 @@ impl PathWorker for RunWithInferredLang {
 
 struct RunWithSpecificLang {
   arg: RunArg,
-  pattern: Pattern,
+  rule: Rule,
   rewrite: Option<Fixer>,
   stats: RunTrace,
 }
@@ -268,7 +310,7 @@ impl RunWithSpecificLang {
   fn new(arg: RunArg, stats: RunTrace) -> Result<Self> {
     let lang = arg.lang.ok_or(anyhow::anyhow!(EC::LanguageNotSpecified))?;
     // do not unwrap result here
-    let pattern_ret = arg.build_pattern(lang);
+    let pattern_ret = arg.build_matcher(lang);
     arg.debug_pattern_if_needed(&pattern_ret, lang);
     let rewrite = if let Some(s) = &arg.rewrite {
       Some(Fixer::from_str(s, &lang).context(EC::ParsePattern)?)
@@ -277,7 +319,7 @@ impl RunWithSpecificLang {
     };
     Ok(Self {
       arg,
-      pattern: pattern_ret?,
+      rule: pattern_ret?,
       rewrite,
       stats,
     })
@@ -298,11 +340,13 @@ impl Worker for RunWithSpecificLang {
     }
     printer.after_print()?;
     self.stats.print()?;
-    if !has_matches && self.pattern.has_error() {
-      Err(anyhow::anyhow!(EC::PatternHasError))
-    } else {
-      Ok(ExitCode::from(if has_matches { 0 } else { 1 }))
+    if !has_matches
+      && let Rule::Pattern(pattern) = &self.rule
+      && pattern.has_error()
+    {
+      return Err(anyhow::anyhow!(EC::PatternHasError));
     }
+    Ok(ExitCode::from(if has_matches { 0 } else { 1 }))
   }
 }
 
@@ -320,7 +364,7 @@ impl PathWorker for RunWithSpecificLang {
     processor: &P::Processor,
   ) -> Result<Vec<P::Processed>> {
     let arg = &self.arg;
-    let pattern = &self.pattern;
+    let pattern = &self.rule;
     let lang = arg.lang.expect("must present");
     let Some(path_lang) = SgLang::from_path(path) else {
       return Ok(vec![]);
@@ -329,7 +373,9 @@ impl PathWorker for RunWithSpecificLang {
     let (root_matcher, sub_matchers) = if path_lang == lang {
       (Some(pattern), vec![])
     } else {
-      (None, vec![(lang, pattern.clone())])
+      // rebuild arg here, unfortunately
+      let rule = arg.build_matcher(lang)?;
+      (None, vec![(lang, rule)])
     };
     let filtered = filter_file_pattern(path, path_lang, root_matcher, &sub_matchers)?;
     let mut ret = Vec::with_capacity(filtered.len());
@@ -352,14 +398,14 @@ impl StdInWorker for RunWithSpecificLang {
     let lang = self.arg.lang.expect("must present");
     let grep = lang.ast_grep(src);
     let root = grep.root();
-    let mut matches = root.find_all(&self.pattern).peekable();
+    let mut matches = root.find_all(&self.rule).peekable();
     if matches.peek().is_none() {
       return Ok(vec![]);
     }
     let rewrite = &self.rewrite;
     let path = Path::new("STDIN");
     let processed = if let Some(rewrite) = rewrite {
-      let diffs = matches.map(|m| Diff::generate(m, &self.pattern, rewrite));
+      let diffs = matches.map(|m| Diff::generate(m, &self.rule, rewrite));
       processor.print_diffs(diffs.collect(), path)?
     } else {
       processor.print_matches(matches.collect(), path)?
@@ -399,15 +445,22 @@ mod test {
   use ast_grep_language::SupportLang;
   use std::path::PathBuf;
 
+  fn default_matcher_arg() -> MatcherArg {
+    MatcherArg {
+      pattern: None,
+      strictness: None,
+      selector: None,
+      kind: None,
+    }
+  }
+
   fn default_run_arg() -> RunArg {
     RunArg {
-      pattern: String::new(),
-      selector: None,
+      matcher: default_matcher_arg(),
       rewrite: None,
       lang: None,
       heading: Heading::Never,
       debug_query: None,
-      strictness: None,
       input: InputArgs {
         no_ignore: vec![],
         stdin: false,
@@ -435,7 +488,10 @@ mod test {
   #[test]
   fn test_run_with_pattern() {
     let arg = RunArg {
-      pattern: "console.log".to_string(),
+      matcher: MatcherArg {
+        pattern: Some("console.log".to_string()),
+        ..default_matcher_arg()
+      },
       ..default_run_arg()
     };
     let proj = Err(anyhow::anyhow!("no project"));
@@ -445,8 +501,11 @@ mod test {
   #[test]
   fn test_run_with_strictness() {
     let arg = RunArg {
-      pattern: "console.log".to_string(),
-      strictness: Some(Strictness(MatchStrictness::Ast)),
+      matcher: MatcherArg {
+        pattern: Some("console.log".to_string()),
+        strictness: Some(Strictness(MatchStrictness::Ast)),
+        ..default_matcher_arg()
+      },
       ..default_run_arg()
     };
     let proj = Err(anyhow::anyhow!("no project"));
@@ -456,11 +515,28 @@ mod test {
   #[test]
   fn test_run_with_specific_lang() {
     let arg = RunArg {
-      pattern: "Some(result)".to_string(),
+      matcher: MatcherArg {
+        pattern: Some("Some(result)".to_string()),
+        ..default_matcher_arg()
+      },
       lang: Some(SupportLang::Rust.into()),
       ..default_run_arg()
     };
     let proj = Err(anyhow::anyhow!("no project"));
     assert!(run_with_pattern(arg, proj).is_ok())
+  }
+
+  #[test]
+  fn test_run_with_invalid_kind() {
+    let arg = RunArg {
+      matcher: MatcherArg {
+        kind: Some("gibberish".to_string()),
+        ..default_matcher_arg()
+      },
+      lang: Some(SupportLang::Rust.into()),
+      ..default_run_arg()
+    };
+    let proj = Err(anyhow::anyhow!("no project"));
+    assert!(run_with_pattern(arg, proj).is_err())
   }
 }

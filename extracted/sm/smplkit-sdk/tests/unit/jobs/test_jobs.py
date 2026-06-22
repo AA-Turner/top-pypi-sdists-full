@@ -27,9 +27,7 @@ from smplkit.jobs import (
     Job,
     JobEnvironment,
     JobKind,
-    RetryOn,
     RetryPolicy,
-    RetryReason,
     Run,
     RunRetry,
     RunTrigger,
@@ -143,9 +141,7 @@ def _run_resource(
 _RETRY_POLICY_ID = "retry-on-5xx"
 
 
-def _retry_policy_resource(policy_id=_RETRY_POLICY_ID, *, created=True, version=1, retry_on="default", max_delay=60):
-    if retry_on == "default":
-        retry_on = {"statuses": [429, 503], "reasons": ["TIMEOUT", "CONNECTION_ERROR"]}
+def _retry_policy_resource(policy_id=_RETRY_POLICY_ID, *, created=True, version=1, match="default", max_delay=60):
     attributes = {
         "name": "Retry on server errors",
         "max_retries": 5,
@@ -158,8 +154,12 @@ def _retry_policy_resource(policy_id=_RETRY_POLICY_ID, *, created=True, version=
     }
     if max_delay is not None:
         attributes["max_delay_seconds"] = max_delay
-    if retry_on is not None:
-        attributes["retry_on"] = retry_on
+    if match == "default":
+        attributes["retry_on_timeout"] = True
+        attributes["retry_on_connection_error"] = True
+        attributes["retry_statuses"] = ["429", "5xx"]
+        attributes["retry_statuses_except"] = ["501"]
+    # ``match=None`` omits the four fields entirely (server / absent case).
     return {"id": policy_id, "type": "retry_policy", "attributes": attributes}
 
 
@@ -953,20 +953,6 @@ class TestActiveRecordAsync:
 
 
 class TestRetryModels:
-    def test_retry_on_round_trip(self):
-        on = RetryOn(statuses=[429, 503], reasons=[RetryReason.TIMEOUT, RetryReason.CONNECTION_ERROR])
-        d = on.to_dict()
-        assert d == {"statuses": [429, 503], "reasons": ["TIMEOUT", "CONNECTION_ERROR"]}
-        back = RetryOn.from_dict(d)
-        assert back.statuses == [429, 503]
-        assert back.reasons == [RetryReason.TIMEOUT, RetryReason.CONNECTION_ERROR]
-
-    def test_retry_on_empty_defaults(self):
-        # Empty RetryOn retries nothing; from_dict tolerates missing keys.
-        assert RetryOn().to_dict() == {"statuses": [], "reasons": []}
-        empty = RetryOn.from_dict({})
-        assert empty.statuses == [] and empty.reasons == []
-
     def test_run_retry_parsed_on_retry_trigger(self):
         chain = "11111111-2222-3333-4444-555555555555"
         run = Run._from_resource(_run_resource(trigger="RETRY", retry={"of": chain, "attempt": 2}))
@@ -1118,7 +1104,10 @@ class TestRetryPoliciesSync:
             backoff=Backoff.EXPONENTIAL,
             delay_seconds=2,
             max_delay_seconds=60,
-            retry_on=RetryOn(statuses=[429, 503], reasons=[RetryReason.TIMEOUT]),
+            retry_on_timeout=True,
+            retry_on_connection_error=True,
+            retry_statuses=["429", "5xx"],
+            retry_statuses_except=["501"],
         )
         assert policy.created_at is None
         policy.save()  # create
@@ -1128,7 +1117,10 @@ class TestRetryPoliciesSync:
         attrs = post["attributes"]
         assert attrs["backoff"] == "exponential"  # Backoff serialized to its value
         assert attrs["max_delay_seconds"] == 60
-        assert attrs["retry_on"] == {"statuses": [429, 503], "reasons": ["TIMEOUT"]}
+        assert attrs["retry_on_timeout"] is True
+        assert attrs["retry_on_connection_error"] is True
+        assert attrs["retry_statuses"] == ["429", "5xx"]
+        assert attrs["retry_statuses_except"] == ["501"]
         policy.name = "renamed"
         policy.save()  # update
         assert policy.version == 2
@@ -1140,15 +1132,20 @@ class TestRetryPoliciesSync:
         c.retry_policies.new("fixed", name="Fixed", max_retries=3, backoff=Backoff.FIXED, delay_seconds=5).save()
         attrs = next(x for x in caps if x["method"] == "POST")["body"]["data"]["attributes"]
         assert "max_delay_seconds" not in attrs  # omitted when None
-        assert attrs["retry_on"] == {"statuses": [], "reasons": []}  # empty default
+        # All four match fields default to their neutral identity (retry nothing).
+        assert attrs["retry_on_timeout"] is False
+        assert attrs["retry_on_connection_error"] is False
+        assert attrs["retry_statuses"] == []
+        assert attrs["retry_statuses_except"] == []
 
     def test_get_list_delete(self):
         c = _sync()
         policy = c.retry_policies.get(_RETRY_POLICY_ID)
         assert policy.name == "Retry on server errors"
         assert policy.backoff is Backoff.EXPONENTIAL and policy.max_delay_seconds == 60
-        assert policy.retry_on.statuses == [429, 503]
-        assert policy.retry_on.reasons == [RetryReason.TIMEOUT, RetryReason.CONNECTION_ERROR]
+        assert policy.retry_on_timeout is True and policy.retry_on_connection_error is True
+        assert policy.retry_statuses == ["429", "5xx"]
+        assert policy.retry_statuses_except == ["501"]
         assert "RetryPolicy(" in repr(policy)
         assert len(c.retry_policies.list()) == 2
         c.retry_policies.delete(_RETRY_POLICY_ID)
@@ -1162,16 +1159,17 @@ class TestRetryPoliciesSync:
         assert params["filter[name]"] == "server"
         assert params["page[number]"] == "1" and params["page[size]"] == "10"
 
-    def test_get_policy_without_retry_on_or_max_delay(self):
-        # retry_on absent -> empty RetryOn; max_delay absent -> None.
+    def test_get_policy_without_match_fields_or_max_delay(self):
+        # Match fields absent -> neutral (retry nothing); max_delay absent -> None.
         def h(req):
             if req.url.path.startswith("/api/v1/retry-policies/") and req.method == "GET":
-                res = _retry_policy_resource(retry_on=None, max_delay=None)
+                res = _retry_policy_resource(match=None, max_delay=None)
                 return httpx.Response(200, json={"data": res})
             return _handler(req)
 
         policy = _sync(h).retry_policies.get(_RETRY_POLICY_ID)
-        assert policy.retry_on.statuses == [] and policy.retry_on.reasons == []
+        assert policy.retry_on_timeout is False and policy.retry_on_connection_error is False
+        assert policy.retry_statuses == [] and policy.retry_statuses_except == []
         assert policy.max_delay_seconds is None
 
     def test_unsaved_guards(self):
@@ -1194,7 +1192,8 @@ class TestRetryPoliciesAsync:
                 backoff=Backoff.EXPONENTIAL,
                 delay_seconds=2,
                 max_delay_seconds=60,
-                retry_on=RetryOn(statuses=[503], reasons=[RetryReason.NON_SUCCESS_STATUS]),
+                retry_on_timeout=True,
+                retry_statuses=["503", "5xx"],
             )
             await policy.save()
             assert policy.created_at is not None

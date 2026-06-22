@@ -3,7 +3,8 @@ import pytest
 from glob import glob
 from itertools import chain, count
 
-from path import Path
+from pathlib import Path
+from contextlib import chdir
 
 from docutils.parsers.rst import directives
 from docutils.core import publish_doctree
@@ -12,6 +13,11 @@ from docutils.utils import Reporter
 import cadquery as cq
 from cadquery import cqgi
 from cadquery.cq_directive import cq_directive
+
+
+@pytest.fixture(scope="session")
+def tmpdir(tmp_path_factory):
+    return tmp_path_factory.mktemp("examples")
 
 
 def find_examples(pattern="examples/*.py", path=Path("examples")):
@@ -56,10 +62,11 @@ def find_examples_in_docs(pattern="doc/*.rst", path=Path("doc")):
 @pytest.mark.parametrize(
     "code, path", chain(find_examples(), find_examples_in_docs()), ids=count(0)
 )
-def test_example(code, path):
+def test_example(code, path, tmpdir):
 
     # build
-    with path:
+    with chdir(tmpdir):
+        # tmpdir is for future use; currently there are no examples that export files
         res = cqgi.parse(code).build()
 
     assert res.exception is None

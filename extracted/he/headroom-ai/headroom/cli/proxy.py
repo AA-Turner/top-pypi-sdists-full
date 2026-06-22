@@ -165,6 +165,19 @@ def _selected_context_tool() -> str:
     ),
 )
 @click.option(
+    "--target-ratio",
+    type=float,
+    default=None,
+    show_default=True,
+    envvar="HEADROOM_TARGET_RATIO",
+    help=(
+        "Override Kompress keep-ratio for text (prose/code) compression — lower is "
+        "more aggressive (e.g. 0.4 keeps ~40% of tokens). Unset (default): let "
+        "Kompress decide via its own importance threshold (conservative). "
+        "Env: HEADROOM_TARGET_RATIO."
+    ),
+)
+@click.option(
     "--intercept-tool-results",
     is_flag=True,
     help=(
@@ -586,9 +599,14 @@ def _selected_context_tool() -> str:
     ),
 )
 @click.option(
+    "--telemetry",
+    is_flag=True,
+    help="Opt in to anonymous usage telemetry — off by default (env: HEADROOM_TELEMETRY=on)",
+)
+@click.option(
     "--no-telemetry",
     is_flag=True,
-    help="Disable anonymous usage telemetry (env: HEADROOM_TELEMETRY=off)",
+    help="Force anonymous usage telemetry off (already the default; env: HEADROOM_TELEMETRY=off)",
 )
 @click.option(
     "--stateless",
@@ -616,6 +634,7 @@ def _selected_context_tool() -> str:
 def proxy(
     ctx: click.Context,
     mode: str | None,
+    target_ratio: float | None,
     host: str,
     port: int,
     workers: int,
@@ -672,6 +691,7 @@ def proxy(
     bedrock_region: str | None,
     bedrock_profile: str | None,
     bedrock_api_url: str | None,
+    telemetry: bool,
     no_telemetry: bool,
     stateless: bool,
     embedding_server: bool,
@@ -769,7 +789,10 @@ def proxy(
         "on",
     )
 
-    # Telemetry opt-out: --no-telemetry flag sets the env var
+    # Telemetry is opt-in (off by default). --telemetry opts in; --no-telemetry
+    # forces it off. If both are passed, the explicit opt-out wins (fail-closed).
+    if telemetry:
+        os.environ["HEADROOM_TELEMETRY"] = "on"
     if no_telemetry:
         os.environ["HEADROOM_TELEMETRY"] = "off"
 
@@ -818,7 +841,7 @@ def proxy(
         tool_profiles=_parse_tool_profiles([]) or None,
         smart_crusher_with_compaction=_get_env_bool_optional("HEADROOM_SMART_CRUSHER_COMPACTION"),
         savings_profile=os.environ.get("HEADROOM_SAVINGS_PROFILE") or None,
-        target_ratio=_get_env_float_optional("HEADROOM_TARGET_RATIO"),
+        target_ratio=target_ratio,
         compress_system_messages=_get_env_bool_optional("HEADROOM_COMPRESS_SYSTEM_MESSAGES"),
         protect_recent=_get_env_int_optional("HEADROOM_PROTECT_RECENT"),
         protect_analysis_context=_get_env_bool_optional("HEADROOM_PROTECT_ANALYSIS_CONTEXT"),
@@ -979,14 +1002,17 @@ Memory (Multi-Provider):
 
     from headroom.telemetry.beacon import is_telemetry_enabled
 
-    # Build telemetry section for the startup banner
+    # Build telemetry section for the startup banner. Telemetry is opt-in
+    # (off by default); the disabled line surfaces how to opt in.
     if is_telemetry_enabled():
         telemetry_line = (
-            "  Telemetry:    ENABLED (anonymous aggregate stats)\n"
+            "  Telemetry:    ENABLED (anonymous aggregate stats — you opted in)\n"
             "                Disable: HEADROOM_TELEMETRY=off or headroom proxy --no-telemetry"
         )
     else:
-        telemetry_line = "  Telemetry:    DISABLED"
+        telemetry_line = (
+            "  Telemetry:    DISABLED (opt in: HEADROOM_TELEMETRY=on or headroom proxy --telemetry)"
+        )
 
     # Discover proxy extensions (third-party packages registered via the
     # `headroom.proxy_extension` entry-point group). Surfaced in the banner
@@ -1092,6 +1118,17 @@ Endpoints:
 
 Press Ctrl+C to stop.
 """)
+
+    # Surface an "update available" notice (reads cache only; no network here).
+    # Best-effort: a broken update check must never block proxy startup.
+    try:
+        from headroom.update_check import format_update_notice
+
+        _update_notice = format_update_notice()
+        if _update_notice:
+            click.echo(f"\n{_update_notice}\n")
+    except Exception:  # noqa: BLE001 — banner must never crash startup
+        pass
 
     # -----------------------------------------------------------------------
     # Option E: start embedding server sidecar if requested

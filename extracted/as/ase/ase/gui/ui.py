@@ -705,7 +705,7 @@ class ASEGUIWindow(MainWindow):
             outline = '#004500'
             width = 3
         else:
-            outline = 'black'
+            outline = self.fg
             width = 1
         self.canvas.create_oval(*tuple(int(x) for x in bbox), fill=color,
                                 outline=outline, width=width)
@@ -715,7 +715,7 @@ class ASEGUIWindow(MainWindow):
             outline = '#004500'
             width = 3
         else:
-            outline = 'black'
+            outline = self.fg
             width = 1
         self.canvas.create_arc(*tuple(int(x) for x in bbox),
                                start=start,
@@ -726,9 +726,11 @@ class ASEGUIWindow(MainWindow):
 
     def line(self, bbox, width=1):
         self.canvas.create_line(*tuple(int(x) for x in bbox), width=width,
-                                fill='black')
+                                fill=self.fg)
 
-    def text(self, x, y, txt, anchor=tk.CENTER, color='black'):
+    def text(self, x, y, txt, anchor=tk.CENTER, color=None):
+        if color is None:
+            color = self.fg
         anchor = {'SE': tk.SE}.get(anchor, anchor)
         self.canvas.create_text((x, y), text=txt, anchor=anchor, fill=color)
 

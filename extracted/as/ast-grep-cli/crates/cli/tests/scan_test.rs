@@ -3,12 +3,12 @@ mod common;
 use std::process::ExitCode;
 
 use anyhow::Result;
-use assert_cmd::{cargo_bin, Command};
+use assert_cmd::{Command, cargo_bin};
 use ast_grep::main_with_args;
 use common::create_test_files;
 use predicates::prelude::*;
 use predicates::str::contains;
-use serde_json::{from_slice, Value};
+use serde_json::{Value, from_slice};
 use tempfile::TempDir;
 
 const CONFIG: &str = "
@@ -32,6 +32,25 @@ severity: off
 language: TypeScript
 rule:
   pattern: Some($A)
+";
+
+const FIXABLE_JS_RULE: &str = "
+id: no-var
+message: use let
+severity: warning
+language: JavaScript
+rule:
+  pattern: var $A = $B;
+fix: let $A = $B;
+";
+
+const UNFIXABLE_JS_RULE: &str = "
+id: no-console
+message: no console
+severity: warning
+language: JavaScript
+rule:
+  pattern: console.log($A)
 ";
 
 fn setup() -> Result<TempDir> {
@@ -77,6 +96,34 @@ fn test_sg_rule_off() -> Result<()> {
     .stdout(contains("on-rule"))
     .stdout(contains("off-rule").not());
   drop(dir);
+  Ok(())
+}
+
+#[test]
+fn test_sg_scan_update_all_reports_unfixable_rules() -> Result<()> {
+  let dir = create_test_files([
+    ("sgconfig.yml", CONFIG),
+    ("rules/no-var.yml", FIXABLE_JS_RULE),
+    ("rules/no-console.yml", UNFIXABLE_JS_RULE),
+    ("test.js", "var x = 1;\nconsole.log(x);\n"),
+  ])?;
+  Command::new(cargo_bin!())
+    .current_dir(dir.path())
+    .args([
+      "scan",
+      "--update-all",
+      "--color",
+      "never",
+      "--report-style",
+      "short",
+    ])
+    .assert()
+    .success()
+    .stdout(contains("no-console"))
+    .stdout(contains("no-var").not())
+    .stderr(contains("Applied 1 changes"));
+  let updated = std::fs::read_to_string(dir.path().join("test.js"))?;
+  assert_eq!(updated, "let x = 1;\nconsole.log(x);\n");
   Ok(())
 }
 
@@ -159,6 +206,23 @@ fn test_scan_unused_suppression() -> Result<()> {
     .assert()
     .success()
     .stdout(contains("unused-suppression"));
+  Ok(())
+}
+
+#[test]
+fn test_scan_update_all_removes_unused_suppression() -> Result<()> {
+  let dir = create_test_files([
+    ("sgconfig.yml", CONFIG),
+    ("rules/rule.yml", RULE1),
+    ("test.ts", "None(123) // ast-grep-ignore"),
+  ])?;
+  Command::new(cargo_bin!())
+    .current_dir(dir.path())
+    .args(["scan", "--update-all", "--color", "never"])
+    .assert()
+    .success();
+  let updated = std::fs::read_to_string(dir.path().join("test.ts"))?;
+  assert!(!updated.contains("ast-grep-ignore"));
   Ok(())
 }
 

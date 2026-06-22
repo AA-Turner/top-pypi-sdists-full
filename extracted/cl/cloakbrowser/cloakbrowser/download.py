@@ -23,6 +23,7 @@ import httpx
 
 from ._version import __version__ as _wrapper_version
 from .config import (
+    BINARY_SIGNING_PUBKEYS,
     CHROMIUM_VERSION,
     DOWNLOAD_BASE_URL,
     GITHUB_API_URL,
@@ -43,6 +44,17 @@ from .config import (
 )
 
 logger = logging.getLogger("cloakbrowser")
+
+
+class BinaryVerificationError(RuntimeError):
+    """A downloaded binary could not be authenticated (bad/missing signature,
+    version mismatch, or checksum failure).
+
+    Distinct from transient download/network errors: a verification failure is
+    a tampering signal and MUST surface, never silently fall back to another
+    binary. The Pro routing in ensure_binary re-raises this rather than
+    downgrading to the free tier.
+    """
 
 # Timeout for download (large binary, allow 10 min)
 DOWNLOAD_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
@@ -70,10 +82,13 @@ def _show_welcome() -> None:
         pass
 
 
-def ensure_binary() -> str:
+def ensure_binary(license_key: str | None = None) -> str:
     """Ensure the stealth Chromium binary is available. Download if needed.
 
     Returns the path to the chrome executable as a string.
+
+    Args:
+        license_key: Pro license key. Also reads from CLOAKBROWSER_LICENSE_KEY env var.
 
     Set CLOAKBROWSER_BINARY_PATH to skip download and use a local build.
     """
@@ -87,6 +102,39 @@ def ensure_binary() -> str:
             )
         logger.info("Using local binary override: %s", local_override)
         return str(path)
+
+    # Pro license key check (custom download URL overrides Pro path)
+    from .license import resolve_license_key, validate_license
+
+    key = resolve_license_key(license_key)
+    if os.environ.get("CLOAKBROWSER_DOWNLOAD_URL"):
+        key = None
+
+    if key:
+        info = validate_license(key)
+        if info and info.valid:
+            # A valid license is entitled to Pro, so Pro failures surface loudly
+            # rather than silently substituting the older free binary. (A blip
+            # during a routine update never reaches here: _ensure_pro_binary
+            # returns the cached Pro binary and updates in the background.)
+            try:
+                return _ensure_pro_binary(key)
+            except BinaryVerificationError:
+                # Authenticity could not be confirmed — surface verbatim.
+                raise
+            except Exception as e:
+                # Transient failure with no cached Pro binary to use — surface a
+                # clear error rather than silently downloading the free binary.
+                raise RuntimeError(
+                    f"Pro binary unavailable: {e}. Your license is valid but the "
+                    f"Pro binary could not be downloaded right now. Retry in a "
+                    f"moment. To use the free binary instead, unset "
+                    f"CLOAKBROWSER_LICENSE_KEY."
+                ) from e
+        elif info:
+            logger.warning("License validation failed (plan=%s), using free tier", info.plan)
+        else:
+            logger.warning("License validation unavailable, using free tier")
 
     # Fail fast if no binary available for this platform
     check_platform_available()
@@ -162,9 +210,11 @@ def _download_and_extract(version: str | None = None) -> None:
             )
             _download_file(fallback_url, tmp_path)
 
-        # Verify checksum before extraction
-        if os.environ.get("CLOAKBROWSER_SKIP_CHECKSUM", "").lower() != "true":
-            _verify_download_checksum(tmp_path, version)
+        # Verify the download before extraction. On the official path this is a
+        # mandatory, non-bypassable Ed25519 signature check (see
+        # _verify_download_checksum); the skip flag only applies to custom
+        # self-hosted CLOAKBROWSER_DOWNLOAD_URL setups.
+        _verify_download_checksum(tmp_path, version)
 
         _extract_archive(tmp_path, binary_dir, binary_path)
         _show_welcome()
@@ -173,21 +223,306 @@ def _download_and_extract(version: str | None = None) -> None:
         tmp_path.unlink(missing_ok=True)
 
 
+def _ensure_pro_binary(license_key: str) -> str:
+    """Ensure the Pro binary is downloaded and cached. Returns the binary path."""
+    from .license import get_pro_latest_version
+
+    effective = get_effective_version(pro=True)
+    binary_path = get_binary_path(effective, pro=True)
+
+    if binary_path.exists() and _is_executable(binary_path):
+        logger.debug("Pro binary found in cache: %s (version %s)", binary_path, effective)
+        _show_welcome()
+        _maybe_trigger_pro_update_check(license_key)
+        return str(binary_path)
+
+    version = get_pro_latest_version()
+    if not version:
+        raise RuntimeError("Could not determine latest Pro version from server")
+
+    binary_path = get_binary_path(version, pro=True)
+    if binary_path.exists() and _is_executable(binary_path):
+        logger.debug("Pro binary found in cache: %s (version %s)", binary_path, version)
+        _show_welcome()
+        return str(binary_path)
+
+    logger.info("Downloading Pro Chromium %s for %s...", version, get_platform_tag())
+    _download_pro_binary(version, license_key)
+
+    binary_path = get_binary_path(version, pro=True)
+    if not binary_path.exists():
+        raise RuntimeError(
+            f"Pro download completed but binary not found at: {binary_path}"
+        )
+
+    # Write Pro version marker (atomic)
+    marker = get_cache_dir() / f"latest_pro_version_{get_platform_tag()}"
+    try:
+        tmp = marker.with_suffix(".tmp")
+        tmp.write_text(version)
+        os.replace(str(tmp), str(marker))
+    except OSError:
+        pass
+
+    _show_welcome()
+    return str(binary_path)
+
+
+def _download_pro_binary(version: str, license_key: str) -> None:
+    """Download a Pro binary from cloakbrowser.dev with license key auth.
+
+    Requests the explicit version so the served archive matches the signed
+    manifest verified in _verify_pro_download.
+    """
+    download_url = f"{DOWNLOAD_BASE_URL}/api/download/{version}"
+    binary_dir = get_binary_dir(version, pro=True)
+    binary_path = get_binary_path(version, pro=True)
+    platform_tag = get_platform_tag()
+
+    binary_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(suffix=get_archive_ext(), delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+
+    try:
+        _download_file(
+            download_url,
+            tmp_path,
+            headers={
+                "Authorization": f"Bearer {license_key}",
+                "X-Platform": platform_tag,
+            },
+        )
+
+        # Pro binaries come from cloakbrowser.dev — the same origin as free
+        # downloads — so the M1 attack the Ed25519 signature defends against
+        # applies equally. Verify with the same non-bypassable signature check;
+        # CLOAKBROWSER_SKIP_CHECKSUM does NOT bypass it (parity with the
+        # official free path).
+        _verify_pro_download(tmp_path, version)
+
+        _extract_archive(tmp_path, binary_dir, binary_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def _verify_pro_download(file_path: Path, version: str) -> None:
+    """Verify a Pro archive with the same non-bypassable Ed25519 signature check
+    as official free downloads.
+
+    Pro binaries are served from cloakbrowser.dev (same origin as the free
+    tier), so a tampered same-origin SHA256SUMS could otherwise certify a
+    tampered binary (M1, #308). Fetch the Pro SHA256SUMS + detached
+    SHA256SUMS.sig, verify the signature against the pinned keys FIRST, bind the
+    manifest to the requested version, then verify the archive's SHA-256.
+
+    An invalid signature, checksum, or version mismatch raises
+    BinaryVerificationError (a tampering signal the router surfaces verbatim);
+    CLOAKBROWSER_SKIP_CHECKSUM cannot bypass it. A failed manifest FETCH is
+    transient — nothing was validated — and raises a plain RuntimeError. A
+    valid-license user is never silently downgraded to the free binary.
+    """
+    base = f"{DOWNLOAD_BASE_URL}/releases/pro/chromium-v{version}"
+    try:
+        manifest_resp = httpx.get(
+            f"{base}/SHA256SUMS", follow_redirects=True, timeout=10.0
+        )
+        manifest_resp.raise_for_status()
+        sig_resp = httpx.get(
+            f"{base}/SHA256SUMS.sig", follow_redirects=True, timeout=10.0
+        )
+        sig_resp.raise_for_status()
+    except Exception as exc:
+        # Fetch failure is transient, not tampering — raise a plain RuntimeError
+        # (the router reports it as "unavailable, retry") rather than a
+        # BinaryVerificationError (which it surfaces as a tampering signal).
+        raise RuntimeError(
+            f"Could not fetch the signed SHA256SUMS for Pro {version} ({exc})"
+        )
+
+    manifest_bytes = manifest_resp.content
+    # _verify_signature / _verify_checksum raise plain RuntimeError; convert to
+    # BinaryVerificationError so the Pro router treats them as tampering signals
+    # (re-raise) rather than transient failures (fall back to free).
+    try:
+        _verify_signature(manifest_bytes, sig_resp.content)
+    except RuntimeError as exc:
+        raise BinaryVerificationError(str(exc)) from exc
+    manifest_text = manifest_bytes.decode("utf-8")
+
+    # Version binding: same forced-downgrade defense as the official path.
+    declared = _parse_manifest_version(manifest_text)
+    if declared != version:
+        raise BinaryVerificationError(
+            f"Version mismatch in signed Pro SHA256SUMS: requested {version}, "
+            f"manifest declares {declared or 'none'}. Refusing (possible downgrade)."
+        )
+
+    tarball_name = get_archive_name()
+    expected = _parse_checksums(manifest_text).get(tarball_name)
+    if expected is None:
+        raise BinaryVerificationError(
+            f"Signature-verified Pro SHA256SUMS has no entry for {tarball_name} — "
+            f"cannot confirm binary integrity."
+        )
+    try:
+        _verify_checksum(file_path, expected)
+    except RuntimeError as exc:
+        raise BinaryVerificationError(str(exc)) from exc
+
+
 def _verify_download_checksum(file_path: Path, version: str | None = None) -> None:
-    """Fetch SHA256SUMS and verify the downloaded file. Warn if unavailable, fail on mismatch."""
-    checksums = _fetch_checksums(version)
+    """Verify the downloaded archive's integrity and authenticity.
+
+    Official path (cloakbrowser.dev / GitHub Releases): fetch SHA256SUMS plus
+    its detached Ed25519 signature SHA256SUMS.sig, verify the signature against
+    the pinned public keys FIRST, then verify the archive's SHA-256 against the
+    now-authenticated manifest. Mandatory and non-bypassable — a same-origin
+    manifest can no longer certify a tampered binary (#308).
+
+    Custom self-hosted path (CLOAKBROWSER_DOWNLOAD_URL set): the pinned keys do
+    not apply to a third-party server, so fall back to the plain same-origin
+    SHA256SUMS check, which CLOAKBROWSER_SKIP_CHECKSUM may bypass.
+    """
     tarball_name = get_archive_name()
 
-    if checksums is None:
-        logger.warning("SHA256SUMS not available for this release — skipping checksum verification")
+    if os.environ.get("CLOAKBROWSER_DOWNLOAD_URL"):
+        # Self-hosted mirror: signature scheme does not apply. Preserve the
+        # legacy same-origin checksum behavior, skippable as before.
+        if os.environ.get("CLOAKBROWSER_SKIP_CHECKSUM", "").lower() == "true":
+            logger.warning(
+                "CLOAKBROWSER_SKIP_CHECKSUM set — skipping verification for custom download URL"
+            )
+            return
+        checksums = _fetch_checksums(version)
+        if checksums is None:
+            logger.warning(
+                "SHA256SUMS not available from custom URL — skipping checksum verification"
+            )
+            return
+        expected = checksums.get(tarball_name)
+        if expected is None:
+            logger.warning(
+                "SHA256SUMS found but no entry for %s — skipping verification", tarball_name
+            )
+            return
+        _verify_checksum(file_path, expected)
         return
 
+    # Official path: signature is the trust root and is non-bypassable.
+    manifest = _fetch_signed_manifest(version)
+    if manifest is None:
+        raise RuntimeError(
+            "Could not fetch a signed SHA256SUMS (SHA256SUMS + SHA256SUMS.sig) "
+            "for this release — refusing to use an unverified binary. "
+            "Retry, or report at https://github.com/CloakHQ/cloakbrowser/issues"
+        )
+    manifest_bytes, sig_bytes = manifest
+    _verify_signature(manifest_bytes, sig_bytes)
+    manifest_text = manifest_bytes.decode("utf-8")
+
+    # Version binding: the signed manifest must declare the version we asked for.
+    # The signature proves "we made this manifest", not "this is the version you
+    # requested" — without this check a mirror could serve a genuinely-signed
+    # older release in place of the requested one (forced downgrade).
+    requested = version or get_chromium_version()
+    declared = _parse_manifest_version(manifest_text)
+    if declared != requested:
+        raise RuntimeError(
+            f"Version mismatch in signed SHA256SUMS: requested {requested}, "
+            f"manifest declares {declared or 'none'}. Refusing (possible downgrade)."
+        )
+
+    checksums = _parse_checksums(manifest_text)
     expected = checksums.get(tarball_name)
     if expected is None:
-        logger.warning("SHA256SUMS found but no entry for %s — skipping verification", tarball_name)
-        return
-
+        raise RuntimeError(
+            f"Signature-verified SHA256SUMS has no entry for {tarball_name} — "
+            f"cannot confirm binary integrity."
+        )
     _verify_checksum(file_path, expected)
+
+
+def _parse_manifest_version(text: str) -> str | None:
+    """Read the 'version=<v>' line from a signed manifest. None if absent.
+
+    The line has no internal whitespace so older wrappers' SHA256SUMS parsers
+    ignore it (they only accept '<hash>  <filename>' lines).
+    """
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("version="):
+            return line[len("version="):].strip()
+    return None
+
+
+def _fetch_signed_manifest(version: str | None = None) -> tuple[bytes, bytes] | None:
+    """Fetch (SHA256SUMS, SHA256SUMS.sig) raw bytes for a version, or None.
+
+    Both files are fetched from the SAME origin so the signature always matches
+    the exact manifest bytes it certifies. The primary origin is tried first,
+    then the GitHub Releases mirror. follow_redirects mirrors _fetch_checksums:
+    cloakbrowser.dev 301-redirects /chromium-v* to GitHub Releases.
+    """
+    v = version or get_chromium_version()
+    bases = [
+        f"{DOWNLOAD_BASE_URL}/chromium-v{v}",
+        f"{GITHUB_DOWNLOAD_BASE_URL}/chromium-v{v}",
+    ]
+    for base in bases:
+        try:
+            manifest_resp = httpx.get(
+                f"{base}/SHA256SUMS", follow_redirects=True, timeout=10.0
+            )
+            manifest_resp.raise_for_status()
+            sig_resp = httpx.get(
+                f"{base}/SHA256SUMS.sig", follow_redirects=True, timeout=10.0
+            )
+            sig_resp.raise_for_status()
+            return manifest_resp.content, sig_resp.content
+        except Exception:
+            continue
+    return None
+
+
+def _verify_signature(manifest_bytes: bytes, sig_b64: bytes) -> None:
+    """Verify a detached Ed25519 signature over the raw manifest bytes.
+
+    sig_b64 is the base64 of the 64-byte raw signature. Tries each pinned key
+    in BINARY_SIGNING_PUBKEYS; succeeds if any validates. Raises RuntimeError
+    if the signature is malformed or no pinned key validates it.
+    """
+    import base64
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    try:
+        signature = base64.b64decode(sig_b64.strip(), validate=True)
+    except Exception as exc:
+        raise RuntimeError(f"Malformed SHA256SUMS.sig (not valid base64): {exc}")
+
+    for pubkey_b64 in BINARY_SIGNING_PUBKEYS:
+        try:
+            pub = Ed25519PublicKey.from_public_bytes(base64.b64decode(pubkey_b64))
+        except Exception:
+            # Skip an unparseable pinned key (e.g. the placeholder) rather than
+            # aborting — another pinned key may still validate.
+            continue
+        try:
+            pub.verify(signature, manifest_bytes)
+            logger.info("SHA256SUMS signature verified: Ed25519 OK")
+            return
+        except Exception:
+            # InvalidSignature, or a malformed/wrong-length signature that makes
+            # verify raise something else — either way this key didn't match,
+            # so try the next pinned key (and ultimately fail closed below).
+            continue
+
+    raise RuntimeError(
+        "SHA256SUMS signature verification failed — no pinned key validated the "
+        "manifest. The binary's authenticity could not be confirmed. "
+        "Report at https://github.com/CloakHQ/cloakbrowser/issues"
+    )
 
 
 def _fetch_checksums(version: str | None = None) -> dict[str, str] | None:
@@ -211,17 +546,22 @@ def _fetch_checksums(version: str | None = None) -> dict[str, str] | None:
 
 
 def _parse_checksums(text: str) -> dict[str, str]:
-    """Parse SHA256SUMS format: 'hash  filename' per line."""
+    """Parse SHA256SUMS format: '<64-hex sha256>  filename' per line.
+
+    Only lines whose first token is a 64-character hex digest are accepted
+    (matches the JS parser); blank lines, the version= line, and any other
+    junk are ignored.
+    """
     result = {}
     for line in text.strip().splitlines():
-        line = line.strip()
-        if not line:
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2:
             continue
-        parts = line.split(None, 1)
-        if len(parts) == 2:
-            hash_val, filename = parts
-            filename = filename.lstrip("*")
-            result[filename] = hash_val.lower()
+        hash_val, filename = parts
+        hash_val = hash_val.lower()
+        if len(hash_val) != 64 or any(c not in "0123456789abcdef" for c in hash_val):
+            continue
+        result[filename.lstrip("*")] = hash_val
     return result
 
 
@@ -243,11 +583,11 @@ def _verify_checksum(file_path: Path, expected_hash: str) -> None:
     logger.info("Checksum verified: SHA-256 OK")
 
 
-def _download_file(url: str, dest: Path) -> None:
+def _download_file(url: str, dest: Path, headers: dict[str, str] | None = None) -> None:
     """Download a file with progress logging."""
     logger.info("Downloading from %s", url)
 
-    with httpx.stream("GET", url, follow_redirects=True, timeout=DOWNLOAD_TIMEOUT) as response:
+    with httpx.stream("GET", url, follow_redirects=True, timeout=DOWNLOAD_TIMEOUT, headers=headers or {}) as response:
         response.raise_for_status()
 
         total = int(response.headers.get("content-length", 0))
@@ -401,17 +741,34 @@ def clear_cache() -> None:
 
 
 def binary_info() -> dict:
-    """Return info about the current binary installation."""
-    effective = get_effective_version()
-    binary_path = get_binary_path(effective)
+    """Return info about the current binary installation.
+
+    tier reflects what is actually installed on disk, not merely whether a
+    license is cached — a cached license with no Pro binary downloaded yet is
+    still effectively running the free binary, and the active key may differ
+    from the cached one.
+    """
+    # Prefer Pro only if a Pro binary actually exists on disk.
+    pro_version = get_effective_version(pro=True)
+    pro_path = get_binary_path(pro_version, pro=True)
+    pro = pro_path.exists() and _is_executable(pro_path)
+
+    if pro:
+        effective = pro_version
+        binary_path = pro_path
+    else:
+        effective = get_effective_version()
+        binary_path = get_binary_path(effective)
+    download_url = f"{DOWNLOAD_BASE_URL}/api/download/latest" if pro else get_download_url(effective)
     return {
         "version": effective,
+        "tier": "pro" if pro else "free",
         "bundled_version": CHROMIUM_VERSION,
         "platform": get_platform_tag(),
         "binary_path": str(binary_path),
         "installed": binary_path.exists(),
-        "cache_dir": str(get_binary_dir(effective)),
-        "download_url": get_download_url(effective),
+        "cache_dir": str(get_binary_dir(effective, pro=pro)),
+        "download_url": download_url,
     }
 
 
@@ -575,4 +932,44 @@ def _maybe_trigger_update_check() -> None:
     if not _should_check_for_update():
         return
     t = threading.Thread(target=_check_and_download_update, daemon=True)
+    t.start()
+
+
+def _maybe_trigger_pro_update_check(license_key: str) -> None:
+    """Fire-and-forget Pro binary update check in a daemon thread."""
+    check_file = get_cache_dir() / ".last_pro_update_check"
+    if check_file.exists():
+        try:
+            last_check = float(check_file.read_text().strip())
+            if time.time() - last_check < UPDATE_CHECK_INTERVAL:
+                return
+        except (ValueError, OSError):
+            pass
+
+    def _check():
+        try:
+            from .license import get_pro_latest_version
+
+            check_file.parent.mkdir(parents=True, exist_ok=True)
+            check_file.write_text(str(time.time()))
+
+            latest = get_pro_latest_version()
+            if not latest:
+                return
+
+            if get_binary_path(latest, pro=True).exists():
+                return
+
+            logger.info("Newer Pro binary available: %s. Downloading in background...", latest)
+            _download_pro_binary(latest, license_key)
+
+            marker = get_cache_dir() / f"latest_pro_version_{get_platform_tag()}"
+            tmp = marker.with_suffix(".tmp")
+            tmp.write_text(latest)
+            os.replace(str(tmp), str(marker))
+            logger.info("Pro background update complete: %s ready. Will use on next launch.", latest)
+        except Exception:
+            logger.debug("Pro background update failed", exc_info=True)
+
+    t = threading.Thread(target=_check, daemon=True)
     t.start()

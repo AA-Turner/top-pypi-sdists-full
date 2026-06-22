@@ -1,8 +1,31 @@
 """Basic launch tests for cloakbrowser."""
 
 import pytest
-from cloakbrowser import launch, launch_async, binary_info
+from cloakbrowser import (
+    launch,
+    launch_async,
+    launch_context,
+    launch_persistent_context,
+    binary_info,
+)
 from cloakbrowser.config import get_chromium_version
+
+
+@pytest.mark.parametrize("env", [None, "patchright"])
+def test_removed_backend_kwarg_raises(env, monkeypatch):
+    """The removed `backend` parameter raises a clear TypeError before any
+    launch side effects, regardless of the (also removed) CLOAKBROWSER_BACKEND
+    env var. Guards the patchright removal."""
+    if env is None:
+        monkeypatch.delenv("CLOAKBROWSER_BACKEND", raising=False)
+    else:
+        monkeypatch.setenv("CLOAKBROWSER_BACKEND", env)
+    with pytest.raises(TypeError, match="backend"):
+        launch(backend="patchright")
+    with pytest.raises(TypeError, match="backend"):
+        launch_context(backend="patchright")
+    with pytest.raises(TypeError, match="backend"):
+        launch_persistent_context("/tmp/cloakbrowser-test-profile", backend="patchright")
 
 
 def test_binary_info():

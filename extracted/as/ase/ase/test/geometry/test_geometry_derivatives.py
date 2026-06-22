@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 
@@ -56,12 +55,14 @@ def get_numerical_derivatives(positions, mode, epsilon):
 
 def _get_positions():
     # example: positions for H2O2 molecule
-    return np.asarray([
-        [0.840, 0.881, 0.237],    # H
-        [0., 0.734, -0.237],      # O
-        [0., -0.734, -0.237],     # O
-        [-0.840, -0.881, 0.237],  # H
-    ])
+    return np.asarray(
+        [
+            [0.840, 0.881, 0.237],  # H
+            [0.0, 0.734, -0.237],  # O
+            [0.0, -0.734, -0.237],  # O
+            [-0.840, -0.881, 0.237],  # H
+        ]
+    )
 
 
 def test_atoms_angle():
@@ -69,20 +70,24 @@ def test_atoms_angle():
 
     # analytical derivatives in Angstrom/Angstrom, i.e. degrees/Angstrom
     distances_derivs = get_distances_derivatives([pos[1] - pos[0]])[0]
-    angles_derivs = get_angles_derivatives([pos[0] - pos[1]],
-                                           [pos[2] - pos[1]])[0]
-    dihedrals_derivs = get_dihedrals_derivatives([pos[1] - pos[0]],
-                                                 [pos[2] - pos[1]],
-                                                 [pos[3] - pos[2]])[0]
+    angles_derivs = get_angles_derivatives(
+        [pos[0] - pos[1]], [pos[2] - pos[1]]
+    )[0]
+    dihedrals_derivs = get_dihedrals_derivatives(
+        [pos[1] - pos[0]], [pos[2] - pos[1]], [pos[3] - pos[2]]
+    )[0]
 
     # numerical approximations to derivatives using finite differences
     epsilon = 1e-5
-    num_distances_derivs = get_numerical_derivatives(pos, mode='distance',
-                                                     epsilon=epsilon)
-    num_angles_derivs = get_numerical_derivatives(pos, mode='angle',
-                                                  epsilon=epsilon)
-    num_dihedrals_derivs = get_numerical_derivatives(pos, mode='dihedral',
-                                                     epsilon=epsilon)
+    num_distances_derivs = get_numerical_derivatives(
+        pos, mode='distance', epsilon=epsilon
+    )
+    num_angles_derivs = get_numerical_derivatives(
+        pos, mode='angle', epsilon=epsilon
+    )
+    num_dihedrals_derivs = get_numerical_derivatives(
+        pos, mode='dihedral', epsilon=epsilon
+    )
 
     # print(distances_derivs - num_distances_derivs)
     # print(angles_derivs - num_angles_derivs)
@@ -94,22 +99,30 @@ def test_atoms_angle():
     assert num_dihedrals_derivs == pytest.approx(dihedrals_derivs, abs=1e-8)
 
     # derivatives of multiple internal coordinates at once
-    assert (distances_derivs ==
-            get_distances_derivatives([pos[1] - pos[0],
-                                       pos[1] - pos[0]])[0]).all()
-    assert (angles_derivs ==
-            get_angles_derivatives([pos[0] - pos[1], pos[0] - pos[1]],
-                                   [pos[2] - pos[1],
-                                    pos[2] - pos[1]])[0]).all()
-    assert (dihedrals_derivs ==
-            get_dihedrals_derivatives([pos[1] - pos[0], pos[1] - pos[0]],
-                                      [pos[2] - pos[1], pos[2] - pos[1]],
-                                      [pos[3] - pos[2],
-                                       pos[3] - pos[2]])[0]).all()
+    assert (
+        distances_derivs
+        == get_distances_derivatives([pos[1] - pos[0], pos[1] - pos[0]])[0]
+    ).all()
+    assert (
+        angles_derivs
+        == get_angles_derivatives(
+            [pos[0] - pos[1], pos[0] - pos[1]],
+            [pos[2] - pos[1], pos[2] - pos[1]],
+        )[0]
+    ).all()
+    assert (
+        dihedrals_derivs
+        == get_dihedrals_derivatives(
+            [pos[1] - pos[0], pos[1] - pos[0]],
+            [pos[2] - pos[1], pos[2] - pos[1]],
+            [pos[3] - pos[2], pos[3] - pos[2]],
+        )[0]
+    ).all()
 
 
 class TestNondestructive:
     """Test that plural derivative functions do not mutate inputs (#1560)."""
+
     @staticmethod
     def test_distances_derivatives():
         """Test `get_distances_derivatives`."""

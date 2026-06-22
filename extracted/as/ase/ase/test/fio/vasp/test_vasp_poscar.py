@@ -1,4 +1,3 @@
-# fmt: off
 import io
 
 import numpy as np
@@ -9,7 +8,7 @@ from ase.calculators.calculator import compare_atoms
 from ase.io.vasp import parse_poscar_scaling_factor, read_vasp, write_vasp
 
 
-@pytest.fixture(name="atoms")
+@pytest.fixture(name='atoms')
 def fixture_atoms():
     _atoms = bulk('NaCl', crystalstructure='rocksalt', a=4.1, cubic=True)
     _atoms.wrap()

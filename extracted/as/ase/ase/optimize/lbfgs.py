@@ -5,6 +5,8 @@ from typing import IO
 import numpy as np
 
 from ase import Atoms
+from ase._4.optimize.lbfgs import LBFGSMethod
+from ase._4.optimize.optimizable import initial_inverse_position_hessian
 from ase.optimize.optimize import Optimizer
 from ase.utils.linesearch import LineSearch
 
@@ -74,7 +76,15 @@ class LBFGS(Optimizer):
             :class:`~ase.optimize.optimize.Optimizer`.
 
         """
+        # Initial approximation of inverse Hessian 1./70. is to emulate the
+        # behaviour of BFGS. Note that this is never changed!
+        H0 = initial_inverse_position_hessian(0, alpha)
+        self.state = LBFGSMethod(memory=memory, initial_inverse_hessian=H0)
+
         super().__init__(atoms, restart, logfile, trajectory, **kwargs)
+
+        H0 = initial_inverse_position_hessian(self.optimizable.ndofs(), alpha)
+        self.state.H0 = H0
 
         if maxstep is not None:
             self.maxstep = maxstep
@@ -86,10 +96,6 @@ class LBFGS(Optimizer):
                              'the maximum step size: %.1f Angstrom' %
                              self.maxstep)
 
-        self.memory = memory
-        # Initial approximation of inverse Hessian 1./70. is to emulate the
-        # behaviour of BFGS. Note that this is never changed!
-        self.H0 = 1. / alpha
         self.damping = damping
         self.use_line_search = use_line_search
         self.p = None
@@ -98,13 +104,6 @@ class LBFGS(Optimizer):
 
     def initialize(self):
         """Initialize everything so no checks have to be done in step"""
-        self.iteration = 0
-        self.s = []
-        self.y = []
-        # Store also rho, to avoid calculating the dot product again and
-        # again.
-        self.rho = []
-
         self.r0 = None
         self.f0 = None
         self.e0 = None
@@ -113,8 +112,11 @@ class LBFGS(Optimizer):
 
     def read(self):
         """Load saved arrays to reconstruct the Hessian"""
-        self.iteration, self.s, self.y, self.rho, \
-            self.r0, self.f0, self.e0, self.task = self.load()
+        i, s, y, rho, self.r0, self.f0, self.e0, self.task = self.load()
+        self.state.iteration = i
+        self.state.s = s
+        self.state.y = y
+        self.state.rho = rho
         self.load_restart = True
 
     def step(self, forces=None):
@@ -127,27 +129,7 @@ class LBFGS(Optimizer):
         pos = self.optimizable.get_x()
         self.update(pos, forces, self.r0, self.f0)
 
-        s = self.s
-        y = self.y
-        rho = self.rho
-        H0 = self.H0
-
-        loopmax = np.min([self.memory, self.iteration])
-        a = np.empty((loopmax,), dtype=np.float64)
-
-        # ## The algorithm itself:
-        q = -forces
-        for i in range(loopmax - 1, -1, -1):
-            a[i] = rho[i] * np.dot(s[i], q)
-            q -= a[i] * y[i]
-        z = H0 * q
-
-        for i in range(loopmax):
-            b = rho[i] * np.dot(y[i], z)
-            z += s[i] * (a[i] - b)
-
-        self.p = - z
-        # ##
+        self.p = self.state.compute_step(-forces)
 
         g = -forces
         if self.use_line_search:
@@ -160,11 +142,10 @@ class LBFGS(Optimizer):
             dr = self.determine_step(self.p) * self.damping
         self.optimizable.set_x(pos + dr)
 
-        self.iteration += 1
         self.r0 = pos
         self.f0 = -g
-        self.dump((self.iteration, self.s, self.y,
-                   self.rho, self.r0, self.f0, self.e0, self.task))
+        tmp = self.state.iteration, self.state.s, self.state.y, self.state.rho
+        self.dump((*tmp, self.r0, self.f0, self.e0, self.task))
 
     def determine_step(self, dr):
         """Determine step to take according to maxstep
@@ -183,38 +164,22 @@ class LBFGS(Optimizer):
 
         This function is mostly here to allow for replay_trajectory.
         """
-        if self.iteration > 0:
-            s0 = pos - r0
-            self.s.append(s0)
+        if self.state.iteration > 0:
+            self.state.update(pos, -forces, r0, -f0)
 
-            # We use the gradient which is minus the force!
-            y0 = f0 - forces
-            self.y.append(y0)
-
-            rho0 = 1.0 / np.dot(y0, s0)
-            self.rho.append(rho0)
-
-        if self.iteration > self.memory:
-            self.s.pop(0)
-            self.y.pop(0)
-            self.rho.pop(0)
-
-    def replay_trajectory(self, traj):
+    def _replay_trajectory(self, traj):
         """Initialize history from old trajectory."""
-        if isinstance(traj, str):
-            from ase.io.trajectory import Trajectory
-            traj = Trajectory(traj, 'r')
         r0 = None
         f0 = None
         # The last element is not added, as we get that for free when taking
         # the first qn-step after the replay
         for i in range(len(traj) - 1):
-            pos = traj[i].get_positions()
-            forces = traj[i].get_forces()
+            pos = traj[i].get_positions().ravel()
+            forces = traj[i].get_forces().ravel()
             self.update(pos, forces, r0, f0)
             r0 = pos.copy()
             f0 = forces.copy()
-            self.iteration += 1
+            self.state.iteration += 1
         self.r0 = r0
         self.f0 = f0
 

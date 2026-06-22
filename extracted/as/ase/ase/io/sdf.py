@@ -56,7 +56,7 @@ def write_sdf(
 
     Parameters
     ----------
-    fd : path or file object
+    fd : file, str, or pathlib.Path
         A file path or writable file-like object.
 
     atoms : Atoms

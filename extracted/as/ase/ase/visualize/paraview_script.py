@@ -1,7 +1,6 @@
-# fmt: off
-
 def main():
     import paraview.simple as para
+
     version_major = para.servermanager.vtkSMProxyManager.GetVersionMajor()
     source = para.GetActiveSource()
     renderView1 = para.GetRenderView()
@@ -16,7 +15,8 @@ def main():
     if version_major <= 4:
         atoms.SetScaleFactor = 0.8
         atomicnumbers_PVLookupTable = para.GetLookupTableForArray(
-            'atomic numbers', 1)
+            'atomic numbers', 1
+        )
         atomsDisplay.ColorArrayName = ('POINT_DATA', 'atomic numbers')
         atomsDisplay.LookupTable = atomicnumbers_PVLookupTable
     else:

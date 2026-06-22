@@ -1,5 +1,3 @@
-# fmt: off
-
 import re
 
 import ase.io.orca as io
@@ -19,7 +17,8 @@ class OrcaProfile(BaseProfile):
     def version(self):
         # XXX Allow MPI in argv; the version call should not be parallel.
         from ase.calculators.genericfileio import read_stdout
-        stdout = read_stdout([self.command, "does_not_exist"])
+
+        stdout = read_stdout([self.command, 'does_not_exist'])
         return get_version_from_orca_header(stdout)
 
     def get_calculator_command(self, inputfile):
@@ -30,23 +29,34 @@ class OrcaTemplate(CalculatorTemplate):
     _label = 'orca'
 
     def __init__(self):
-        super().__init__('orca',
-                         implemented_properties=['energy', 'free_energy',
-                                                 'forces', 'dipole'])
+        super().__init__(
+            'orca',
+            implemented_properties=[
+                'energy',
+                'free_energy',
+                'forces',
+                'dipole',
+            ],
+        )
 
         self.inputname = f'{self._label}.inp'
         self.outputname = f'{self._label}.out'
         self.errorname = f'{self._label}.err'
 
     def execute(self, directory, profile) -> None:
-        profile.run(directory, self.inputname, self.outputname,
-                    errorfile=self.errorname)
+        profile.run(
+            directory, self.inputname, self.outputname, errorfile=self.errorname
+        )
 
     def write_input(self, profile, directory, atoms, parameters, properties):
         parameters = dict(parameters)
 
-        kw = dict(charge=0, mult=1, orcasimpleinput='B3LYP def2-TZVP',
-                  orcablocks='%pal nprocs 1 end')
+        kw = dict(
+            charge=0,
+            mult=1,
+            orcasimpleinput='B3LYP def2-TZVP',
+            orcablocks='%pal nprocs 1 end',
+        )
         kw.update(parameters)
 
         io.write_orca(directory / self.inputname, atoms, kw)
@@ -71,7 +81,7 @@ class ORCA(GenericFileIOCalculator):
         """Construct ORCA-calculator object.
 
         Parameters
-        ==========
+        ----------
         charge: int
 
         mult: int
@@ -82,7 +92,7 @@ class ORCA(GenericFileIOCalculator):
 
 
         Examples
-        ========
+        --------
         Use default values:
 
         >>> from ase.calculators.orca import ORCA
@@ -97,6 +107,9 @@ class ORCA(GenericFileIOCalculator):
 
         """
 
-        super().__init__(template=OrcaTemplate(),
-                         profile=profile, directory=directory,
-                         parameters=kwargs)
+        super().__init__(
+            template=OrcaTemplate(),
+            profile=profile,
+            directory=directory,
+            parameters=kwargs,
+        )

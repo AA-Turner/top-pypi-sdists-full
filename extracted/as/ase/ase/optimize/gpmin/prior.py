@@ -1,9 +1,7 @@
-# fmt: off
-
 import numpy as np
 
 
-class Prior():
+class Prior:
     """Base class for all priors for the bayesian optimizer.
 
     The __init__ method and the prior method are implemented here.
@@ -39,7 +37,8 @@ class ZeroPrior(Prior):
 class ConstantPrior(Prior):
     """Constant prior, with energy = constant and zero forces
 
-    Parameters:
+    Parameters
+    ----------
 
     constant: energy value for the constant.
 
@@ -69,7 +68,8 @@ class CalculatorPrior(Prior):
     use another calculator as prior function instead of the
     default constant.
 
-    Parameters:
+    Parameters
+    ----------
 
     atoms: the Atoms object
     calculator: one of ASE's calculators

@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 from pytest import mark
 
@@ -22,7 +21,7 @@ def test_energy_forces_stress(KIM, testdir):
     atoms = FaceCenteredCubic(
         directions=[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         size=(1, 1, 1),
-        symbol="Ar",
+        symbol='Ar',
         pbc=(1, 0, 0),
         latticeconstant=3.0,
     )
@@ -31,7 +30,7 @@ def test_energy_forces_stress(KIM, testdir):
     # distance
     atoms.positions[0, 0] += 0.01
 
-    calc = KIM("ex_model_Ar_P_Morse_07C")
+    calc = KIM('ex_model_Ar_P_Morse_07C')
     atoms.calc = calc
 
     # Get energy and analytical forces/stress from KIM model

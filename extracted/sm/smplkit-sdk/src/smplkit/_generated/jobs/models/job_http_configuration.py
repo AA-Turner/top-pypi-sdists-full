@@ -12,7 +12,7 @@ from ..models.job_http_configuration_method import JobHttpConfigurationMethod
 from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.http_header import HttpHeader
+    from ..models.job_http_configuration_headers import JobHttpConfigurationHeaders
 
 
 T = TypeVar("T", bound="JobHttpConfiguration")
@@ -23,13 +23,16 @@ class JobHttpConfiguration:
     """HTTP request a job performs when it fires.
 
     Extends the shared forwarder configuration with the two fields a scheduled
-    job needs beyond a forwarder.
+    job needs beyond a forwarder, and represents headers as a name→value object
+    so an individual header can be overridden per environment by its name.
 
         Attributes:
             url (str): Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g.
                 `https://siem.example.com/in`).
             method (JobHttpConfigurationMethod | Unset): HTTP method used when delivering the request. Default: 'POST'.
-            headers (list[HttpHeader] | Unset): HTTP headers attached to each request.
+            headers (JobHttpConfigurationHeaders | Unset): HTTP headers sent on each request, as a name→value object (e.g.
+                `{"Authorization": "Bearer s3cr3t"}`). A header is overridden per environment by its name via a `headers.<name>`
+                entry in that environment's overrides; header names match case-insensitively.
             success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
                 `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
             tls_verify (bool | Unset): Whether to verify the destination server's TLS certificate against trusted
@@ -50,7 +53,7 @@ class JobHttpConfiguration:
 
     url: str
     method: JobHttpConfigurationMethod | Unset = "POST"
-    headers: list[HttpHeader] | Unset = UNSET
+    headers: JobHttpConfigurationHeaders | Unset = UNSET
     success_status: str | Unset = "2xx"
     tls_verify: bool | Unset = True
     ca_cert: None | str | Unset = UNSET
@@ -64,12 +67,9 @@ class JobHttpConfiguration:
         if not isinstance(self.method, Unset):
             method = self.method
 
-        headers: list[dict[str, Any]] | Unset = UNSET
+        headers: dict[str, Any] | Unset = UNSET
         if not isinstance(self.headers, Unset):
-            headers = []
-            for headers_item_data in self.headers:
-                headers_item = headers_item_data.to_dict()
-                headers.append(headers_item)
+            headers = self.headers.to_dict()
 
         success_status = self.success_status
 
@@ -115,7 +115,7 @@ class JobHttpConfiguration:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.http_header import HttpHeader
+        from ..models.job_http_configuration_headers import JobHttpConfigurationHeaders
 
         d = dict(src_dict)
         url = d.pop("url")
@@ -128,13 +128,11 @@ class JobHttpConfiguration:
             method = check_job_http_configuration_method(_method)
 
         _headers = d.pop("headers", UNSET)
-        headers: list[HttpHeader] | Unset = UNSET
-        if _headers is not UNSET:
-            headers = []
-            for headers_item_data in _headers:
-                headers_item = HttpHeader.from_dict(headers_item_data)
-
-                headers.append(headers_item)
+        headers: JobHttpConfigurationHeaders | Unset
+        if isinstance(_headers, Unset):
+            headers = UNSET
+        else:
+            headers = JobHttpConfigurationHeaders.from_dict(_headers)
 
         success_status = d.pop("success_status", UNSET)
 

@@ -1,4 +1,3 @@
-# fmt: off
 from math import cos, sin
 
 from ase import Atoms
@@ -12,13 +11,17 @@ def test_tip4p():
     r = rOH
     a = angleHOH
 
-    dimer = Atoms('H2OH2O',
-                  [(r * cos(a), 0, r * sin(a)),
-                   (r, 0, 0),
-                   (0, 0, 0),
-                   (r * cos(a / 2), r * sin(a / 2), 0),
-                   (r * cos(a / 2), -r * sin(a / 2), 0),
-                   (0, 0, 0)])
+    dimer = Atoms(
+        'H2OH2O',
+        [
+            (r * cos(a), 0, r * sin(a)),
+            (r, 0, 0),
+            (0, 0, 0),
+            (r * cos(a / 2), r * sin(a / 2), 0),
+            (r * cos(a / 2), -r * sin(a / 2), 0),
+            (0, 0, 0),
+        ],
+    )
 
     # tip4p sequence OHH, OHH, ..
     dimer = dimer[[2]] + dimer[:2] + dimer[[-1]] + dimer[3:5]

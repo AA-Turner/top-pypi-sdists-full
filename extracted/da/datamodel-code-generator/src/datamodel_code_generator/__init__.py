@@ -26,8 +26,6 @@ from typing import (
 )
 from urllib.parse import ParseResult
 
-from typing_extensions import TypeAliasType, Unpack
-
 from datamodel_code_generator.enums import (
     DEFAULT_SHARED_MODULE_NAME,
     MAX_VERSION,
@@ -60,7 +58,25 @@ from datamodel_code_generator.enums import (
 )
 from datamodel_code_generator.parser import DefaultPutDict, LiteralType
 
+# Pydantic 2.5 cannot build schemas from stdlib TypeAliasType on Python 3.12.
+if sys.version_info >= (3, 14):
+    from typing import TypeAliasType
+else:
+    from typing_extensions import TypeAliasType
+
+if sys.version_info >= (3, 11):
+    from typing import Unpack
+else:
+    from typing_extensions import Unpack
+
 if TYPE_CHECKING:
+    from datamodel_code_generator._format_types import (
+        DEFAULT_FORMATTERS,
+        DateClassType,
+        DatetimeClassType,
+        PythonVersion,
+        PythonVersionMin,
+    )
     from datamodel_code_generator._types import (
         AsyncAPIParserConfigDict,
         AvroParserConfigDict,
@@ -73,13 +89,7 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator._types.generate_config_dict import GenerateConfigDict
     from datamodel_code_generator.config import GenerateConfig, ParserConfig
-    from datamodel_code_generator.format import (
-        DEFAULT_FORMATTERS,
-        DateClassType,
-        DatetimeClassType,
-        PythonVersion,
-        PythonVersionMin,
-    )
+    from datamodel_code_generator.model_metadata import ModelMetadata
 
 T = TypeVar("T")
 _ConfigT = TypeVar("_ConfigT", bound="ParserConfig")
@@ -169,12 +179,14 @@ def _is_parsed_source_cache_enabled() -> bool:
 
 def load_yaml(stream: str | TextIO) -> YamlValue:
     """Load YAML content using ryaml (if available) or PyYAML."""
-    from datamodel_code_generator.util import get_yaml_backend  # noqa: PLC0415
+    from datamodel_code_generator.util import get_yaml_backend, reject_unsupported_yaml_tags  # noqa: PLC0415
+
+    text = stream if isinstance(stream, str) else stream.read()
+    reject_unsupported_yaml_tags(text)
 
     if get_yaml_backend() == "ryaml":
         import ryaml  # noqa: PLC0415  # ty: ignore[unresolved-import]
 
-        text = stream if isinstance(stream, str) else stream.read()
         from datamodel_code_generator.util import warn_yaml_deprecated_bool_values  # noqa: PLC0415
 
         warn_yaml_deprecated_bool_values(text)
@@ -184,7 +196,7 @@ def load_yaml(stream: str | TextIO) -> YamlValue:
 
     from datamodel_code_generator.util import SafeLoader  # noqa: PLC0415
 
-    return yaml.load(stream, Loader=SafeLoader)  # noqa: S506
+    return yaml.load(text, Loader=SafeLoader)  # noqa: S506
 
 
 def load_yaml_dict(stream: str | TextIO) -> dict[str, YamlValue]:
@@ -525,7 +537,7 @@ def _validate_output_datetime_class(
     if output_datetime_class is None:
         return
 
-    from datamodel_code_generator.format import DatetimeClassType  # noqa: PLC0415
+    from datamodel_code_generator._format_types import DatetimeClassType  # noqa: PLC0415
 
     if output_datetime_class is DatetimeClassType.Datetime:
         return
@@ -929,7 +941,7 @@ def _prepare_parser_common_options(  # noqa: PLR0913, PLR0917
 
     target_datetime_class = config.output_datetime_class
     if target_datetime_class is None:
-        from datamodel_code_generator.format import DatetimeClassType  # noqa: PLC0415
+        from datamodel_code_generator._format_types import DatetimeClassType  # noqa: PLC0415
 
         match input_file_type:
             case InputFileType.GraphQL:
@@ -947,6 +959,7 @@ def _prepare_parser_common_options(  # noqa: PLR0913, PLR0917
         "dump_resolve_reference_action": data_model_types.dump_resolve_reference_action,
         "extra_template_data": extra_template_data,
         "serialization_aliases": config.serialization_aliases,
+        "model_name_map": config.model_name_map,
         "base_path": input_.parent if isinstance(input_, Path) and input_.is_file() else None,
         "remote_text_cache": remote_text_cache,
         "known_third_party": data_model_types.known_third_party,
@@ -967,6 +980,7 @@ def _prepare_parser_common_options(  # noqa: PLR0913, PLR0917
         ),
         "use_object_type": config.use_object_type,
         "skip_root_model": skip_root_model,
+        "use_root_model_sequence_interface": config.use_root_model_sequence_interface,
     }
     return data_model_types, source, defer_formatting, additional_options
 
@@ -1158,9 +1172,9 @@ def _emit_results(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
         file.close()
 
     if defer_formatting and config.formatters:
+        from datamodel_code_generator._format_types import Formatter  # noqa: PLC0415
         from datamodel_code_generator.format import (  # noqa: PLC0415
             CodeFormatter,
-            Formatter,
             resolve_use_type_checking_imports,
         )
 
@@ -1192,6 +1206,13 @@ def _emit_results(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
         code_formatter.format_directory(output)
 
     return None
+
+
+def _write_model_metadata(metadata_path: Path, metadata: ModelMetadata | None, encoding: str) -> None:
+    from datamodel_code_generator.model_metadata import dump_model_metadata  # noqa: PLC0415
+
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text(f"{dump_model_metadata(metadata)}\n", encoding=encoding)
 
 
 def generate(  # noqa: PLR0912, PLR0914, PLR0915
@@ -1396,13 +1417,15 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
                 all_exports_scope=config.all_exports_scope,
                 all_exports_collision_strategy=config.all_exports_collision_strategy,
                 module_split_mode=config.module_split_mode,
+                collect_model_metadata=config.emit_model_metadata is not None,
             )
         except BaseException:
             with contextlib.suppress(BaseException):
                 parser._dispose()  # noqa: SLF001
             raise
+    model_metadata = parser.model_metadata
     parser._dispose()  # noqa: SLF001
-    return _emit_results(
+    generated = _emit_results(
         results,
         input_,
         input_filename,
@@ -1411,6 +1434,9 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
         defer_formatting=defer_formatting,
         data_model_types=data_model_types,
     )
+    if config.emit_model_metadata is not None:
+        _write_model_metadata(config.emit_model_metadata, model_metadata, config.encoding)
+    return generated
 
 
 def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
@@ -1481,12 +1507,12 @@ _LAZY_IMPORTS = {
     "GenerateConfig": "datamodel_code_generator.config",
     "UnionMode": "datamodel_code_generator.enums",
     "CodeFormatter": "datamodel_code_generator.format",
-    "DateClassType": "datamodel_code_generator.format",
-    "DatetimeClassType": "datamodel_code_generator.format",
-    "DEFAULT_FORMATTERS": "datamodel_code_generator.format",
-    "Formatter": "datamodel_code_generator.format",
-    "PythonVersion": "datamodel_code_generator.format",
-    "PythonVersionMin": "datamodel_code_generator.format",
+    "DateClassType": "datamodel_code_generator._format_types",
+    "DatetimeClassType": "datamodel_code_generator._format_types",
+    "DEFAULT_FORMATTERS": "datamodel_code_generator._format_types",
+    "Formatter": "datamodel_code_generator._format_types",
+    "PythonVersion": "datamodel_code_generator._format_types",
+    "PythonVersionMin": "datamodel_code_generator._format_types",
     "resolve_use_type_checking_imports": "datamodel_code_generator.format",
 }
 

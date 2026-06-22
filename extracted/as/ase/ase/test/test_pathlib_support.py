@@ -1,4 +1,3 @@
-# fmt: off
 """Test reading/writing in ASE on pathlib objects"""
 
 import io
@@ -62,7 +61,7 @@ def test_pathlib_support(testdir):
         assert isinstance(fd, io.TextIOBase)
 
     for f in [myf, str(myf)]:
-        myf.unlink()                # Remove the file first
+        myf.unlink()  # Remove the file first
         mywrite(f)
         myread(f)
 

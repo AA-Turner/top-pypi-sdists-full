@@ -1430,6 +1430,22 @@ class DatasourceCTE(CTE):
         self, concept: BuildConcept
     ) -> str | RawColumnExpr | BuildFunction | BuildAggregateWrapper:
         alias = _datasource_column_for_concept(self.datasource, concept)
+        if alias is not None:
+            return alias
+        # Not a raw column. A cross-namespace `merge` collapses both sides into
+        # one concept whose lineage points at the *other* namespace's column
+        # (e.g. `passenger.last_name <- split(passenger.name)`), which this
+        # datasource can't compute. The side-appropriate derivation survives as a
+        # pseudonym output of this datasource (`rich_info.last_name <-
+        # split(rich_info.full_name)`); return its lineage so the caller renders
+        # the local derivation instead of failing on the absent raw column.
+        for output in self.output_columns:
+            if (
+                output.address in concept.pseudonyms
+                and isinstance(output.lineage, (BuildFunction, BuildAggregateWrapper))
+                and _datasource_column_for_concept(self.datasource, output) is None
+            ):
+                return output.lineage
         assert alias is not None  # concept is an output of this datasource
         return alias
 
@@ -1550,10 +1566,22 @@ class UnionCTE:
             new if x.safe_identifier == old.safe_identifier else x
             for x in self.parent_ctes
         ]
-        self.internal_ctes = [
-            new if x.safe_identifier == old.safe_identifier else x
-            for x in self.internal_ctes
-        ]
+        new_internal: list[CTE | UnionCTE] = []
+        for branch in self.internal_ctes:
+            if branch.safe_identifier == old.safe_identifier:
+                new_internal.append(new)
+                continue
+            # An arm renders inline against its own base (``FROM <arm-source>``);
+            # if that source is the CTE being replaced, repoint the arm too —
+            # otherwise the arm dangles at a CTE that was merged away. The arm
+            # object lives only here (it is not in the optimizer's working set),
+            # so the consumer-level repoint never reaches it.
+            if any(
+                p.safe_identifier == old.safe_identifier for p in branch.parent_ctes
+            ):
+                branch.replace_dependency(old, new)
+            new_internal.append(branch)
+        self.internal_ctes = new_internal
 
     @property
     def identifier(self) -> str:

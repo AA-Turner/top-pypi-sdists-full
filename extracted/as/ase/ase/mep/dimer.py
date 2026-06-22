@@ -63,7 +63,8 @@ class DimerEigenmodeSearch:
     This class implements the rotational part of the dimer saddle point
     searching method.
 
-    Parameters:
+    Parameters
+    ----------
 
     atoms: MinModeAtoms object
         MinModeAtoms is an extension to the Atoms object, which includes
@@ -77,12 +78,14 @@ class DimerEigenmodeSearch:
         It is possible to constrain the eigenmodes to be orthogonal
         to this given eigenmode.
 
-    Notes:
+    Notes
+    -----
 
     The code is inspired, with permission, by code written by the Henkelman
     group, which can be found at http://theory.cm.utexas.edu/vtsttools/code/
 
-    References:
+    References
+    ----------
 
     * Henkelman and Jonsson, JCP 111, 7010 (1999)
     * Olsen, Kroes, Henkelman, Arnaldsson, and Jonsson, JCP 121,
@@ -391,7 +394,8 @@ class MinModeControl(IOContext):
 class DimerControl(MinModeControl):
     """A class that takes care of the parameters needed for a Dimer search.
 
-    Parameters:
+    Parameters
+    ----------
 
     eigenmode_method: str
         The name of the eigenmode search method.
@@ -498,7 +502,10 @@ class MinModeAtoms:
     along the eigenmode estimate. This eventually brings the system to
     a saddle point.
 
-    Parameters:
+    [1]_ [2]_ [3]_ [4]_
+
+    Parameters
+    ----------
 
     atoms : Atoms object
         A regular Atoms object
@@ -512,8 +519,8 @@ class MinModeAtoms:
         The seed used for the random number generator. Defaults to
         modified version the current time.
 
-    References: [1]_ [2]_ [3]_ [4]_
-
+    References
+    ----------
     .. [1] Henkelman and Jonsson, JCP 111, 7010 (1999)
     .. [2] Olsen, Kroes, Henkelman, Arnaldsson, and Jonsson, JCP 121,
            9776 (2004).
@@ -1040,6 +1047,8 @@ class MinModeTranslate(Optimizer):
         direction = f0p.copy()
         if self.cg_on:
             direction = self.get_cg_direction(direction)
+        if norm(direction) == np.inf:
+            raise RuntimeError('Dimer calculation diverged')
         direction = normalize(direction)
         if curv > 0.0:
             step = direction * self.max_step
@@ -1049,7 +1058,7 @@ class MinModeTranslate(Optimizer):
             F = np.vdot((f0tp + f0p), direction) / 2.0
             C = np.vdot((f0tp - f0p), direction) / self.trial_step
             step = (-F / C + self.trial_step / 2.0) * direction
-            if norm(step) > self.max_step:
+            if norm(step) > self.max_step or np.isnan(norm(step)):
                 step = direction * self.max_step
         self.log(f0p, norm(step))
 

@@ -1,4 +1,3 @@
-# fmt: off
 import io
 
 from ase.build import bulk

@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 
@@ -14,8 +13,10 @@ pytestmark = pytest.mark.usefixtures('testdir')
 
 @pytest.fixture(params=['json', 'ulm'])
 def cache(request):
-    caches = {'json': MultiFileJSONCache('cache_json'),
-              'ulm': MultiFileULMCache('cache_ulm')}
+    caches = {
+        'json': MultiFileJSONCache('cache_json'),
+        'ulm': MultiFileULMCache('cache_ulm'),
+    }
     return caches[request.param]
 
 

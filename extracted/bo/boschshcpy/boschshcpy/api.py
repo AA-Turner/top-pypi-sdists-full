@@ -4,29 +4,11 @@ import logging
 
 import requests
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.poolmanager import PoolManager
+from urllib3.poolmanager import PoolManager
 
-from .exceptions import SHCConnectionError, SHCSessionError
+from .exceptions import SHCConnectionError, SHCSessionError, JSONRPCError  # noqa: F401
 
 logger = logging.getLogger("boschshcpy")
-
-
-class JSONRPCError(Exception):
-    def __init__(self, code, message):
-        super().__init__()
-        self._code = code
-        self._message = message
-
-    @property
-    def code(self):
-        return self._code
-
-    @property
-    def message(self):
-        return self._message
-
-    def __str__(self):
-        return f"JSONRPCError (code: {self.code}, message: {self.message})"
 
 
 class HostNameIgnoringAdapter(HTTPAdapter):
@@ -37,7 +19,7 @@ class HostNameIgnoringAdapter(HTTPAdapter):
 
 
 class SHCAPI:
-    def __init__(self, controller_ip: str, certificate, key):
+    def __init__(self, controller_ip: str, certificate, key, verify_hostname: bool = False):
         self._certificate = certificate
         self._key = key
         self._controller_ip = controller_ip
@@ -47,9 +29,11 @@ class SHCAPI:
 
         # Settings for all API calls
         self._requests_session = requests.Session()
-        self._requests_session.mount(
-            "https://", HostNameIgnoringAdapter(pool_connections=20, pool_maxsize=20)
-        )
+        if verify_hostname:
+            adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20)
+        else:
+            adapter = HostNameIgnoringAdapter(pool_connections=20, pool_maxsize=20)
+        self._requests_session.mount("https://", adapter)
         self._requests_session.cert = (self._certificate, self._key)
         self._requests_session.headers.update(
             {"api-version": "3.2", "Content-Type": "application/json"}
@@ -59,8 +43,11 @@ class SHCAPI:
         )
 
         import urllib3
+        from urllib3.exceptions import InsecureRequestWarning
 
-        urllib3.disable_warnings()
+        # Scope to InsecureRequestWarning only — a process-wide disable would
+        # also silence legitimate SSL warnings from other HA integrations.
+        urllib3.disable_warnings(InsecureRequestWarning)
 
     @property
     def controller_ip(self):
@@ -196,10 +183,6 @@ class SHCAPI:
     def put_device_service_state(self, device_id, service_id, state_update):
         api_url = f"{self._api_root}/devices/{device_id}/services/{service_id}/state"
         self._put_api_or_fail(api_url, state_update)
-
-    def put_shading_shutters_stop(self, device_id):
-        api_url = f"{self._api_root}/shading/shutters/{device_id}/stop"
-        self._put_api_or_fail(api_url, body=None)
 
     def get_domain_intrusion_detection(self):
         api_url = f"{self._api_root}/intrusion/states/system"

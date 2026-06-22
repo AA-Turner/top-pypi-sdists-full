@@ -9,6 +9,13 @@ from typing import TYPE_CHECKING, Annotated, Any, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from datamodel_code_generator._format_types import (
+    DateClassType,
+    DatetimeClassType,
+    Formatter,
+    PythonVersion,
+    PythonVersionMin,
+)
 from datamodel_code_generator.enums import (
     DEFAULT_SHARED_MODULE_NAME,
     AliasGenerator,
@@ -36,13 +43,6 @@ from datamodel_code_generator.enums import (
     UnionMode,
     VersionMode,
     XMLSchemaVersion,
-)
-from datamodel_code_generator.format import (
-    DateClassType,
-    DatetimeClassType,
-    Formatter,
-    PythonVersion,
-    PythonVersionMin,
 )
 from datamodel_code_generator.model import pydantic_v2
 from datamodel_code_generator.model.base import (  # noqa: TC001 - used by Pydantic at runtime
@@ -74,12 +74,14 @@ class BaseGenerateConfig(BaseModel):
 
     input_file_type: InputFileType = InputFileType.Auto
     output: Path | None = None
+    emit_model_metadata: Path | None = None
     output_model_type: DataModelType = DataModelType.PydanticV2BaseModel
     preset: PresetNameValue | None = None
     target_python_version: PythonVersion = PythonVersionMin
     target_pydantic_version: TargetPydanticVersion | None = None
     base_class: str = ""
     base_class_map: dict[str, str | list[str]] | None = None
+    model_name_map: dict[str, str] | None = None
     additional_imports: list[str] | None = None
     class_decorators: list[str] | None = None
     custom_template_dir: Path | None = None
@@ -137,6 +139,7 @@ class BaseGenerateConfig(BaseModel):
     graphql_no_typename: bool = False
     wrap_string_literal: bool | None = None
     use_title_as_name: bool = False
+    infer_union_variant_names: bool = False
     use_operation_id_as_name: bool = False
     use_unique_items_as_set: bool = False
     use_tuple_for_fixed_items: bool = False
@@ -160,6 +163,7 @@ class BaseGenerateConfig(BaseModel):
     collapse_root_models_name_strategy: CollapseRootModelsNameStrategy | None = None
     collapse_reuse_models: bool = False
     skip_root_model: bool = False
+    use_root_model_sequence_interface: bool = False
     use_type_alias: bool = False
     use_root_model_type_alias: bool = False
     special_field_name_prefix: str | None = None
@@ -240,6 +244,7 @@ class ParserConfig(BaseModel):
     data_model_field_type: type[DataModelFieldBase] = pydantic_v2.DataModelField
     base_class: str | None = None
     base_class_map: dict[str, str | list[str]] | None = None
+    model_name_map: dict[str, str] | None = None
     additional_imports: list[str] | None = None
     class_decorators: list[str] | None = None
     custom_template_dir: Path | None = None
@@ -299,6 +304,7 @@ class ParserConfig(BaseModel):
     model_extra_keys_without_x_prefix: set[str] | None = None
     wrap_string_literal: bool | None = None
     use_title_as_name: bool = False
+    infer_union_variant_names: bool = False
     use_operation_id_as_name: bool = False
     use_unique_items_as_set: bool = False
     use_tuple_for_fixed_items: bool = False
@@ -323,6 +329,7 @@ class ParserConfig(BaseModel):
     collapse_root_models_name_strategy: CollapseRootModelsNameStrategy | None = None
     collapse_reuse_models: bool = False
     skip_root_model: bool = False
+    use_root_model_sequence_interface: bool = False
     use_type_alias: bool = False
     special_field_name_prefix: str | None = None
     remove_special_field_name_prefix: bool = False
@@ -431,3 +438,4 @@ class ParseConfig(BaseModel):
     all_exports_scope: AllExportsScope | None = None
     all_exports_collision_strategy: AllExportsCollisionStrategy | None = None
     module_split_mode: ModuleSplitMode | None = None
+    collect_model_metadata: bool = False

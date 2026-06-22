@@ -1,11 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 from matplotlib.testing.compare import compare_images
 from scipy.spatial.transform import Rotation
 
 from ase.lattice import HEX2D
 
 
+@pytest.mark.xfail(reason='Fails due to labels moving slightly.  See #1942')
 def test_repeat_transpose_bz(testdir, datadir) -> None:
     """Testing plot_bz."""
 

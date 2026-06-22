@@ -1,5 +1,3 @@
-# fmt: off
-
 from math import pi
 
 import numpy as np
@@ -13,11 +11,13 @@ from ase.units import Bohr, Ha
 def make_test_dft_calculation():
     a = b = 2.0
     c = 6.0
-    atoms = Atoms(positions=[(0, 0, c / 2)],
-                  symbols='H',
-                  pbc=(1, 1, 0),
-                  cell=(a, b, c),
-                  calculator=TestCalculator())
+    atoms = Atoms(
+        positions=[(0, 0, c / 2)],
+        symbols='H',
+        pbc=(1, 1, 0),
+        cell=(a, b, c),
+        calculator=TestCalculator(),
+    )
     return atoms
 
 
@@ -51,8 +51,14 @@ class TestCalculator:
         nbands = 1
 
         V = -1.0
-        self.eps = 2 * V * (np.cos(2 * pi * self.ibzk[:, 0]) +
-                            np.cos(2 * pi * self.ibzk[:, 1]))
+        self.eps = (
+            2
+            * V
+            * (
+                np.cos(2 * pi * self.ibzk[:, 0])
+                + np.cos(2 * pi * self.ibzk[:, 1])
+            )
+        )
         self.eps.shape = (nibzk, nbands)
 
         self.psi = np.zeros((nibzk, 20, 20, 60), complex)
@@ -62,9 +68,9 @@ class TestCalculator:
             x = np.linspace(0, 1, 20, endpoint=False) - i
             for j in range(2):
                 y = np.linspace(0, 1, 20, endpoint=False) - j
-                r = (((x[:, None]**2 +
-                       y**2)[:, :, None] +
-                      z**2)**0.5).clip(0, 1)
+                r = (((x[:, None] ** 2 + y**2)[:, :, None] + z**2) ** 0.5).clip(
+                    0, 1
+                )
                 phi = 1.0 - r**2 * (3.0 - 2.0 * r)
                 phase = np.exp(pi * 2j * np.dot(self.ibzk, (i, j, 0)))
                 self.psi += phase[:, None, None, None] * phi
@@ -113,7 +119,7 @@ class TestPotential(Calculator):
         F = np.zeros_like(R)
         for a, r in enumerate(R):
             D = R - r
-            d = (D**2).sum(1)**0.5
+            d = (D**2).sum(1) ** 0.5
             x = d - 1.0
             E += np.vdot(x, x)
             d[a] = 1
@@ -125,7 +131,8 @@ class TestPotential(Calculator):
 class FreeElectrons(Calculator):
     """Free-electron band calculator.
 
-    Parameters:
+    Parameters
+    ----------
 
     nvalence: int
         Number of electrons
@@ -138,10 +145,12 @@ class FreeElectrons(Calculator):
     """
 
     implemented_properties = ['energy']
-    default_parameters = {'kpts': np.zeros((1, 3)),
-                          'nvalence': 0.0,
-                          'nbands': 20,
-                          'gridsize': 7}
+    default_parameters = {
+        'kpts': np.zeros((1, 3)),
+        'nvalence': 0.0,
+        'nbands': 20,
+        'gridsize': 7,
+    }
 
     def calculate(self, atoms, properties, system_changes):
         Calculator.calculate(self, atoms)
@@ -149,9 +158,9 @@ class FreeElectrons(Calculator):
         icell = atoms.cell.reciprocal() * 2 * np.pi * Bohr
         n = self.parameters.gridsize
         offsets = np.indices((n, n, n)).T.reshape((n**3, 1, 3)) - n // 2
-        eps = 0.5 * (np.dot(self.kpts + offsets, icell)**2).sum(2).T
+        eps = 0.5 * (np.dot(self.kpts + offsets, icell) ** 2).sum(2).T
         eps.sort()
-        self.eigenvalues = eps[:, :self.parameters.nbands] * Ha
+        self.eigenvalues = eps[:, : self.parameters.nbands] * Ha
         self.results = {'energy': 0.0}
 
     def get_eigenvalues(self, kpt, spin=0):
@@ -160,7 +169,7 @@ class FreeElectrons(Calculator):
 
     def get_fermi_level(self):
         v = self.atoms.cell.complete().volume / Bohr**3
-        kF = (self.parameters.nvalence / v * 3 * np.pi**2)**(1 / 3)
+        kF = (self.parameters.nvalence / v * 3 * np.pi**2) ** (1 / 3)
         return 0.5 * kF**2 * Ha
 
     def get_ibz_k_points(self):

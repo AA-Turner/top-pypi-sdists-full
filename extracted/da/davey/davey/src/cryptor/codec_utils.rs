@@ -139,10 +139,7 @@ pub fn process_frame_h264(processor: &mut OutboundFrameProcessor, frame: &[u8]) 
   }
 
   let mut nalu_index_pair = next_h26x_nalu_index(frame, 0);
-  loop {
-    let Some((nal_unit_start_index, _start_code_size)) = nalu_index_pair.take() else {
-      break;
-    };
+  while let Some((nal_unit_start_index, _start_code_size)) = nalu_index_pair.take() {
     if nal_unit_start_index >= frame.len() - 1 {
       break;
     }
@@ -204,10 +201,7 @@ pub fn process_frame_h265(processor: &mut OutboundFrameProcessor, frame: &[u8]) 
   }
 
   let mut nalu_index_pair = next_h26x_nalu_index(frame, 0);
-  loop {
-    let Some((nal_unit_start_index, _start_code_size)) = nalu_index_pair.take() else {
-      break;
-    };
+  while let Some((nal_unit_start_index, _start_code_size)) = nalu_index_pair.take() {
     if nal_unit_start_index >= frame.len() - 1 {
       break;
     }
@@ -234,7 +228,7 @@ pub fn process_frame_h265(processor: &mut OutboundFrameProcessor, frame: &[u8]) 
       );
     } else {
       // copy the whole NAL unit
-      processor.add_encrypted_bytes(&frame[nal_unit_start_index..next_nalu_start]);
+      processor.add_unencrypted_bytes(&frame[nal_unit_start_index..next_nalu_start]);
     }
 
     nalu_index_pair = next_nalu_index_pair;

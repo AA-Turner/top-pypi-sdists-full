@@ -26,24 +26,25 @@ is_conda = "CONDA_PREFIX" in os.environ
 # Only include the installation dependencies if we are not running on RTD or AppVeyor or in a conda env
 if not is_rtd and not is_appveyor and not is_azure and not is_conda:
     reqs = [
-        "cadquery-ocp>=7.8.1,<7.9",
+        "cadquery-ocp>=7.9.3.1,<8.0",
         "ezdxf>=1.3.0",
         "multimethod>=1.11,<2.0",
         "nlopt>=2.9.0,<3.0",
         "runtype",
         "casadi",
-        "path",
         "trame",
         "trame-vtk",
         "trame-components",
         "trame-vuetify",
         "pyparsing>=3.0.0",
+        "scipy",
+        "numba",
     ]
 
 
 setup(
     name="cadquery",
-    version="2.7.0",
+    version="2.8.0",
     url="https://github.com/CadQuery/cadquery",
     license="Apache Public License 2.0",
     author="David Cowden",
@@ -52,7 +53,7 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     packages=find_packages(exclude=("tests",)),
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     setup_requires=setup_reqs,
     install_requires=reqs,
     extras_require={

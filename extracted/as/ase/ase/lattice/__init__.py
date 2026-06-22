@@ -95,6 +95,7 @@ class BravaisLattice(ABC):
 
     def conventional(self) -> 'BravaisLattice':
         """Get the conventional cell corresponding to this lattice."""
+        assert self.conventional_cls is not None
         cls = bravais_lattices[self.conventional_cls]
         return cls(**self._parameters)
 
@@ -306,9 +307,9 @@ Variant name: {name}
         return self.variant_desc.format(**vars(self))
 
 
-bravais_names = []
-bravais_lattices = {}
-bravais_classes = {}
+bravais_names: list[str] = []
+bravais_lattices: dict[str, type] = {}
+bravais_classes: dict[str, type] = {}
 
 
 def bravaisclass(longname, crystal_family, lattice_system, pearson_symbol,

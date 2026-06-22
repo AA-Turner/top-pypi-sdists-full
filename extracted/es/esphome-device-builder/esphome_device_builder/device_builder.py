@@ -190,6 +190,14 @@ async def _handle_version(_request: web.Request) -> web.Response:
 # and the test suite's pin-down assertion can reference it.
 _EXECUTOR_MAX_WORKERS = 64
 
+# Event types broadcast to every ``subscribe_events`` client. Two are held
+# back: ``DEVICE_REACHABILITY`` fires per-signal for every device (60+/min
+# under fleet load) and rides the per-device ``subscribe_reachability``
+# stream instead, and ``DEVICE_YAML_UPDATED`` is an internal version-history
+# signal (clients already get ``DEVICE_UPDATED`` for the row). Computed once.
+_INTERNAL_ONLY_EVENTS = frozenset({EventType.DEVICE_REACHABILITY, EventType.DEVICE_YAML_UPDATED})
+_BROADCAST_EVENT_TYPES = [et for et in EventType if et not in _INTERNAL_ONLY_EVENTS]
+
 
 class DeviceBuilder:
     """Core application singleton.
@@ -256,6 +264,10 @@ class DeviceBuilder:
         self._background_tasks: set[asyncio.Task] = set()
         self._bg_task: asyncio.Task | None = None
 
+        # Latches the one-time network teardown so it can run early (in the
+        # aiohttp ``on_shutdown`` hook) and stop() doesn't repeat it.
+        self._network_stopped = False
+
         self._ingress_runner: web.AppRunner | None = None
         # Remote-build peer-link listener lifecycle (issue #106) —
         # bind / teardown / rebuild of the Noise-XX receiver site and
@@ -321,6 +333,8 @@ class DeviceBuilder:
     async def start(self) -> None:
         """Start the application — load catalogs, initialize controllers."""
         self.loop = asyncio.get_running_loop()
+        # Re-arm the network-teardown latch so a restart-in-place teardown runs.
+        self._network_stopped = False
         # Pool itself was constructed in ``__init__`` (so callers
         # probing ``self._executor`` pre-start see the right value);
         # here we just register it as the loop's default. See
@@ -449,9 +463,27 @@ class DeviceBuilder:
             self._startup_timer.mark("controllers")
             _LOGGER.info("Startup phases: %s", self._startup_timer.summary())
 
-    async def stop(self) -> None:  # noqa: C901, PLR0912
-        """Shut down the application."""
+    async def stop(self) -> None:
+        """Shut down the application: free network sockets first, then flush local state."""
         _LOGGER.info("Shutting down ESPHome Device Builder")
+        # finally so a wedged network teardown can't skip the local-state flush.
+        try:
+            await self._stop_network()
+        finally:
+            await self._stop_local()
+
+    async def _on_shutdown(self, app: web.Application) -> None:
+        """Free the network sockets early (aiohttp ``on_shutdown``)."""
+        try:
+            await self._stop_network()
+        except Exception:
+            # A raise here would abort aiohttp cleanup before on_cleanup runs.
+            _LOGGER.exception("Early network teardown failed; continuing shutdown")
+
+    async def _stop_network(self) -> None:
+        """Tear down network-facing resources (remote-build, mDNS) once a full pass completes."""
+        if self._network_stopped:
+            return
         if self._bg_task:
             self._bg_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -483,6 +515,12 @@ class DeviceBuilder:
             self._dashboard_advertiser = None
         if self.devices is not None:
             await self.devices.stop()
+        # Latch only after a full pass, so a partial teardown (a step raising in
+        # the swallowing on_shutdown hook) can still be retried by stop().
+        self._network_stopped = True
+
+    async def _stop_local(self) -> None:
+        """Flush local state (editor, version history, settings) and drain the executor pool."""
         if self.editor is not None:
             await self.editor.stop()
         if self.version_history is not None:
@@ -675,16 +713,6 @@ class DeviceBuilder:
             # massive backlog.
             controls.push_or_terminate(event.event_type.value, serialized)
 
-        # ``DEVICE_REACHABILITY`` is intentionally excluded — it fires
-        # on every per-signal observation (every mDNS announce, every
-        # ping success, every MQTT discover response) for *every*
-        # configured device, which would push 60+ events/min/device
-        # at every connected client. The drawer's per-device
-        # subscription is the only consumer; broadcasting these
-        # would defeat the point of having a per-device stream and
-        # could trip the bounded queue's backpressure terminator
-        # under fleet load.
-        broadcast_event_types = [et for et in EventType if et is not EventType.DEVICE_REACHABILITY]
         # Hold a presence reference for the lifetime of the stream so
         # idle-time ICMP discovery resumes the moment a client
         # subscribes and pauses again on disconnect. The 0→1
@@ -696,7 +724,7 @@ class DeviceBuilder:
                 client=client,
                 message_id=message_id,
                 bus=self.bus,
-                event_types=broadcast_event_types,
+                event_types=_BROADCAST_EVENT_TYPES,
                 handle_event=_handle_event,
                 send_initial=_send_initial,
             )
@@ -802,6 +830,9 @@ class DeviceBuilder:
 
         if with_lifecycle:
             app.on_startup.append(self._on_startup)
+            # After init_ws_app's close_active_websockets so WS handlers unwind
+            # before the network teardown.
+            app.on_shutdown.append(self._on_shutdown)
             # Every add-on shape needs the trusted ingress site for the HA
             # sidebar, including the front-door-open one whose main app is the
             # unauthenticated public site. The ingress-only path passes

@@ -12,6 +12,7 @@ mod display_marker;
 mod reserved_range;
 mod replace;
 mod redact_l1;
+mod streaming;
 mod risk;
 mod shake_rng;
 mod seed;
@@ -44,12 +45,18 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(reserved_range::reserved_range_patterns, m)?)?;
     m.add_function(wrap_pyfunction!(reserved_range::scan_for_pollution, m)?)?;
     m.add_function(wrap_pyfunction!(replace::replace, m)?)?;
+    m.add_function(wrap_pyfunction!(replace::build_type_info, m)?)?;
     // ── L1 engine bindings (detect / redact / hints) ──
     m.add_function(wrap_pyfunction!(redact_l1::detect_l1, m)?)?;
     m.add_function(wrap_pyfunction!(redact_l1::redact_l1, m)?)?;
     m.add_function(wrap_pyfunction!(redact_l1::produce_hints_l1, m)?)?;
     m.add_function(wrap_pyfunction!(redact_l1::get_person_threshold, m)?)?;
     m.add_function(wrap_pyfunction!(redact_l1::filter_self_reference, m)?)?;
+    // ── streaming carry-window engine bindings ──
+    m.add_function(wrap_pyfunction!(streaming::streaming_last_boundary_index, m)?)?;
+    m.add_function(wrap_pyfunction!(streaming::streaming_bounded_carry, m)?)?;
+    m.add_function(wrap_pyfunction!(streaming::streaming_consume_to_boundary, m)?)?;
+    m.add_function(wrap_pyfunction!(streaming::streaming_restorer_split, m)?)?;
     m.add_function(wrap_pyfunction!(risk::assess_risk, m)?)?;
     m.add_class::<crate::shake_rng::PyShakeRng>()?;
     m.add_function(wrap_pyfunction!(shake_rng::seed_from_value, m)?)?;

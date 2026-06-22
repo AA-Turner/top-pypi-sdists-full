@@ -1,4 +1,3 @@
-# fmt: off
 import io
 
 from ase.io import read
@@ -65,8 +64,17 @@ Stress tensor:
      0.000000     0.000000     0.000000"""
 
 # Three configurations.  Only 1. and 3. has forces.
-text = (header + densities + atoms + orbitals + forces +
-        atoms + atoms + forces + stress)
+text = (
+    header
+    + densities
+    + atoms
+    + orbitals
+    + forces
+    + atoms
+    + atoms
+    + forces
+    + stress
+)
 
 
 def test_gpaw_output():

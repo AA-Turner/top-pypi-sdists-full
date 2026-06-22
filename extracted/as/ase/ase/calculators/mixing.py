@@ -1,5 +1,3 @@
-# fmt: off
-
 from ase.calculators.calculator import (
     BaseCalculator,
     CalculatorSetupError,
@@ -21,11 +19,11 @@ class Mixer:
     @staticmethod
     def check_input(calcs, weights):
         if len(calcs) == 0:
-            raise CalculatorSetupError("Please provide a list of Calculators")
+            raise CalculatorSetupError('Please provide a list of Calculators')
         if len(weights) != len(calcs):
             raise ValueError(
-                "The length of the weights must be the same as"
-                " the number of Calculators!"
+                'The length of the weights must be the same as'
+                ' the number of Calculators!'
             )
 
     def get_properties(self, properties, atoms):
@@ -34,18 +32,18 @@ class Mixer:
         def get_property(prop):
             contribs = [calc.get_property(prop, atoms) for calc in self.calcs]
             # ensure that the contribution shapes are the same for stress prop
-            if prop == "stress":
+            if prop == 'stress':
                 shapes = [contrib.shape for contrib in contribs]
                 if not all(shape == shapes[0] for shape in shapes):
-                    if prop == "stress":
+                    if prop == 'stress':
                         contribs = self.make_stress_voigt(contribs)
                     else:
                         raise ValueError(
-                            f"The shapes of the property {prop}"
-                            " are not the same from all"
-                            " calculators"
+                            f'The shapes of the property {prop}'
+                            ' are not the same from all'
+                            ' calculators'
                         )
-            results[f"{prop}_contributions"] = contribs
+            results[f'{prop}_contributions'] = contribs
             results[prop] = sum(
                 weight * value for weight, value in zip(self.weights, contribs)
             )
@@ -68,9 +66,9 @@ class Mixer:
                 new_contribs.append(new_cont)
             else:
                 raise ValueError(
-                    "The shapes of the stress"
-                    " property are not the same"
-                    " from all calculators"
+                    'The shapes of the stress'
+                    ' property are not the same'
+                    ' from all calculators'
                 )
         return new_contribs
 
@@ -99,10 +97,10 @@ class LinearCombinationCalculator(BaseCalculator):
         self.results = self.mixer.get_properties(properties, atoms)
 
     def __str__(self):
-        calculators = ", ".join(
+        calculators = ', '.join(
             calc.__class__.__name__ for calc in self.mixer.calcs
         )
-        return f"{self.__class__.__name__}({calculators})"
+        return f'{self.__class__.__name__}({calculators})'
 
 
 class MixedCalculator(LinearCombinationCalculator):
@@ -133,11 +131,9 @@ class MixedCalculator(LinearCombinationCalculator):
     def get_energy_contributions(self, atoms=None):
         """Return the potential energy from calc1 and calc2 respectively"""
         self.calculate(
-            properties=["energy"],
-            atoms=atoms,
-            system_changes=all_changes
+            properties=['energy'], atoms=atoms, system_changes=all_changes
         )
-        return self.results["energy_contributions"]
+        return self.results['energy_contributions']
 
 
 class SumCalculator(LinearCombinationCalculator):
@@ -177,7 +173,7 @@ class AverageCalculator(LinearCombinationCalculator):
 
         if n == 0:
             raise CalculatorSetupError(
-                "The value of the calcs must be a list of Calculators"
+                'The value of the calcs must be a list of Calculators'
             )
 
         weights = [1 / n] * n

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Chat completion endpoints — /v1/chat/completions."""
 
+import asyncio
 import gc
 import json
 import logging
@@ -25,11 +26,18 @@ from ..api.models import (
     TokenLogProb,
     Usage,
 )
+from ..api.response_format_metrics import (
+    incr_strict_request,
+    incr_strict_violation,
+)
 from ..api.tool_calling import (
     build_json_system_prompt,
+    check_schema_validity,
     convert_tools_for_template,
     extract_json_schema_for_guided,
+    is_strict_json_schema,
     parse_json_output,
+    validate_output_against_schema,
 )
 from ..api.utils import (
     clean_output_text,
@@ -46,6 +54,7 @@ from ..service.helpers import (
     _TOOL_USE_REQUIRED_SUFFIX,
     _TOOL_USE_SYSTEM_SUFFIX,
     SSE_RESPONSE_HEADERS,
+    _apply_reasoning_cutoff_notice,
     _build_usage,
     _check_admission_or_503,
     _disconnect_guard,
@@ -73,7 +82,6 @@ from ..service.helpers import (
     enable_thinking_warning_header,
     enforce_context_length_for_messages,
     get_engine,
-    get_usage,
 )
 
 logger = logging.getLogger(__name__)
@@ -231,6 +239,50 @@ def _synthesize_forced_tool_call(name: str, arguments: str = "{}"):
         id=f"call_{uuid.uuid4().hex[:8]}",
         type="function",
         function=FunctionCall(name=name, arguments=arguments),
+    )
+
+
+def _is_harmony_cut_short_stream(
+    reasoning_parser,
+    accumulated_reasoning: str,
+    accumulated_text: str,
+    tool_calls_detected: bool,
+) -> bool:
+    """D-HARMONY-LEAK gate predicate, factored for direct test reuse.
+
+    Returns True when the streaming postprocessor state matches the
+    harmony "analysis without final" cut-short shape: an active
+    ``HarmonyReasoningParser`` saw reasoning tokens, no content
+    tokens have been streamed, AND no commentary tool call was
+    detected on any chunk. The streaming chat route uses this to
+    decide whether to synthesise a harmony-marked ``raw_text`` so the
+    shared rescue helper's gate fires uniformly across the streaming
+    and non-streaming surfaces.
+
+    Codex r1 BLOCKING #2 (PR #794): plumbing ``tool_calls_detected``
+    keeps a tool-call-only stream from being misclassified as
+    analysis-without-final — the cap-exhaust path in
+    ``StreamingPostProcessor._process_channel_routed`` sets
+    ``tool_calls_detected=True`` even when ``fallback_tool_calls``
+    arrives empty, and a wrongly-fired harmony gate there would not
+    suppress visible bytes but WOULD lose the channel-state signal
+    for any future caller that gates on the synthetic raw shape.
+
+    Codex r2 BLOCKING (PR #794): extracted to a module-level helper
+    so ``tests/test_harmony_finalize.py`` exercises the SAME code
+    object the streaming chat route uses, not a local re-implementation
+    of the predicate.
+    """
+    rp_is_harmony = (
+        type(reasoning_parser).__name__ == "HarmonyReasoningParser"
+        if reasoning_parser is not None
+        else False
+    )
+    return bool(
+        rp_is_harmony
+        and accumulated_reasoning
+        and not accumulated_text
+        and not tool_calls_detected
     )
 
 
@@ -908,6 +960,30 @@ async def _create_chat_completion_impl(
             else:
                 m.role = "system"
 
+    # Dogfood C-05 / r5-B C-09 fix: auto-prepend the canonical UI-TARS
+    # Computer-Use action-API system prompt for the ``ui_tars`` parser
+    # family — **tool-coupled** (only when the request actually
+    # declares a Computer-Use tool). PR #812 wired the parser by alias
+    # regex but never injected the sysprompt the model is post-trained
+    # on; the C-05 fix then injected on every UI-TARS request, which
+    # broke plain-text and JSON-mode prompts (F-R1-L: ``2+2`` came
+    # back as a phantom click). r5-B threads ``tools=request.tools``
+    # through so the helper's tool-coupled gate decides: NO computer
+    # tool → no injection → model answers in prose / JSON. The helper
+    # is also idempotent (skips when the user already pasted the
+    # sysprompt) and honors ``tool_choice="none"`` (skips so the
+    # model emits plain prose — dogfood C-07).
+    from ..tool_parsers.ui_tars_tool_parser import (
+        maybe_inject_ui_tars_system_prompt as _maybe_inject_ui_tars_sysprompt,
+    )
+
+    messages = _maybe_inject_ui_tars_sysprompt(
+        messages,
+        tool_call_parser=cfg.tool_call_parser,
+        tool_choice=tc,
+        tools=request.tools,
+    )
+
     # Auto-inject system prompt suffix for tool use and/or reasoning control.
     # ``tool_choice="required"`` (and the specific-function form) gets a
     # stricter suffix than the default tool-use one — the OpenAI spec
@@ -1278,6 +1354,99 @@ async def _create_chat_completion_impl(
     # waybarrios#548.
     use_guided = False
     json_schema = None
+    # H-06: strict mode means the OpenAI contract REQUIRES the model
+    # output to validate against the schema. Pre-fix, ``strict=true``
+    # was suggestion-only — the route dropped the flag at
+    # ``build_json_system_prompt`` time and let the engine emit
+    # whatever the model produced. Distinguish the two modes here so
+    # the rest of the function can react.
+    strict_mode = is_strict_json_schema(response_format)
+
+    # Codex r3 BLOCKING #2 + defense-in-depth: ``strict=true`` with
+    # tools set (the route's existing ``if response_format and not
+    # request.tools`` gate below skips the guided dispatch when
+    # tools are present) used to fall through silently — strict
+    # mode would never trigger the gate and the model would emit
+    # unconstrained tokens. Compute the schema BEFORE the tools
+    # gate so the strict-malformed and strict+tools cases both
+    # fail closed (400) instead of failing open (silent 200).
+    # ``_validate_response_format`` already rejects ``schema={}``
+    # at body-parse time but this is the defense-in-depth gate
+    # that closes any future bypass (e.g. a refactor that moves
+    # the validate-response_format call after this point).
+    if strict_mode:
+        _strict_schema_check = extract_json_schema_for_guided(response_format)
+        if not _strict_schema_check:
+            incr_strict_request()
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "message": (
+                            "response_format.json_schema.strict=true "
+                            "requires a non-empty "
+                            "response_format.json_schema.schema. The "
+                            "request set strict=true but the schema "
+                            "field is missing or empty — the strict "
+                            "contract cannot be enforced without one."
+                        ),
+                        "type": "invalid_request_error",
+                        "code": "strict_schema_required",
+                        "param": "response_format.json_schema.schema",
+                    }
+                },
+            )
+        # Codex r4 NIT #5: validate the user-supplied schema BEFORE
+        # generation so an invalid JSON Schema (e.g. ``type:"objct"``
+        # typo) surfaces as a 400 ``invalid_strict_schema`` —
+        # pointing at the client's malformed input — instead of
+        # falling into the post-decode validator and surfacing as
+        # a 502 ``strict_schema_violation`` (server-side breach
+        # shape). The check covers both the strict route and the
+        # /v1/responses entry below via the same helper.
+        _schema_ok, _schema_err = check_schema_validity(_strict_schema_check)
+        if not _schema_ok:
+            incr_strict_request()
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "message": (
+                            "response_format.json_schema.schema is not "
+                            f"a valid JSON Schema document: {_schema_err}. "
+                            "Fix the schema and retry."
+                        ),
+                        "type": "invalid_request_error",
+                        "code": "invalid_strict_schema",
+                        "param": "response_format.json_schema.schema",
+                    }
+                },
+            )
+        if request.tools:
+            # Strict + tools is mutually exclusive on this engine:
+            # the constrained-decoding path is grammar-driven and
+            # cannot coexist with the tool-call grammar. OpenAI's
+            # cloud API treats this combination as 400 too. Surface
+            # the conflict explicitly so clients see the choice.
+            incr_strict_request()
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "message": (
+                            "response_format.json_schema.strict=true "
+                            "cannot be combined with 'tools' — the "
+                            "constrained-decoding grammar is mutually "
+                            "exclusive with the tool-call grammar. "
+                            "Drop one or the other and retry."
+                        ),
+                        "type": "invalid_request_error",
+                        "code": "strict_with_tools_unsupported",
+                        "param": "response_format.json_schema.strict",
+                    }
+                },
+            )
+
     if response_format and not request.tools:
         json_schema = extract_json_schema_for_guided(response_format)
         if json_schema:
@@ -1290,19 +1459,55 @@ async def _create_chat_completion_impl(
             # #500 and the v0.6.70 hotfix and have no role now that the
             # contract is explicit.
             use_guided = engine.supports_guided_generation
-            if use_guided:
+            if strict_mode:
+                # Tick the strict-request counter BEFORE the 400 gate so
+                # operators can see traffic shape even on installs that
+                # are missing the [guided] extra. The violations counter
+                # is incremented separately if jsonschema.validate ever
+                # rejects a guided response post-decode.
+                incr_strict_request()
+                if not use_guided:
+                    # OpenAI's structured-output spec treats strict=true
+                    # as a hard contract — the response MUST validate
+                    # against the schema. Without outlines we cannot
+                    # make that guarantee, so 400 is the correct shape
+                    # (and matches what OpenAI returns when a model
+                    # doesn't support strict structured outputs).
+                    # Envelope is hand-rolled here to match the H-17
+                    # sanitized 400 shape that the global exception
+                    # handlers emit for malformed bodies; clients keying
+                    # off ``error.code`` see ``guided_extra_required``
+                    # so an SDK can decode the install hint
+                    # programmatically.
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "error": {
+                                "message": (
+                                    "response_format.json_schema.strict=true "
+                                    "requires the [guided] optional extra. "
+                                    "Install with: pip install "
+                                    "'rapid-mlx[guided]'"
+                                ),
+                                "type": "invalid_request_error",
+                                "code": "guided_extra_required",
+                                "param": "response_format.json_schema.strict",
+                            }
+                        },
+                    )
+                logger.info(
+                    "Using guided generation for JSON schema enforcement (strict=true)"
+                )
+            elif use_guided:
                 logger.info("Using guided generation for JSON schema enforcement")
             else:
                 # Surface the silent-degradation case: client asked for
-                # json_schema strict mode but the engine can't enforce it
-                # (most commonly: the user installed `rapid-mlx` without
-                # the `[guided]` extra, so outlines is unavailable). The
-                # request will still be served with unconstrained
-                # decoding, but the schema contract is NOT being honored
-                # — without this warning, the client sees garbage
-                # (e.g. the model thinks for max_tokens and never emits
-                # JSON) with no diagnostic signal. v0.6.63 onboarding
-                # sweep finding #5.
+                # json_schema response_format but the engine can't
+                # enforce it (most commonly: the user installed
+                # `rapid-mlx` without the `[guided]` extra). When
+                # ``strict=false`` the OpenAI contract is suggestion-only
+                # so we fall through to prompt-injection (existing
+                # behavior). When ``strict=true`` we 400 above.
                 logger.warning(
                     "json_schema response_format requested but guided "
                     "generation is unavailable (engine="
@@ -1364,7 +1569,12 @@ async def _create_chat_completion_impl(
             return StreamingResponse(
                 _disconnect_guard(
                     stream_chat_completion_guided(
-                        engine, messages, request, json_schema, **chat_kwargs
+                        engine,
+                        messages,
+                        request,
+                        json_schema,
+                        strict_mode=strict_mode,
+                        **chat_kwargs,
                     ),
                     raw_request,
                     engine=engine,
@@ -1473,7 +1683,55 @@ async def _create_chat_completion_impl(
                     raw_request,
                     timeout=timeout,
                 )
+            except HTTPException:
+                raise
+            except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
+                # These belong to the outer route's standard
+                # timeout / cancellation envelopes — NOT to the
+                # strict-contract breach shape. Let them propagate
+                # unchanged so the 408 / 499 / 503 mapping kicks in.
+                raise
             except Exception as guided_err:
+                # Codex r6 BLOCKING parity (non-streaming chat path):
+                # under strict=true, falling back to ``engine.chat``
+                # IS the H-06 hole — the buffered post-decode validator
+                # at line ~1752 below would catch it as a 502 if the
+                # unconstrained output happened to mis-validate, but
+                # if it coincidentally validates the client receives
+                # an unconstrained response under a ``strict=true``
+                # contract the server never honored. Refuse the
+                # fallback under strict mode, surface the breach as
+                # 502 ``strict_schema_violation`` directly.
+                if strict_mode:
+                    incr_strict_violation()
+                    logger.warning(
+                        "Strict json_schema guided generation failed; "
+                        "refusing to fall back to unconstrained because "
+                        "strict=true: %s",
+                        guided_err,
+                    )
+                    raise HTTPException(
+                        status_code=502,
+                        detail={
+                            "error": {
+                                "message": (
+                                    "strict response_format could not be "
+                                    "honored: the constrained-decoding path "
+                                    f"raised {type(guided_err).__name__} "
+                                    "before producing any output. The "
+                                    "server refuses to fall back to "
+                                    "unconstrained generation because the "
+                                    "client asked for strict=true. "
+                                    "Investigate the server logs and the "
+                                    "rapid_mlx_response_format_strict_"
+                                    "violations_total metric."
+                                ),
+                                "type": "api_error",
+                                "code": "strict_schema_violation",
+                                "param": "response_format.json_schema",
+                            }
+                        },
+                    ) from guided_err
                 logger.warning(
                     f"Guided generation failed, falling back to standard: {guided_err}"
                 )
@@ -1547,6 +1805,49 @@ async def _create_chat_completion_impl(
     logger.info(
         f"Chat completion: {output.completion_tokens} tokens in {elapsed:.2f}s ({tokens_per_sec:.1f} tok/s)"
     )
+
+    # H-06: when the client asked for strict json_schema mode and we
+    # routed through guided decoding, validate the buffered text
+    # against the schema. Outlines should make this unreachable; a
+    # non-zero ``rapid_mlx_response_format_strict_violations_total``
+    # rate signals that the constrained-decoding path silently
+    # degraded (e.g. ``generate_with_schema`` swallowed an outlines
+    # API change and fell back to ``self.chat(...)``).
+    #
+    # Codex r2 BLOCKING #3: under the strict contract, returning a
+    # known schema-invalid 200 body is itself a contract violation —
+    # the OpenAI ``strict=true`` semantics promise the response
+    # validates. Surface as 502 (upstream/internal contract failed)
+    # so clients using ``chat.completions.parsed`` see the error
+    # instead of silently consuming garbage that ``model_validate``
+    # then rejects with a confusing stack-trace far from the source.
+    # The violations counter still ticks before we raise so the
+    # operator sees both the rate AND the error response.
+    if strict_mode and use_guided and json_schema and output is not None:
+        ok, err = validate_output_against_schema(output.text or "", json_schema)
+        if not ok:
+            incr_strict_violation()
+            logger.warning(
+                "Strict json_schema response failed post-decode validation: %s",
+                err,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "error": {
+                        "message": (
+                            "strict response_format violated: model output "
+                            f"did not validate against the supplied schema ({err}). "
+                            "This indicates the constrained-decoding path silently "
+                            "degraded; investigate the server logs and the "
+                            "rapid_mlx_response_format_strict_violations_total metric."
+                        ),
+                        "type": "api_error",
+                        "code": "strict_schema_violation",
+                        "param": "response_format.json_schema",
+                    }
+                },
+            )
 
     # Parse tool calls from output using configured parser.
     # ``output.tool_calls`` is non-None when the engine's
@@ -1733,6 +2034,12 @@ async def _create_chat_completion_impl(
         # Per-request reasoning cap (upstream vLLM PR #20859 backport).
         # None → back-compat no-op.
         reasoning_max_tokens=getattr(request, "reasoning_max_tokens", None),
+        # r5-D — finalize-on-truncation shared plug needs to know if
+        # generation was cut short so it can re-classify an unclosed
+        # think buffer as ``reasoning_content`` instead of leaking it
+        # into ``content``. ``None`` keeps the pre-r5-D behaviour on
+        # any caller that hasn't been threaded yet.
+        finish_reason=getattr(output, "finish_reason", None),
     )
 
     # Process response_format if specified (after reasoning parser cleaned the text)
@@ -1818,6 +2125,22 @@ async def _create_chat_completion_impl(
             finish_reason=finish_reason,
             raw_text=output.raw_text or output.text,
             reasoning_is_case4=reasoning_is_case4,
+        )
+        # R-01 (was H-01): opt-IN cutoff sentinel. By default the helper
+        # is a no-op — the structured truncation signal
+        # (``finish_reason="length"`` + ``reasoning_content`` populated)
+        # is enough for SDK consumers, and synthesizing a literal text
+        # block the model never produced is harmful injection. Callers
+        # who DO want the legacy literal-text cue can opt back in via
+        # ``RAPID_MLX_REASONING_CUTOFF_NOTICE=1``. The helper itself owns
+        # ALL the predicates (env opt-in, finish_reason, content
+        # emptiness, tool-call gate, reasoning presence) so this call
+        # site stays trivial.
+        final_content = _apply_reasoning_cutoff_notice(
+            final_content,
+            reasoning_text,
+            tool_calls,
+            finish_reason,
         )
 
     # Build logprobs for response if requested
@@ -2053,19 +2376,36 @@ async def stream_chat_completion(
                                 finish_reason=event.finish_reason,
                             )
                         ],
-                        # Usage placement: when ``stream_options.include_usage``
-                        # is True, usage MUST appear ONLY in the dedicated
-                        # trailing chunk per the OpenAI streaming spec.
-                        # Without ``include_usage``, legacy clients expect it
-                        # on the finish chunk.
-                        usage=(
-                            None
-                            if include_usage
-                            else (get_usage(output) if output.finished else None)
-                        ),
+                        # Usage placement (OpenAI streaming spec, D-SSE-USAGE):
+                        # ``usage`` MUST appear ONLY when the caller opted
+                        # in via ``stream_options.include_usage=true``,
+                        # and then ONLY in the dedicated trailing chunk
+                        # (this finish chunk carries ``null`` so it
+                        # serializes as ``"usage": null`` per spec). When
+                        # ``include_usage`` is false / unset, the field
+                        # is omitted from every chunk — LangChain /
+                        # AI-SDK / vercel-ai-stream parsers double-count
+                        # token totals when usage shows up unexpectedly.
+                        usage=None,
                     )
                     _tc_sse = f"data: {chunk.model_dump_json(exclude_none=True)}\n\n"
-                    logger.info(f"[SSE-TC] {_tc_sse.strip()[:300]}")
+                    # Dogfood F-R2-05 + codex r5 NIT #3: previously
+                    # emitted at INFO, which leaked user-action coords
+                    # + tool_call JSON into the server log on every
+                    # Computer-Use turn (UI-TARS, Anthropic computer
+                    # tool, etc.). Now DEBUG, AND redacted: log only
+                    # the chunk metadata (tool_call count + finish
+                    # reason), never the raw ``arguments`` JSON.
+                    # Operators who need full payloads can capture
+                    # the wire stream upstream; the application log
+                    # should not be a covert PII channel.
+                    _tc_count = len(event.tool_calls or [])
+                    _tc_finish = event.finish_reason or "-"
+                    logger.debug(
+                        "[SSE-TC] tool_calls.count=%d finish_reason=%s",
+                        _tc_count,
+                        _tc_finish,
+                    )
                     yield _tc_sse
 
                 elif event.type == "finish":
@@ -2209,11 +2549,60 @@ async def stream_chat_completion(
                         processor.accumulated_reasoning + processor.accumulated_text
                     )
                 )
-                synthetic_raw = (
-                    "<think>" + processor.accumulated_reasoning
-                    if saw_open_no_close
-                    else processor.accumulated_reasoning or ""
+                # D-HARMONY-LEAK (2026-06-21): harmony-streaming mirror
+                # of the truncated-``<think>`` synthetic raw above. On
+                # gpt-oss / Harmony streaming, the engine token-routes
+                # via ``OutputRouter`` so ``output.channel="reasoning"``
+                # arrives in the postprocessor pre-split — the literal
+                # ``<|channel|>analysis<|message|>`` opener is consumed
+                # as a state transition by ``HarmonyStreamingRouter``
+                # and never lands in ``accumulated_reasoning``. The
+                # streaming counterpart of the bug: when generation
+                # cuts short before a final channel emerges (max_tokens
+                # mid-analysis OR a stop string matching mid-analysis),
+                # ``accumulated_text`` stays empty and the rescue would
+                # promote the analysis trace to ``delta.content`` —
+                # shipping byte-identical content + reasoning_content
+                # to the client. Synthesise a harmony-marked raw_text
+                # so the helper's new harmony-shape gate (analysis
+                # marker present, final marker absent) fires uniformly
+                # across both the streaming and non-streaming surfaces.
+                # Gated on the parser type so the synthetic only fires
+                # for Harmony — gemma-4 / qwen families still rely on
+                # their existing rescue paths.
+                #
+                # Codex r1 BLOCKING #2: the empty-content + non-empty-
+                # reasoning shape ALSO matches a tool-call-only stream
+                # where the parallel-tool-calls cap dropped every
+                # commentary entry (``tool_calls_detected=True`` set on
+                # the cap-exhaust path but ``fallback_tool_calls`` may
+                # arrive empty and ``finish_event.finish_reason`` may
+                # be something other than ``"tool_calls"`` on the
+                # router-cap path before the buffered-finish gate
+                # fires). Plumb ``processor.tool_calls_detected``
+                # through so a commentary-call stream is not
+                # misclassified as analysis-without-final and
+                # accidentally suppressed via the harmony gate —
+                # tool-call-only responses legitimately ship
+                # ``content=None`` per the OpenAI spec and the gate
+                # would only change zero-byte output here, but
+                # honouring the explicit channel signal keeps the
+                # synthetic_raw discrimination accurate.
+                harmony_cut_short = _is_harmony_cut_short_stream(
+                    rp,
+                    processor.accumulated_reasoning,
+                    processor.accumulated_text,
+                    processor.tool_calls_detected,
                 )
+                if harmony_cut_short:
+                    synthetic_raw = (
+                        "<|channel|>analysis<|message|>"
+                        + processor.accumulated_reasoning
+                    )
+                elif saw_open_no_close:
+                    synthetic_raw = "<think>" + processor.accumulated_reasoning
+                else:
+                    synthetic_raw = processor.accumulated_reasoning or ""
                 # PR #715 bundle, fuzz finding C: streaming Case-4
                 # mirror of the non-streaming detection. When the
                 # parser never saw a ``<think>``/``</think>`` token
@@ -2254,6 +2643,34 @@ async def stream_chat_completion(
                         "content",
                         len(terminal_content),
                     )
+            # R-01 (was H-01) streaming mirror: helper is opt-IN. When
+            # ``RAPID_MLX_REASONING_CUTOFF_NOTICE=1`` AND the SSE rescue
+            # above did NOT promote reasoning into ``terminal_content``
+            # (strict null path won — truncated ``<think>`` / harmony
+            # analysis-without-final / Case-4 no-tag), emit the literal
+            # cutoff sentinel as ONE final-chunk ``delta.content`` event
+            # so streaming SDK consumers see the same signal as their
+            # non-streaming counterparts. Per-token reasoning deltas have
+            # already been sent during the loop; this is a single
+            # extra-bytes-on-the-final-chunk event, NOT a per-token
+            # mirror of the reasoning trace (D-STOP-THINK regression
+            # guard). Default-off: no event is emitted unless the env
+            # knob is set. Gating logic matches the non-streaming call
+            # site — the helper owns it.
+            if not has_any_tool_calls and not structured_output_requested:
+                cutoff_content = _apply_reasoning_cutoff_notice(
+                    terminal_content or None,
+                    processor.accumulated_reasoning,
+                    None,
+                    finish_event.finish_reason,
+                )
+                if cutoff_content and cutoff_content != (terminal_content or None):
+                    terminal_content = cutoff_content
+                    logger.info(
+                        "[SSE-CUTOFF-H01] terminal chunk content empty + "
+                        "finish=length + reasoning present; surfacing "
+                        "cutoff sentinel as content"
+                    )
             final_chunk = ChatCompletionChunk(
                 id=response_id,
                 created=_sse_created,
@@ -2275,12 +2692,11 @@ async def stream_chat_completion(
                         logprobs=_build_chunk_logprobs(finish_output),
                     )
                 ],
-                # See "Usage placement" note on the tool_call branch.
-                usage=(
-                    None
-                    if include_usage
-                    else (get_usage(finish_output) if finish_output.finished else None)
-                ),
+                # See "Usage placement" note on the tool_call branch
+                # (D-SSE-USAGE). When ``include_usage`` is false / unset
+                # the field is omitted from this terminal chunk; the
+                # dedicated trailing usage chunk is suppressed too.
+                usage=None,
             )
             yield f"data: {final_chunk.model_dump_json(exclude_none=True)}\n\n"
         elif fallback_tool_calls or finalize_content:
@@ -2373,6 +2789,8 @@ async def stream_chat_completion_guided(
     messages: list,
     request: ChatCompletionRequest,
     json_schema: dict,
+    *,
+    strict_mode: bool = False,
     **kwargs,
 ) -> AsyncIterator[str]:
     """Stream chat completion with json_schema constrained decoding.
@@ -2434,18 +2852,24 @@ async def stream_chat_completion_guided(
         # we would emit one giant content chunk at the end —
         # defeating SSE for clients/proxies that rely on early chunks
         # (codex Round 2 finding).
+        # Codex r5 BLOCKING parity: prevent a kwargs collision with
+        # the explicit ``raise_on_failure=True`` below. If ``kwargs``
+        # ever contained ``raise_on_failure`` it would TypeError
+        # ("got multiple values for keyword argument") before
+        # constrained decoding ran, and the outer ``except Exception``
+        # arm would mistranslate that operator-wiring bug as a
+        # guided-generation failure (silent fallback to unconstrained
+        # streaming, which IS the case strict callers cannot
+        # tolerate). Sanitize so the strict caller OWNS the value.
+        _guided_kwargs = {k: v for k, v in kwargs.items() if k != "raise_on_failure"}
         try:
             output = await engine.generate_with_schema(
                 messages=messages,
                 json_schema=json_schema,
                 raise_on_failure=True,
-                **kwargs,
+                **_guided_kwargs,
             )
         except Exception as guided_err:
-            logger.warning(
-                "Guided streaming generation failed, falling back to "
-                f"unconstrained streaming: {guided_err}"
-            )
             # Log only the schema's top-level shape, not the full body —
             # user-supplied schemas may embed PII (default values),
             # internal endpoint names, or be megabytes large. Keys +
@@ -2459,6 +2883,49 @@ async def stream_chat_completion_guided(
             )
             logger.debug(
                 f"Problematic schema shape: keys={_schema_keys} required={_required}"
+            )
+            # Codex r6 BLOCKING: under strict=true the fallback to
+            # unconstrained ``stream_chat_completion`` IS the H-06 hole
+            # we're closing — clients asked for a contract and we
+            # silently degraded to best-effort, just over SSE instead
+            # of buffered. The post-decode validator below never runs
+            # because we ``return`` from the fallback before reaching
+            # it. Fix: when ``strict_mode`` is set, translate the
+            # guided exception into the canonical SSE error envelope
+            # (mirror of the post-decode shape) + DONE, and DO NOT
+            # enter the unconstrained fallback.
+            if strict_mode:
+                incr_strict_violation()
+                logger.warning(
+                    "Strict json_schema streaming guided generation "
+                    "failed; refusing to fall back to unconstrained "
+                    "streaming because strict=true: %s",
+                    guided_err,
+                )
+                _err_envelope = {
+                    "error": {
+                        "message": (
+                            "strict response_format could not be honored: "
+                            "the constrained-decoding path raised "
+                            f"{type(guided_err).__name__} before producing "
+                            "any output. The server refuses to fall back "
+                            "to unconstrained streaming because the client "
+                            "asked for strict=true. Investigate the server "
+                            "logs and the "
+                            "rapid_mlx_response_format_strict_violations_total "
+                            "metric."
+                        ),
+                        "type": "api_error",
+                        "code": "strict_schema_violation",
+                        "param": "response_format.json_schema",
+                    }
+                }
+                yield f"data: {json.dumps(_err_envelope)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+            logger.warning(
+                "Guided streaming generation failed, falling back to "
+                f"unconstrained streaming: {guided_err}"
             )
             # Forward the pre-computed response_id + _sse_created so the
             # fallback stream's chunks share id/created with this outer
@@ -2477,11 +2944,54 @@ async def stream_chat_completion_guided(
                 yield chunk
             return
 
+        content = output.text or ""
+
+        # H-06 (codex r2): validate the buffered guided output BEFORE
+        # emitting any SSE chunks for strict requests. The streaming
+        # path here is a synthesized stream over a buffered output —
+        # ``generate_with_schema`` returns a single GenerationOutput
+        # rather than a token stream — so we still have a window to
+        # convert a strict-contract violation into a clean error
+        # SSE envelope instead of letting the schema-invalid bytes
+        # reach the client.
+        #
+        # Outlines should make this unreachable; the violations
+        # counter ticks regardless so operators see both the rate
+        # AND the error response. We emit a single SSE error chunk
+        # carrying the canonical OpenAI envelope, then DONE — clients
+        # parsing the SSE stream see the error before any role/content
+        # chunks land.
+        if strict_mode and json_schema:
+            ok, err = validate_output_against_schema(content, json_schema)
+            if not ok:
+                incr_strict_violation()
+                logger.warning(
+                    "Strict json_schema response failed post-decode "
+                    "validation (streaming): %s",
+                    err,
+                )
+                _err_envelope = {
+                    "error": {
+                        "message": (
+                            "strict response_format violated: model output "
+                            f"did not validate against the supplied schema ({err}). "
+                            "This indicates the constrained-decoding path silently "
+                            "degraded; investigate the server logs and the "
+                            "rapid_mlx_response_format_strict_violations_total metric."
+                        ),
+                        "type": "api_error",
+                        "code": "strict_schema_violation",
+                        "param": "response_format.json_schema",
+                    }
+                }
+                yield f"data: {json.dumps(_err_envelope)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
         # Success path: synthesize SSE stream from the buffered output.
         # First chunk with role.
         yield f'{_sse_prefix}"role":"assistant"{_sse_suffix}'
 
-        content = output.text or ""
         if content:
             yield f'{_sse_prefix}"content":{json.dumps(content)}{_sse_suffix}'
 
@@ -2504,31 +3014,20 @@ async def stream_chat_completion_guided(
         # engine emits (DeepSeek pr_validate round 3 finding).
         finish_reason = getattr(output, "finish_reason", None)
 
-        # Final chunk with finish_reason. Usage placement:
+        # Final chunk with finish_reason. Usage placement
+        # (OpenAI streaming spec, D-SSE-USAGE):
         #  - When ``stream_options.include_usage`` is True, usage MUST
-        #    appear ONLY in the dedicated usage chunk below (per the
-        #    OpenAI spec; emitting it in both places would have clients
-        #    that aggregate usage double-count). DeepSeek review caught
-        #    the duplication on first pass.
-        #  - When False, attach usage to the finish chunk so a client
-        #    that doesn't set ``include_usage`` still receives token
-        #    counts in the final delta (matches the legacy behavior of
-        #    ``stream_chat_completion`` and the non-streaming response
-        #    shape).
-        finish_usage = (
-            None
-            if include_usage
-            else Usage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens,
-                prompt_tokens_details=(
-                    PromptTokensDetails(cached_tokens=cached_tokens)
-                    if cached_tokens
-                    else None
-                ),
-            )
-        )
+        #    appear ONLY in the dedicated usage chunk below (this finish
+        #    chunk carries ``null`` so it serializes consistently per
+        #    spec; emitting it in both places had clients that
+        #    aggregate usage double-count).
+        #  - When False / unset, the field is omitted from EVERY chunk.
+        #    The legacy behavior of attaching usage to the finish chunk
+        #    when ``include_usage`` was unset was the D-SSE-USAGE bug:
+        #    LangChain / AI-SDK / vercel-ai-stream parsers double-count
+        #    token totals when usage appears on chunks the spec does
+        #    not allow. Clients that want usage MUST opt in.
+        finish_usage = None
         # ``created`` must be passed explicitly: the SSE prefix-style
         # chunks above already share ``_sse_created`` (computed once at
         # the top of the helper). ``ChatCompletionChunk.created`` has

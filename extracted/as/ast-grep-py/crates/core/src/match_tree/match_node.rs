@@ -1,6 +1,6 @@
-use super::strictness::{MatchOneNode, MatchStrictness};
 use super::Aggregator;
-use crate::matcher::{kind_utils, PatternNode};
+use super::strictness::{MatchOneNode, MatchStrictness};
+use crate::matcher::{PatternNode, kind_utils};
 use crate::meta_var::MetaVariable;
 use crate::{Doc, Node};
 use std::iter::Peekable;
@@ -151,11 +151,18 @@ fn may_match_ellipsis_impl<'p, 't: 'p, D: Doc>(
     return Some(ControlFlow::Continue);
   }
   loop {
+    // Probe the next goal against a cloned aggregator to find the ellipsis end.
+    // This prevents failed metavar probes from leaking bindings into the real env.
+    // Leaking them would make a later, genuine bind of the same metavar conflict and fail
+    // Note the match_node_impl here matches the peek nodes, the real consumption and
+    // env write will be done in `match_single_node_while_skip_trivial`
+    // See https://github.com/ast-grep/ast-grep/pull/2670
+    let mut probe = agg.clone();
     if matches!(
       match_node_impl(
         goal_children.peek().unwrap(),
         cand_children.peek().unwrap(),
-        agg,
+        &mut probe,
         strictness,
       ),
       MatchOneNode::MatchedBoth
@@ -245,7 +252,7 @@ mod test {
   use super::*;
   use crate::language::Tsx;
   use crate::matcher::KindMatcher;
-  use crate::{meta_var::MetaVarEnv, Matcher, Pattern, Root};
+  use crate::{Matcher, Pattern, Root, meta_var::MetaVarEnv};
   use std::borrow::Cow;
   fn match_tree(p: &str, n: &str, strictness: MatchStrictness) -> MatchOneNode {
     let pattern = Pattern::new(p, Tsx);

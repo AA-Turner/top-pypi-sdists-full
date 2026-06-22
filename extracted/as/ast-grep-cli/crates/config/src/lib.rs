@@ -3,6 +3,7 @@ mod combined;
 mod fixer;
 mod label;
 mod maybe;
+mod rewriter;
 mod rule;
 mod rule_collection;
 mod rule_config;
@@ -10,20 +11,23 @@ mod rule_core;
 mod transform;
 
 use serde::Deserialize;
-use serde_yaml::{with::singleton_map_recursive::deserialize, Deserializer, Error as YamlError};
+use serde_yaml::{Deserializer, Error as YamlError, with::singleton_map_recursive::deserialize};
 
 use ast_grep_core::language::Language;
 
 pub use combined::{CombinedScan, NO_SUPPRESS_ALL_ID, UNUSED_SUPPRESSION_ID};
 pub use fixer::Fixer;
 pub use label::{Label, LabelStyle};
-pub use rule::referent_rule::GlobalRules;
 pub use rule::DeserializeEnv;
+pub use rule::referent_rule::GlobalRules;
 pub use rule::{
-  ParameterizedUtilError, Rule, RuleSerializeError, SerializableGlobalRule, SerializableRule,
+  ParameterizedUtilError, Rule, RuleSerializeError, SelectorError, SerializableGlobalRule,
+  SerializableRule, parse_selector,
 };
 pub use rule_collection::RuleCollection;
-pub use rule_config::{Metadata, RuleConfig, RuleConfigError, SerializableRuleConfig, Severity};
+pub use rule_config::{
+  Metadata, RuleConfig, RuleConfigError, SerializableRewriter, SerializableRuleConfig, Severity,
+};
 pub use rule_core::{RuleCore, RuleCoreError, SerializableRuleCore};
 pub use transform::Transformation;
 
@@ -46,9 +50,9 @@ pub fn from_yaml_string<'a, L: Language + Deserialize<'a>>(
 #[cfg(test)]
 mod test {
   use super::*;
+  use ast_grep_core::Language;
   use ast_grep_core::matcher::{Pattern, PatternBuilder, PatternError};
   use ast_grep_core::tree_sitter::{LanguageExt, StrDoc, TSLanguage};
-  use ast_grep_core::Language;
   use std::path::Path;
 
   #[derive(Clone, Deserialize, PartialEq, Eq)]

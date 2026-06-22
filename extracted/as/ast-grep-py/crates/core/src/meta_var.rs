@@ -123,10 +123,10 @@ impl<'t, D: Doc> MetaVarEnv<'t, D> {
   ) -> bool {
     let mut env = Cow::Borrowed(self);
     for (var_id, candidate) in &self.single_matched {
-      if let Some(m) = var_matchers.get(var_id) {
-        if m.match_node_with_env(candidate.clone(), &mut env).is_none() {
-          return false;
-        }
+      if let Some(m) = var_matchers.get(var_id)
+        && m.match_node_with_env(candidate.clone(), &mut env).is_none()
+      {
+        return false;
       }
     }
     if let Cow::Owned(env) = env {
@@ -234,7 +234,7 @@ pub enum MetaVariable {
 
 pub(crate) fn extract_meta_var(src: &str, meta_char: char) -> Option<MetaVariable> {
   use MetaVariable::*;
-  let ellipsis: String = std::iter::repeat(meta_char).take(3).collect();
+  let ellipsis: String = std::iter::repeat_n(meta_char, 3).collect();
   if src == ellipsis {
     return Some(Multiple);
   }
@@ -301,9 +301,9 @@ impl<'tree, D: Doc> From<MetaVarEnv<'tree, D>> for HashMap<String, String> {
 #[cfg(test)]
 mod test {
   use super::*;
+  use crate::Pattern;
   use crate::language::Tsx;
   use crate::tree_sitter::LanguageExt;
-  use crate::Pattern;
 
   fn extract_var(s: &str) -> Option<MetaVariable> {
     extract_meta_var(s, '$')

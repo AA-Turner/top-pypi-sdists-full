@@ -20,8 +20,6 @@ from smplkit.jobs import (
     Backoff,
     HttpConfig,
     JobKind,
-    RetryOn,
-    RetryReason,
     RunTrigger,
 )
 
@@ -47,9 +45,10 @@ async def main() -> None:
                 backoff=Backoff.EXPONENTIAL,
                 delay_seconds=2,
                 max_delay_seconds=60,
-                retry_on=RetryOn(
-                    statuses=[429, 503], reasons=[RetryReason.TIMEOUT]
-                ),
+                retry_on_timeout=True,
+                retry_on_connection_error=True,
+                retry_statuses=["429", "5xx"],
+                retry_statuses_except=["501"],
             )
             await retry_policy.save()
             assert RETRY_POLICY_ID in {

@@ -481,8 +481,8 @@ class AcousticField(ABC):
         # ---
         data = sensor_data['p'].reshape(self.medium.kgrid.Nt, self.medium.Nz_reshaped, self.medium.Nx_reshaped    )
         try:
-            if os.path.exists(in_file): os.remove(in_file)
-            if os.path.exists(out_file): os.remove(out_file)
+            if os.path.exists(os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5")): os.remove(os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5"))
+            if os.path.exists(os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5")): os.remove(os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5"))
         except Exception as e:
             pass
 

@@ -1,11 +1,11 @@
-use ast_grep_config::{from_yaml_string, GlobalRules, RuleCollection, RuleConfig};
+use ast_grep_config::{GlobalRules, RuleCollection, RuleConfig, from_yaml_string};
 use ast_grep_language::SupportLang;
 use ast_grep_lsp::*;
 use futures::{SinkExt, StreamExt};
 use serde_json::Value;
 use std::io;
 use std::path::Path;
-use tokio::io::{duplex, split, AsyncReadExt, AsyncWriteExt, DuplexStream};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream, duplex, split};
 use tokio_util::bytes::{BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder, Framed};
 use tower_lsp_server::ls_types::CodeAction;
@@ -346,10 +346,9 @@ async fn wait_for_response(
   for _ in 0..20 {
     if let Ok(Some(Ok(msg))) =
       tokio::time::timeout(std::time::Duration::from_secs(2), sender.next()).await
+      && msg.get("id") == Some(&serde_json::json!(id))
     {
-      if msg.get("id") == Some(&serde_json::json!(id)) {
-        return Some(msg);
-      }
+      return Some(msg);
     }
   }
   None

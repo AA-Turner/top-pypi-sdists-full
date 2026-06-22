@@ -241,9 +241,9 @@ End EAM Interface Documentation
     default_parameters = dict(
         skin=1.0,
         potential=None,
-        header=[b'EAM/ADP potential file\n',
-                b'Generated from eam.py\n',
-                b'blank\n'])
+        header=['EAM/ADP potential file\n',
+                'Generated from eam.py\n',
+                'blank\n'])
 
     def __init__(self, restart=None,
                  ignore_bad_restart_file=Calculator._deprecated,
@@ -268,7 +268,8 @@ End EAM Interface Documentation
         # set any additional keyword arguments
         for arg, val in self.parameters.items():
             if arg in valid_args:
-                setattr(self, arg, val)
+                if getattr(self, arg, None) is None:
+                    setattr(self, arg, val)
             else:
                 raise RuntimeError(
                     f'unknown keyword arg "{arg}" : not in {valid_args}')
@@ -324,8 +325,8 @@ End EAM Interface Documentation
             self.Nelements = 1
             self.elements = [chemical_symbols[int(data[0])]]
             self.Z = np.array([data[0]], dtype=int)
-            self.mass = np.array([data[1]])
-            self.a = np.array([data[2]])
+            self.mass = np.array([data[1]], dtype=float)
+            self.a = np.array([data[2]], dtype=float)
             self.lattice = [data[3]]
 
             self.nrho = int(data[4])
@@ -553,17 +554,17 @@ End EAM Interface Documentation
         # should be non symmetrical combinations of 2
         for i in range(self.Nelements):
             for j in range(i + 1):
-                self.d_data[j, i] = data[d:d + self.nr]
+                self.d_data[i, j] = self.d_data[j, i] = data[d:d + self.nr]
                 d += self.nr
 
         self.q_data = np.zeros([self.Nelements, self.Nelements, self.nr])
         # should be non symmetrical combinations of 2
         for i in range(self.Nelements):
             for j in range(i + 1):
-                self.q_data[j, i] = data[d:d + self.nr]
+                self.q_data[i, j] = self.q_data[j, i] = data[d:d + self.nr]
                 d += self.nr
 
-    def write_potential(self, filename, nc=1, numformat='%.8e'):
+    def write_potential(self, filename, nc=1, numformat='%.17e'):
         """Writes out the potential in the format given by the form
         variable to 'filename' with a data format that is nc columns
         wide.  Note: array lengths need to be an exact multiple of nc
@@ -576,13 +577,17 @@ End EAM Interface Documentation
         assert self.nr % nc == 0
         assert self.nrho % nc == 0
 
-        for line in self.header:
-            fd.write(line)
+        if self.form == "eam":
+            return self._write_potential_eam(fd, nc, numformat)
+
+        for i in range(3):
+            fd.write(self.header[i].encode())
 
         fd.write(f'{self.Nelements} '.encode())
         fd.write(' '.join(self.elements).encode() + b'\n')
 
-        fd.write(('%d %f %d %f %f \n' %
+        fmt = f"%d {numformat} %d {numformat} {numformat}\n"
+        fd.write((fmt %
                   (self.nrho, self.drho, self.nr,
                    self.dr, self.cutoff)).encode())
 
@@ -616,7 +621,7 @@ End EAM Interface Documentation
         # write out the pair potentials in Lammps DYNAMO setfl format
         # as r*phi for alloy format
         for i in range(self.Nelements):
-            for j in range(i, self.Nelements):
+            for j in range(i + 1):
                 np.savetxt(fd,
                            (rs * self.phi[i, j](rs)).reshape(self.nr // nc,
                                                              nc),
@@ -632,6 +637,34 @@ End EAM Interface Documentation
             for i in range(self.Nelements):
                 for j in range(i + 1):
                     np.savetxt(fd, self.q_data[i, j])
+
+    def _write_potential_eam(self, fd, nc, numformat):
+        """Write the potential in the DYNAMO single-element funcfl format."""
+
+        fd.write(self.header[0].encode())
+
+        i = 0  # The DYNAMO funcfl format can store only one element.
+
+        vals = self.Z[i], self.mass[i], self.a[i], str(self.lattice[i])
+        fd.write(('%d %f %f %s\n' % vals).encode())
+
+        fmt = f"%d {numformat} %d {numformat} {numformat}\n"
+        vals = self.nrho, self.drho, self.nr, self.dr, self.cutoff
+        fd.write((fmt % vals).encode())
+
+        rs = np.arange(0, self.nr) * self.dr
+        rhos = np.arange(0, self.nrho) * self.drho
+
+        arr = self.embedded_energy[i](rhos).reshape(self.nrho // nc, nc)
+        np.savetxt(fd, arr, fmt=nc * [numformat])
+
+        z2s = rs * self.phi[i, i](rs) / (Hartree * Bohr)
+        z2s = np.where(np.isclose(z2s, 0.0), 0.0, z2s)
+        arr = np.sqrt(z2s).reshape(self.nr // nc, nc)
+        np.savetxt(fd, arr, fmt=nc * [numformat])
+
+        arr = self.electron_density[i](rs).reshape(self.nr // nc, nc)
+        np.savetxt(fd, arr, fmt=nc * [numformat])
 
     def update(self, atoms):
         # check all the elements are available in the potential

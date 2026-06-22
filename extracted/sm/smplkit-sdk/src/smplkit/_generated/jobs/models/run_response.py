@@ -22,7 +22,7 @@ class RunResponse:
         data (RunResource): JSON:API resource envelope for a run (server-assigned UUID id). Example: {'attributes':
             {'created_at': '2026-06-05T02:00:00Z', 'environment': 'production', 'finished_at': '2026-06-05T02:00:00.430Z',
             'job': 'nightly-cache-warm', 'job_version': 3, 'pending_duration_ms': 120, 'request': {'body':
-            '{"scope":"all"}', 'headers': [{'name': 'Authorization', 'value': '<redacted>'}], 'method': 'POST', 'url':
+            '{"scope":"all"}', 'headers': {'Authorization': '<redacted>'}, 'method': 'POST', 'url':
             'https://api.example.com/cache/warm'}, 'result': {'body': '{"ok":true}', 'body_bytes': 11, 'body_truncated':
             False, 'headers': {'content-type': 'application/json'}, 'status': 200}, 'run_duration_ms': 310, 'scheduled_for':
             '2026-06-05T02:00:00Z', 'started_at': '2026-06-05T02:00:00.120Z', 'status': 'SUCCEEDED', 'total_duration_ms':

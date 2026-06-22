@@ -443,7 +443,7 @@ def different_dimensionalities():
     yield bulk('Au')
 
 
-@pytest.mark.parametrize('atoms', different_dimensionalities())
+@pytest.mark.parametrize('atoms', list(different_dimensionalities()))
 def test_quickinfo(gui, atoms):
     gui.new_atoms(atoms)
     # (Note: String can be in any language)

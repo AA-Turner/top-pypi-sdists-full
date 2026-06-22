@@ -231,11 +231,11 @@ class IOFormat:
 
 
 ioformats: dict[str, IOFormat] = {}  # These will be filled at run-time.
-extension2format = {}
+extension2format: dict[str, IOFormat] = {}
 
 
 all_formats = ioformats  # Aliased for compatibility only.  Please do not use.
-format2modulename = {}  # Left for compatibility only.
+format2modulename: dict[str, str] = {}  # Left for compatibility only.
 
 
 def define_io_format(name, desc, code, *, module=None, ext=None,
@@ -461,6 +461,40 @@ F('qbox', 'QBOX output file', '+F',
   magic=b'*:simulation xmlns:')
 F('res', 'SHELX format', '1S', ext='shelx')
 F('rmc6f', 'RMCProfile', '1S', ext='rmc6f')
+
+# Regex for floating-point numbers (integers, decimals, scientific notation)
+float_re = br'[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?'
+# Regex for catching element symbols
+element_re = br'\b[A-Z][a-z]{0,1}\b'
+# Regex for comment lines: starts with #, !, or 'comment', safely reads to end
+# of line
+comment_re = br'^[ \t]*(?:[#!]|comment)[^\r\n]*\r?\n'
+# Regex for a lattice line
+lattice_re = br'^[ \t]*lattice(?:[ \t]+' + float_re + br'){3}[ \t]*\r?\n'
+
+F(
+    name='runnerdata',
+    desc='RuNNer input.data file',
+    code='+F',
+    module='runner',
+    ext='data',
+     # ?x turns on re.VERBOSE for this string (ignore whitespace and comments)
+    magic_regex=br"""(?x)
+        # Optional comment lines before the first 'begin'
+        (?:""" + comment_re + br""")*
+        # Start of line: 'begin'
+        ^begin
+        # Optional properties, mandatory start with position(3) element
+        (?:[ \t]+position\(3\)[ \t]+element(?:[ \t]+\S+)*)?
+        # End of the begin line (handles Windows & Unix)
+        [ \t]*\r?\n
+        # 0 or more lattice lines OR comment lines intermixed
+        (?:""" + comment_re + br"""|""" + lattice_re + br""")*
+        # At least 1 atom line
+        ^[ \t]*atom(?:[ \t]+""" + float_re + br"""){3}[ \t]+"""
+        + element_re + br"""
+        """
+)
 F('sdf', 'SDF format', '1F')
 F('siesta-xv', 'Siesta .XV file', '1F',
   glob='*.XV', module='siesta')
@@ -510,12 +544,12 @@ def get_compression(filename: str) -> tuple[str, str | None]:
     ('crystal.cif', None)
 
     Parameters
-    ==========
+    ----------
     filename: str
         Full filename including extension.
 
     Returns
-    =======
+    -------
     (root, extension): (str, str or None)
         Filename split into root without extension, and the extension
         indicating compression format. Will not split if compression
@@ -547,7 +581,7 @@ def open_with_compression(filename: str, mode: str = 'r') -> IO:
        * 'rb, 'wb' for binary read and write.
 
     Parameters
-    ==========
+    ----------
     filename: str
         Path to the file to open, including any extensions that indicate
         the compression used.
@@ -555,7 +589,7 @@ def open_with_compression(filename: str, mode: str = 'r') -> IO:
         Mode to open the file, same as for builtin ``open``, e.g 'r', 'w'.
 
     Returns
-    =======
+    -------
     fd: file
         File-like object open with the specified mode.
     """
@@ -967,7 +1001,7 @@ def filetype(
         fd.seek(0)
 
     if len(data) == 0:
-        raise UnknownFileTypeError('Empty file: ' + filename)
+        raise UnknownFileTypeError(f'Empty file: {filename}')
 
     try:
         return match_magic(data).name

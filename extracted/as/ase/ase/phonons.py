@@ -1,6 +1,5 @@
 """Module for calculating phonons of periodic systems."""
 
-import warnings
 from math import pi, sqrt
 from pathlib import Path
 
@@ -8,7 +7,6 @@ import numpy as np
 import numpy.fft as fft
 import numpy.linalg as la
 
-import ase
 from ase import Atoms, units
 from ase.dft import monkhorst_pack
 from ase.io.trajectory import Trajectory
@@ -98,11 +96,6 @@ class Displacement:
         return self.offset
 
     @property
-    @ase.utils.deprecated('Please use phonons.supercell instead of .N_c')
-    def N_c(self):
-        return self._supercell
-
-    @property
     def supercell(self):
         return self._supercell
 
@@ -112,13 +105,6 @@ class Displacement:
         self._supercell = tuple(supercell)
         self.define_offset()
         self._lattice_vectors_array = self.compute_lattice_vectors()
-
-    @ase.utils.deprecated(
-        'Please use phonons.compute_lattice_vectors()'
-        ' instead of .lattice_vectors()'
-    )
-    def lattice_vectors(self):
-        return self.compute_lattice_vectors()
 
     def compute_lattice_vectors(self):
         """Return lattice vectors for cells in the supercell."""
@@ -319,8 +305,6 @@ class Phonons(Displacement):
         if 'name' not in kwargs:
             kwargs['name'] = 'phonon'
 
-        self.deprecate_refcell(kwargs)
-
         Displacement.__init__(self, *args, **kwargs)
 
         # Attributes for force constants and dynamical matrix in real space
@@ -330,19 +314,6 @@ class Phonons(Displacement):
         # Attributes for born charges and static dielectric tensor
         self.Z_avv = None
         self.eps_vv = None
-
-    @staticmethod
-    def deprecate_refcell(kwargs: dict):
-        if 'refcell' in kwargs:
-            warnings.warn(
-                'Keyword refcell of Phonons is deprecated.'
-                'Please use center_refcell (bool)',
-                FutureWarning,
-            )
-            kwargs['center_refcell'] = bool(kwargs['refcell'])
-            kwargs.pop('refcell')
-
-        return kwargs
 
     def __call__(self, atoms_N: Atoms):
         """Calculate forces on atoms in supercell."""
@@ -381,7 +352,8 @@ class Phonons(Displacement):
                    /__  ij
                     a
 
-        Parameters:
+        Parameters
+        ----------
 
         neutrality: bool
             Restore charge neutrality condition on calculated Born effective
@@ -607,15 +579,15 @@ class Phonons(Displacement):
         born: bool = False,
         verbose: bool = True,
     ):
-        """Calculate and return the phonon band structure.
+        r"""Calculate and return the phonon band structure.
 
         This method computes the phonon band structure for a given path
         in reciprocal space. It is a wrapper around the internal
-        `band_structure` method of the `Phonons` class. The method can
-        optionally calculate and return phonon modes.
+        :meth:`~Phonons.band_structure` method of the :class:`Phonons` class.
+        The method can optionally calculate and return phonon modes.
 
-        Frequencies and modes are in units of eV and 1/sqrt(amu),
-        respectively.
+        Frequencies and modes are in units of eV and
+        :math:`1/\sqrt{\mathrm{amu}}`, respectively.
 
         Parameters
         ----------
@@ -875,52 +847,6 @@ class Phonons(Displacement):
             weights = ampl_sq[:, :, indices].sum(axis=2) / ampl_sq.sum(axis=2)
             dos = RawDOSData(omegas.ravel(), weights.ravel() / omegas.shape[0])
         return dos
-
-    @deprecated('Please use Phonons.get_dos() instead of Phonons.dos().')
-    def dos(
-        self,
-        kpts: tuple[int, int, int] = (10, 10, 10),
-        npts: int = 1000,
-        delta: float = 1e-3,
-    ):
-        """Calculate phonon dos as a function of energy.
-
-        Parameters
-        ----------
-        kpts: tuple
-            Shape of Monkhorst-Pack grid for sampling the Brillouin zone.
-        npts: int
-            Number of energy points.
-        delta: float
-            Broadening of Lorentzian line-shape in eV.
-
-        Returns
-        -------
-            Tuple of (frequencies, dos).  The frequencies are in units of eV.
-
-        .. deprecated:: 3.23.1
-            Please use the ``.get_dos()`` method instead, it returns a proper
-            RawDOSData object.
-        """
-
-        # Monkhorst-Pack grid
-        kpts_kc = monkhorst_pack(kpts)
-        N = np.prod(kpts)
-        # Get frequencies
-        omega_kl = self.band_structure(kpts_kc)
-        # Energy axis and dos
-        omega_e = np.linspace(0.0, np.amax(omega_kl) + 5e-3, num=npts)
-        dos_e = np.zeros_like(omega_e)
-
-        # Sum up contribution from all q-points and branches
-        for omega_l in omega_kl:
-            diff_el = (omega_e[:, np.newaxis] - omega_l[np.newaxis, :]) ** 2
-            dos_el = 1.0 / (diff_el + (0.5 * delta) ** 2)
-            dos_e += dos_el.sum(axis=1)
-
-        dos_e *= 1.0 / (N * pi) * 0.5 * delta
-
-        return omega_e, dos_e
 
     def write_modes(
         self,

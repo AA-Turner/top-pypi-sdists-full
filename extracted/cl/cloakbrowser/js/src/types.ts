@@ -27,6 +27,8 @@ export interface LaunchOptions {
   locale?: string;
   /** Auto-detect timezone/locale from proxy IP (requires: npm install mmdb-lib). */
   geoip?: boolean;
+  /** Pro license key. Also reads from CLOAKBROWSER_LICENSE_KEY env var. */
+  licenseKey?: string;
   /** Raw options passed directly to playwright/puppeteer launch(). */
   launchOptions?: Record<string, unknown>;
   /** Enable human-like mouse, keyboard, and scroll behavior. */
@@ -66,7 +68,10 @@ export interface LaunchPersistentContextOptions extends LaunchContextOptions {
 
 export interface BinaryInfo {
   version: string;
+  /** The wrapper's bundled baseline Chromium version (CHROMIUM_VERSION). */
+  bundledVersion: string;
   platform: string;
+  tier: "pro" | "free";
   binaryPath: string;
   installed: boolean;
   cacheDir: string;

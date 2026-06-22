@@ -259,9 +259,8 @@ class TestIssueRegressions:
     def test_add_init_script_with_proxy(self, browser):
         """Issue #27: add_init_script + proxy must not cause ERR_TUNNEL_CONNECTION_FAILED.
 
-        Patchright bug: add_init_script breaks proxy auth. This test guards
-        against regression if/when the upstream fix lands. Uses context-level
-        proxy to avoid launching a separate browser (event loop conflict).
+        Uses context-level proxy to avoid launching a separate browser
+        (event loop conflict).
         """
         proxy = os.environ.get("CLOAKBROWSER_TEST_PROXY")
         if not proxy:
@@ -276,11 +275,6 @@ class TestIssueRegressions:
             val = page.evaluate("window.__cloaktest")
             assert val == 99, f"init_script value wrong: {val}"
             assert "origin" in body, f"Page didn't load through proxy: {body[:100]}"
-        except Exception as e:
-            err = str(e)
-            if "ERR_TUNNEL_CONNECTION_FAILED" in err:
-                pytest.xfail("Known patchright bug: add_init_script + proxy auth (issue #27)")
-            raise
         finally:
             page.close()
             ctx.close()

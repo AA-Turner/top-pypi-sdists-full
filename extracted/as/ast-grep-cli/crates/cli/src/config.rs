@@ -3,7 +3,7 @@ use crate::utils::{ErrorContext as EC, RuleOverwrite, RuleTrace};
 
 use anyhow::{Context, Result};
 use ast_grep_config::{
-  from_str, from_yaml_string, DeserializeEnv, GlobalRules, RuleCollection, RuleConfig,
+  DeserializeEnv, GlobalRules, RuleCollection, RuleConfig, from_str, from_yaml_string,
 };
 use ast_grep_language::config_file_type;
 use ignore::WalkBuilder;
@@ -188,7 +188,7 @@ fn read_directory_yaml(
         continue;
       }
       let path = config_file.path();
-      let new_configs = read_rule_file(path, Some(&global_rules))?;
+      let new_configs = read_rule_file(path, &global_rules)?;
       configs.extend(new_configs);
     }
   }
@@ -233,16 +233,9 @@ pub fn with_rule_stats(
   Ok((collection, trace))
 }
 
-pub fn read_rule_file(
-  path: &Path,
-  global_rules: Option<&GlobalRules>,
-) -> Result<Vec<RuleConfig<SgLang>>> {
+pub fn read_rule_file(path: &Path, global_rules: &GlobalRules) -> Result<Vec<RuleConfig<SgLang>>> {
   let yaml = read_to_string(path).with_context(|| EC::ReadRule(path.to_path_buf()))?;
-  let parsed = if let Some(globals) = global_rules {
-    from_yaml_string(&yaml, globals)
-  } else {
-    from_yaml_string(&yaml, &Default::default())
-  };
+  let parsed = from_yaml_string(&yaml, global_rules);
   let mut rules = parsed.with_context(|| EC::ParseRule(path.to_path_buf()))?;
   let default_id = path.file_stem().and_then(|s| s.to_str());
   let has_multiple = rules.len() > 1;

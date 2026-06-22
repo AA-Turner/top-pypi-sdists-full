@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: csv2md
-Version: 1.6.0
+Version: 1.7.1
 Summary: Command line tool for converting CSV files into Markdown tables.
 Home-page: https://github.com/lzakharov/csv2md
 Author: Lev Zakharov

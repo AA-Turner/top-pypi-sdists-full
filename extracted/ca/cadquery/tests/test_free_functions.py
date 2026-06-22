@@ -46,23 +46,48 @@ from cadquery.func import (
     project,
     edgeOn,
     faceOn,
+    offset2D,
+    prism,
+    hollow,
+    chamfer2D,
+    fillet2D,
+    draft,
+    isSubshape,
 )
 
 from cadquery.occ_impl.shapes import (
+    History,
     _get_one_wire,
     _get_wires,
     _get,
     _get_one,
     _get_edges,
     _adaptor_curve_to_edge,
+    _shape_to_faces_shells,
+    _get_faces,
+    _combine_hist_dict,
 )
 
 from OCP.BOPAlgo import BOPAlgo_CheckStatus
 
+import pytest
 from pytest import approx, raises, fixture
+from contextlib import chdir
 from math import pi
 
-#%% test utils
+
+@pytest.fixture(scope="function")
+def tmpdir(tmp_path_factory):
+    return tmp_path_factory.mktemp("free_functions")
+
+
+@pytest.fixture
+def box_shape():
+
+    return box(1, 1, 1)
+
+
+# %% test utils
 
 
 def assert_all_valid(*objs: Shape):
@@ -76,7 +101,7 @@ def vector_equal(v1, v2):
     return v1.toTuple() == approx(v2.toTuple())
 
 
-#%% utils
+# %% utils
 
 
 def test_utils():
@@ -111,6 +136,13 @@ def test_utils():
     with raises(ValueError):
         list(_get_edges(fill(circle(1))))
 
+    r5 = _get_faces(plane(1, 1), rect(1, 1), circle(1.0), compound(circle(1.0)))
+
+    assert len(list(r5)) == 4
+
+    with raises(ValueError):
+        list(_get_faces(vertex(0, 0, 0)))
+
 
 def test_adaptor_curve_to_edge():
 
@@ -135,7 +167,17 @@ def test_adaptor_curve_to_edge():
         assert isinstance(e, TopoDS_Edge)
 
 
-#%% constructors
+def test__shape_to_faces_shells():
+
+    # bad weather tests
+    with raises(ValueError):
+        _shape_to_faces_shells(compound(vertex(1, 0, 0), vertex(0, 0, 0)).wrapped)
+
+    with raises(ValueError):
+        _shape_to_faces_shells(vertex(0, 0, 0).wrapped)
+
+
+# %% constructors
 
 
 def test_constructors():
@@ -193,20 +235,20 @@ def test_sewing():
     sh = b.remove(ftop)
 
     # regular local sewing
-    history1 = dict(ftop=ftop)
+    history1 = History()
     res1 = shell(sh.faces("not <Z"), ftop, ctx=(sh, ftop), history=history1)
 
     assert res1.isValid()
     assert res1.Area() == approx(6)
-    assert "ftop" in history1
+    assert ftop in history1[-1]._images
 
     # regular local sewing - with Shape context
-    history2 = {}
+    history2 = History()
     res2 = shell(sh.faces("not <Z"), ftop, ctx=compound(sh, ftop), history=history2)
 
     assert res2.isValid()
     assert res2.Area() == approx(6)
-    assert ftop in history2
+    assert ftop in history2[-1]._images
 
     # non-manifold sewing
     res3 = shell(sh.faces(), ftop, ftop.moved(x=1), manifold=False)
@@ -225,6 +267,10 @@ def test_sewing():
 def test_solid():
 
     b = box(1, 1, 1)
+    b_large = box(10, 10, 1)
+    b_small = box(0.1, 0.1, 0.1).moved(b_large)
+    sphere1 = sphere(0.1).moved(b_large)
+    sphere2 = sphere1.moved(x=2)
 
     # solid
     s1 = solid(b.Faces())
@@ -246,15 +292,27 @@ def test_solid():
     assert s4.Volume() == approx(1)
 
     # check history handling
-    hist = {}
+    hist = History()
     s4 = solid(
         b.Faces(), b1.moved([(0.2, 0, 0.5), (-0.2, 0, 0.5)]).Faces(), history=hist
     )
 
     final_faces = s4.Faces()
-    final_faces_history = list(hist.values())
+    final_faces_history = hist[-1]._images
     for f in final_faces:
         assert f in final_faces_history
+
+    # solid with multiple periodic voids
+    s5 = solid(b_large.Faces(), inner=sphere1.Faces() + sphere2.Faces())
+
+    assert s5.isValid()
+    assert s5.Volume() == approx(b_large.Volume() - 2 * sphere1.Volume())
+
+    # solid with multiple simple voids
+    s6 = solid(b_large.Faces(), inner=b_small.Faces() + b_small.moved(x=1).Faces())
+
+    assert s6.isValid()
+    assert s6.Volume() == approx(b_large.Volume() - 2 * b_small.Volume())
 
 
 def test_edgeOn():
@@ -304,7 +362,7 @@ def test_faceOn():
     assert len(f2.Faces()) == 2
 
 
-#%% primitives
+# %% primitives
 
 
 def test_vertex():
@@ -454,7 +512,7 @@ def test_text():
     assert len(r1.Wires()) == 3
     assert r1.Area() > 0.0
 
-    # test alignemnt
+    # test alignment
     r2 = text("CQ", 10, halign="left")
     r3 = text("CQ", 10, halign="right")
     r4 = text("CQ", 10, valign="bottom")
@@ -504,7 +562,7 @@ def test_text():
     assert len(r11.Wires()) == 1
 
 
-#%% bool ops
+# %% bool ops
 def test_operators():
 
     b1 = box(1, 1, 1).moved(Location(-0.5, -0.5, -0.5))  # small box
@@ -549,21 +607,14 @@ def test_imprint():
     assert len(res_glue_full.Faces()) == len(compound(b1, b2).Faces()) - 1
 
     # imprint with history
-    history = dict(b1=b1, b3=b3)
+    history = History()
     res_glue_partial = imprint(b1, b3, glue="partial", history=history)
 
-    b1_imp = history["b1"]
-    b3_imp = history[b3]
+    b1_imp = history[0].images(b1.faces())
+    b3_imp = history[0].images(b3.faces())
 
     assert len(b1_imp.Faces()) == len(b1.Faces()) + 1
     assert len(res_glue_partial.Faces()) == len(b1_imp.Faces() + b3_imp.Faces()) - 1
-
-    # imprint with faulty history
-    history = dict(b2=b2)
-    # this does not raise!
-    res_glue_partial = imprint(b1, b3, glue="partial", history=history)
-
-    assert b2 not in history
 
 
 @fixture
@@ -593,7 +644,7 @@ def test_imprint_error(patch_find):
     b1 = box(1, 1, 1)
     b2 = b1.moved(x=1)
 
-    history = {}
+    history = History()
 
     _ = imprint(b1, b2, history=history)
 
@@ -612,10 +663,11 @@ def test_fuse_multi():
     assert len(res.Solids()) == 1
 
 
-#%% moved
+# %% moved
 def test_moved():
 
     b = box(1, 1, 1)
+    s = sphere(0.1)
     l1 = Location((-1, 0, 0))
     l2 = Location((1, 0, 0))
     l3 = Location((0, 1, 0), (45, 0, 0))
@@ -654,8 +706,199 @@ def test_moved():
     assert vector_equal(bs8.edges(">Z").Center(), b.edges(">Z").Center())
     assert vector_equal(bs9.edges(">Z").Center(), b.edges(">Z").Center())
 
+    # moved to shape
+    s1 = s.moved(b.faces())
+    s2 = s.moved(b.edges("|Z"))
+    s3 = s.moved(b.vertices())
+    s4 = s.moved(b)
 
-#%% ops
+    assert len(s1.Solids()) == 6  # 6 faces
+
+    assert len(s2.Solids()) == 4
+    assert s2.Center().z == approx(
+        0.5
+    )  # spheres should be placed in the middle of the edges
+
+    assert len(s3.Solids()) == 8  # 8 vertices
+
+    assert len(s4.Solids()) == 1
+    assert s4.Center().z == approx(
+        0.5
+    )  # spheres should be placed in the middle of the edges
+
+    # move to shape, i.e. update location in place
+    assert s.Center().z == approx(0)
+    s.move(b.faces(">Z"))
+    assert s.Center().z == approx(1)
+
+
+# %% ops
+
+
+def test_hollow(box_shape):
+
+    res1 = hollow(box_shape, -0.1)
+    res2 = hollow(box_shape, 0.1)
+
+    assert res1.isValid()
+    assert res1.faces().size() == 2 * box_shape.faces().size()
+
+    assert res2.isValid()
+    assert res2.faces().size() == 2 * box_shape.faces().size()
+
+
+def test_hollow_open(box_shape):
+
+    # offset inwards
+    res1 = hollow(box_shape, box_shape.faces(">Z"), -0.1)
+
+    # offset outwards
+    res2 = hollow(box_shape, box_shape.faces(">Z"), 0.1)
+
+    assert res1.isValid()
+    assert res1.faces().size() == 6 + 5
+
+    assert res2.isValid()
+    assert res2.faces().size() == 6 + 5
+
+
+def test_prism(box_shape):
+
+    ftop = box_shape.faces(">Z")
+    c = circle(0.2).moved(ftop)
+
+    # additive prism
+    res1 = prism(box_shape, ftop, c, 0.1, (0, 0, 1))
+
+    assert res1.isValid()
+    assert res1.Volume() > box_shape.Volume()
+    assert res1.faces().size() == 6 + 2
+
+    # subtractive prism
+    res2 = prism(box_shape, ftop, c, -0.1, (0, 0, 1), False)
+
+    assert res2.isValid()
+    assert res2.Volume() < box_shape.Volume()
+    assert res2.faces().size() == 6 + 2
+
+    # subtractive prism with tilt
+    res3 = prism(box_shape, None, c, box_shape.face("<Z"), (0, 0.1, 1), False)
+
+    assert res3.isValid()
+    assert res3.Volume() < box_shape.Volume()
+    assert res3.faces().size() == 6 + 1
+
+    # subtractive prism without base through all
+    res4 = prism(box_shape, None, c, None, (0, 0, 1), False)
+
+    assert res4.isValid()
+    assert res4.Volume() < box_shape.Volume()
+    assert res4.faces().size() == 6 + 1
+    assert len(res4.face(">Z").innerWires()) == 1
+    assert len(res4.face("<Z").innerWires()) == 1
+
+    # additive prism from/to face
+    tri = face(
+        polygon(
+            ftop.edge("<<X").Center(),
+            ftop.edge(">>X").Center(),
+            ftop.Center() + Vector(0, 0, 1),
+        )
+    )
+
+    res5 = prism(
+        box_shape,
+        None,
+        tri,
+        (box_shape.face("<Y").extend(10), box_shape.face(">Y").extend(10)),
+    )
+
+    assert res5.isValid()
+    assert res5.faces("|Z").size() == 1
+
+    # additive prism from/to face using different overload
+    res6 = prism(
+        box_shape,
+        None,
+        tri,
+        (box_shape.face("<Y").extend(10), box_shape.face(">Y").extend(10)),
+        (0, 1, 0),
+    )
+
+    assert res6.isValid()
+    assert res6.faces("|Z").size() == 1
+
+
+def test_prism_taper(box_shape):
+
+    ftop = box_shape.faces(">Z")
+    c = circle(0.2).moved(ftop)
+
+    # additive prism
+    res1 = prism(box_shape, ftop, c, 0.1)
+
+    assert res1.isValid()
+    assert res1.Volume() > box_shape.Volume()
+    assert res1.faces().size() == 6 + 2
+
+    # additive prism with a taper
+    res2 = prism(box_shape, ftop, c, 0.1, 15)
+
+    assert res2.isValid()
+    assert res2.faces().size() == 6 + 4  # NB: side face is split into 3
+    assert res2.wire(">Z").Length() < c.Length()
+
+    # subtractive prism
+    res3 = prism(box_shape / c, ftop, c, box_shape.face("<Z"), additive=False)
+
+    assert res3.isValid()
+    assert res3.Volume() < box_shape.Volume()
+    assert res3.faces().size() == 6 + 1
+
+    # subtractive prism
+    res4 = prism(box_shape, ftop, c, None, additive=False)
+
+    assert res4.isValid()
+    assert res4.faces().size() == 6 + 1
+    assert res4.wires("<Z").edge("%CIRCLE").Length() == approx(c.Length())
+
+    # subtractive prism from to
+    res5 = prism(
+        box_shape,
+        None,
+        circle(0.2).moved(z=0.5),
+        (box_shape.face("<Z"), box_shape.face(">Z")),
+        5,
+        False,
+    )
+
+    assert res5.isValid()
+    assert res5.faces().size() == 6 + 2 * 3
+
+
+def test_draft(box_shape):
+
+    fbot = box_shape.face("<Z")
+    fside = box_shape.face("|X or |Y")
+
+    # direction inferred from the normal of the base face
+    res1 = draft(box_shape, fbot, fside, 5)
+    assert res1.face(">Z").Area() > fbot.Area()
+
+    # direction specified explicitly
+    res2 = draft(box_shape, fbot, fside, (0, 0, 1), 5)
+    assert res2.face(">Z").Area() < fbot.Area()
+
+    # raise on unsupported face type
+    s = extrude(face(ellipse(2, 1)), (0, 0, 1))
+
+    with raises(ValueError):
+        draft(s, s.face("<Z"), s.face(">>Z[-2]"), 5)
+
+    with raises(ValueError):
+        draft(s, s.face("<Z"), s.face(">>Z[-2]"), (0, 0, 1), 5)
+
+
 def test_clean():
 
     b1 = box(1, 1, 1)
@@ -733,11 +976,13 @@ def test_extrude():
     r2 = extrude(e, d)
     r3 = extrude(w, d)
     r4 = extrude(f, d)
+    r5 = extrude(f, d, both=True)
 
     assert r1.Length() == approx(1)
     assert r2.Area() == approx(1)
     assert r3.Area() == approx(4)
     assert r4.Volume() == approx(1)
+    assert r5.Volume() == approx(2)
 
 
 def test_revolve():
@@ -763,6 +1008,55 @@ def test_offset():
     assert r2.Volume() == approx(1 - 0.5 ** 3)
     assert r3.Volume() == approx(2)
     assert r4.Volume() == approx(4)
+
+
+def test_offset2D():
+
+    c = circle(1)
+    seg = segment((0, 0), (1, 1))
+    ctx = plane()
+
+    # simple offset
+    r1 = offset2D(c, 0.1)
+
+    # offset with a context
+    r2 = offset2D(seg, 0.2, ctx)
+
+    # offset that is not closed
+    r3 = offset2D(seg, -0.3, ctx, closed=False)
+
+    assert r1.isValid()
+    assert len(clean(r1).Edges()) == 1
+    assert face(r1).isValid()
+
+    assert r2.isValid()
+    assert len(clean(r2).Edges()) == 4
+    assert face(r2).isValid()
+
+    assert r3.isValid()
+    assert len(clean(r3).Edges()) == 1
+    assert r3.edge().Length() == approx(seg.Length())
+
+
+def test_fillet2D():
+
+    f = plane(1, 1)
+
+    res = fillet2D(f, f.vertices(), 0.1)
+
+    assert res.isValid()
+    assert res.edges().size() == 8
+    assert res.edges("%CIRCLE").size() == 4
+
+
+def test_chamfer2D():
+
+    f = plane(1, 1)
+
+    res = chamfer2D(f, f.vertices(), 0.1)
+
+    assert res.isValid()
+    assert res.edges().size() == 8
 
 
 def test_sweep():
@@ -835,8 +1129,7 @@ def test_loft():
     r4 = loft(w1, w2, w3, cap=True)  # capped loft
     r5 = loft(w4, w5)  # loft with open edges
     r6 = loft(f1, f2)  # loft with faces
-    r7 = loft()  # returns an empty compound
-    r8 = loft(compound(), compound())  # returns an empty compound
+    r7 = loft(compound(), compound())  # returns an empty compound
 
     assert_all_valid(r1, r2, r3, r4, r5, r6)
 
@@ -848,7 +1141,6 @@ def test_loft():
     assert len(r6.Faces()) == 16
     assert len(r6.Faces()) == 16
     assert not bool(r7) and isinstance(r7, Compound)
-    assert not bool(r8) and isinstance(r8, Compound)
 
 
 def test_loft_vertex():
@@ -888,14 +1180,24 @@ def test_project():
         assert el.isValid()
         assert el.IsClosed()
 
+    # project using cylindrical projection
+    res = project(e, base, (0, 1, 0))
+
+    assert len(res.Edges()) == 2
+    assert isinstance(res, Compound)
+    for el in res:
+        assert el.isValid()
+        assert el.IsClosed()
+
 
 # %% export
-def test_export():
+def test_export(tmpdir):
 
-    b1 = box(1, 1, 1)
-    b1.export("box.brep")
+    with chdir(tmpdir):
+        b1 = box(1, 1, 1)
+        b1.export("box.brep")
 
-    b2 = Shape.importBrep("box.brep")
+        b2 = Shape.importBrep("box.brep")
 
     assert (b1 - b2).Volume() == approx(0)
 
@@ -927,3 +1229,186 @@ def test_closest():
     p1, p2 = closest(s1, s2)
 
     assert (p1 - p2).Length == approx(4)
+
+
+# %% history
+def test_history_bool():
+
+    b1 = box(1, 1, 1)
+    b2 = box(1, 0.5, 0.1)
+
+    hist = History()
+    res = cut(b1, b2, history=hist, name="cut")
+
+    assert hist[0] == hist["cut"]
+    assert b2.face("<Z") in hist["cut"].deleted()
+    assert hist["cut"].modified(b1.face("<Z")).size() == 2
+    assert hist["cut"].modified(b1.face("<Z").edge(">X")).size() == 2
+
+    with pytest.raises(KeyError):
+        hist["cut"].generated(b1.face(">Z"))
+
+    res2 = imprint(res, b2, history=hist, name="imprint")
+
+    op = hist["imprint"]
+
+    assert isSubshape(op.images(b1.face(">Z")), res2.solid(">Z"))
+
+
+def test_history_extrude():
+
+    hist = History()
+    f = plane(1, 1)
+    res = extrude(f, (0, 0, 1), history=hist)
+
+    op = hist[-1]
+
+    sides = op.generated(f.edges())
+    top = op.last()
+    bot = op.first()
+
+    assert isSubshape(top, res)
+    assert isSubshape(bot, res)
+
+    assert top == res.face(">Z")
+    assert bot == res.face("<Z")
+
+    for s in sides:
+        assert isSubshape(s, res)
+
+    assert top not in sides
+    assert bot not in sides
+
+    assert top == op.last(f)
+    assert bot == op.first(f)
+
+
+def test_history_sweep():
+
+    hist = History()
+
+    # sweep with inner shapes
+    f1 = plane(1, 1) - face(circle(0.1))
+    f2 = (plane(2, 2) - face(circle(0.1))).moved(z=1)
+    p = segment((0, 0, 0), (0, 0, 1))
+
+    res = sweep([f1, f2], p, history=hist)
+
+    op = hist[-1]
+
+    top = op.last()
+    bot = op.first()
+    side = op.generated(f1.outerWire().edges())
+    inner = op.generated(f1.innerWires()[0].edges())
+
+    assert isSubshape(top, res)
+    assert isSubshape(bot, res)
+    assert top == res.face(">Z")
+    assert bot == res.face("<Z")
+    assert side.faces().size() == 4
+    assert inner.faces().size() == 1
+    assert (top | bot | side | inner).size() == 7
+
+    # simple sweep
+    f = plane(1, 1)
+    p = segment((0, 0, 0), (0, 0, 1))
+
+    res = sweep(f, p, history=hist)
+
+    op = hist[-1]
+
+    top = op.last()
+    bot = op.first()
+    side = op.generated(f.outerWire().edges())
+
+    assert isSubshape(top, res)
+    assert isSubshape(bot, res)
+    assert top == res.face(">Z")
+    assert bot == res.face("<Z")
+    assert side.faces().size() == 4
+
+
+def test_history_loft():
+
+    h = History()
+
+    # loft to a vertex
+    f = plane(1, 1)
+    v = vertex(0, 0, 1)
+
+    res = loft(f, v, history=h)
+
+    op = h[-1]
+
+    bot = op.first()
+    side = op.generated(f.edges())
+
+    assert isSubshape(bot, res)
+    assert bot == res.face("<Z")
+
+    for el in side:
+        assert isSubshape(el, res)
+
+    # loft with a hole
+    f1 = plane(1, 1) - face(circle(0.1))
+    f2 = (plane(2, 2) - face(circle(0.1))).moved(z=1)
+
+    res = loft(f1, f2, history=h)
+
+    op = h[-1]
+
+    top = op.last()
+    bot = op.first()
+    side = op.generated(f1.edges())
+
+    assert isSubshape(bot, res)
+    assert bot == res.face("<Z")
+
+    assert isSubshape(top, res)
+    assert top == res.face(">Z")
+
+    for el in side:
+        assert isSubshape(el, res)
+
+
+def test_history_offset():
+
+    h = History()
+    f = plane(1, 1)
+
+    offset(f, 0.1, both=True, history=h)
+
+    op = h[-1]
+
+    fs_offset = op.generated(f)
+    sides = op.generated(f.edges())
+
+    assert fs_offset.faces().size() == 2
+    assert sides.edges().size() == 2 * 4
+
+    offset(f, 0.1, both=False, history=h)
+
+    op = h[-1]
+
+    fs_offset = op.generated(f)
+    sides = op.generated(f.edges())
+
+    assert fs_offset.faces().size() == 1
+    assert sides.edges().size() == 4
+
+
+def test_comibine_hist_dict():
+
+    f = plane(1, 1)
+    v = vertex(0, 0, 0)
+    e = segment((0, 0), (0, 1))
+
+    d1 = {f: v}
+    d2 = {f: e}
+
+    _combine_hist_dict(d1, d2)
+
+    assert f in d1
+    assert isinstance(d1[f], Compound)
+    assert v in d1[f]
+    assert e in d1[f]

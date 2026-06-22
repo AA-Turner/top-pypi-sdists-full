@@ -64,6 +64,10 @@ class ScanChange(StrEnum):
     ADDED = "added"
     UPDATED = "updated"
     REMOVED = "removed"
+    # A forced re-read with no YAML cache-key change (binary mtime,
+    # sidecar, StorageJSON). Distinct from UPDATED so consumers that only
+    # care about on-disk YAML edits (version history) can skip it.
+    RELOADED = "reloaded"
 
 
 # Callback invoked for every detected change. Receives the kind of
@@ -289,6 +293,11 @@ class DeviceScanner(WakeWorker[str]):
         """
         return self._index.get_by_name(name)
 
+    def get_by_configuration(self, configuration: str) -> Device | None:
+        """Return the configured device for YAML filename *configuration*, or ``None``."""
+        path = self._index.find_path_by_filename(configuration)
+        return self._index.by_path.get(path) if path is not None else None
+
     async def scan(self) -> None:
         """Refresh the device cache from disk, emitting per-file change events."""
         async with self._lock:
@@ -306,8 +315,8 @@ class DeviceScanner(WakeWorker[str]):
         reload.
 
         Returns True when the device exists and was re-read; False if
-        the file isn't tracked. Fires ``ScanChange.UPDATED`` on
-        success.
+        the file isn't tracked. Fires ``ScanChange.RELOADED`` on
+        success (the YAML itself is unchanged here).
         """
         async with self._lock:
             path = self._index.find_path_by_filename(filename)
@@ -342,7 +351,7 @@ class DeviceScanner(WakeWorker[str]):
             except OSError:
                 cache_key = previous_cache_key
             self._index.set(path, device, cache_key)
-            self._on_change(ScanChange.UPDATED, device)
+            self._on_change(ScanChange.RELOADED, device)
             return True
 
     # ------------------------------------------------------------------

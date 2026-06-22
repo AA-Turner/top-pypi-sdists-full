@@ -1,95 +1,74 @@
-use crate::fixer::{Fixer, FixerError};
-use crate::rule::referent_rule::RuleRegistration;
+use crate::RuleCore;
+use crate::fixer::Fixer;
+use crate::rewriter::Rewriter;
 use crate::rule::Rule;
 use crate::rule_config::RuleConfigError;
 use crate::rule_core::RuleCoreError;
 use crate::transform::{Transform, TransformError};
-use crate::RuleCore;
 
 use std::collections::{HashMap, HashSet};
 
 type RResult<T> = std::result::Result<T, RuleCoreError>;
 
-pub enum CheckHint<'r> {
+pub enum CheckHint {
   Global,
   Normal,
-  Rewriter(&'r HashSet<&'r str>),
 }
 
 /// Different rule sections have different variable scopes/check procedure.
 /// so we need to check rules with different hints.
-pub fn check_rule_with_hint<'r>(
-  rule: &'r Rule,
-  utils: &'r RuleRegistration,
-  constraints: &'r HashMap<String, Rule>,
-  transform: &'r Option<Transform>,
-  fixer: &Vec<Fixer>,
-  hint: CheckHint<'r>,
-) -> RResult<()> {
+pub fn check_rule_with_hint(rule: &RuleCore, hint: CheckHint) -> RResult<()> {
   match hint {
     CheckHint::Global => {
       // do not check utils defined here because global rules are not yet ready
-      check_vars(rule, utils, constraints, transform, fixer)?;
+      check_vars(rule)?;
     }
     CheckHint::Normal => {
-      check_utils_defined(rule, constraints)?;
-      check_vars(rule, utils, constraints, transform, fixer)?;
-    }
-    // upper_vars is needed to check metavar defined in containing vars
-    CheckHint::Rewriter(upper_vars) => {
-      if fixer.is_empty() {
-        return Err(RuleCoreError::Fixer(FixerError::InvalidRewriter));
-      }
-      check_utils_defined(rule, constraints)?;
-      check_vars_in_rewriter(rule, utils, constraints, transform, fixer, upper_vars)?;
+      check_utils_defined(rule)?;
+      check_vars(rule)?;
     }
   }
   Ok(())
 }
 
-fn check_vars_in_rewriter<'r>(
-  rule: &'r Rule,
-  utils: &'r RuleRegistration,
-  constraints: &'r HashMap<String, Rule>,
-  transform: &'r Option<Transform>,
-  fixer: &Vec<Fixer>,
-  upper_var: &HashSet<&str>,
+pub fn check_fix(rule: &RuleCore, fixer: &[Fixer]) -> RResult<()> {
+  // TODO: check_vars are called twice
+  let vars = check_vars(rule)?;
+  check_var_in_fix(vars, fixer)?;
+  Ok(())
+}
+
+pub fn check_rewriter_fix(
+  rule: &RuleCore,
+  fixer: &[Fixer],
+  upper_vars: &HashSet<&str>,
 ) -> RResult<()> {
-  let vars = get_vars_from_rules(rule, utils);
-  let vars = check_var_in_constraints(vars, constraints)?;
-  let mut vars = check_var_in_transform(vars, transform)?;
-  for v in upper_var {
+  // TODO: check_vars are called twice
+  let mut vars = check_vars(rule)?;
+  for v in upper_vars {
     vars.insert(v);
   }
   check_var_in_fix(vars, fixer)?;
   Ok(())
 }
 
-fn check_utils_defined(rule: &Rule, constraints: &HashMap<String, Rule>) -> RResult<()> {
-  rule.verify_util()?;
-  for constraint in constraints.values() {
+fn check_utils_defined(rule: &RuleCore) -> RResult<()> {
+  rule.rule.verify_util()?;
+  for constraint in rule.constraints.values() {
     constraint.verify_util()?;
   }
   Ok(())
 }
 
-fn check_vars<'r>(
-  rule: &'r Rule,
-  utils: &'r RuleRegistration,
-  constraints: &'r HashMap<String, Rule>,
-  transform: &'r Option<Transform>,
-  fixer: &Vec<Fixer>,
-) -> RResult<()> {
-  let vars = get_vars_from_rules(rule, utils);
-  let vars = check_var_in_constraints(vars, constraints)?;
-  let vars = check_var_in_transform(vars, transform)?;
-  check_var_in_fix(vars, fixer)?;
-  Ok(())
+fn check_vars(rule: &RuleCore) -> RResult<HashSet<&str>> {
+  let vars = get_vars_from_rules(rule);
+  let vars = check_var_in_constraints(vars, &rule.constraints)?;
+  check_var_in_transform(vars, &rule.transform)
 }
 
-fn get_vars_from_rules<'r>(rule: &'r Rule, utils: &'r RuleRegistration) -> HashSet<&'r str> {
-  let mut vars = rule.defined_vars();
-  for var in utils.get_local_util_vars() {
+fn get_vars_from_rules(rule: &RuleCore) -> HashSet<&str> {
+  let mut vars = rule.rule.defined_vars();
+  for var in rule.registration.get_local_util_vars() {
     vars.insert(var);
   }
   vars
@@ -143,7 +122,7 @@ fn check_var_in_transform<'r>(
   Ok(vars)
 }
 
-fn check_var_in_fix(vars: HashSet<&str>, fixers: &Vec<Fixer>) -> RResult<()> {
+fn check_var_in_fix(vars: HashSet<&str>, fixers: &[Fixer]) -> RResult<()> {
   for fixer in fixers {
     for var in fixer.used_vars() {
       if !vars.contains(&var) {
@@ -156,14 +135,14 @@ fn check_var_in_fix(vars: HashSet<&str>, fixers: &Vec<Fixer>) -> RResult<()> {
 
 pub fn check_rewriters_in_transform(
   rule: &RuleCore,
-  rewriters: &HashMap<String, RuleCore>,
+  rewriters: &HashMap<String, Rewriter>,
 ) -> Result<(), RuleConfigError> {
   if let Some(err) = check_one_rewriter_in_rule(rule, rewriters) {
     return Err(err);
   }
   let error = rewriters
     .values()
-    .find_map(|rewriter| check_one_rewriter_in_rule(rewriter, rewriters));
+    .find_map(|rewriter| check_one_rewriter_in_rule(&rewriter.matcher, rewriters));
   if let Some(err) = error {
     return Err(err);
   }
@@ -172,7 +151,7 @@ pub fn check_rewriters_in_transform(
 
 fn check_one_rewriter_in_rule(
   rule: &RuleCore,
-  rewriters: &HashMap<String, RuleCore>,
+  rewriters: &HashMap<String, Rewriter>,
 ) -> Option<RuleConfigError> {
   let transform = rule.transform.as_ref()?;
   let mut used_rewriters = transform
@@ -188,7 +167,10 @@ fn check_one_rewriter_in_rule(
 mod test {
   use super::*;
   use crate::test::TypeScript;
-  use crate::{from_str, DeserializeEnv, SerializableGlobalRule, SerializableRuleCore};
+  use crate::{
+    DeserializeEnv, RuleConfig, SerializableGlobalRule, SerializableRuleConfig,
+    SerializableRuleCore, from_str,
+  };
 
   #[test]
   fn test_defined_vars() {
@@ -249,22 +231,6 @@ transform:
     assert_eq!(section, "transform");
   }
   #[test]
-  fn test_undefined_vars_in_fix() {
-    let (name, section) = get_undefined(
-      r"
-rule: {pattern: $A}
-constraints: {A: {pattern: $C}}
-transform:
-  B:
-    replace: {source: $C, replace: a, by: b }
-fix: $D
-",
-    );
-    assert_eq!(name, "D");
-    assert_eq!(section, "fix");
-  }
-
-  #[test]
   fn test_defined_vars_in_utils() {
     let env = DeserializeEnv::new(TypeScript::Tsx);
     let ser_rule: SerializableRuleCore = from_str(
@@ -322,9 +288,9 @@ fix: $EXP
     )
     .expect("should parse globals");
     let globals = DeserializeEnv::parse_global_utils(globals).expect("should parse globals");
-    let env = DeserializeEnv::new(TypeScript::Tsx).with_globals(&globals);
-    let ser_rule: SerializableRuleCore = from_str(
+    let ser_rule: SerializableRuleConfig<TypeScript> = from_str(
       r"
+language: Tsx
 rule:
   matches:
     global-rule:
@@ -334,8 +300,9 @@ fix: $A
 ",
     )
     .expect("should deser");
-    match ser_rule.get_matcher(env) {
-      Err(RuleCoreError::UndefinedMetaVar(name, section)) => {
+    let ret = RuleConfig::try_from(ser_rule, &globals);
+    match ret {
+      Err(RuleConfigError::Core(RuleCoreError::UndefinedMetaVar(name, section))) => {
         assert_eq!(name, "A");
         assert_eq!(section, "fix");
       }

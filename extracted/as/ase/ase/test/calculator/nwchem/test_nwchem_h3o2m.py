@@ -1,4 +1,3 @@
-# fmt: off
 from math import cos, radians, sin
 
 import pytest
@@ -18,19 +17,25 @@ def test_h3o2m(factory):
     angle = radians(104.5)
     initial = Atoms(
         'HOHOH',
-        positions=[(-sin(angle) * doht, 0, cos(angle) * doht),
-                   (0., 0., 0.),
-                   (0., 0., doh),
-                   (0., 0., doo),
-                   (sin(angle) * doht, 0., doo - cos(angle) * doht)])
+        positions=[
+            (-sin(angle) * doht, 0, cos(angle) * doht),
+            (0.0, 0.0, 0.0),
+            (0.0, 0.0, doh),
+            (0.0, 0.0, doo),
+            (sin(angle) * doht, 0.0, doo - cos(angle) * doht),
+        ],
+    )
 
     final = Atoms(
         'HOHOH',
-        positions=[(- sin(angle) * doht, 0., cos(angle) * doht),
-                   (0., 0., 0.),
-                   (0., 0., doo - doh),
-                   (0., 0., doo),
-                   (sin(angle) * doht, 0., doo - cos(angle) * doht)])
+        positions=[
+            (-sin(angle) * doht, 0.0, cos(angle) * doht),
+            (0.0, 0.0, 0.0),
+            (0.0, 0.0, doo - doh),
+            (0.0, 0.0, doo),
+            (sin(angle) * doht, 0.0, doo - cos(angle) * doht),
+        ],
+    )
 
     # Make band:
     images = [initial.copy()]
@@ -40,11 +45,7 @@ def test_h3o2m(factory):
     neb = NEB(images, climb=True)
 
     def calculator():
-        return factory.calc(
-            task='gradient',
-            theory='scf',
-            charge=-1
-        )
+        return factory.calc(task='gradient', theory='scf', charge=-1)
 
     # Set constraints and calculator:
     constraint = FixAtoms(indices=[1, 3])  # fix OO

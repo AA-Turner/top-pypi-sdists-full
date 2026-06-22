@@ -31,6 +31,7 @@ from trilogy.core.models.build import (
     BuildMultiSelectLineage,
     BuildRowsetItem,
     BuildSelectLineage,
+    BuildUnionSelectLineage,
     BuildWhereClause,
     Factory,
     get_canonical_pseudonyms,
@@ -41,12 +42,19 @@ from trilogy.core.processing.aggregate_rollup import (
     _is_additive_aggregate,
     get_additive_rollup_concepts,
 )
+from trilogy.core.processing.condition_utility import condition_implies
 from trilogy.core.processing.discovery_utility import (
     LOGGER_PREFIX,
     depth_to_prefix,
 )
 from trilogy.core.processing.node_generators.multiselect_node import extra_align_joins
-from trilogy.core.processing.nodes import History, MergeNode, SelectNode, StrategyNode
+from trilogy.core.processing.nodes import (
+    History,
+    MergeNode,
+    SelectNode,
+    StrategyNode,
+    UnionNode,
+)
 from trilogy.core.processing.v4_helper import (
     FINAL_NODE_ID,
     ROW_SHAPE_BARRIER_DERIVATIONS,
@@ -249,6 +257,85 @@ def _resolve_multiselect(
             depth=depth,
         )
 
+    node.set_output_concepts(list(mandatory_list))
+    node.rebuild_cache()
+    return BuildInfo(
+        concept_graph=nx.DiGraph(),
+        group_graph=nx.DiGraph(),
+        group_attrs={},
+        strategy_node=node,
+    )
+
+
+def _resolve_union_select(
+    union_concept: BuildConcept,
+    mandatory_list: list[BuildConcept],
+    environment: BuildEnvironment,
+    depth: int,
+    g: ReferenceGraph,
+    history: "V4History",
+    conditions: list[BuildWhereClause],
+) -> BuildInfo:
+    """Plan a relational `union(...)` TVF: a column-positional row stack.
+
+    Each arm is planned independently (same arm recursion as a multiselect),
+    then each arm projects its i-th column onto the shared union output concept
+    and the arms are stacked with a `UnionNode` (SQL UNION ALL) — not joined."""
+    lineage = union_concept.lineage
+    assert isinstance(lineage, BuildUnionSelectLineage)
+
+    def _empty() -> BuildInfo:
+        return BuildInfo(
+            concept_graph=nx.DiGraph(),
+            group_graph=nx.DiGraph(),
+            group_attrs={},
+            strategy_node=None,
+        )
+
+    # Canonical output order = align-item order; every arm must expose exactly
+    # these concepts, in this order, so the UNION columns line up.
+    ordered_outputs = [
+        environment.concepts[item.aligned_concept] for item in lineage.align.items
+    ]
+
+    arm_nodes: list[StrategyNode] = []
+    for arm in lineage.selects:
+        built_arm, arm_env, arm_where = _build_nested_select(arm, history)
+        arm_conditions = [arm_where] if arm_where else []
+        arm_info = search_concepts(
+            mandatory_list=list(built_arm.output_components),
+            history=history,
+            environment=arm_env,
+            depth=depth + 1,
+            g=generate_graph(arm_env),
+            conditions=arm_conditions,
+        )
+        arm_node = arm_info.strategy_node
+        if arm_node is None:
+            logger.info(
+                f"{depth_to_prefix(depth)}{LOGGER_PREFIX} union arm "
+                f"{[c.address for c in built_arm.output_components]} did not resolve"
+            )
+            return _empty()
+        # Expose each arm's i-th column under the shared union output, then hide
+        # the per-arm internal columns so the rendered SELECT emits only the
+        # union outputs — sourced from the hidden columns via find_source.
+        arm_own = [c.address for c in arm_node.output_concepts]
+        for out in list(arm_node.output_concepts):
+            merge_name = lineage.get_merge_concept(out)
+            if merge_name:
+                arm_node.output_concepts.append(environment.concepts[merge_name])
+        arm_node.hidden_concepts = set(arm_own)
+        arm_node.rebuild_cache()
+        arm_nodes.append(arm_node)
+
+    node: StrategyNode = UnionNode(
+        input_concepts=list(ordered_outputs),
+        output_concepts=list(ordered_outputs),
+        environment=environment,
+        depth=depth,
+        parents=arm_nodes,
+    )
     node.set_output_concepts(list(mandatory_list))
     node.rebuild_cache()
     return BuildInfo(
@@ -530,29 +617,67 @@ def _combine_conditions(
     return BuildWhereClause(conditional=combined)
 
 
+def _datasource_materializes(
+    concept: BuildConcept,
+    ds: BuildDatasource,
+    where: BuildWhereClause | None,
+    environment: BuildEnvironment,
+) -> bool:
+    """A datasource materializes `concept` iff it binds a COMPLETE column whose
+    canonical address matches — name-independent: a differently-named column with
+    the same underlying expression (`sum(x)` vs a bound `total`) satisfies it —
+    and can express the query's row-narrowing conditions.
+
+    Partialness is relative to the query, via the same `condition_implies` rule
+    source-planning's `partial_is_full` uses. Two partial mechanisms:
+    - Population (`complete where X`, `ds.non_partial_for`): the table holds only
+      the X-subset of rows, so it's a complete source only when the query implies
+      X. A `~key` merge column (`merge orid into ~orid_2`) is the degenerate case —
+      intrinsically one row per key, missing values that never appear as a key,
+      with no `non_partial_for` to recover it — so it never qualifies.
+    - Column (`Modifier.PARTIAL`): a `partial ... complete where X` table's columns
+      are individually partial but become complete once the query implies X.
+
+    Matching on `ds.columns` (genuine bindings), not `output_concepts`, is
+    deliberate: the latter includes merge-pseudonym-expanded entries that hide the
+    real PARTIAL marker."""
+    if not _conditions_supported(ds, where, environment.concepts):
+        return False
+    partial_covered = bool(
+        where
+        and ds.non_partial_for
+        and condition_implies(where.conditional, ds.non_partial_for.conditional)
+    )
+    if ds.non_partial_for is not None and not partial_covered:
+        return False
+    return any(
+        col.concept.canonical_address == concept.canonical_address
+        and (col.is_complete or partial_covered)
+        for col in ds.columns
+    )
+
+
 def _materialized_root_addresses(
     mandatory_list: list[BuildConcept],
     environment: BuildEnvironment,
     conditions: list[BuildWhereClause],
 ) -> frozenset[str]:
-    """Demanded derived concepts that a datasource materializes directly at the
-    exact target grain — a precomputed / pre-aggregated summary table. Stage 1
-    treats these as ROOT scans so v4 reads the table instead of re-deriving from
-    base. Gated by `_conditions_supported`: a row-narrowing filter the summary
-    can't express (e.g. a predicate below its grain) makes the precomputed value
-    wrong, so the concept stays derived and the filter is applied over base.
+    """Demanded derived concepts that a datasource materializes directly — a
+    precomputed / pre-aggregated summary table or a persisted derived column.
+    Stage 1 treats these as ROOT scans so v4 reads the table instead of
+    re-deriving from base.
 
-    Matching rule: an AGGREGATE matches a datasource column by `canonical_address`
-    so an inline `sum(x)` reuses the table that binds its named equivalent. Any
-    other derived concept must match by real `address` — a canonical match there
-    can be a merge-pseudonym (`merge orid into ~orid_2`) whose own lineage (e.g. an
-    unnest) the datasource does not actually materialize, which would drop rows.
+    Eligibility is one rule (`_datasource_materializes`): a datasource binds the
+    concept's canonical expression as a COMPLETE column (or a partial one the
+    query's conditions complete) and can express the conditions. EXACT-grain
+    AGGREGATE/BASIC additionally require `ds.grain == target_grain` so the scan's
+    row multiplicity matches; an UNNEST is exempt (a persisted unnest table's
+    declared grain is the coarser key, understating its per-value rows).
 
     Additive rollup: an additive AGGREGATE (sum/count) that no datasource has at
-    the exact grain, but a *finer*-grain table binds (by canonical address), is
-    also treated as a root scanned from that finer table — `_group_to_grain_if_required`
-    then re-aggregates it to the target grain (`sum(finer.col)`). Scoped to
-    address-bound aggregates so the SUM has a real source column to read."""
+    the exact grain, but a *finer*-grain table binds, is also treated as a root
+    scanned from that finer table — `_group_to_grain_if_required` then
+    re-aggregates it to the target grain (`sum(finer.col)`)."""
     if not mandatory_list:
         return frozenset()
     target_grain = BuildGrain.from_concepts(mandatory_list)
@@ -562,28 +687,32 @@ def _materialized_root_addresses(
     ]
     out: set[str] = set()
     for concept in mandatory_list:
-        # Only short-circuit derivations whose value is fully captured by a
-        # datasource row: a precomputed AGGREGATE or a scalar BASIC. Row-shaping
-        # derivations (UNNEST/ROWSET/RECURSIVE/FILTER/WINDOW/...) generate or
-        # drop rows the datasource scan wouldn't reproduce — e.g. an unnest
-        # merged onto a key (`merge orid into ~orid_2`) is exposed by the table
-        # as that key but really spans more rows.
+        # Short-circuit only derivations a datasource row fully reproduces: a
+        # precomputed AGGREGATE/scalar BASIC, or an UNNEST a table persists
+        # directly. The other row-shaping derivations (ROWSET/RECURSIVE/FILTER/
+        # WINDOW/...) generate or drop rows a scan wouldn't reproduce; enabling
+        # them would each need its own population-vs-conditions validation.
+        if concept.derivation == Derivation.UNNEST:
+            # No grain-equality gate: a `persist ... from select key, unnest_val`
+            # table declares the coarser key grain but physically holds one row
+            # per unnest value, so the scan reproduces them. The merge-onto-key
+            # shape is excluded by the partial-column check in the predicate.
+            if any(
+                _datasource_materializes(concept, ds, where, environment)
+                for ds in datasources
+            ):
+                out.add(concept.address)
+            continue
         if concept.derivation not in (Derivation.AGGREGATE, Derivation.BASIC):
             continue
         is_aggregate = concept.derivation == Derivation.AGGREGATE
-        # EXACT: a datasource at the target grain binds the concept itself.
+        # EXACT: a datasource at the target grain materializes the concept.
         exact = False
         if concept.canonical_address in environment.materialized_canonical_concepts:
             for ds in datasources:
                 if ds.grain != target_grain:
                     continue
-                if is_aggregate:
-                    matched = concept.canonical_address in {
-                        c.canonical_address for c in ds.output_concepts
-                    }
-                else:
-                    matched = concept.address in {c.address for c in ds.output_concepts}
-                if matched and _conditions_supported(ds, where, environment.concepts):
+                if _datasource_materializes(concept, ds, where, environment):
                     out.add(concept.address)
                     exact = True
                     break
@@ -688,6 +817,17 @@ def _search_concepts(
     # arms are independent sub-plans joined on the alignment concept. Resolve
     # each arm through v4 and stitch them, rather than trying to source both
     # arms' columns from one (unjoinable) root scan.
+    # A relational union TVF is a column-positional row stack (UNION), not a
+    # key-join. Its lineage subclasses BuildMultiSelectLineage, so check it
+    # first and route to the union combiner.
+    union_concept = next(
+        (c for c in mandatory_list if isinstance(c.lineage, BuildUnionSelectLineage)),
+        None,
+    )
+    if union_concept is not None:
+        return _resolve_union_select(
+            union_concept, mandatory_list, environment, depth, g, history, conditions
+        )
     ms_concept = next(
         (c for c in mandatory_list if isinstance(c.lineage, BuildMultiSelectLineage)),
         None,

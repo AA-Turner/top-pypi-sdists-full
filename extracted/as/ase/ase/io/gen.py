@@ -1,11 +1,10 @@
-# fmt: off
-
 """Extension to ASE: read and write structures in GEN format
 
 Refer to DFTB+ manual for GEN format description.
 
 Note: GEN format only supports single snapshot.
 """
+
 import re
 from typing import Dict, Sequence
 
@@ -16,7 +15,7 @@ from ase.utils import reader, writer
 @reader
 def read_gen(fileobj):
     """Read structure in GEN format (refer to DFTB+ manual).
-       Multiple snapshot are not allowed. """
+    Multiple snapshot are not allowed."""
     image = Atoms()
     lines = fileobj.readlines()
     line = lines[0].split()
@@ -24,12 +23,16 @@ def read_gen(fileobj):
     pb_flag = line[1]
     if line[1] not in ['C', 'F', 'S']:
         if line[1] == 'H':
-            raise OSError('Error in line #1: H (Helical) is valid but not '
-                          'supported. Only C (Cluster), S (Supercell) '
-                          'or F (Fraction) are supported options')
+            raise OSError(
+                'Error in line #1: H (Helical) is valid but not '
+                'supported. Only C (Cluster), S (Supercell) '
+                'or F (Fraction) are supported options'
+            )
         else:
-            raise OSError('Error in line #1: only C (Cluster), S (Supercell) '
-                          'or F (Fraction) are supported options')
+            raise OSError(
+                'Error in line #1: only C (Cluster), S (Supercell) '
+                'or F (Fraction) are supported options'
+            )
 
     # Read atomic symbols
     line = lines[1].split()
@@ -68,9 +71,13 @@ def read_gen(fileobj):
         for i in range(3):
             x, y, z = lines[i].split()[:3]
             p.append([float(x), float(y), float(z)])
-        image.set_cell([(p[0][0], p[0][1], p[0][2]),
-                        (p[1][0], p[1][1], p[1][2]),
-                        (p[2][0], p[2][1], p[2][2])])
+        image.set_cell(
+            [
+                (p[0][0], p[0][1], p[0][2]),
+                (p[1][0], p[1][1], p[1][2]),
+                (p[2][0], p[2][1], p[2][2]),
+            ]
+        )
         if pb_flag == 'F':
             frac_positions = image.get_positions()
             image.set_scaled_positions(frac_positions)
@@ -82,10 +89,10 @@ def write_gen(
     fileobj,
     images: Atoms | Sequence[Atoms],
     fractional: bool = False,
-    with_tags=False
+    with_tags=False,
 ):
     """Write structure in GEN format (refer to DFTB+ manual).
-       Multiple snapshots are not allowed. """
+    Multiple snapshots are not allowed."""
     if isinstance(images, (list, tuple)):
         # GEN format doesn't support multiple snapshots
         if len(images) != 1:
@@ -143,7 +150,8 @@ def write_gen(
         sym = f'{sym}{tag}' if with_tags else sym
         symbolid = symboldict[sym]
         fileobj.write(
-            f'{ind:-6d} {symbolid:d} {x:22.15f} {y:22.15f} {z:22.15f}\n')
+            f'{ind:-6d} {symbolid:d} {x:22.15f} {y:22.15f} {z:22.15f}\n'
+        )
 
     if atoms.pbc.any() or fractional:
         fileobj.write(f'{0.0:22.15f} {0.0:22.15f} {0.0:22.15f} \n')

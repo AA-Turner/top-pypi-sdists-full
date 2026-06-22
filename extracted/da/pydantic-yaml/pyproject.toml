@@ -1,6 +1,11 @@
 [build-system]
-requires = ["setuptools >= 61.0.0", "setuptools-scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.29.0", "hatch-vcs>=0.5.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
 
 [project.urls]
 github = "https://github.com/NowanIlfideme/pydantic-yaml"
@@ -10,9 +15,10 @@ releasenotes = "https://github.com/NowanIlfideme/pydantic-yaml/releases"
 
 [project]
 name = "pydantic_yaml"
+# version is dynamic
 description = "YAML reading/writing for Pydantic models"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.15"
 dynamic = ["version"]
 keywords = ["pydantic", "yaml"]
 license = { file = "LICENSE" }
@@ -27,41 +33,48 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "pydantic>=1.8",               # including pydantic>=2.0.0!
-    "ruamel.yaml>=0.17.0,<0.19.0", # recommended ~=0.18.x
+    "pydantic>=1.10.0,<3",         # including pydantic>=2.0.0!
+    "ruamel.yaml>=0.17.0,<0.20.0", # recommended ~=0.18.x
     "typing_extensions>=4.5.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "setuptools>=61.0.0",
-    "setuptools-scm[toml]>=6.2",
-    "pre-commit==4.2.0",
-    "ruff==0.12.8",
-    "mypy==1.17.1",
-    "pytest==8.4.1",
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.15",
+    "mypy>=2.1.0",
+    "pytest>=9.0.0",
+    "hatchling>=1.30.1",
+    "hatch-vcs>=0.5.0",
 ]
 docs = [
-    "mkdocs",
+    "mkdocs<2",             # To be updated to Zensical
     "mkdocs-material",
     "mkdocstrings[python]",
     "pymdown-extensions",
     "pygments",
-    # types
-    "types-setuptools",
 ]
 
 [project.scripts]
+
+
+[tool.uv]
+default-groups = ["dev", "docs"]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { git = { commit = true, tags = true } },
+]
+exclude-newer = "7 days" # minimize supply chain attack surface
 
 [tool.setuptools]
 zip-safe = false
 package-dir = { "" = "src" }
 packages = ["pydantic_yaml"]
 
-[tool.setuptools.package-data]
+# [tool.setuptools.package-data]
 
-[tool.setuptools.dynamic]
-version = { attr = "pydantic_yaml.version.__version__" }
+# [tool.setuptools.dynamic]
+# version = { attr = "pydantic_yaml.version.__version__" }
 
 
 [tool.ruff]

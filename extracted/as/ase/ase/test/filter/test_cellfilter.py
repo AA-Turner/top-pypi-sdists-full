@@ -1,4 +1,3 @@
-# fmt: off
 from itertools import product
 
 import numpy as np
@@ -25,7 +24,7 @@ def atoms(asap3) -> ase.Atoms:
 
 
 @pytest.mark.optimize()
-@pytest.mark.filterwarnings("ignore:Use FrechetCellFilter")
+@pytest.mark.filterwarnings('ignore:Use FrechetCellFilter')
 @pytest.mark.parametrize(
     'cellfilter', [UnitCellFilter, FrechetCellFilter, ExpCellFilter]
 )
@@ -37,7 +36,7 @@ def test_get_and_set_positions(atoms: Atoms, cellfilter: type[Filter]) -> None:
     assert np.allclose(pos, pos2)
 
 
-@pytest.mark.filterwarnings("ignore:Use FrechetCellFilter")
+@pytest.mark.filterwarnings('ignore:Use FrechetCellFilter')
 @pytest.mark.parametrize(
     'cellfilter', [UnitCellFilter, FrechetCellFilter, ExpCellFilter]
 )
@@ -57,7 +56,7 @@ def test_pressure(atoms, cellfilter):
     assert abs(pressure - 10.0) < 0.1
 
 
-@pytest.mark.filterwarnings("ignore:Use FrechetCellFilter")
+@pytest.mark.filterwarnings('ignore:Use FrechetCellFilter')
 @pytest.mark.parametrize(
     'cellfilter', [UnitCellFilter, FrechetCellFilter, ExpCellFilter]
 )
@@ -67,23 +66,22 @@ def test_cellfilter_forces(atoms, cellfilter):
     assert abs(f - fn).max() < 3e-6
 
 
-@pytest.mark.parametrize('cellfilter,cell_factor_name, cell_factor_value', [
-    (UnitCellFilter, 'cell_factor', 1),
-    (UnitCellFilter, 'cell_factor', None),
-    (FrechetCellFilter, 'exp_cell_factor', 1),
-    (FrechetCellFilter, 'exp_cell_factor', None),
-    # Never apply this test to ExpCellFilter because it is known to fail!
-])
+@pytest.mark.parametrize(
+    'cellfilter,cell_factor_name, cell_factor_value',
+    [
+        (UnitCellFilter, 'cell_factor', 1),
+        (UnitCellFilter, 'cell_factor', None),
+        (FrechetCellFilter, 'exp_cell_factor', 1),
+        (FrechetCellFilter, 'exp_cell_factor', None),
+        # Never apply this test to ExpCellFilter because it is known to fail!
+    ],
+)
 def test_cellfilter_stress(
-    atoms: ase.Atoms,
-    cellfilter,
-    cell_factor_name: str,
-    cell_factor_value
+    atoms: ase.Atoms, cellfilter, cell_factor_name: str, cell_factor_value
 ):
-    filter: Filter = cellfilter(**{
-        "atoms": atoms,
-        cell_factor_name: cell_factor_value
-    })
+    filter: Filter = cellfilter(
+        **{'atoms': atoms, cell_factor_name: cell_factor_value}
+    )
 
     # Check gradient at other than origin
     natoms = len(atoms)
@@ -126,7 +124,7 @@ def test_intensive_cell_gradient(atoms: ase.Atoms):
     assert np.allclose(cell_grad, cell_grad2)
 
 
-@pytest.mark.filterwarnings("ignore:Use FrechetCellFilter")
+@pytest.mark.filterwarnings('ignore:Use FrechetCellFilter')
 @pytest.mark.parametrize(
     'cellfilter', [UnitCellFilter, FrechetCellFilter, ExpCellFilter]
 )

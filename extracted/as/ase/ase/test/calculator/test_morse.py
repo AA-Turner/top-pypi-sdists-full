@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 from scipy.optimize import check_grad
@@ -12,9 +11,9 @@ from ase.calculators.fd import (
 from ase.calculators.morse import MorsePotential, fcut, fcut_d
 from ase.vibrations import Vibrations
 
-De = 5.
-Re = 3.
-rho0 = 2.
+De = 5.0
+Re = 3.0
+rho0 = 2.0
 
 
 def test_gs_minimum_energy():
@@ -61,6 +60,7 @@ def fake_neighbor_list(*args, **kwargs):
 def test_override_neighbor_list():
     with pytest.raises(RuntimeError, match='test_neighbor_list'):
         atoms = bulk('Cu', cubic=True)
-        atoms.calc = MorsePotential(A=4.0, epsilon=1.0, r0=2.55,
-                                    neighbor_list=fake_neighbor_list)
+        atoms.calc = MorsePotential(
+            A=4.0, epsilon=1.0, r0=2.55, neighbor_list=fake_neighbor_list
+        )
         _ = atoms.get_potential_energy()

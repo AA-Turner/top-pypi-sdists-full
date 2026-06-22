@@ -14,9 +14,6 @@
 #include "string_fastsearch.h"
 #include "gil_utils.h"
 
-#define CHECK_OVERFLOW(index) if (buf + (index) >= after) return 0
-#define MSB(val) ((val) >> 7 & 1)
-
 #ifdef _MSC_VER
 // MSVC sometimes complains (C4715: "not all control paths return a value")
 // on switch statements over enum classes, even though all enum values are covered.
@@ -645,7 +642,9 @@ struct Buffer {
     {
         Buffer<enc> tmp(after, 0);
         tmp--;
-        while (tmp >= *this && (*tmp == '\0' || NumPyOS_ascii_isspace(*tmp))) {
+        while (tmp >= *this && (
+                NumPyOS_ascii_isspace(*tmp) ||
+                (enc != ENCODING::UTF8 && *tmp == '\0'))) {
             tmp--;
         }
         tmp++;
@@ -1197,7 +1196,8 @@ string_lrstrip_whitespace(Buffer<enc> buf, Buffer<enc> out, STRIPTYPE strip_type
 
     if (strip_type != STRIPTYPE::LEFTSTRIP) {
         while (new_stop > new_start) {
-            if (*traverse_buf != 0 && !traverse_buf.first_character_isspace()) {
+            if (!traverse_buf.first_character_isspace() &&
+                    (enc == ENCODING::UTF8 || *traverse_buf != 0)) {
                 break;
             }
 

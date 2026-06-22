@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 
 from ase.build import bulk, molecule
@@ -15,12 +14,14 @@ def test_dmol():
 
         # check cell
         if all(atoms.pbc):
-            assert abs(atoms.cell - ref_atoms.cell).max() < dist_tol, \
-                (atoms.cell - ref_atoms.cell)
+            assert abs(atoms.cell - ref_atoms.cell).max() < dist_tol, (
+                atoms.cell - ref_atoms.cell
+            )
 
         # check positions
-        assert abs(atoms.positions - ref_atoms.positions).max() < dist_tol, \
-            (atoms.positions - ref_atoms.positions)
+        assert abs(atoms.positions - ref_atoms.positions).max() < dist_tol, (
+            atoms.positions - ref_atoms.positions
+        )
 
         # check symbols
         assert atoms.get_chemical_symbols() == ref_atoms.get_chemical_symbols()

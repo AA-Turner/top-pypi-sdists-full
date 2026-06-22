@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 from scipy.optimize import fmin_bfgs
 
@@ -32,7 +31,7 @@ class NDPoly:
 
     def fit(self, x, y):
         """Fit polynomium at points in x to values in y."""
-        A = (x**self.exponents[:, np.newaxis]).prod(2)
+        A = (x ** self.exponents[:, np.newaxis]).prod(2)
         self.c = np.linalg.solve(np.inner(A, A), np.dot(A, y))
 
 

@@ -1,6 +1,6 @@
 import re
 
-_pattern_test_data = []
+_pattern_test_data: list[re.Pattern] = []
 
 
 def _define_pattern(pattern, example, *args):

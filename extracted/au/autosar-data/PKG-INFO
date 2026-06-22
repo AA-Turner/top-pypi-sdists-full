@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autosar-data
-Version: 0.15.0
+Version: 0.16.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
@@ -14,9 +14,9 @@ Summary: read, write and modify Autosar arxml data using Python
 Author-email: Daniel Thaler <daniel@dthaler.de>
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Documentation, https://danielt.github.io/autosar-data-py/
 Project-URL: Source, https://github.com/DanielT/autosar-data-py
 Project-URL: Tracker, https://github.com/DanielT/autosar-data-py/issues
-Project-URL: Documentation, https://danielt.github.io/autosar-data-py/
 
 # `autosar-data-py`
 

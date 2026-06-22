@@ -85,9 +85,26 @@ class TestDirectiveInclude(BaseTestCase):
         self.assertIn("Could not find file", html)
         self.assertIn("<div>include html</div>", html)
         self.assertIn("<blockquote>", html)
-        self.assertIn("# Table of Contents", html)
+        self.assertIn("Could not include outside source dir", html)
 
     def test_include_missing_source(self):
         s = ".. include:: foo.txt"
         html = self.md(s)
         self.assertIn("Missing source file", html)
+
+
+class TestImageDirectiveSrc(BaseTestCase):
+    md = create_markdown(escape=False, plugins=[RSTDirective([Image()])])  # type: ignore[list-item]
+
+    def test_harmful_src_blocked(self):
+        html = self.md(".. image:: javascript:alert")
+        self.assertIn('src="#harmful-link"', html)
+        self.assertNotIn("javascript:alert", html)
+
+    def test_safe_src_preserved(self):
+        html = self.md(".. image:: cat.png")
+        self.assertIn('src="cat.png"', html)
+
+    def test_target_still_filtered(self):
+        html = self.md(".. image:: cat.png\n   :target: javascript:alert")
+        self.assertNotIn("javascript:alert", html)

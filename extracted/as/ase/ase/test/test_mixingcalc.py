@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 
@@ -21,7 +20,7 @@ def test_mixingcalc():
     """
 
     # Calculate reference values:
-    atoms = fcc111("Cu", (2, 2, 1), vacuum=10.0)
+    atoms = fcc111('Cu', (2, 2, 1), vacuum=10.0)
     atoms[0].x += 0.2
 
     # First run the test with EMT similarly to the test of the single point

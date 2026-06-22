@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 
@@ -60,22 +59,24 @@ def test_magres():
     calc.results['sus'] = np.eye(3) * 2
     si2.calc = calc
 
-    si2.info['magres_units'] = {'ms': 'ppm',
-                                'efg': 'au',
-                                'sus': '10^-6.cm^3.mol^-1'}
+    si2.info['magres_units'] = {
+        'ms': 'ppm',
+        'efg': 'au',
+        'sus': '10^-6.cm^3.mol^-1',
+    }
 
     write('si2_test.magres', si2)
     si2 = read('si2_test.magres')
 
-    assert (np.trace(si2.get_array('ms')[0]) == 3)
-    assert (np.all(np.isclose(si2.get_array('efg')[:, 2, 2], -2)))
-    assert (np.all(np.isclose(si2.calc.results['sus'], np.eye(3) * 2)))
+    assert np.trace(si2.get_array('ms')[0]) == 3
+    assert np.all(np.isclose(si2.get_array('efg')[:, 2, 2], -2))
+    assert np.all(np.isclose(si2.calc.results['sus'], np.eye(3) * 2))
 
 
 def test_magres_large(datadir):
 
     # Test with big structure
-    assert len(read(datadir / "large_atoms.magres")) == 240
+    assert len(read(datadir / 'large_atoms.magres')) == 240
 
 
 def test_magres_sitelabels(datadir):
@@ -105,5 +106,5 @@ def test_magres_with_large_indices():
         f.write(magres_with_too_large_index)
 
     # Check that reading raises the correct error
-    with pytest.raises(RuntimeError, match="Index greater than 999 detected"):
+    with pytest.raises(RuntimeError, match='Index greater than 999 detected'):
         read('magres_large_index.magres')

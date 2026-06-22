@@ -17,6 +17,8 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.responses import Response
 
+from dazzle.core import ir
+
 
 def register_exception_handlers(app: FastAPI) -> None:
     """
@@ -344,7 +346,7 @@ def register_site_error_handlers(
     app: FastAPI,
     sitespec_data: dict[str, Any],
     project_root: Path | None = None,
-    appspec: Any = None,
+    appspec: ir.AppSpec | None = None,
 ) -> None:
     """
     Register custom HTTP error handlers for site pages.
@@ -398,7 +400,9 @@ def register_site_error_handlers(
     workspace_slugs: list[str] = []
     if appspec is not None:
         try:
-            entity_slugs = [e.name.lower().replace("_", "-") for e in appspec.domain.entities]
+            from dazzle.core.strings import entity_slug
+
+            entity_slugs = [entity_slug(e.name) for e in appspec.domain.entities]
             workspace_slugs = [w.name for w in getattr(appspec, "workspaces", []) or []]
         except AttributeError:
             pass
@@ -537,7 +541,7 @@ def register_site_error_handlers(
         if getattr(app, "debug", False):
             raise exc
 
-        logging.getLogger("dazzle.errors").exception(
+        logging.getLogger(__name__).exception(
             "Unhandled exception on %s %s",
             getattr(request, "method", "?"),
             getattr(getattr(request, "url", None), "path", "?"),

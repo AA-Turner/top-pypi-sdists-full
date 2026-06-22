@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 
@@ -23,15 +22,18 @@ class NoisyLennardJones(LennardJones):
         self.rng = rng
         LennardJones.__init__(self, *args, **kwargs)
 
-    def calculate(self, atoms=None, properties=['energy'],
-                  system_changes=all_changes):
+    def calculate(
+        self, atoms=None, properties=['energy'], system_changes=all_changes
+    ):
         LennardJones.calculate(self, atoms, properties, system_changes)
         if 'forces' in self.results:
             self.results['forces'] += 1e-4 * self.rng.normal(
-                size=self.results['forces'].shape, )
+                size=self.results['forces'].shape,
+            )
         if 'stress' in self.results:
             self.results['stress'] += 1e-4 * self.rng.normal(
-                size=self.results['stress'].shape, )
+                size=self.results['stress'].shape,
+            )
 
 
 def setup_cell():
@@ -61,23 +63,23 @@ def symmetrized_optimisation(at_init, filter):
     at.calc = NoisyLennardJones(rng=rng)
 
     at_cell = filter(at)
-    print("Initial Energy", at.get_potential_energy(), at.get_volume())
+    print('Initial Energy', at.get_potential_energy(), at.get_volume())
     with PreconLBFGS(at_cell, precon=None) as dyn:
         dyn.run(steps=300, fmax=0.001)
-        print("n_steps", dyn.get_number_of_steps())
-    print("Final Energy", at.get_potential_energy(), at.get_volume())
-    print("Final forces\n", at.get_forces())
-    print("Final stress\n", at.get_stress())
+        print('n_steps', dyn.get_number_of_steps())
+    print('Final Energy', at.get_potential_energy(), at.get_volume())
+    print('Final forces\n', at.get_forces())
+    print('Final stress\n', at.get_stress())
 
-    print("initial symmetry at 1e-6")
+    print('initial symmetry at 1e-6')
     di = check_symmetry(at_init, 1.0e-6, verbose=True)
-    print("final symmetry at 1e-6")
+    print('final symmetry at 1e-6')
     df = check_symmetry(at, 1.0e-6, verbose=True)
     return di, df
 
 
 def test_as_dict():
-    atoms = bulk("Cu")
+    atoms = bulk('Cu')
     atoms.set_constraint(FixSymmetry(atoms))
     assert atoms.constraints[0].todict() == {
         'name': 'FixSymmetry',
@@ -92,14 +94,14 @@ def test_as_dict():
 
 
 def test_fail_md():
-    atoms = bulk("Cu")
+    atoms = bulk('Cu')
     atoms.set_constraint(FixSymmetry(atoms))
 
     atoms.calc = LennardJones()
     # This will not fail if the user has no logfile specified
     # a little bit weird...
     with pytest.raises(NotImplementedError):
-        dyn = VelocityVerlet(atoms, timestep=1.0, logfile="-")
+        dyn = VelocityVerlet(atoms, timestep=1.0, logfile='-')
         dyn.run(5)
 
 
@@ -132,7 +134,8 @@ def test_sym_adj_cell(filter):
     at_init, _at_rot = setup_cell()
     at_sym_3 = at_init.copy()
     at_sym_3.set_constraint(
-        FixSymmetry(at_sym_3, adjust_positions=True, adjust_cell=True))
+        FixSymmetry(at_sym_3, adjust_positions=True, adjust_cell=True)
+    )
     di, df = symmetrized_optimisation(at_sym_3, filter)
     assert di.number == 229 and is_subgroup(sub_data=di, sup_data=df)
 
@@ -143,7 +146,8 @@ def test_sym_rot_adj_cell(filter):
     at_init, _at_rot = setup_cell()
     at_sym_3_rot = at_init.copy()
     at_sym_3_rot.set_constraint(
-        FixSymmetry(at_sym_3_rot, adjust_positions=True, adjust_cell=True))
+        FixSymmetry(at_sym_3_rot, adjust_positions=True, adjust_cell=True)
+    )
     di, df = symmetrized_optimisation(at_sym_3_rot, filter)
     assert di.number == 229 and is_subgroup(sub_data=di, sup_data=df)
 
@@ -151,9 +155,20 @@ def test_sym_rot_adj_cell(filter):
 @pytest.mark.filterwarnings('ignore:ASE Atoms-like input is deprecated')
 def test_fix_symmetry_shuffle_indices():
     atoms = Atoms(
-        'AlFeAl6', cell=[6] * 3,
-        positions=[[0, 0, 0], [2.9, 2.9, 2.9], [0, 0, 3], [0, 3, 0],
-                   [0, 3, 3], [3, 0, 0], [3, 0, 3], [3, 3, 0]], pbc=True)
+        'AlFeAl6',
+        cell=[6] * 3,
+        positions=[
+            [0, 0, 0],
+            [2.9, 2.9, 2.9],
+            [0, 0, 3],
+            [0, 3, 0],
+            [0, 3, 3],
+            [3, 0, 0],
+            [3, 0, 3],
+            [3, 3, 0],
+        ],
+        pbc=True,
+    )
     atoms.set_constraint(FixSymmetry(atoms))
     at_permut = atoms[[0, 2, 3, 4, 5, 6, 7, 1]]
     pos0 = atoms.get_positions()

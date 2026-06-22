@@ -250,5 +250,3 @@ class Auth:
             self.client.storage["auth_key"] = auth_key
 
             return auth_key
-
-

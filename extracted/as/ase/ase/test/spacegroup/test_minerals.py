@@ -1,4 +1,3 @@
-# fmt: off
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
@@ -55,8 +54,9 @@ def test_mineral_spacegroups(datadir, mineral):
     assert dataset.number == mineral.spacegroup
 
 
-@pytest.mark.parametrize('mineral,rngseed', product(
-    list(named_minerals), [13, 42, 93]))
+@pytest.mark.parametrize(
+    'mineral,rngseed', list(product(list(named_minerals), [13, 42, 93]))
+)
 def test_mineral_symmetrization(datadir, mineral, rngseed):
     atoms = read(datadir / mineral.datafile)
     assert mineral.spacegroup > 1  # some symmetry
@@ -74,11 +74,14 @@ def test_mineral_symmetrization(datadir, mineral, rngseed):
     _symatoms, dataset = get_symmetrized_atoms(atoms, symprec=symprec)
     while dataset.number != mineral.spacegroup:
         if symprec > 0.5:
-            raise ValueError('Could not recover original symmetry of the'
-                             f'mineral {mineral.name}')
+            raise ValueError(
+                'Could not recover original symmetry of the'
+                f'mineral {mineral.name}'
+            )
         symprec *= 1.2
         try:
             _symatoms, dataset = get_symmetrized_atoms(
-                atoms, symprec=symprec, final_symprec=1e-5)
+                atoms, symprec=symprec, final_symprec=1e-5
+            )
         except IntermediateDatasetError:
             continue

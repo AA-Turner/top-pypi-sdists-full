@@ -12,17 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import *
+from .base import NcoreRawUpdate, NcoreUpdateNewMessage, NcoreUpdateBotChatInviteRequester
 
 
 EVENT_ROUTER = {
     "updateNewMessage": NcoreUpdateNewMessage,
     "updateNewChannelMessage": NcoreUpdateNewMessage,
     "updateEditMessage": NcoreUpdateNewMessage,
-    "updateEditChannelMessage": NcoreUpdateNewMessage
+    "updateEditChannelMessage": NcoreUpdateNewMessage,
+    "updateBotChatInviteRequester": NcoreUpdateBotChatInviteRequester
 }
 
 
 class EventType:
     NewMessage = {"updateNewMessage", "updateNewChannelMessage"}
     EditMessage = {"updateEditMessage", "updateEditChannelMessage"}
+    ChatInviteRequest = {"updateBotChatInviteRequester"}

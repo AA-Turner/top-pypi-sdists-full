@@ -18,11 +18,13 @@ from solders.rpc.responses import (
 )
 
 import spl.token.instructions as spl_token
+from solana.rpc import types
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Commitment
-from solana.rpc.types import TxOpts
+from solana.rpc.models import TxOpts as TxOptsModel
 from spl.token._layouts import ACCOUNT_LAYOUT, MINT_LAYOUT, MULTISIG_LAYOUT
-from spl.token.core import AccountInfo, MintInfo, _TokenCore
+from spl.token.core import _TokenCore
+from spl.token.models import AccountInfo, MintInfo
 
 
 class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
@@ -351,7 +353,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         self,
         m: int,
         multi_signers: List[Pubkey],
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> Pubkey:  # pylint: disable=invalid-name
         """Create and initialize a new multisig.
@@ -370,7 +372,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
         txn, multisig = self._create_multisig_args(m, multi_signers, balance_needed, recent_blockhash_to_use)
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         await self._conn.send_transaction(txn, opts=opts_to_use)
         return multisig.pubkey()
 
@@ -391,7 +397,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         owner: Union[Keypair, Pubkey],
         amount: int,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Transfer tokens to another account.
@@ -405,7 +411,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -427,7 +437,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         owner: Pubkey,
         amount: int,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Grant a third-party permission to transfer up the specified number of tokens from an account.
@@ -441,7 +451,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -461,7 +475,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         account: Pubkey,
         owner: Pubkey,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Revoke transfer authority for a given account.
@@ -473,7 +487,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -489,7 +507,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         authority_type: spl_token.AuthorityType,
         new_authority: Optional[Pubkey] = None,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Assign a new authority to the account.
@@ -503,7 +521,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -524,7 +546,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         mint_authority: Union[Keypair, Pubkey],
         amount: int,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Mint new tokens.
@@ -540,7 +562,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         If skip confirmation is set to `False`, this method will block for at most 30 seconds
         or until the transaction is confirmed.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -560,7 +586,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         owner: Pubkey,
         amount: int,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Burn tokens.
@@ -573,7 +599,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -586,7 +616,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         dest: Pubkey,
         authority: Pubkey,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Remove approval for the transfer of any remaining tokens.
@@ -599,7 +629,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -618,7 +652,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         account: Pubkey,
         authority: Pubkey,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Freeze account.
@@ -630,7 +664,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -642,7 +680,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         account: Pubkey,
         authority: Pubkey,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Thaw account.
@@ -654,7 +692,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -669,7 +711,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         amount: int,
         decimals: int,
         multi_signers: Optional[List[Keypair]],
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Transfer tokens to another account, asserting the token mint and decimals.
@@ -684,7 +726,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -708,7 +754,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         amount: int,
         decimals: int,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Grant a third-party permission to transfer up the specified number of tokens from an account.
@@ -725,7 +771,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash (optional): A prefetched blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -748,7 +798,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         amount: int,
         decimals: int,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Mint new tokens, asserting the token mint and decimals.
@@ -762,7 +812,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash (optional): A prefetched blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )
@@ -784,7 +838,7 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
         amount: int,
         decimals: int,
         multi_signers: Optional[List[Keypair]] = None,
-        opts: Optional[TxOpts] = None,
+        opts: Optional[Union[types.TxOpts, TxOptsModel]] = None,
         recent_blockhash: Optional[Blockhash] = None,
     ) -> SendTransactionResp:
         """Burn tokens, asserting the token mint and decimals.
@@ -798,7 +852,11 @@ class AsyncToken(_TokenCore):  # pylint: disable=too-many-public-methods
             opts: (optional) Transaction options.
             recent_blockhash: (optional) a prefetched Blockhash for the transaction.
         """
-        opts_to_use = TxOpts(preflight_commitment=self._conn.commitment) if opts is None else opts
+        opts_to_use = (
+            TxOptsModel(preflight_commitment=self._conn.commitment)
+            if opts is None
+            else TxOptsModel.from_namedtuple(opts)
+        )
         recent_blockhash_to_use = (
             (await self._conn.get_latest_blockhash()).value.blockhash if recent_blockhash is None else recent_blockhash
         )

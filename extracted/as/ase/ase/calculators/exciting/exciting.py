@@ -1,5 +1,3 @@
-# fmt: off
-
 """ASE Calculator for the ground state exciting DFT code.
 
 Exciting calculator class in this file allow for writing exciting input
@@ -39,6 +37,7 @@ class ExcitingProfile(BaseProfile):
        * OnlyTypo fix part of the profile used in the base class is the run
          method, which is part of the BinaryRunner class.
     """
+
     configvars = {'species_path'}
 
     def __init__(self, command, species_path=None, **kwargs):
@@ -132,8 +131,7 @@ class ExcitingGroundStateTemplate(CalculatorTemplate):
         # Create a copy of the parameters dictionary so we don't
         # modify the callers dictionary.
         parameters_dict = parameters
-        required_keys = {
-            'title', 'species_path', 'ground_state_input'}
+        required_keys = {'title', 'species_path', 'ground_state_input'}
         assert required_keys <= set(parameters_dict)
         file_name = Path(directory) / 'input.xml'
         species_path = parameters_dict.pop('species_path')
@@ -146,14 +144,15 @@ class ExcitingGroundStateTemplate(CalculatorTemplate):
             parameters_dict['properties_input'] = None
 
         ase.io.exciting.write_input_xml_file(
-            file_name=file_name, atoms=atoms,
+            file_name=file_name,
+            atoms=atoms,
             ground_state_input=parameters_dict['ground_state_input'],
-            species_path=species_path, title=title,
-            properties_input=parameters_dict['properties_input'])
+            species_path=species_path,
+            title=title,
+            properties_input=parameters_dict['properties_input'],
+        )
 
-    def execute(
-            self, directory: PathLike,
-            profile) -> SubprocessRunResults:
+    def execute(self, directory: PathLike, profile) -> SubprocessRunResults:
         """Given an exciting calculation profile, execute the calculation.
 
         When executing an exciting calculation, you need to call run on an
@@ -208,8 +207,7 @@ class ExcitingGroundStateResults:
         # TODO(Alex) We should a common list of keys somewhere
         # such that parser -> results -> getters are consistent
         return float(
-            self.results['scl'][self.final_scl_iteration][
-                'Total energy']
+            self.results['scl'][self.final_scl_iteration]['Total energy']
         )
 
     def band_gap(self) -> float:
@@ -278,7 +276,8 @@ class ExcitingGroundStateCalculator(GenericFileIOCalculator):
         required_params = {
             'title': title,
             'species_path': species_path,
-            'ground_state_input': ground_state_input}
+            'ground_state_input': ground_state_input,
+        }
         # Set parameters to an empty dict if it is None (or Falsey). This
         # is needed for the next line.
         parameters = parameters or {}

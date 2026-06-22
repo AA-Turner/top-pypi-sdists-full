@@ -4,15 +4,15 @@ import pytest
 from ase import units
 from ase.build import bulk
 from ase.calculators.harmonic import SpringCalculator
+from ase.md import thermalize_momenta
 from ase.md.switch_langevin import SwitchLangevin
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 
 
 @pytest.mark.slow()
 def test_langevin_switching():
     # params
     size = 6
-    T = 300
+    temperature = 300.0  # K
     n_steps = 500
     k1 = 2.0
     k2 = 4.0
@@ -30,8 +30,8 @@ def test_langevin_switching():
     n_atoms = len(atoms)
     calc1.atoms = atoms
     calc2.atoms = atoms
-    F1 = calc1.get_free_energy(T) / n_atoms
-    F2 = calc2.get_free_energy(T) / n_atoms
+    F1 = calc1.get_free_energy(temperature) / n_atoms
+    F2 = calc2.get_free_energy(temperature) / n_atoms
     dF_theory = F2 - F1
 
     # switch_forward
@@ -40,14 +40,14 @@ def test_langevin_switching():
         calc1,
         calc2,
         dt * units.fs,
-        temperature_K=T,
+        temperature_K=temperature,
         friction=0.01,
         n_eq=n_steps,
         n_switch=n_steps,
         fixcm=False,
         rng=rng,
     ) as dyn_forward:
-        MaxwellBoltzmannDistribution(atoms, temperature_K=2 * T, rng=rng)
+        thermalize_momenta(atoms, 2.0 * temperature, rng=rng)
         dyn_forward.run()
         dF_forward = dyn_forward.get_free_energy_difference() / len(atoms)
 
@@ -57,14 +57,14 @@ def test_langevin_switching():
         calc2,
         calc1,
         dt * units.fs,
-        temperature_K=T,
+        temperature_K=temperature,
         friction=0.01,
         n_eq=n_steps,
         n_switch=n_steps,
         fixcm=False,
         rng=rng,
     ) as dyn_backward:
-        MaxwellBoltzmannDistribution(atoms, temperature_K=2 * T, rng=rng)
+        thermalize_momenta(atoms, 2.0 * temperature, rng=rng)
         dyn_backward.run()
         dF_backward = -dyn_backward.get_free_energy_difference() / len(atoms)
 

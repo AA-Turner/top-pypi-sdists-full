@@ -82,7 +82,7 @@ class MDLogger(IOContext):
         self.close()
 
     def __call__(self):
-        epot = self.atoms.get_potential_energy()
+        epot = self._potential_energy()
         ekin = self.atoms.get_kinetic_energy()
         temp = self.atoms.get_temperature()
         global_natoms = self.atoms.get_global_number_of_atoms()
@@ -96,7 +96,12 @@ class MDLogger(IOContext):
             dat = ()
         dat += (epot + ekin, epot, ekin, temp)
         if self.stress:
-            dat += tuple(self.atoms.get_stress(
-                include_ideal_gas=True) / units.GPa)
+            dat += tuple(self._stress() / units.GPa)
         self.logfile.write(self.fmt % dat)
         self.logfile.flush()
+
+    def _potential_energy(self):
+        return self.atoms.get_potential_energy()
+
+    def _stress(self):
+        return self.atoms.get_stress(include_ideal_gas=True)

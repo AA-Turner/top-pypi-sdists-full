@@ -3,22 +3,22 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use ast_grep_config::{
-  from_yaml_string, CombinedScan, RuleCollection, RuleConfig, Severity, NO_SUPPRESS_ALL_ID,
-  UNUSED_SUPPRESSION_ID,
+  CombinedScan, NO_SUPPRESS_ALL_ID, RuleCollection, RuleConfig, Severity, UNUSED_SUPPRESSION_ID,
+  from_yaml_string,
 };
-use ast_grep_core::{tree_sitter::StrDoc, NodeMatch};
+use ast_grep_core::{NodeMatch, tree_sitter::StrDoc};
 use ast_grep_language::SupportLang;
 use clap::Args;
 use ignore::WalkParallel;
 
-use crate::config::{read_rule_file, with_rule_stats, ProjectConfig};
+use crate::config::{ProjectConfig, read_rule_file, with_rule_stats};
 use crate::lang::SgLang;
 use crate::print::{
   CloudPrinter, ColoredPrinter, Diff, FileNamePrinter, InteractivePrinter, JSONPrinter, Platform,
   PrintProcessor, Printer, ReportStyle, SimpleFile,
 };
 use crate::utils::RuleOverwrite;
-use crate::utils::{filter_file_rule, ContextArgs, InputArgs, OutputArgs, OverwriteArgs};
+use crate::utils::{ContextArgs, InputArgs, OutputArgs, OverwriteArgs, filter_file_rule};
 use crate::utils::{ErrorContext as EC, MaxItemCounter};
 use crate::utils::{FileTrace, ScanTrace};
 use crate::utils::{Items, PathWorker, StdInWorker, Worker};
@@ -147,8 +147,8 @@ impl ScanWithConfig {
     let no_suppress_all_rule = no_suppress_all_rule_config(&overwrite);
     let mut proj_dir = PathBuf::from(".");
     let (configs, rule_trace) = if let Some(path) = &arg.rule {
-      let rules =
-        read_rule_file(path, None).and_then(|configs| overwrite.process_configs(configs))?;
+      let rules = read_rule_file(path, &Default::default())
+        .and_then(|configs| overwrite.process_configs(configs))?;
       proj_dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
       with_rule_stats(rules)?
     } else if let Some(text) = &arg.inline_rules {
@@ -311,10 +311,11 @@ struct ScanStdin {
 impl ScanStdin {
   fn try_new(arg: ScanArg) -> Result<Self> {
     let overwrite = RuleOverwrite::new(&arg.overwrite)?;
+    let global_rules = Default::default();
     let rules = if let Some(path) = &arg.rule {
-      read_rule_file(path, None).and_then(|configs| overwrite.process_configs(configs))?
+      read_rule_file(path, &global_rules).and_then(|configs| overwrite.process_configs(configs))?
     } else if let Some(text) = &arg.inline_rules {
-      let configs = from_yaml_string(text, &Default::default())
+      let configs = from_yaml_string(text, &global_rules)
         .with_context(|| EC::ParseRule("INLINE_RULES".into()))?;
       overwrite.process_configs(configs)?
     } else {
@@ -399,7 +400,7 @@ fn match_rule_diff_on_file<T>(
   let diffs = matches
     .into_iter()
     .filter_map(|(rule, m)| {
-      let fixers = &rule.matcher.fixer;
+      let fixers = &rule.fixer;
       let diff = Diff::multiple(m, &rule.matcher, fixers)?;
       Some((diff, rule))
     })
@@ -416,7 +417,7 @@ fn match_rule_on_file<T>(
   processor: &impl PrintProcessor<T>,
 ) -> Result<T> {
   let file = SimpleFile::new(path.to_string_lossy(), file_content);
-  let processed = if let Some(fixer) = &rule.matcher.fixer.first() {
+  let processed = if let Some(fixer) = &rule.fixer.first() {
     let diffs = matches
       .into_iter()
       .map(|m| (Diff::generate(m, &rule.matcher, fixer), rule))

@@ -3,13 +3,13 @@
 from .error import Error
 from .error_response import ErrorResponse
 from .error_source_type_0 import ErrorSourceType0
-from .http_header import HttpHeader
 from .job import Job
 from .job_create_request import JobCreateRequest
 from .job_create_resource import JobCreateResource
-from .job_environment import JobEnvironment
 from .job_environments import JobEnvironments
+from .job_environments_additional_property import JobEnvironmentsAdditionalProperty
 from .job_http_configuration import JobHttpConfiguration
+from .job_http_configuration_headers import JobHttpConfigurationHeaders
 from .job_http_configuration_method import JobHttpConfigurationMethod
 from .job_kind_type_0 import JobKindType0
 from .job_list_response import JobListResponse
@@ -21,8 +21,6 @@ from .list_meta import ListMeta
 from .list_retry_policies_sort import ListRetryPoliciesSort
 from .list_runs_sort import ListRunsSort
 from .pagination_meta import PaginationMeta
-from .retry_on import RetryOn
-from .retry_on_reasons_item import RetryOnReasonsItem
 from .retry_policy import RetryPolicy
 from .retry_policy_backoff import RetryPolicyBackoff
 from .retry_policy_create_request import RetryPolicyCreateRequest
@@ -51,13 +49,13 @@ __all__ = (
     "Error",
     "ErrorResponse",
     "ErrorSourceType0",
-    "HttpHeader",
     "Job",
     "JobCreateRequest",
     "JobCreateResource",
-    "JobEnvironment",
     "JobEnvironments",
+    "JobEnvironmentsAdditionalProperty",
     "JobHttpConfiguration",
+    "JobHttpConfigurationHeaders",
     "JobHttpConfigurationMethod",
     "JobKindType0",
     "JobListResponse",
@@ -69,8 +67,6 @@ __all__ = (
     "ListRetryPoliciesSort",
     "ListRunsSort",
     "PaginationMeta",
-    "RetryOn",
-    "RetryOnReasonsItem",
     "RetryPolicy",
     "RetryPolicyBackoff",
     "RetryPolicyCreateRequest",

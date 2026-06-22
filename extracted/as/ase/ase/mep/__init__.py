@@ -1,5 +1,3 @@
-# fmt: off
-
 """Methods for finding minimum-energy paths and/or saddle points."""
 
 from ase.mep.autoneb import AutoNEB
@@ -13,6 +11,15 @@ from ase.mep.neb import (
     interpolate,
 )
 
-__all__ = ['NEB', 'NEBTools', 'DyNEB', 'AutoNEB', 'interpolate',
-           'idpp_interpolate', 'SingleCalculatorNEB',
-           'DimerControl', 'MinModeAtoms', 'MinModeTranslate']
+__all__ = [
+    'NEB',
+    'NEBTools',
+    'DyNEB',
+    'AutoNEB',
+    'interpolate',
+    'idpp_interpolate',
+    'SingleCalculatorNEB',
+    'DimerControl',
+    'MinModeAtoms',
+    'MinModeTranslate',
+]

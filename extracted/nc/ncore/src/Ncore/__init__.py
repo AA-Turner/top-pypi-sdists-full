@@ -22,5 +22,5 @@ class Client(BaseClient, Methods):
     ...
 
 
-__version__ = "0.9.815"
+__version__ = "0.9.834"
 __all__ = ["Client", "Router", "parser"]

@@ -6,8 +6,8 @@ from scipy.stats import gaussian_kde
 
 from ase import Atoms, units
 from ase.calculators.morse import MorsePotential
+from ase.md import thermalize_momenta
 from ase.md.langevin import Langevin
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 
 # Morse potential parameters of O2 in the ground state
 # D. D. Konowalow and J. O. Hirschfelder, Phys. Fluids 4, 637 (1961).
@@ -27,7 +27,7 @@ def run(temperature_K: float) -> np.ndarray:
     rng = np.random.default_rng(42)
 
     # Initialize velocities
-    MaxwellBoltzmannDistribution(atoms, temperature_K=temperature_K, rng=rng)
+    thermalize_momenta(atoms, temperature_K, rng=rng)
 
     steps = 1000
     distances = np.full(steps + 1, np.nan)

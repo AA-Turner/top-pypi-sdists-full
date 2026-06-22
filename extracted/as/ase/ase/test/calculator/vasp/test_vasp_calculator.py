@@ -1,4 +1,3 @@
-# fmt: off
 """Test module for explicitly unittesting parts of the VASP calculator"""
 
 import os
@@ -22,7 +21,7 @@ from ase.calculators.vasp.vasp import (
 )
 
 
-@pytest.fixture(name="atoms")
+@pytest.fixture(name='atoms')
 def fixture_atoms():
     return molecule('H2', vacuum=5, pbc=True)
 
@@ -56,10 +55,11 @@ def test_check_atoms(atoms):
         'a_string',
         # We cannot handle lists of atoms either
         [molecule('H2', vacuum=5)],
-    ])
+    ],
+)
 def test_not_atoms(bad_atoms):
     """Check that passing in objects which are not
-    actually Atoms objects raises a setup error """
+    actually Atoms objects raises a setup error"""
 
     with pytest.raises(CalculatorSetupError):
         check_atoms_type(bad_atoms)
@@ -67,11 +67,14 @@ def test_not_atoms(bad_atoms):
         check_atoms(bad_atoms)
 
 
-@pytest.mark.parametrize('pbc', [
-    3 * [False],
-    [True, False, True],
-    [False, True, False],
-])
+@pytest.mark.parametrize(
+    'pbc',
+    [
+        3 * [False],
+        [True, False, True],
+        [False, True, False],
+    ],
+)
 def test_bad_pbc(atoms, pbc):
     """Test handling of PBC"""
     atoms.pbc = pbc
@@ -121,7 +124,7 @@ def test_vasp_kpoints_none(atoms, tmp_path, monkeypatch):
 
 def test_spinpol_vs_ispin():
     """Test if `spinpol` is consistent with `ispin`"""
-    atoms = molecule("O2")
+    atoms = molecule('O2')
     atoms.set_initial_magnetic_moments([1.0, 1.0])
 
     calc = Vasp(ispin=1)
@@ -143,40 +146,41 @@ class TestReadMagneticMoments:
 
     # from `bulk("Fe", "bcc", a=2.8630354989499160, cubic=True)`
     lines_spd = [
-        " magnetization (x)\n",
-        "\n",
-        "# of ion       s       p       d       tot\n",
-        "------------------------------------------\n",
-        "    1       -0.009  -0.045   2.369   2.315\n",
-        "    2       -0.009  -0.045   2.369   2.315\n",
-        "--------------------------------------------------\n"
-        "tot         -0.019  -0.089   4.738   4.630\n",
+        ' magnetization (x)\n',
+        '\n',
+        '# of ion       s       p       d       tot\n',
+        '------------------------------------------\n',
+        '    1       -0.009  -0.045   2.369   2.315\n',
+        '    2       -0.009  -0.045   2.369   2.315\n',
+        '--------------------------------------------------\n'
+        'tot         -0.019  -0.089   4.738   4.630\n',
     ]
 
     # from `bulk("Ga", "bcc", a=4.0692361730014719, cubic=True)`
     lines_spdf = [
-        " magnetization (x)\n",
-        "\n",
-        "# of ion       s       p       d       f       tot\n",
-        "--------------------------------------------------\n",
-        "    1        0.013   0.007   0.329   6.877   7.227\n",
-        "    2        0.013   0.007   0.329   6.877   7.227\n",
-        "--------------------------------------------------\n",
-        "tot          0.026   0.014   0.659  13.755  14.454\n",
+        ' magnetization (x)\n',
+        '\n',
+        '# of ion       s       p       d       f       tot\n',
+        '--------------------------------------------------\n',
+        '    1        0.013   0.007   0.329   6.877   7.227\n',
+        '    2        0.013   0.007   0.329   6.877   7.227\n',
+        '--------------------------------------------------\n',
+        'tot          0.026   0.014   0.659  13.755  14.454\n',
     ]
 
     @pytest.mark.parametrize(
-        'lines, magmoms_ref', (
+        'lines, magmoms_ref',
+        (
             (lines_spd, (2.315, 2.315)),
             (lines_spdf, (7.227, 7.227)),
-        )
+        ),
     )
     def test(self, lines, magmoms_ref):
         """Test"""
         calc = Vasp()
         # dummy atoms
         calc.atoms = Atoms(
-            ("Fe", "Gd"),
+            ('Fe', 'Gd'),
             positions=((0.0, 0.0, 0.0), (0.5, 0.5, 0.5)),
         )
         calc.resort = [0, 1]
@@ -187,10 +191,10 @@ class TestReadMagneticMoments:
 def test_read_magnetic_moment():
     """Test if the magnetization line in OUTCAR is parsed correctly."""
     # ISPIN 1
-    ln1 = " number of electron       8.0000000 magnetization \n"
+    ln1 = ' number of electron       8.0000000 magnetization \n'
     assert Vasp()._read_magnetic_moment([ln1]) == 0.0
     # ISPIN 2
-    ln2 = " number of electron       8.0000000 magnetization       2.0000000\n"
+    ln2 = ' number of electron       8.0000000 magnetization       2.0000000\n'
     assert Vasp()._read_magnetic_moment([ln2]) == 2.0
 
 
@@ -251,8 +255,8 @@ def test_make_command_explicit(monkeypatch):
 
 
 def test_as_dict():
-    calc = Vasp(lreal=False, xc="pbe")
+    calc = Vasp(lreal=False, xc='pbe')
     dct = calc.asdict()
-    inputs = dct["inputs"]
-    assert inputs["lreal"] is False
-    assert inputs["xc"] == "pbe"
+    inputs = dct['inputs']
+    assert inputs['lreal'] is False
+    assert inputs['xc'] == 'pbe'

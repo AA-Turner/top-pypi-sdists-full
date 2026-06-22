@@ -70,7 +70,7 @@ def replace_scalar_type_names():
         if sys.implementation.name == 'cpython':
             c_typ.tp_name = _name_cache[typ] = b"numpy." + name.encode('utf8')
         else:
-            # It is not guarenteed that the c_typ has this model on other
+            # It is not guaranteed that the c_typ has this model on other
             # implementations
             _name_cache[typ] = b"numpy." + name.encode('utf8')
 
@@ -157,32 +157,6 @@ today_fmt = '%B %d, %Y'
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 default_role = "autolink"
-
-# List of directories, relative to source directories, that shouldn't be searched
-# for source files.
-exclude_dirs = []
-
-exclude_patterns = []
-suppress_warnings = []
-nitpick_ignore = []
-
-if sys.version_info[:2] >= (3, 12):
-    exclude_patterns += [
-        "reference/distutils.rst",
-        "reference/distutils/misc_util.rst",
-    ]
-    suppress_warnings += [
-        'toc.excluded',  # Suppress warnings about excluded toctree entries
-    ]
-    nitpicky = True
-    nitpick_ignore += [
-        ('ref', 'numpy-distutils-refguide'),
-        # The first ignore is not catpured without nitpicky = True.
-        # These three ignores are required once nitpicky = True is set.
-        ('py:mod', 'numpy.distutils'),
-        ('py:class', 'Extension'),
-        ('py:class', 'numpy.distutils.misc_util.Configuration'),
-    ]
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = False
@@ -449,7 +423,7 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/stable', None),
     'imageio': ('https://imageio.readthedocs.io/en/stable', None),
     'skimage': ('https://scikit-image.org/docs/stable', None),
-    'pandas': ('https://pandas.pydata.org/pandas-docs/stable', None),
+    'pandas': ('https://pandas.pydata.org/docs', None),
     'scipy-lecture-notes': ('https://scipy-lectures.org', None),
     'pytest': ('https://docs.pytest.org/en/stable', None),
     'numpy-tutorials': ('https://numpy.org/numpy-tutorials', None),
@@ -609,7 +583,7 @@ def linkcode_resolve(domain, info):
         fn = relpath(fn, start=dirname(numpy.__file__))
 
     if lineno:
-        linespec = "#L%d-L%d" % (lineno, lineno + len(source) - 1)
+        linespec = f"#L{lineno}-L{lineno + len(source) - 1}"
     else:
         linespec = ""
 
@@ -619,8 +593,8 @@ def linkcode_resolve(domain, info):
     if 'dev' in numpy.__version__:
         return f"https://github.com/numpy/numpy/blob/main/numpy/{fn}{linespec}"
     else:
-        return "https://github.com/numpy/numpy/blob/v%s/numpy/%s%s" % (
-           numpy.__version__, fn, linespec)
+        return (f"https://github.com/numpy/numpy/blob/v{numpy.__version__}/"
+                f"numpy/{fn}{linespec}")
 
 
 from pygments.lexer import inherit
@@ -631,7 +605,7 @@ from pygments.token import Comment
 class NumPyLexer(CLexer):
     name = 'NUMPYLEXER'
 
-    tokens = {
+    tokens = {  # noqa: RUF012
         'statements': [
             (r'@[a-zA-Z_]*@', Comment.Preproc, 'macro'),
             inherit,
@@ -647,7 +621,7 @@ breathe_default_project = "numpy"
 breathe_default_members = ("members", "undoc-members", "protected-members")
 
 # See https://github.com/breathe-doc/breathe/issues/696
-nitpick_ignore += [
+nitpick_ignore = [
     ('c:identifier', 'FILE'),
     ('c:identifier', 'size_t'),
     ('c:identifier', 'PyHeapTypeObject'),

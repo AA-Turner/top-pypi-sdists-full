@@ -1,4 +1,4 @@
-use crate::{rule_config::RuleFileGlob, RuleConfig, Severity};
+use crate::{RuleConfig, Severity, rule_config::RuleFileGlob};
 use ast_grep_core::language::Language;
 use globset::{Glob, GlobBuilder, GlobSet, GlobSetBuilder};
 use std::path::Path;
@@ -63,10 +63,10 @@ where
 
 impl<L: Language> ContingentRule<L> {
   pub fn matches_path<P: AsRef<Path>>(&self, path: P) -> bool {
-    if let Some(ignore_globs) = &self.ignore_globs {
-      if ignore_globs.is_match(&path) {
-        return false;
-      }
+    if let Some(ignore_globs) = &self.ignore_globs
+      && ignore_globs.is_match(&path)
+    {
+      return false;
     }
     if let Some(files_globs) = &self.files_globs {
       return files_globs.is_match(path);
@@ -192,9 +192,9 @@ impl<L: Language + Eq> Default for RuleCollection<L> {
 #[cfg(test)]
 mod test {
   use super::*;
+  use crate::GlobalRules;
   use crate::from_yaml_string;
   use crate::test::TypeScript;
-  use crate::GlobalRules;
 
   fn make_rule(files: &str) -> RuleCollection<TypeScript> {
     let globals = GlobalRules::default();

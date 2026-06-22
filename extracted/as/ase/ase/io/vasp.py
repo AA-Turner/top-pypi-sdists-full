@@ -243,20 +243,25 @@ def read_vasp_configuration(fd):
             except KeyError:
                 atomtypes = atomtypes_outpot(fd.name, numsyms)
 
+    # Certain versions of VASP compiled with hdf5 support will write POTCAR
+    # symbols with hashes to the CONTCAR (e.g. "Na_pv/6a2f546d)".
+    for i, atomtype in enumerate(atomtypes):
+        potcar_label = atomtype.split('/')[0]
+        element_symbol = potcar_label.split('_')[0]
+        atomtypes[i] = element_symbol
+
     for i, num in enumerate(numofatoms):
         numofatoms[i] = int(num)
         atom_symbols.extend(numofatoms[i] * [atomtypes[i]])
 
     # Check if Selective dynamics is switched on
-    sdyn = fd.readline()
+    sdyn = fd.readline().strip()
     selective_dynamics = sdyn[0].lower() == 's'
 
     # Check if atom coordinates are cartesian or direct
-    if selective_dynamics:
-        ac_type = fd.readline()
-    else:
-        ac_type = sdyn
-    cartesian = ac_type[0].lower() in ['c', 'k']
+    ac_type = fd.readline().strip() if selective_dynamics else sdyn
+    cartesian = ac_type[0].lower() in {'c', 'k'}
+
     tot_natoms = sum(numofatoms)
     atoms_pos = np.empty((tot_natoms, 3))
     if selective_dynamics:
@@ -447,19 +452,14 @@ def read_vasp_xml(filename='vasprun.xml', index=-1):
     Reads unit cell, atom positions, energies, forces, and constraints
     from vasprun.xml file
 
-    Examples:
+    Examples
+    --------
         >>> import ase.io
         >>> ase.io.write("out.traj", ase.io.read("vasprun.xml", index=":"))
     """
 
     import xml.etree.ElementTree as ET
     from collections import OrderedDict
-
-    from ase.calculators.singlepoint import (
-        SinglePointDFTCalculator,
-        SinglePointKPoint,
-    )
-    from ase.units import GPa
 
     tree = ET.iterparse(filename, events=['start', 'end'])
 
@@ -542,12 +542,6 @@ def read_vasp_xml(filename='vasprun.xml', index=-1):
                                        constraint=constraints,
                                        pbc=True)
 
-                elif elem.tag == 'dipole':
-                    dblock = elem.find('v[@name="dipole"]')
-                    if dblock is not None:
-                        dipole = np.array(
-                            [float(val) for val in dblock.text.split()])
-
             elif event == 'start' and elem.tag == 'calculation':
                 calculation.append(elem)
 
@@ -568,136 +562,147 @@ def read_vasp_xml(filename='vasprun.xml', index=-1):
         steps = []
 
     for step in steps:
-        cell = np.zeros((3, 3), dtype=float)
-        for i, vector in enumerate(
-                step.find('structure/crystal/varray[@name="basis"]')):
-            cell[i] = np.array([float(val) for val in vector.text.split()])
-        volume = np.linalg.det(cell)
+        yield atoms_from_step(step, ibz_kpts=ibz_kpts, kpt_weights=kpt_weights,
+                              parameters=parameters, atoms=atoms_init.copy(),
+                              natoms=natoms)
 
-        free_energy = float(step.find('energy/i[@name="e_fr_energy"]').text)
 
-        # https://gitlab.com/ase/ase/-/merge_requests/2685
-        # e_fr_energy in calculation/energy is actually an enthalpy including
-        # the PV term, unlike that in /calculation/scstep/energy or in OUTCAR,
-        # and therefore we need to subtract the PV term.
-        pressure = parameters.get('pstress', 0.0)
-        pressure *= 1e-22 / EVTOJ  # kbar -> eV/A3
-        free_energy -= pressure * volume
+def atoms_from_step(step, ibz_kpts, kpt_weights, parameters, atoms, natoms):
+    from ase.calculators.singlepoint import (
+        SinglePointDFTCalculator,
+        SinglePointKPoint,
+    )
+    from ase.units import GPa
 
-        # Workaround for VASP bug, e_0_energy contains the wrong value
-        # in calculation/energy, but calculation/scstep/energy does not
-        # include classical VDW corrections. So, first calculate
-        # e_0_energy - e_fr_energy from calculation/scstep/energy, then
-        # apply that correction to e_fr_energy from calculation/energy.
-        lastscf = step.findall('scstep/energy')[-1]
-        dipoles = step.findall('scstep/dipole')
-        if dipoles:
-            lastdipole = dipoles[-1]
-        else:
-            lastdipole = None
+    cell = np.zeros((3, 3), dtype=float)
+    for i, vector in enumerate(
+            step.find('structure/crystal/varray[@name="basis"]')):
+        cell[i] = np.array([float(val) for val in vector.text.split()])
+    volume = np.linalg.det(cell)
 
-        de = (float(lastscf.find('i[@name="e_0_energy"]').text) -
-              float(lastscf.find('i[@name="e_fr_energy"]').text))
+    free_energy = float(step.find('energy/i[@name="e_fr_energy"]').text)
 
-        energy = free_energy + de
+    # https://gitlab.com/ase/ase/-/merge_requests/2685
+    # e_fr_energy in calculation/energy is actually an enthalpy including
+    # the PV term, unlike that in /calculation/scstep/energy or in OUTCAR,
+    # and therefore we need to subtract the PV term.
+    pressure = parameters.get('pstress', 0.0)
+    pressure *= 1e-22 / EVTOJ  # kbar -> eV/A3
+    free_energy -= pressure * volume
 
-        scpos = np.zeros((natoms, 3), dtype=float)
-        for i, vector in enumerate(
-                step.find('structure/varray[@name="positions"]')):
-            scpos[i] = np.array([float(val) for val in vector.text.split()])
+    # Workaround for VASP bug, e_0_energy contains the wrong value
+    # in calculation/energy, but calculation/scstep/energy does not
+    # include classical VDW corrections. So, first calculate
+    # e_0_energy - e_fr_energy from calculation/scstep/energy, then
+    # apply that correction to e_fr_energy from calculation/energy.
+    lastscf = step.findall('scstep/energy')[-1]
+    dipoles = step.findall('scstep/dipole')
+    if dipoles:
+        lastdipole = dipoles[-1]
+    else:
+        lastdipole = None
 
-        forces = None
-        fblocks = step.find('varray[@name="forces"]')
-        if fblocks is not None:
-            forces = np.zeros((natoms, 3), dtype=float)
-            for i, vector in enumerate(fblocks):
-                forces[i] = np.array(
-                    [float(val) for val in vector.text.split()])
+    de = (float(lastscf.find('i[@name="e_0_energy"]').text) -
+          float(lastscf.find('i[@name="e_fr_energy"]').text))
 
-        stress = None
-        sblocks = step.find('varray[@name="stress"]')
-        if sblocks is not None:
-            stress = np.zeros((3, 3), dtype=float)
-            for i, vector in enumerate(sblocks):
-                stress[i] = np.array(
-                    [float(val) for val in vector.text.split()])
-            stress *= -0.1 * GPa
-            stress = stress.reshape(9)[[0, 4, 8, 5, 2, 1]]
+    energy = free_energy + de
 
-        dipole = None
-        if lastdipole is not None:
-            dblock = lastdipole.find('v[@name="dipole"]')
-            if dblock is not None:
-                dipole = np.zeros((1, 3), dtype=float)
-                dipole = np.array([float(val) for val in dblock.text.split()])
+    scpos = np.zeros((natoms, 3), dtype=float)
+    for i, vector in enumerate(
+            step.find('structure/varray[@name="positions"]')):
+        scpos[i] = np.array([float(val) for val in vector.text.split()])
 
-        dblock = step.find('dipole/v[@name="dipole"]')
+    forces = None
+    fblocks = step.find('varray[@name="forces"]')
+    if fblocks is not None:
+        forces = np.zeros((natoms, 3), dtype=float)
+        for i, vector in enumerate(fblocks):
+            forces[i] = np.array(
+                [float(val) for val in vector.text.split()])
+
+    stress = None
+    sblocks = step.find('varray[@name="stress"]')
+    if sblocks is not None:
+        stress = np.zeros((3, 3), dtype=float)
+        for i, vector in enumerate(sblocks):
+            stress[i] = np.array(
+                [float(val) for val in vector.text.split()])
+        stress *= -0.1 * GPa
+        stress = stress.reshape(9)[[0, 4, 8, 5, 2, 1]]
+
+    dipole = None
+    if lastdipole is not None:
+        dblock = lastdipole.find('v[@name="dipole"]')
         if dblock is not None:
             dipole = np.zeros((1, 3), dtype=float)
             dipole = np.array([float(val) for val in dblock.text.split()])
 
-        efermi = step.find('dos/i[@name="efermi"]')
-        if efermi is not None:
-            efermi = float(efermi.text)
+    dblock = step.find('dipole/v[@name="dipole"]')
+    if dblock is not None:
+        dipole = np.zeros((1, 3), dtype=float)
+        dipole = np.array([float(val) for val in dblock.text.split()])
 
-        kpoints = []
-        for ikpt in range(1, len(ibz_kpts) + 1):
-            kblocks = step.findall(
-                'eigenvalues/array/set/set/set[@comment="kpoint %d"]' % ikpt)
-            if kblocks is not None:
-                for spin, kpoint in enumerate(kblocks):
-                    eigenvals = kpoint.findall('r')
-                    eps_n = np.zeros(len(eigenvals))
-                    f_n = np.zeros(len(eigenvals))
-                    for j, val in enumerate(eigenvals):
-                        val = val.text.split()
-                        eps_n[j] = float(val[0])
-                        f_n[j] = float(val[1])
-                    if len(kblocks) == 1:
-                        f_n *= 2
-                    kpoints.append(
-                        SinglePointKPoint(kpt_weights[ikpt - 1], spin, ikpt,
-                                          eps_n, f_n))
-        if len(kpoints) == 0:
-            kpoints = None
+    efermi = step.find('dos/i[@name="efermi"]')
+    if efermi is not None:
+        efermi = float(efermi.text)
 
-        # DFPT properties
-        # dielectric tensor
-        dielectric_tensor = None
-        sblocks = step.find('varray[@name="dielectric_dft"]')
-        if sblocks is not None:
-            dielectric_tensor = np.zeros((3, 3), dtype=float)
-            for ii, vector in enumerate(sblocks):
-                dielectric_tensor[ii] = np.fromstring(vector.text, sep=' ')
+    kpoints = []
+    for ikpt in range(1, len(ibz_kpts) + 1):
+        kblocks = step.findall(
+            'eigenvalues/array/set/set/set[@comment="kpoint %d"]' % ikpt)
+        if kblocks is not None:
+            for spin, kpoint in enumerate(kblocks):
+                eigenvals = kpoint.findall('r')
+                eps_n = np.zeros(len(eigenvals))
+                f_n = np.zeros(len(eigenvals))
+                for j, val in enumerate(eigenvals):
+                    val = val.text.split()
+                    eps_n[j] = float(val[0])
+                    f_n[j] = float(val[1])
+                if len(kblocks) == 1:
+                    f_n *= 2
+                kpoints.append(
+                    SinglePointKPoint(kpt_weights[ikpt - 1], spin, ikpt,
+                                      eps_n, f_n))
+    if len(kpoints) == 0:
+        kpoints = None
 
-        # Born effective charges
-        born_charges = None
-        fblocks = step.find('array[@name="born_charges"]')
-        if fblocks is not None:
-            born_charges = np.zeros((natoms, 3, 3), dtype=float)
-            for ii, block in enumerate(fblocks[1:]):  # 1. element = dimension
-                for jj, vector in enumerate(block):
-                    born_charges[ii, jj] = np.fromstring(vector.text, sep=' ')
+    # DFPT properties
+    # dielectric tensor
+    dielectric_tensor = None
+    sblocks = step.find('varray[@name="dielectric_dft"]')
+    if sblocks is not None:
+        dielectric_tensor = np.zeros((3, 3), dtype=float)
+        for ii, vector in enumerate(sblocks):
+            dielectric_tensor[ii] = np.fromstring(vector.text, sep=' ')
 
-        atoms = atoms_init.copy()
-        atoms.set_cell(cell)
-        atoms.set_scaled_positions(scpos)
-        atoms.calc = SinglePointDFTCalculator(
-            atoms,
-            energy=energy,
-            forces=forces,
-            stress=stress,
-            free_energy=free_energy,
-            ibzkpts=ibz_kpts,
-            efermi=efermi,
-            dipole=dipole,
-            dielectric_tensor=dielectric_tensor,
-            born_effective_charges=born_charges
-        )
-        atoms.calc.name = 'vasp'
-        atoms.calc.kpts = kpoints
-        atoms.calc.parameters = parameters
-        yield atoms
+    # Born effective charges
+    born_charges = None
+    fblocks = step.find('array[@name="born_charges"]')
+    if fblocks is not None:
+        born_charges = np.zeros((natoms, 3, 3), dtype=float)
+        for ii, block in enumerate(fblocks[1:]):  # 1. element = dimension
+            for jj, vector in enumerate(block):
+                born_charges[ii, jj] = np.fromstring(vector.text, sep=' ')
+
+    atoms.set_cell(cell)
+    atoms.set_scaled_positions(scpos)
+    atoms.calc = SinglePointDFTCalculator(
+        atoms,
+        energy=energy,
+        forces=forces,
+        stress=stress,
+        free_energy=free_energy,
+        ibzkpts=ibz_kpts,
+        efermi=efermi,
+        dipole=dipole,
+        dielectric_tensor=dielectric_tensor,
+        born_effective_charges=born_charges
+    )
+    atoms.calc.name = 'vasp'
+    atoms.calc.kpts = kpoints
+    atoms.calc.parameters = parameters
+    return atoms
 
 
 @writer
@@ -761,7 +766,7 @@ def _write_xdatcar_config(fd, atoms, index):
     """
     fd.write(f"Direct configuration={index:6d}\n")
     float_string = '{:11.8f}'
-    scaled_positions = atoms.get_scaled_positions()
+    scaled_positions = atoms.get_scaled_positions(wrap=False)
     for row in scaled_positions:
         fd.write('  ')
         fd.write(' '.join([float_string.format(x) for x in row]))
@@ -774,7 +779,8 @@ def _symbol_count_from_symbols(symbols: Symbols) -> list[tuple[str, int]]:
     Args:
         symbols (iterable of str)
 
-    Returns:
+    Returns
+    -------
         list of pairs [(el1, c1), (el2, c2), ...]
 
     Example:
@@ -832,7 +838,8 @@ def write_vasp(
         potential_mapping (dict, optional): Map of symbols to potential file
             (and hash). Only works if `vasp6=True`. See `_symbol_string_count`
 
-    Raises:
+    Raises
+    ------
         RuntimeError: raised if any of these are true:
 
             1. `atoms` is not a single `ase.Atoms` object.
@@ -930,10 +937,12 @@ def _handle_ase_constraints(atoms: Atoms) -> np.ndarray:
     Args:
         atoms (Atoms)
 
-    Returns:
+    Returns
+    -------
         boolean numpy array with dimensions Nx3
 
-    Raises:
+    Raises
+    ------
         RuntimeError: If there is a FixedPlane or FixedLine constraint, that
                       is not parallel to a cell vector.
     """

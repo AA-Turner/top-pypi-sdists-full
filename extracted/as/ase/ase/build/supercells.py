@@ -1,5 +1,3 @@
-# fmt: off
-
 """Helper functions for creating supercells."""
 
 import numpy as np
@@ -17,7 +15,7 @@ def get_deviation_from_optimal_cell_shape(*args, **kwargs):
     return eval_length_deviation(*args, **kwargs)
 
 
-def eval_shape_deviation(cell, target_shape="sc"):
+def eval_shape_deviation(cell, target_shape='sc'):
     r"""
     Calculates the deviation of the given cell from the target cell metric.
 
@@ -66,7 +64,7 @@ def eval_shape_deviation(cell, target_shape="sc"):
     return scores
 
 
-def eval_length_deviation(cell, target_shape="sc"):
+def eval_length_deviation(cell, target_shape='sc'):
     r"""Calculate the deviation from the target cell shape.
 
     Calculates the deviation of the given cell metric from the ideal
@@ -126,37 +124,40 @@ def eval_length_deviation(cell, target_shape="sc"):
     return scores
 
 
-def _guess_initial_transformation(cell, target_shape,
-                                  target_size, verbose=False):
+def _guess_initial_transformation(
+    cell, target_shape, target_size, verbose=False
+):
 
     # Set up target metric
     if target_shape == 'sc':
         target_metric = np.eye(3)
     elif target_shape == 'fcc':
-        target_metric = 0.5 * np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]],
-                                       dtype=float)
+        target_metric = 0.5 * np.array(
+            [[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float
+        )
     else:
         raise ValueError(target_shape)
 
     if verbose:
-        print("target metric (h_target):")
+        print('target metric (h_target):')
         print(target_metric)
 
     # Normalize cell metric to reduce computation time during looping
-    norm = (target_size * abs(np.linalg.det(cell)) /
-            np.linalg.det(target_metric)) ** (-1.0 / 3)
+    norm = (
+        target_size * abs(np.linalg.det(cell)) / np.linalg.det(target_metric)
+    ) ** (-1.0 / 3)
     norm_cell = norm * cell
     if verbose:
-        print(f"normalization factor (Q): {norm:g}")
+        print(f'normalization factor (Q): {norm:g}')
 
     # Approximate initial P matrix
     ideal_P = np.dot(target_metric, np.linalg.inv(norm_cell))
     if verbose:
-        print("idealized transformation matrix:")
+        print('idealized transformation matrix:')
         print(ideal_P)
     starting_P = np.array(np.around(ideal_P, 0), dtype=int)
     if verbose:
-        print("closest integer transformation matrix (P_0):")
+        print('closest integer transformation matrix (P_0):')
         print(starting_P)
 
     return ideal_P, starting_P
@@ -187,7 +188,7 @@ def _screen_supercell_size(operations, target_size):
     good_indices = np.where(np.abs(determinants) == target_size)[0]
 
     if not good_indices.size:
-        print("Failed to find a transformation matrix.")
+        print('Failed to find a transformation matrix.')
         return None
     operations = operations[good_indices]
 
@@ -203,7 +204,7 @@ def _optimal_transformation(operations, scores, ideal_P):
 
     # select the one whose cell orientation is the closest to the target
     # https://gitlab.com/ase/ase/-/merge_requests/3522
-    imin = np.argmin(np.add.reduce((operations - ideal_P)**2, axis=(-2, -1)))
+    imin = np.argmin(np.add.reduce((operations - ideal_P) ** 2, axis=(-2, -1)))
 
     optimal_P = operations[imin]
 
@@ -213,8 +214,10 @@ def _optimal_transformation(operations, scores, ideal_P):
     return optimal_P, best_score
 
 
-all_score_funcs = {"length": eval_length_deviation,
-                   "metric": eval_shape_deviation}
+all_score_funcs = {
+    'length': eval_length_deviation,
+    'metric': eval_shape_deviation,
+}
 
 
 def find_optimal_cell_shape(
@@ -224,7 +227,7 @@ def find_optimal_cell_shape(
     lower_limit=-2,
     upper_limit=2,
     verbose=False,
-    score_key='length'
+    score_key='length',
 ):
     """Obtain the optimal transformation matrix for a supercell of target size
     and shape.
@@ -238,7 +241,8 @@ def find_optimal_cell_shape(
     allow transformation matrices with negative determinants, boosting
     performance.
 
-    Parameters:
+    Parameters
+    ----------
 
     cell: 2D array of floats
         Metric given as a (3x3 matrix) of the input structure.
@@ -257,7 +261,8 @@ def find_optimal_cell_shape(
     score_key: str
         key from all_score_funcs to select score function.
 
-    Returns:
+    Returns
+    -------
         2D array of integers: Transformation matrix that produces the
         optimal supercell.
     """
@@ -268,13 +273,12 @@ def find_optimal_cell_shape(
     # get starting transformation
     # ideal_P ... transformation: target_cell = ideal_P @ cell
     # starting_P ... integer rounded (ideal_P)
-    ideal_P, starting_P = _guess_initial_transformation(cell, target_shape,
-                                                        target_size,
-                                                        verbose=verbose)
+    ideal_P, starting_P = _guess_initial_transformation(
+        cell, target_shape, target_size, verbose=verbose
+    )
 
     # build all admissible matrix operations 'centered' at starting_P
-    operations = _build_matrix_operations(starting_P,
-                                          lower_limit, upper_limit)
+    operations = _build_matrix_operations(starting_P, lower_limit, upper_limit)
 
     # pre-screen operations based on target_size
     operations = _screen_supercell_size(operations, target_size)
@@ -283,30 +287,31 @@ def find_optimal_cell_shape(
     if score_key in all_score_funcs:
         get_deviation_score = all_score_funcs[score_key]
     else:
-        msg = (f'Score func key {score_key} not implemented.'
-               + f'Please select from {all_score_funcs}.')
+        msg = (
+            f'Score func key {score_key} not implemented.'
+            + f'Please select from {all_score_funcs}.'
+        )
         raise SupercellError(msg)
 
-    scores = get_deviation_score(operations @ cell,
-                                 target_shape)
+    scores = get_deviation_score(operations @ cell, target_shape)
 
     # obtain optimal transformation from scores
     optimal_P, best_score = _optimal_transformation(operations, scores, ideal_P)
 
     # Finalize.
     if verbose:
-        print(f"smallest score (|Q P h_p - h_target|_2): {best_score:f}")
-        print("optimal transformation matrix (P_opt):")
+        print(f'smallest score (|Q P h_p - h_target|_2): {best_score:f}')
+        print('optimal transformation matrix (P_opt):')
         print(optimal_P)
-        print("supercell metric:")
+        print('supercell metric:')
         print(np.round(np.dot(optimal_P, cell), 4))
         det = np.linalg.det(optimal_P)
-        print(f"determinant of optimal transformation matrix: {det:g}")
+        print(f'determinant of optimal transformation matrix: {det:g}')
 
     return optimal_P
 
 
-def make_supercell(prim, P, *, wrap=True, order="cell-major", tol=1e-5):
+def make_supercell(prim, P, *, wrap=True, order='cell-major', tol=1e-5):
     r"""Generate a supercell by applying a general transformation (*P*) to
     the input configuration (*prim*).
 
@@ -316,7 +321,8 @@ def make_supercell(prim, P, *, wrap=True, order="cell-major", tol=1e-5):
     configuration `\mathbf{h}_p` by `\mathbf{P h}_p =
     \mathbf{h}`.
 
-    Parameters:
+    Parameters
+    ----------
 
     prim: ASE Atoms object
         Input configuration.
@@ -348,35 +354,34 @@ def make_supercell(prim, P, *, wrap=True, order="cell-major", tol=1e-5):
     lattice_points = np.dot(lattice_points_frac, supercell)
     N = len(lattice_points)
 
-    if order == "cell-major":
+    if order == 'cell-major':
         shifted = prim.positions[None, :, :] + lattice_points[:, None, :]
-    elif order == "atom-major":
+    elif order == 'atom-major':
         shifted = prim.positions[:, None, :] + lattice_points[None, :, :]
     else:
-        raise ValueError(f"invalid order: {order}")
+        raise ValueError(f'invalid order: {order}')
     shifted_reshaped = shifted.reshape(-1, 3)
 
-    superatoms = Atoms(positions=shifted_reshaped,
-                       cell=supercell,
-                       pbc=prim.pbc)
+    superatoms = Atoms(positions=shifted_reshaped, cell=supercell, pbc=prim.pbc)
 
     # Copy over any other possible arrays, inspired by atoms.__imul__
     for name, arr in prim.arrays.items():
-        if name == "positions":
+        if name == 'positions':
             # This was added during construction of the super cell
             continue
         shape = (N * arr.shape[0], *arr.shape[1:])
-        if order == "cell-major":
+        if order == 'cell-major':
             new_arr = np.repeat(arr[None, :], N, axis=0).reshape(shape)
-        elif order == "atom-major":
+        elif order == 'atom-major':
             new_arr = np.repeat(arr[:, None], N, axis=1).reshape(shape)
         superatoms.set_array(name, new_arr)
 
     # check number of atoms is correct
     n_target = abs(int(np.round(np.linalg.det(supercell_matrix) * len(prim))))
     if n_target != len(superatoms):
-        msg = "Number of atoms in supercell: {}, expected: {}".format(
-            n_target, len(superatoms))
+        msg = 'Number of atoms in supercell: {}, expected: {}'.format(
+            n_target, len(superatoms)
+        )
         raise SupercellError(msg)
 
     if wrap:
@@ -393,16 +398,18 @@ def lattice_points_in_supercell(supercell_matrix):
     University of California, through Lawrence Berkeley National Laboratory
     """
 
-    diagonals = np.array([
-        [0, 0, 0],
-        [0, 0, 1],
-        [0, 1, 0],
-        [0, 1, 1],
-        [1, 0, 0],
-        [1, 0, 1],
-        [1, 1, 0],
-        [1, 1, 1],
-    ])
+    diagonals = np.array(
+        [
+            [0, 0, 0],
+            [0, 0, 1],
+            [0, 1, 0],
+            [0, 1, 1],
+            [1, 0, 0],
+            [1, 0, 1],
+            [1, 1, 0],
+            [1, 1, 1],
+        ]
+    )
     d_points = np.dot(diagonals, supercell_matrix)
 
     mins = np.min(d_points, axis=0)
@@ -417,14 +424,16 @@ def lattice_points_in_supercell(supercell_matrix):
 
     frac_points = np.dot(all_points, np.linalg.inv(supercell_matrix))
 
-    tvects = frac_points[np.all(frac_points < 1 - 1e-10, axis=1)
-                         & np.all(frac_points >= -1e-10, axis=1)]
+    tvects = frac_points[
+        np.all(frac_points < 1 - 1e-10, axis=1)
+        & np.all(frac_points >= -1e-10, axis=1)
+    ]
     assert len(tvects) == round(abs(np.linalg.det(supercell_matrix)))
     return tvects
 
 
 def clean_matrix(matrix, eps=1e-12):
-    """ clean from small values"""
+    """clean from small values"""
     matrix = np.array(matrix)
     for ij in np.ndindex(matrix.shape):
         if abs(matrix[ij]) < eps:

@@ -52,15 +52,43 @@ function filterStealthCtxOptions(ctx?: BrowserContextOptions): Partial<BrowserCo
  * Useful when integrating CloakBrowser with an existing Playwright Browser while
  * keeping the wrapper's stealth-safe defaults for `newContext()`.
  */
+/**
+ * Effective headless mode for viewport decisions. buildLaunchOptions() spreads
+ * `...options.launchOptions` LAST, so a raw `launchOptions.headless` overrides the
+ * top-level field at the actual chromium.launch() call. Viewport logic must read
+ * the same effective value — otherwise a headed browser gets a fixed viewport
+ * (reintroducing the impossible-window tell). Playwright-specific (Puppeteer
+ * resolves headless the opposite way).
+ */
+function effectiveHeadless(options: LaunchOptions): boolean {
+  return (
+    (options.launchOptions as { headless?: boolean } | undefined)?.headless ??
+    options.headless ??
+    true
+  );
+}
+
 export function buildContextOptions(
   options: LaunchContextOptions = {}
 ): BrowserContextOptions {
+  // Headed: viewport=null (no emulation) so the page tracks the real window and
+  // outerWidth >= innerWidth stays coherent — CDP viewport emulation forces
+  // inner > outer = a physically impossible window = bot tell. Headless has no
+  // window chrome (outer == inner), so a fixed viewport stays coherent and keeps
+  // dimensions deterministic. Explicit viewport (incl. null) is always honored.
+  const headless = effectiveHeadless(options);
+  const viewport =
+    options.viewport !== undefined
+      ? options.viewport
+      : headless
+        ? DEFAULT_VIEWPORT
+        : null;
   return {
     // contextOptions first — explicit wrapper fields below override it.
     // filterStealthCtxOptions strips locale/timezoneId to prevent CDP detection.
     ...filterStealthCtxOptions(options.contextOptions),
     ...(options.userAgent ? { userAgent: options.userAgent } : {}),
-    viewport: options.viewport === undefined ? DEFAULT_VIEWPORT : options.viewport,
+    viewport,
     ...(options.colorScheme ? { colorScheme: options.colorScheme } : {}),
   } as BrowserContextOptions;
 }
@@ -74,7 +102,7 @@ export function buildContextOptions(
 export async function buildLaunchOptions(
   options: LaunchOptions = {}
 ): Promise<PlaywrightLaunchOptions> {
-  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary());
+  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary(options.licenseKey));
   const { exitIp, ...resolved } = await maybeResolveGeoip(options);
   const { proxyOption, proxyArgs } = resolveProxyConfig(options.proxy);
   let resolvedArgs = await resolveWebrtcArgs(options);
@@ -127,8 +155,31 @@ export async function humanizeBrowser(
 export async function launch(options: LaunchOptions = {}): Promise<Browser> {
   const { chromium } = await import("playwright-core");
   const browser = await chromium.launch(await buildLaunchOptions(options));
+  // Headed: a bare browser.newPage() would inherit Playwright's emulated 1280x720
+  // viewport -> outerWidth < innerWidth (impossible window = bot tell). Default
+  // newPage()/newContext() to viewport:null so the page tracks the real window.
+  // Headless keeps Playwright's default viewport (coherent there).
+  if (!effectiveHeadless(options)) {
+    applyDefaultNoViewport(browser);
+  }
   await humanizeBrowser(browser, options);
   return browser;
+}
+
+/**
+ * Wrap a Browser's newContext()/newPage() to default to viewport:null (no
+ * emulation) when the caller didn't specify a viewport. setdefault-style: an
+ * explicit viewport (including null) is always honored. Apply before humanize's
+ * patchBrowser so the wraps compose.
+ */
+function applyDefaultNoViewport(browser: Browser): void {
+  const origNewContext = browser.newContext.bind(browser);
+  (browser as any).newContext = (options?: Parameters<typeof origNewContext>[0]) =>
+    origNewContext(options?.viewport === undefined ? { ...options, viewport: null } : options);
+
+  const origNewPage = browser.newPage.bind(browser);
+  (browser as any).newPage = (options?: Parameters<typeof origNewPage>[0]) =>
+    origNewPage(options?.viewport === undefined ? { ...options, viewport: null } : options);
 }
 
 /**
@@ -161,7 +212,9 @@ export async function launchContext(
   // --fingerprint-timezone is process-wide (reads CommandLine in renderer),
   // so it applies to ALL contexts, not just the default one.
   // locale and timezone are set via binary flags only — no CDP emulation.
-  const browser = await launch({ ...options, ...resolved, args: launchArgs, geoip: false });
+  // humanize:false on the inner launch — patchContext below applies humanize
+  // exactly once (else launch()'s humanizeBrowser would patch it a second time).
+  const browser = await launch({ ...options, ...resolved, args: launchArgs, geoip: false, humanize: false });
 
   let context: BrowserContext;
   try {
@@ -219,7 +272,7 @@ export async function launchPersistentContext(
   options = resolveTimezone(options);
   const { chromium } = await import("playwright-core");
 
-  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary());
+  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary(options.licenseKey));
   const { exitIp, ...resolved } = await maybeResolveGeoip(options);
   const { proxyOption, proxyArgs } = resolveProxyConfig(options.proxy);
   let resolvedArgs = await resolveWebrtcArgs(options);

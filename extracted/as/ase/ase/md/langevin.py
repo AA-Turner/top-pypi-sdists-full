@@ -82,14 +82,6 @@ class Langevin(MolecularDynamics):
         propagator in Eq. 21/34; but that propagator is not quasi-symplectic
         and gives a systematic offset in the temperature at large time steps.
         """
-        if 'communicator' in kwargs:
-            msg = (
-                '`communicator` has been deprecated since ASE 3.25.0 '
-                'and will be removed in ASE 3.26.0. Use `comm` instead.'
-            )
-            warnings.warn(msg, FutureWarning)
-            kwargs['comm'] = kwargs.pop('communicator')
-
         if friction is None:
             raise TypeError("Missing 'friction' argument.")
         self.fr = friction

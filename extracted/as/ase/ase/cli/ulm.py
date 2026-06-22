@@ -1,5 +1,3 @@
-# fmt: off
-
 # Note:
 # Try to avoid module level import statements here to reduce
 # import time during CLI execution
@@ -20,10 +18,18 @@ class CLICommand:
     def add_arguments(parser):
         add = parser.add_argument
         add('filename', help='Name of ULM-file.')
-        add('-n', '--index', type=int,
-            help='Show only one index.  Default is to show all.')
-        add('-d', '--delete', metavar='key1,key2,...',
-            help='Remove key(s) from ULM-file.')
+        add(
+            '-n',
+            '--index',
+            type=int,
+            help='Show only one index.  Default is to show all.',
+        )
+        add(
+            '-d',
+            '--delete',
+            metavar='key1,key2,...',
+            help='Remove key(s) from ULM-file.',
+        )
         add('-v', '--verbose', action='store_true', help='More output.')
 
     @staticmethod

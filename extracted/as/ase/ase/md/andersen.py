@@ -1,7 +1,5 @@
 """Andersen dynamics class."""
 
-import warnings
-
 from numpy import cos, log, ones, pi, random, repeat
 
 from ase import Atoms, units
@@ -62,13 +60,6 @@ class Andersen(MolecularDynamics):
         like diffusion or viscosity cannot be properly measured.
 
         """
-        if 'communicator' in kwargs:
-            msg = (
-                '`communicator` has been deprecated since ASE 3.25.0 '
-                'and will be removed in ASE 3.26.0. Use `comm` instead.'
-            )
-            warnings.warn(msg, FutureWarning)
-            kwargs['comm'] = kwargs.pop('communicator')
         self.temp = units.kB * temperature_K
         self.andersen_prob = andersen_prob
         self.fix_com = fixcm

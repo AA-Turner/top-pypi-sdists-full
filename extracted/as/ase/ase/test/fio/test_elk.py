@@ -1,4 +1,3 @@
-# fmt: off
 import io
 import re
 
@@ -67,12 +66,16 @@ atoms
 
 def test_elk_in_param_types():
     """test the elk-in writer with all valid parameter types"""
-    params = {'tasks': [[0], [10]], 'ngridk': (8, 8, 8), 'nempty': 8,
-              'bfieldc': np.array((0.0, 0.0, -0.01)), 'spinpol': True,
-              'sppath': '/path/to/species',
-              'dft+u': ((2, 1), (1, 2, 0.183, 0.034911967)),
-              'mommtfix': ((1, 1, np.array((0.0, 0.0, 0.0))),
-                           (1, 2, 0.0, 0.0, 0.0))}
+    params = {
+        'tasks': [[0], [10]],
+        'ngridk': (8, 8, 8),
+        'nempty': 8,
+        'bfieldc': np.array((0.0, 0.0, -0.01)),
+        'spinpol': True,
+        'sppath': '/path/to/species',
+        'dft+u': ((2, 1), (1, 2, 0.183, 0.034911967)),
+        'mommtfix': ((1, 1, np.array((0.0, 0.0, 0.0))), (1, 2, 0.0, 0.0, 0.0)),
+    }
     atoms = Atoms('FeAl', positions=[[0, 0, 0], [1.45] * 3], cell=[2.9] * 3)
     buf = io.StringIO()
     write(buf, atoms, format='elk-in', parameters=params)
@@ -108,7 +111,7 @@ def test_parse_eigval():
     assert len(occ) == 1
     assert pytest.approx(eig[0]) == [[-1.0, -0.5, 1.0], [1.0, 1.1, 1.2]]
     assert pytest.approx(occ[0]) == [[2.0, 1.5, 0.0], [1.9, 1.8, 1.7]]
-    assert pytest.approx(kpts) == [[0., 0., 0.], [0.0, 0.1, 0.2]]
+    assert pytest.approx(kpts) == [[0.0, 0.0, 0.0], [0.0, 0.1, 0.2]]
 
 
 elk_geometry_out = """
@@ -142,12 +145,20 @@ def test_read_elk():
     atoms = read_elk(io.StringIO(elk_geometry_out))
     assert str(atoms.symbols) == 'Si2'
     assert all(atoms.pbc)
-    assert atoms.cell / Bohr == pytest.approx(np.array([
-        [1.0, 0.1, 0.2],
-        [0.3, 2.0, 0.4],
-        [0.5, 0.6, 3.0],
-    ]))
-    assert atoms.get_scaled_positions() == pytest.approx(np.array([
-        [0.1, 0.2, 0.3],
-        [0.4, 0.5, 0.6],
-    ]))
+    assert atoms.cell / Bohr == pytest.approx(
+        np.array(
+            [
+                [1.0, 0.1, 0.2],
+                [0.3, 2.0, 0.4],
+                [0.5, 0.6, 3.0],
+            ]
+        )
+    )
+    assert atoms.get_scaled_positions() == pytest.approx(
+        np.array(
+            [
+                [0.1, 0.2, 0.3],
+                [0.4, 0.5, 0.6],
+            ]
+        )
+    )

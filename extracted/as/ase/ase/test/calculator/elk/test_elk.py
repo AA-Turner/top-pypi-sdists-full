@@ -17,7 +17,7 @@ def systems():
 
 @pytest.mark.calculator_lite()
 @pytest.mark.parametrize(
-    'atoms', systems(), ids=lambda atoms: str(atoms.symbols)
+    'atoms', list(systems()), ids=lambda atoms: str(atoms.symbols)
 )
 @pytest.mark.calculator('elk', tasks=0, ngridk=(3, 3, 3))
 def test_elk_bulk(factory, atoms: Atoms) -> None:

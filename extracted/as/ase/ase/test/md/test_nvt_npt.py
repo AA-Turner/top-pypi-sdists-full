@@ -3,13 +3,14 @@ import pytest
 
 from ase import Atoms
 from ase.build import bulk, make_supercell
+from ase.md import thermalize_momenta
 from ase.md.bussi import Bussi
 from ase.md.langevin import Langevin
 from ase.md.melchionna import MelchionnaNPT
 from ase.md.nose_hoover_chain import NoseHooverChainNVT
 from ase.md.nptberendsen import NPTBerendsen
 from ase.md.nvtberendsen import NVTBerendsen
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
+from ase.md.velocitydistribution import Stationary
 from ase.units import GPa, bar, fs
 
 
@@ -55,9 +56,7 @@ def equilibrate(atoms, dynamicsparams):
     rng = np.random.RandomState(42)
     # Must be small enough that we can see the an off-by-one error
     # in the energy
-    MaxwellBoltzmannDistribution(
-        atoms, temperature_K=300, force_temp=True, rng=rng
-    )
+    thermalize_momenta(atoms, 300.0, exact_temperature=True, rng=rng)
     Stationary(atoms)
     assert atoms.get_temperature() == pytest.approx(300, abs=0.0001)
     with NPTBerendsen(

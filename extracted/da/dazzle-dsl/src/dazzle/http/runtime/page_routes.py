@@ -90,6 +90,19 @@ async def _resolve_auth_context(get_auth_context: Callable[..., Any] | None, req
     result = get_auth_context(request)
     if inspect.iscoroutine(result):
         result = await result
+    # #1428: bind the per-request RLS GUCs (dazzle.tenant_id / dazzle.user_<attr>)
+    # on the page in-process path, exactly as the REST auth dependency does
+    # (dependencies.get_optional_user → _bind_rls_tenant_id). #1422 removed the
+    # page→REST self-fetch hop that previously ran that dependency; without this
+    # bind, a shared_schema/RLS app's leased connection denies every row to
+    # in-process page reads/lists/mutations → RecordNotFound → 404. The helper is
+    # guarded on is_authenticated and fail-closed (an unresolvable attr stays
+    # unbound, so the fence denies). Idempotent; per-task contextvars die with the
+    # request task.
+    if result is not None:
+        from dazzle.http.runtime.auth.dependencies import _bind_rls_tenant_id
+
+        _bind_rls_tenant_id(result)
     return result
 
 
@@ -1533,7 +1546,7 @@ async def _handle_table(prc: _PageRequestContext) -> None:
 
 def _build_dispatch_ctx(
     render_ctx: Any,
-    surface: Any = None,
+    surface: ir.SurfaceSpec | None = None,
     *,
     services: Any = None,
 ) -> dict[str, Any]:
@@ -2181,7 +2194,7 @@ def _make_workspace_handler(
 
 
 def _build_workspace_primary_action_candidates(
-    workspace: Any,
+    workspace: ir.WorkspaceSpec,
     *,
     app_prefix: str,
     create_surfaces_by_entity: dict[str, Any],
@@ -2236,7 +2249,7 @@ def _build_workspace_primary_action_candidates(
 
 
 def _resolve_workspace_authored_actions(
-    workspace: Any,
+    workspace: ir.WorkspaceSpec,
     *,
     app_prefix: str,
     surfaces_by_name: dict[str, Any],

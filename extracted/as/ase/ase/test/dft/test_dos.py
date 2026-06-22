@@ -1,4 +1,3 @@
-# fmt: off
 from ase.atoms import Atoms
 from ase.calculators.singlepoint import (
     SinglePointDFTCalculator,

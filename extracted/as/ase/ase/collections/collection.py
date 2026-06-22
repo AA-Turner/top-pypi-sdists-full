@@ -1,5 +1,3 @@
-# fmt: off
-
 import os.path as op
 
 from ase.db.row import AtomsRow
@@ -33,7 +31,8 @@ class Collection:
         A collection can be iterated over to get the Atoms objects and indexed
         with names to get individual members.
 
-        Attributes:
+        Attributes
+        ----------
 
         name: str
             Name of collection.
@@ -69,7 +68,8 @@ class Collection:
 
     def __str__(self):
         return '<{}-collection, {} systems: {}, {}, ...>'.format(
-            self.name, len(self), *self.names[:2])
+            self.name, len(self), *self.names[:2]
+        )
 
     def __repr__(self):
         return f'Collection({self.name!r})'

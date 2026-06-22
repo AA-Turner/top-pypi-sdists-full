@@ -18,7 +18,7 @@ from typing import overload
 from ..base.types import AnyInputPeer, AnyMessageEntity, AnyInputReplyTo, AnyReplyMarkup, AnyInputQuickReplyShortcut, AnySuggestedPost
 
 
-class SendMessage():
+class SendMessage:
     @overload
     async def send_message(
         self,

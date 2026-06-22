@@ -1,8 +1,8 @@
+use crate::Doc;
+use crate::Language;
 use crate::matcher::{Matcher, MatcherExt, NodeMatch};
 use crate::replacer::Replacer;
 use crate::source::{Content, Edit as E, SgNode};
-use crate::Doc;
-use crate::Language;
 
 type Edit<D> = E<<D as Doc>::Source>;
 
@@ -326,10 +326,10 @@ impl<'r, D: Doc> Node<'r, D> {
   ) -> impl Iterator<Item = NodeMatch<'r, D>> + 's {
     let kinds = pat.potential_kinds();
     self.dfs().filter_map(move |cand| {
-      if let Some(k) = &kinds {
-        if !k.contains(cand.kind_id().into()) {
-          return None;
-        }
+      if let Some(k) = &kinds
+        && !k.contains(cand.kind_id().into())
+      {
+        return None;
       }
       pat.match_node(cand)
     })

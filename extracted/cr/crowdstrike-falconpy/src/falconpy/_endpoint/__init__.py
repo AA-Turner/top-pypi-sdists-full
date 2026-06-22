@@ -66,9 +66,14 @@ from .deprecated import _user_management_deprecated
 from .deprecated import _deprecated_operation_mapping
 from .deprecated import _deprecated_class_mapping
 from .deprecated import _zero_trust_assessment_deprecated
+from .deprecated import _falcon_complete_dashboard_deprecated
+from .deprecated import _foundry_logscale_deprecated
+from .deprecated import _spotlight_vulnerabilities_deprecated
 
+from ._access_scopes import _access_scopes_endpoints
 from ._admission_control_policies import _admission_control_policies_endpoints
 from ._alerts import _alerts_endpoints
+from ._api_clients import _api_clients_endpoints
 from ._api_integrations import _api_integrations_endpoints
 from ._aspm import _aspm_endpoints
 from ._cao_hunting import _cao_hunting_endpoints
@@ -84,6 +89,8 @@ from ._cloud_security import _cloud_security_endpoints
 from ._cloud_security_assets import _cloud_security_assets_endpoints
 from ._cloud_security_compliance import _cloud_security_compliance_endpoints
 from ._cloud_security_detections import _cloud_security_detections_endpoints
+from ._cloud_security_registration_combined import _cloud_security_registration_combined_endpoints
+from ._cloud_security_risks import _cloud_security_risks_endpoints
 from ._cloud_snapshots import _cloud_snapshots_endpoints
 from ._container_image_compliance import _container_image_compliance_endpoints
 from ._configuration_assessment_evaluation_logic import _configuration_assessment_evaluation_logic_endpoints
@@ -116,10 +123,12 @@ from ._falcon_complete_dashboard import _falcon_complete_dashboard_endpoints
 from ._falcon_container import _falcon_container_endpoints
 from ._falconx_sandbox import _falconx_sandbox_endpoints
 from ._fdr import _fdr_endpoints
+from ._federated_connections import _federated_connections_endpoints
 from ._filevantage import _filevantage_endpoints
 from ._firewall_management import _firewall_management_endpoints
 from ._firewall_policies import _firewall_policies_endpoints
 from ._foundry_logscale import _foundry_logscale_endpoints
+from ._foundry_lookup_files import _foundry_lookup_files_endpoints
 from ._host_group import _host_group_endpoints
 from ._hosts import _hosts_endpoints
 from ._host_migration import _host_migration_endpoints
@@ -134,6 +143,9 @@ from ._ioa_exclusions import _ioa_exclusions_endpoints
 from ._ioc import _ioc_endpoints
 from ._iocs import _iocs_endpoints
 from ._it_automation import _it_automation_endpoints
+from ._knowledge_base_audit_events import _knowledge_base_audit_events_endpoints
+from ._knowledge_base_files import _knowledge_base_files_endpoints
+from ._knowledge_bases import _knowledge_bases_endpoints
 from ._kubernetes_container_compliance import _kubernetes_container_compliance_endpoints
 from ._kubernetes_protection import _kubernetes_protection_endpoints
 from ._malquery import _malquery_endpoints
@@ -153,6 +165,7 @@ from ._ngsiem import _ngsiem_endpoints
 from ._oauth2 import _oauth2_endpoints
 from ._ods import _ods_endpoints
 from ._prevention_policies import _prevention_policies_endpoints
+from ._profile_groups import _profile_groups_endpoints
 from ._quarantine import _quarantine_endpoints
 from ._quick_scan import _quick_scan_endpoints
 from ._quick_scan_pro import _quick_scan_pro_endpoints
@@ -182,8 +195,10 @@ from ._workflows import _workflows_endpoints
 from ._zero_trust_assessment import _zero_trust_assessment_endpoints
 
 api_endpoints: List[Any] = []
+api_endpoints.extend(_access_scopes_endpoints)
 api_endpoints.extend(_admission_control_policies_endpoints)
 api_endpoints.extend(_alerts_endpoints)
+api_endpoints.extend(_api_clients_endpoints)
 api_endpoints.extend(_api_integrations_endpoints)
 api_endpoints.extend(_aspm_endpoints)
 api_endpoints.extend(_cao_hunting_endpoints)
@@ -199,6 +214,8 @@ api_endpoints.extend(_cloud_security_endpoints)
 api_endpoints.extend(_cloud_security_assets_endpoints)
 api_endpoints.extend(_cloud_security_compliance_endpoints)
 api_endpoints.extend(_cloud_security_detections_endpoints)
+api_endpoints.extend(_cloud_security_registration_combined_endpoints)
+api_endpoints.extend(_cloud_security_risks_endpoints)
 api_endpoints.extend(_cloud_snapshots_endpoints)
 api_endpoints.extend(_container_image_compliance_endpoints)
 api_endpoints.extend(_configuration_assessment_evaluation_logic_endpoints)
@@ -231,10 +248,12 @@ api_endpoints.extend(_falcon_complete_dashboard_endpoints)
 api_endpoints.extend(_falcon_container_endpoints)
 api_endpoints.extend(_falconx_sandbox_endpoints)
 api_endpoints.extend(_fdr_endpoints)
+api_endpoints.extend(_federated_connections_endpoints)
 api_endpoints.extend(_filevantage_endpoints)
 api_endpoints.extend(_firewall_management_endpoints)
 api_endpoints.extend(_firewall_policies_endpoints)
 api_endpoints.extend(_foundry_logscale_endpoints)
+api_endpoints.extend(_foundry_lookup_files_endpoints)
 api_endpoints.extend(_host_group_endpoints)
 api_endpoints.extend(_hosts_endpoints)
 api_endpoints.extend(_host_migration_endpoints)
@@ -249,6 +268,9 @@ api_endpoints.extend(_ioa_exclusions_endpoints)
 api_endpoints.extend(_ioc_endpoints)
 api_endpoints.extend(_iocs_endpoints)
 api_endpoints.extend(_it_automation_endpoints)
+api_endpoints.extend(_knowledge_base_audit_events_endpoints)
+api_endpoints.extend(_knowledge_base_files_endpoints)
+api_endpoints.extend(_knowledge_bases_endpoints)
 api_endpoints.extend(_kubernetes_container_compliance_endpoints)
 api_endpoints.extend(_kubernetes_protection_endpoints)
 api_endpoints.extend(_malquery_endpoints)
@@ -268,6 +290,7 @@ api_endpoints.extend(_ngsiem_endpoints)
 api_endpoints.extend(_oauth2_endpoints)
 api_endpoints.extend(_ods_endpoints)
 api_endpoints.extend(_prevention_policies_endpoints)
+api_endpoints.extend(_profile_groups_endpoints)
 api_endpoints.extend(_quarantine_endpoints)
 api_endpoints.extend(_quick_scan_endpoints)
 api_endpoints.extend(_quick_scan_pro_endpoints)
@@ -342,6 +365,9 @@ deprecated_endpoints.extend(_scheduled_reports_deprecated)
 deprecated_endpoints.extend(_user_management_deprecated)
 deprecated_endpoints.extend(_workflows_deprecated)
 deprecated_endpoints.extend(_zero_trust_assessment_deprecated)
+deprecated_endpoints.extend(_falcon_complete_dashboard_deprecated)
+deprecated_endpoints.extend(_foundry_logscale_deprecated)
+deprecated_endpoints.extend(_spotlight_vulnerabilities_deprecated)
 
 # Mapping of manually deprecated endpoints
 operation_deprecation_mapping = _deprecated_operation_mapping

@@ -1,5 +1,3 @@
-# fmt: off
-
 """
 This module contains tools for preconditioned geometry optimisation.
 
@@ -52,6 +50,17 @@ class PreconODE12r(ODE12r):
         ODE12r.__init__(self, *args, **kwargs)
 
 
-__all__ = ['make_precon', 'PreconImages', 'SplineFit',
-           'Precon', 'Exp', 'C1', 'Pfrommer', 'FF', 'Exp_FF',
-           'PreconLBFGS', 'PreconFIRE', 'PreconODE12r']
+__all__ = [
+    'make_precon',
+    'PreconImages',
+    'SplineFit',
+    'Precon',
+    'Exp',
+    'C1',
+    'Pfrommer',
+    'FF',
+    'Exp_FF',
+    'PreconLBFGS',
+    'PreconFIRE',
+    'PreconODE12r',
+]

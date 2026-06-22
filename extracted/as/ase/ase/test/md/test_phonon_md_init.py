@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 from numpy.random import RandomState
@@ -21,8 +20,9 @@ def test_phonon_md_init(asap3, testdir):
 
     atoms = bulk('Pd')
     atoms *= (3, 3, 3)
-    avail = [atomic_numbers[sym]
-             for sym in ['Ni', 'Cu', 'Pd', 'Ag', 'Pt', 'Au']]
+    avail = [
+        atomic_numbers[sym] for sym in ['Ni', 'Cu', 'Pd', 'Ag', 'Pt', 'Au']
+    ]
     atoms.numbers[:] = rng.choice(avail, size=len(atoms))
     atoms.calc = EMT()
 
@@ -51,8 +51,13 @@ def test_phonon_md_init(asap3, testdir):
     Etots = []
 
     for i in range(24):
-        PhononHarmonics(atoms, K, temperature_K=T, quantum=True,
-                        rng=np.random.RandomState(888 + i))
+        PhononHarmonics(
+            atoms,
+            K,
+            temperature_K=T,
+            quantum=True,
+            rng=np.random.RandomState(888 + i),
+        )
 
         Epot = atoms.get_potential_energy() - Epotref
         Ekin = atoms.get_kinetic_energy()

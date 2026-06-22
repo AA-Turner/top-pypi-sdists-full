@@ -9,8 +9,8 @@ use tower_lsp_server::{Client, LanguageServer};
 
 use ast_grep_config::{CombinedScan, RuleCollection, Severity};
 use ast_grep_core::{
-  tree_sitter::{LanguageExt, StrDoc},
   AstGrep, Doc,
+  tree_sitter::{LanguageExt, StrDoc},
 };
 
 use std::collections::{BTreeMap, HashMap};
@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 
-use utils::{convert_match_to_diagnostic, diagnostic_to_code_action, Fixes, RewriteData};
+use utils::{Fixes, RewriteData, convert_match_to_diagnostic, diagnostic_to_code_action};
 
 pub use tower_lsp_server::{LspService, Server};
 
@@ -529,10 +529,10 @@ impl<L: LSPLang> Backend<L> {
   }
 
   async fn on_code_action(&self, params: CodeActionParams) -> Option<CodeActionResponse> {
-    if let Some(kinds) = params.context.only.as_ref() {
-      if kinds.contains(&CodeActionKind::SOURCE_FIX_ALL) {
-        return self.fix_all_code_action(params.text_document);
-      }
+    if let Some(kinds) = params.context.only.as_ref()
+      && kinds.contains(&CodeActionKind::SOURCE_FIX_ALL)
+    {
+      return self.fix_all_code_action(params.text_document);
     }
     self.quickfix_code_action(params)
   }

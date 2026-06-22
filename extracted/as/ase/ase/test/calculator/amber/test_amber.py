@@ -1,4 +1,3 @@
-# fmt: off
 import subprocess
 
 import numpy as np
@@ -28,13 +27,17 @@ def test_amber(factories):
     END
     """)
 
-    atoms = Atoms('OH2OH2',
-                  [[-0.956, -0.121, 0],
-                   [-1.308, 0.770, 0],
-                   [0.000, 0.000, 0],
-                   [3.903, 0.000, 0],
-                   [4.215, -0.497, -0.759],
-                   [4.215, -0.497, 0.759]])
+    atoms = Atoms(
+        'OH2OH2',
+        [
+            [-0.956, -0.121, 0],
+            [-1.308, 0.770, 0],
+            [0.000, 0.000, 0],
+            [3.903, 0.000, 0],
+            [4.215, -0.497, -0.759],
+            [4.215, -0.497, 0.759],
+        ],
+    )
     atoms.arrays['residuenames'] = ['WAT'] * 6
     atoms.arrays['residuenumbers'] = [1] * 3 + [2] * 3
     atoms.arrays['atomtypes'] = ['O', 'H1', 'H2'] * 2
@@ -52,11 +55,13 @@ def test_amber(factories):
 
     subprocess.call('tleap -f tleap.in'.split())
 
-    calc = Amber(amber_exe='sander -O ',
-                 infile='mm.in',
-                 outfile='mm.out',
-                 topologyfile='2h2o.top',
-                 incoordfile='mm.crd')
+    calc = Amber(
+        amber_exe='sander -O ',
+        infile='mm.in',
+        outfile='mm.out',
+        topologyfile='2h2o.top',
+        incoordfile='mm.crd',
+    )
     calc.write_coordinates(atoms, 'mm.crd')
     atoms_check = atoms.copy()
     calc.read_coordinates(atoms_check, 'mm.crd')

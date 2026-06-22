@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use ast_grep_config::RuleConfig;
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term::termcolor::{Buffer, StandardStream};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 
 use std::borrow::Cow;
 use std::ops::Range;
@@ -71,9 +71,8 @@ impl InteractivePrinter {
       first_line,
       inner,
     } = highlights;
-    // if ast-grep is called with -U, do not output anything
     if self.accept_all {
-      return Ok(());
+      return self.inner.process(inner);
     }
     utils::run_in_alternate_screen(|| {
       self.inner.process(inner)?;
@@ -407,7 +406,7 @@ fn open_in_editor(path: &Path, start_line: usize) -> Result<()> {
 #[cfg(test)]
 mod test {
   use super::*;
-  use ast_grep_config::{from_yaml_string, Fixer, GlobalRules};
+  use ast_grep_config::{Fixer, GlobalRules, from_yaml_string};
   use ast_grep_core::tree_sitter::{StrDoc, Visitor};
   use ast_grep_core::{AstGrep, Matcher};
   use ast_grep_language::SupportLang;
@@ -457,7 +456,7 @@ language: TypeScript
   #[test]
   fn test_apply_rewrite() {
     let root = AstGrep::new("let a = () => c++", SupportLang::TypeScript.into());
-    let config = make_rule(
+    let mut config = make_rule(
       r"
 rule:
   all:
@@ -466,8 +465,8 @@ rule:
         - pattern: $A++
 fix: ($B, lifecycle.update(['$A']))",
     );
-    let mut matcher = config.matcher;
-    let fixer = matcher.fixer.remove(0);
+    let matcher = config.matcher;
+    let fixer = config.fixer.remove(0);
     let diffs = make_diffs(&root, matcher, &fixer);
     let ret = apply_rewrite(diffs);
     assert_eq!(ret, "let a = () => (c++, lifecycle.update(['c']))");
@@ -501,13 +500,17 @@ fix: ($B, lifecycle.update(['$A']))",
   }
 
   fn test_open_editor_respect_editor_env() {
-    std::env::set_var("EDITOR", "echo");
+    unsafe {
+      std::env::set_var("EDITOR", "echo");
+    }
     let exit = open_in_editor(&PathBuf::from("Cargo.toml"), 1);
     assert!(exit.is_ok());
   }
 
   fn test_open_editor_error_handling() {
-    std::env::set_var("EDITOR", "NOT_EXIST_XXXXX");
+    unsafe {
+      std::env::set_var("EDITOR", "NOT_EXIST_XXXXX");
+    }
     let exit = open_in_editor(&PathBuf::from("Cargo.toml"), 1);
     let error = exit.expect_err("should be error");
     let error = error.downcast_ref::<EC>().expect("should be error context");

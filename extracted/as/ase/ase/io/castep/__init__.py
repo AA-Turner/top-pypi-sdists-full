@@ -653,17 +653,11 @@ def read_castep_cell(fd, index=None, calculator_args={}, find_spg=False,
         for tokens in line_tokens:
             if len(tokens) != 6:
                 continue
-            _, species, nic, x, y, z = tokens
-            # convert xyz to floats
-            x = float(x)
-            y = float(y)
-            z = float(z)
+            _, species, nic, *xyz = tokens
 
             nic = int(nic)
-            if (species, nic) not in raw_constraints:
-                raw_constraints[(species, nic)] = []
-            raw_constraints[(species, nic)].append(np.array(
-                                                   [x, y, z]))
+            raw_constraints.setdefault((species, nic), [])
+            raw_constraints[(species, nic)].append(np.array(xyz, dtype=float))
 
     # Symmetry operations
     if 'symmetry_ops' in celldict:
@@ -705,22 +699,7 @@ def read_castep_cell(fd, index=None, calculator_args={}, find_spg=False,
     aargs['calculator'] = calc
 
     atoms = ase.Atoms(**aargs)
-
-    # Spacegroup...
-    if find_spg:
-        # Try importing spglib
-        try:
-            import spglib
-        except ImportError:
-            warnings.warn('spglib not found installed on this system - '
-                          'automatic spacegroup detection is not possible')
-            spglib = None
-
-        if spglib is not None:
-            symmd = spglib_new_errorhandling(spglib.get_symmetry_dataset)(
-                atoms_to_spglib_cell(atoms))
-            atoms_spg = Spacegroup(int(symmd['number']))
-            atoms.info['spacegroup'] = atoms_spg
+    _set_spacegroup_info(find_spg, atoms)
 
     atoms.new_array('castep_labels', labels)
     if custom_species is not None:
@@ -953,7 +932,8 @@ def write_param(filename, param, check_checkfile=False,
                 interface_options=None):
     """Writes a CastepParam object to a CASTEP .param file
 
-    Parameters:
+    Parameters
+    ----------
         filename: the location of the file to write to. If it
         exists it will be overwritten without warning. If it
         doesn't it will be created.
@@ -1117,3 +1097,22 @@ def read_bands(fd, units=units_CODATA2002):
                                            for _ in range(nbands)]
 
     return (kpts, weights, eigenvalues * Hartree, efermi * Hartree)
+
+
+def _set_spacegroup_info(find_spg: bool, atoms: ase.Atoms) -> None:
+    """If requested, get spacegroup with spglib and attach to atoms.info"""
+
+    if not find_spg:
+        return
+
+    try:
+        import spglib
+    except ImportError:
+        warnings.warn('spglib not found installed on this system - '
+                      'automatic spacegroup detection is not possible')
+        return
+
+    symmd = spglib_new_errorhandling(
+        spglib.get_symmetry_dataset)(atoms_to_spglib_cell(atoms))
+    atoms_spg = Spacegroup(int(symmd['number']))
+    atoms.info['spacegroup'] = atoms_spg

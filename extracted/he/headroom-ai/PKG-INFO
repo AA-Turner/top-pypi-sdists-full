@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: headroom-ai
-Version: 0.26.0
+Version: 0.27.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -16,20 +16,21 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: tiktoken>=0.5.0
 Requires-Dist: pydantic>=2.0.0
-Requires-Dist: litellm>=1.86.2,<2.0
+Requires-Dist: litellm>=1.86.2,<2.0 ; python_full_version < '3.14'
 Requires-Dist: click>=8.1.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: opentelemetry-api>=1.24.0
 Requires-Dist: ast-grep-cli>=0.30.0
 Requires-Dist: tomli>=2.0.0 ; python_full_version < '3.11'
 Requires-Dist: agno>=1.0.0 ; extra == 'agno'
-Requires-Dist: headroom-ai[proxy,code,ml,memory,relevance,image,reports,otel,evals,voice,html,benchmark,mcp] ; extra == 'all'
+Requires-Dist: headroom-ai[proxy,code,ml,memory,relevance,image,reports,otel,evals,voice,html,benchmark,mcp,spreadsheet] ; extra == 'all'
 Requires-Dist: any-llm-sdk>=1.0.0 ; python_full_version >= '3.11' and extra == 'anyllm'
 Requires-Dist: boto3>=1.28.0 ; extra == 'bedrock'
 Requires-Dist: lm-eval[api]>=0.4.0 ; extra == 'benchmark'
 Requires-Dist: openai>=1.0.0 ; extra == 'benchmark'
 Requires-Dist: anthropic>=0.18.0 ; extra == 'benchmark'
-Requires-Dist: tree-sitter-language-pack>=0.10.0 ; extra == 'code'
+Requires-Dist: tree-sitter-language-pack>=0.10.0,<1.0 ; extra == 'code'
+Requires-Dist: tree-sitter>=0.25.2,<0.26 ; extra == 'code'
 Requires-Dist: pytest>=7.0.0 ; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0.0 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21.0 ; extra == 'dev'
@@ -38,7 +39,7 @@ Requires-Dist: mypy>=1.0.0 ; extra == 'dev'
 Requires-Dist: pre-commit>=3.0.0 ; extra == 'dev'
 Requires-Dist: openai>=1.0.0 ; extra == 'dev'
 Requires-Dist: anthropic>=0.18.0 ; extra == 'dev'
-Requires-Dist: litellm>=1.86.2,<2.0 ; extra == 'dev'
+Requires-Dist: litellm>=1.86.2,<2.0 ; python_full_version < '3.14' and extra == 'dev'
 Requires-Dist: fastapi>=0.100.0 ; extra == 'dev'
 Requires-Dist: uvicorn>=0.23.0,<1.0 ; extra == 'dev'
 Requires-Dist: httpx[http2]>=0.24.0 ; extra == 'dev'
@@ -51,6 +52,7 @@ Requires-Dist: hnswlib>=0.8.0 ; extra == 'dev'
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'dev'
 Requires-Dist: sentence-transformers>=2.2.0,<6.0 ; extra == 'dev'
 Requires-Dist: numpy>=1.24.0 ; extra == 'dev'
+Requires-Dist: openpyxl>=3.1.0 ; extra == 'dev'
 Requires-Dist: datasets>=2.14.0 ; extra == 'evals'
 Requires-Dist: sentence-transformers>=2.2.0,<6.0 ; extra == 'evals'
 Requires-Dist: numpy>=1.24.0 ; extra == 'evals'
@@ -97,6 +99,8 @@ Requires-Dist: sentence-transformers>=2.2.0 ; sys_platform == 'darwin' and extra
 Requires-Dist: fastembed>=0.4.0 ; extra == 'relevance'
 Requires-Dist: numpy>=1.24.0 ; extra == 'relevance'
 Requires-Dist: jinja2>=3.0.0 ; extra == 'reports'
+Requires-Dist: openpyxl>=3.1.0 ; extra == 'spreadsheet'
+Requires-Dist: xlrd>=2.0.1 ; extra == 'spreadsheet'
 Requires-Dist: strands-agents>=0.1.0 ; extra == 'strands'
 Requires-Dist: onnxruntime>=1.16.0 ; extra == 'voice'
 Requires-Dist: transformers>=4.30.0,<6.0 ; extra == 'voice'
@@ -125,6 +129,7 @@ Provides-Extra: proxy-prod
 Provides-Extra: pytorch-mps
 Provides-Extra: relevance
 Provides-Extra: reports
+Provides-Extra: spreadsheet
 Provides-Extra: strands
 Provides-Extra: voice
 Provides-Extra: voice-train
@@ -198,6 +203,7 @@ Headroom compresses everything your AI agent reads — tool outputs, logs, RAG c
 - **MCP server** — `headroom_compress`, `headroom_retrieve`, `headroom_stats` for any MCP client
 - **Cross-agent memory** — shared store across Claude, Codex, Gemini, auto-dedup
 - **`headroom learn`** — mines failed sessions, writes corrections to `CLAUDE.md` / `AGENTS.md`
+- **Output token reduction** — trims what the model *writes back* (not just what you send): drops ceremony/restated code and skips deep "thinking" on routine steps. See [Output token reduction](#output-token-reduction-cut-what-the-model-writes-back).
 - **Reversible (CCR)** — originals are cached for retrieval on demand
 
 ## How it works (30 seconds)
@@ -269,6 +275,63 @@ Granular extras: `[proxy]`, `[mcp]`, `[ml]`, `[code]`, `[memory]`, `[relevance]`
 
 Reproduce: `python -m headroom.evals suite --tier 1` · [Full benchmarks & methodology](https://headroom-docs.vercel.app/docs/benchmarks)
 
+## Output token reduction (cut what the model writes back)
+
+Everything above shrinks the prompt you **send**. But you also pay for every
+token the model **writes back** — and on Opus-class models output costs 5× input.
+A lot of that output is waste: "Great, let me…" preambles, re-printing code you
+just showed it, and deep "thinking" on routine steps like reading a file.
+
+Headroom can trim that too, from the proxy, without you changing any code:
+
+- **Verbosity steering** — appends a short "be terse, don't restate context"
+  note to the end of the system prompt (so your prompt cache still hits).
+- **Effort routing** — when a turn is just the model resuming after a tool result
+  (a file read, a passing test), it dials the model's thinking effort down. New
+  questions and errors keep full effort.
+
+Turn it on:
+
+```bash
+export HEADROOM_OUTPUT_SHAPER=1     # off by default
+headroom proxy --port 8787
+```
+
+> **Already running a proxy?** These switches are read *live* on every request,
+> so a proxy that `headroom wrap` **reused** (rather than started) would not see
+> a value you export afterwards — its environment was snapshotted at launch.
+> `headroom wrap` now hot-syncs your current settings to the running proxy via a
+> loopback `POST /admin/runtime-env`, so they take effect immediately with **no
+> restart** (no cold start, no dropped requests, no lost caches). Set them before
+> you `wrap`. On a shared proxy these overrides are global — the last explicit
+> setting wins.
+
+**Learn the right terseness for you.** People don't *say* how terse they want
+answers — they *show* it (they interrupt long replies, or move on before they
+could have read them). `headroom learn --verbosity` reads your past sessions and
+picks the level automatically:
+
+```bash
+headroom learn --verbosity            # preview what it found (dry run)
+headroom learn --verbosity --apply    # save it; the proxy uses it from now on
+```
+
+**See how many output tokens you saved.** Output savings are *counterfactual* —
+we never see what the model *would* have written — so Headroom reports an honest
+**estimate with a confidence range**, never a made-up number:
+
+```bash
+headroom output-savings
+# Reduction: 31.7%  (95% CI 27.7% … 35.7%)   [estimated]
+```
+
+Want a *measured* number instead of an estimate? Leave 10% of conversations
+unshaped as a control group: `export HEADROOM_OUTPUT_HOLDOUT=0.1`. The dashboard
+shows an **Output Tokens Saved** card next to input compression, labelled
+`measured` or `estimated` with the confidence band.
+
+→ Full write-up incl. the measurement methodology: [`docs/proposals/output-token-reduction.md`](docs/proposals/output-token-reduction.md)
+
 <a href="https://www.star-history.com/?repos=chopratejas%2Fheadroom&type=date&legend=top-left">
  <picture>
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=chopratejas/headroom&type=date&legend=top-left" />
@@ -277,14 +340,15 @@ Reproduce: `python -m headroom.evals suite --tier 1` · [Full benchmarks & metho
 
 ## Agent compatibility matrix
 
-| Agent       | `headroom wrap` | Notes                            |
-|-------------|:---------------:|----------------------------------|
-| Claude Code | ✅              | `--memory` · `--code-graph`      |
-| Codex       | ✅              | shares memory with Claude        |
-| Cursor      | ✅              | prints config — paste once       |
-| Aider       | ✅              | starts proxy + launches          |
-| Copilot CLI | ✅              | starts proxy + launches          |
-| OpenClaw    | ✅              | installs as ContextEngine plugin |
+| Agent        | `headroom wrap` | Notes                            |
+|--------------|:---------------:|----------------------------------|
+| Claude Code  | ✅              | `--memory` · `--code-graph`      |
+| Codex        | ✅              | shares memory with Claude        |
+| Cursor       | ✅              | prints config — paste once       |
+| Aider        | ✅              | starts proxy + launches          |
+| Copilot CLI  | ✅              | starts proxy + launches          |
+| OpenClaw     | ✅              | installs as ContextEngine plugin |
+| Cortex Code  | ✅              | 60–65% savings · library mode   |
 
 Any OpenAI-compatible client works via `headroom proxy`. MCP-native: `headroom mcp install`.
 
@@ -401,6 +465,23 @@ pipx install --python python3.13 "headroom-ai[all]"
 ```
 
 → [Installation guide](https://headroom-docs.vercel.app/docs/installation) — Docker tags, persistent service, PowerShell, devcontainers.
+
+### Updating
+
+```bash
+headroom update          # detects pip / pipx / uv tool and upgrades in place
+headroom update --check  # report the latest release without upgrading
+headroom update --pre    # include pre-releases
+```
+
+`headroom update` figures out how Headroom was installed (pip/venv, `pip --user`,
+pipx, uv tool) and runs the matching upgrade across macOS, Linux, and Windows.
+For git checkouts, editable installs, Docker images, and externally-managed
+system Pythons (PEP 668) it prints the correct manual step instead of guessing.
+
+The proxy also shows a one-line "update available" notice on startup. It checks
+PyPI at most once a day, in the background, and never blocks. Opt out with
+`HEADROOM_UPDATE_CHECK=off` (also skipped in `--stateless` mode and CI).
 
 ### Corporate / SSL-inspection environments
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyTurboJPEG
-Version: 2.2.0
+Version: 2.3.0
 Summary: A Python wrapper of libjpeg-turbo for decoding and encoding JPEG image.
 Home-page: https://github.com/lilohuang/PyTurboJPEG
 Author: Lilo Huang

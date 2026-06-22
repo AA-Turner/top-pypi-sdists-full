@@ -1,5 +1,3 @@
-# fmt: off
-
 """This is a module to handle generic ASE (gui) defaults ...
 
 ... from a ~/.ase/gui.py configuration file, if it exists. It is imported when
@@ -8,6 +6,7 @@ each entry:
 
 gui_default_settings['key'] = value
 """
+
 import runpy
 
 gui_default_settings = {
@@ -39,6 +38,7 @@ def read_defaults():
     name = os.path.expanduser('~/.ase/gui.py')
     config = gui_default_settings
     if os.path.exists(name):
-        runpy.run_path(name, init_globals={'gui_default_settings':
-                                           gui_default_settings})
+        runpy.run_path(
+            name, init_globals={'gui_default_settings': gui_default_settings}
+        )
     return config

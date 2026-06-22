@@ -97,7 +97,7 @@ def write_elk_in(fd, atoms, parameters=None):
 
     Parameters
     ----------
-    fd : path or file object
+    fd : file, str or pathlib.Path
         A file path or an opened, writable file or file-like object
     atoms : Atoms object
         An ASE Atoms object with the atomic structure

@@ -122,17 +122,22 @@ def test_responses_request_rejects_bool_seed():
         ResponsesRequest(model="qwen3-0.6b-8bit", input="hi", seed=True)
 
 
-def test_responses_request_accepts_negative_seed():
-    """Codex round-6 BLOCKING regression guard. The OpenAI Responses
-    API surface accepts any integer ``seed``; rapid-mlx must not 422
-    on negative seeds (or 64-bit positive ones) — that would break
-    compatibility with clients passing the documented unbounded
-    integer range. Narrowing to mlx-core's uint32 happens later in
-    ``make_seeded_sampler``."""
+def test_responses_request_rejects_negative_seed():
+    """r5-E B-8 tightening. Codex round-6's "any integer" contract was
+    too permissive for the silent-correctness hazard the DGF-v080
+    sweep caught: a caller that passes ``seed=-1`` as a sentinel
+    actually pins ``seed=0xFFFFFFFF`` after the downstream bit-fold,
+    so two requests with "no seed" intent produce identical sequences.
+
+    The r5-E B-8 fix keeps the codex round-6 upper-end contract
+    intact (64-bit positive seeds still pass — see
+    ``test_responses_request_accepts_above_uint32_seed`` below) and
+    only rejects the negative form. Same fix on chat / completions /
+    responses for cross-surface parity."""
     from vllm_mlx.api.responses_models import ResponsesRequest
 
-    req = ResponsesRequest(model="qwen3-0.6b-8bit", input="hi", seed=-1)
-    assert req.seed == -1
+    with pytest.raises(ValidationError):
+        ResponsesRequest(model="qwen3-0.6b-8bit", input="hi", seed=-1)
 
 
 def test_responses_request_accepts_above_uint32_seed():
@@ -159,26 +164,30 @@ def test_seed_accepts_zero():
     assert req.seed == 0
 
 
-def test_seed_accepts_negative():
-    """Codex round-6 BLOCKING regression guard.
+def test_seed_rejects_negative():
+    """r5-E B-8 tightening.
 
-    OpenAI's spec documents ``seed`` as an unbounded integer (their
-    Python SDK ships ``seed: Optional[int]`` with no range), so the
-    request-model layer must NOT 422 on negative seeds. Backend
-    narrowing to mlx-core's uint32 PRNG key range is applied
-    deterministically downstream in ``make_seeded_sampler`` via
-    ``seed & 0xFFFFFFFF`` — Python's well-defined ``int.__and__`` on
-    negatives makes the fold round-trip cleanly.
+    Codex round-6 originally accepted negative seeds and folded them
+    via ``seed & 0xFFFFFFFF`` in ``make_seeded_sampler``. That kept
+    compatibility with clients passing arbitrary 64-bit ints — but
+    silently mapped ``seed=-1`` (a common sentinel for "no
+    determinism guarantee" in third-party SDKs) onto the perfectly
+    valid uint32 key ``0xFFFFFFFF``. Two requests with the same "no
+    seed" intent therefore produced identical sequences, the exact
+    silent-correctness hazard ``cycle-DGF-v080`` (V2 sweep) flagged.
 
-    Pre-fix (round 5): ``Field(ge=0)`` rejected this with a 422 and
-    broke compatibility for the OpenAI-documented surface.
-    """
-    req = ChatCompletionRequest(
-        model="qwen3-0.6b-8bit",
-        messages=[{"role": "user", "content": "hi"}],
-        seed=-1,
-    )
-    assert req.seed == -1
+    The r5-E fix narrows the request-layer accept envelope to ``int
+    >= 0 | None`` while keeping every other codex round-6 promise
+    (large positive seeds still pass — see
+    ``test_seed_accepts_above_uint32`` — and the downstream uint32
+    fold is unchanged for positive values). Negative seeds now 422
+    instead of silently mapping to a different state."""
+    with pytest.raises(ValidationError):
+        ChatCompletionRequest(
+            model="qwen3-0.6b-8bit",
+            messages=[{"role": "user", "content": "hi"}],
+            seed=-1,
+        )
 
 
 def test_seed_accepts_above_uint32():
@@ -536,6 +545,117 @@ def test_seeded_sampler_aggressive_min_p_never_empty_mask(logprobs_fixture):
     for _ in range(5):
         out = int(s(sharp_logprobs)[0])
         assert 0 <= out < vocab
+
+
+def test_apply_argmax_rescue_preserves_nonempty_mask_excluding_argmax():
+    """Codex round-7 + round-8 BLOCKING regression guard.
+
+    The round-2 fix OR'd argmax into the combined mask unconditionally
+    to prevent all-``-inf`` rows from reaching ``mx.random.categorical``.
+    Codex r7 caught a hole in that contract: when ``top_k`` is layered
+    with a tighter ``top_p`` / ``min_p`` that excluded argmax from the
+    top-k set, the unconditional rescue would re-inject argmax —
+    changing ``top_k`` from "sample only from the top K" to "sample
+    from top K or argmax".
+
+    The round-7 fix gated the rescue via
+    ``mx.where(any_kept, mask, argmax_keep)``. Codex round-8 then
+    flagged that the original round-7 test (asserting same-seed
+    determinism) was vacuous — it would pass under the OLD
+    unconditional ``mask | argmax_keep`` AND under a hypothetical
+    flipped-``mx.where`` because both arms produce reproducible
+    sequences. The test below directly exercises the helper with
+    hand-built masks that pin the actual contract:
+
+      * Non-empty mask that EXCLUDES argmax — must be returned
+        UNCHANGED. The old unconditional ``|`` would have set the
+        argmax position to True; the conditional rescue must not.
+      * All-False mask — must fall back to a single-True at argmax.
+        The round-2 contract (no degenerate ``-inf`` rows) still
+        holds.
+      * Batched two-row case (one row non-empty, one row empty) —
+        per-row gating must keep them independent.
+
+    This test fails under the OLD unconditional ``mask | argmax_keep``
+    behaviour because the argmax position would be flipped from False
+    to True. It also fails under a flipped ``mx.where(any_kept,
+    argmax_keep, mask)`` because the non-empty mask would be replaced
+    by a single-True argmax instead of returned unchanged.
+    """
+    from vllm_mlx._seeded_sampler import _apply_argmax_rescue
+
+    # Build a [1, 8] non-empty mask that explicitly EXCLUDES argmax
+    # position 0. Token 0 is argmax; tokens 1 and 3 are kept by some
+    # upstream cutoff (e.g. top_k=2 selected a non-argmax pair after
+    # top_p had filtered the head). Verifies the rescue does NOT
+    # re-introduce argmax on the non-empty path.
+    mask = mx.array([[False, True, False, True, False, False, False, False]])
+    argmax_idx = mx.array([[0]])
+
+    rescued = _apply_argmax_rescue(mask, argmax_idx)
+    mx.eval(rescued)
+
+    # The kept set must be exactly {1, 3} — argmax (position 0) must
+    # NOT be flipped to True. Under the old unconditional OR,
+    # position 0 would be True here, breaking ``top_k`` intersection
+    # semantics.
+    rescued_list = rescued.tolist()[0]
+    assert rescued_list == [False, True, False, True, False, False, False, False], (
+        "argmax rescue re-introduced argmax on a non-empty mask — the "
+        "round-2 unconditional OR is back, ``top_k`` intersection "
+        "semantics are broken. Got: " + repr(rescued_list)
+    )
+
+    # Empty-mask case: rescue MUST fall back to a single-True at
+    # argmax. The round-2 contract (no ``-inf`` row reaches
+    # categorical) depends on this branch being live for truly empty
+    # intersections.
+    empty_mask = mx.array([[False] * 8])
+    rescued_empty = _apply_argmax_rescue(empty_mask, mx.array([[5]]))
+    mx.eval(rescued_empty)
+    rescued_empty_list = rescued_empty.tolist()[0]
+    expected_empty = [i == 5 for i in range(8)]
+    assert rescued_empty_list == expected_empty, (
+        "argmax rescue failed to inject argmax on an empty mask — the "
+        "round-2 empty-row safeguard is broken. Got: " + repr(rescued_empty_list)
+    )
+
+    # Two-row batched case: row 0 non-empty (must be preserved), row 1
+    # empty (must fall back to argmax). Verifies the per-row gating
+    # works with batched input — a regression here would mean the
+    # ``mx.any(..., axis=-1, keepdims=True)`` reduction broadcasts the
+    # wrong way and one row's emptiness contaminates the other.
+    batched_mask = mx.array(
+        [
+            [False, True, False, True, False],  # non-empty, argmax=0 excluded
+            [False, False, False, False, False],  # empty, argmax=2
+        ]
+    )
+    batched_argmax = mx.array([[0], [2]])
+    rescued_batched = _apply_argmax_rescue(batched_mask, batched_argmax)
+    mx.eval(rescued_batched)
+    rescued_batched_list = rescued_batched.tolist()
+    assert rescued_batched_list[0] == [False, True, False, True, False], (
+        "row 0 (non-empty) had argmax injected — batched gating leaked"
+    )
+    assert rescued_batched_list[1] == [False, False, True, False, False], (
+        "row 1 (empty) did not fall back to argmax — batched gating leaked"
+    )
+
+
+def test_seeded_sampler_rescue_does_not_taint_nonempty_rows(logprobs_fixture):
+    """Round-7 belt: end-to-end determinism on the non-empty rescue
+    path. Sister test to ``test_apply_argmax_rescue_preserves_
+    nonempty_mask_excluding_argmax`` which probes the helper directly.
+    Kept for breadth-of-coverage on the sampler-closure layer."""
+    s1 = make_seeded_sampler(seed=42, temperature=0.7, top_p=0.9, top_k=50, min_p=0.05)
+    s2 = make_seeded_sampler(seed=42, temperature=0.7, top_p=0.9, top_k=50, min_p=0.05)
+    seq1 = _sample_sequence(s1, logprobs_fixture, 16)
+    seq2 = _sample_sequence(s2, logprobs_fixture, 16)
+    assert seq1 == seq2, (
+        "non-empty-row path lost determinism after the round-7 "
+        "refactor — investigate the rescue helper or its callsite"
+    )
 
 
 # =============================================================================

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quantile-forest
-Version: 1.4.1
+Version: 1.4.2
 Summary: Quantile regression forests compatible with scikit-learn.
 Author: Zillow Group AI Team
 Maintainer: Zillow Group AI Team
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

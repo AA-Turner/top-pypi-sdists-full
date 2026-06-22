@@ -1,4 +1,3 @@
-# fmt: off
 import os
 import subprocess
 
@@ -47,8 +46,7 @@ calculators = {
     'cp2k': {},
     'crystal': {},
     'demon': dict(basis_path='hello'),
-    'demonnano': dict(input_arguments={},
-                      basis_path='hello'),
+    'demonnano': dict(input_arguments={}, basis_path='hello'),
     'dftb': {},
     'dftd3': {},
     'dmol': {},
@@ -84,6 +82,7 @@ def miscellaneous_hacks(monkeypatch, tmp_path):
     def do_nothing(returnval=None):
         def mock_function(*args, **kwargs):
             return returnval
+
         return mock_function
 
     # Monkeypatches can be pretty dangerous because someone might obtain
@@ -108,6 +107,7 @@ def miscellaneous_hacks(monkeypatch, tmp_path):
 
 def mkcalc(name, **kwargs):
     from ase.calculators.calculator import get_calculator_class
+
     cls = get_calculator_class(name)
     kwargs = {**calculators[name], **kwargs}
     return cls(**kwargs)
@@ -161,7 +161,8 @@ envvars = {
 
 
 dftd3_boilerplate = (
-    'ase_dftd3.POSCAR -func pbe -grad -pbc -cnthr 40.0 -cutoff 95.0 -zero')
+    'ase_dftd3.POSCAR -func pbe -grad -pbc -cnthr 40.0 -cutoff 95.0 -zero'
+)
 
 
 def get_expected_command(command, name, tmp_path, from_envvar):
@@ -179,13 +180,22 @@ def get_expected_command(command, name, tmp_path, from_envvar):
         return f'{command} tmp > tmp.out'
 
     if name == 'gromacs':
-        return (f'{command} mdrun -s gromacs.tpr -o gromacs.trr '
-                '-e gromacs.edr -g gromacs.log -c gromacs.g96  > MM.log 2>&1')
+        return (
+            f'{command} mdrun -s gromacs.tpr -o gromacs.trr '
+            '-e gromacs.edr -g gromacs.log -c gromacs.g96  > MM.log 2>&1'
+        )
 
     if name == 'lammpsrun':
         # lammpsrun does not use a shell command
-        return [*command.split(), '-echo', 'log',
-                '-screen', 'none', '-log', '/dev/stdout']
+        return [
+            *command.split(),
+            '-echo',
+            'log',
+            '-screen',
+            'none',
+            '-log',
+            '/dev/stdout',
+        ]
 
     if name == 'onetep':
         return [*command.split(), 'onetep.dat']
@@ -200,13 +210,15 @@ def get_expected_command(command, name, tmp_path, from_envvar):
 
 @pytest.mark.parametrize('name', list(envvars))
 def test_envvar_command(monkeypatch, name, tmp_path):
+    from ase.config import Config, cfg
+
     command = 'dummy shell command from environment'
 
-    if name == 'cp2k':
-        command += 'cp2k_shell'  # circumvent sanity check
-
-    expected_command = get_expected_command(command, name, tmp_path,
-                                            from_envvar=True)
+    expected_command = get_expected_command(
+        command, name, tmp_path, from_envvar=True
+    )
+    new_cfg = Config()
+    monkeypatch.setattr(cfg, 'parser', new_cfg.parser)
     monkeypatch.setenv(envvars[name], command)
     actual_command = intercept_command(name)
     assert actual_command == expected_command
@@ -230,11 +242,9 @@ command_keywords = {'castep': 'castep_command'}
 def test_keyword_command(name, tmp_path):
     command = 'dummy command via keyword'
 
-    if name == 'cp2k':
-        command += ' cp2k_shell'  # circumvent sanity check
-
-    expected_command = get_expected_command(command, name, tmp_path,
-                                            from_envvar=False)
+    expected_command = get_expected_command(
+        command, name, tmp_path, from_envvar=False
+    )
 
     # normally {'command': command}
     commandkwarg = {command_keywords.get(name, 'command'): command}
@@ -244,17 +254,25 @@ def test_keyword_command(name, tmp_path):
 
 # Calculators that (somewhat unwisely) have a hardcoded default command
 default_commands = {
-    'amber': ('sander -O  -i mm.in -o mm.out -p mm.top -c mm.crd '
-              '-r mm_dummy.crd'),
+    'amber': (
+        'sander -O  -i mm.in -o mm.out -p mm.top -c mm.crd -r mm_dummy.crd'
+    ),
     'castep': 'castep castep',  # wth?
-    'cp2k': 'cp2k_shell',
+    'cp2k': 'cp2k.psmp -s',
     'dftb': 'dftb+ > dftb.out',
     'dftd3': f'dftd3 {dftd3_boilerplate}'.split(),
     'gamess_us': 'rungms gamess_us.inp > gamess_us.log 2> gamess_us.err',
     'gaussian': 'g16 < Gaussian.com > Gaussian.log',
     'gulp': 'gulp < gulp.gin > gulp.got',
-    'lammpsrun': ['lammps', '-echo', 'log', '-screen', 'none',
-                  '-log', '/dev/stdout'],
+    'lammpsrun': [
+        'lammps',
+        '-echo',
+        'log',
+        '-screen',
+        'none',
+        '-log',
+        '/dev/stdout',
+    ],
     'mopac': 'mopac mopac.mop 2> /dev/null',
     'nwchem': 'nwchem nwchem.nwi > nwchem.nwo',
     # 'openmx': '',  # command contains full path which is variable

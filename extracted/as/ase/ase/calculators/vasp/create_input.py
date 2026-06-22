@@ -296,7 +296,6 @@ float_keys = [
     # group at UT Austin
     'jacobian',  # Weight of lattice to atomic motion
     'ddr',  # (DdR) dimer separation
-    'drotmax',  # (DRotMax) number of rotation steps per translation step
     'dfnmin',  # (DFNMin) rotational force below which dimer is not rotated
     'dfnmax',  # (DFNMax) rotational force below which dimer rotation stops
     'sltol',  # convergence ratio for minimum eigenvalue
@@ -544,6 +543,7 @@ int_keys = [
     # IBRION and POTIM are automatically set in the INCAR file
     'iopt',  # Controls which optimizer to use.  for iopt > 0, ibrion = 3
     # and potim = 0.0
+    'drotmax',  # (DRotMax) number of rotation steps per translation step
     'snl',  # Maximum dimentionality of the Lanczos matrix
     'lbfgsmem',  # Steps saved for inverse Hessian for IOPT = 1 (LBFGS)
     'fnmin',  # Max iter. before adjusting dt and alpha for IOPT = 7 (FIRE)
@@ -1405,7 +1405,7 @@ class GenerateVaspInput:
         if 'pp' not in p or p['pp'] is None:
             if self.string_params['gga'] is None:
                 p.update({'pp': 'lda'})
-            elif self.string_params['gga'] == 'PE':
+            elif self.string_params['gga'].lower() == 'pe':
                 p.update({'pp': 'pbe'})
             else:
                 raise NotImplementedError(
@@ -2151,11 +2151,13 @@ def read_potcar_numbers_of_electrons(fd: TextIO, /) -> list[tuple[str, float]]:
 def count_symbols(atoms: Atoms, exclude=()) -> tuple[list[str], dict[str, int]]:
     """Count symbols in atoms object, excluding a set of indices
 
-    Parameters:
+    Parameters
+    ----------
         atoms: Atoms object to be grouped
         exclude: List of indices to be excluded from the counting
 
-    Returns:
+    Returns
+    -------
         Tuple of (symbols, symbolcount)
         symbols: The unique symbols in the included list
         symbolscount: Count of symbols in the included list

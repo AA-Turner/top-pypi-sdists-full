@@ -8,7 +8,7 @@ mod worker;
 
 pub use args::{ContextArgs, InputArgs, OutputArgs, OverwriteArgs};
 pub use debug_query::DebugFormat;
-pub use error_context::{exit_with_error, ErrorContext};
+pub use error_context::{ErrorContext, exit_with_error};
 pub use inspect::{FileTrace, Granularity, RuleTrace, RunTrace, ScanTrace};
 pub use print_diff::DiffStyles;
 pub use rule_overwrite::RuleOverwrite;
@@ -16,7 +16,7 @@ pub use worker::{Items, MaxItemCounter, PathWorker, StdInWorker, Worker};
 
 use crate::lang::SgLang;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use crossterm::{
   cursor::MoveTo,
   event::{self, Event, KeyCode, KeyModifiers},
@@ -24,16 +24,16 @@ use crossterm::{
   terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
   terminal::{Clear, ClearType},
 };
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 
-use ast_grep_config::RuleCollection;
-use ast_grep_core::Pattern;
-use ast_grep_core::{tree_sitter::StrDoc, Matcher};
+use ast_grep_config::{Rule, RuleCollection};
+use ast_grep_core::{Matcher, tree_sitter::StrDoc};
 use ast_grep_language::{Language, LanguageExt};
 
+use std::fmt;
 use std::fs::read_to_string;
-use std::io::stdout;
 use std::io::Write;
+use std::io::stdout;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -85,10 +85,10 @@ pub fn run_in_alternate_screen<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
 pub fn prompt(prompt_text: &str, letters: &str, default: Option<char>) -> Result<char> {
   loop {
     let input = prompt_reply_stdout(prompt_text)?;
-    if let Some(default) = default {
-      if input == '\n' {
-        return Ok(default);
-      }
+    if let Some(default) = default
+      && input == '\n'
+    {
+      return Ok(default);
     }
     if letters.contains(input) {
       return Ok(input);
@@ -97,14 +97,25 @@ pub fn prompt(prompt_text: &str, letters: &str, default: Option<char>) -> Result
   }
 }
 
-fn read_file(path: &Path) -> Result<String> {
+#[derive(Debug)]
+pub(crate) struct EmptyFile;
+
+impl fmt::Display for EmptyFile {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str("File is empty")
+  }
+}
+
+impl std::error::Error for EmptyFile {}
+
+pub(crate) fn read_file(path: &Path) -> Result<String> {
   let file_content =
     read_to_string(path).with_context(|| format!("Cannot read file {}", path.to_string_lossy()))?;
   // skip large files or empty file
   if file_too_large(&file_content) {
     Err(anyhow!("File is too large"))
   } else if file_content.is_empty() {
-    Err(anyhow!("File is empty"))
+    Err(EmptyFile.into())
   } else {
     Ok(file_content)
   }
@@ -148,13 +159,16 @@ pub fn filter_file_rule(
 pub fn filter_file_pattern<'a>(
   path: &Path,
   lang: SgLang,
-  root_matcher: Option<&'a Pattern>,
-  sub_matchers: &'a [(SgLang, Pattern)],
-) -> Result<SmallVec<[MatchUnit<&'a Pattern>; 1]>> {
+  root_matcher: Option<&'a Rule>,
+  sub_matchers: &'a [(SgLang, Rule)],
+) -> Result<SmallVec<[MatchUnit<&'a Rule>; 1]>> {
   let file_content = read_file(path)?;
   let grep = lang.ast_grep(&file_content);
-  let do_match = |ast_grep: AstGrep, matcher: &'a Pattern| {
-    let fixed = matcher.fixed_string();
+  let do_match = |ast_grep: AstGrep, matcher: &'a Rule| {
+    let fixed = match matcher {
+      Rule::Pattern(pat) => pat.fixed_string(),
+      _ => std::borrow::Cow::Borrowed(""),
+    };
     if !fixed.is_empty() && !file_content.contains(&*fixed) {
       return None;
     }

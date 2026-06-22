@@ -1,5 +1,3 @@
-# fmt: off
-
 """Bussi NVT dynamics class."""
 
 import math
@@ -56,12 +54,10 @@ class Bussi(VelocityVerlet):
 
         self.target_kinetic_energy = 0.5 * self.temp * self.ndof
 
-        if np.isclose(
-            self.atoms.get_kinetic_energy(), 0.0, rtol=0, atol=1e-12
-        ):
+        if np.isclose(self.atoms.get_kinetic_energy(), 0.0, rtol=0, atol=1e-12):
             raise ValueError(
-                "Initial kinetic energy is zero. "
-                "Please set the initial velocities before running Bussi NVT."
+                'Initial kinetic energy is zero. '
+                'Please set the initial velocities before running Bussi NVT.'
             )
 
         self._exp_term = math.exp(-self.dt / self.taut)
@@ -105,9 +101,7 @@ class Bussi(VelocityVerlet):
         return math.sqrt(
             self._exp_term
             + energy_scaling_term * (sum_of_noises + normal_noise**2)
-            + 2
-            * normal_noise
-            * math.sqrt(self._exp_term * energy_scaling_term)
+            + 2 * normal_noise * math.sqrt(self._exp_term * energy_scaling_term)
         )
 
     def step(self, forces=None):

@@ -3,8 +3,7 @@
 """
 # core modules
 import os
-import io
-from path import Path
+from pathlib import Path
 import re
 import sys
 import math
@@ -40,7 +39,7 @@ from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
 
 @pytest.fixture(scope="module")
 def tmpdir(tmp_path_factory):
-    return tmp_path_factory.mktemp("out")
+    return tmp_path_factory.mktemp("exporters")
 
 
 @pytest.fixture(scope="module")
@@ -783,7 +782,7 @@ def test_stl_ascii(tmpdir, box123, id, opt, matchvals):
 
     assert matchvals
 
-    exporters.export(box123, str(fpath), None, 0.1, 0.1, opt)
+    exporters.export(box123, str(fpath), None, 0.1, 0.1, opt=opt)
 
     with open(fpath, "r") as f:
         for i, line in enumerate(f):
@@ -976,3 +975,80 @@ def test_dxf_shape(fname):
     s_imported = Sketch().importDXF(fname).val()
 
     assert (s - s_imported).Volume() == 0
+
+
+def test_step_export_unit_default(tmpdir):
+    """
+    Exports a box without specifying a unit and verifies the STEP file
+    header defaults to millimeters.
+    """
+
+    box_path = os.path.join(tmpdir, "unit_default.step")
+    Workplane().box(1, 1, 1).val().exportStep(box_path)
+
+    with open(box_path, "r") as f:
+        content = f.read()
+
+    assert "MILLI" in content
+
+
+def test_step_export_unit_inches(tmpdir):
+    """
+    Exports a box with unit="INCH" and verifies the STEP file header declares inches.
+    """
+    box_path = os.path.join(tmpdir, "unit_inches.step")
+    Workplane().box(1, 1, 1).val().exportStep(box_path, unit="INCH")
+
+    with open(box_path, "r") as f:
+        content = f.read()
+
+    assert "INCH" in content
+
+
+def test_step_export_output_unit(tmpdir):
+    """
+    Exports a box with unit="M" and outputUnit="M". This should prevent
+    OCCT from scaling the object from MM to M when it is written to the
+    STEP file. Re-importing should return the original 10x10x10 box.
+    """
+    box_path = os.path.join(tmpdir, "output_unit_roundtrip.step")
+    Workplane().box(10, 10, 10).val().exportStep(box_path, unit="M", outputUnit="M")
+
+    # Make sure the coordinates are what we expect
+    with open(box_path, "r") as f:
+        content = f.read()
+    assert "CARTESIAN_POINT('',(-5.,-5.,-5.));" in content
+
+    # Make sure the units are set correctly
+    assert "MILLI" not in content
+    assert "METRE" in content
+
+    imported = importers.importStep(box_path, unit="m")
+    bb = imported.val().BoundingBox()
+
+    assert bb.xlen == approx(10.0, rel=1e-3)
+    assert bb.ylen == approx(10.0, rel=1e-3)
+    assert bb.zlen == approx(10.0, rel=1e-3)
+
+
+def test_toVTK():
+
+    from cadquery.occ_impl.assembly import toVTK
+
+    assy = Assembly().add(face(rect(10, 0.5)))
+
+    renderer = toVTK(assy)
+    actors = renderer.GetActors()
+    actors.InitTraversal()
+
+    assert actors.GetNumberOfItems() == 2
+
+    face_actor = actors.GetNextActor()
+    face_data = face_actor.GetMapper().GetInput()
+    assert face_data.GetNumberOfPolys() > 0
+    assert face_data.GetNumberOfLines() == 0
+
+    edge_actor = actors.GetNextActor()
+    edge_data = edge_actor.GetMapper().GetInput()
+    assert edge_data.GetNumberOfLines() > 0
+    assert edge_data.GetNumberOfPolys() == 0

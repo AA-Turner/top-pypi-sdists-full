@@ -1,5 +1,5 @@
-# fmt: off
 """Tests for CHG/CHGCAR."""
+
 import numpy as np
 import pytest
 

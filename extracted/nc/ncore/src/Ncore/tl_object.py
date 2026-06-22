@@ -374,7 +374,8 @@ class CoreMessage:
 
 
 try:
-    tl_shema = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tl_schema.json")))
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tl_schema.json")) as f:
+        tl_shema = json.load(f)
 except FileNotFoundError:
     raise FileNotFoundError("Файл не найден. Скачайте https://core.telegram.org/schema/json и поместите в Ncore\\tl_schema.json")
 

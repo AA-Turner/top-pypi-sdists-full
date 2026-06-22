@@ -1,5 +1,5 @@
-# fmt: off
 """Tests for the .py format."""
+
 import io
 
 from ase import Atoms

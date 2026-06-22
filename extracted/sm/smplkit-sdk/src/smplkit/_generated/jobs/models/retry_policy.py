@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -13,9 +13,6 @@ from ..models.retry_policy_backoff import RetryPolicyBackoff
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
-
-if TYPE_CHECKING:
-    from ..models.retry_on import RetryOn
 
 
 T = TypeVar("T", bound="RetryPolicy")
@@ -42,8 +39,19 @@ class RetryPolicy:
             max_delay_seconds (int | None | Unset): The ceiling on the wait between retries, in seconds, for `exponential`
                 backoff — once the doubling reaches it, every subsequent retry waits this long. Only valid with `exponential`
                 backoff; omit it for `fixed`.
-            retry_on (RetryOn | Unset): Which failures a policy retries. An empty policy (both lists empty or
-                absent) retries nothing.
+            retry_on_timeout (bool | Unset): Retry a run that failed because the request did not complete within the job's
+                timeout. Defaults to `false` (timeouts are not retried). Default: False.
+            retry_on_connection_error (bool | Unset): Retry a run that failed because the destination could not be reached
+                (DNS, connection refused, TLS, or transport error). Defaults to `false` (connection errors are not retried).
+                Default: False.
+            retry_statuses (list[str] | Unset): Allowlist of response status patterns to retry when a run fails because the
+                response did not match the job's success status. Each element is either an exact 3-digit HTTP code (e.g. `429`)
+                or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`) — for example `["429", "5xx"]` to retry on rate-limit and
+                any server error. Empty (the default) matches no status, so nothing is retried on a non-success response.
+            retry_statuses_except (list[str] | Unset): Subtractions from `retry_statuses`, using the same exact-code or
+                class syntax. A status that matches both lists is not retried — `except` wins on overlap — so `retry_statuses`
+                of `["5xx"]` with `retry_statuses_except` of `["501"]` retries every server error except `501`. An element that
+                does not overlap `retry_statuses` is allowed and simply has no effect. Empty (the default) subtracts nothing.
             created_at (datetime.datetime | None | Unset): When the policy was created.
             updated_at (datetime.datetime | None | Unset): When the policy was last modified.
             deleted_at (datetime.datetime | None | Unset): When the policy was deleted. `null` for active policies.
@@ -55,7 +63,10 @@ class RetryPolicy:
     backoff: RetryPolicyBackoff
     delay_seconds: int
     max_delay_seconds: int | None | Unset = UNSET
-    retry_on: RetryOn | Unset = UNSET
+    retry_on_timeout: bool | Unset = False
+    retry_on_connection_error: bool | Unset = False
+    retry_statuses: list[str] | Unset = UNSET
+    retry_statuses_except: list[str] | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     deleted_at: datetime.datetime | None | Unset = UNSET
@@ -77,9 +88,17 @@ class RetryPolicy:
         else:
             max_delay_seconds = self.max_delay_seconds
 
-        retry_on: dict[str, Any] | Unset = UNSET
-        if not isinstance(self.retry_on, Unset):
-            retry_on = self.retry_on.to_dict()
+        retry_on_timeout = self.retry_on_timeout
+
+        retry_on_connection_error = self.retry_on_connection_error
+
+        retry_statuses: list[str] | Unset = UNSET
+        if not isinstance(self.retry_statuses, Unset):
+            retry_statuses = self.retry_statuses
+
+        retry_statuses_except: list[str] | Unset = UNSET
+        if not isinstance(self.retry_statuses_except, Unset):
+            retry_statuses_except = self.retry_statuses_except
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -123,8 +142,14 @@ class RetryPolicy:
         )
         if max_delay_seconds is not UNSET:
             field_dict["max_delay_seconds"] = max_delay_seconds
-        if retry_on is not UNSET:
-            field_dict["retry_on"] = retry_on
+        if retry_on_timeout is not UNSET:
+            field_dict["retry_on_timeout"] = retry_on_timeout
+        if retry_on_connection_error is not UNSET:
+            field_dict["retry_on_connection_error"] = retry_on_connection_error
+        if retry_statuses is not UNSET:
+            field_dict["retry_statuses"] = retry_statuses
+        if retry_statuses_except is not UNSET:
+            field_dict["retry_statuses_except"] = retry_statuses_except
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -138,8 +163,6 @@ class RetryPolicy:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.retry_on import RetryOn
-
         d = dict(src_dict)
         name = d.pop("name")
 
@@ -158,12 +181,13 @@ class RetryPolicy:
 
         max_delay_seconds = _parse_max_delay_seconds(d.pop("max_delay_seconds", UNSET))
 
-        _retry_on = d.pop("retry_on", UNSET)
-        retry_on: RetryOn | Unset
-        if isinstance(_retry_on, Unset):
-            retry_on = UNSET
-        else:
-            retry_on = RetryOn.from_dict(_retry_on)
+        retry_on_timeout = d.pop("retry_on_timeout", UNSET)
+
+        retry_on_connection_error = d.pop("retry_on_connection_error", UNSET)
+
+        retry_statuses = cast(list[str], d.pop("retry_statuses", UNSET))
+
+        retry_statuses_except = cast(list[str], d.pop("retry_statuses_except", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -231,7 +255,10 @@ class RetryPolicy:
             backoff=backoff,
             delay_seconds=delay_seconds,
             max_delay_seconds=max_delay_seconds,
-            retry_on=retry_on,
+            retry_on_timeout=retry_on_timeout,
+            retry_on_connection_error=retry_on_connection_error,
+            retry_statuses=retry_statuses,
+            retry_statuses_except=retry_statuses_except,
             created_at=created_at,
             updated_at=updated_at,
             deleted_at=deleted_at,

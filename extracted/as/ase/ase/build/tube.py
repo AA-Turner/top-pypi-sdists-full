@@ -1,5 +1,3 @@
-# fmt: off
-
 from math import gcd, sqrt
 
 import numpy as np
@@ -7,8 +5,7 @@ import numpy as np
 from ase.atoms import Atoms
 
 
-def nanotube(n, m, length=1, bond=1.42, symbol='C', verbose=False,
-             vacuum=None):
+def nanotube(n, m, length=1, bond=1.42, symbol='C', verbose=False, vacuum=None):
     """Create an atomic structure.
 
     Creates a single-walled nanotube whose structure is specified using the
@@ -174,10 +171,9 @@ def nanotube(n, m, length=1, bond=1.42, symbol='C', verbose=False,
     chiralangle = np.arctan((sq3 * n) / (2 * m + n)) / np.pi * 180
 
     cell = [[0, 0, 0], [0, 0, 0], [0, 0, length * t]]
-    atoms = Atoms(symbol + str(numatom),
-                  positions=X,
-                  cell=cell,
-                  pbc=[False, False, True])
+    atoms = Atoms(
+        symbol + str(numatom), positions=X, cell=cell, pbc=[False, False, True]
+    )
     if vacuum:
         atoms.center(vacuum, axis=(0, 1))
     if verbose:

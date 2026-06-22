@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moto-ext
-Version: 5.1.40
+Version: 5.1.41
 Summary: A library that allows you to easily mock out tests based on AWS infrastructure
 Home-page: https://github.com/localstack/moto
 Author: Steve Pulec

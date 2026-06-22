@@ -1,5 +1,3 @@
-# fmt: off
-
 import numpy as np
 
 from ase.calculators.calculator import Calculator, all_changes
@@ -30,7 +28,7 @@ def fcut(r: np.ndarray, r0: float, r1: float) -> np.ndarray:
     np.ndarray
         Sigmoid-like function smoothly interpolating (r0, 1) and (r1, 0).
 
-    """""
+    """
     s = 1.0 - (r - r0) / (r1 - r0)
     return (s >= 1.0) + ((s > 0.0) & (s < 1.0)) * (
         6.0 * s**5 - 15.0 * s**4 + 10.0 * s**3
@@ -51,13 +49,19 @@ class MorsePotential(Calculator):
     """Morse potential."""
 
     implemented_properties = [
-        'energy', 'energies', 'free_energy', 'forces', 'stress',
+        'energy',
+        'energies',
+        'free_energy',
+        'forces',
+        'stress',
     ]
-    default_parameters = {'epsilon': 1.0,
-                          'rho0': 6.0,
-                          'r0': 1.0,
-                          'rcut1': 1.9,
-                          'rcut2': 2.7}
+    default_parameters = {
+        'epsilon': 1.0,
+        'rho0': 6.0,
+        'r0': 1.0,
+        'rcut1': 1.9,
+        'rcut2': 2.7,
+    }
     nolabel = True
 
     def __init__(self, neighbor_list=ase_neighbor_list, **kwargs):
@@ -102,8 +106,9 @@ class MorsePotential(Calculator):
         self.neighbor_list = neighbor_list
         Calculator.__init__(self, **kwargs)
 
-    def calculate(self, atoms=None, properties=['energy'],
-                  system_changes=all_changes):
+    def calculate(
+        self, atoms=None, properties=['energy'], system_changes=all_changes
+    ):
         Calculator.calculate(self, atoms, properties, system_changes)
         epsilon = self.parameters['epsilon']
         rho0 = self.parameters['rho0']

@@ -29,7 +29,8 @@ requires-python = '>=3.10'
 dependencies = [
     'numpy>=1.21.6',  # April 2022
     'scipy>=1.8.1',  # May 2022
-    'matplotlib>=3.5.2'  # May 2022
+    'matplotlib>=3.5.2',  # May 2022
+    'typing_extensions>=4.13.1'  # Apr 2026
 ]
 
 [project.urls]
@@ -45,6 +46,10 @@ docs = ['sphinx', 'sphinx_book_theme', 'sphinxcontrib-video', 'sphinx-gallery', 
 test = ['pytest>=7.4.0', 'pytest-xdist>=3.2.0']  # summer 2023
 spglib = ['spglib>=1.9']
 lint = ['mypy', 'ruff', 'types-docutils', 'types-PyMySQL']
+
+[project.entry-points."ase.plugins"]
+temporary_wrappers = "ase._4.plugins.wrappers"
+legacy_plugins = "ase._4.plugins.legacy_plugins"
 
 [tool.setuptools.package-data]
 ase = [
@@ -104,6 +109,9 @@ select = [
     'E',      # pycodestyle
     'W',      # pycodestyle
     'I',      # isort
+    'C90',    # maximum mccabe complexity
+    'D406',   # missing-new-line-after-section-name
+    'D407',   # missing-dashed-underline-after-section
     'UP',     # pyupgrade
     'RUF013', # implicit-optional
 ]
@@ -112,10 +120,13 @@ ignore = [
     'W505',   # doc-line-too-long
 ]
 
+[tool.ruff.lint.mccabe]
+max-complexity = 50
+
 [tool.ruff.lint.per-file-ignores]
 "!doc/tutorials/**.py" = ["UP"]  # Only pyupgrade tutorials (for now)
-"examples/tutorials/*.py" = ["E402"]
-"examples/gettingstarted/*.py" = ["E402"]
+"examples/**.py" = ["E402"]
+"examples/**_prerequisites.py"= ["F401"]
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 80

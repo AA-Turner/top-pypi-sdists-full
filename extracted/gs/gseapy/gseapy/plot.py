@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import operator
 import sys
+import textwrap
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -180,7 +181,7 @@ class Heatmap(object):
         # Add colorbar, make sure to specify tick locations to match desired ticklabels
         cbar.locator = cbar_locator  # LinearLocator(3)
         cbar.update_ticks()
-        cbar.ax.set_title(self.cbar_title, loc="left", fontweight="bold")
+        cbar.ax.set_title(self.cbar_title, loc="left", fontweight="bold", pad=12)
         for key, spine in cbar.ax.spines.items():
             spine.set_visible(False)
         # cbar = colorbar(matrix)
@@ -621,6 +622,7 @@ class DotPlot(object):
         cmap: str = "viridis_r",
         ofname: Optional[str] = None,
         marker: str = "o",
+        wrap_width: Optional[int] = None,
         **kwargs,
     ):
         """Visualize GSEApy Results with categorical scatterplot
@@ -650,6 +652,8 @@ class DotPlot(object):
         :param cmap: Matplotlib colormap for mapping the `column` semantic.
         :param ofname: Output file name. If None, don't save figure
         :param marker: The matplotlib.markers. See https://matplotlib.org/stable/api/markers_api.html
+        :param wrap_width: int, optional. Maximum number of characters per line for y-axis labels.
+                           Long gene set names are wrapped using textwrap. Default: None (no wrapping).
         """
         self.marker = marker
         self.y = y
@@ -666,6 +670,7 @@ class DotPlot(object):
         self.title = title
         self.n_terms = n_terms
         self.thresh = thresh
+        self.wrap_width = wrap_width
         self.data = self.process(df)
         plt.rcParams.update({"pdf.fonttype": 42, "ps.fonttype": 42})
 
@@ -922,7 +927,9 @@ class DotPlot(object):
         ax.grid(axis="y", zorder=-1)  # zorder=-1.0
         ax.margins(x=0.25)
 
-        # We change the fontsize of minor ticks label
+        # wrap long y-axis tick labels if wrap_width is specified
+        if self.wrap_width is not None:
+            self._wrap_yticklabels(ax)
         # ax.tick_params(axis='y', which='major', labelsize=16)
         # ax.tick_params(axis='both', which='minor', labelsize=14)
 
@@ -968,8 +975,10 @@ class DotPlot(object):
         )
         # cbar.ax.tick_params(direction='in')
         cbar.ax.yaxis.set_tick_params(color="white", direction="in", left=True, right=True)
-        cbar.ax.set_title(self.cbar_title, loc="left", fontweight="bold")
-        cbar.ax.title.set_position((0, 1.05))  # 1.05 = 5% above the top
+        # pad (in points) keeps the title clear of the (tall) colorbar; more
+        # robust than set_position(), whose axes-fraction offset is a tiny
+        # absolute gap on a tall, narrow colorbar -> title crowds the bar.
+        cbar.ax.set_title(self.cbar_title, loc="left", fontweight="bold", pad=12)
         for key, spine in cbar.ax.spines.items():
             spine.set_visible(False)
 
@@ -988,6 +997,19 @@ class DotPlot(object):
             prop_cycle = plt.rcParams["axes.prop_cycle"]
             _colors = prop_cycle.by_key()["color"]
         return _colors
+
+    def _wrap_yticklabels(self, ax: plt.Axes) -> None:
+        """Wrap y-axis tick labels to ``self.wrap_width`` characters using textwrap.
+
+        ``ax.yaxis.set_ticks`` is called first to install a FixedLocator so
+        that ``set_yticklabels`` does not raise a UserWarning about mismatched
+        tick counts.
+        """
+        if self.wrap_width is None:
+            return
+        wrapped = [textwrap.fill(t.get_text(), width=self.wrap_width) for t in ax.get_yticklabels()]
+        ax.yaxis.set_ticks(ax.get_yticks())
+        ax.set_yticklabels(wrapped)
 
     def barh(self, color=None, group=None, ax=None):
         """
@@ -1054,6 +1076,9 @@ class DotPlot(object):
             ax.spines[side].set_visible(False)
         # set ticks
         ax.tick_params(axis="both", which="both", top=False, right=False)
+        # wrap long y-axis tick labels if wrap_width is specified
+        if self.wrap_width is not None:
+            self._wrap_yticklabels(ax)
         return ax
 
     def to_edgelist(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -1145,6 +1170,7 @@ def dotplot(
     yticklabels_rot: Optional[float] = None,
     marker: str = "o",
     show_ring: bool = False,
+    wrap_width: Optional[int] = None,
     **kwargs,
 ):
     """Visualize GSEApy Results with categorical scatterplot
@@ -1174,6 +1200,9 @@ def dotplot(
     :param ofname: Output file name. If None, don't save figure
     :param marker: The matplotlib.markers. See https://matplotlib.org/stable/api/markers_api.html
     :param show_ring bool: Whether to draw outer ring.
+    :param wrap_width: int, optional. Maximum characters per line for y-axis labels.
+                       Long gene set names are wrapped to fit within the figure.
+                       Default: None (no wrapping).
 
     :return: matplotlib.Axes if ofname is None.
              Only terms with `column` <= `cut-off` are plotted.
@@ -1198,6 +1227,7 @@ def dotplot(
         cmap=cmap,
         ofname=ofname,
         marker=marker,
+        wrap_width=wrap_width,
     )
     ax = dot.scatter(outer_ring=show_ring)
 
@@ -1267,6 +1297,7 @@ def barplot(
     figsize: Tuple[float, float] = (4, 6),
     color: Union[str, List[str], Dict[str, str]] = "salmon",
     ofname: Optional[str] = None,
+    wrap_width: Optional[int] = None,
     **kwargs,
 ):
     """Visualize GSEApy Results.
@@ -1284,6 +1315,9 @@ def barplot(
     :param color: color or list or dict of matplotlib.colors. Must be reconigzed by matplotlib.
                   if dict input, dict keys must be found in the `group`
     :param ofname: output file name. If None, don't save figure
+    :param wrap_width: int, optional. Maximum characters per line for y-axis labels.
+                       Long gene set names are wrapped to fit within the figure.
+                       Default: None (no wrapping).
 
     :return: matplotlib.Axes. return None if given ofname.
              Only terms with `column` <= `cut-off` are plotted.
@@ -1300,6 +1334,7 @@ def barplot(
         cmap="viridis",  # placeholder only
         ofname=ofname,
         ax=ax,
+        wrap_width=wrap_width,
     )
     if isinstance(color, str):
         color = [color]

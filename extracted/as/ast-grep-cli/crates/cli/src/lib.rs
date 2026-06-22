@@ -3,6 +3,7 @@ mod config;
 mod lang;
 mod lsp;
 mod new;
+mod outline;
 mod print;
 mod run;
 mod scan;
@@ -13,14 +14,15 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::{path::PathBuf, process::ExitCode};
 
-use completions::{run_shell_completion, CompletionsArg};
+use completions::{CompletionsArg, run_shell_completion};
 use config::ProjectConfig;
-use lsp::{run_language_server, LspArg};
-use new::{run_create_new, NewArg};
-use run::{run_with_pattern, RunArg};
-use scan::{run_with_config, ScanArg};
+use lsp::{LspArg, run_language_server};
+use new::{NewArg, run_create_new};
+use outline::{OutlineArg, run_outline};
+use run::{RunArg, run_with_pattern};
+use scan::{ScanArg, run_with_config};
 use utils::exit_with_error;
-use verify::{run_test_rule, TestArg};
+use verify::{TestArg, run_test_rule};
 
 const LOGO: &str = r#"
 Search and Rewrite code at large scale using AST pattern.
@@ -58,6 +60,8 @@ enum Commands {
   New(NewArg),
   /// Start language server.
   Lsp(LspArg),
+  /// Explore code structure for symbols, imports, exports, and members.
+  Outline(OutlineArg),
   /// Generate shell completion script.
   Completions(CompletionsArg),
   /// Generate rule docs for current configuration. (Not Implemented Yet)
@@ -86,9 +90,10 @@ fn is_command(arg: &str, command: &str) -> bool {
 }
 
 fn try_default_run(args: &[String]) -> Result<Option<RunArg>> {
-  // use `run` if there is at lease one pattern arg with no user provided command
-  let should_use_default_run_command =
-    args.iter().skip(1).any(|p| is_command(p, "pattern")) && args[1].starts_with('-');
+  // use `run` if there is at least one pattern arg with no user provided command
+  let is_pattern = args.iter().skip(1).any(|p| is_command(p, "pattern"));
+  let is_kind = args.iter().skip(1).any(|p| is_command(p, "kind"));
+  let should_use_default_run_command = (is_pattern || is_kind) && args[1].starts_with('-');
   if should_use_default_run_command {
     // handle no subcommand
     let arg = RunArg::try_parse_from(args)?;
@@ -139,6 +144,7 @@ pub fn main_with_args(args: impl Iterator<Item = String>) -> Result<ExitCode> {
     Commands::Test(arg) => run_test_rule(arg, project),
     Commands::New(arg) => run_create_new(arg, project),
     Commands::Lsp(arg) => run_language_server(arg, project).map(|_| ExitCode::SUCCESS),
+    Commands::Outline(arg) => run_outline(arg),
     Commands::Completions(arg) => run_shell_completion::<App>(arg),
     #[cfg(debug_assertions)]
     Commands::Docs => todo!("todo, generate rule docs based on current config"),
@@ -202,6 +208,7 @@ mod test_cli {
     default_run("-p Some($A) -l rs");
     default_run("-p Some($A)");
     default_run("-p Some($A) -l rs -r $A.unwrap()");
+    default_run("-k identifier -l rs");
   }
 
   #[test]
@@ -225,6 +232,8 @@ mod test_cli {
     ok("run -p test --strictness relaxed");
     ok("run -p test --selector identifier"); // pattern + selector
     ok("run -p test --selector identifier -l js");
+    ok("run -k identifier");
+    ok("run --kind=call_expression>identifier -l js");
     ok("run -p test --follow");
     ok("run -p test --globs '*.js'");
     ok("run -p test --globs '*.{js, ts}'");
@@ -233,6 +242,7 @@ mod test_cli {
     ok("run -p test --threads 12");
     ok("run -p test --files-with-matches");
     ok("run -p test -l rs -c config.yml"); // global config arg
+    ok("run -k gibberish"); // allow non-existing kind if no lang specified
     error("run test");
     error("run --debug-query test"); // missing lang
     error("run -r Test dir");
@@ -242,6 +252,9 @@ mod test_cli {
     error("run -p test --strictness not");
     error("run -p test -l rs --debug-query=not");
     error("run -p test --selector");
+    error("run -p test -k identifier");
+    error("run -k identifier --selector identifier");
+    error("run -k identifier --strictness ast");
     error("run -p test --threads");
     error("run -p test --files-with-matches -r test -U");
     error("run -p test --files-with-matches --json");
@@ -295,6 +308,7 @@ mod test_cli {
     ok("test --skip-snapshot-tests");
     ok("test -U");
     ok("test --update-all");
+    ok("test --follow");
     error("test --update-all --skip-snapshot-tests");
     ok("test --color always");
     ok("test --color never");
@@ -321,5 +335,39 @@ mod test_cli {
     ok("completions fish");
     error("completions not-shell");
     error("completions --shell fish");
+  }
+
+  #[test]
+  fn test_outline() {
+    ok("outline");
+    ok("outline crates/cli/src");
+    ok("outline crates/cli/src/lib.rs crates/cli/src/run.rs");
+    ok("outline crates/cli/src --json");
+    ok("outline crates/cli/src --json=compact");
+    ok("outline crates/cli/src --json=stream");
+    ok("outline crates/cli/src --color never");
+    ok("outline crates/cli/src --items exports");
+    ok("outline crates/cli/src --items imports");
+    ok("outline crates/cli/src --items all");
+    ok("outline crates/cli/src --type struct,enum,function");
+    ok("outline crates/cli/src --match Config");
+    ok("outline crates/cli/src --pub-members");
+    ok("outline crates/cli/src --view names");
+    ok("outline crates/cli/src --view signatures");
+    ok("outline crates/cli/src --view digest");
+    ok("outline crates/cli/src --view expanded");
+    ok("outline --stdin --lang rs");
+    ok("outline crates/cli/src --follow");
+    ok("outline crates/cli/src --no-ignore dot");
+    ok("outline crates/cli/src --globs '*.rs'");
+    ok("outline crates/cli/src --threads 12");
+    ok("outline crates/cli/src --json compact"); // argument after --json is parsed as a path
+    error("outline --stdin");
+    error("outline crates/cli/src --json=xml");
+    error("outline crates/cli/src --items public");
+    error("outline crates/cli/src --view full");
+    error("outline crates/cli/src --format json");
+    ok("outline crates/cli/src --outline-rules rules.yml");
+    ok("outline crates/cli/src --no-default-outline-rules");
   }
 }

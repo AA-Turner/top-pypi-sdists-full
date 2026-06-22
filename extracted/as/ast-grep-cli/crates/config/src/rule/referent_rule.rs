@@ -1,7 +1,8 @@
 use super::parameterized_util::{
-  match_bound_rule, match_parameterized_referent, parameterized_potential_kinds,
-  verify_parameterized_referent, GlobalTemplate,
+  GlobalTemplate, match_bound_rule, match_parameterized_referent, parameterized_potential_kinds,
+  verify_parameterized_referent,
 };
+use crate::rewriter::Rewriter;
 use crate::{Rule, RuleCore};
 
 use ast_grep_core::meta_var::MetaVarEnv;
@@ -81,14 +82,14 @@ pub struct RuleRegistration {
   /// parameterized global rules are shared by all RuleConfigs. It is a singleton.
   global_templates: Registration<GlobalTemplate>,
   /// Every RuleConfig has its own rewriters. But sub-rules share parent's rewriters.
-  rewriters: Registration<RuleCore>,
+  rewriters: Registration<Rewriter>,
   /// Current parameter bindings allowed while deserializing a global template.
   current_params: Option<Arc<HashSet<String>>>,
 }
 
 // these are shit code
 impl RuleRegistration {
-  pub fn get_rewriters(&self) -> &HashMap<String, RuleCore> {
+  pub fn get_rewriters(&self) -> &HashMap<String, Rewriter> {
     &self.rewriters.0
   }
 
@@ -135,7 +136,7 @@ impl RuleRegistration {
     Ok(())
   }
 
-  pub(crate) fn insert_rewriter(&self, id: &str, rewriter: RuleCore) {
+  pub(crate) fn insert_rewriter(&self, id: &str, rewriter: Rewriter) {
     let map = self.rewriters.write();
     map.insert(id.to_string(), rewriter);
   }
@@ -407,9 +408,9 @@ mod test {
   use crate::rule::stop_by::SerializableStopBy;
   use crate::rule::{Has, Rule, SerializableMatches, SerializableRule};
   use crate::test::TypeScript as TS;
+  use ast_grep_core::Pattern;
   use ast_grep_core::matcher::KindMatcher;
   use ast_grep_core::ops as o;
-  use ast_grep_core::Pattern;
 
   type Result = std::result::Result<(), ReferentRuleError>;
 

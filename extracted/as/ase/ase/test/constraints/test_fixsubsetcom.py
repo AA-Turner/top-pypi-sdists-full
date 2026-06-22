@@ -1,5 +1,5 @@
-# fmt: off
 """Tests for FixCom."""
+
 import numpy as np
 import pytest
 
@@ -7,11 +7,11 @@ from ase import Atoms
 from ase.build import molecule
 from ase.calculators.emt import EMT
 from ase.constraints import FixSubsetCom
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
+from ase.md import thermalize_momenta
 from ase.optimize import BFGS
 
 
-@pytest.fixture(name="atoms")
+@pytest.fixture(name='atoms')
 def fixture_atoms() -> Atoms:
     """fixture_atoms"""
     atoms0 = molecule('H2O')
@@ -45,7 +45,7 @@ def test_center_of_mass_velocity(atoms: Atoms):
     atoms.set_constraint(FixSubsetCom(indices=indices))
 
     # `adjust_momenta` of constaints are applied inside
-    MaxwellBoltzmannDistribution(atoms, temperature_K=300.0)
+    thermalize_momenta(atoms, 300.0)
 
     momenta = atoms.get_momenta()
     masses = atoms.get_masses()

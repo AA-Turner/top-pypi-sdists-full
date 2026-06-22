@@ -13,6 +13,12 @@ from codex_plugin_scanner.guard.adapters.base import HarnessContext
 from codex_plugin_scanner.guard.adapters.contracts import contract_for
 from codex_plugin_scanner.guard.adapters.pi_support import stable_suffix
 from codex_plugin_scanner.guard.cli.commands_hook_generic import _run_hook_generic_payload
+from codex_plugin_scanner.guard.cli.commands_support_codex_tool_output_messages import (
+    _codex_tool_output_request_summary,
+    _codex_tool_output_runtime_reason,
+    _codex_tool_output_runtime_summary,
+)
+from codex_plugin_scanner.guard.cli.commands_support_runtime_artifacts import _codex_post_tool_output_artifact
 from codex_plugin_scanner.guard.config import GuardConfig
 from codex_plugin_scanner.guard.runtime.actions import normalize_harness_payload
 from codex_plugin_scanner.guard.store import GuardStore
@@ -56,9 +62,36 @@ class TestPiAdapterIdentity:
         assert contract is not None
         assert contract.harness == "pi"
         assert contract.smoke_command == "hol-guard install pi --dry-run"
+        assert "tool_result" in contract.event_surfaces
 
 
 class TestPiDetect:
+    def test_detect_marks_omp_cli_as_available(self, tmp_path: Path, monkeypatch) -> None:
+        ctx = _ctx(tmp_path)
+        monkeypatch.setattr(
+            "codex_plugin_scanner.guard.adapters.pi._resolve_command",
+            lambda command, candidates=(): "/opt/homebrew/bin/omp" if command == "omp" else None,
+        )
+
+        result = get_adapter("pi").detect(ctx)
+
+        assert result.installed is True
+        assert result.command_available is True
+
+    def test_detect_omp_warning_mentions_pi_or_omp(self, tmp_path: Path, monkeypatch) -> None:
+        ctx = _ctx(tmp_path)
+        _write_json(ctx.home_dir / ".omp" / "agent" / "settings.json", {"extensions": []})
+        monkeypatch.setattr(
+            "codex_plugin_scanner.guard.adapters.pi._resolve_command",
+            lambda command, candidates=(): None,
+        )
+
+        adapter = get_adapter("pi")
+        result = adapter.detect(ctx)
+        warnings = adapter.diagnostic_warnings(result, runtime_probe=None)
+
+        assert any("pi or omp command" in warning for warning in warnings)
+
     def test_detects_settings_extensions_skills_prompts_themes_and_packages(self, tmp_path: Path) -> None:
         ctx = _ctx(tmp_path, workspace=True)
         assert ctx.workspace_dir is not None
@@ -156,7 +189,12 @@ class TestPiInstall:
         omp_settings_path = ctx.home_dir / ".omp" / "agent" / "settings.json"
         text = extension_path.read_text(encoding="utf-8")
         assert 'pi.on("tool_call"' in text
+        assert 'pi.on("tool_result"' in text
         assert 'pi.on("input"' in text
+        assert 'hook_event_name: "PostToolUse"' in text
+        assert "tool_response: limitedContent" in text
+        assert "const GUARD_CONFIG_PATH =" in text
+        assert "config_path: GUARD_CONFIG_PATH" in text
         assert '"--harness", "pi"' in text
         assert '"--home"' in text
         assert "ctx.cwd" in text
@@ -164,6 +202,71 @@ class TestPiInstall:
         assert str(extension_path) in json.loads(settings_path.read_text(encoding="utf-8"))["extensions"]
         assert omp_extension_path.is_file()
         assert str(omp_extension_path) in json.loads(omp_settings_path.read_text(encoding="utf-8"))["extensions"]
+
+    def test_install_writes_managed_extension_that_denies_on_hook_errors(self, tmp_path: Path, monkeypatch) -> None:
+        ctx = _ctx(tmp_path)
+        monkeypatch.setattr(
+            "codex_plugin_scanner.guard.adapters.pi.install_guard_shim",
+            lambda *args, **kwargs: {"shim_path": str(ctx.guard_home / "bin" / "guard-pi"), "notes": []},
+        )
+
+        manifest = get_adapter("pi").install(ctx)
+
+        text = Path(str(manifest["config_path"])).read_text(encoding="utf-8")
+        assert "serializedPayload = JSON.stringify(payloadToSend);" in text
+        assert "serializedPayload.length > GUARD_MAX_SERIALIZED_PAYLOAD_CHARS" in text
+        assert "if (result.error) {" in text
+        assert "const resultError =" in text
+        assert "const errorCode =" in text
+        assert 'decision: "deny"' in text
+        assert "errorCode === 'ETIMEDOUT'" in text
+        assert "HOL Guard Pi hook timed out after" in text
+        assert "HOL Guard Pi hook failed before completing review" in text
+
+    def test_install_writes_managed_extension_that_truncates_post_tool_payloads(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        ctx = _ctx(tmp_path)
+        monkeypatch.setattr(
+            "codex_plugin_scanner.guard.adapters.pi.install_guard_shim",
+            lambda *args, **kwargs: {"shim_path": str(ctx.guard_home / "bin" / "guard-pi"), "notes": []},
+        )
+
+        manifest = get_adapter("pi").install(ctx)
+
+        text = Path(str(manifest["config_path"])).read_text(encoding="utf-8")
+        assert "const GUARD_TEXT_LIMIT_CHARS =" in text
+        assert "const GUARD_CONTENT_ITEM_LIMIT =" in text
+        assert "const GUARD_OBJECT_KEY_LIMIT =" in text
+        assert "const GUARD_MAX_DEPTH =" in text
+        assert "const GUARD_MAX_SERIALIZED_PAYLOAD_CHARS =" in text
+        assert "function truncateText(" in text
+        assert "function boundValue(" in text
+        assert "function boundedOutputText(" in text
+        assert "function toolCallIdKey(" in text
+        assert "if (value === undefined) return { value: undefined, truncated: false };" in text
+        assert "typeof value === 'bigint'" in text
+        assert "value.toString()" in text
+        assert "new WeakSet<object>()" in text
+        assert "[deep object omitted by HOL Guard]" in text
+        assert "const boundedContent = boundValue(event.content);" in text
+        assert "const boundedStdout = boundedOutputText(event.content);" in text
+        assert "boundedToolInput.truncated || boundedContent.truncated || boundedStdout.truncated" in text
+        assert "const blockedToolResults = new Map<string, string>();" in text
+        assert 'pi.on("message_end"' in text
+        assert "const toolCallId = toolCallIdKey(event.toolCallId);" in text
+        assert "if (toolCallId) blockedToolResults.set(toolCallId, reason);" in text
+        assert "blockedToolResults.delete(toolCallId);" in text
+        assert "HOL Guard blocked oversized Pi tool output before review" in text
+        assert "return blockedToolResult(reason, event.details);" in text
+        assert "tool_response: limitedContent" in text
+        assert "stdout: toolOutput" in text
+        assert "contentText(event.content)" not in text
+        assert "options?.enforceSizeCap === true" in text
+        assert 'payloadToSend.hook_event_name === "PostToolUse"' in text
+        assert "delete reducedPayload.stdout;" in text
 
     def test_uninstall_removes_managed_extension(self, tmp_path: Path, monkeypatch) -> None:
         ctx = _ctx(tmp_path)
@@ -203,6 +306,112 @@ class TestPiRuntime:
 
         assert envelope.harness == "pi"
         assert envelope.action_type == "shell_command"
+
+    def test_pi_post_tool_payload_normalizes_like_other_harnesses(self, tmp_path: Path) -> None:
+        envelope = normalize_harness_payload(
+            "pi",
+            "PostToolUse",
+            {
+                "tool_name": "read",
+                "tool_input": {"filePath": "notes.txt"},
+                "tool_response": [{"type": "text", "text": "TOKEN=secret"}],
+                "stdout": "TOKEN=secret",
+            },
+            workspace=tmp_path,
+            home_dir=tmp_path,
+        )
+
+        assert envelope.harness == "pi"
+        assert envelope.event_name == "PostToolUse"
+        assert envelope.action_type == "file_read"
+        assert envelope.raw_payload_redacted["stdout"] == "[redacted]"
+        assert "tool_response" in envelope.raw_payload_redacted
+
+    def test_pi_post_tool_output_creates_runtime_artifact(self, tmp_path: Path) -> None:
+        secret_path = tmp_path / ".npmrc"
+        secret_line = "//registry.npmjs.org/:_authToken=npm_abcdefghijklmnopqrstuvwxyz012345\n"
+        secret_path.write_text(secret_line, encoding="utf-8")
+
+        artifact = _codex_post_tool_output_artifact(
+            harness="pi",
+            payload={
+                "tool_name": "read",
+                "tool_input": {"filePath": str(secret_path)},
+                "tool_response": [{"type": "text", "text": secret_line.strip()}],
+                "stdout": secret_line.strip(),
+            },
+            config_path="~/.pi/agent/settings.json",
+            source_scope="project",
+            cwd=tmp_path,
+            home_dir=tmp_path,
+        )
+
+        assert artifact is not None
+        assert artifact.harness == "pi"
+        assert artifact.artifact_id.startswith("pi:")
+        assert artifact.metadata["guard_default_action"] == "require-reapproval"
+
+    def test_pi_stdout_only_post_tool_output_creates_runtime_artifact(self, tmp_path: Path) -> None:
+        secret_path = tmp_path / ".npmrc"
+        secret_line = "//registry.npmjs.org/:_authToken=npm_abcdefghijklmnopqrstuvwxyz012345\n"
+        secret_path.write_text(secret_line, encoding="utf-8")
+
+        artifact = _codex_post_tool_output_artifact(
+            harness="pi",
+            payload={
+                "tool_name": "read",
+                "tool_input": {"filePath": str(secret_path)},
+                "stdout": secret_line.strip(),
+            },
+            config_path="~/.pi/agent/settings.json",
+            source_scope="project",
+            cwd=tmp_path,
+            home_dir=tmp_path,
+        )
+
+        assert artifact is not None
+        assert artifact.harness == "pi"
+        assert artifact.artifact_id.startswith("pi:")
+
+    def test_pi_focused_pytest_messages_label_pi_runtime(self) -> None:
+        assert _codex_tool_output_request_summary(
+            harness_label="Pi",
+            tool_name="Bash",
+            command_text=(
+                "python3 -m pytest "
+                "tests/test_guard_harness_smoke.py::TestSmokeEvidenceTemplate::"
+                "test_release_checklist_references_smoke_evidence -q 2>&1"
+            ),
+            local_secret_source=None,
+            focused_pytest=True,
+            merged_output_capture=True,
+        ) == (
+            "Pi tool `Bash` ran focused pytest, merged stderr into stdout while running "
+            "`python3 -m pytest "
+            "tests/test_guard_harness_smoke.py::TestSmokeEvidenceTemplate::"
+            "test_release_checklist_references_smoke_evidence -q 2>&1`, and the captured output "
+            "looked credential-like."
+        )
+        assert _codex_tool_output_runtime_summary(
+            None,
+            harness_label="Pi",
+            focused_pytest=True,
+            merged_output_capture=True,
+        ) == (
+            "Focused pytest merged stderr into stdout and emitted credential-looking output before "
+            "it reached Pi. Pytest can execute repository-controlled code, so this could be a real "
+            "local secret."
+        )
+        assert _codex_tool_output_runtime_reason(
+            None,
+            harness_label="Pi",
+            focused_pytest=True,
+            merged_output_capture=True,
+        ) == (
+            "Guard stopped this pytest output because pytest executes repository-controlled code, "
+            "and merging stderr into stdout can forward real local secrets to Pi. If you only need "
+            "the exit status, rerun without `2>&1` or keep stderr out of model-visible output."
+        )
 
     def test_pi_block_emits_native_json_and_stderr(self, tmp_path: Path) -> None:
         store = GuardStore(tmp_path / ".hol-guard")

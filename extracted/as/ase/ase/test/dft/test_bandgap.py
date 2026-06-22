@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 
 from ase.dft.bandgap import bandgap
@@ -37,8 +36,10 @@ def test_bandgap():
         for gap, (s1, k1, n1), (s2, k2, n2) in result:
             if k1 is not None:
                 assert gap == e_skn[s2][k2][n2] - e_skn[s1][k1][n1]
-        return [(gap, (s1, k1), (s2, k2))
-                for gap, (s1, k1, n1), (s2, k2, n2) in result]
+        return [
+            (gap, (s1, k1), (s2, k2))
+            for gap, (s1, k1, n1), (s2, k2, n2) in result
+        ]
 
     r = test([[[-1, 1]]])
     assert r == [(2, 0, 0), (2, 0, 0)]
@@ -48,8 +49,10 @@ def test_bandgap():
     assert r == [(0, None, None), (0, None, None)]
     r = test([[[-1, 2, 3], [-1, -1, 1]], [[-1, 2, 2], [-3, 1, 1]]])
 
-    assert r == [(0, (None, None), (None, None)),
-                 (0, (None, None), (None, None))]
+    assert r == [
+        (0, (None, None), (None, None)),
+        (0, (None, None), (None, None)),
+    ]
     r = test([[[-1, 5], [-2, 2]], [[-2, 4], [-4, 1]]])
     assert r == [(2, (0, 0), (1, 1)), (3, (0, 1), (1, 1))]
     r = test([[[-1, -1, -1, 2]], [[-1, 1, 1, 1]]])

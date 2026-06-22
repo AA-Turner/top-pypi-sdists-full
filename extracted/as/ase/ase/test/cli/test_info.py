@@ -9,7 +9,17 @@ def test_info(cli):
 
 
 def test_info_formats(cli):
-    assert 'traj' in cli.ase('info', '--formats')
+    output = cli.ase('info', '--formats')
+
+    assert (
+        'espresso-out [r/multi, ext=pwo|out]: Quantum espresso out file'
+        in output
+    )
+    assert (
+        'dlp4 [rw/single, ext=config, glob=*CONFIG*]: DL_POLY_4 CONFIG file'
+        in output
+    )
+    assert 'gen [rw/single]: DFTBPlus GEN format' in output
 
 
 def test_info_calculators(cli):

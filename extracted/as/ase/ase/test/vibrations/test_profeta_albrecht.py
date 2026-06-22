@@ -1,7 +1,7 @@
-# fmt: off
 """
 Test Placzek and Albrecht resonant Raman implementations
 """
+
 from pathlib import Path
 
 import pytest
@@ -19,9 +19,13 @@ from ase.vibrations.resonant_raman import ResonantRamanCalculator
 def test_compare_placzek_albrecht_intensities(testdir):
     atoms = H2Morse()
     name = 'rrmorse'
-    with ResonantRamanCalculator(atoms, H2MorseExcitedStatesCalculator,
-                                 overlap=lambda x, y: x.overlap(y),
-                                 name=name, txt='-') as rmc:
+    with ResonantRamanCalculator(
+        atoms,
+        H2MorseExcitedStatesCalculator,
+        overlap=lambda x, y: x.overlap(y),
+        name=name,
+        txt='-',
+    ) as rmc:
         rmc.run()
 
         # check overlap files to be at the correct place
@@ -35,13 +39,23 @@ def test_compare_placzek_albrecht_intensities(testdir):
 
     """Albrecht A and P-P are approximately equal"""
 
-    with Profeta(atoms, H2MorseExcitedStates,
-                 name=name, overlap=True,
-                 approximation='p-p', txt=None) as pr:
+    with Profeta(
+        atoms,
+        H2MorseExcitedStates,
+        name=name,
+        overlap=True,
+        approximation='p-p',
+        txt=None,
+    ) as pr:
         pri = pr.get_absolute_intensities(omega=om, gamma=gam)[-1]
-    with Albrecht(atoms, H2MorseExcitedStates,
-                  name=name, overlap=True,
-                  approximation='Albrecht A', txt=None) as al:
+    with Albrecht(
+        atoms,
+        H2MorseExcitedStates,
+        name=name,
+        overlap=True,
+        approximation='Albrecht A',
+        txt=None,
+    ) as al:
         ali = al.get_absolute_intensities(omega=om, gamma=gam)[-1]
     print('pri, ali', pri, ali)
     assert pri == pytest.approx(ali, 1e-2)

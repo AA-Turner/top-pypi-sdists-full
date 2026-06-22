@@ -31,6 +31,7 @@ mod html;
 mod json;
 mod kotlin;
 mod lua;
+mod markdown;
 mod nix;
 mod parsers;
 mod php;
@@ -45,16 +46,15 @@ mod yaml;
 use ast_grep_core::matcher::{Pattern, PatternBuilder, PatternError};
 pub use html::Html;
 
+use ast_grep_core::Node;
 use ast_grep_core::meta_var::MetaVariable;
 use ast_grep_core::tree_sitter::{StrDoc, TSLanguage, TSRange};
-use ast_grep_core::Node;
 use ignore::types::{Types, TypesBuilder};
 use serde::de::Visitor;
-use serde::{de, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::iter::repeat;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -101,13 +101,13 @@ fn pre_process_pattern(expando: char, query: &str) -> std::borrow::Cow<'_, str> 
     let need_replace = matches!(c, 'A'..='Z' | '_') // $A or $$A or $$$A
       || dollar_count == 3; // anonymous multiple
     let sigil = if need_replace { expando } else { '$' };
-    ret.extend(repeat(sigil).take(dollar_count));
+    ret.extend(std::iter::repeat_n(sigil, dollar_count));
     dollar_count = 0;
     ret.push(c);
   }
   // trailing anonymous multiple
   let sigil = if dollar_count == 3 { expando } else { '$' };
-  ret.extend(repeat(sigil).take(dollar_count));
+  ret.extend(std::iter::repeat_n(sigil, dollar_count));
   std::borrow::Cow::Owned(ret.into_iter().collect())
 }
 
@@ -244,6 +244,7 @@ impl_lang!(Java, language_java);
 impl_lang!(JavaScript, language_javascript);
 impl_lang!(Json, language_json);
 impl_lang!(Lua, language_lua);
+impl_lang!(Markdown, language_markdown);
 impl_lang!(Scala, language_scala);
 impl_lang!(Solidity, language_solidity);
 impl_lang!(Tsx, language_tsx);
@@ -272,6 +273,7 @@ pub enum SupportLang {
   Json,
   Kotlin,
   Lua,
+  Markdown,
   Nix,
   Php,
   Python,
@@ -290,7 +292,8 @@ impl SupportLang {
     use SupportLang::*;
     &[
       Bash, C, Cpp, CSharp, Css, Dart, Elixir, Go, Haskell, Hcl, Html, Java, JavaScript, Json,
-      Kotlin, Lua, Nix, Php, Python, Ruby, Rust, Scala, Solidity, Swift, Tsx, TypeScript, Yaml,
+      Kotlin, Lua, Markdown, Nix, Php, Python, Ruby, Rust, Scala, Solidity, Swift, Tsx, TypeScript,
+      Yaml,
     ]
   }
 
@@ -387,6 +390,7 @@ impl_aliases! {
   Json => &["json"],
   Kotlin => &["kotlin", "kt"],
   Lua => &["lua"],
+  Markdown => &["markdown", "md"],
   Nix => &["nix"],
   Php => &["php"],
   Python => &["py", "python"],
@@ -435,6 +439,7 @@ macro_rules! execute_lang_method {
       S::Json => Json.$method($($pname,)*),
       S::Kotlin => Kotlin.$method($($pname,)*),
       S::Lua => Lua.$method($($pname,)*),
+      S::Markdown => Markdown.$method($($pname,)*),
       S::Nix => Nix.$method($($pname,)*),
       S::Php => Php.$method($($pname,)*),
       S::Python => Python.$method($($pname,)*),
@@ -508,6 +513,7 @@ fn extensions(lang: SupportLang) -> &'static [&'static str] {
     Json => &["json"],
     Kotlin => &["kt", "ktm", "kts"],
     Lua => &["lua"],
+    Markdown => &["markdown", "md"],
     Nix => &["nix"],
     Php => &["php"],
     Python => &["py", "py3", "pyi", "bzl"],
@@ -564,7 +570,7 @@ pub fn config_file_type() -> Types {
 #[cfg(test)]
 mod test {
   use super::*;
-  use ast_grep_core::{matcher::MatcherExt, Pattern};
+  use ast_grep_core::{Pattern, matcher::MatcherExt};
 
   pub fn test_match_lang(query: &str, source: &str, lang: impl LanguageExt) {
     let cand = lang.ast_grep(source);
@@ -593,9 +599,11 @@ mod test {
     lang: impl LanguageExt,
   ) -> String {
     let mut source = lang.ast_grep(src);
-    assert!(source
-      .replace(pattern, replacer)
-      .expect("should parse successfully"));
+    assert!(
+      source
+        .replace(pattern, replacer)
+        .expect("should parse successfully")
+    );
     source.generate()
   }
 
@@ -610,6 +618,10 @@ mod test {
   fn test_guess_by_extension() {
     let path = Path::new("foo.rs");
     assert_eq!(from_extension(path), Some(SupportLang::Rust));
+    let path = Path::new("README.md");
+    assert_eq!(from_extension(path), Some(SupportLang::Markdown));
+    let path = Path::new("README.markdown");
+    assert_eq!(from_extension(path), Some(SupportLang::Markdown));
   }
 
   // TODO: add test for file_types

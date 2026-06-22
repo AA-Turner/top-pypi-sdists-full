@@ -5,8 +5,8 @@ from cloakbrowser import launch
 
 
 @patch("cloakbrowser.browser.ensure_binary")
-@patch("cloakbrowser.browser._import_sync_playwright")
-def test_extension_loading(mock_playwright_import, mock_ensure_binary):
+@patch("playwright.sync_api.sync_playwright")
+def test_extension_loading(mock_sync_playwright, mock_ensure_binary):
     mock_ensure_binary.return_value = "/fake/chrome"
 
     mock_browser = MagicMock()
@@ -14,10 +14,7 @@ def test_extension_loading(mock_playwright_import, mock_ensure_binary):
     mock_pw = MagicMock()
     mock_pw.chromium.launch.return_value = mock_browser
 
-    mock_pw_manager = MagicMock()
-    mock_pw_manager.return_value.start.return_value = mock_pw
-
-    mock_playwright_import.return_value = mock_pw_manager
+    mock_sync_playwright.return_value.start.return_value = mock_pw
 
     launch(extension_paths=["./ext"])
 

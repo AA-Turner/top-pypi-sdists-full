@@ -71,7 +71,7 @@ def set_high_bondorder_pairs(bondpairs, high_bondorder_pairs=None):
     Modify bondpairs list (from get_bondpairs((atoms)) to include high
     bondorder pairs.
 
-    Parameters:
+    Parameters
     -----------
     bondpairs: List of pairs, generated from get_bondpairs(atoms)
     high_bondorder_pairs: Dictionary of pairs with high bond orders
@@ -335,7 +335,7 @@ Height={self.canvas_height}
 Antialias=True
 Antialias_Threshold=0.1
 Display={self.display}
-Display_Gamma=2.2
+Display_Gamma=sRGB
 Pause_When_Done={self.pause}
 Verbose=False
 """

@@ -1,4 +1,3 @@
-# fmt: off
 from ase.io.formats import ioformats
 
 

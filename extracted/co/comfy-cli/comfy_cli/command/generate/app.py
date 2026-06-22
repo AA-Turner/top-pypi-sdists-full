@@ -25,7 +25,8 @@ from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from comfy_cli import tracking, ui
-from comfy_cli.command.generate import adapters, client, output, poll, schema, spec, upload
+from comfy_cli.command.generate import adapters, client, emit, output, poll, schema, spec, upload
+from comfy_cli.output.renderer import get_renderer
 
 _HELP = "Generate images via ComfyUI partner nodes (Flux, Ideogram, DALL·E, Recraft, Stability, …)."
 
@@ -83,7 +84,7 @@ def register_with(parent: typer.Typer) -> None:
 
 def _separate_meta_flags(extra_args: list[str]) -> tuple[list[str], dict[str, str | bool]]:
     """Pull run-level flags out of the user's argv tail."""
-    meta_names = {"download", "async", "json", "timeout", "api-key"}
+    meta_names = {"download", "async", "json", "timeout", "api-key", "emit-workflow", "output-prefix"}
     meta: dict[str, str | bool] = {}
     remaining: list[str] = []
     i = 0
@@ -140,7 +141,15 @@ def _spinner() -> Progress:
 
 def _emit_result(result: poll.PollResult, *, request_id: str, download: str | None, as_json: bool) -> None:
     if as_json:
-        output.print_json(result.raw)
+        # Honor --download in JSON mode too. Previously this returned before
+        # saving, so `--json --download` printed the URL but wrote no file,
+        # forcing callers to curl the URL by hand. Save first, then surface the
+        # local path alongside the raw response.
+        if download and result.status == "succeeded" and result.image_urls:
+            saved = output.save_urls(result.image_urls, download, request_id)
+            output.print_json({"result": result.raw, "saved": [str(p) for p in saved]})
+        else:
+            output.print_json(result.raw)
         return
     if result.status != "succeeded":
         rprint(f"[bold red]Job {result.status}: {result.error or 'unknown error'}[/bold red]")
@@ -210,15 +219,50 @@ def _generate(model: str, extra_args: list[str]) -> None:
         gen_props["async"] = do_async
         gen_props["has_download"] = bool(download)
 
+        emit_path = meta.get("emit-workflow") if isinstance(meta.get("emit-workflow"), str) else None
         flags = schema.flags_for(ep)
         try:
-            values = schema.parse_args(flags, remaining)
+            # In emit mode the partner node carries its own defaults, so don't
+            # force every proxy-required flag — let the user override only what
+            # they want.
+            values = schema.parse_args(flags, remaining, require_all=not emit_path)
         except schema.SchemaError as e:
             rprint(f"[bold red]{e}[/bold red]")
             name = gen_props["model_alias"] or ep.id
             rprint(f"[dim]Run `comfy generate schema {name}` for the full parameter list.[/dim]")
             _track_error("schema", e)
             raise typer.Exit(code=1)
+
+        if emit_path:
+            # Emit a runnable workflow that drives the partner *node* and return
+            # — no proxy call, no API key required. The artifact is the result.
+            name = gen_props["model_alias"] or ep.id
+            prefix = meta.get("output-prefix") if isinstance(meta.get("output-prefix"), str) else "generate"
+            renderer = get_renderer()
+            try:
+                workflow = emit.write_workflow(name, values, Path(emit_path).expanduser(), output_prefix=prefix)
+            except (emit.EmitError, OSError) as e:
+                _track_error("emit", e)
+                hint = (
+                    "check destination path permissions and parent directory"
+                    if isinstance(e, OSError)
+                    else "check the model name and that all required inputs are provided"
+                )
+                renderer.error(
+                    code="emit_workflow_failed",
+                    message=str(e),
+                    hint=hint,
+                )
+                raise typer.Exit(code=1) from e
+            tracking.track_event("generate:emit", {**gen_props, "node_count": len(workflow)})
+            if renderer.is_pretty():
+                rprint(f"[bold green]Wrote workflow:[/bold green] {emit_path}")
+                rprint(f"  run it: comfy run --workflow {emit_path}")
+            renderer.emit(
+                {"out": str(Path(emit_path).expanduser()), "model": name, "nodes": len(workflow)},
+                command="generate emit-workflow",
+            )
+            return
 
         try:
             api_key = client.resolve_api_key(meta.get("api-key") if isinstance(meta.get("api-key"), str) else None)
@@ -379,10 +423,26 @@ def _arg_value(args: list[str], *names: str) -> str | None:
 
 def _list_models(extra_args: list[str]) -> None:
     """`comfy generate list` — show available models with their short aliases."""
-    partner = _arg_value(extra_args, "--partner", "-p")
-    category = _arg_value(extra_args, "--category", "--style", "-c")
-    query = _arg_value(extra_args, "--query", "-q")
+    clean, meta = _separate_meta_flags(extra_args)
+    as_json = bool(meta.get("json", False))
+    partner = _arg_value(clean, "--partner", "-p")
+    category = _arg_value(clean, "--category", "--style", "-c")
+    query = _arg_value(clean, "--query", "-q")
     eps = spec.list_endpoints(partner=partner, category=category, query=query)
+    if as_json:
+        models = [
+            {
+                "alias": spec.preferred_alias(e.id) or e.id,
+                "id": e.id,
+                "partner": e.partner,
+                "category": e.category,
+                "mode": "async" if e.polling else "sync",
+                "summary": e.summary,
+            }
+            for e in eps
+        ]
+        output.print_json({"models": models, "count": len(models)})
+        return
     if not eps:
         rprint("[yellow]No models match those filters.[/yellow]")
         raise typer.Exit(code=0)
@@ -402,14 +462,42 @@ def _list_models(extra_args: list[str]) -> None:
 
 def _schema(extra_args: list[str]) -> None:
     """`comfy generate schema <model>` — show params for a model (fal-style)."""
-    if not extra_args or extra_args[0].startswith("-"):
+    clean, meta = _separate_meta_flags(extra_args)
+    as_json = bool(meta.get("json", False))
+    if not clean or clean[0].startswith("-"):
+        if as_json:
+            output.print_json({"error": "Usage: comfy generate schema <model>"})
+            raise typer.Exit(code=1)
         rprint("[bold red]Usage: comfy generate schema <model>[/bold red]")
         raise typer.Exit(code=1)
     try:
-        ep = spec.get_endpoint(extra_args[0])
+        ep = spec.get_endpoint(clean[0])
     except spec.SpecError as e:
+        if as_json:
+            output.print_json({"error": str(e)})
+            raise typer.Exit(code=1)
         rprint(f"[bold red]{e}[/bold red]")
         raise typer.Exit(code=1)
+    if as_json:
+        flags = schema.flags_for(ep)
+        output.print_json(
+            {
+                "model": spec.preferred_alias(ep.id) or ep.id,
+                "id": ep.id,
+                "params": [
+                    {
+                        "name": f.name,
+                        "kind": f.kind,
+                        "required": f.required,
+                        "default": f.default,
+                        "enum": f.enum,
+                        "description": f.description,
+                    }
+                    for f in flags
+                ],
+            }
+        )
+        return
     _show_schema_help(ep)
 
 
@@ -568,6 +656,10 @@ def _print_top_help() -> None:
         '  comfy generate ideogram-edit --image cat.png --mask m.png --prompt "add sunglasses" --rendering_speed TURBO'
     )
     rprint('  comfy generate dalle --prompt "a watercolor whale" --download whale.png')
+    rprint(
+        '  comfy generate flux-pro --prompt "a fox" --emit-workflow flux.json   '
+        "[dim]# write a runnable workflow instead of calling the proxy[/dim]"
+    )
     rprint("")
     rprint("[bold]Actions:[/bold]")
     rprint("  comfy generate list                    Browse available models")
@@ -576,4 +668,6 @@ def _print_top_help() -> None:
     rprint("  comfy generate upload <file-or-url>    Host a local file or remote URL and print its signed URL")
     rprint("  comfy generate resume <model> <job>    Resume an async job")
     rprint("")
-    rprint("[dim]Auth: set COMFY_API_KEY or pass --api-key. Get one at https://platform.comfy.org.[/dim]")
+    rprint(
+        "[dim]Auth: run `comfy cloud login` (session outranks env var), set COMFY_API_KEY, or pass --api-key. Get one at https://platform.comfy.org.[/dim]"
+    )

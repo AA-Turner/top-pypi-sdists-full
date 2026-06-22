@@ -9,6 +9,23 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
+class ModifyGetUniverseBloodlines(Document):
+    """
+    Removes ship_type_id from the required parameters of the UniverseBloodlinesGet schema.
+    this endpoint may return ship_type_id = null
+    """
+
+    def parsed(self, ctx: Document.Context) -> Document.Context:
+        spec = ctx.document
+        # Patch UniverseBloodlinesGet Schema
+        try:
+            schema = spec.get("components", {}).get("schemas", {}).get("UniverseBloodlinesGet", {})
+            schema.get("items", {}).get("required", []).remove("ship_type_id")
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Unable to set ship_type_id as not required in UniverseBloodlinesGet schema: {e}")
+        return ctx
+
+
 class Trim204ContentType(Document):
     """
     Removes and content-type from responses on a 204 reponses

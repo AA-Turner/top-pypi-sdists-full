@@ -859,8 +859,8 @@ class SQLite3Database(Database):
     @property
     def metadata(self):
         if self._metadata is None:
-            assert self.connection is not None
-            self._initialize(self.connection)
+            with self.managed_connection() as con:
+                self._initialize(con)
         return self._metadata.copy()
 
     @metadata.setter

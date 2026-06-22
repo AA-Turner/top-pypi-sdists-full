@@ -123,7 +123,7 @@ def parse_jupytext_args(args=None):
             "notebooks and text documents in a roundtrip. Use the "
             "--test and and --test-strict commands to test the roundtrip on your files. "
             "Read more about the available formats at "
-            "https://jupytext.readthedocs.io/en/latest/formats-scripts.html "
+            "https://jupytext.org/formats/scripts/ "
             "NB: in addition to the extensions listed above, you can also use these: '{}'".format(
                 "', '".join(
                     sorted(
@@ -357,7 +357,7 @@ def jupytext(args=None, *, notary=None):
         warnings.warn(
             "The --pre-commit argument is deprecated. "
             "Please consider switching to the pre-commit.com framework "
-            "(let us know at https://github.com/mwouts/jupytext/issues "
+            "(let us know at https://github.com/jupytext/jupytext/issues "
             "if that is an issue for you)",
             DeprecationWarning,
         )

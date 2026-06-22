@@ -10,8 +10,8 @@ directly via :class:`JobsClient` (sync) / :class:`AsyncJobsClient` (async)
 for callers that only need jobs.
 
 The shared dataclasses (:class:`Job`, :class:`AsyncJob`, :class:`Run`,
-:class:`Usage`, :class:`HttpConfig`, :class:`RetryPolicy`, :class:`RetryOn`)
-are re-exported here.
+:class:`Usage`, :class:`HttpConfig`, :class:`RetryPolicy`) are re-exported
+here.
 """
 
 from smplkit.jobs.clients import (
@@ -25,10 +25,8 @@ from smplkit.jobs.clients import (
     Job,
     JobEnvironment,
     JobKind,
-    RetryOn,
     RetryPoliciesClient,
     RetryPolicy,
-    RetryReason,
     Run,
     RunRetry,
     RunsClient,
@@ -47,10 +45,8 @@ __all__ = [
     "Job",
     "JobEnvironment",
     "JobKind",
-    "RetryOn",
     "RetryPoliciesClient",
     "RetryPolicy",
-    "RetryReason",
     "Run",
     "RunRetry",
     "RunsClient",

@@ -3,12 +3,13 @@ mod rewrite;
 mod string_case;
 mod trans;
 
-use crate::{DeserializeEnv, RuleCore};
+use crate::DeserializeEnv;
+use crate::rewriter::Rewriter;
 
-use ast_grep_core::meta_var::MetaVarEnv;
-use ast_grep_core::meta_var::MetaVariable;
 use ast_grep_core::Doc;
 use ast_grep_core::Language;
+use ast_grep_core::meta_var::MetaVarEnv;
+use ast_grep_core::meta_var::MetaVariable;
 
 use parse::ParseTransError;
 use schemars::JsonSchema;
@@ -76,7 +77,7 @@ impl Transform {
   pub fn apply_transform<'c, D: Doc>(
     &self,
     env: &mut MetaVarEnv<'c, D>,
-    rewriters: &HashMap<String, RuleCore>,
+    rewriters: &HashMap<String, Rewriter>,
     enclosing_env: &MetaVarEnv<'c, D>,
   ) {
     let mut ctx = Ctx {
@@ -100,7 +101,7 @@ impl Transform {
 
 // two lifetime to represent env root lifetime and lang/trans lifetime
 struct Ctx<'b, 'c, D: Doc> {
-  rewriters: &'b HashMap<String, RuleCore>,
+  rewriters: &'b HashMap<String, Rewriter>,
   env: &'b mut MetaVarEnv<'c, D>,
   enclosing_env: &'b MetaVarEnv<'c, D>,
 }

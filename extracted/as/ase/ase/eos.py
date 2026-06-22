@@ -6,8 +6,17 @@ import numpy as np
 
 from ase.units import kJ
 
-eos_names = ['sj', 'taylor', 'murnaghan', 'birch', 'birchmurnaghan',
-             'pouriertarantola', 'vinet', 'antonschmidt', 'p3']
+eos_names = [
+    'sj',
+    'taylor',
+    'murnaghan',
+    'birch',
+    'birchmurnaghan',
+    'pouriertarantola',
+    'vinet',
+    'anton-schmidt',
+    'p3',
+]
 
 
 def taylor(V, E0, beta, alpha, V0):
@@ -85,28 +94,46 @@ def vinet(V, E0, B0, BP, V0):
     return E
 
 
-def antonschmidt(V, Einf, B, n, V0):
-    """From Intermetallics 11, 23-32 (2003)
+def anton_schmidt(
+    v: np.ndarray,
+    e0: float,
+    b0: float,
+    bp0: float,
+    v0: float,
+) -> np.ndarray:
+    r"""Anton-Schmidt EOS [1]_.
 
-    Einf should be E_infinity, i.e. infinite separation, but
-    according to the paper it does not provide a good estimate
-    of the cohesive energy. They derive this equation from an
-    empirical formula for the volume dependence of pressure,
+    In the original formula, :math:`E_\infty` (energy at infinite separation)
+    is a parameter, which is given by [1]_
 
-    E(vol) = E_inf + int(P dV) from V=vol to V=infinity
+    .. math:: E_\infty = E_0 + \frac{B_0 V_0}{(n + 1)^2}.
 
-    but the equation breaks down at large volumes, so E_inf
-    is not that meaningful
+    :math:`n` is related to the Grüneisen parameter [1]_ as
 
-    n should be about -2 according to the paper.
+    .. math:: n = -1/6 - \gamma.
 
-    I find this equation does not fit volumetric data as well
-    as the other equtions do.
+    Taking the Grüneisen parameters in Ref. [2]_, :math:`n` should be about -2.
+
+    :math:`n` is also given with :math:`B'_{0}` by [3]_:
+
+    .. math:: n = -\\frac{1}{2} B'_{0}.
+
+    References
+    ----------
+    .. [1] H. Anton and P. C. Schmidt, Intermetallics 5, 449 (1997).
+        :doi:`10.1016/s0966-9795(97)00017-4`
+    .. [2] B. Mayer, H. Anton, E. Bott, M. Methfessel, J. Sticht, J. Harris,
+        and P. C. Schmidt, Intermetallics 11, 23 (2003).
+        :doi:`10.1016/s0966-9795(02)00127-9`
+    .. [3] A. Otero-de-la-Roza and V. Luaña,
+        Comput. Phys. Commun. 182, 1708 (2011).
+        :doi:`10.1016/j.cpc.2011.04.016`
+
     """
-
-    E = B * V0 / (n + 1) * (V / V0)**(n + 1) * (np.log(V / V0) -
-                                                (1 / (n + 1))) + Einf
-    return E
+    n = -0.5 * bp0
+    e_infinity = e0 + b0 * v0 / (n + 1) ** 2
+    e = b0 * v0 / (n + 1) * (v / v0)**(n + 1) * (np.log(v / v0) - 1 / (n + 1))
+    return e + e_infinity
 
 
 def p3(V, c0, c1, c2, c3):
@@ -132,9 +159,12 @@ def parabola(x, a, b, c):
 class EquationOfState:
     """Fit equation of state for bulk systems.
 
-    The following equation is used::
+    Parameters
+    ----------
+    eos : str
+        Name of the equation of state to fit.  Must be one of:
 
-        sjeos (default)
+        - ``sj`` (default)
             A third order inverse polynomial fit 10.1103/PhysRevB.67.026103
 
             ::
@@ -143,36 +173,48 @@ class EquationOfState:
                 E(V) = c + c t + c t  + c t ,  t = V
                         0   1     2      3
 
-        taylor
+        - ``taylor``
             A third order Taylor series expansion about the minimum volume
 
-        murnaghan
+        - ``murnaghan``
             PRB 28, 5480 (1983)
 
-        birch
+        - ``birch``
             Intermetallic compounds: Principles and Practice,
             Vol I: Principles. pages 195-210
 
-        birchmurnaghan
+        - ``birchmurnaghan``
             PRB 70, 224107
 
-        pouriertarantola
+        - ``pouriertarantola``
             PRB 70, 224107
 
-        vinet
+        - ``vinet``
             PRB 70, 224107
 
-        antonschmidt
-            Intermetallics 11, 23-32 (2003)
+        - ``anton-schmidt``
+            H. Anton and P. C. Schmidt, Intermetallics 5, 449 (1997).
+            :doi:`10.1016/s0966-9795(97)00017-4`
 
-        p3
+        - ``p3``
             A third order polynomial fit
 
-    Use::
-
-        eos = EquationOfState(volumes, energies, eos='murnaghan')
-        v0, e0, B = eos.fit()
-        eos.plot(show=True)
+    Examples
+    --------
+    >>> from ase.build import bulk
+    >>> from ase.calculators.emt import EMT
+    >>> atoms = bulk('Al')
+    >>> atoms.calc = EMT()
+    >>> cell = atoms.cell.copy()
+    >>> volumes = []
+    >>> energies = []
+    >>> for x in np.linspace(0.97, 1.01, 5):
+    ...     atoms.set_cell(cell * x, scale_atoms=True)
+    ...     volumes.append(atoms.get_volume())
+    ...     energies.append(atoms.get_potential_energy())
+    >>> eos = EquationOfState(volumes, energies, eos='murnaghan')
+    >>> v0, e0, b0 = eos.fit()
+    >>> ax = eos.plot(show=False)
 
     """
 
@@ -180,8 +222,19 @@ class EquationOfState:
         self.v = np.array(volumes)
         self.e = np.array(energies)
 
-        if eos == 'sjeos':
-            eos = 'sj'
+        old2new = {
+            'sjeos': 'sj',
+            'antonschmidt': 'anton-schmidt',
+        }
+        for old_name, new_name in old2new.items():
+            if eos == old_name:
+                eos = new_name
+                msg = (
+                    f'`{old_name}` is an old EOS name. '
+                    f'Use `{new_name}` instead. '
+                    'The old EOS names will be removed in ASE 3.30.0.'
+                )
+                warnings.warn(msg, FutureWarning)
         self.eos_string = eos
         self.v0 = None
 
@@ -201,7 +254,7 @@ class EquationOfState:
         if self.eos_string == 'sj':
             return self.fit_sjeos()
 
-        self.func = globals()[self.eos_string]
+        self.func = globals()[self.eos_string.replace('-', '_')]
 
         p0 = [min(self.e), 1, 1]
         popt, _pcov = curve_fit(parabola, self.v, self.e, p0)
@@ -224,12 +277,10 @@ class EquationOfState:
         # estimate the bulk modulus from Vo * E''.  E'' = 2 * c
         B0 = 2 * c * parabola_vmin
 
-        if self.eos_string == 'antonschmidt':
-            BP = -2
-        else:
-            BP = 4
+        # (∂B/∂P)_V0 = (∂B/∂V)_V0 / (∂P/∂V)_V0 (4.0 for the 2nd-order BM)
+        bp0 = 4.0
 
-        initial_guess = [E0, B0, BP, parabola_vmin]
+        initial_guess = [E0, B0, bp0, parabola_vmin]
 
         # now fit the equation of state
         p0 = initial_guess
@@ -343,7 +394,6 @@ def plot(eos_string, e0, v0, B, x, y, v, e, ax=None):
                       B / kJ * 1.e24))
 
     except ImportError:  # XXX what would cause this error?  LaTeX?
-        import warnings
         warnings.warn('Could not use LaTeX formatting')
         ax.set_xlabel('volume [L(length)^3]')
         ax.set_ylabel('energy [E(energy)]')

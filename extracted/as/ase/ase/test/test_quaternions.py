@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 
@@ -16,8 +15,11 @@ def axang_rotm(u, theta):
     ucpm = np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]])
 
     # Rotation matrix
-    rotm = (np.cos(theta) * np.identity(3) + np.sin(theta) * ucpm +
-            (1 - np.cos(theta)) * np.kron(u[:, None], u[None, :]))
+    rotm = (
+        np.cos(theta) * np.identity(3)
+        + np.sin(theta) * ucpm
+        + (1 - np.cos(theta)) * np.kron(u[:, None], u[None, :])
+    )
 
     return rotm
 
@@ -73,7 +75,7 @@ def test_quaternions_gimbal(rng):
     # Second: test the special case of a PI rotation
 
     rotm = np.identity(3)
-    rotm[:2, :2] *= -1               # Rotate PI around z axis
+    rotm[:2, :2] *= -1  # Rotate PI around z axis
 
     q = Quaternion.from_matrix(rotm)
 
@@ -90,8 +92,7 @@ def test_quaternions_overload(rng):
         q1 = Quaternion.from_matrix(rotm1)
         q2 = Quaternion.from_matrix(rotm2)
 
-        assert np.allclose(np.dot(rotm2, rotm1),
-                           (q2 * q1).rotation_matrix())
+        assert np.allclose(np.dot(rotm2, rotm1), (q2 * q1).rotation_matrix())
         # Now test this with a vector
         v = rng.random(3)
 
@@ -154,17 +155,20 @@ def test_quaternions_axang(rng):
 
 
 @pytest.mark.parametrize(
-    'q,euler_angles,mode,rotation_matrix,axis,angle', [
+    'q,euler_angles,mode,rotation_matrix,axis,angle',
+    [
         # pi/2 rotation along z axis
         (
             np.array([np.cos(np.pi / 4), 0, 0, np.sin(np.pi / 4)]),
             np.array([0, 0, np.pi / 2]),  # We use alpha=0 for singular case
             'zyz',
-            np.array([
-                [0, -1, 0],
-                [1, 0, 0],
-                [0, 0, 1],
-            ]),
+            np.array(
+                [
+                    [0, -1, 0],
+                    [1, 0, 0],
+                    [0, 0, 1],
+                ]
+            ),
             np.array([0, 0, 1]),
             np.pi / 2,
         ),
@@ -173,15 +177,17 @@ def test_quaternions_axang(rng):
             np.array([np.cos(np.pi / 4), np.sin(np.pi / 4), 0, 0]),
             np.array([np.pi / 2, np.pi / 2, -np.pi / 2]),
             'zyz',
-            np.array([
-                [1, 0, 0],
-                [0, 0, -1],
-                [0, 1, 0],
-            ]),
+            np.array(
+                [
+                    [1, 0, 0],
+                    [0, 0, -1],
+                    [0, 1, 0],
+                ]
+            ),
             np.array([1, 0, 0]),
             np.pi / 2,
         ),
-    ]
+    ],
 )
 def test_quaternions_special_cases(
     q, euler_angles, mode, rotation_matrix, axis, angle

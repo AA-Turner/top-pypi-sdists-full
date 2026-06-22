@@ -103,7 +103,7 @@ pseudo_path = {path}/siesta
         return cfg
 
 
-factory_classes = {}
+factory_classes: dict[str, type] = {}
 
 
 def factory(name):

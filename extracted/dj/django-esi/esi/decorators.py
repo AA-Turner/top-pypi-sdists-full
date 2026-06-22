@@ -1,3 +1,5 @@
+import functools
+import inspect
 import logging
 import time
 from collections.abc import Callable
@@ -8,8 +10,8 @@ from celery import Task
 
 from django.core.cache import cache
 
-from esi.exceptions import ESIBucketLimitException, ESIErrorLimitException
-from esi.rate_limiting import ESIRateLimitBucket, ESIRateLimits
+from esi.exceptions import ESIBucketLimitException, ESIErrorLimitException, TaskBucketLimitException
+from esi.rate_limiting import ESIRateLimitBucket, ESIRateLimits, TaskRateLimitBucket, TaskRateLimits, task_bucket_slug_key, task_bucket_slug_key
 
 from .models import CallbackRedirect, Token
 
@@ -294,3 +296,37 @@ def rate_limit_retry_task(func):
                 )
                 raise ex
     return wrapper
+
+
+def rate_limited_task(rate: str, keys: list | None = None):
+    """_summary_
+
+    Args:
+        rate (str): Max rate to run this task at, in the format of 100/15m or 10/s etc
+        keys (list | bool, optional): optional keys to use for the pool. Otherwise uses task signature. Defaults to False.
+
+    Returns:
+        _type_: decorated func
+    """
+    def decorator_func(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            task: Task = bound_args.arguments["self"]
+            key = task_bucket_slug_key(
+                task.name,
+                bound_args.arguments,
+                restrict_to=keys
+            )
+            bucket = TaskRateLimitBucket.from_rate(key, rate)
+            try:
+                TaskRateLimits.check_bucket(bucket)
+            except TaskBucketLimitException as ex:
+                delay = ex.reset
+                task.request.retries = task.request.retries - 1
+                return task.retry(countdown=delay)
+            else:
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator_func

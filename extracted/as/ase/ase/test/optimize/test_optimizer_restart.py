@@ -1,4 +1,3 @@
-# fmt: off
 import shutil
 from math import sqrt
 from os.path import getsize
@@ -22,13 +21,13 @@ def params(opt):
         run_params.update(dict(smax=0.0005))
 
     if opt is BFGS:
-        opt_params = {"append_trajectory": True}
+        opt_params = {'append_trajectory': True}
 
     return run_params, opt_params
 
 
 def opt_filter_atoms(opt, trajectory, restart, opt_params):
-    atoms = bulk("Au")
+    atoms = bulk('Au')
     atoms *= 2
     atoms.rattle(stdev=0.005, seed=1)
 
@@ -88,20 +87,29 @@ def fragile_optimizer(opt, trajectory, restart, run_kwargs, opt_params):
 
 
 @pytest.mark.parametrize(
-    "opt", [BFGS, CellAwareBFGS, pytest.param(
-        BFGSLineSearch, marks=pytest.mark.xfail(
-            reason='Restart is absolutely broken and does not work. orig_cell '
-                   'is not stored in output'))])
+    'opt',
+    [
+        BFGS,
+        CellAwareBFGS,
+        pytest.param(
+            BFGSLineSearch,
+            marks=pytest.mark.xfail(
+                reason='Restart is absolutely broken and does not work. '
+                'orig_cell is not stored in output'
+            ),
+        ),
+    ],
+)
 def test_optimizers_restart(testdir, opt):
-    restart_filename = f"restart_{opt.__name__}.dat"
-    trajectory_filename = f"{opt.__name__}.traj"
+    restart_filename = f'restart_{opt.__name__}.dat'
+    trajectory_filename = f'{opt.__name__}.traj'
     run_kwargs, opt_params = params(opt)
 
     # single run
     with opt_filter_atoms(
         opt=opt,
-        trajectory="single_" + trajectory_filename,
-        restart="single_" + restart_filename,
+        trajectory='single_' + trajectory_filename,
+        restart='single_' + restart_filename,
         opt_params=opt_params,
     ) as single:
         single.run(**run_kwargs)
@@ -109,19 +117,19 @@ def test_optimizers_restart(testdir, opt):
     # fragile restart
     fragile_init, fragile_restart = fragile_optimizer(
         opt=opt,
-        trajectory="fragile_" + trajectory_filename,
-        restart="fragile_" + restart_filename,
+        trajectory='fragile_' + trajectory_filename,
+        restart='fragile_' + restart_filename,
         run_kwargs=run_kwargs,
         opt_params=opt_params,
     )
 
     assert single.nsteps == fragile_init.nsteps + fragile_restart.nsteps
 
-    single_traj = read_traj("single_" + trajectory_filename)
-    fragile_traj = read_traj("fragile_" + trajectory_filename)
+    single_traj = read_traj('single_' + trajectory_filename)
+    fragile_traj = read_traj('fragile_' + trajectory_filename)
 
     if not opt_params.get('append_trajectory', False):
-        fragile_traj_og = read_traj("fragile_" + trajectory_filename + '.orig')
+        fragile_traj_og = read_traj('fragile_' + trajectory_filename + '.orig')
         count = len(fragile_traj_og) - 1
         for traj_idx in fragile_traj:
             if traj_idx['step'] == 0:
@@ -140,24 +148,23 @@ def test_optimizers_restart(testdir, opt):
 def read_traj(file: str):
     data = []
 
-    with Trajectory(file, "r") as traj:
+    with Trajectory(file, 'r') as traj:
         for idx, atoms in enumerate(traj):
-
             pos = atoms.get_positions()
-            forces = atoms.calc.results["forces"]
-            stress = atoms.calc.results["stress"]
-            energy = atoms.calc.results["energy"]
+            forces = atoms.calc.results['forces']
+            stress = atoms.calc.results['stress']
+            energy = atoms.calc.results['energy']
 
             fmax = sqrt((forces**2).sum(axis=1).max())
             smax = abs(stress).max()
 
             tmp = {
-                "step": idx,
-                "energy": energy,
-                "position": pos,
-                "forces": forces,
-                "fmax": fmax,
-                "smax": smax,
+                'step': idx,
+                'energy': energy,
+                'position': pos,
+                'forces': forces,
+                'fmax': fmax,
+                'smax': smax,
             }
             data.append(tmp)
         traj.close()

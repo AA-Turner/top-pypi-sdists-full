@@ -1,10 +1,9 @@
-use crate::check_var::{check_rule_with_hint, CheckHint};
-use crate::fixer::{Fixer, FixerError, SerializableFixer};
-use crate::rule::referent_rule::RuleRegistration;
+use crate::DeserializeEnv;
+use crate::check_var::{CheckHint, check_rule_with_hint};
 use crate::rule::Rule;
+use crate::rule::referent_rule::RuleRegistration;
 use crate::rule::{RuleSerializeError, SerializableRule};
 use crate::transform::{Transform, TransformError, Transformation};
-use crate::DeserializeEnv;
 
 use ast_grep_core::language::Language;
 use ast_grep_core::meta_var::MetaVarEnv;
@@ -32,8 +31,6 @@ pub enum RuleCoreError {
   Constraints(#[source] RuleSerializeError),
   #[error("`transform` is not configured correctly.")]
   Transform(#[from] TransformError),
-  #[error("`fix` pattern is invalid.")]
-  Fixer(#[from] FixerError),
   #[error("Undefined meta var `{0}` used in `{1}`.")]
   UndefinedMetaVar(String, &'static str),
 }
@@ -53,10 +50,6 @@ pub struct SerializableRuleCore {
   /// Dict value is a [transformation] that specifies how meta var is processed.
   /// See [transformation doc](https://ast-grep.github.io/reference/yaml/transformation.html).
   pub transform: Option<HashMap<String, Transformation>>,
-  /// A pattern string or a FixConfig object to auto fix the issue.
-  /// It can reference metavariables appeared in rule.
-  /// See details in fix [object reference](https://ast-grep.github.io/reference/yaml/fix.html#fixconfig).
-  pub fix: Option<SerializableFixer>,
 }
 
 impl SerializableRuleCore {
@@ -87,15 +80,6 @@ impl SerializableRuleCore {
     Ok(constraints)
   }
 
-  fn get_fixer<L: Language>(&self, env: &DeserializeEnv<L>) -> RResult<Vec<Fixer>> {
-    if let Some(fix) = &self.fix {
-      let parsed = Fixer::parse(fix, env, &self.transform)?;
-      Ok(parsed)
-    } else {
-      Ok(vec![])
-    }
-  }
-
   fn get_matcher_from_env<L: Language>(&self, env: &DeserializeEnv<L>) -> RResult<RuleCore> {
     let rule = env.deserialize_rule(self.rule.clone())?;
     let constraints = self.get_constraints(env)?;
@@ -104,13 +88,11 @@ impl SerializableRuleCore {
       .as_ref()
       .map(|t| Transform::deserialize(t, env))
       .transpose()?;
-    let fixer = self.get_fixer(env)?;
     Ok(
       RuleCore::new(rule)
         .with_matchers(constraints)
         .with_registration(env.registration.clone())
-        .with_transform(transform)
-        .with_fixer(fixer),
+        .with_transform(transform),
     )
   }
 
@@ -125,26 +107,18 @@ impl SerializableRuleCore {
   ) -> RResult<RuleCore> {
     let env = self.get_deserialize_env(env)?;
     let ret = self.get_matcher_from_env(&env)?;
-    check_rule_with_hint(
-      &ret.rule,
-      &ret.registration,
-      &ret.constraints,
-      &ret.transform,
-      &ret.fixer,
-      hint,
-    )?;
+    check_rule_with_hint(&ret, hint)?;
     Ok(ret)
   }
 }
 
 pub struct RuleCore {
-  rule: Rule,
-  constraints: HashMap<String, Rule>,
+  pub(crate) rule: Rule,
+  pub(crate) constraints: HashMap<String, Rule>,
   kinds: Option<BitSet>,
   pub(crate) transform: Option<Transform>,
-  pub fixer: Vec<Fixer>,
   // this is required to hold util rule reference
-  registration: RuleRegistration,
+  pub(crate) registration: RuleRegistration,
 }
 
 impl RuleCore {
@@ -177,11 +151,6 @@ impl RuleCore {
   #[inline]
   pub fn with_transform(self, transform: Option<Transform>) -> Self {
     Self { transform, ..self }
-  }
-
-  #[inline]
-  pub fn with_fixer(self, fixer: Vec<Fixer>) -> Self {
-    Self { fixer, ..self }
   }
 
   pub fn get_env<L: Language>(&self, lang: L) -> DeserializeEnv<L> {
@@ -219,10 +188,10 @@ impl RuleCore {
     env: &mut Cow<MetaVarEnv<'tree, D>>,
     enclosing_env: Option<&MetaVarEnv<'tree, D>>,
   ) -> Option<Node<'tree, D>> {
-    if let Some(kinds) = &self.kinds {
-      if !kinds.contains(node.kind_id().into()) {
-        return None;
-      }
+    if let Some(kinds) = &self.kinds
+      && !kinds.contains(node.kind_id().into())
+    {
+      return None;
     }
     let ret = self.rule.match_node_with_env(node, env)?;
     if !env.to_mut().match_constraints(&self.constraints) {
@@ -256,7 +225,6 @@ impl Default for RuleCore {
       constraints: HashMap::default(),
       kinds: None,
       transform: None,
-      fixer: vec![],
       registration: RuleRegistration::default(),
     }
   }
@@ -279,10 +247,11 @@ impl Matcher for RuleCore {
 #[cfg(test)]
 mod test {
   use super::*;
+  use crate::SerializableGlobalRule;
   use crate::from_str;
+  use crate::rewriter::{Rewriter, SerializableRewriter};
   use crate::rule::referent_rule::{ReferentRule, ReferentRuleError};
   use crate::test::TypeScript;
-  use crate::SerializableGlobalRule;
   use ast_grep_core::matcher::{Pattern, RegexMatcher};
   use ast_grep_core::tree_sitter::LanguageExt;
 
@@ -299,6 +268,33 @@ mod test {
     let env = DeserializeEnv::new(TypeScript::Tsx).with_globals(&globals);
     let rule: SerializableRuleCore = from_str(rule_src).expect("should parse rule");
     rule.get_matcher(env)
+  }
+
+  // A `not` sub-rule must not leak a metavariable binding into the match env,
+  // even when reached through a relational rule. Regression for the env-leak
+  // class: the `return $A` sibling makes the negated inner match (binding A),
+  // but `not` succeeds on a different sibling, so $A must remain unbound.
+  #[test]
+  fn test_not_does_not_leak_env_via_yaml() {
+    use ast_grep_core::tree_sitter::LanguageExt;
+    let matcher = get_matcher(
+      r"
+rule:
+  kind: expression_statement
+  regex: '^target'
+  follows:
+    not:
+      pattern: return $A
+    stopBy: end
+",
+    )
+    .expect("rule should compile");
+    let grep = TypeScript::Tsx.ast_grep("function f() { bar(); return foo; target; }");
+    let nm = grep.root().find(&matcher).expect("should match target;");
+    assert!(
+      nm.get_env().get_match("A").is_none(),
+      "`not` must export no binding for $A"
+    );
   }
 
   #[test]
@@ -362,6 +358,127 @@ transform:
     assert!(grep.root().find(&matcher).is_none());
     assert!(grep.root().find(&rule).is_none());
     assert!(grep.root().find(&not).is_none());
+  }
+
+  #[test]
+  fn test_augmented_rule() {
+    let matcher = get_matcher(
+      r"
+rule:
+  pattern: console.log($A)
+  inside:
+    stopBy: end
+    pattern: function test() { $$$ }
+",
+    )
+    .expect("should parse");
+    let grep = TypeScript::Tsx.ast_grep("console.log(1)");
+    assert!(grep.root().find(&matcher).is_none());
+    let grep = TypeScript::Tsx.ast_grep("function test() { console.log(1) }");
+    assert!(grep.root().find(&matcher).is_some());
+  }
+
+  #[test]
+  fn test_multiple_augment_rule() {
+    let matcher = get_matcher(
+      r"
+rule:
+  pattern: console.log($A)
+  inside:
+    stopBy: end
+    pattern: function test() { $$$ }
+  has:
+    stopBy: end
+    pattern: '123'
+",
+    )
+    .expect("should parse");
+    let grep = TypeScript::Tsx.ast_grep("function test() { console.log(1) }");
+    assert!(grep.root().find(&matcher).is_none());
+    let grep = TypeScript::Tsx.ast_grep("function test() { console.log(123) }");
+    assert!(grep.root().find(&matcher).is_some());
+  }
+
+  #[test]
+  fn test_rule_env() {
+    let matcher = get_matcher(
+      r"
+rule:
+  all:
+    - pattern: console.log($A)
+    - inside:
+        stopBy: end
+        pattern: function $B() {$$$}
+",
+    )
+    .expect("should parse");
+    let grep = TypeScript::Tsx.ast_grep("function test() { console.log(1) }");
+    let node_match = grep.root().find(&matcher).expect("should found");
+    let env = node_match.get_env();
+    let a = env.get_match("A").expect("should exist").text();
+    assert_eq!(a, "1");
+    let b = env.get_match("B").expect("should exist").text();
+    assert_eq!(b, "test");
+  }
+
+  #[test]
+  fn test_utils_rule() {
+    let matcher = get_matcher(
+      r"
+rule:
+  matches: test-rule
+utils:
+  test-rule:
+    pattern: some($A)
+",
+    )
+    .expect("should parse");
+    let grep = TypeScript::Tsx.ast_grep("some(123)");
+    assert!(grep.root().find(&matcher).is_some());
+    let grep = TypeScript::Tsx.ast_grep("some()");
+    assert!(grep.root().find(&matcher).is_none());
+  }
+
+  #[test]
+  fn test_local_util_metavar_does_affect_yaml_rule_matching() {
+    let matcher = get_matcher(
+      r"
+rule:
+  all:
+    - pattern: $A
+    - matches: local-rule
+utils:
+  local-rule:
+    pattern: Some($A)
+",
+    )
+    .expect("should parse");
+    let grep = TypeScript::Tsx.ast_grep("Some(123)");
+    assert!(grep.root().find(&matcher).is_none());
+  }
+
+  #[test]
+  fn test_transform() {
+    let matcher = get_matcher(
+      r"
+rule:
+  pattern: console.log($A)
+transform:
+  B:
+    substring:
+      source: $A
+      startChar: 1
+      endChar: -1
+",
+    )
+    .expect("should parse");
+    let grep = TypeScript::Tsx.ast_grep("function test() { console.log(123) }");
+    let node_match = grep.root().find(&matcher).expect("should found");
+    let env = node_match.get_env();
+    let a = env.get_match("A").expect("should exist").text();
+    assert_eq!(a, "123");
+    let b = env.get_transformed("B").expect("should exist");
+    assert_eq!(b, b"2");
   }
 
   #[test]
@@ -604,13 +721,16 @@ rule:
     assert_eq!(matched, "2");
   }
 
-  fn get_rewriters() -> (&'static str, RuleCore) {
+  fn get_rewriters() -> (&'static str, Rewriter) {
     // NOTE: initialize a DeserializeEnv here is not 100% correct
     // it does not inherit global rules or local rules
     let env = DeserializeEnv::new(TypeScript::Tsx);
-    let rewriter: SerializableRuleCore =
-      from_str("{rule: {kind: number, pattern: $REWRITE}, fix: yjsnp}").expect("should parse");
-    let rewriter = rewriter.get_matcher(env).expect("should work");
+    let rewriter: SerializableRewriter =
+      from_str("{id: xx, rule: {kind: number, pattern: $REWRITE}, fix: yjsnp}")
+        .expect("should parse");
+    let rewriter = rewriter
+      .try_parse_rewriter(&Default::default(), &env)
+      .expect("should work");
     ("re", rewriter)
   }
 

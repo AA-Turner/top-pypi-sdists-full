@@ -47,12 +47,12 @@ impl<'t, D: Doc> ScanResultInner<'t, D> {
         matches.push((rule, supprs));
       }
     }
-    if let Some(rule) = combined.no_suppress_all_rule {
-      if !self.suppress_all_nodes.is_empty() {
-        let mut supprs = self.suppress_all_nodes;
-        supprs.sort_unstable_by_key(|nm| nm.range().start);
-        matches.push((rule, supprs));
-      }
+    if let Some(rule) = combined.no_suppress_all_rule
+      && !self.suppress_all_nodes.is_empty()
+    {
+      let mut supprs = self.suppress_all_nodes;
+      supprs.sort_unstable_by_key(|nm| nm.range().start);
+      matches.push((rule, supprs));
     }
     ScanResult { diffs, matches }
   }
@@ -70,11 +70,15 @@ fn get_suppression_kind(node: &Node<'_, impl Doc>) -> Option<SuppressKind> {
     return None;
   }
   let line = node.start_pos().line();
-  let suppress_next_line = if let Some(prev) = node.prev() {
-    prev.start_pos().line() != line
-  } else {
-    true
-  };
+  // A trailing suppression comment shares a line with the *end* of its preceding
+  // sibling (e.g. the closing `)` of a multi-line statement) and suppresses that
+  // statement; a comment with no code before it on its line suppresses the
+  // following line. We must compare against the previous node's END line, not its
+  // start line: a comment trailing a multi-line statement starts on a later line
+  // than the statement does, so using `start_pos` would misclassify it as a
+  // leading (next-line) comment.
+  let prev_same_line_sibling = node.prev().filter(|prev| prev.end_pos().line() == line);
+  let suppress_next_line = prev_same_line_sibling.is_none();
   // if the first line is suppressed and the next line is empyt,
   // we suppress the whole file see gh #1541
   if line == 0
@@ -86,7 +90,12 @@ fn get_suppression_kind(node: &Node<'_, impl Doc>) -> Option<SuppressKind> {
   {
     return Some(SuppressKind::File);
   }
-  let key = if suppress_next_line { line + 1 } else { line };
+  // A trailing comment is keyed by its statement's START line because matches are
+  // looked up by their start line (see `line_suppression`); for a multi-line
+  // statement that start line differs from the comment's own line.
+  let key = prev_same_line_sibling
+    .map(|n| n.start_pos().line())
+    .unwrap_or(line + 1);
   Some(SuppressKind::Line(key))
 }
 
@@ -282,10 +291,10 @@ impl<'r, L: Language> CombinedScan<'r, L> {
         .extend(nodes.cloned().map(NodeMatch::from));
     }
     let file_sup = suppressions.file_suppression();
-    if let MaySuppressed::Yes(s) = file_sup {
-      if s.suppressed.is_none() {
-        return result.into_result(self, separate_fix);
-      }
+    if let MaySuppressed::Yes(s) = file_sup
+      && s.suppressed.is_none()
+    {
+      return result.into_result(self, separate_fix);
     }
     for node in root.root().dfs() {
       let kind = node.kind_id() as usize;
@@ -337,13 +346,13 @@ impl<'r, L: Language> CombinedScan<'r, L> {
   }
 
   pub fn unused_config(severity: Severity, lang: L) -> RuleConfig<L> {
-    let mut config = SerializableRuleConfig {
+    let config = SerializableRuleConfig {
       id: UNUSED_SUPPRESSION_ID.into(),
       severity,
       message: "Unused 'ast-grep-ignore' directive.".into(),
+      fix: crate::from_str(r#"''"#).unwrap(),
       ..Self::builtin_config(lang)
     };
-    config.core.fix = crate::from_str(r#"''"#).unwrap();
     RuleConfig::try_from(config, &Default::default()).unwrap()
   }
 
@@ -353,7 +362,6 @@ impl<'r, L: Language> CombinedScan<'r, L> {
       core: SerializableRuleCore {
         rule,
         constraints: None,
-        fix: None,
         transform: None,
         utils: None,
       },
@@ -365,11 +373,22 @@ impl<'r, L: Language> CombinedScan<'r, L> {
       files: None,
       ignores: None,
       rewriters: None,
+      fix: None,
       url: None,
       metadata: None,
       labels: None,
     }
   }
+}
+
+// trim text after whitepaces, this is useful for comment like `/* ast-grep-ignore: test */`
+// we assume no rule-id contains whitespace, so trailing comment can be stripped
+// see https://github.com/ast-grep/ast-grep/issues/2644
+fn trim_comment_trailing(text: &str) -> Option<&str> {
+  text
+    .trim_start() // trim leading whitespace
+    .split(' ') // finding the first whitespace
+    .next() // keep only the part before the first whitespace
 }
 
 fn parse_suppression_set(text: &str) -> Option<HashSet<String>> {
@@ -379,16 +398,20 @@ fn parse_suppression_set(text: &str) -> Option<HashSet<String>> {
     return None;
   }
   let (_, rules) = after.split_once(':')?;
-  let set = rules.split(',').map(|r| r.trim().to_string()).collect();
+  let set = rules
+    .split(',')
+    .flat_map(trim_comment_trailing)
+    .map(ToString::to_string)
+    .collect();
   Some(set)
 }
 
 #[cfg(test)]
 mod test {
   use super::*;
+  use crate::SerializableRuleConfig;
   use crate::from_str;
   use crate::test::TypeScript;
-  use crate::SerializableRuleConfig;
   use ast_grep_core::tree_sitter::{LanguageExt, StrDoc};
 
   fn create_rule() -> RuleConfig<TypeScript> {
@@ -455,6 +478,50 @@ language: Tsx",
       assert_eq!(matches.1[0].text(), "console.log('no ignore')");
       assert_eq!(matches.1[1].text(), "console.log('ignore another')");
     });
+  }
+
+  #[test]
+  fn test_ignore_multiline_node_same_line() {
+    // A trailing `// ast-grep-ignore` on the LAST line of a multi-line statement
+    // suppresses that statement (there is a preceding AST on the comment's line),
+    // not the following line.
+    let source = "console.log(\n  'multi'\n) // ast-grep-ignore\nconsole.log('after')\n";
+    test_scan(source, |scanned| {
+      let matches = &scanned[0];
+      assert_eq!(matches.1.len(), 1);
+      assert_eq!(matches.1[0].text(), "console.log('after')");
+    });
+  }
+
+  #[test]
+  fn test_ignore_node_block_comment() {
+    let source = r#"
+    /* ast-grep-ignore: test */
+    console.log('ignore one')
+    /* ast-grep-ignore: not-test */
+    console.log('ignore another')
+    /* ast-grep-ignore: not-test, test */
+    console.log('multiple ignore')
+    console.log('no ignore')
+    "#;
+    test_scan(source, |scanned| {
+      let matches = &scanned[0];
+      assert_eq!(matches.1.len(), 2);
+      assert_eq!(matches.1[0].text(), "console.log('ignore another')");
+      assert_eq!(matches.1[1].text(), "console.log('no ignore')");
+    });
+  }
+
+  #[test]
+  fn test_parse_suppression_set_trims_block_comment_trailing() {
+    let set = parse_suppression_set("/* ast-grep-ignore: test */").expect("should parse");
+    assert!(set.contains("test"));
+    assert!(!set.contains("test */"));
+
+    let set = parse_suppression_set("/* ast-grep-ignore: not-test, test */").expect("should parse");
+    assert!(set.contains("not-test"));
+    assert!(set.contains("test"));
+    assert!(!set.contains("test */"));
   }
 
   fn test_scan_unused<F>(source: &str, test_fn: F)

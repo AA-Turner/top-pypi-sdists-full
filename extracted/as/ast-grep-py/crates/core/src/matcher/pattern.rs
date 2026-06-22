@@ -1,6 +1,6 @@
 use crate::language::Language;
-use crate::match_tree::{match_end_non_recursive, match_node_non_recursive, MatchStrictness};
-use crate::matcher::{kind_utils, KindMatcher, KindMatcherError, Matcher};
+use crate::match_tree::{MatchStrictness, match_end_non_recursive, match_node_non_recursive};
+use crate::matcher::{KindMatcher, KindMatcherError, Matcher, kind_utils};
 use crate::meta_var::{MetaVarEnv, MetaVariable};
 use crate::source::SgNode;
 use crate::{Doc, Node, Root};
@@ -31,11 +31,20 @@ impl PatternBuilder<'_> {
   {
     let doc = parse(&self.src).map_err(PatternError::Parse)?;
     let root = Root::doc(doc);
-    if let Some(selector) = self.selector {
-      self.contextual(&root, selector)
+    let pattern = if let Some(selector) = self.selector {
+      self.contextual(&root, selector)?
     } else {
-      self.single(&root)
+      self.single(&root)?
+    };
+    // A multi meta variable matches a list of nodes, but a pattern matches a
+    // single node, so `$$$MULTI` as the root of a pattern is invalid input.
+    if let PatternNode::MetaVar {
+      meta_var: MetaVariable::MultiCapture(_) | MetaVariable::Multiple,
+    } = &pattern.node
+    {
+      return Err(PatternError::RootMultiMetaVar(self.src.to_string()));
     }
+    Ok(pattern)
   }
   fn single<D: Doc>(&self, root: &Root<D>) -> Result<Pattern, PatternError> {
     let goal = root.root();
@@ -248,9 +257,15 @@ pub enum PatternError {
   NoContent(String),
   #[error("Multiple AST nodes are detected. Please check the pattern source `{0}`.")]
   MultipleNode(String),
+  #[error(
+    "Standalone multi meta variable `{0}` is invalid. Use `$VAR` or wrap `$$$VAR` in a larger pattern."
+  )]
+  RootMultiMetaVar(String),
   #[error(transparent)]
   InvalidKind(#[from] KindMatcherError),
-  #[error("Fails to create Contextual pattern: selector `{selector}` matches no node in the context `{context}`.")]
+  #[error(
+    "Fails to create Contextual pattern: selector `{selector}` matches no node in the context `{context}`."
+  )]
   NoSelectorInContext { context: String, selector: String },
 }
 
@@ -375,10 +390,10 @@ impl Matcher for Pattern {
     node: Node<'tree, D>,
     env: &mut Cow<MetaVarEnv<'tree, D>>,
   ) -> Option<Node<'tree, D>> {
-    if let Some(k) = self.root_kind {
-      if node.kind_id() != k {
-        return None;
-      }
+    if let Some(k) = self.root_kind
+      && node.kind_id() != k
+    {
+      return None;
     }
     // do not pollute the env if pattern does not match
     let mut may_write = Cow::Borrowed(env.as_ref());
@@ -663,6 +678,35 @@ mod test {
     assert!(matches!(pattern, Err(PatternError::NoContent(_))));
     let pattern = Pattern::try_new("12  3344", Tsx);
     assert!(matches!(pattern, Err(PatternError::MultipleNode(_))));
+  }
+
+  #[test]
+  fn test_root_multi_meta_var_is_rejected() {
+    // gh #2697: a standalone multi meta variable is invalid input. A pattern
+    // matches a single node, so it must be rejected when the pattern is
+    // created, not silently stored as a single meta var.
+    for src in ["$$$A", "$$$PARAMS"] {
+      let pattern = Pattern::try_new(src, Tsx);
+      assert!(
+        matches!(pattern, Err(PatternError::RootMultiMetaVar(_))),
+        "expected RootMultiMetaVar for `{src}`, got {pattern:?}"
+      );
+    }
+  }
+
+  #[test]
+  fn test_single_root_meta_var_is_accepted() {
+    // a single $META as the whole pattern is still valid
+    assert!(Pattern::try_new("$A", Tsx).is_ok());
+    assert!(Pattern::try_new("$_", Tsx).is_ok());
+  }
+
+  #[test]
+  fn test_in_list_multi_meta_var_is_unchanged() {
+    // in-list $$$ stays valid: the root node is the call expression, not the
+    // multi meta var, so existing matching behavior is preserved.
+    assert!(Pattern::try_new("foo($$$A, c)", Tsx).is_ok());
+    test_match("foo($$$A, c)", "foo(a, b, c)");
   }
 
   #[test]

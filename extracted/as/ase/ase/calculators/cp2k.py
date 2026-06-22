@@ -38,24 +38,20 @@ class CP2K(Calculator, AbstractContextManager):
     It is written in Fortran 2003 and can be run efficiently in parallel.
 
     Check https://www.cp2k.org about how to obtain and install CP2K.
-    Make sure that you also have the CP2K-shell available, since it is required
-    by the CP2K-calulator.
-
-    The CP2K-calculator relies on the CP2K-shell. The CP2K-shell was originally
-    designed for interactive sessions. When a calculator object is
-    instantiated, it launches a CP2K-shell as a subprocess in the background
-    and communications with it through stdin/stdout pipes. This has the
-    advantage that the CP2K process is kept alive for the whole lifetime of
+    The CP2K-calculator relies on the CP2K shell mode (``-s`` flag). When a
+    calculator object is instantiated, it launches CP2K as a subprocess in the
+    background and communicates with it through stdin/stdout pipes. This has
+    the advantage that the CP2K process is kept alive for the whole lifetime of
     the calculator object, i.e. there is no startup overhead for a sequence
     of energy evaluations. Furthermore, the usage of pipes avoids slow file-
     system I/O. This mechanism even works for MPI-parallelized runs, because
     stdin/stdout of the first rank are forwarded by the MPI-environment to the
     mpiexec-process.
 
-    The command used by the calculator to launch the CP2K-shell is
-    ``cp2k_shell``. To run a parallelized simulation use something like this::
+    The default command is ``cp2k.psmp -s``. To run a parallelized simulation
+    use something like this::
 
-        CP2K.command="env OMP_NUM_THREADS=2 mpiexec -np 4 cp2k_shell.psmp"
+        CP2K.command="env OMP_NUM_THREADS=2 mpiexec -np 4 cp2k.psmp -s"
 
     The CP2K-shell can be shut down by calling :meth:`close`.
     The close method will be called automatically when using the calculator as
@@ -89,7 +85,7 @@ class CP2K(Calculator, AbstractContextManager):
         constructor, the class-variable ``CP2K.command``,
         and then the environment variable
         ``$ASE_CP2K_COMMAND`` are checked.
-        Eventually, ``cp2k_shell`` is used as default.
+        Eventually, ``cp2k.psmp -s`` is used as default.
     cutoff: float
         The cutoff of the finest grid level.  Default is ``400 * Rydberg``.
     debug: bool
@@ -218,8 +214,10 @@ class CP2K(Calculator, AbstractContextManager):
             self.command = command
         elif CP2K.command is not None:
             self.command = CP2K.command
+        elif cfg.parser.get('cp2k', 'cp2k_shell', fallback=None):
+            self.command = cfg.parser.get('cp2k', 'cp2k_shell')
         else:
-            self.command = cfg.get('ASE_CP2K_COMMAND', 'cp2k_shell')
+            self.command = cfg.get('ASE_CP2K_COMMAND', 'cp2k.psmp -s')
 
         super().__init__(restart=restart,
                          ignore_bad_restart_file=ignore_bad_restart_file,
@@ -533,13 +531,22 @@ class Cp2kShell:
         self._debug = debug
 
         # launch cp2k_shell child process
-        assert 'cp2k_shell' in command
         if self._debug:
             print(command)
         self._child = subprocess.Popen(
             command, shell=True, universal_newlines=True,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1)
-        self.expect('* READY')
+
+        # Check successful startup
+        # Ignore startup noise, like the banner on SIRIUS builds
+        max_startup_lines = 1000
+        for _ in range(max_startup_lines):
+            line = self.recv()
+            if line == '* READY':
+                break
+        else:
+            raise RuntimeError('Did not receive "* READY" after '
+                               'starting CP2K shell.')
 
         # check version of shell
         self.send('VERSION')

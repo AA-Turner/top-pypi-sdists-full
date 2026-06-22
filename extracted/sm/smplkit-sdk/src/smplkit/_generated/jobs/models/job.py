@@ -44,7 +44,8 @@ class Job:
             configuration (JobHttpConfiguration): HTTP request a job performs when it fires.
 
                 Extends the shared forwarder configuration with the two fields a scheduled
-                job needs beyond a forwarder.
+                job needs beyond a forwarder, and represents headers as a name→value object
+                so an individual header can be overridden per environment by its name.
             description (None | str | Unset): Free-text description for the job.
             type_ (Literal['http'] | Unset): Job type. Only `http` is supported today. Default: 'http'.
             schedule (None | str | Unset): The base schedule every environment inherits unless it overrides it, and the
@@ -57,14 +58,16 @@ class Job:
                 this zone's wall clock (DST-aware) while `next_run_at` is still reported as a UTC instant. Only valid on a
                 recurring (cron) job — it cannot be set on a manual or one-off job.
             environments (JobEnvironments | Unset): Per-environment overrides keyed by environment key (e.g. `production`,
-                `staging`). Each entry sets `enabled` (whether the job is enabled — scheduled, for a recurring job, or
-                triggerable, for a manual job — in that environment), an optional `schedule` override (a cron expression for
-                recurring jobs; omit to inherit the base `schedule`), an optional `timezone` override (an IANA zone for
-                recurring jobs; omit to inherit the base `timezone`, else UTC), and an optional `configuration` override (omit
-                to inherit the base `configuration`); it also reports the read-only `next_run_at` for that environment. A job
-                with no entry for an environment is disabled there. For a recurring or manual job, supply this map to choose
-                where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with
-                the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
+                `staging`). Each entry is a flat, sparse overlay: only the leaves that differ from the base definition are
+                present, and everything absent is inherited. Set `enabled` to `true` to run the job in that environment (the
+                base is disabled everywhere; an environment with no entry, or an entry without `enabled: true`, does not run).
+                Overridable leaves are `url`, `method`, `timeout`, `body`, `success_status`, `tls_verify`, `ca_cert`, `schedule`
+                and `timezone` (recurring jobs only), `retry_policy` (the `id` of a retry policy, or `Default`), and an
+                individual header as `headers.<name>` (e.g. `headers.Authorization`). On read, each entry also reports the read-
+                only `next_run_at` for that environment (the next fire time, or `null`). For a recurring or manual job, supply
+                this map to choose where it runs. For a one-off job, the environment it is created in is recorded here
+                automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the
+                account.
             concurrency_policy (Literal['ALLOW'] | Unset): How overlapping runs are handled. `ALLOW` (the only value today)
                 permits them. Default: 'ALLOW'.
             retry_policy (None | str | Unset): The base retry policy for failed runs — the `id` of a retry policy (or the

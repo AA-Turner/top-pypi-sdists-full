@@ -71,7 +71,7 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     "get_tectonic_map", "get_signal_chains",
     "render_diagram", "get_project_intel", "list_workspaces",
     # Quality & Metrics
-    "get_symbol_complexity", "get_churn_rate", "get_hotspots",
+    "get_symbol_complexity", "get_churn_rate", "get_delivery_metrics", "get_hotspots",
     "get_repo_health", "get_symbol_importance", "get_repo_map", "find_dead_code",
     "get_dead_code_v2", "get_untested_symbols", "find_similar_symbols", "search_ast",
     # Diffs & Embeddings
@@ -79,6 +79,7 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Utilities
     "get_session_stats", "get_session_context", "get_session_snapshot", "plan_turn", "register_edit", "invalidate_cache", "test_summarizer",
     "audit_agent_config", "get_watch_status", "analyze_perf", "tune_weights", "check_embedding_drift",
+    "suggest_corrections",
     # Agent stand-up briefing
     "digest",
     # Health-radar diff (PR-time diff-grade reports)
@@ -98,6 +99,54 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Self-guide (force-included; lets one-line CLAUDE.md pull full policy on demand)
     "jcodemunch_guide",
 )
+
+# Category groupings for the generated CLAUDE.md snippet (`claude-md --generate`).
+# Module-level so test_tool_registration_consistency can enumerate it: every
+# tool the builder emits must appear here AND in _CANONICAL_TOOL_NAMES, or the
+# meta-test fails listing the gap. Keeps a new tool from drifting across the
+# registration surfaces (the recurring "added the tool in 4 of 5 places" trap).
+_SNIPPET_TOOL_CATEGORIES: list[tuple[str, list[str]]] = [
+    ("Indexing", ["index_repo", "index_folder", "summarize_repo", "index_file"]),
+    ("Discovery", ["list_repos", "resolve_repo", "suggest_queries",
+                   "get_repo_outline", "get_file_tree", "get_file_outline"]),
+    ("Search & Retrieval", ["search_symbols", "get_symbol_source", "get_context_bundle",
+                             "get_file_content", "search_text", "search_columns",
+                             "get_ranked_context", "assemble_task_context"]),
+    ("Relationships", ["find_importers", "find_references", "check_references",
+                       "get_dependency_graph", "get_class_hierarchy",
+                       "get_related_symbols", "get_call_hierarchy",
+                       "find_implementations"]),
+    ("Impact & Safety", ["get_blast_radius", "check_rename_safe", "check_delete_safe",
+                          "check_edit_safe",
+                          "get_impact_preview", "get_changed_symbols",
+                          "plan_refactoring", "get_symbol_provenance",
+                          "get_pr_risk_profile"]),
+    ("Architecture", ["get_dependency_cycles", "get_coupling_metrics",
+                      "get_layer_violations", "get_extraction_candidates",
+                      "get_cross_repo_map", "get_tectonic_map",
+                      "get_signal_chains", "render_diagram",
+                      "get_project_intel", "list_workspaces",
+                      "get_group_contracts"]),
+    ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate",
+                            "get_delivery_metrics", "get_hotspots",
+                            "get_repo_health", "diff_health_radar",
+                            "get_file_risk", "get_symbol_importance",
+                            "get_repo_map", "find_similar_symbols",
+                            "find_dead_code", "get_dead_code_v2",
+                            "get_untested_symbols", "search_ast",
+                            "winnow_symbols"]),
+    ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
+    ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit", "digest"]),
+    ("Utilities", ["get_session_stats", "analyze_perf", "tune_weights", "check_embedding_drift",
+                    "invalidate_cache", "test_summarizer",
+                    "audit_agent_config", "suggest_corrections", "get_watch_status"]),
+    ("Runtime Trace Ingest & Analytics", [
+        "import_runtime_signal", "get_runtime_coverage",
+        "find_hot_paths", "find_unused_paths", "get_redaction_log",
+    ]),
+    ("Runtime Tier Switching", ["set_tool_tier", "announce_model"]),
+    ("Self-Guide", ["jcodemunch_guide"]),
+]
 
 # --------------------------------------------------------------------------- #
 # Tool profiles: tiered sets for controlling context budget.                   #
@@ -134,7 +183,7 @@ _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     # Symbol navigation
     "find_implementations",
     # Quality & Metrics
-    "get_symbol_complexity", "get_churn_rate", "get_hotspots",
+    "get_symbol_complexity", "get_churn_rate", "get_delivery_metrics", "get_hotspots",
     "get_symbol_importance", "get_repo_map", "find_dead_code", "get_dead_code_v2",
     "get_untested_symbols", "find_similar_symbols",
     "get_repo_health", "search_ast", "winnow_symbols",
@@ -145,6 +194,7 @@ _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     "render_diagram", "get_project_intel", "list_workspaces",
     # Utilities
     "invalidate_cache", "get_watch_status", "analyze_perf", "tune_weights", "check_embedding_drift",
+    "suggest_corrections",
     # Agent stand-up briefing
     "digest",
     # Health-radar diff
@@ -171,6 +221,116 @@ _ALWAYS_PRESENT_TOOLS: frozenset[str] = frozenset({"set_tool_tier", "announce_mo
 # #298): it's a documentation snippet, not a control surface, so users who
 # explicitly list it in disabled_tools should be honored.
 _UNDISABLEABLE_TOOLS: frozenset[str] = frozenset({"set_tool_tier", "announce_model"})
+
+# --- The Counter: adaptive tool surface (front door) ----------------------- #
+# order/menu/route collapse the ~83-tool surface to a 3-tool front door without
+# removing any capability. See docs/prd-adaptive-tool-surface.md + counter.py.
+from . import counter as _counter
+
+_COUNTER_FRONT_DOOR: frozenset[str] = _counter.FRONT_DOOR
+
+# Unfiltered tool catalog, captured by _build_tools_list before tier/surface
+# filtering. Single source of truth for menu() and order()'s action allowlist,
+# so the front door can surface/dispatch any action regardless of resident tier.
+_RAW_CATALOG: "Optional[list]" = None
+
+
+def _effective_surface() -> str:
+    """Active tool surface. 'counter' collapses list_tools to the front door;
+    anything else (default 'full') preserves existing tiered behavior unchanged.
+    Env JCODEMUNCH_TOOL_SURFACE wins over config 'tool_surface'.
+    """
+    env = os.environ.get("JCODEMUNCH_TOOL_SURFACE")
+    if env:
+        return env.strip().lower()
+    return (config_module.get("tool_surface", "full") or "full").strip().lower()
+
+
+def _counter_front_door_tools() -> list:
+    """Tool definitions for order / menu / route."""
+    return [
+        Tool(
+            name="order",
+            description=(
+                "Dispatch any jcodemunch action by name: order(action, args). The "
+                "single-verb front door to the full tool catalog. Read-only by "
+                "default — actions that change index/session state require "
+                "allow_state_change=true, and execution/file-write verbs are refused. "
+                "Call 'menu' to discover actions, or 'route' to pick one from a task."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "description": "Name of the catalog action to run (e.g. 'search_symbols')."},
+                    "args": {"type": "object", "description": "Arguments for that action, exactly as you'd pass them directly.", "default": {}},
+                    "allow_state_change": {"type": "boolean", "description": "Opt in to dispatching an index/session state-changing action (e.g. index_repo).", "default": False},
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="menu",
+            description=(
+                "Discover catalog actions without keeping all ~83 tool schemas "
+                "resident: menu(query?). Returns compact rows (action, summary, "
+                "required args, state_changing). With no query, lists the catalog. "
+                "Pair with 'order' to dispatch the chosen action."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Optional. Keywords describing what you want to do; ranks matching actions."},
+                    "limit": {"type": "integer", "description": "Max actions to return.", "default": 25},
+                },
+            },
+        ),
+        Tool(
+            name="route",
+            description=(
+                "Map a natural-language task to the best catalog action(s): "
+                "route(task, repo?, execute?). Returns ranked recommendations with "
+                "ready-to-run argument templates. With execute=true, dispatches the "
+                "top recommendation and returns its result in the same call, "
+                "collapsing discover-then-call into one round-trip. Recommends "
+                "assemble_task_context / plan_turn for context-gathering intents."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task": {"type": "string", "description": "What you're trying to do, in plain language."},
+                    "repo": {"type": "string", "description": "Repository identifier (required to execute repo-scoped actions)."},
+                    "execute": {"type": "boolean", "description": "If true, dispatch the top recommended action and return its result.", "default": False},
+                    "model": {"type": "string", "description": "Optional active model id; piggybacks tier-switch like plan_turn(model=...)."},
+                },
+                "required": ["task"],
+            },
+        ),
+    ]
+
+
+def _raw_catalog_tools() -> list:
+    """Return the unfiltered catalog, building it once on demand."""
+    global _RAW_CATALOG
+    if _RAW_CATALOG is None:
+        _build_tools_list()  # populates _RAW_CATALOG as a side effect
+    return _RAW_CATALOG or []
+
+
+def _catalog_rows() -> "list[dict]":
+    """Menu-shaped rows for every real action (front door excluded)."""
+    rows = []
+    for t in _raw_catalog_tools():
+        if t.name in _COUNTER_FRONT_DOOR:
+            continue
+        row = _counter.catalog_entry(t.name, t.description or "", t.inputSchema or {})
+        row["_description"] = t.description or ""
+        rows.append(row)
+    return rows
+
+
+def _catalog_names() -> set:
+    return {t.name for t in _raw_catalog_tools() if t.name not in _COUNTER_FRONT_DOOR}
+
 
 # --- Runtime session tier state -------------------------------------------- #
 import threading
@@ -414,6 +574,14 @@ _COMPACT_STRIP_PARAMS: dict[str, set[str]] = {
     "index_repo": {"extra_ignore_patterns", "incremental"},
     "index_folder": {"extra_ignore_patterns", "incremental"},
 }
+
+# Params whose enum is demoted to a plain string filter under compact_schemas.
+# The `language` enum is the full LANGUAGE_REGISTRY (~76 values) — ~200 tokens
+# of mechanical names an agent already knows. Dropping the enum keeps the param
+# fully usable as a free-string filter (the tool tolerates any language string)
+# while reclaiming the tokens. Keyed by param name so every tool that exposes a
+# `language` enum (search_symbols, search_ast, ...) benefits across all tiers.
+_COMPACT_DEMOTE_ENUM_PARAMS: frozenset[str] = frozenset({"language"})
 
 # Tools eligible for Agent Selector complexity scoring
 _AGENT_SELECTOR_TOOLS = frozenset({
@@ -1869,6 +2037,46 @@ def _build_tools_list() -> list[Tool]:
             },
         ),
         Tool(
+            name="suggest_corrections",
+            description=(
+                "Mine the ranking telemetry ledger for retrieval regret (re-query churn, "
+                "low confidence, thin/ambiguous results, stale-at-query, vocabulary gaps) "
+                "and return a prioritized, explainable set of SUGGESTED corrections: "
+                "CLAUDE.md routing/glossary lines (as unified-diff previews), index-freshness "
+                "hints, stale-config findings, and a dry-run ranking-weight proposal. "
+                "Read-only by charter — it never writes a user file; applying a patch is your "
+                "keystroke. Requires perf_telemetry_enabled; returns an honest hint when off."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository whose retrieval ledger to analyze.",
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Project directory holding the config files to target. Defaults to cwd.",
+                    },
+                    "window_days": {
+                        "type": "integer",
+                        "description": "Rolling window of ledger history to mine (default 30).",
+                        "default": 30,
+                    },
+                    "all_time": {
+                        "type": "boolean",
+                        "description": "Ignore the window and analyze the full ledger.",
+                        "default": False,
+                    },
+                    "apply_weights": {
+                        "type": "boolean",
+                        "description": "Persist the ranking-weight proposal to the tuning.jsonc sidecar (NOT user source). User files are never written regardless.",
+                        "default": False,
+                    },
+                },
+            },
+        ),
+        Tool(
             name="get_dependency_graph",
             description="Get the file-level dependency graph for a given file. Traverses import relationships up to 3 hops. Use to understand what a file depends on ('imports'), what depends on it ('importers'), or both. Prerequisite for blast radius analysis. Set cross_repo=true to include cross-repository edges.",
             inputSchema={
@@ -2544,6 +2752,43 @@ def _build_tools_list() -> list[Tool]:
                     },
                 },
                 "required": ["repo", "target"],
+            },
+        ),
+        Tool(
+            name="get_delivery_metrics",
+            description=(
+                "Quantify durable-change delivery over a window: of the non-merge commits "
+                "in the last window_days, how many landed and stuck (commits_durable) vs were "
+                "reverted or re-touched within rework_horizon_days (churn-back). commits_durable "
+                "is the honest numerator for a cost-per-outcome ratio — divide AI spend over the "
+                "same window by it to show how much got done for how little, instead of rewarding "
+                "raw activity. Hub files co-touched by most commits (CHANGELOG, version, a "
+                "monolithic dispatch module) are excluded from the rework signal (auditable via "
+                "_meta.hub_files_excluded). Durability is trailing: commits inside the horizon are "
+                "flagged commits_provisional (not yet settled). Diagnostic trend, not a score to "
+                "chase. Requires a locally indexed repo (index_folder); GitHub-indexed repos are "
+                "not supported."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/repo or just repo name)",
+                    },
+                    "window_days": {
+                        "type": "integer",
+                        "description": "Look-back window in days (default 30).",
+                        "default": 30,
+                    },
+                    "rework_horizon_days": {
+                        "type": "integer",
+                        "description": "Days within which a re-touch counts as churn-back; also "
+                                       "defines the provisional tail (default 14).",
+                        "default": 14,
+                    },
+                },
+                "required": ["repo"],
             },
         ),
         Tool(
@@ -3403,6 +3648,22 @@ def _build_tools_list() -> list[Tool]:
             },
         ),
     ]
+    # --- The Counter: register the front door + capture the raw catalog ------
+    all_tools = all_tools + _counter_front_door_tools()
+    global _RAW_CATALOG
+    _RAW_CATALOG = list(all_tools)
+    surface = _effective_surface()
+    if surface == "counter":
+        # Collapse to the front door + always-present controls. Tier filtering
+        # is intentionally bypassed: 'counter' is the surface choice itself.
+        keep = _COUNTER_FRONT_DOOR | _ALWAYS_PRESENT_TOOLS
+        tools = [t for t in all_tools if t.name in keep]
+        _apply_description_overrides(tools)
+        return tools
+    # Non-counter surfaces keep existing behavior byte-for-byte: the front-door
+    # tools stay hidden (still callable via call_tool), so 'full' and the
+    # existing tiers are unchanged on upgrade.
+    all_tools = [t for t in all_tools if t.name not in _COUNTER_FRONT_DOOR]
     # Start with a mutable copy for filtering.
     tools = list(all_tools)
     # --- Profile filtering ---------------------------------------------------
@@ -3440,12 +3701,21 @@ def _build_tools_list() -> list[Tool]:
     # --- Compact schemas: strip rarely-used params ---------------------------
     if config_module.get("compact_schemas", False):
         for tool in tools:
+            if not isinstance(tool.inputSchema, dict):
+                continue
+            props = tool.inputSchema.get("properties")
+            if not props:
+                continue
             strip_set = _COMPACT_STRIP_PARAMS.get(tool.name)
-            if strip_set and isinstance(tool.inputSchema, dict):
-                props = tool.inputSchema.get("properties")
-                if props:
-                    for param in strip_set:
-                        props.pop(param, None)
+            if strip_set:
+                for param in strip_set:
+                    props.pop(param, None)
+            # Demote large mechanical enums to free-string filters (capability
+            # preserved; the tool accepts any string for these params).
+            for param in _COMPACT_DEMOTE_ENUM_PARAMS:
+                pschema = props.get(param)
+                if isinstance(pschema, dict) and "enum" in pschema:
+                    props[param] = {k: v for k, v in pschema.items() if k != "enum"}
 
     # Merge descriptions from config (runs after disabled_tools filter)
     _apply_description_overrides(tools)
@@ -3738,6 +4008,96 @@ async def _auto_watch_if_needed(name: str, arguments: dict, storage_path: Option
         logger.debug("Auto-watch failed for %s", folder, exc_info=True)
 
 
+async def _handle_counter_tool(name: str, arguments: dict) -> list[TextContent]:
+    """Dispatch the Counter front door (order / menu / route)."""
+    if name == "order":
+        return await _handle_order(arguments)
+    if name == "menu":
+        return _handle_menu(arguments)
+    if name == "route":
+        return await _handle_route(arguments)
+    return [TextContent(type="text", text=json.dumps({"error": f"Unknown front-door tool '{name}'"}))]
+
+
+async def _handle_order(arguments: dict) -> list[TextContent]:
+    """order(action, args): validate against the catalog + charter gate, then
+    re-enter the normal pipeline for the resolved action."""
+    action = arguments.get("action")
+    args = arguments.get("args") or {}
+    if not isinstance(args, dict):
+        return [TextContent(type="text", text=json.dumps({"error": "order 'args' must be an object."}, indent=2))]
+    allow = bool(arguments.get("allow_state_change", False))
+    err = _counter.order_gate(action, _catalog_names(), allow)
+    if err is not None:
+        return [TextContent(type="text", text=json.dumps({"error": err, "tool": "order"}, indent=2))]
+    return await call_tool(action, dict(args))
+
+
+def _handle_menu(arguments: dict) -> list[TextContent]:
+    """menu(query?, limit?): search/browse the action catalog."""
+    query = arguments.get("query")
+    try:
+        limit = int(arguments.get("limit", 25))
+    except (TypeError, ValueError):
+        limit = 25
+    limit = max(1, min(limit, 200))
+    rows = _counter.search_catalog(_catalog_rows(), query, limit)
+    clean = [{k: v for k, v in r.items() if k != "_description"} for r in rows]
+    payload = {
+        "tool": "menu",
+        "query": query or None,
+        "count": len(clean),
+        "total_actions": len(_catalog_names()),
+        "actions": clean,
+        "hint": "Dispatch with order(action, args). Get a task->action pick with route(task).",
+    }
+    return [TextContent(type="text", text=json.dumps(payload, separators=(",", ":")))]
+
+
+async def _handle_route(arguments: dict) -> list[TextContent]:
+    """route(task, repo?, execute?, model?): intent -> recommended action(s),
+    optionally dispatching the top one in the same call."""
+    task = arguments.get("task")
+    if not task or not isinstance(task, str):
+        return [TextContent(type="text", text=json.dumps({"error": "route requires a 'task' string."}, indent=2))]
+    repo = arguments.get("repo")
+    execute = bool(arguments.get("execute", False))
+    names = _catalog_names()
+    recs = _counter.classify_intent(task, names)
+    if not recs:  # fall back to catalog search when no curated rule matched
+        for r in _counter.search_catalog(_catalog_rows(), task, 3):
+            recs.append({"action": r["action"], "why": r["summary"]})
+    for r in recs:
+        tmpl = _counter.shape_execute_args(r["action"], repo, task)
+        r["args_template"] = tmpl if tmpl is not None else {"repo": repo or "<repo>", "_hint": "see menu for args"}
+        r["state_changing"] = _counter.is_state_changing(r["action"])
+    payload = {"tool": "route", "task": task, "recommended": recs}
+    if not recs:
+        payload["hint"] = "No confident action match. Call menu(query=...) to browse."
+        return [TextContent(type="text", text=json.dumps(payload, separators=(",", ":")))]
+    if execute:
+        action = recs[0]["action"]
+        exec_args = _counter.shape_execute_args(action, repo, task)
+        if exec_args is None:
+            payload["executed"] = False
+            payload["execute_error"] = (
+                f"Cannot auto-build args for '{action}' from (repo, task). "
+                f"Call order('{action}', args) with explicit arguments."
+            )
+            return [TextContent(type="text", text=json.dumps(payload, separators=(",", ":")))]
+        if _counter.is_state_changing(action):
+            payload["executed"] = False
+            payload["execute_error"] = f"Top action '{action}' is state-changing; dispatch it explicitly via order(allow_state_change=true)."
+            return [TextContent(type="text", text=json.dumps(payload, separators=(",", ":")))]
+        model = arguments.get("model")
+        if model and action == "plan_turn":
+            exec_args["model"] = model
+        result = await call_tool(action, exec_args)
+        routed = {"tool": "route", "task": task, "executed_action": action, "args": exec_args}
+        return [TextContent(type="text", text=json.dumps(routed, separators=(",", ":")))] + list(result)
+    return [TextContent(type="text", text=json.dumps(payload, separators=(",", ":")))]
+
+
 @server.call_tool(validate_input=False)
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls."""
@@ -3763,6 +4123,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 return [TextContent(type="text", text=json.dumps(
                     {"error": f"Input validation error: {e.message}"}, indent=2
                 ))]
+
+        # The Counter front door: order/menu/route. Handled before repo-scoped
+        # strict-freshness/auto-watch (the front door isn't repo-scoped; order
+        # re-enters call_tool for the real action, which then runs those hooks).
+        if name in _COUNTER_FRONT_DOOR:
+            return await _handle_counter_tool(name, arguments)
 
         # jcm#329: cheap per-tool argument validation BEFORE strict-freshness
         # waits and auto-watch reindexing. A call doomed to instant rejection
@@ -4309,6 +4675,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                 )
             )
+        elif name == "suggest_corrections":
+            from .tools.suggest_corrections import suggest_corrections
+            result = await asyncio.to_thread(
+                functools.partial(
+                    suggest_corrections,
+                    repo=arguments.get("repo"),
+                    project_path=arguments.get("project_path"),
+                    storage_path=storage_path,
+                    window_days=arguments.get("window_days", 30),
+                    all_time=arguments.get("all_time", False),
+                    apply_weights=arguments.get("apply_weights", False),
+                )
+            )
         elif name == "get_dependency_graph":
             from .tools.get_dependency_graph import get_dependency_graph
             result = await asyncio.to_thread(
@@ -4525,6 +4904,17 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     repo=arguments["repo"],
                     target=arguments["target"],
                     days=arguments.get("days", 90),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "get_delivery_metrics":
+            from .tools.get_delivery_metrics import get_delivery_metrics
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_delivery_metrics,
+                    repo=arguments["repo"],
+                    window_days=arguments.get("window_days", 30),
+                    rework_horizon_days=arguments.get("rework_horizon_days", 14),
                     storage_path=storage_path,
                 )
             )
@@ -5675,48 +6065,8 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
             )
         # Fall through to full generation if CLAUDE.md doesn't exist yet
 
-    # Group tools by category for readability
-    categories = [
-        ("Indexing", ["index_repo", "index_folder", "summarize_repo", "index_file"]),
-        ("Discovery", ["list_repos", "resolve_repo", "suggest_queries",
-                       "get_repo_outline", "get_file_tree", "get_file_outline"]),
-        ("Search & Retrieval", ["search_symbols", "get_symbol_source", "get_context_bundle",
-                                 "get_file_content", "search_text", "search_columns",
-                                 "get_ranked_context", "assemble_task_context"]),
-        ("Relationships", ["find_importers", "find_references", "check_references",
-                           "get_dependency_graph", "get_class_hierarchy",
-                           "get_related_symbols", "get_call_hierarchy",
-                           "find_implementations"]),
-        ("Impact & Safety", ["get_blast_radius", "check_rename_safe", "check_delete_safe",
-                              "check_edit_safe",
-                              "get_impact_preview", "get_changed_symbols",
-                              "plan_refactoring", "get_symbol_provenance",
-                              "get_pr_risk_profile"]),
-        ("Architecture", ["get_dependency_cycles", "get_coupling_metrics",
-                          "get_layer_violations", "get_extraction_candidates",
-                          "get_cross_repo_map", "get_tectonic_map",
-                          "get_signal_chains", "render_diagram",
-                          "get_project_intel", "list_workspaces",
-                          "get_group_contracts"]),
-        ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate", "get_hotspots",
-                                "get_repo_health", "diff_health_radar",
-                                "get_file_risk", "get_symbol_importance",
-                                "get_repo_map", "find_similar_symbols",
-                                "find_dead_code", "get_dead_code_v2",
-                                "get_untested_symbols", "search_ast",
-                                "winnow_symbols"]),
-        ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
-        ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit", "digest"]),
-        ("Utilities", ["get_session_stats", "analyze_perf", "tune_weights", "check_embedding_drift",
-                        "invalidate_cache", "test_summarizer",
-                        "audit_agent_config", "get_watch_status"]),
-        ("Runtime Trace Ingest & Analytics", [
-            "import_runtime_signal", "get_runtime_coverage",
-            "find_hot_paths", "find_unused_paths", "get_redaction_log",
-        ]),
-        ("Runtime Tier Switching", ["set_tool_tier", "announce_model"]),
-        ("Self-Guide", ["jcodemunch_guide"]),
-    ]
+    # Group tools by category for readability (single source: module constant).
+    categories = _SNIPPET_TOOL_CATEGORIES
     from . import __version__ as _ver
     lines = [
         f"## jcodemunch-mcp (v{_ver})",
@@ -7051,6 +7401,24 @@ def main(argv: Optional[list[str]] = None):
     health_parser.add_argument("--storage-path", default=None,
         help="Override index storage location.")
 
+    # --- delivery ---
+    delivery_parser = subparsers.add_parser(
+        "delivery",
+        help="Print durable-change delivery metrics (and optional cost-per-outcome) for a window.",
+    )
+    delivery_parser.add_argument("repo", nargs="?", default=".",
+        help="Repo identifier (path, owner/name, or bare display name). Defaults to '.' (cwd).")
+    delivery_parser.add_argument("--window-days", type=int, default=30,
+        help="Look-back window in days (default 30).")
+    delivery_parser.add_argument("--rework-horizon-days", type=int, default=14,
+        help="Days within which a re-touch counts as churn-back (default 14).")
+    delivery_parser.add_argument("--cost", type=float, default=None,
+        help="AI spend (dollars) over the same window; prints cost-per-durable-change.")
+    delivery_parser.add_argument("--json", action="store_true",
+        help="Emit the structured payload as JSON.")
+    delivery_parser.add_argument("--storage-path", default=None,
+        help="Override index storage location.")
+
     # --- digest ---
     digest_parser = subparsers.add_parser(
         "digest",
@@ -7086,6 +7454,26 @@ def main(argv: Optional[list[str]] = None):
         help="Print the per-tool savings multiplier table + methodology, then exit.")
     receipt_parser.add_argument("--projects-root", default=None,
         help="Override Claude Code projects directory (default ~/.claude/projects).")
+
+    # --- reflect ---
+    reflect_parser = subparsers.add_parser(
+        "reflect",
+        help="Surface retrieval regret from the ranking ledger as suggested config corrections",
+    )
+    reflect_parser.add_argument("repo", nargs="?", default=".",
+        help="Repo identifier (path, owner/name, or bare display name). Defaults to '.' (cwd).")
+    reflect_parser.add_argument("--project-path", default=None,
+        help="Directory holding the config files to target. Defaults to cwd.")
+    reflect_parser.add_argument("--window-days", type=int, default=30,
+        help="Rolling ledger window to mine (default 30).")
+    reflect_parser.add_argument("--all", dest="all_time", action="store_true",
+        help="Analyze the full ledger, ignoring the window.")
+    reflect_parser.add_argument("--apply-weights", action="store_true",
+        help="Persist the ranking-weight proposal to tuning.jsonc (sidecar, not user source).")
+    reflect_parser.add_argument("--json", action="store_true",
+        help="Emit the structured payload as JSON instead of the human report.")
+    reflect_parser.add_argument("--storage-path", default=None,
+        help="Override index storage location.")
 
     # --- whatsnew ---
     whatsnew_parser = subparsers.add_parser(
@@ -7263,7 +7651,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "list-repos", "delete-index", "org-report", "org-rollup", "license", "index", "index-file", "import-trace", "claude-md", "init", "install", "install-status", "uninstall", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "health", "file-risk", "observatory", "keyring"}
+        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "list-repos", "delete-index", "org-report", "org-rollup", "license", "index", "index-file", "import-trace", "claude-md", "init", "install", "install-status", "uninstall", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "reflect", "delivery", "health", "file-risk", "observatory", "keyring"}
         # MCP-tool-name typos: route to the right CLI verb with a friendly hint.
         # `index_repo` and `index_folder` are MCP tools, not CLI subcommands.
         _CLI_ALIASES = {
@@ -7692,6 +8080,18 @@ def main(argv: Optional[list[str]] = None):
             argv += ["--storage-path", args.storage_path]
         sys.exit(health_main(argv))
 
+    if args.command == "delivery":
+        from .cli.delivery import main as delivery_main
+        argv = [args.repo, "--window-days", str(args.window_days),
+                "--rework-horizon-days", str(args.rework_horizon_days)]
+        if args.cost is not None:
+            argv += ["--cost", str(args.cost)]
+        if args.json:
+            argv += ["--json"]
+        if args.storage_path:
+            argv += ["--storage-path", args.storage_path]
+        sys.exit(delivery_main(argv))
+
     if args.command == "digest":
         from .cli.digest import main as digest_main
         argv = [args.repo]
@@ -7705,6 +8105,21 @@ def main(argv: Optional[list[str]] = None):
         if args.storage_path:
             argv += ["--storage-path", args.storage_path]
         sys.exit(digest_main(argv))
+
+    if args.command == "reflect":
+        from .cli.reflect import main as reflect_main
+        argv = [args.repo, "--window-days", str(args.window_days)]
+        if args.project_path:
+            argv += ["--project-path", args.project_path]
+        if args.all_time:
+            argv += ["--all"]
+        if args.apply_weights:
+            argv += ["--apply-weights"]
+        if args.json:
+            argv += ["--json"]
+        if args.storage_path:
+            argv += ["--storage-path", args.storage_path]
+        sys.exit(reflect_main(argv))
 
     if args.command == "receipt":
         from .cli.receipt import main as receipt_main

@@ -500,7 +500,9 @@ def test_blinds_scene_level_setter():
     svc = _make_svc(BlindsSceneControlService, {"level": 0.5, "angle": 0.0})
     svc.level = 1.0
     svc._api.put_device_service_state.assert_called_once_with(
-        "test-device", "BlindsSceneControlService", {"@type": "testType", "level": 1.0}
+        "test-device",
+        "BlindsSceneControlService",
+        {"@type": "testType", "level": 1.0, "angle": 0.0},
     )
 
 
@@ -513,7 +515,9 @@ def test_blinds_scene_angle_setter():
     svc = _make_svc(BlindsSceneControlService, {"level": 0.0, "angle": 0.0})
     svc.angle = 60.0
     svc._api.put_device_service_state.assert_called_once_with(
-        "test-device", "BlindsSceneControlService", {"@type": "testType", "angle": 60.0}
+        "test-device",
+        "BlindsSceneControlService",
+        {"@type": "testType", "angle": 60.0, "level": 0.0},
     )
 
 
@@ -2063,9 +2067,8 @@ class _FakeRCCService:
 def _make_rcc_service(state):
     from boschshcpy.services_impl import RoomClimateControlService
     svc = RoomClimateControlService.__new__(RoomClimateControlService)
-    svc._state = state
-    # Patch .state property access (services_impl uses self.state dict directly)
-    type(svc).state = property(lambda self: self._state)
+    # Use the standard _raw_state attribute that SHCDeviceService.state reads
+    svc._raw_state = state
     return svc
 
 

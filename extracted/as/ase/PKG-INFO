@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ase
-Version: 3.28.0
+Version: 3.29.0
 Summary: Atomic Simulation Environment
 Maintainer-email: ASE Steering Committee <ase-committee@listserv.fysik.dtu.dk>
 License-Expression: LGPL-2.1-or-later
@@ -21,6 +21,7 @@ License-File: LICENSE
 Requires-Dist: numpy>=1.21.6
 Requires-Dist: scipy>=1.8.1
 Requires-Dist: matplotlib>=3.5.2
+Requires-Dist: typing_extensions>=4.13.1
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_book_theme; extra == "docs"

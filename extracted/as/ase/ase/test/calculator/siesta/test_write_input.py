@@ -1,5 +1,5 @@
-# fmt: off
 """Test write_input"""
+
 import numpy as np
 import pytest
 
@@ -7,13 +7,13 @@ from ase import Atoms
 from ase.calculators.siesta.parameters import PAOBasisBlock, Species
 
 
-@pytest.fixture(name="atoms_h")
+@pytest.fixture(name='atoms_h')
 def fixture_atoms_h():
     """hydrogen atom"""
     return Atoms('H', [(0.0, 0.0, 0.0)])
 
 
-@pytest.fixture(name="atoms_ch4")
+@pytest.fixture(name='atoms_ch4')
 def fixture_atoms_ch4():
     """methane molecule"""
     positions = [
@@ -31,8 +31,8 @@ def fixture_atoms_ch4():
 def test_simple(factory, atoms_h):
     """Test simple fdf-argument case."""
     siesta = factory.calc(
-        label='test_label',
-        fdf_arguments={'DM.Tolerance': 1e-3})
+        label='test_label', fdf_arguments={'DM.Tolerance': 1e-3}
+    )
     atoms_h.calc = siesta
     siesta.write_input(atoms_h, properties=['energy'])
     with open('test_label.fdf', encoding='utf-8') as fd:
@@ -47,9 +47,8 @@ def test_complex(factory, atoms_h):
     siesta = factory.calc(
         label='test_label',
         mesh_cutoff=3000,
-        fdf_arguments={
-            'DM.Tolerance': 1e-3,
-            'ON.eta': (5, 'Ry')})
+        fdf_arguments={'DM.Tolerance': 1e-3, 'ON.eta': (5, 'Ry')},
+    )
     atoms_h.calc = siesta
     siesta.write_input(atoms_h, properties=['energy'])
     with open('test_label.fdf', encoding='utf-8') as fd:
@@ -67,12 +66,9 @@ def test_set_fdf_arguments(factory, atoms_h):
     siesta = factory.calc(
         label='test_label',
         mesh_cutoff=3000,
-        fdf_arguments={
-            'DM.Tolerance': 1e-3,
-            'ON.eta': (5, 'Ry')})
-    siesta.set_fdf_arguments(
-        {'DM.Tolerance': 1e-2,
-         'ON.eta': (2, 'Ry')})
+        fdf_arguments={'DM.Tolerance': 1e-3, 'ON.eta': (5, 'Ry')},
+    )
+    siesta.set_fdf_arguments({'DM.Tolerance': 1e-2, 'ON.eta': (2, 'Ry')})
     siesta.write_input(atoms_h, properties=['energy'])
     with open('test_label.fdf', encoding='utf-8') as fd:
         lines = fd.readlines()
@@ -101,10 +97,10 @@ def test_species(factory, atoms_ch4):
         species=[
             Species(symbol='C', tag=-1),
             Species(
-                symbol='H',
-                tag=1,
-                basis_set='SZ',
-                pseudopotential='somepseudo')])
+                symbol='H', tag=1, basis_set='SZ', pseudopotential='somepseudo'
+            ),
+        ]
+    )
 
     species, numbers = siesta.species(atoms_ch4)
     assert all(numbers == np.array([1, 2, 2, 4, 2]))

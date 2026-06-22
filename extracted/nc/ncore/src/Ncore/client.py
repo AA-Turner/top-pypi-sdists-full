@@ -13,14 +13,16 @@
 # limitations under the License.
 
 import sys
+import hashlib
 import inspect
 import asyncio
 import msgpack
 
 
 from .router import Router
+from .session import Session
+from .connect import Connect
 from .base import build_object
-from .session import Session, Connect
 from .base.methods import TLMethod, ReturnT
 
 
@@ -63,22 +65,35 @@ class BaseClient:
             "lang_code": lang_code,
         }
 
-        self.storage = {
-            "id": None,
-            "first_name": None,
-            "username": None,
-            "dc_id": 2,
-            "auth_key": None,
-        }
+        if self.storagename and self.storagename != ":memory:":
+            sfbt = hashlib.sha256(self.bot_token.encode("utf-8")).hexdigest()
 
-        try:
-            if self.storagename and self.storagename != ":memory:":
-                self.storage = msgpack.load(open(self.storagename, "rb"))
+            try:
+                with open(self.storagename, "rb") as f:
+                    self.storage: dict = msgpack.load(f)
+                if self.storage.get("bot_token", "") != sfbt:
+                    raise ValueError("токен не совпадает")
                 self.info(f"Сессия [{self.storagename}] загружена")
-            else:
-                self.info("Сессия [:memory:] загружена")
-        except:
-            self.save_storage()
+            except Exception:
+                self.storage = {
+                    "id": None,
+                    "first_name": None,
+                    "username": None,
+                    "dc_id": 2,
+                    "auth_key": None,
+                    "bot_token": sfbt
+                }
+                self.save_storage()
+                self.info(f"Сессия [{self.storagename}] создана")
+        else:
+            self.storage = {
+                "id": None,
+                "first_name": None,
+                "username": None,
+                "dc_id": 2,
+                "auth_key": None
+            }
+            self.info("Сессия [:memory:] загружена")
 
         self.connection = connection
         self.connection.client = self
@@ -90,8 +105,9 @@ class BaseClient:
         if not self.storagename or self.storagename == ":memory:":
             return
         try:
-            msgpack.dump(self.storage, open(self.storagename, "wb"))
-        except BaseException as ex:
+            with open(self.storagename, "wb") as f:
+                msgpack.dump(self.storage, f)
+        except Exception as ex:
             self.error(f"Ошибка сохранения сессии [{self.storagename}] -> {ex}")
 
     def set_pre_middleware(self, obj):
@@ -157,7 +173,13 @@ class BaseClient:
         await self.session.stop(r=0)
         self.stop_event.set()
 
-    async def start(self, router: Router | None=None, handle_updates: None=None, proxy: str | None=None):
+    async def start(
+        self,
+        router: Router | None=None,
+        handle_updates: None=None,
+        proxy: str | None=None,
+        load_updates: bool = False
+    ):
         self.loop = asyncio.get_running_loop()
 
         if handle_updates is not None:
@@ -173,7 +195,13 @@ class BaseClient:
         await self.session.start()
         await self.session.send({"_": "getState"})
 
-    def run(self, router: Router | None=None, handle_updates=None, proxy: str | None=None):
+    def run(
+        self,
+        router: Router | None=None,
+        handle_updates=None,
+        proxy: str | None=None,
+        load_updates: bool = False
+    ):
         if self.loop is None:
             try:
                 self.loop = asyncio.get_running_loop()
@@ -182,7 +210,7 @@ class BaseClient:
                 asyncio.set_event_loop(self.loop)
 
         try:
-            self.loop.run_until_complete(self.start(router=router, handle_updates=handle_updates, proxy=proxy))
+            self.loop.run_until_complete(self.start(router=router, handle_updates=handle_updates, proxy=proxy, load_updates=load_updates))
             self.loop.run_forever()
         except KeyboardInterrupt:
             self.loop.run_until_complete(self.session.stop(r=0))

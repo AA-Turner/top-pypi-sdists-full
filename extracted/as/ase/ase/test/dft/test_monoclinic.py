@@ -1,4 +1,3 @@
-# fmt: off
 from ase import Atoms
 from ase.calculators.test import FreeElectrons
 from ase.cell import Cell
@@ -33,8 +32,10 @@ def test_monoclinic():
             e_skn1 = e_skn
             firsttime = False
         else:
-            for d in [coords - coords1,
-                      labelcoords - labelcoords1,
-                      e_skn - e_skn1]:
+            for d in [
+                coords - coords1,
+                labelcoords - labelcoords1,
+                e_skn - e_skn1,
+            ]:
                 print(abs(d).max())
                 assert abs(d).max() < 1e-13, d

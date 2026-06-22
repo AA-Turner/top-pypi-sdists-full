@@ -6,16 +6,34 @@
 
 import type { Browser } from "puppeteer-core";
 import type { LaunchOptions } from "./types.js";
-import { IGNORE_DEFAULT_ARGS } from "./config.js";
+import { DEFAULT_VIEWPORT, IGNORE_DEFAULT_ARGS } from "./config.js";
 import { buildArgs } from "./args.js";
 import { ensureBinary } from "./download.js";
 import { isSocksProxy, normalizeHttpStringUrl, parseProxyUrl, reconstructHttpUrl, resolveProxyConfig, supportsHttpProxyInlineAuth } from "./proxy.js";
 import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
 import { seedWidevineHint } from "./widevine.js";
 
+/**
+ * Resolve Puppeteer's defaultViewport. Headed -> null (track the real window so
+ * outerWidth >= innerWidth stays coherent; Puppeteer otherwise forces an 800x600
+ * emulated viewport = a physically impossible window = bot tell). Headless has no
+ * window chrome (outer == inner), so a fixed viewport stays coherent and keeps
+ * dimensions deterministic. A user-supplied launchOptions.defaultViewport wins.
+ */
+function resolveDefaultViewport(options: LaunchOptions): { width: number; height: number } | null {
+  const launchOpts = (options.launchOptions ?? {}) as Record<string, unknown>;
+  // A user-supplied defaultViewport wins (incl. explicit null). undefined is NOT
+  // "supplied" — fall through to our default. Puppeteer sets `headless` AFTER the
+  // launchOptions spread, so the top-level field wins at launch — match it here.
+  if (launchOpts.defaultViewport !== undefined) {
+    return launchOpts.defaultViewport as { width: number; height: number } | null;
+  }
+  return (options.headless ?? true) ? DEFAULT_VIEWPORT : null;
+}
+
 /** Resolve binary path, geoip, webrtc, and build final Chrome args. */
 async function resolveArgs(options: LaunchOptions): Promise<{ binaryPath: string; args: string[] }> {
-  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary());
+  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary(options.licenseKey));
   const { exitIp, ...resolved } = (await maybeResolveGeoip(options)) ?? {};
   let resolvedArgs = (await resolveWebrtcArgs(options)) ?? options.args;
 
@@ -125,6 +143,7 @@ export async function launch(options: LaunchOptions = {}): Promise<Browser> {
     headless: options.headless ?? true,
     args,
     ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
+    defaultViewport: resolveDefaultViewport(options),
   });
 
   await applyPostLaunch(browser, options, proxyAuth);
@@ -165,6 +184,7 @@ export async function launchPersistentContext(
     args,
     ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
     userDataDir: options.userDataDir,
+    defaultViewport: resolveDefaultViewport(options),
   });
 
   await applyPostLaunch(browser, options, proxyAuth);

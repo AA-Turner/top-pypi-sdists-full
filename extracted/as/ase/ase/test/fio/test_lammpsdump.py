@@ -143,7 +143,7 @@ def lammpsdump_headers():
     yield f'anything\n{actual_magic}\nanything'
 
 
-@pytest.mark.parametrize('header', lammpsdump_headers())
+@pytest.mark.parametrize('header', list(lammpsdump_headers()))
 def test_recognize_lammpsdump(header):
     fmt_name = 'lammps-dump-text'
     fmt = match_magic(header.encode('ascii'))

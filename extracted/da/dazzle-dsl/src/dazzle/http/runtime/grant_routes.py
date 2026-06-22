@@ -15,13 +15,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from dazzle.core import ir
 from dazzle.http.runtime.auth import AuthContext
 
 
 def create_grant_routes(
     *,
     db_manager: Any,
-    appspec: Any,
+    appspec: ir.AppSpec,
     auth_dep: Any = None,
 ) -> APIRouter:
     """Create grant management routes.
@@ -92,15 +93,16 @@ def create_grant_routes(
 
     def _get_relation_spec(schema_name: str, relation_name: str) -> Any:
         """Look up a GrantRelationSpec by schema and relation name."""
-        schema = appspec.get_grant_schema(schema_name) if appspec else None
-        if schema is None:
-            raise HTTPException(status_code=404, detail=f"Grant schema '{schema_name}' not found")
-        rel = next((r for r in schema.relations if r.name == relation_name), None)
-        if rel is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Relation '{relation_name}' not found in grant schema '{schema_name}'",
-            )
+        from dazzle.http.runtime.http_errors import require_found
+
+        schema = require_found(
+            appspec.get_grant_schema(schema_name) if appspec else None,
+            f"Grant schema '{schema_name}' not found",
+        )
+        rel = require_found(
+            next((r for r in schema.relations if r.name == relation_name), None),
+            f"Relation '{relation_name}' not found in grant schema '{schema_name}'",
+        )
         return rel
 
     def _check_granted_by(schema_name: str, relation_name: str, user_roles: set[str]) -> None:

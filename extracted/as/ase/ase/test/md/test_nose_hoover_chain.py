@@ -1,4 +1,3 @@
-# fmt: off
 from __future__ import annotations
 
 from copy import deepcopy
@@ -9,6 +8,7 @@ import pytest
 import ase.build
 import ase.units
 from ase import Atoms
+from ase.md import thermalize_momenta
 from ase.md.nose_hoover_chain import (
     MTKNPT,
     IsotropicMTKBarostat,
@@ -18,19 +18,19 @@ from ase.md.nose_hoover_chain import (
     NoseHooverChainNVT,
     NoseHooverChainThermostat,
 )
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
+from ase.md.velocitydistribution import Stationary
 
 
 @pytest.fixture
 def hcp_Cu() -> Atoms:
-    atoms = ase.build.bulk(
-        "Cu", crystalstructure='hcp', a=2.53, c=4.11
-    ).repeat(2)
+    atoms = ase.build.bulk('Cu', crystalstructure='hcp', a=2.53, c=4.11).repeat(
+        2
+    )
     return atoms
 
 
-@pytest.mark.parametrize("tchain", [1, 3])
-@pytest.mark.parametrize("tloop", [1, 3])
+@pytest.mark.parametrize('tchain', [1, 3])
+@pytest.mark.parametrize('tloop', [1, 3])
 def test_thermostat_round_trip(hcp_Cu: Atoms, tchain: int, tloop: int):
     atoms = hcp_Cu.copy()
 
@@ -69,8 +69,8 @@ def test_thermostat_round_trip(hcp_Cu: Atoms, tchain: int, tloop: int):
     assert np.allclose(thermostat._p_eta, p_eta_start, atol=1e-4)
 
 
-@pytest.mark.parametrize("tchain", [1, 3])
-@pytest.mark.parametrize("tloop", [1, 3])
+@pytest.mark.parametrize('tchain', [1, 3])
+@pytest.mark.parametrize('tloop', [1, 3])
 def test_thermostat_truncation_error(hcp_Cu: Atoms, tchain: int, tloop: int):
     """Compare thermostat integration with delta by n steps and delta/2 by 2n
     steps. The difference between the two results should decrease with delta
@@ -86,7 +86,7 @@ def test_thermostat_truncation_error(hcp_Cu: Atoms, tchain: int, tloop: int):
     list_eta_diff = []
     list_p_eta_diff = []
     for i in range(m):
-        delta = delta0 * (2 ** -i)
+        delta = delta0 * (2**-i)
         thermostat = NoseHooverChainThermostat(
             num_atoms_global=len(atoms),
             masses=atoms.get_masses()[:, None],
@@ -98,8 +98,8 @@ def test_thermostat_truncation_error(hcp_Cu: Atoms, tchain: int, tloop: int):
 
         rng = np.random.default_rng(0)
         p = rng.standard_normal(size=(len(atoms), 3))
-        thermostat._eta = rng.standard_normal(size=(tchain, ))
-        thermostat._p_eta = rng.standard_normal(size=(tchain, ))
+        thermostat._eta = rng.standard_normal(size=(tchain,))
+        thermostat._p_eta = rng.standard_normal(size=(tchain,))
 
         thermostat1 = deepcopy(thermostat)
         p1 = p.copy()
@@ -128,22 +128,17 @@ def test_thermostat_truncation_error(hcp_Cu: Atoms, tchain: int, tloop: int):
     # error.
     eps = 1e-12
     for i in range(1, m):
-        assert (
-            (list_p_diff[i] < eps)
-            or (list_p_diff[i] < list_p_diff[i - 1])
+        assert (list_p_diff[i] < eps) or (list_p_diff[i] < list_p_diff[i - 1])
+        assert (list_eta_diff[i] < eps) or (
+            list_eta_diff[i] < list_eta_diff[i - 1]
         )
-        assert (
-            (list_eta_diff[i] < eps)
-            or (list_eta_diff[i] < list_eta_diff[i - 1])
-        )
-        assert (
-            (list_p_eta_diff[i] < eps)
-            or (list_p_eta_diff[i] < list_p_eta_diff[i - 1])
+        assert (list_p_eta_diff[i] < eps) or (
+            list_p_eta_diff[i] < list_p_eta_diff[i - 1]
         )
 
 
-@pytest.mark.parametrize("pchain", [1, 3])
-@pytest.mark.parametrize("ploop", [1, 3])
+@pytest.mark.parametrize('pchain', [1, 3])
+@pytest.mark.parametrize('ploop', [1, 3])
 def test_isotropic_barostat(asap3, hcp_Cu: Atoms, pchain: int, ploop: int):
     atoms = hcp_Cu.copy()
     atoms.calc = asap3.EMT()
@@ -179,15 +174,16 @@ def test_isotropic_barostat(asap3, hcp_Cu: Atoms, pchain: int, ploop: int):
     assert np.allclose(barostat._p_xi, p_xi_start, atol=1e-6)
 
 
-@pytest.mark.parametrize("pchain", [1, 3])
-@pytest.mark.parametrize("ploop", [1, 3])
-@pytest.mark.parametrize("mask",
+@pytest.mark.parametrize('pchain', [1, 3])
+@pytest.mark.parametrize('ploop', [1, 3])
+@pytest.mark.parametrize(
+    'mask',
     [
-        pytest.param(None, id="aniso"),
+        pytest.param(None, id='aniso'),
         pytest.param((True, False, False), id='uniaxial'),
         pytest.param((True, True, False), id='biaxial'),
         pytest.param((True, True, True), id='iso'),
-    ]
+    ],
 )
 def test_anisotropic_barostat(
     asap3,
@@ -233,17 +229,14 @@ def test_anisotropic_barostat(
     assert np.allclose(barostat._p_xi, p_xi_start, atol=1e-6)
 
 
-@pytest.mark.parametrize("tchain", [1, 3])
+@pytest.mark.parametrize('tchain', [1, 3])
 def test_nose_hoover_chain_nvt(asap3, tchain: int):
-    atoms = ase.build.bulk("Cu").repeat((2, 2, 2))
+    atoms = ase.build.bulk('Cu').repeat((2, 2, 2))
     atoms.calc = asap3.EMT()
 
     temperature_K = 300
     rng = np.random.default_rng(0)
-    MaxwellBoltzmannDistribution(
-        atoms,
-        temperature_K=temperature_K, force_temp=True, rng=rng
-    )
+    thermalize_momenta(atoms, temperature_K, exact_temperature=True, rng=rng)
     Stationary(atoms)
 
     timestep = 1.0 * ase.units.fs
@@ -261,18 +254,15 @@ def test_nose_hoover_chain_nvt(asap3, tchain: int):
     assert np.isclose(conserved_energy1, conserved_energy2, atol=1e-3)
 
 
-@pytest.mark.parametrize("tchain", [1, 3])
-@pytest.mark.parametrize("pchain", [1, 3])
+@pytest.mark.parametrize('tchain', [1, 3])
+@pytest.mark.parametrize('pchain', [1, 3])
 def test_isotropic_mtk_npt(asap3, hcp_Cu: Atoms, tchain: int, pchain: int):
     atoms = hcp_Cu.copy()
     atoms.calc = asap3.EMT()
 
     temperature_K = 300
     rng = np.random.default_rng(0)
-    MaxwellBoltzmannDistribution(
-        atoms,
-        temperature_K=temperature_K, force_temp=True, rng=rng
-    )
+    thermalize_momenta(atoms, temperature_K, exact_temperature=True, rng=rng)
     Stationary(atoms)
 
     timestep = 1.0 * ase.units.fs
@@ -294,18 +284,15 @@ def test_isotropic_mtk_npt(asap3, hcp_Cu: Atoms, tchain: int, pchain: int):
     assert np.isclose(conserved_energy1, conserved_energy2, atol=1e-3)
 
 
-@pytest.mark.parametrize("tchain", [1, 3])
-@pytest.mark.parametrize("pchain", [1, 3])
+@pytest.mark.parametrize('tchain', [1, 3])
+@pytest.mark.parametrize('pchain', [1, 3])
 def test_anisotropic_npt(asap3, hcp_Cu: Atoms, tchain: int, pchain: int):
     atoms = hcp_Cu.copy()
     atoms.calc = asap3.EMT()
 
     temperature_K = 300
     rng = np.random.default_rng(0)
-    MaxwellBoltzmannDistribution(
-        atoms,
-        temperature_K=temperature_K, force_temp=True, rng=rng
-    )
+    thermalize_momenta(atoms, temperature_K, exact_temperature=True, rng=rng)
     Stationary(atoms)
 
     timestep = 1.0 * ase.units.fs
@@ -328,33 +315,31 @@ def test_anisotropic_npt(asap3, hcp_Cu: Atoms, tchain: int, pchain: int):
     assert not np.allclose(atoms.get_positions(), positions1, atol=1e-6)
 
 
-@pytest.mark.parametrize("tchain", [1, 3])
-@pytest.mark.parametrize("pchain", [1, 3])
-@pytest.mark.parametrize("mask",
+@pytest.mark.parametrize('tchain', [1, 3])
+@pytest.mark.parametrize('pchain', [1, 3])
+@pytest.mark.parametrize(
+    'mask',
     [
         pytest.param((True, False, False), id='uniaxial-a'),
         pytest.param((False, False, True), id='uniaxial-c'),
         pytest.param((True, True, False), id='biaxial-a-b'),
         pytest.param((True, False, True), id='biaxial-a-c'),
         pytest.param((True, True, True), id='triaxial'),
-    ]
+    ],
 )
 def test_masked_npt(
     asap3,
     hcp_Cu: Atoms,
     tchain: int,
     pchain: int,
-    mask: tuple[bool, bool, bool]
+    mask: tuple[bool, bool, bool],
 ):
     atoms = hcp_Cu.copy()
     atoms.calc = asap3.EMT()
 
     temperature_K = 300
     rng = np.random.default_rng(0)
-    MaxwellBoltzmannDistribution(
-        atoms,
-        temperature_K=temperature_K, force_temp=True, rng=rng
-    )
+    thermalize_momenta(atoms, temperature_K, exact_temperature=True, rng=rng)
     Stationary(atoms)
 
     timestep = 1.0 * ase.units.fs

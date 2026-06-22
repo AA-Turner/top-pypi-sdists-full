@@ -134,7 +134,7 @@ def read_single_image(fd: IO, levcfg: int, imcon: int,
     forces = []
     charges = []
     masses = []
-    disps = []
+    disps: list[float | None] = []
     labels = []
 
     is_pbc = imcon > 0

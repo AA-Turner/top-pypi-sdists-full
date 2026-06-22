@@ -364,24 +364,41 @@ class SHCMicromoduleShutterControl(
         return ["SWITCH_OFF", "SWITCH_ON"]
 
     @property
+    def has_keypad(self) -> bool:
+        # Some MICROMODULE_SHUTTER/BLINDS devices expose no Keypad service
+        # (no physical wall switch wired). Callers must guard keypad access.
+        return self._keypad_service is not None
+
+    @property
     def keycode(self) -> int:
-        return self._keypad_service.keyCode
+        return self._keypad_service.keyCode if self._keypad_service is not None else 0
 
     @property
     def keyname(self) -> KeypadService.KeyState:
-        return self._keypad_service.keyName
+        return self._keypad_service.keyName if self._keypad_service is not None else None
 
     @property
     def eventtype(self) -> KeypadService.KeyEvent:
-        return self._keypad_service.eventType
+        return (
+            self._keypad_service.eventType
+            if self._keypad_service is not None
+            else None
+        )
 
     @eventtype.setter
     def eventtype(self, value: KeypadService.KeyEvent):
-        self._keypad_service.eventType = value
+        # No-op when the device has no Keypad service — eventType is only local
+        # bookkeeping for the physical-switch direction logic (issue #318).
+        if self._keypad_service is not None:
+            self._keypad_service.eventType = value
 
     @property
     def eventtimestamp(self) -> int:
-        return self._keypad_service.eventTimestamp
+        return (
+            self._keypad_service.eventTimestamp
+            if self._keypad_service is not None
+            else 0
+        )
 
 
 class SHCMicromoduleBlinds(SHCMicromoduleShutterControl):
@@ -417,7 +434,9 @@ class SHCMicromoduleBlinds(SHCMicromoduleShutterControl):
         return self._blindscontrol_service.blinds_type
 
     def stop_blinds(self):
-        self._api.put_shading_shutters_stop(self.id)
+        # Spec-correct STOP: PUT ShutterControl/state operationState=STOPPED
+        # (the old /shading/shutters/{id}/stop endpoint is not in the API).
+        self._service.put_state_element("operationState", "STOPPED")
 
 
 class SHCShutterContact(SHCBatteryDevice):
@@ -860,6 +879,14 @@ class SHCMotionDetector2(SHCBatteryDevice):
     def motion_sensitivity(self) -> PirSensorConfigurationService.MotionSensitivity:
         return self._pirsensorconfiguration_service.motionSensitivity
 
+    @motion_sensitivity.setter
+    def motion_sensitivity(
+        self, value: PirSensorConfigurationService.MotionSensitivity
+    ):
+        self._pirsensorconfiguration_service.put_state_element(
+            "motionSensitivity", value.name
+        )
+
     @property
     def occupied(self) -> bool:
         return self._occupancydetection_service.isOccupied
@@ -883,6 +910,14 @@ class SHCMotionDetector2(SHCBatteryDevice):
     @property
     def last_tamper_time(self) -> str:
         return self._latesttamper_service.last_tamper_time
+
+    @property
+    def was_tampered(self) -> bool:
+        return self._latesttamper_service.was_tampered
+
+    @property
+    def tamper_protection_enabled(self) -> bool:
+        return self._latesttamper_service.tamper_protection_enabled
 
 
 class SHCTwinguard(SHCBatteryDevice):

@@ -1,4 +1,3 @@
-# fmt: off
 import io
 
 import numpy as np
@@ -30,9 +29,12 @@ def test_orca_inputfile():
 
     atoms = Atoms('OHH', positions=[(0, 0, 0), (1, 0, 0), (0, 1, 0)])
 
-    kw = dict(charge=0, mult=1,
-              orcasimpleinput='engrad B3LYP def2-TZVPP',
-              orcablocks='%pal nprocs 4 end')
+    kw = dict(
+        charge=0,
+        mult=1,
+        orcasimpleinput='engrad B3LYP def2-TZVPP',
+        orcablocks='%pal nprocs 4 end',
+    )
     write_orca('orca.inp', atoms, kw)
 
     with open('orca.inp') as fd:
@@ -46,9 +48,12 @@ def test_orca_inputfile():
 def test_read_geom_orcainp():
     atoms = Atoms('OHH', positions=[(0, 0, 0), (1, 0, 0), (0, 1, 0)])
 
-    kw = dict(charge=0, mult=1,
-              orcasimpleinput='B3LYP def2-TZVPP',
-              orcablocks='%pal nprocs 4 end')
+    kw = dict(
+        charge=0,
+        mult=1,
+        orcasimpleinput='B3LYP def2-TZVPP',
+        orcablocks='%pal nprocs 4 end',
+    )
 
     fname = 'orcamolecule_test.inp'
     write_orca(fname, atoms, kw)
@@ -170,10 +175,14 @@ ORCA TERMINATED NORMALLY
 
     results_sample = {
         'energy': -2079.560412394247,
-        'forces': np.array([
-            [2.42359838e+00, 2.42359837e+00, -2.72536956e-09],
-            [-1.31748767e+00, -1.10611070e+00, -1.74835028e-09],
-            [-1.10611071e+00, -1.31748767e+00, 4.47371984e-09]])}
+        'forces': np.array(
+            [
+                [2.42359838e00, 2.42359837e00, -2.72536956e-09],
+                [-1.31748767e00, -1.10611070e00, -1.74835028e-09],
+                [-1.10611071e00, -1.31748767e00, 4.47371984e-09],
+            ]
+        ),
+    }
 
     results_sample['free_energy'] = results_sample['energy']
 
@@ -263,14 +272,21 @@ ORCA TERMINATED NORMALLY
 
     results_sample = {
         'energy': -2079.560412394247,
-        'forces': np.array([
-            [2.42359838e+00, 2.42359837e+00, -5.14220671e-09],
-            [-1.31748766e+00, -1.10611070e+00, -0.0000000e-00],
-            [-1.10611071e+00, -1.31748767e+00, 5.14220671e-09]]),
-        'positions': np.array([
-            [0.0000000, 0.0000000, 0.0000000],
-            [1.8897261, 0.0000000, 0.0000000],
-            [0.0000000, 1.8897261, 0.0000000]])}
+        'forces': np.array(
+            [
+                [2.42359838e00, 2.42359837e00, -5.14220671e-09],
+                [-1.31748766e00, -1.10611070e00, -0.0000000e-00],
+                [-1.10611071e00, -1.31748767e00, 5.14220671e-09],
+            ]
+        ),
+        'positions': np.array(
+            [
+                [0.0000000, 0.0000000, 0.0000000],
+                [1.8897261, 0.0000000, 0.0000000],
+                [0.0000000, 1.8897261, 0.0000000],
+            ]
+        ),
+    }
 
     results_sample['free_energy'] = results_sample['energy']
 

@@ -2,7 +2,6 @@
 
 """Filters"""
 from functools import cached_property
-from itertools import product
 from warnings import warn
 
 import numpy as np
@@ -358,35 +357,70 @@ class UnitCellFilter(Filter):
             breaks energy/force consistency.
         """
 
+        from ase._4.optimize.cellutil import CellUtility
+
         Filter.__init__(self, atoms=atoms, indices=range(len(atoms)))
         self.atoms = atoms
-        if orig_cell is None:
-            self.orig_cell = atoms.get_cell()
-        else:
-            self.orig_cell = orig_cell
-        self.stress = None
 
-        if mask is None:
-            mask = np.ones(6)
-        mask = np.asarray(mask)
-        if mask.shape == (6,):
-            self.mask = voigt_6_to_full_3x3_stress(mask)
-        elif mask.shape == (3, 3):
-            self.mask = mask
+        if orig_cell is None:
+            orig_cell = atoms.get_cell()
         else:
-            raise ValueError('shape of mask should be (3,3) or (6,)')
+            orig_cell = orig_cell
+
+        self._utility = CellUtility(
+            orig_cell.copy(), mask=mask,
+            scalar_pressure=scalar_pressure,
+            constant_volume=constant_volume,
+            hydrostatic_strain=hydrostatic_strain)
+
+        self.stress = None
 
         if cell_factor is None:
             cell_factor = float(len(atoms))
-        self.hydrostatic_strain = hydrostatic_strain
-        self.constant_volume = constant_volume
-        self.scalar_pressure = scalar_pressure
         self.cell_factor = cell_factor
         self.copy = self.atoms.copy
         self.arrays = self.atoms.arrays
 
+    @property
+    def hydrostatic_strain(self):
+        return self._utility.hydrostatic_strain
+
+    @hydrostatic_strain.setter
+    def hydrostatic_strain(self, value):
+        # Probably we do not need these setters but at least one precon
+        # test unwisely does hasattr() magic with these.
+        self._utility.hydrostatic_strain = value
+
+    @property
+    def constant_volume(self):
+        return self._utility.constant_volume
+
+    @constant_volume.setter
+    def constant_volume(self, value):
+        self._utility.constant_volume = value
+
+    @property
+    def scalar_pressure(self):
+        return self._utility.scalar_pressure
+
+    @scalar_pressure.setter
+    def scalar_pressure(self, value):
+        self._utility.scalar_pressure = value
+
+    @property
+    def mask(self):
+        return self._utility.mask3x3
+
+    @property
+    def orig_cell(self):
+        return self._utility.orig_cell
+
+    @orig_cell.setter
+    def orig_cell(self, value):
+        self._utility.orig_cell[:] = value
+
     def deform_grad(self):
-        return np.linalg.solve(self.orig_cell, self.atoms.cell).T
+        return self._utility.deform_grad(self.atoms.cell)
 
     def get_positions(self):
         """
@@ -396,18 +430,8 @@ class UnitCellFilter(Filter):
         three rows are the deformation tensor associated with the unit cell,
         scaled by self.cell_factor.
         """
-
-        cur_deform_grad = self.deform_grad()
-        natoms = len(self.atoms)
-        pos = np.zeros((natoms + 3, 3))
-        # UnitCellFilter's positions are the self.atoms.positions but without
-        # the applied deformation gradient
-        pos[:natoms] = np.linalg.solve(cur_deform_grad,
-                                       self.atoms.positions.T).T
-        # UnitCellFilter's cell DOFs are the deformation gradient times a
-        # scaling factor
-        pos[natoms:] = self.cell_factor * cur_deform_grad
-        return pos
+        return self._utility.get_positions_unitcellfilter(
+            self.atoms.positions, self.atoms.cell, self.cell_factor)
 
     def set_positions(self, new, **kwargs):
         """
@@ -420,33 +444,14 @@ class UnitCellFilter(Filter):
         deformation gradient, then the positions are set with respect to the
         current cell by transforming them with the same deformation gradient
         """
-
-        natoms = len(self.atoms)
-        new_atom_positions = new[:natoms]
-        new_deform_grad = new[natoms:] / self.cell_factor
-        deform = (new_deform_grad - np.eye(3)).T * self.mask
-        # Set the new cell from the original cell and the new
-        # deformation gradient.  Both current and final structures should
-        # preserve symmetry, so if set_cell() calls FixSymmetry.adjust_cell(),
-        # it should be OK
-        newcell = self.orig_cell @ (np.eye(3) + deform)
-
-        self.atoms.set_cell(newcell,
-                            scale_atoms=True)
-        # Set the positions from the ones passed in (which are without the
-        # deformation gradient applied) and the new deformation gradient.
-        # This should also preserve symmetry, so if set_positions() calls
-        # FixSymmetyr.adjust_positions(), it should be OK
-        self.atoms.set_positions(new_atom_positions @ (np.eye(3) + deform),
-                                 **kwargs)
+        self._utility.set_positions_unitcellfilter(
+            new, self.atoms, self.cell_factor, **kwargs)
 
     def get_potential_energy(self, force_consistent=True):
         """
         returns potential energy including enthalpy PV term.
         """
-        atoms_energy = self.atoms.get_potential_energy(
-            force_consistent=force_consistent)
-        return atoms_energy + self.scalar_pressure * self.atoms.get_volume()
+        return self._utility.get_energy(self.atoms, force_consistent)
 
     def get_forces(self, **kwargs):
         """
@@ -457,35 +462,14 @@ class UnitCellFilter(Filter):
         three rows are the forces on the unit cell, which are
         computed from the stress tensor.
         """
-
         stress = self.atoms.get_stress(**kwargs)
         atoms_forces = self.atoms.get_forces(**kwargs)
 
-        volume = self.atoms.get_volume()
-        virial = -volume * (voigt_6_to_full_3x3_stress(stress) +
-                            np.diag([self.scalar_pressure] * 3))
-        cur_deform_grad = self.deform_grad()
-        atoms_forces = atoms_forces @ cur_deform_grad
-        virial = np.linalg.solve(cur_deform_grad, virial.T).T
-
-        if self.hydrostatic_strain:
-            vtr = virial.trace()
-            virial = np.diag([vtr / 3.0, vtr / 3.0, vtr / 3.0])
-
-        # Zero out components corresponding to fixed lattice elements
-        if (self.mask != 1.0).any():
-            virial *= self.mask
-
-        if self.constant_volume:
-            vtr = virial.trace()
-            np.fill_diagonal(virial, np.diag(virial) - vtr / 3.0)
-
-        natoms = len(self.atoms)
-        forces = np.zeros((natoms + 3, 3))
-        forces[:natoms] = atoms_forces
-        forces[natoms:] = virial / self.cell_factor
-
-        self.stress = -full_3x3_to_voigt_6_stress(virial) / volume
+        forces, modified_stress = self._utility.get_forces_unitcellfilter(
+            atoms_forces, stress,
+            cell=self.atoms.cell,
+            cell_factor=self.cell_factor)
+        self.stress = modified_stress  # XXX what's this doing here?
         return forces
 
     def get_stress(self):
@@ -601,72 +585,28 @@ class FrechetCellFilter(UnitCellFilter):
         self.exp_cell_factor = exp_cell_factor
 
     def get_positions(self):
-        pos = UnitCellFilter.get_positions(self)
-        natoms = len(self.atoms)
-        pos[natoms:] = self.logm(pos[natoms:]) * self.exp_cell_factor
-        return pos
+        return self._utility.get_positions_frechet(
+            self.atoms.get_positions(),
+            self.atoms.get_cell(),
+            cell_factor=self.cell_factor,
+            exp_cell_factor=self.exp_cell_factor)
 
     def set_positions(self, new, **kwargs):
-        natoms = len(self.atoms)
-        new2 = new.copy()
-        new2[natoms:] = self.expm(new[natoms:] / self.exp_cell_factor)
-        UnitCellFilter.set_positions(self, new2, **kwargs)
+        self._utility.set_positions_frechet(
+            new, self.atoms, cell_factor=self.cell_factor,
+            exp_cell_factor=self.exp_cell_factor, **kwargs)
 
     def get_forces(self, **kwargs):
         # forces on atoms are same as UnitCellFilter, we just
         # need to modify the stress contribution
         stress = self.atoms.get_stress(**kwargs)
-        volume = self.atoms.get_volume()
-        virial = -volume * (voigt_6_to_full_3x3_stress(stress) +
-                            np.diag([self.scalar_pressure] * 3))
-
-        cur_deform_grad = self.deform_grad()
-        cur_deform_grad_log = self.logm(cur_deform_grad)
-
-        if self.hydrostatic_strain:
-            vtr = virial.trace()
-            virial = np.diag([vtr / 3.0, vtr / 3.0, vtr / 3.0])
-
-        # Zero out components corresponding to fixed lattice elements
-        if (self.mask != 1.0).any():
-            virial *= self.mask
-
-        # Cell gradient for UnitCellFilter
-        ucf_cell_grad = virial @ np.linalg.inv(cur_deform_grad.T)
-
-        # Cell gradient for FrechetCellFilter
-        deform_grad_log_force = np.zeros((3, 3))
-        for mu, nu in product(range(3), repeat=2):
-            dir = np.zeros((3, 3))
-            dir[mu, nu] = 1.0
-            # Directional derivative of deformation to (mu, nu) strain direction
-            expm_der = self.expm_frechet(
-                cur_deform_grad_log,
-                dir,
-                compute_expm=False
-            )
-            deform_grad_log_force[mu, nu] = np.sum(expm_der * ucf_cell_grad)
-
-        # Cauchy stress used for convergence testing
-        convergence_crit_stress = -(virial / volume)
-        if self.constant_volume:
-            # apply constraint to force
-            dglf_trace = deform_grad_log_force.trace()
-            np.fill_diagonal(deform_grad_log_force,
-                             np.diag(deform_grad_log_force) - dglf_trace / 3.0)
-            # apply constraint to Cauchy stress used for convergence testing
-            ccs_trace = convergence_crit_stress.trace()
-            np.fill_diagonal(convergence_crit_stress,
-                             np.diag(convergence_crit_stress) - ccs_trace / 3.0)
-
         atoms_forces = self.atoms.get_forces(**kwargs)
-        atoms_forces = atoms_forces @ cur_deform_grad
 
-        # pack gradients into vector
-        natoms = len(self.atoms)
-        forces = np.zeros((natoms + 3, 3))
-        forces[:natoms] = atoms_forces
-        forces[natoms:] = deform_grad_log_force / self.exp_cell_factor
+        forces, convergence_crit_stress = self._utility.get_forces_frechet(
+            atoms_forces=atoms_forces, stress=stress,
+            cell=self.atoms.get_cell(),
+            exp_cell_factor=self.exp_cell_factor)
+
         self.stress = full_3x3_to_voigt_6_stress(convergence_crit_stress)
         return forces
 

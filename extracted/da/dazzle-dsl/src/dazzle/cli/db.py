@@ -100,12 +100,54 @@ def revision_command(
         "--autogenerate/--no-autogenerate",
         help="Auto-detect schema changes from DSL entities",
     ),
+    legacy_autogenerate: bool = typer.Option(
+        False,
+        "--legacy-autogenerate",
+        help="Use the pre-#1431 metadata-vs-DB autogenerate path (additive-scoped, "
+        "#1427) instead of the DSL-snapshot diff engine. The default engine emits "
+        "intentful diff-derived ops and embeds a SCHEMA_SNAPSHOT constant.",
+    ),
 ) -> None:
-    """Generate a new migration revision into the project directory."""
+    """Generate a new migration revision into the project directory.
+
+    By default (the #1431 engine), the revision is computed by diffing the head
+    migration's embedded ``SCHEMA_SNAPSHOT`` against the live DSL: the generated
+    ``upgrade()``/``downgrade()`` are the engine's rendered ops, and the file
+    carries the new state as a module-level ``SCHEMA_SNAPSHOT = <literal>`` constant
+    so the *next* revision can diff against it. The engine emits intentful,
+    additive ops only — it never produces the destructive whole-schema rewrite that
+    metadata-vs-DB diff noise can cause.
+
+    **Snapshot embedding seam (Alembic 1.18):** env.py's
+    ``_process_revision_directives`` hook replaces the op-trees with the engine's
+    ops and stashes the snapshot literal on ``cfg.attributes`` (the documented
+    command<->env.py side-channel, already used for ``tenant_schema``). This command
+    then *post-writes* ``SCHEMA_SNAPSHOT = <literal>`` into the generated file. We
+    chose post-write injection over a custom ``script.py.mako`` placeholder because
+    the framework template is shared by the legacy path and tenant migrations
+    (which must not carry the constant), and the dual-lineage ``version_path`` plus
+    the separate revision ``EnvironmentContext`` make template-arg plumbing the
+    more fragile of the two — see the task report.
+
+    **Data-migration seam (Task 5.1):** for an *unsafe* schema change — a
+    ``NOT NULL`` column add with no server default, or a type change with no safe
+    cast — the renderer emits the expand→seam→contract scaffold (add nullable →
+    seam → finalize NOT NULL / cast). The seam is carried through the op-tree as a
+    placeholder ``op.execute`` marker and post-write-expanded here into a readable
+    ``# === DATA MIGRATION (hand-author) ===`` block for the author to fill in (see
+    ``_inject_data_seams``).
+
+    ``--legacy-autogenerate`` falls back to the metadata-vs-DB autogenerate path,
+    scoped to **additive** ops (#1427); set ``DAZZLE_ALEMBIC_ALLOW_DESTRUCTIVE=1``
+    there to allow drop/alter ops for one deliberately destructive revision.
+    """
     from alembic import command
 
     cfg = _get_alembic_cfg()
     project_versions = str(_get_project_versions_dir())
+
+    # Select the generation strategy for env.py's revision-directive hook.
+    cfg.attributes["dazzle_use_engine"] = not legacy_autogenerate
 
     # #1309: alembic refuses to author a revision when multiple heads exist
     # (it can't pick a parent). Give the actionable reconcile guidance instead
@@ -121,17 +163,210 @@ def revision_command(
         raise typer.Exit(1)
 
     try:
-        command.revision(
+        rev = command.revision(
             cfg,
             message=message,
             autogenerate=autogenerate,
             version_path=project_versions,
         )
+        # Engine path: embed the snapshot literal the hook stashed on cfg.attributes
+        # into the generated file (no-op when legacy / suppressed / no snapshot).
+        if not legacy_autogenerate:
+            _inject_schema_snapshot(rev, cfg.attributes.get("dazzle_schema_snapshot"))
+            # Expand the renderer's data-migration seam markers into readable
+            # hand-author comment blocks (Task 5.1). No-op when the revision has
+            # no unsafe change (no marker present).
+            _inject_data_seams(rev)
+            # Warn-only internal-consistency check (Task 6.1): verify that the
+            # SCHEMA_SNAPSHOT just embedded matches the live DSL projection.
+            # Never raises, never blocks the revision.
+            _verify_snapshot_consistency(rev, cfg)
         console.print(f"[green]Migration revision created: {message}[/green]")
         console.print(f"[dim]  → {project_versions}/[/dim]")
     except Exception as e:
         console.print(f"[red]Failed to create revision: {e}[/red]")
         raise typer.Exit(1)
+
+
+def _verify_snapshot_consistency(rev: Any, cfg: Any) -> None:
+    """Warn-only post-generation consistency check (Task 6.1 / #1431).
+
+    After the engine embeds ``SCHEMA_SNAPSHOT`` into a generated revision file,
+    this check verifies that the embedded snapshot literal (the engine's intended
+    post-state, stashed on ``cfg.attributes['dazzle_schema_snapshot']``) agrees
+    with ``project_current()`` — the live DSL-projected schema at the moment the
+    revision was generated.
+
+    **What it verifies:**
+    The engine's embedded post-state (``SCHEMA_SNAPSHOT``) is consistent with
+    the live DSL.  A divergence means either:
+
+    - A concurrent DSL change raced the ``db revision`` invocation (the DSL
+      changed between ``generate_revision()`` projecting ``curr`` and this
+      check running), OR
+    - An engine bug caused ``snapshot_literal`` to encode a different schema
+      than what ``project_current()`` currently projects.
+
+    In either case the revision is still written — this is advisory-only.
+    The check directs the author to inspect and re-run if needed.
+
+    **Limitations (v1):**
+    - Internal consistency only — does NOT compare against the live database.
+      A metadata-vs-DB autogenerate compare would need a DB connection and
+      is too brittle for a warn-only post-generation gate.
+    - The comparison is string-level: the embedded ``snapshot_literal`` is
+      parsed back to a dict with ``ast.literal_eval`` (safe — literals only,
+      never arbitrary code) and compared with the live projection. If the
+      parse fails (malformed literal), the check is skipped with a DEBUG log.
+    - ``project_current()`` re-imports the live MetaData from the project in
+      the CWD, so it inherits any load failure the engine itself would see.
+      Any exception is caught and logged at DEBUG — never re-raised.
+
+    **Always warn-only, never raises, never blocks ``db revision``.**
+    """
+    # No-op: legacy path / suppressed / empty revision — no snapshot to check.
+    snapshot_literal = (cfg.attributes or {}).get("dazzle_schema_snapshot")
+    if not snapshot_literal:
+        return
+
+    # No-op: Alembic produced no file.
+    if rev is None:
+        return
+
+    try:
+        # Parse the embedded literal back to a dict for comparison.
+        # ast.literal_eval is safe: it only evaluates Python literals (dict,
+        # str, int, bool, None) — no arbitrary code execution.
+        import ast
+
+        from dazzle.db.schema_snapshot import project_current, render_snapshot_literal
+
+        try:
+            embedded: dict[str, Any] = ast.literal_eval(snapshot_literal)
+        except (ValueError, SyntaxError):
+            logger.debug(
+                "post-revision consistency check: could not eval snapshot literal — skipping",
+                exc_info=True,
+            )
+            return
+
+        # Project the live schema from the current DSL.
+        live = project_current()
+
+        # Normalise both sides through render_snapshot_literal so formatting
+        # differences (pprint width, key order) don't produce false positives.
+        embedded_norm = render_snapshot_literal(embedded)
+        live_norm = render_snapshot_literal(live)
+
+        if embedded_norm != live_norm:
+            logger.warning(
+                "post-revision snapshot consistency check: the embedded SCHEMA_SNAPSHOT "
+                "in the generated revision does not match the current DSL projection. "
+                "This may indicate a concurrent DSL change raced `db revision`. "
+                "Inspect the revision and re-run if the schema looks wrong. "
+                "(revision: %s)",
+                getattr(rev, "path", str(rev)),
+            )
+    except Exception:
+        # Swallow all errors — this is advisory only; never block the revision.
+        logger.warning(
+            "snapshot consistency verification could not run: %s",
+            "see exc_info for detail",
+            exc_info=True,
+        )
+
+
+def _inject_schema_snapshot(rev: Any, snapshot_literal: str | None) -> None:
+    """Post-write the ``SCHEMA_SNAPSHOT = <literal>`` constant into a revision file.
+
+    The #1431 engine stashes the current snapshot literal on
+    ``cfg.attributes['dazzle_schema_snapshot']`` from within env.py's directive
+    hook; this writes it as a module-level constant so the *next* engine revision
+    can diff against it (``schema_snapshot.load_head_snapshot``). No-op when there
+    is no snapshot (empty/suppressed revision, or the legacy autogenerate path),
+    or when no revision file was produced.
+
+    The constant is appended after the existing module body so it sits alongside
+    the alembic ``revision``/``down_revision`` identifiers and is importable via
+    ``Script.module`` (how ``load_head_snapshot`` reads it back).
+    """
+    if not snapshot_literal:
+        return
+    # command.revision can return Script | list[Script | None]; take the first.
+    if isinstance(rev, list):
+        rev = rev[0] if rev else None
+    if rev is None:
+        return
+    path = Path(rev.path)
+    if not path.exists():
+        return
+
+    text = path.read_text(encoding="utf-8")
+    if "SCHEMA_SNAPSHOT" in text:
+        return  # idempotent — never double-write
+
+    block = (
+        "\n\n# DSL-snapshot embedded by the #1431 migration engine. The next "
+        "`dazzle db revision`\n# diffs the live DSL against this to compute the "
+        "delta. Do not edit by hand.\n"
+        f"SCHEMA_SNAPSHOT = {snapshot_literal}\n"
+    )
+    path.write_text(text + block, encoding="utf-8")
+
+
+def _inject_data_seams(rev: Any) -> None:
+    """Expand the renderer's seam markers into hand-author comment blocks (Task 5.1).
+
+    For an unsafe schema change (a ``NOT NULL`` add with no default, or a type
+    change with no safe cast), ``schema_render`` emits the expand/contract scaffold
+    with a placeholder ``ExecuteSQLOp`` carrying ``schema_render.SEAM_MARKER``.
+    Alembic renders that as a single ``op.execute('<SEAM_MARKER>')`` line in the
+    generated ``upgrade()`` body. This post-write step replaces each such line with
+    a readable, clearly-marked block the author fills in::
+
+        # === DATA MIGRATION (hand-author) ===
+        # Backfill / transform rows before the column is finalized NOT NULL or
+        # the type cast runs. Replace the example below with the real statement.
+        # op.execute("UPDATE ... SET ... WHERE ...")
+        # === END DATA MIGRATION ===
+
+    Post-write injection (mirroring ``_inject_schema_snapshot``) is the chosen seam
+    mechanism: it keeps ``schema_render`` a pure op-tree transform (unit-testable on
+    the op stream) while landing the comment block verbatim — a comment block is not
+    an Alembic op, so it cannot be carried through ``render_python_code`` directly.
+    The matched line's leading indentation is preserved so the block sits correctly
+    inside ``upgrade()``. No-op when no marker is present (the safe-change case).
+    """
+    from dazzle.db.schema_render import SEAM_MARKER
+
+    if isinstance(rev, list):
+        rev = rev[0] if rev else None
+    if rev is None:
+        return
+    path = Path(rev.path)
+    if not path.exists():
+        return
+
+    text = path.read_text(encoding="utf-8")
+    if SEAM_MARKER not in text:
+        return
+
+    out_lines: list[str] = []
+    for line in text.splitlines(keepends=False):
+        if SEAM_MARKER in line:
+            indent = line[: len(line) - len(line.lstrip())]
+            out_lines.extend(
+                [
+                    f"{indent}# === DATA MIGRATION (hand-author) ===",
+                    f"{indent}# Backfill / transform existing rows here BEFORE the column is",
+                    f"{indent}# finalized NOT NULL or the type cast runs. Replace the example.",
+                    f'{indent}# op.execute("UPDATE my_table SET my_col = ... WHERE my_col IS NULL")',
+                    f"{indent}# === END DATA MIGRATION ===",
+                ]
+            )
+        else:
+            out_lines.append(line)
+    path.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
 
 
 #: #1282: Alembic ships `alembic_version.version_num` as `VARCHAR(32)`.
@@ -496,6 +731,104 @@ def reconcile_baseline_command() -> None:
     console.print(f"[dim]  Merged heads: {', '.join(heads)}[/dim]")
     console.print(f"[dim]  → {project_versions}/[/dim]")
     console.print("[dim]  Commit the merge file, then run `dazzle db upgrade head`.[/dim]")
+
+
+@db_app.command(name="snapshot-baseline")
+def snapshot_baseline_command() -> None:
+    """Stamp the current DSL projection as the head migration's baseline snapshot.
+
+    Use this once when adopting the #1431 migration engine on a project whose
+    HEAD migration pre-dates ``SCHEMA_SNAPSHOT``.  Without this step
+    ``load_head_snapshot`` returns ``{}`` and the next ``dazzle db revision``
+    diffs against an empty baseline — re-creating every table, which fails on
+    an existing database.
+
+    This command writes a single empty-upgrade revision (``def upgrade(): pass``
+    / ``def downgrade(): pass``) that carries only ``SCHEMA_SNAPSHOT = <current
+    DSL projection>`` as a module-level constant.  After applying it, the next
+    real ``dazzle db revision`` diffs the live DSL against this snapshot and
+    emits only the intentful additive delta.
+
+    Typical adoption workflow::
+
+        dazzle db snapshot-baseline       # write the baseline stamp revision
+        dazzle db upgrade                 # apply it (no-op upgrade)
+        dazzle db revision -m "add field" # subsequent revisions diff correctly
+
+    The revision is written to the project's ``.dazzle/migrations/versions/``
+    directory. Commit it alongside your other migrations.
+    """
+    from alembic import command
+    from alembic.script import ScriptDirectory
+
+    from dazzle.db.schema_snapshot import (
+        load_head_snapshot,
+        project_current,
+        render_snapshot_literal,
+    )
+
+    cfg = _get_alembic_cfg()
+    project_versions = str(_get_project_versions_dir())
+
+    # Guard: single head required (same as revision_command).
+    heads = _get_heads(cfg)
+    if len(heads) > 1:
+        console.print(
+            f"[red]Cannot create a snapshot-baseline: {len(heads)} migration heads are "
+            f"present ({', '.join(heads)}).[/red]\n"
+            f"[dim]  Run `dazzle db reconcile-baseline` to merge them into a "
+            f"single head first (see #1309).[/dim]"
+        )
+        raise typer.Exit(1)
+
+    # Guard: idempotency — if the head already carries SCHEMA_SNAPSHOT, there is
+    # nothing to do.  Running snapshot-baseline twice (or on a project whose head
+    # was generated by the engine) would write a redundant empty revision.
+    script_dir = ScriptDirectory.from_config(cfg)
+    existing_snapshot = load_head_snapshot(script_dir)
+    if existing_snapshot:
+        console.print(
+            "[yellow]Head already carries SCHEMA_SNAPSHOT — nothing to do; "
+            "snapshot-baseline is for adopting the engine on a project whose "
+            "head predates it.[/yellow]"
+        )
+        return
+
+    # Project the current DSL snapshot upfront so we can report it and inject it.
+    try:
+        curr = project_current()
+        snapshot_literal = render_snapshot_literal(curr)
+    except Exception as e:
+        console.print(f"[red]Failed to project current DSL schema: {e}[/red]")
+        raise typer.Exit(1)
+
+    # Write an empty (no-autogenerate) revision — the _process_revision_directives
+    # hook is NOT triggered here (autogenerate=False), so the suppress-empty path
+    # never fires and we always get a revision file regardless of delta.
+    try:
+        rev = command.revision(
+            cfg,
+            message="snapshot-baseline: stamp current DSL as engine baseline (#1431)",
+            autogenerate=False,
+            version_path=project_versions,
+        )
+    except Exception as e:
+        console.print(f"[red]Failed to create snapshot-baseline revision: {e}[/red]")
+        raise typer.Exit(1)
+
+    # Post-write the SCHEMA_SNAPSHOT constant into the generated file (same
+    # injection path as revision_command / _inject_schema_snapshot).
+    _inject_schema_snapshot(rev, snapshot_literal)
+
+    table_count = len(curr)
+    console.print(
+        f"[green]Snapshot-baseline revision created: {table_count} table(s) stamped.[/green]"
+    )
+    console.print(f"[dim]  → {project_versions}/[/dim]")
+    console.print(
+        "[dim]  Run `dazzle db upgrade` to apply, then subsequent "
+        "`dazzle db revision` invocations will diff from this baseline.[/dim]"
+    )
 
 
 @db_app.command(name="downgrade")

@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 from numpy.testing import assert_allclose
 
@@ -7,7 +6,7 @@ from ase.lattice import all_variants
 
 
 def test_standard_form():
-    TOL = 1E-10
+    TOL = 1e-10
     for lat in all_variants():
         cell0 = lat.tocell()
         for sign in [-1, 1]:

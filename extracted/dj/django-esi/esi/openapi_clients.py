@@ -4,7 +4,7 @@ import warnings
 from datetime import date, datetime, timedelta, timezone
 from hashlib import md5
 from timeit import default_timer
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiopenapi3 import FileSystemLoader, OpenAPI
 from aiopenapi3._types import ResponseDataType, ResponseHeadersType
@@ -29,8 +29,8 @@ from django.utils.text import slugify
 from esi import app_settings
 from esi.aiopenapi3.client import SpecCachingClient
 from esi.aiopenapi3.plugins import (
-    Add304ContentType, DjangoESIInit, MinifySpec, PatchCompatibilityDatePlugin,
-    Trim204ContentType,
+    Add304ContentType, DjangoESIInit, MinifySpec, ModifyGetUniverseBloodlines,
+    PatchCompatibilityDatePlugin, Trim204ContentType,
 )
 from esi.exceptions import (
     ESIErrorLimitException, HTTPClientError, HTTPNotModified, HTTPServerError,
@@ -44,6 +44,9 @@ from esi.stubs import ESIClientStub
 
 from . import __title__, __url__, __version__
 from .helpers import pascal_case_string
+
+if TYPE_CHECKING:
+    from aiopenapi3.plugin import Plugin
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +162,7 @@ async def http_retry_async() -> AsyncRetrying:  # pragma: no cover
     )
 
 
-def _load_plugins(app_name, tags: list[str] = [], operations: list[str] = []):
+def _load_plugins(app_name: str, tags: list[str] = [], operations: list[str] = []) -> list["Plugin"]:
     """Load the plugins to make ESI work with this lib.
 
     Args:
@@ -169,8 +172,9 @@ def _load_plugins(app_name, tags: list[str] = [], operations: list[str] = []):
         PatchCompatibilityDatePlugin(),
         Trim204ContentType(),
         Add304ContentType(),
+        ModifyGetUniverseBloodlines(),
         DjangoESIInit(app_name),
-        MinifySpec(tags, operations)
+        MinifySpec(tags, operations),
     ]
 
 

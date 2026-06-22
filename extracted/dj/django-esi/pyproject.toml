@@ -64,14 +64,18 @@ module.name = "esi"
 
 [tool.isort]
 profile = "django"
+line_length = 119
 sections = [
     "FUTURE",
     "STDLIB",
     "THIRDPARTY",
     "DJANGO",
-    "ESI",
+    # "ESI", (This library) Intentionally doesn't match AA's isort config.
     "FIRSTPARTY",
     "LOCALFOLDER",
 ]
-known_django = [ "django" ]
 skip_gitignore = true
+known_django = [
+    "django",
+    "django_redis",
+]

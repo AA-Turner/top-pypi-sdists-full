@@ -49,3 +49,12 @@ class HTTPClientError(base_HTTPClientError):
 class HTTPServerError(base_HTTPServerError):
     """HTTP Response Code 5xx"""
     pass
+
+
+class TaskBucketLimitException(Exception):
+    def __init__(self, bucket, reset):
+        self.bucket = bucket
+        self.reset = reset
+        super().__init__(
+            f"Task Bucket Limit Exceeded: {bucket} - Retry after {reset} seconds"
+        )

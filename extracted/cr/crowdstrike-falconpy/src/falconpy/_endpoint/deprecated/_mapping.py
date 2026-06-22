@@ -71,7 +71,11 @@ _deprecated_op_mapping = {
     "PerformIncidentAction": "",
     "GetIncidents": "",
     "QueryBehaviors": "",
-    "QueryIncidents": ""
+    "QueryIncidents": "",
+    "download_azure_script": "",
+    "CreateFileV1": "",
+    "UpdateFileV1": "",
+    "combinedQueryInstalledPatches": "",
 }
 
 _deprecated_cls_mapping = {

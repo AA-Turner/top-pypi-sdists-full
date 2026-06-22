@@ -18,7 +18,7 @@ from __future__ import annotations
 import datetime
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
@@ -60,8 +60,6 @@ __all__ = [
     "JobKind",
     "RunTrigger",
     "Backoff",
-    "RetryReason",
-    "RetryOn",
     "RunRetry",
     "Job",
     "AsyncJob",
@@ -123,20 +121,6 @@ class Backoff(str, Enum):
 
     EXPONENTIAL = "exponential"
     FIXED = "fixed"
-
-
-class RetryReason(str, Enum):
-    """A failure category a retry policy can retry on.
-
-    Attributes:
-        CONNECTION_ERROR: The endpoint could not be reached.
-        NON_SUCCESS_STATUS: Any non-success response, regardless of ``statuses``.
-        TIMEOUT: The run did not complete in time.
-    """
-
-    CONNECTION_ERROR = "CONNECTION_ERROR"
-    NON_SUCCESS_STATUS = "NON_SUCCESS_STATUS"
-    TIMEOUT = "TIMEOUT"
 
 
 def _parse_dt(value: Any) -> Optional[datetime.datetime]:
@@ -272,47 +256,6 @@ class HttpConfig:
 
     def __repr__(self) -> str:
         return f"HttpConfig(method={self.method!r}, url={self.url!r})"
-
-
-@dataclass(slots=True)
-class RetryOn:
-    """Which failures a retry policy retries.
-
-    An empty :class:`RetryOn` (both lists empty) retries nothing.
-
-    Attributes:
-        statuses: Response status codes to retry when a run fails because the
-            response did not match the job's success status (e.g. ``[429, 503]``
-            for rate-limit and unavailable). Each is a 3-digit HTTP code.
-        reasons: Failure categories to retry — see :class:`RetryReason`. Accepts
-            :class:`RetryReason` members or their raw string values.
-    """
-
-    statuses: list[int] = field(default_factory=list)
-    reasons: list[RetryReason] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "statuses": list(self.statuses),
-            "reasons": [RetryReason(r).value for r in self.reasons],
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "RetryOn":
-        """Build a :class:`RetryOn` from its dictionary representation.
-
-        Args:
-            d: Mapping with optional ``statuses`` (list of HTTP codes) and
-                ``reasons`` (list of :class:`RetryReason` values). Omitted keys
-                default to empty lists.
-
-        Returns:
-            The corresponding :class:`RetryOn`.
-        """
-        return cls(
-            statuses=list(d.get("statuses") or []),
-            reasons=[RetryReason(r) for r in (d.get("reasons") or [])],
-        )
 
 
 @dataclass(slots=True)
@@ -967,7 +910,10 @@ class _RetryPolicyBase:
         backoff: Backoff,
         delay_seconds: int,
         max_delay_seconds: Optional[int] = None,
-        retry_on: Optional[RetryOn] = None,
+        retry_on_timeout: bool = False,
+        retry_on_connection_error: bool = False,
+        retry_statuses: Optional[list[str]] = None,
+        retry_statuses_except: Optional[list[str]] = None,
         created_at: Optional[datetime.datetime] = None,
         updated_at: Optional[datetime.datetime] = None,
         deleted_at: Optional[datetime.datetime] = None,
@@ -981,8 +927,15 @@ class _RetryPolicyBase:
         # Ceiling on the wait between retries, for ``exponential`` backoff only;
         # ``None`` (omitted) leaves it uncapped. Invalid with ``fixed`` backoff.
         self.max_delay_seconds = max_delay_seconds
-        # Which failures to retry; an empty RetryOn retries nothing.
-        self.retry_on = retry_on if retry_on is not None else RetryOn()
+        # Which failures to retry. Each field is independently neutral, so a
+        # policy retries exactly the failures you opt into; all-off retries
+        # nothing. ``retry_statuses`` allowlists response statuses (exact codes
+        # like ``"429"`` or classes like ``"5xx"``) on a non-success response,
+        # and ``retry_statuses_except`` subtracts from it (``except`` wins).
+        self.retry_on_timeout = retry_on_timeout
+        self.retry_on_connection_error = retry_on_connection_error
+        self.retry_statuses = list(retry_statuses) if retry_statuses is not None else []
+        self.retry_statuses_except = list(retry_statuses_except) if retry_statuses_except is not None else []
         self.created_at = created_at
         self.updated_at = updated_at
         self.deleted_at = deleted_at
@@ -997,7 +950,10 @@ class _RetryPolicyBase:
             "max_retries": self.max_retries,
             "backoff": Backoff(self.backoff).value,
             "delay_seconds": self.delay_seconds,
-            "retry_on": self.retry_on.to_dict(),
+            "retry_on_timeout": self.retry_on_timeout,
+            "retry_on_connection_error": self.retry_on_connection_error,
+            "retry_statuses": list(self.retry_statuses),
+            "retry_statuses_except": list(self.retry_statuses_except),
         }
         # Only valid with exponential backoff; omitted when unset.
         if self.max_delay_seconds is not None:
@@ -1010,7 +966,6 @@ class _RetryPolicyBase:
 
 def _retry_policy_base_from_resource(resource: dict[str, Any]) -> _RetryPolicyBase:
     a = resource["attributes"]
-    retry_on = a.get("retry_on")
     return _RetryPolicyBase(
         id=resource["id"],
         name=a["name"],
@@ -1018,7 +973,10 @@ def _retry_policy_base_from_resource(resource: dict[str, Any]) -> _RetryPolicyBa
         backoff=Backoff(a["backoff"]),
         delay_seconds=a["delay_seconds"],
         max_delay_seconds=a.get("max_delay_seconds"),
-        retry_on=RetryOn.from_dict(retry_on) if retry_on else None,
+        retry_on_timeout=bool(a.get("retry_on_timeout", False)),
+        retry_on_connection_error=bool(a.get("retry_on_connection_error", False)),
+        retry_statuses=list(a.get("retry_statuses") or []),
+        retry_statuses_except=list(a.get("retry_statuses_except") or []),
         created_at=_parse_dt(a.get("created_at")),
         updated_at=_parse_dt(a.get("updated_at")),
         deleted_at=_parse_dt(a.get("deleted_at")),
@@ -1377,7 +1335,10 @@ class RetryPoliciesClient:
         backoff: Backoff,
         delay_seconds: int,
         max_delay_seconds: Optional[int] = None,
-        retry_on: Optional[RetryOn] = None,
+        retry_on_timeout: bool = False,
+        retry_on_connection_error: bool = False,
+        retry_statuses: Optional[list[str]] = None,
+        retry_statuses_except: Optional[list[str]] = None,
     ) -> RetryPolicy:
         """Return an unsaved :class:`RetryPolicy`. Call ``.save()`` to create it.
 
@@ -1396,8 +1357,15 @@ class RetryPoliciesClient:
             max_delay_seconds: Ceiling on the wait between retries, for
                 ``exponential`` backoff only. ``None`` (the default) leaves it
                 uncapped; omit it for ``fixed`` backoff.
-            retry_on: Which failures to retry (see :class:`RetryOn`). ``None``
-                (the default) retries nothing.
+            retry_on_timeout: Retry a run that timed out. Defaults to ``False``.
+            retry_on_connection_error: Retry a run whose destination could not
+                be reached. Defaults to ``False``.
+            retry_statuses: Allowlist of response status patterns to retry on a
+                non-success response — each an exact 3-digit code (``"429"``) or
+                a class (``"5xx"``). ``None`` (the default) matches nothing.
+            retry_statuses_except: Patterns subtracted from ``retry_statuses``
+                (``except`` wins on overlap), same syntax. ``None`` (the
+                default) subtracts nothing.
 
         Returns:
             An unsaved :class:`RetryPolicy` bound to this client.
@@ -1410,7 +1378,10 @@ class RetryPoliciesClient:
             backoff=backoff,
             delay_seconds=delay_seconds,
             max_delay_seconds=max_delay_seconds,
-            retry_on=retry_on,
+            retry_on_timeout=retry_on_timeout,
+            retry_on_connection_error=retry_on_connection_error,
+            retry_statuses=retry_statuses,
+            retry_statuses_except=retry_statuses_except,
         )
 
     def list(
@@ -1494,7 +1465,10 @@ class AsyncRetryPoliciesClient:
         backoff: Backoff,
         delay_seconds: int,
         max_delay_seconds: Optional[int] = None,
-        retry_on: Optional[RetryOn] = None,
+        retry_on_timeout: bool = False,
+        retry_on_connection_error: bool = False,
+        retry_statuses: Optional[list[str]] = None,
+        retry_statuses_except: Optional[list[str]] = None,
     ) -> AsyncRetryPolicy:
         """Return an unsaved :class:`AsyncRetryPolicy`. ``await .save()`` to create it.
 
@@ -1511,7 +1485,10 @@ class AsyncRetryPoliciesClient:
             backoff=backoff,
             delay_seconds=delay_seconds,
             max_delay_seconds=max_delay_seconds,
-            retry_on=retry_on,
+            retry_on_timeout=retry_on_timeout,
+            retry_on_connection_error=retry_on_connection_error,
+            retry_statuses=retry_statuses,
+            retry_statuses_except=retry_statuses_except,
         )
 
     async def list(

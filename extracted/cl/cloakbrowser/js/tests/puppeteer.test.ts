@@ -65,6 +65,53 @@ describe("puppeteer launch", () => {
     expect(callArgs.args.some((a: string) => a.startsWith("--fingerprint="))).toBe(false);
   });
 
+  it("headless (default) uses a fixed defaultViewport; headed uses null", async () => {
+    const { DEFAULT_VIEWPORT } = await import("../src/config.js");
+    const { launch } = await import("../src/puppeteer.js");
+
+    // Headless (default): deterministic viewport.
+    await launch();
+    expect(
+      vi.mocked(puppeteerMock.default.launch).mock.calls[0][0].defaultViewport
+    ).toEqual(DEFAULT_VIEWPORT);
+
+    // Headed: null so the page tracks the real window (else Puppeteer forces 800x600).
+    vi.mocked(puppeteerMock.default.launch).mockClear();
+    await launch({ headless: false });
+    expect(
+      vi.mocked(puppeteerMock.default.launch).mock.calls[0][0].defaultViewport
+    ).toBeNull();
+  });
+
+  it("honors an explicit launchOptions.defaultViewport (incl. null)", async () => {
+    const { launch } = await import("../src/puppeteer.js");
+
+    const custom = { width: 640, height: 480 };
+    await launch({ headless: true, launchOptions: { defaultViewport: custom } });
+    expect(
+      vi.mocked(puppeteerMock.default.launch).mock.calls[0][0].defaultViewport
+    ).toEqual(custom);
+
+    // Explicit null honored even in headless (would otherwise default to DEFAULT_VIEWPORT).
+    vi.mocked(puppeteerMock.default.launch).mockClear();
+    await launch({ headless: true, launchOptions: { defaultViewport: null } });
+    expect(
+      vi.mocked(puppeteerMock.default.launch).mock.calls[0][0].defaultViewport
+    ).toBeNull();
+  });
+
+  it("Puppeteer headless precedence: top-level headless wins over launchOptions.headless", async () => {
+    const { DEFAULT_VIEWPORT } = await import("../src/config.js");
+    const { launch } = await import("../src/puppeteer.js");
+
+    // Puppeteer sets headless AFTER the launchOptions spread, so top-level wins at
+    // launch — the viewport decision must follow the same (top-level) value.
+    await launch({ headless: true, launchOptions: { headless: false } });
+    const opts = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(opts.headless).toBe(true);
+    expect(opts.defaultViewport).toEqual(DEFAULT_VIEWPORT);
+  });
+
   it("adds --proxy-server for string proxy", async () => {
     const { launch } = await import("../src/puppeteer.js");
     await launch({ proxy: "http://proxy:8080" });
@@ -210,6 +257,22 @@ describe("puppeteer launchPersistentContext", () => {
 
     const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
     expect(callArgs.args.some((a: string) => a.startsWith("--fingerprint="))).toBe(true);
+  });
+
+  it("headed persistent context uses null defaultViewport (tracks real window)", async () => {
+    const { DEFAULT_VIEWPORT } = await import("../src/config.js");
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+
+    await launchPersistentContext({ userDataDir: "./my-profile", headless: false });
+    expect(
+      vi.mocked(puppeteerMock.default.launch).mock.calls[0][0].defaultViewport
+    ).toBeNull();
+
+    vi.mocked(puppeteerMock.default.launch).mockClear();
+    await launchPersistentContext({ userDataDir: "./my-profile", headless: true });
+    expect(
+      vi.mocked(puppeteerMock.default.launch).mock.calls[0][0].defaultViewport
+    ).toEqual(DEFAULT_VIEWPORT);
   });
 
   it("uses page.authenticate fallback for http proxy in persistent context on unsupported platform", async () => {

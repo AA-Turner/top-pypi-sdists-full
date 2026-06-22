@@ -235,7 +235,6 @@ def _resolve_ui(field_obj, ftype: str, payload: dict) -> dict:
     ui = {}
     component = ""
     props = {}
-
     
     # ---------------- FILE ----------------
     if ftype == "FileField":
@@ -263,19 +262,6 @@ def _resolve_ui(field_obj, ftype: str, payload: dict) -> dict:
     elif ftype == "BooleanField":
         component = "s-toggle"
 
-    # ---------------- NUMBERS ----------------
-    elif ftype in ["IntegerField", "FloatField", "DecimalField"]:
-        if payload.get("choices"):
-            component = "s-select"
-        else:
-            component = "s-input"
-        props["type"] = "number"
-
-        if payload.get("min") is not None:
-            props["min"] = payload["min"]
-
-        if payload.get("max") is not None:
-            props["max"] = payload["max"]
 
     # ---------------- TEXT (🔥 EDITOR) ----------------
     elif ftype == "TextField":
@@ -291,18 +277,31 @@ def _resolve_ui(field_obj, ftype: str, payload: dict) -> dict:
         
         props["minHeight"] = "150px"
 
+
+  # ---------------- NUMBERS ----------------
+    elif ftype in ["IntegerField", "FloatField", "DecimalField"]:
+        component = "s-input"
+
+
+        props["type"] = "number"
+        if payload.get("min") is not None:
+            props["min"] = payload["min"]
+
+        if payload.get("max") is not None:
+            props["max"] = payload["max"]
+
     # ---------------- CHAR ----------------
     elif ftype == "CharField":
-        if payload.get("choices"):
-            component = "s-select"
-        else:
-            component = "s-input"
+        component = "s-input"
             
         if payload.get("max_length"):
             props["maxlength"] = payload["max_length"]
 
         if payload.get("min_length"):
             props["minlength"] = payload["min_length"]
+
+    elif ftype == "BooleanField":
+        component = "s-switch"
 
     # ---------------- DATE ----------------
     elif ftype == "DateField":
@@ -315,6 +314,9 @@ def _resolve_ui(field_obj, ftype: str, payload: dict) -> dict:
     # ---------------- DATETIME ----------------
     elif ftype == "DateTimeField":
         component = "s-datetime"
+
+    if payload.get("choices"):
+        component = "s-select"
 
     result = {
         "component": component,

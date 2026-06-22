@@ -1,4 +1,3 @@
-# fmt: off
 import pytest
 
 from ase.calculators.genericfileio import BaseProfile, CalculatorTemplate
@@ -16,16 +15,12 @@ class DummyProfile(BaseProfile):
         return [inputfile]
 
     def version(self):
-        return "0.0.0"
+        return '0.0.0'
 
 
 class DummyTemplate(CalculatorTemplate):
-
     def __init__(self):
-        super().__init__(
-            name="dummy",
-            implemented_properties=()
-        )
+        super().__init__(name='dummy', implemented_properties=())
 
     def write_input(self, directory, atoms, parameters, properties):
         pass

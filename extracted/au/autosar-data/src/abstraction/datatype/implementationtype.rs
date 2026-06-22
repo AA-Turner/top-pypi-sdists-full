@@ -15,6 +15,7 @@ use std::ops::Deref;
 ///
 /// Use [`ArPackage::create_implementation_data_type`] to create a new implementation data type
 #[pyclass(
+    from_py_object,
     frozen,
     eq,
     module = "autosar_data._autosar_data._abstraction._datatype"
@@ -147,6 +148,7 @@ impl ImplementationDataType {
 
 /// An element of an implementation data type
 #[pyclass(
+    skip_from_py_object,
     frozen,
     eq,
     module = "autosar_data._autosar_data._abstraction._datatype"
@@ -286,6 +288,7 @@ iterator_wrapper!(
 
 /// The category of an implementation data type
 #[pyclass(
+    from_py_object,
     frozen,
     eq,
     eq_int,
@@ -465,16 +468,13 @@ impl ImplementationDataTypeSettings_Value {
         base_type: SwBaseType,
         compu_method: Option<CompuMethod>,
         data_constraint: Option<DataConstr>,
-    ) -> (Self, ImplementationDataTypeSettings) {
-        (
-            Self {
-                name: name.to_string(),
-                base_type,
-                compu_method,
-                data_constraint,
-            },
-            ImplementationDataTypeSettings(),
-        )
+    ) -> PyClassInitializer<Self> {
+        PyClassInitializer::from(ImplementationDataTypeSettings()).add_subclass(Self {
+            name: name.to_string(),
+            base_type,
+            compu_method,
+            data_constraint,
+        })
     }
 
     fn __repr__(&self) -> String {
@@ -525,19 +525,12 @@ impl ImplementationDataTypeSettings_Array {
         text_signature = "(self, name: str, *, length: int, element_type: ImplementationDataTypeSettings)"
     )]
     #[new]
-    fn new(
-        name: &str,
-        length: u32,
-        element_type: Py<PyAny>,
-    ) -> (Self, ImplementationDataTypeSettings) {
-        (
-            Self {
-                name: name.to_string(),
-                length,
-                element_type,
-            },
-            ImplementationDataTypeSettings(),
-        )
+    fn new(name: &str, length: u32, element_type: Py<PyAny>) -> PyClassInitializer<Self> {
+        PyClassInitializer::from(ImplementationDataTypeSettings()).add_subclass(Self {
+            name: name.to_string(),
+            length,
+            element_type,
+        })
     }
 
     fn __repr__(&self) -> String {
@@ -600,14 +593,11 @@ impl ImplementationDataTypeSettings_Structure {
     #[pyo3(signature = (name, *, elements))]
     #[pyo3(text_signature = "(self, name: str, *, elements: List[ImplementationDataTypeSettings])")]
     #[new]
-    fn new(name: &str, elements: Py<PyList>) -> (Self, ImplementationDataTypeSettings) {
-        (
-            Self {
-                name: name.to_string(),
-                elements,
-            },
-            ImplementationDataTypeSettings(),
-        )
+    fn new(name: &str, elements: Py<PyList>) -> PyClassInitializer<Self> {
+        PyClassInitializer::from(ImplementationDataTypeSettings()).add_subclass(Self {
+            name: name.to_string(),
+            elements,
+        })
     }
 
     fn __repr__(&self) -> String {
@@ -671,14 +661,11 @@ impl ImplementationDataTypeSettings_Union {
     #[pyo3(signature = (name, *, elements))]
     #[pyo3(text_signature = "(self, name: str, *, elements: List[ImplementationDataTypeSettings])")]
     #[new]
-    fn new(name: &str, elements: Py<PyList>) -> (Self, ImplementationDataTypeSettings) {
-        (
-            Self {
-                name: name.to_string(),
-                elements,
-            },
-            ImplementationDataTypeSettings(),
-        )
+    fn new(name: &str, elements: Py<PyList>) -> PyClassInitializer<Self> {
+        PyClassInitializer::from(ImplementationDataTypeSettings()).add_subclass(Self {
+            name: name.to_string(),
+            elements,
+        })
     }
 
     fn __repr__(&self) -> String {
@@ -742,15 +729,14 @@ impl ImplementationDataTypeSettings_DataReference {
     #[pyo3(signature = (name, *, target))]
     #[pyo3(text_signature = "(self, name: str, *, target: DataPointerTarget)")]
     #[new]
-    fn new(name: &str, target: Py<PyAny>) -> PyResult<(Self, ImplementationDataTypeSettings)> {
+    fn new(name: &str, target: Py<PyAny>) -> PyResult<PyClassInitializer<Self>> {
         pyany_to_data_pointer_target(&target)?;
-        Ok((
-            Self {
+        Ok(
+            PyClassInitializer::from(ImplementationDataTypeSettings()).add_subclass(Self {
                 name: name.to_string(),
                 target,
-            },
-            ImplementationDataTypeSettings(),
-        ))
+            }),
+        )
     }
 
     fn __repr__(&self) -> String {
@@ -840,13 +826,10 @@ impl ImplementationDataTypeSettings_FunctionReference {
     #[pyo3(signature = (name, /))]
     #[pyo3(text_signature = "(self, name: str, /)")]
     #[new]
-    fn new(name: &str) -> (Self, ImplementationDataTypeSettings) {
-        (
-            Self {
-                name: name.to_string(),
-            },
-            ImplementationDataTypeSettings(),
-        )
+    fn new(name: &str) -> PyClassInitializer<Self> {
+        PyClassInitializer::from(ImplementationDataTypeSettings()).add_subclass(Self {
+            name: name.to_string(),
+        })
     }
 
     fn __repr__(&self) -> String {
@@ -902,16 +885,13 @@ impl ImplementationDataTypeSettings_TypeReference {
         reftype: ImplementationDataType,
         compu_method: Option<CompuMethod>,
         data_constraint: Option<DataConstr>,
-    ) -> (Self, ImplementationDataTypeSettings) {
-        (
-            Self {
-                name: name.to_string(),
-                reftype,
-                compu_method,
-                data_constraint,
-            },
-            ImplementationDataTypeSettings(),
-        )
+    ) -> PyClassInitializer<Self> {
+        PyClassInitializer::from(ImplementationDataTypeSettings()).add_subclass(Self {
+            name: name.to_string(),
+            reftype,
+            compu_method,
+            data_constraint,
+        })
     }
 
     fn __repr__(&self) -> String {

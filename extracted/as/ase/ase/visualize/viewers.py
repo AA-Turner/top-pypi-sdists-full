@@ -53,7 +53,7 @@ class AbstractViewer:
 
 
 class PyViewer(AbstractViewer):
-    def __init__(self, name: str, desc: str, module_name: str):
+    def __init__(self, name: str, desc: str, module_name: str | None):
         """
         Instantiate an viewer
         """
@@ -137,7 +137,7 @@ class CLIViewer(AbstractViewer):
         return proc
 
 
-VIEWERS = {}
+VIEWERS: dict[str, AbstractViewer] = {}
 
 
 def _pipe_to_ase_gui(atoms, repeat, **kwargs):
@@ -213,7 +213,7 @@ define_viewer("mlab", "View atoms using matplotlib.")
 define_viewer("sage", "View atoms using sage.")
 define_viewer("x3d", "View atoms using x3d.")
 
-# CLI viweers that are internally supported
+# CLI viewers that are internally supported
 define_viewer(
     "avogadro", "View atoms using avogradro.", cli=True, fmt="cube",
     argv=["avogadro"]
@@ -248,10 +248,13 @@ define_viewer(
 
 register_external_viewer_formats("ase.visualize")
 
-CLI_VIEWERS = {key: value for key, value in VIEWERS.items()
-               if isinstance(value, CLIViewer)}
-PY_VIEWERS = {key: value for key, value in VIEWERS.items()
-              if isinstance(value, PyViewer)}
+CLI_VIEWERS: dict[str, CLIViewer] = {
+    key: value for key, value in VIEWERS.items()
+    if isinstance(value, CLIViewer)}
+
+PY_VIEWERS: dict[str, PyViewer] = {
+    key: value for key, value in VIEWERS.items()
+    if isinstance(value, PyViewer)}
 
 
 def cli_main():

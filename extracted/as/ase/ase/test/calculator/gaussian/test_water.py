@@ -1,4 +1,3 @@
-# fmt: off
 from ase.atoms import Atoms
 from ase.calculators.gaussian import Gaussian
 from ase.io import read
@@ -10,9 +9,9 @@ def test_water(gaussian_factory):
     calc = Gaussian(xc='pbe', chk='water.chk', label='water')
     calc.clean()
 
-    water = Atoms('OHH',
-                  positions=[(0, 0, 0), (1, 0, 0), (0, 1, 0)],
-                  calculator=calc)
+    water = Atoms(
+        'OHH', positions=[(0, 0, 0), (1, 0, 0), (0, 1, 0)], calculator=calc
+    )
 
     with LBFGS(water) as opt:
         opt.run(fmax=0.05)

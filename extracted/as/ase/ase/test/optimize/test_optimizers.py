@@ -1,4 +1,3 @@
-# fmt: off
 from pathlib import Path
 
 import pytest
@@ -9,6 +8,7 @@ from ase.optimize import (
     BFGS,
     FIRE,
     LBFGS,
+    RFO,
     BFGSLineSearch,
     GoodOldQuasiNewton,
     GPMin,
@@ -27,6 +27,7 @@ optclasses = [
     BFGSLineSearch,
     BFGS,
     GoodOldQuasiNewton,
+    RFO,
     GPMin,
     SciPyFminCG,
     SciPyFminBFGS,
@@ -37,15 +38,15 @@ optclasses = [
 ]
 
 
-@pytest.fixture(name="ref_atoms")
+@pytest.fixture(name='ref_atoms')
 def fixture_ref_atoms():
-    ref_atoms = bulk("Au")
+    ref_atoms = bulk('Au')
     ref_atoms.calc = EMT()
     ref_atoms.get_potential_energy()
     return ref_atoms
 
 
-@pytest.fixture(name="atoms")
+@pytest.fixture(name='atoms')
 def fixture_atoms(ref_atoms):
     atoms = ref_atoms * (2, 2, 2)
     floor = 0.45
@@ -57,23 +58,23 @@ def fixture_atoms(ref_atoms):
     return atoms
 
 
-@pytest.fixture(name="optcls", params=optclasses)
+@pytest.fixture(name='optcls', params=optclasses)
 def fixture_optcls(request):
     optcls = request.param
     return optcls
 
 
-@pytest.fixture(name="kwargs")
+@pytest.fixture(name='kwargs')
 def fixture_kwargs(optcls):
     kwargs = {}
     if optcls is PreconLBFGS:
-        kwargs["precon"] = None
+        kwargs['precon'] = None
     yield kwargs
     kwargs = {}
 
 
 @pytest.mark.optimize()
-@pytest.mark.filterwarnings("ignore: estimate_mu")
+@pytest.mark.filterwarnings('ignore: estimate_mu')
 def test_optimize(optcls, atoms, ref_atoms, kwargs):
     """Test if forces can be converged using the optimizer."""
     fmax = 0.01
@@ -87,8 +88,8 @@ def test_optimize(optcls, atoms, ref_atoms, kwargs):
     e_opt = atoms.get_potential_energy() * len(ref_atoms) / len(atoms)
     e_err = abs(e_opt - ref_energy)
 
-    print(f"{optcls.__name__:>20}:", end=" ")
-    print(f"fmax={final_fmax:.05f} eopt={e_opt:.06f} err={e_err:06e}")
+    print(f'{optcls.__name__:>20}:', end=' ')
+    print(f'fmax={final_fmax:.05f} eopt={e_opt:.06f} err={e_err:06e}')
 
     assert e_err < 1.75e-5  # (This tolerance is arbitrary)
 
@@ -109,7 +110,7 @@ def test_unconverged(optcls, atoms, kwargs):
     assert not opt.gradient_converged(gradient)
     assert not opt.converged()
     assert not opt.converged(forces=-gradient.reshape(-1, 3))
-    assert opt.todict()["fmax"] == 1e-9
+    assert opt.todict()['fmax'] == 1e-9
 
 
 def test_run_twice(optcls, atoms, kwargs):
@@ -124,7 +125,7 @@ def test_run_twice(optcls, atoms, kwargs):
 
 
 @pytest.mark.optimize()
-@pytest.mark.filterwarnings("ignore: estimate_mu")
+@pytest.mark.filterwarnings('ignore: estimate_mu')
 def test_path(testdir, optcls, atoms, kwargs):
     fmax = 0.01
     traj, log = Path('trajectory.traj'), Path('relax.log')

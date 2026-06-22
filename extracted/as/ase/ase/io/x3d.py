@@ -1,5 +1,3 @@
-# fmt: off
-
 """
 Output support for X3D and X3DOM file types.
 See http://www.web3d.org/x3d/specifications/
@@ -65,7 +63,7 @@ class X3D:
         # convert dictionary of style attributes to a css string
         if x3d_style is None:
             x3d_style = {}
-        x3dstyle = " ".join(f'{k}="{v}";' for k, v in x3d_style.items())
+        x3dstyle = ' '.join(f'{k}="{v}";' for k, v in x3d_style.items())
 
         if datatype == 'X3DOM':
             template = X3DOM_template

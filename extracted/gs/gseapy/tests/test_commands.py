@@ -1,10 +1,16 @@
+import textwrap
 from tempfile import TemporaryDirectory, mkdtemp
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
 
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+
 from gseapy.__init__ import enrich, enrichr, gsea, gsva, prerank, replot, ssgsea
+from gseapy.plot import DotPlot, dotplot
 
 
 @pytest.fixture
@@ -97,6 +103,98 @@ def test_prerank(prernk, geneGMT):
     tmpdir = TemporaryDirectory(dir="tests")
     prerank(prernk, geneGMT, outdir=tmpdir.name, permutation_num=10)
     tmpdir.cleanup()
+
+
+def test_prerank_permutation_keeps_fwer_drops_log2err(prernk, geneGMT):
+    """Regression: the permutation path must keep its meaningful FWER p-val column
+    and drop the (meaningless) log2err column.
+
+    log2err can't be used to discriminate the two paths: the permutation path emits
+    log2err=0.0 (GSEASummary derives Default), not NaN, so a notna()-based check
+    would misclassify it as multilevel and wrongly drop FWER p-val. The path is
+    selected by an explicit flag instead.
+    """
+    res = prerank(
+        prernk,
+        geneGMT,
+        method="permutation",
+        min_size=1,
+        permutation_num=100,
+        outdir=None,
+        no_plot=True,
+        seed=123,
+    )
+    cols = res.res2d.columns
+    assert "FWER p-val" in cols, "permutation path must keep FWER p-val"
+    assert "log2err" not in cols, "permutation path must drop log2err"
+
+
+def test_prerank_multilevel(prernk, geneGMT):
+    """method='multilevel' runs the fgsea multilevel p-value backend and exposes
+    a log2err column with valid p-values/NES; results are reproducible by seed.
+
+    Numerical fidelity of the multilevel core vs the original fgsea C++ is locked
+    down separately by the Rust ground-truth tests in
+    src/fgsea/validation_tests.rs (data under tests/data/fgsea/)."""
+    res = prerank(
+        prernk,
+        geneGMT,
+        method="multilevel",
+        min_size=1,
+        permutation_num=1000,
+        outdir=None,
+        no_plot=True,
+        seed=123,
+    )
+    df = res.res2d
+    assert df is not None and len(df) > 0
+    assert "log2err" in df.columns
+    pvals = df["NOM p-val"].astype(float)
+    assert ((pvals >= 0) & (pvals <= 1)).all()
+    assert df["NES"].notna().all()
+
+    # reproducible across runs with the same seed
+    res2 = prerank(
+        prernk,
+        geneGMT,
+        method="multilevel",
+        min_size=1,
+        permutation_num=1000,
+        outdir=None,
+        no_plot=True,
+        seed=123,
+    )
+    pd.testing.assert_frame_equal(df, res2.res2d)
+
+
+def test_prerank_multilevel_pvalues_are_numeric(prernk, geneGMT):
+    """Regression: multilevel p-values must keep float dtype so very small values
+    (e.g. ~1e-39) are preserved rather than collapsed to 0.0.
+
+    The numeric columns of res2d were previously left as object dtype (the frame
+    is assembled row-wise from mixed-type Series). pandas' object-column formatter
+    then rounded tiny multilevel p-values to "0.0" on display, and
+    to_csv(float_format=...) was silently ignored. The columns must be real floats.
+    """
+    res = prerank(
+        prernk,
+        geneGMT,
+        method="multilevel",
+        min_size=1,
+        permutation_num=1000,
+        outdir=None,
+        no_plot=True,
+        seed=123,
+    )
+    df = res.res2d
+    # numeric columns must be float dtype, not object
+    for col in ["ES", "NES", "NOM p-val", "FDR q-val", "log2err"]:
+        assert df[col].dtype == float, f"{col} should be float dtype, got {df[col].dtype}"
+
+    # tiny p-values must survive as nonzero floats (not rounded/cast to 0.0)
+    pvals = df["NOM p-val"]
+    assert pvals.dtype == float
+    assert (pvals > 0).all(), "multilevel p-values should be strictly positive"
 
 
 def test_prerank_reproducibility(geneGMT):
@@ -1050,6 +1148,10 @@ class TestCLIArgParsing:
         assert args.weight == 1.0
         assert args.ascending is False
         assert args.seed == 123
+        # multilevel-related defaults
+        assert args.method == "permutation"
+        assert args.sample_size == 101
+        assert args.eps == 1e-50
 
     def test_prerank_custom_label(self):
         parser = prepare_argparser()
@@ -1058,6 +1160,26 @@ class TestCLIArgParsing:
             "-l", "Up", "Down",
         ])
         assert args.label == ["Up", "Down"]
+
+    def test_prerank_multilevel_args(self):
+        parser = prepare_argparser()
+        args = parser.parse_args([
+            "prerank", "-r", "ranked.rnk", "-g", "sets.gmt",
+            "-m", "multilevel",
+            "--sample-size", "201",
+            "--eps", "1e-30",
+        ])
+        assert args.method == "multilevel"
+        assert args.sample_size == 201
+        assert args.eps == 1e-30
+
+    def test_prerank_method_rejects_invalid(self):
+        parser = prepare_argparser()
+        with pytest.raises(SystemExit):
+            parser.parse_args([
+                "prerank", "-r", "ranked.rnk", "-g", "sets.gmt",
+                "-m", "bogus",
+            ])
 
     def test_ssgsea_required_args(self):
         parser = prepare_argparser()
@@ -1214,7 +1336,7 @@ class TestDownloadLibraryEncoding:
         body = b"TERM_A\tdescription\tGENE1\tGENE2\nTERM_B\tdesc2\tGENE3\n"
         mock_resp = self._make_mock_response(body, encoding=None)
 
-        monkeypatch.setattr(req, "get", lambda *a, **kw: mock_resp)
+        monkeypatch.setattr(req.Session, "get", lambda *a, **kw: mock_resp)
 
         # Should not raise TypeError
         result = download_library("FakeLib", organism="human")
@@ -1232,7 +1354,7 @@ class TestDownloadLibraryEncoding:
         body = b"PATHWAY_1\tdesc\tAKT1\tBRCA1\tTP53\n"
         mock_resp = self._make_mock_response(body, encoding="utf-8")
 
-        monkeypatch.setattr(req, "get", lambda *a, **kw: mock_resp)
+        monkeypatch.setattr(req.Session, "get", lambda *a, **kw: mock_resp)
 
         result = download_library("FakeLib", organism="human")
         assert "PATHWAY_1" in result
@@ -1247,7 +1369,7 @@ class TestDownloadLibraryEncoding:
         body = b"TERM_C\tdesc\tGENE1,100\tGENE2,200\n"
         mock_resp = self._make_mock_response(body, encoding=None)
 
-        monkeypatch.setattr(req, "get", lambda *a, **kw: mock_resp)
+        monkeypatch.setattr(req.Session, "get", lambda *a, **kw: mock_resp)
 
         result = download_library("FakeLib", organism="human")
         assert result["TERM_C"] == ["GENE1", "GENE2"]
@@ -1261,7 +1383,7 @@ class TestDownloadLibraryEncoding:
         body = b"TERM_D\tdesc\tGENE1\t\t\n"
         mock_resp = self._make_mock_response(body, encoding=None)
 
-        monkeypatch.setattr(req, "get", lambda *a, **kw: mock_resp)
+        monkeypatch.setattr(req.Session, "get", lambda *a, **kw: mock_resp)
 
         result = download_library("FakeLib", organism="human")
         assert result["TERM_D"] == ["GENE1"]
@@ -1276,7 +1398,7 @@ class TestDownloadLibraryEncoding:
         body = b"TERM_E\tdesc\tGENE1\tGENE2\n\nTERM_F\tdesc2\tGENE3\n\n"
         mock_resp = self._make_mock_response(body, encoding=None, pass_empty=True)
 
-        monkeypatch.setattr(req, "get", lambda *a, **kw: mock_resp)
+        monkeypatch.setattr(req.Session, "get", lambda *a, **kw: mock_resp)
 
         result = download_library("FakeLib", organism="human")
         assert "TERM_E" in result
@@ -1397,3 +1519,98 @@ class TestEnrichrAPIDownloadLibrariesEncoding:
         assert result["TERM_W"] == ["GENE1", "GENE2"]
         assert "TERM_X" in result
         assert result["TERM_X"] == ["GENE3"]
+
+
+@pytest.fixture
+def dotplot_df():
+    """Minimal enrichment result DataFrame for DotPlot tests."""
+    return pd.DataFrame(
+        {
+            "Term": [
+                "A very long gene set name exceeding limit",
+                "Short term",
+                "Another pathway with a long descriptive name",
+            ],
+            "Adjusted P-value": [0.01, 0.02, 0.03],
+            "Overlap": ["5/100", "3/50", "8/200"],
+            "Combined Score": [10.0, 5.0, 7.0],
+        }
+    )
+
+
+class TestDotPlotWrapWidth:
+    """Tests for the wrap_width parameter added to DotPlot / dotplot / barh."""
+
+    def teardown_method(self):
+        plt.close("all")
+
+    def test_dotplot_no_wrap_width_labels_unchanged(self, dotplot_df):
+        """Without wrap_width, y-axis labels must be the original term strings."""
+        ax = dotplot(dotplot_df, cutoff=0.05, top_term=10)
+        labels = [t.get_text() for t in ax.get_yticklabels()]
+        for label in labels:
+            assert "\n" not in label
+
+    def test_dotplot_wrap_width_wraps_long_labels(self, dotplot_df):
+        """With wrap_width set, labels longer than wrap_width must contain newlines."""
+        wrap_width = 20
+        ax = dotplot(dotplot_df, cutoff=0.05, top_term=10, wrap_width=wrap_width)
+        labels = [t.get_text() for t in ax.get_yticklabels()]
+        # At least one term is longer than wrap_width and should be wrapped
+        long_terms = [
+            t for t in dotplot_df["Term"] if len(t) > wrap_width
+        ]
+        assert long_terms, "fixture should have at least one long term"
+        wrapped_labels = [l for l in labels if "\n" in l]
+        assert wrapped_labels, "expected at least one wrapped label"
+
+    def test_dotplot_wrap_width_matches_textwrap(self, dotplot_df):
+        """Each y-axis label must equal textwrap.fill of its original term."""
+        wrap_width = 20
+        ax = dotplot(dotplot_df, cutoff=0.05, top_term=10, wrap_width=wrap_width)
+        label_texts = [t.get_text() for t in ax.get_yticklabels()]
+        # Build a lookup from (possibly wrapped) label back to expected wrapped text
+        term_to_wrapped = {
+            t: textwrap.fill(t, width=wrap_width) for t in dotplot_df["Term"]
+        }
+        for label in label_texts:
+            # Find the original term whose wrapped form matches this label
+            assert label in term_to_wrapped.values(), (
+                f"Label {label!r} does not match any textwrap.fill output"
+            )
+
+    def test_dotplot_wrap_width_short_labels_unchanged(self, dotplot_df):
+        """Labels already shorter than wrap_width must not gain newlines."""
+        wrap_width = 50  # all terms are shorter than 50 chars
+        ax = dotplot(dotplot_df, cutoff=0.05, top_term=10, wrap_width=wrap_width)
+        labels = [t.get_text() for t in ax.get_yticklabels()]
+        for label in labels:
+            assert "\n" not in label
+
+    def test_barh_wrap_width_wraps_long_labels(self, dotplot_df):
+        """DotPlot.barh() with wrap_width should wrap long y-axis labels."""
+        wrap_width = 20
+        dp = DotPlot(dotplot_df, wrap_width=wrap_width)
+        ax = dp.barh()
+        labels = [t.get_text() for t in ax.get_yticklabels()]
+        long_terms = [t for t in dotplot_df["Term"] if len(t) > wrap_width]
+        assert long_terms, "fixture should have at least one long term"
+        wrapped_labels = [l for l in labels if "\n" in l]
+        assert wrapped_labels, "expected at least one wrapped label in barh"
+
+    def test_barh_no_wrap_width_labels_unchanged(self, dotplot_df):
+        """DotPlot.barh() without wrap_width should leave labels as-is."""
+        dp = DotPlot(dotplot_df)
+        ax = dp.barh()
+        labels = [t.get_text() for t in ax.get_yticklabels()]
+        for label in labels:
+            assert "\n" not in label
+
+    def test_wrap_yticklabels_noop_when_none(self, dotplot_df):
+        """_wrap_yticklabels must be a no-op when wrap_width is None."""
+        dp = DotPlot(dotplot_df, wrap_width=None)
+        ax = dp.barh()
+        labels_before = [t.get_text() for t in ax.get_yticklabels()]
+        dp._wrap_yticklabels(ax)
+        labels_after = [t.get_text() for t in ax.get_yticklabels()]
+        assert labels_before == labels_after

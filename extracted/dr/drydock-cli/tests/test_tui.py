@@ -1,0 +1,316 @@
+"""Tests for the TUI widgets and app mount/slash handling."""
+from __future__ import annotations
+
+import asyncio
+
+from drydock.tui.app import DrydockApp
+from drydock.tui.messages import AgentFinished
+from drydock.tui.widgets import (
+    PromptHistory,
+    ToolCard,
+    flatten_pasted_text,
+    format_tool_body,
+    result_is_ok,
+    summarize_inputs,
+)
+
+
+def test_format_tool_body_expands_tabs():
+    out = format_tool_body("M\tfile.py\nA\tnew.py")
+    assert "\t" not in out
+    assert "M   file.py" in out  # tab → 4-space stop
+
+
+def test_format_tool_body_caps_long_output():
+    out = format_tool_body("x" * 20000)
+    assert "truncated for display" in out
+    assert len(out) < 9000
+
+
+def test_format_tool_body_empty():
+    assert format_tool_body("   ") == "(no output)"
+    assert format_tool_body("") == "(no output)"
+
+
+def test_flatten_pasted_text_keeps_all_lines():
+    pasted = "Traceback (most recent call last):\n  File 'x.py', line 3\nValueError: boom"
+    flat = flatten_pasted_text(pasted)
+    assert "\n" not in flat
+    assert "Traceback" in flat and "ValueError: boom" in flat  # nothing dropped
+    assert flat == "Traceback (most recent call last): File 'x.py', line 3 ValueError: boom"
+
+
+def test_flatten_pasted_text_drops_blank_lines():
+    assert flatten_pasted_text("a\n\n\nb") == "a b"
+    assert flatten_pasted_text("single line") == "single line"
+
+
+def test_prompt_history_up_down_recall():
+    h = PromptHistory()
+    h.add("first")
+    h.add("second")
+    # Up from an empty draft walks newest → oldest.
+    assert h.up("") == "second"
+    assert h.up("second") == "first"
+    assert h.up("first") == "first"  # clamps at oldest
+    # Down walks back toward the draft.
+    assert h.down("first") == "second"
+    assert h.down("second") == ""    # past newest → restored draft ("")
+
+
+def test_prompt_history_preserves_draft():
+    h = PromptHistory()
+    h.add("ls")
+    # User has typed "half-typed" then presses Up.
+    assert h.up("half-typed") == "ls"
+    # Down past the newest restores the in-progress draft.
+    assert h.down("ls") == "half-typed"
+
+
+def test_prompt_history_skips_consecutive_dupes_and_empty():
+    h = PromptHistory()
+    h.add("same")
+    h.add("same")
+    h.add("   ")  # blank ignored
+    assert h.up("") == "same"
+    assert h.up("same") == "same"  # only one entry stored
+
+
+def test_prompt_history_down_noop_when_not_navigating():
+    h = PromptHistory()
+    h.add("x")
+    # Pressing Down without having pressed Up leaves the line untouched.
+    assert h.down("typing") == "typing"
+
+
+def test_prompt_history_persists_across_sessions(tmp_path):
+    path = tmp_path / "sub" / "history"  # parent dir does not exist yet
+    h1 = PromptHistory(path)
+    h1.add("build the thing")
+    h1.add("run the tests")
+    # A fresh instance pointed at the same file recalls prior entries.
+    h2 = PromptHistory(path)
+    assert h2.up("") == "run the tests"
+    assert h2.up("run the tests") == "build the thing"
+
+
+def test_prompt_history_caps_file_length(tmp_path):
+    path = tmp_path / "history"
+    h = PromptHistory(path, max_entries=3)
+    for i in range(10):
+        h.add(f"cmd {i}")
+    lines = [ln for ln in path.read_text().splitlines() if ln.strip()]
+    assert lines == ["cmd 7", "cmd 8", "cmd 9"]
+
+
+def test_prompt_history_collapses_newlines_in_persisted_entry(tmp_path):
+    path = tmp_path / "history"
+    h = PromptHistory(path)
+    h.add("line one\nline two")
+    assert path.read_text().splitlines()[0] == "line one line two"
+
+
+def test_prompt_history_survives_unreadable_file(tmp_path):
+    path = tmp_path  # a directory, not a file → read/write raise OSError
+    h = PromptHistory(path)
+    h.add("noop")  # must not raise
+    assert h.up("") == "noop"  # still works in memory
+
+
+def test_result_is_ok_marks_failures():
+    assert result_is_ok("Wrote 11 lines")
+    assert result_is_ok("apple: 3\nbanana: 2")
+    assert not result_is_ok("Error: nope")
+    assert not result_is_ok("REFUSED: this command reformats a filesystem...")
+    assert not result_is_ok("  Error: leading whitespace still counts")
+    # A failed shell command (Bash appends "[exit code: N]" only on failure)
+    # must render ✗, not a green ✓ — otherwise the TUI hides real failures.
+    assert not result_is_ok("bash: sqlite3: command not found\n[exit code: 127]")
+    assert not result_is_ok("test.c:1: error\n[exit code: 1]")
+    # Successful command output (no exit-code marker) stays ✓, even if it
+    # happens to mention the word 'error' in normal output.
+    assert result_is_ok("0 errors, 0 warnings\nBuild succeeded")
+
+
+def test_summarize_inputs_prefers_meaningful_keys():
+    assert summarize_inputs({"command": "ls -la"}) == "ls -la"
+    assert summarize_inputs({"file_path": "a/b.py"}) == "a/b.py"
+    assert summarize_inputs({"pattern": "foo"}) == "foo"
+    long = "x" * 200
+    assert summarize_inputs({"command": long}).endswith("…")
+
+
+def test_toolcard_title_shows_name_not_none():
+    c = ToolCard("Write", "fib.py")
+    assert "Write" in c.title
+    c.finish("Wrote 11 lines", ok=True)
+    assert "Write" in c.title and "None" not in c.title
+    assert c.has_class("ok")
+    c2 = ToolCard("Bash", "boom")
+    c2.finish("Error: nope", ok=False)
+    assert c2.has_class("fail")
+
+
+def test_app_mounts_and_handles_slash():
+    async def main():
+        app = DrydockApp({"model": "gemma4", "provider": "vllm", "cwd": "/tmp"})
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            assert app.query_one("#banner")
+            assert app.query_one("#status")
+            inp = app.query_one("#prompt")
+            inp.text = "/help"
+            await pilot.press("enter")
+            await pilot.pause()
+            inp.text = "/clear"
+            await pilot.press("enter")
+            await pilot.pause()
+            # empty submit is a no-op, not a crash
+            inp.text = ""
+            await pilot.press("enter")
+            await pilot.pause()
+
+    asyncio.run(main())
+
+
+def test_tui_includes_project_instructions_in_system_prompt():
+    cfg = {
+        "model": "gemma4", "provider": "vllm", "cwd": "/tmp",
+        "project_instructions": "\n\n## Project Instructions\n\nUse tabs not spaces.",
+    }
+    app = DrydockApp(cfg)
+    assert "Use tabs not spaces." in app.system
+    # A model switch rebuilds via the same path, so instructions are kept.
+    assert "Use tabs not spaces." in app._build_system("qwen")
+
+
+def test_transcript_renders_bracket_text_without_markup_error():
+    # A tool result / model output with unbalanced brackets would raise a
+    # Textual MarkupError if markup were enabled on the transcript widgets.
+    async def main():
+        app = DrydockApp({"model": "gemma4", "provider": "vllm", "cwd": "/tmp"})
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            from drydock.tui.widgets import AssistantMessage, ToolCard
+
+            msg = AssistantMessage()
+            app.query_one("#transcript").mount(msg)
+            msg.append("here is some code: list[int] and a tag [not_closed")
+            card = ToolCard("Grep", "x")
+            app.query_one("#transcript").mount(card)
+            await pilot.pause()
+            card.finish("match at [line 3] foo[bar baz]", ok=True)
+            await pilot.pause()  # forces a render; must not raise
+
+    asyncio.run(main())
+
+
+def test_slash_commands_model_cwd_status_undo(tmp_path):
+    async def main():
+        cfg = {"model": "gemma4", "provider": "vllm", "cwd": str(tmp_path)}
+        app = DrydockApp(cfg)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            inp = app.query_one("#prompt")
+
+            async def slash(value):
+                inp.text = value
+                await pilot.press("enter")
+                await pilot.pause()
+
+            # /model with no arg shows current; with arg switches.
+            await slash("/model")
+            await slash("/model qwen")
+            assert app.config["model"] == "qwen"
+
+            # /cwd to a real dir switches; bad dir is rejected.
+            sub = tmp_path / "work"
+            sub.mkdir()
+            await slash(f"/cwd {sub}")
+            assert app.config["cwd"] == str(sub.resolve())
+            await slash("/cwd /no/such/dir/here")
+            assert app.config["cwd"] == str(sub.resolve())  # unchanged
+
+            # /undo with nothing in the journal is a friendly no-op.
+            await slash("/undo")
+
+            # unknown command does not crash.
+            await slash("/bogus")
+
+    asyncio.run(main())
+
+
+def test_multiline_compose_with_ctrl_j_then_enter_submits_full_text():
+    async def main():
+        app = DrydockApp({"model": "gemma4", "provider": "vllm", "cwd": "/tmp"})
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            started: list[str] = []
+            app._run_agent = lambda text: started.append(text)  # type: ignore[method-assign]
+            await pilot.press("l", "i", "n", "e", "1")
+            await pilot.press("ctrl+j")            # newline, does NOT submit
+            await pilot.press("l", "i", "n", "e", "2")
+            await pilot.pause()
+            inp = app.query_one("#prompt")
+            assert inp.text == "line1\nline2"       # composed two lines
+            assert started == []                     # ctrl+j didn't submit
+            await pilot.press("enter")               # now submit
+            await pilot.pause()
+            assert started == ["line1\nline2"]       # full multi-line text sent
+            assert inp.text == ""                    # box cleared
+
+    asyncio.run(main())
+
+
+def test_up_recalls_history_only_on_first_line():
+    async def main():
+        app = DrydockApp({"model": "gemma4", "provider": "vllm", "cwd": "/tmp"})
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            inp = app.query_one("#prompt")
+            inp.cmd_history.add("earlier prompt")
+            # Two-line draft; cursor on the LAST line → Up moves cursor, no recall.
+            inp.text = "top\nbottom"
+            inp.move_cursor(inp.document.end)
+            await pilot.press("up")
+            await pilot.pause()
+            assert inp.text == "top\nbottom"          # unchanged (cursor moved)
+            # Now cursor is on the first line → Up recalls history.
+            await pilot.press("up")
+            await pilot.pause()
+            assert inp.text == "earlier prompt"
+
+    asyncio.run(main())
+
+
+def test_busy_input_is_queued_and_drained():
+    async def main():
+        app = DrydockApp({"model": "gemma4", "provider": "vllm", "cwd": "/tmp"})
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            # Replace the agent worker with a recorder so nothing hits the LLM.
+            started: list[str] = []
+            app._run_agent = lambda text: started.append(text)  # type: ignore[method-assign]
+            inp = app.query_one("#prompt")
+
+            inp.text = "first task"
+            await pilot.press("enter")
+            await pilot.pause()
+            assert started == ["first task"]
+            assert app._busy and app._queue == []
+
+            # Second submit while busy → queued, not started.
+            inp.text = "second task"
+            await pilot.press("enter")
+            await pilot.pause()
+            assert started == ["first task"]
+            assert app._queue == ["second task"]
+            assert "1 queued" in app._working_text()
+
+            # When the first turn finishes, the queued one drains automatically.
+            app.post_message(AgentFinished())
+            await pilot.pause()
+            assert started == ["first task", "second task"]
+            assert app._queue == []
+
+    asyncio.run(main())

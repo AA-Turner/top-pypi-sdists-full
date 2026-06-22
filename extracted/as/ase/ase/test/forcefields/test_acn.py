@@ -1,4 +1,3 @@
-# fmt: off
 from ase import Atoms
 from ase.calculators.acn import ACN, m_me, r_cn, r_mec
 from ase.calculators.fd import calculate_numerical_forces
@@ -7,13 +6,17 @@ from ase.calculators.fd import calculate_numerical_forces
 def test_acn():
     """Test ACN forces."""
 
-    dimer = Atoms('CCNCCN',
-                  [(-r_mec, 0, 0),
-                   (0, 0, 0),
-                   (r_cn, 0, 0),
-                   (r_mec, 3.7, 0),
-                   (0, 3.7, 0),
-                   (-r_cn, 3.7, 0)])
+    dimer = Atoms(
+        'CCNCCN',
+        [
+            (-r_mec, 0, 0),
+            (0, 0, 0),
+            (r_cn, 0, 0),
+            (r_mec, 3.7, 0),
+            (0, 3.7, 0),
+            (-r_cn, 3.7, 0),
+        ],
+    )
 
     # Set mass of methyls
     masses = dimer.get_masses()

@@ -101,10 +101,9 @@ def read_constraints_from_file(
     directory = Path(directory)
     constraint = None
     for filename in ('CONTCAR', 'POSCAR'):
-        if (directory / filename).is_file():
-            atoms = read(directory / filename,
-                              format='vasp',
-                              parallel=False)
+        path = directory / filename
+        if path.is_file() and path.stat().st_size > 0:
+            atoms = read(path, format='vasp', parallel=False)
             if isinstance(atoms, Atoms):
                 constraint = atoms.constraints
             break

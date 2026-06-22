@@ -31,6 +31,79 @@ logger = logging.getLogger("cloakbrowser")
 _VIEWPORT_UNSET = object()
 
 
+def _default_no_viewport(browser: Any) -> None:
+    """Default ``new_page()``/``new_context()`` to ``no_viewport=True``.
+
+    ``launch()`` returns a raw Playwright ``Browser``; a bare ``browser.new_page()``
+    would otherwise inherit Playwright's emulated 1280x720 viewport, producing
+    ``outerWidth < innerWidth`` — a physically impossible window (bot tell). We wrap
+    the two factory methods so pages track the real OS window instead. ``setdefault``
+    only: an explicit ``viewport`` or ``no_viewport`` from the caller is never
+    overridden (Playwright rejects passing both). Applied for headed launches only.
+    Composes under humanize's ``patch_browser`` (apply this first).
+    """
+    orig_new_context = browser.new_context
+    orig_new_page = browser.new_page
+
+    def _patched_new_context(**kwargs: Any) -> Any:
+        if "viewport" not in kwargs:
+            kwargs.setdefault("no_viewport", True)
+        return orig_new_context(**kwargs)
+
+    def _patched_new_page(**kwargs: Any) -> Any:
+        if "viewport" not in kwargs:
+            kwargs.setdefault("no_viewport", True)
+        return orig_new_page(**kwargs)
+
+    browser.new_context = _patched_new_context
+    browser.new_page = _patched_new_page
+
+
+def _default_no_viewport_async(browser: Any) -> None:
+    """Async variant of :func:`_default_no_viewport`."""
+    orig_new_context = browser.new_context
+    orig_new_page = browser.new_page
+
+    async def _patched_new_context(**kwargs: Any) -> Any:
+        if "viewport" not in kwargs:
+            kwargs.setdefault("no_viewport", True)
+        return await orig_new_context(**kwargs)
+
+    async def _patched_new_page(**kwargs: Any) -> Any:
+        if "viewport" not in kwargs:
+            kwargs.setdefault("no_viewport", True)
+        return await orig_new_page(**kwargs)
+
+    browser.new_context = _patched_new_context
+    browser.new_page = _patched_new_page
+
+
+def _resolve_context_viewport(viewport: Any, headless: bool) -> dict[str, Any]:
+    """Return the viewport kwarg for a context.
+
+    Headed: no emulated viewport so the page tracks the real window (CDP viewport
+    emulation forces outerWidth < innerWidth = a physically impossible window =
+    bot tell). Headless: a fixed ``DEFAULT_VIEWPORT`` stays coherent (outer == inner)
+    and keeps dimensions deterministic. Explicit ``viewport`` / ``None`` honored.
+    """
+    if viewport is _VIEWPORT_UNSET:
+        return {"viewport": DEFAULT_VIEWPORT} if headless else {"no_viewport": True}
+    if viewport is None:
+        return {"no_viewport": True}
+    return {"viewport": viewport}
+
+
+def _drop_conflicting_viewport(context_kwargs: dict[str, Any], kwargs: dict[str, Any]) -> None:
+    """Playwright rejects passing both ``viewport`` and ``no_viewport``. ``viewport`` is a
+    named parameter (never in ``**kwargs``), so the only conflict is a caller passing
+    ``no_viewport`` via ``**kwargs`` alongside an explicit ``viewport`` — the explicit
+    ``no_viewport`` wins; drop the viewport so Playwright doesn't error.
+    """
+    if "no_viewport" in kwargs and "viewport" in context_kwargs:
+        logger.debug("Both viewport and no_viewport requested; no_viewport (kwargs) wins")
+        context_kwargs.pop("viewport", None)
+
+
 def _resolve_timezone(timezone: str | None, kwargs: dict[str, Any]) -> str | None:
     """Accept both timezone and timezone_id — either works, no warning."""
     if "timezone_id" in kwargs:
@@ -39,6 +112,15 @@ def _resolve_timezone(timezone: str | None, kwargs: dict[str, Any]) -> str | Non
         else:
             kwargs.pop("timezone_id")
     return timezone
+
+
+def _check_removed_kwargs(kwargs: dict[str, Any]) -> None:
+    """Raise a clear error for removed parameters that now fall into **kwargs."""
+    if "backend" in kwargs:
+        raise TypeError(
+            "The 'backend' parameter has been removed — patchright is no longer "
+            "supported and stock Playwright is the only backend. Remove the argument."
+        )
 
 
 class _ProxySettingsRequired(TypedDict):
@@ -61,11 +143,11 @@ def launch(
     timezone: str | None = None,
     locale: str | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
+    license_key: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth Chromium browser. Returns a Playwright Browser object.
@@ -86,10 +168,6 @@ def launch(
             Requires ``pip install cloakbrowser[geoip]``. Downloads ~70 MB
             GeoLite2-City database on first use.  Explicit timezone/locale
             always override geoip results.
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
-            Patchright suppresses CDP signals (helps reCAPTCHA v3 Enterprise)
-            but breaks proxy auth and add_init_script.
-            Override globally with CLOAKBROWSER_BACKEND env var.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -106,16 +184,18 @@ def launch(
         >>> print(page.title())
         >>> browser.close()
     """
-    sync_playwright = _import_sync_playwright(_resolve_backend(backend))
+    _check_removed_kwargs(kwargs)
 
-    binary_path = ensure_binary()
+    from playwright.sync_api import sync_playwright
+
+    binary_path = ensure_binary(license_key=license_key)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
     proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
     args = _resolve_webrtc_args(args, proxy)
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
-        
+
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
 
     logger.debug("Launching stealth Chromium (headless=%s, args=%d)", headless, len(chrome_args))
@@ -141,6 +221,12 @@ def launch(
 
     browser.close = _close_with_cleanup
 
+    # Headed: default new_page()/new_context() to no_viewport so the page tracks the
+    # real window (avoids the impossible-window tell). Headless keeps Playwright's
+    # default viewport (coherent there). Apply before humanize so the wraps compose.
+    if not headless:
+        _default_no_viewport(browser)
+
     # Human-like behavioral patching
     if humanize:
         from .human import patch_browser
@@ -159,11 +245,11 @@ async def launch_async(  # noqa: C901
     timezone: str | None = None,
     locale: str | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
+    license_key: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch(). Returns a Playwright Browser object.
@@ -177,7 +263,6 @@ async def launch_async(  # noqa: C901
         timezone: IANA timezone (e.g. 'America/New_York'). Sets --fingerprint-timezone binary flag.
         locale: BCP 47 locale (e.g. 'en-US'). Sets --lang binary flag.
         geoip: Auto-detect timezone/locale from proxy IP (default False).
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -199,9 +284,11 @@ async def launch_async(  # noqa: C901
         >>>
         >>> asyncio.run(main())
     """
-    async_playwright = _import_async_playwright(_resolve_backend(backend))
+    _check_removed_kwargs(kwargs)
 
-    binary_path = ensure_binary()
+    from playwright.async_api import async_playwright
+
+    binary_path = ensure_binary(license_key=license_key)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
     proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
     args = _resolve_webrtc_args(args, proxy)
@@ -233,6 +320,10 @@ async def launch_async(  # noqa: C901
 
     browser.close = _close_with_cleanup
 
+    # Headed: default new_page()/new_context() to no_viewport (see launch()).
+    if not headless:
+        _default_no_viewport_async(browser)
+
     # Human-like behavioral patching (async variant)
     if humanize:
         from .human import patch_browser_async
@@ -255,11 +346,11 @@ def launch_persistent_context(
     timezone: str | None = None,
     color_scheme: Literal["light", "dark", "no-preference"] | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
+    license_key: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth browser with a persistent profile and return a BrowserContext.
@@ -286,7 +377,6 @@ def launch_persistent_context(
             Default: None (uses Chromium default, which is 'light').
         geoip: Auto-detect timezone/locale from proxy IP (default False).
             Requires ``pip install cloakbrowser[geoip]``.
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -303,11 +393,13 @@ def launch_persistent_context(
         >>> page.goto("https://protected-site.com")
         >>> ctx.close()  # Profile is saved; re-use path next run to restore state.
     """
-    sync_playwright = _import_sync_playwright(_resolve_backend(backend))
+    _check_removed_kwargs(kwargs)
+
+    from playwright.sync_api import sync_playwright
 
     timezone = _resolve_timezone(timezone, kwargs)
 
-    binary_path = ensure_binary()
+    binary_path = ensure_binary(license_key=license_key)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
     proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
     args = _resolve_webrtc_args(args, proxy)
@@ -327,15 +419,11 @@ def launch_persistent_context(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    if viewport is _VIEWPORT_UNSET:
-        context_kwargs["viewport"] = DEFAULT_VIEWPORT
-    elif viewport is None:
-        context_kwargs["no_viewport"] = True
-    else:
-        context_kwargs["viewport"] = viewport
+    context_kwargs.update(_resolve_context_viewport(viewport, headless))
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
 
     seed_widevine_hint(user_data_dir, binary_path)
 
@@ -383,11 +471,11 @@ async def launch_persistent_context_async(
     timezone: str | None = None,
     color_scheme: Literal["light", "dark", "no-preference"] | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
+    license_key: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch_persistent_context().
@@ -411,7 +499,6 @@ async def launch_persistent_context_async(
         timezone: IANA timezone (e.g. 'America/New_York').
         color_scheme: Color scheme preference — 'light', 'dark', or 'no-preference'.
         geoip: Auto-detect timezone/locale from proxy IP (default False).
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -433,11 +520,13 @@ async def launch_persistent_context_async(
         >>>
         >>> asyncio.run(main())
     """
-    async_playwright = _import_async_playwright(_resolve_backend(backend))
+    _check_removed_kwargs(kwargs)
+
+    from playwright.async_api import async_playwright
 
     timezone = _resolve_timezone(timezone, kwargs)
 
-    binary_path = ensure_binary()
+    binary_path = ensure_binary(license_key=license_key)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
     proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
     args = _resolve_webrtc_args(args, proxy)
@@ -457,15 +546,11 @@ async def launch_persistent_context_async(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    if viewport is _VIEWPORT_UNSET:
-        context_kwargs["viewport"] = DEFAULT_VIEWPORT
-    elif viewport is None:
-        context_kwargs["no_viewport"] = True
-    else:
-        context_kwargs["viewport"] = viewport
+    context_kwargs.update(_resolve_context_viewport(viewport, headless))
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
 
     seed_widevine_hint(user_data_dir, binary_path)
 
@@ -512,11 +597,11 @@ def launch_context(
     timezone: str | None = None,
     color_scheme: Literal["light", "dark", "no-preference"] | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
+    license_key: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth browser and return a BrowserContext with common options pre-set.
@@ -538,7 +623,6 @@ def launch_context(
         color_scheme: Color scheme preference — 'light', 'dark', or 'no-preference'.
             Default: None (uses Chromium default, which is 'light').
         geoip: Auto-detect timezone/locale from proxy IP (default False).
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -547,6 +631,8 @@ def launch_context(
     Returns:
         Playwright BrowserContext object.
     """
+    _check_removed_kwargs(kwargs)
+
     timezone = _resolve_timezone(timezone, kwargs)
 
     # Resolve geoip BEFORE launch() to avoid double-resolution and ensure
@@ -560,20 +646,17 @@ def launch_context(
     # so it applies to ALL contexts, not just the default one.
     # locale and timezone are set via binary flags only — no CDP emulation.
     browser = launch(headless=headless, proxy=proxy, args=args, stealth_args=stealth_args,
-                     timezone=timezone, locale=locale, backend=backend, extension_paths=extension_paths)
+                     timezone=timezone, locale=locale, extension_paths=extension_paths,
+                     license_key=license_key)
 
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    if viewport is _VIEWPORT_UNSET:
-        context_kwargs["viewport"] = DEFAULT_VIEWPORT
-    elif viewport is None:
-        context_kwargs["no_viewport"] = True
-    else:
-        context_kwargs["viewport"] = viewport
+    context_kwargs.update(_resolve_context_viewport(viewport, headless))
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
 
     try:
         context = browser.new_context(**context_kwargs)
@@ -613,11 +696,11 @@ async def launch_context_async(
     timezone: str | None = None,
     color_scheme: Literal["light", "dark", "no-preference"] | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
+    license_key: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch_context().
@@ -640,7 +723,6 @@ async def launch_context_async(
         timezone: IANA timezone (e.g. 'America/New_York').
         color_scheme: Color scheme preference — 'light', 'dark', or 'no-preference'.
         geoip: Auto-detect timezone/locale from proxy IP (default False).
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -668,6 +750,8 @@ async def launch_context_async(
         >>>
         >>> asyncio.run(main())
     """
+    _check_removed_kwargs(kwargs)
+
     timezone = _resolve_timezone(timezone, kwargs)
 
     # Resolve geoip BEFORE launch_async() to avoid double-resolution and ensure
@@ -680,20 +764,17 @@ async def launch_context_async(
     # so it applies to ALL contexts, not just the default one.
     # locale and timezone are set via binary flags only — no CDP emulation.
     browser = await launch_async(headless=headless, proxy=proxy, args=args, stealth_args=stealth_args,
-                                 timezone=timezone, locale=locale, backend=backend, extension_paths=extension_paths)
+                                 timezone=timezone, locale=locale, extension_paths=extension_paths,
+                                 license_key=license_key)
 
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    if viewport is _VIEWPORT_UNSET:
-        context_kwargs["viewport"] = DEFAULT_VIEWPORT
-    elif viewport is None:
-        context_kwargs["no_viewport"] = True
-    else:
-        context_kwargs["viewport"] = viewport
+    context_kwargs.update(_resolve_context_viewport(viewport, headless))
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
 
     # Catch BaseException (not just Exception) so that asyncio.CancelledError
     # triggers browser cleanup — otherwise the underlying Chromium process
@@ -726,47 +807,6 @@ async def launch_context_async(
         patch_context_async(context, cfg)
 
     return context
-
-
-# ---------------------------------------------------------------------------
-# Backend resolution
-# ---------------------------------------------------------------------------
-
-
-def _resolve_backend(backend: str | None) -> str:
-    """Resolve backend: param > env var > default ('playwright')."""
-    b = backend or os.environ.get("CLOAKBROWSER_BACKEND", "playwright")
-    if b not in ("playwright", "patchright"):
-        raise ValueError(f"Unknown backend '{b}'. Use 'playwright' or 'patchright'.")
-    return b
-
-
-def _import_sync_playwright(backend: str):
-    """Import sync_playwright from the resolved backend."""
-    if backend == "patchright":
-        try:
-            from patchright.sync_api import sync_playwright
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "patchright is not installed. Install it with: pip install cloakbrowser[patchright]"
-            ) from None
-        return sync_playwright
-    from playwright.sync_api import sync_playwright
-    return sync_playwright
-
-
-def _import_async_playwright(backend: str):
-    """Import async_playwright from the resolved backend."""
-    if backend == "patchright":
-        try:
-            from patchright.async_api import async_playwright
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "patchright is not installed. Install it with: pip install cloakbrowser[patchright]"
-            ) from None
-        return async_playwright
-    from playwright.async_api import async_playwright
-    return async_playwright
 
 
 # ---------------------------------------------------------------------------

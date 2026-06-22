@@ -1,4 +1,3 @@
-# fmt: off
 import pytest
 
 snippets = {
@@ -29,5 +28,6 @@ snippets = {
 @pytest.mark.parametrize('version', [*snippets])
 def test_version(version):
     from ase.calculators.mopac import get_version_number
+
     lines = snippets[version].splitlines()
     assert get_version_number(lines) == version

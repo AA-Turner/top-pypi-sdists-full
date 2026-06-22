@@ -90,7 +90,7 @@ def clusters():
     yield Decahedron(sym, 2, 3, 3)
 
 
-@pytest.mark.parametrize('cluster', clusters())
+@pytest.mark.parametrize('cluster', list(clusters()))
 def test_centering(cluster):
     assert cluster.cell.rank == 0
     assert cluster.positions.sum(0) == pytest.approx(np.zeros(3), abs=1e-10)

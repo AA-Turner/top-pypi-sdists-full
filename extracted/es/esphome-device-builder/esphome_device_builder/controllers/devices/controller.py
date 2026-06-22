@@ -115,6 +115,12 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         # Unsubscribe handle for the firmware-job-completion listener
         # wired up in start(); held so stop() can detach cleanly.
         self._unsub_job_completed: Any = None
+        # Guards poll() from re-arming a torn-down scanner during the shutdown drain.
+        self._stopped = False
+        # Pending post-flash version re-probe timers, keyed on
+        # configuration so a re-flash cancels its predecessor; cancelled
+        # en masse in stop().
+        self._reprobe_timers: dict[str, asyncio.TimerHandle] = {}
 
         # Constructed before the scanner so the first
         # ``_resolve_device_metadata`` reads off the store.
@@ -240,6 +246,7 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
 
     async def start(self) -> None:
         """Initialise — load state, scan files, start mDNS + ping + MQTT discovery."""
+        self._stopped = False
         self.state.esphome_cmd = _find_esphome_cmd()
         loop = asyncio.get_running_loop()
         # Seed the store (and migrate on first post-upgrade boot)
@@ -263,9 +270,11 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
 
     async def stop(self) -> None:
         """Stop background monitors so the process exits cleanly."""
+        self._stopped = True
         if self._unsub_job_completed is not None:
             self._unsub_job_completed()
             self._unsub_job_completed = None
+        self._cancel_reprobe_timers()
         await self._scanner.stop()
         await self._build_size.stop()
         await self._mqtt_coordinator.stop()
@@ -274,7 +283,9 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             await callback()
 
     async def poll(self) -> None:
-        """Poll for file changes."""
+        """Poll for file changes; a no-op once stopped (don't re-arm during shutdown)."""
+        if self._stopped:
+            return
         await self._scanner.scan()
         await self._mqtt_coordinator.reconcile()
 
@@ -583,6 +594,8 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         action: str,
         on_failure: ErrorCode = ErrorCode.INVALID_ARGS,
         on_error_cleanup: Callable[[], None] | None = None,
+        tolerate_unavailable: bool = False,
+        timeout: float | None = None,
     ) -> None:
         await mutations_yaml.validate_rewritten_yaml_or_raise(
             self._db.editor,
@@ -591,6 +604,8 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             action=action,
             on_failure=on_failure,
             on_error_cleanup=on_error_cleanup,
+            tolerate_unavailable=tolerate_unavailable,
+            timeout=timeout,
         )
 
     @api_command("devices/delete")
@@ -1120,8 +1135,17 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
     async def _persist_expected_config_hash(self, configuration: str) -> None:
         await firmware_sync.persist_expected_config_hash(self, configuration)
 
-    def _sync_deployed_hash_after_flash(self, configuration: str) -> None:
-        firmware_sync.sync_deployed_hash_after_flash(self, configuration)
+    async def _sync_deployed_state_after_flash(self, configuration: str) -> None:
+        await firmware_sync.sync_deployed_state_after_flash(self, configuration)
+
+    def _schedule_version_reprobe(self, configuration: str) -> None:
+        firmware_sync.schedule_version_reprobe(self, configuration)
+
+    def _cancel_reprobe_timers(self) -> None:
+        """Cancel any pending post-flash re-probe timers."""
+        for handle in self._reprobe_timers.values():
+            handle.cancel()
+        self._reprobe_timers.clear()
 
     def _persist_build_size(self, configuration: str, result: BuildSizeRefreshResult) -> None:
         """Merge a fresh build-size triple into the metadata store."""

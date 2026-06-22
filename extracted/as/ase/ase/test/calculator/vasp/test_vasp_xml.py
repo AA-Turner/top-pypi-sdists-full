@@ -1,4 +1,3 @@
-# fmt: off
 """
 Run some VASP tests to ensure that the VASP calculator works. This
 is conditional on the existence of the VASP_COMMAND or VASP_SCRIPT
@@ -20,18 +19,20 @@ def test_main(factory, atoms_co):
     # simple test calculation of CO molecule
     co = atoms_co  # aliasing
 
-    calc = factory.calc(xc='LDA',
-                        prec='Low',
-                        algo='Fast',
-                        lorbit=11,
-                        ismear=0,
-                        sigma=1.,
-                        nbands=12,
-                        istart=0,
-                        nelm=3,
-                        lwave=False,
-                        lcharg=False,
-                        ldipol=True)
+    calc = factory.calc(
+        xc='LDA',
+        prec='Low',
+        algo='Fast',
+        lorbit=11,
+        ismear=0,
+        sigma=1.0,
+        nbands=12,
+        istart=0,
+        nelm=3,
+        lwave=False,
+        lcharg=False,
+        ldipol=True,
+    )
 
     co.calc = calc
     energy = co.get_potential_energy()
@@ -54,14 +55,14 @@ def test_main(factory, atoms_co):
     assert conf.calc.get_occupation_numbers()[2] == 2
     assert conf.calc.get_eigenvalues(spin=1) is None
     kpt = conf.calc.get_kpt(0)
-    assert kpt.weight == 1.
+    assert kpt.weight == 1.0
 
     # Perform a spin-polarised calculation
     co.calc.set(ispin=2, ibrion=-1)
     co.get_potential_energy()
     conf = read('vasprun.xml')
     assert len(conf.calc.get_eigenvalues(spin=1)) >= 12
-    assert conf.calc.get_occupation_numbers(spin=1)[0] == 1.
+    assert conf.calc.get_occupation_numbers(spin=1)[0] == 1.0
 
     # Cleanup
     calc.clean()

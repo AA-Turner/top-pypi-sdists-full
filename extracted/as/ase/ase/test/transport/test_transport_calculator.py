@@ -1,4 +1,3 @@
-# fmt: off
 # flake8: noqa
 import numpy as np
 
@@ -48,10 +47,9 @@ def test_transport_calculator(testdir):
     H_scat[4, 3] = 0.2
 
     energies = np.arange(-3, 3, 0.02)
-    tcalc = TransportCalculator(h=H_scat,
-                                h1=H_lead,
-                                eta=0.02,
-                                energies=energies)
+    tcalc = TransportCalculator(
+        h=H_scat, h1=H_lead, eta=0.02, energies=energies
+    )
 
     T = tcalc.get_transmission()
     tcalc.set(pdos=[2, 3])

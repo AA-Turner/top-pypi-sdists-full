@@ -105,8 +105,10 @@ from ._ngsiem import (
     SessionManager
 )
 from ._helper import random_string, Indicator, Color, find_operation
+from .access_scopes import AccessScopes
 from .admission_control_policies import AdmissionControlPolicies
 from .alerts import Alerts
+from .api_clients import APIClients
 from .api_integrations import APIIntegrations
 from .api_complete import APIHarness, APIHarnessV2
 from .aspm import ASPM
@@ -122,6 +124,8 @@ from .cloud_security import CloudSecurity
 from .cloud_security_assets import CloudSecurityAssets
 from .cloud_security_compliance import CloudSecurityCompliance
 from .cloud_security_detections import CloudSecurityDetections
+from .cloud_security_registration_combined import CloudSecurityRegistrationCombined
+from .cloud_security_risks import CloudSecurityRisks
 from .cloud_snapshots import CloudSnapshots
 from .container_image_compliance import ContainerImageCompliance, ComplianceAssessments
 from .configuration_assessment_evaluation_logic import ConfigurationAssessmentEvaluationLogic
@@ -155,10 +159,12 @@ from .falcon_complete_dashboard import CompleteDashboard
 from .falcon_container import FalconContainer
 from .falconx_sandbox import FalconXSandbox
 from .fdr import FDR
+from .federated_connections import FederatedConnections
 from .filevantage import FileVantage
 from .firewall_management import FirewallManagement
 from .firewall_policies import FirewallPolicies
 from .foundry_logscale import FoundryLogScale
+from .foundry_lookup_files import FoundryLookupFiles
 from .host_group import HostGroup
 from .hosts import Hosts
 from .host_migration import HostMigration
@@ -173,6 +179,9 @@ from .ioa_exclusions import IOAExclusions
 from .ioc import IOC
 from .iocs import Iocs
 from .it_automation import ITAutomation, F4IT
+from .knowledge_base_audit_events import KnowledgeBaseAuditEvents
+from .knowledge_base_files import KnowledgeBaseFiles
+from .knowledge_bases import KnowledgeBases
 from .kubernetes_container_compliance import KubernetesContainerCompliance
 from .kubernetes_protection import KubernetesProtection
 from .malquery import MalQuery
@@ -193,6 +202,7 @@ from .ngsiem import NGSIEM
 from .oauth2 import OAuth2
 from .ods import ODS
 from .prevention_policy import PreventionPolicy, PreventionPolicies
+from .profile_groups import ProfileGroups
 from .quarantine import Quarantine
 from .quick_scan import QuickScan
 from .quick_scan_pro import QuickScanPro
@@ -276,7 +286,12 @@ __all__ = [
     "SpotlightVulnerabilityMetadata", "ServerlessExports", "ServerlessVulnerabilities",
     "NetworkScanGlobalConfigs", "NetworkScanNetworks", "NetworkScanScanRunReports",
     "NetworkScanScanRuns", "NetworkScanScanners", "NetworkScanScans",
-    "NetworkScanTemplates", "NetworkScanZones", "NetworkScan"
+    "NetworkScanTemplates", "NetworkScanZones", "NetworkScan",
+    "AccessScopes", "APIClients",
+    "CloudSecurityRegistrationCombined", "CloudSecurityRisks",
+    "FederatedConnections", "FoundryLookupFiles",
+    "KnowledgeBaseAuditEvents", "KnowledgeBaseFiles",
+    "KnowledgeBases", "ProfileGroups"
     ]
 """
 This is free and unencumbered software released into the public domain.

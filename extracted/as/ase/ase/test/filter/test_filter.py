@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 
@@ -23,24 +22,27 @@ def test_filter(testdir):
     atoms.calc = EMT()
     filter = Filter(atoms, indices=[1, 2])
 
-    with QuasiNewton(filter, trajectory='filter-test.traj',
-                     logfile='filter-test.log') as opt:
+    with QuasiNewton(
+        filter, trajectory='filter-test.traj', logfile='filter-test.log'
+    ) as opt:
         opt.run()
     # No assertions=??
 
 
 @pytest.mark.optimize()
-@pytest.mark.filterwarnings("ignore:Use FrechetCellFilter")
+@pytest.mark.filterwarnings('ignore:Use FrechetCellFilter')
 @pytest.mark.parametrize(
-    'filterclass', [StrainFilter,
-                    UnitCellFilter,
-                    FrechetCellFilter,
-                    ExpCellFilter])
+    'filterclass',
+    [StrainFilter, UnitCellFilter, FrechetCellFilter, ExpCellFilter],
+)
 @pytest.mark.parametrize(
-    'mask', [[1, 1, 0, 0, 0, 1],
-             [1, 0, 0, 0, 0, 0],
-             [1, 0, 1, 1, 0, 0],
-             [0, 1, 0, 0, 1, 1]]
+    'mask',
+    [
+        [1, 1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0],
+        [1, 0, 1, 1, 0, 0],
+        [0, 1, 0, 0, 1, 1],
+    ],
 )
 def test_apply_strain_to_mask(filterclass, mask):
     cu = bulk('Cu', a=3.14) * (6, 3, 1)
@@ -51,9 +53,9 @@ def test_apply_strain_to_mask(filterclass, mask):
     deformation_vv = np.eye(3) + 1e2 * rng.randn(3, 3)
     filter = filterclass(cu, mask=mask)
     if filterclass is not StrainFilter:
-        pos_and_deform = \
-            np.concatenate((cu.get_positions(),
-                            deformation_vv), axis=0)
+        pos_and_deform = np.concatenate(
+            (cu.get_positions(), deformation_vv), axis=0
+        )
     else:
         pos_and_deform = full_3x3_to_voigt_6_strain(deformation_vv)
 
@@ -63,5 +65,6 @@ def test_apply_strain_to_mask(filterclass, mask):
     full_mask = voigt_6_to_full_3x3_strain(mask) != 0
 
     # Ensure the mask is respected to a very tight numerical tolerance
-    assert np.linalg.solve(orig_cell, cu.cell)[~full_mask] == \
-        pytest.approx(np.eye(3)[~full_mask], abs=1e-12)
+    assert np.linalg.solve(orig_cell, cu.cell)[~full_mask] == pytest.approx(
+        np.eye(3)[~full_mask], abs=1e-12
+    )

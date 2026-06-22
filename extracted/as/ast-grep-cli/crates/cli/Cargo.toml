@@ -30,6 +30,7 @@ ast-grep-config.workspace = true
 ast-grep-dynamic.workspace = true
 ast-grep-language.workspace = true
 ast-grep-lsp.workspace = true
+ast-grep-outline.workspace = true
 tree-sitter.workspace = true
 
 ansi_term = "0.12.1"
@@ -52,6 +53,7 @@ similar = { version = "3.0.0", features = ["inline"] }
 smallvec = "1.13.2"
 tokio = { version = "1.37.0", features = ["rt-multi-thread", "io-std"] }
 clap_complete = "4.5.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 assert_cmd = "2.0.14"

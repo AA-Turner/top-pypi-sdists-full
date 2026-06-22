@@ -1,7 +1,5 @@
 """Berendsen NVT dynamics class."""
 
-import warnings
-
 import numpy as np
 
 from ase import Atoms
@@ -54,14 +52,6 @@ class NVTBerendsen(MolecularDynamics):
             base class.
 
         """
-        if 'communicator' in kwargs:
-            msg = (
-                '`communicator` has been deprecated since ASE 3.25.0 '
-                'and will be removed in ASE 3.26.0. Use `comm` instead.'
-            )
-            warnings.warn(msg, FutureWarning)
-            kwargs['comm'] = kwargs.pop('communicator')
-
         MolecularDynamics.__init__(self, atoms, timestep, **kwargs)
 
         if taut is None:

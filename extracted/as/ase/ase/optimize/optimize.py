@@ -542,6 +542,24 @@ class Optimizer(Dynamics):
             with open(self.restart, 'w') as fd:
                 write_json(fd, data)
 
+    def replay_trajectory(self, traj):
+        """Reinitialize optimizer state from existing optimization trajectory.
+
+        Raises TypeError if optimizer class does not support it."""
+        from contextlib import ExitStack
+
+        from ase.io.trajectory import Trajectory
+
+        if not hasattr(self, '_replay_trajectory'):
+            raise TypeError('This optimizer does not provide '
+                            '_replay_trajectory()')
+
+        with ExitStack() as stack:
+            if isinstance(traj, str):
+                traj = stack.enter_context(Trajectory(traj, 'r'))
+
+            return self._replay_trajectory(traj)
+
     def load(self):
         from ase.io.jsonio import read_json
         with open(self.restart) as fd:

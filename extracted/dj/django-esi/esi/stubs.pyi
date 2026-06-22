@@ -7394,7 +7394,7 @@ class UniverseBloodlinesGetItem(BaseModel):
     name: str
     perception: int
     race_id: int
-    ship_type_id: int
+    ship_type_id: int | None
     willpower: int
 
 

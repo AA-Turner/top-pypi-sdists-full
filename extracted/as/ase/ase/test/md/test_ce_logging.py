@@ -1,4 +1,3 @@
-# fmt: off
 """This test ensures that logging to a text file and to the trajectory file are
 reporting the same values as in the ContourExploration object."""
 
@@ -28,11 +27,11 @@ def test_logging(testdir):
     log_name = name + '.log'
 
     with ContourExploration(
-            atoms,
-            **bulk_Al_settings,
-            rng=rng,
-            trajectory=traj_name,
-            logfile=log_name,
+        atoms,
+        **bulk_Al_settings,
+        rng=rng,
+        trajectory=traj_name,
+        logfile=log_name,
     ) as dyn:
         energy_target = initial_energy
         dev = (atoms.get_potential_energy() - energy_target) / len(atoms)
@@ -71,16 +70,17 @@ def test_logging(testdir):
         # skip the first line because it's a small initialization step
         lines = fd.readlines()[1:]
         for i, (im, line) in enumerate(zip(traj, lines)):
-
             lineparts = [float(part) for part in line.split()]
 
             log_energy_target = lineparts[1]
             assert 0 == pytest.approx(
-                log_energy_target - energy_targets[i], abs=1e-5)
+                log_energy_target - energy_targets[i], abs=1e-5
+            )
 
             log_energy = lineparts[2]
             assert 0 == pytest.approx(
-                log_energy - im.get_potential_energy(), abs=1e-5)
+                log_energy - im.get_potential_energy(), abs=1e-5
+            )
 
             log_curvature = lineparts[3]
             assert 0 == pytest.approx(log_curvature - curvatures[i], abs=1e-5)

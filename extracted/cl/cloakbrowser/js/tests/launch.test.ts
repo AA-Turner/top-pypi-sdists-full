@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { binaryInfo } from "../src/download.js";
-import { DEFAULT_VIEWPORT, getChromiumVersion } from "../src/config.js";
+import { DEFAULT_VIEWPORT, getBinaryPath, getChromiumVersion, getPlatformTag } from "../src/config.js";
 import * as config from "../src/config.js";
 
 describe("binaryInfo", () => {
@@ -11,11 +13,47 @@ describe("binaryInfo", () => {
       const info = binaryInfo();
 
       expect(info.version).toBe(getChromiumVersion());
+      expect(info.bundledVersion).toBeTruthy();
       expect(info.platform).toMatch(/^(linux|darwin|windows)-(x64|arm64)$/);
       expect(info.binaryPath).toBeTruthy();
       expect(typeof info.installed).toBe("boolean");
       expect(info.cacheDir).toContain("cloakbrowser");
     } finally {
+      if (orig) process.env.CLOAKBROWSER_CACHE_DIR = orig;
+      else delete process.env.CLOAKBROWSER_CACHE_DIR;
+    }
+  });
+
+  it("reports tier from the installed binary, not a cached license", () => {
+    // A valid, fresh license is cached but NO Pro binary is on disk → free.
+    const orig = process.env.CLOAKBROWSER_CACHE_DIR;
+    const dir = `/tmp/cloakbrowser-test-${Date.now()}-tier`;
+    fs.mkdirSync(dir, { recursive: true });
+    process.env.CLOAKBROWSER_CACHE_DIR = dir;
+    try {
+      fs.writeFileSync(
+        path.join(dir, ".license_cache"),
+        JSON.stringify({
+          key_sha256: "abc",
+          valid: true,
+          plan: "solo",
+          expires: null,
+          validated_at: Date.now() / 1000,
+        })
+      );
+      expect(binaryInfo().tier).toBe("free");
+
+      // Now drop a Pro binary on disk → pro.
+      fs.writeFileSync(path.join(dir, `latest_pro_version_${getPlatformTag()}`), "147.0.5555.1");
+      const bp = getBinaryPath("147.0.5555.1", true);
+      fs.mkdirSync(path.dirname(bp), { recursive: true });
+      fs.writeFileSync(bp, "fake");
+      fs.chmodSync(bp, 0o755);
+      const info = binaryInfo();
+      expect(info.tier).toBe("pro");
+      expect(info.version).toBe("147.0.5555.1");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
       if (orig) process.env.CLOAKBROWSER_CACHE_DIR = orig;
       else delete process.env.CLOAKBROWSER_CACHE_DIR;
     }
@@ -82,6 +120,32 @@ describe("composable Playwright launch helpers", () => {
 
     expect(buildContextOptions().viewport).toEqual(DEFAULT_VIEWPORT);
     expect(buildContextOptions({ viewport: null }).viewport).toBeNull();
+  });
+
+  it("buildContextOptions uses no viewport (null) when headed, so the page tracks the real window", async () => {
+    const { buildContextOptions } = await import("../src/index.js");
+
+    // Headed: no emulated viewport (CDP emulation would force outerWidth < innerWidth).
+    expect(buildContextOptions({ headless: false }).viewport).toBeNull();
+    // Headless keeps the deterministic default.
+    expect(buildContextOptions({ headless: true }).viewport).toEqual(DEFAULT_VIEWPORT);
+    // Explicit viewport always honored, even headed.
+    const custom = { width: 800, height: 600 };
+    expect(buildContextOptions({ headless: false, viewport: custom }).viewport).toEqual(custom);
+  });
+
+  it("buildContextOptions reads effective headless from launchOptions.headless", async () => {
+    const { buildContextOptions } = await import("../src/index.js");
+
+    // buildLaunchOptions spreads launchOptions LAST, so launchOptions.headless wins
+    // at the actual launch. Viewport must follow it — a raw headless:false (browser
+    // actually headed) must NOT get a fixed viewport (would reintroduce outer<inner).
+    expect(buildContextOptions({ launchOptions: { headless: false } }).viewport).toBeNull();
+    // And launchOptions.headless:true forces the deterministic viewport even if the
+    // top-level field said headed.
+    expect(
+      buildContextOptions({ headless: false, launchOptions: { headless: true } }).viewport,
+    ).toEqual(DEFAULT_VIEWPORT);
   });
 
   it("buildLaunchOptions returns Playwright options without launching a browser", async () => {

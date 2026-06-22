@@ -1,4 +1,3 @@
-# fmt: off
 # flake8: noqa
 from io import StringIO
 
@@ -32,7 +31,9 @@ ATOM                             0.443   1.409   1.905                       C
 ATOM                             1.837   1.409   1.373                       O
 """
 
-cellref = pytest.approx(np.array([[2., 0., 0.], [0., 2., 0.], [0., 0., 2.]]))
+cellref = pytest.approx(
+    np.array([[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]])
+)
 posref = pytest.approx(np.array([[0.443, 1.409, 1.905], [1.837, 1.409, 1.373]]))
 
 
@@ -70,8 +71,8 @@ def test_pdb_optional_heading(header):
 def test_pdb_filled_optional_fields():
     atoms = read_proteindatabank(StringIO(body1))
 
-    assert all(atoms.get_array('occupancy') == np.array([1., 1.]))
-    assert all(atoms.get_array('bfactor') == np.array([0., 0.]))
+    assert all(atoms.get_array('occupancy') == np.array([1.0, 1.0]))
+    assert all(atoms.get_array('bfactor') == np.array([0.0, 0.0]))
     assert all(atoms.get_array('atomtypes') == np.array(['C', 'O']))
     assert all(atoms.get_array('residuenames') == np.array(['MOL', 'MOL']))
     assert all(atoms.get_array('residuenumbers') == np.array([1, 1]))
@@ -81,7 +82,7 @@ def test_pdb_unfilled_optional_fields():
     atoms = read_proteindatabank(StringIO(body3))
 
     assert 'occupancy' not in atoms.__dict__['arrays']
-    assert all(atoms.get_array('bfactor') == np.array([0., 0.]))
+    assert all(atoms.get_array('bfactor') == np.array([0.0, 0.0]))
     assert all(atoms.get_array('atomtypes') == np.array(['', '']))
     assert all(atoms.get_array('residuenames') == np.array(['', '']))
     assert all(atoms.get_array('residuenumbers') == np.array([1, 1]))

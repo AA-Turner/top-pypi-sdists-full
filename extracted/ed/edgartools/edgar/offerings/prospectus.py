@@ -41,6 +41,7 @@ PROSPECTUS_FORMS = ['424B1', '424B2', '424B3', '424B4', '424B5', '424B7', '424B8
 class OfferingType(str, Enum):
     """Classification of 424B offering types."""
     FIRM_COMMITMENT = "firm_commitment"
+    IPO = "ipo"
     ATM = "atm"
     BEST_EFFORTS = "best_efforts"
     PIPE_RESALE = "pipe_resale"
@@ -55,6 +56,7 @@ class OfferingType(str, Enum):
     def display_name(self) -> str:
         return {
             "firm_commitment": "Firm Commitment",
+            "ipo": "IPO",
             "atm": "At-the-Market",
             "best_efforts": "Best Efforts / PIPE",
             "pipe_resale": "Resale (PIPE)",
@@ -70,6 +72,7 @@ class OfferingType(str, Enum):
     def is_equity(self) -> bool:
         return self in (
             OfferingType.FIRM_COMMITMENT,
+            OfferingType.IPO,
             OfferingType.ATM,
             OfferingType.BEST_EFFORTS,
             OfferingType.PIPE_RESALE,
@@ -80,6 +83,7 @@ class OfferingType(str, Enum):
     def has_fixed_price(self) -> bool:
         return self in (
             OfferingType.FIRM_COMMITMENT,
+            OfferingType.IPO,
             OfferingType.BEST_EFFORTS,
             OfferingType.RIGHTS_OFFERING,
         )
@@ -338,6 +342,33 @@ class FilingFeesData(BaseModel):
     is_final_prospectus: bool = True
 
 
+def _build_filing_fees_data(data: Optional[dict]) -> FilingFeesData:
+    """Convert a raw extract_filing_fees_xbrl dict into a FilingFeesData."""
+    if not data or not data.get('has_exhibit'):
+        return FilingFeesData()
+    rows = [
+        FilingFeesRow(
+            security_type=row.get('security_type'),
+            security_title=row.get('security_title'),
+            max_aggregate_offering_price=row.get('max_aggregate_offering_price'),
+            fee_rate=row.get('fee_rate'),
+            fee_amount=row.get('fee_amount'),
+            fee_rule=row.get('fee_rule'),
+        )
+        for row in data.get('offering_rows', [])
+    ]
+    return FilingFeesData(
+        has_exhibit=True,
+        exhibit_url=data.get('exhibit_url'),
+        form_type=data.get('form_type'),
+        registration_file_number=data.get('registration_file_number'),
+        total_offering_amount=data.get('total_offering_amount'),
+        total_fee_amount=data.get('total_fee_amount'),
+        offering_rows=rows,
+        is_final_prospectus=data.get('is_final_prospectus', True),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Registration Fee Table (S-3 / F-3 / S-1 shelf capacity)
 # ---------------------------------------------------------------------------
@@ -543,6 +574,11 @@ class ShelfLifecycle:
             base_form = f.form.replace('/A', '')
             if base_form in _TAKEDOWN_FORMS:
                 result.append(f)
+        # Enforce chronological order here rather than trusting _related's
+        # ordering — avg_days_between_takedowns, days_since_last_takedown, and
+        # the takedown-based expiry bound all depend on ascending filing_date.
+        result.sort(key=lambda f: (_parse_filing_date(f.filing_date) or date.min,
+                                    f.accession_no))
         return result
 
     @cached_property
@@ -992,6 +1028,19 @@ def _parse_sec_int(val: Optional[str]) -> Optional[int]:
 # Deal — normalized deal summary
 # ---------------------------------------------------------------------------
 
+# Floor below which a derived "deal size" is almost certainly an artifact, not a
+# real aggregate: the per-note DENOMINATION (commonly $1,000) bleeding through
+# the cover-page regex. Used to suppress those artifacts and to prefer the
+# authoritative EX-FILING FEES XBRL total when present.
+#
+# Calibrated on a random sample (scripts/offerings_bench/calibrate_floor.py):
+# the sub-$100k tail of cover-derived sizes is bimodal — ~5% of 424B2 sit at
+# exactly $1,000 (artifacts), legitimate deals are all >= $100k, and the
+# (1k, 100k] band is empty. $100k sits at the top of that empty gap, so it nulls
+# every observed artifact with zero observed collateral damage. (The XBRL total
+# recovers the artifact subset that carries a fee exhibit; the rest are nulled.)
+_MIN_PLAUSIBLE_DEAL_SIZE = 100_000.0
+
 class Deal:
     """Normalized, computed deal summary synthesized from a 424B prospectus.
 
@@ -1064,31 +1113,57 @@ class Deal:
             return round(raw_gross / self.price)
         return None
 
+    @staticmethod
+    def _plausible(val: Optional[float]) -> bool:
+        """True if ``val`` is a plausible aggregate deal size (not an artifact)."""
+        return val is not None and val >= _MIN_PLAUSIBLE_DEAL_SIZE
+
+    @cached_property
+    def _filing_fees_total(self) -> Optional[float]:
+        """Authoritative total offering amount from the EX-FILING FEES XBRL.
+
+        ffd:TtlOfferingAmt is machine-readable and regex-free. It covers exactly
+        the 424B2/424B5 debt/note shapes the cover-page and pricing-table text
+        paths miss (ATM has no fixed amount; pre-2022 and 424B1/424B4 carry no
+        iXBRL exhibit, so this stays None there)."""
+        ff = self._prospectus.filing_fees
+        if ff and ff.total_offering_amount:
+            return _parse_sec_number(ff.total_offering_amount)
+        return None
+
     @cached_property
     def _raw_gross_proceeds(self) -> Optional[float]:
         """Gross proceeds without using shares (avoids circular dependency)."""
-        # 1. Cover page total amount
+        # 1. Cover page total amount (when plausible — suppresses the per-note
+        #    denomination artifact, e.g. a $1,000 face value read as deal size).
         val = self._prospectus.cover_page.offering_amount_float
-        if val is not None and val > 0:
+        if self._plausible(val):
             return val
-        # 2. Pricing table total column - offering price field (aggregate amount)
+        # 2. Authoritative EX-FILING FEES XBRL total offering amount. Consulted
+        #    when the cover regex is missing/implausible; supersedes artifacts.
+        val = self._filing_fees_total
+        if self._plausible(val):
+            return val
+        # 3. Pricing table total column - offering price field (aggregate amount)
         tot = self._pricing_total
         if tot and tot.offering_price:
             val = _parse_sec_number(tot.offering_price)
-            if val is not None and val > 0:
+            if self._plausible(val):
                 return val
         return None
 
     @cached_property
     def gross_proceeds(self) -> Optional[float]:
         """Total offering amount (gross, before fees)."""
-        # 1-2: Cover page and pricing table total
+        # 1-3: Cover page, authoritative XBRL, and pricing table total
         val = self._raw_gross_proceeds
         if val is not None:
             return val
-        # 3. Compute: shares × price
+        # 4. Compute: shares × price
         if self.shares and self.price:
-            return self.shares * self.price
+            computed = self.shares * self.price
+            if self._plausible(computed):
+                return computed
         return None
 
     @cached_property
@@ -1114,6 +1189,20 @@ class Deal:
     def offering_type(self) -> OfferingType:
         """Offering type classification."""
         return self._prospectus.offering_type
+
+    @cached_property
+    def offering_type_confidence(self) -> str:
+        """Classifier confidence: 'high' | 'medium' | 'low'."""
+        return self._prospectus.offering_type_confidence
+
+    @cached_property
+    def offering_type_signals(self) -> List[str]:
+        """Classifier provenance signals (incl. 'xbrl_security_type:*' markers).
+
+        Persist alongside offering_type to tier values — e.g. exclude
+        low-confidence firm_commitment rows sourced from 'xbrl_security_type:equity'
+        before summing gross_proceeds (they can be unlabelled resales)."""
+        return self._prospectus.offering_type_signals
 
     @cached_property
     def is_atm(self) -> bool:
@@ -1224,7 +1313,8 @@ class Deal:
         """All non-None computed values as a flat dict."""
         fields = [
             'price', 'shares', 'gross_proceeds', 'net_proceeds',
-            'security_type', 'offering_type', 'is_atm',
+            'security_type', 'offering_type',
+            'offering_type_confidence', 'offering_type_signals', 'is_atm',
             'fee_per_share', 'total_fees', 'discount_rate', 'fee_type',
             'lead_bookrunner', 'underwriter_count',
             'dilution_per_share', 'dilution_pct',
@@ -1233,11 +1323,13 @@ class Deal:
         result = {}
         for name in fields:
             val = getattr(self, name)
-            if val is not None:
-                # Convert enums to string
-                if isinstance(val, OfferingType):
-                    val = val.value
-                result[name] = val
+            # Keep empty provenance lists out of the dict, like other None fields.
+            if val is None or val == []:
+                continue
+            # Convert enums to string
+            if isinstance(val, OfferingType):
+                val = val.value
+            result[name] = val
         return result
 
     def to_context(self, detail: str = 'standard') -> str:
@@ -1399,12 +1491,21 @@ class Prospectus424B:
 
     def __init__(self, filing: 'Filing', cover_page: CoverPageData,
                  offering_type: OfferingType, confidence: str,
-                 document=None):
+                 document=None, filing_fees: Optional['FilingFeesData'] = None,
+                 signals: Optional[List[str]] = None, sub_type: Optional[str] = None):
         self._filing = filing
         self._cover_page = cover_page
         self._offering_type = offering_type
         self._confidence = confidence
+        # Classifier provenance — lets consumers tier values by how the type was
+        # determined (e.g. exclude low-confidence firm_commitment rows carrying
+        # the 'xbrl_security_type:equity' signal, which can be unlabelled resales).
+        self._signals = signals or []
+        self._sub_type = sub_type
         self._document = document
+        # Optionally seeded by from_filing when the fee exhibit was already
+        # fetched during classification — avoids a second download.
+        self._eager_filing_fees = filing_fees
 
     # ------------------------------------------------------------------
     # Construction
@@ -1433,7 +1534,22 @@ class Prospectus424B:
         cover_fields = extract_cover_page_fields(filing, document=document)
         cover_page = CoverPageData(**cover_fields)
 
-        classification = classify_offering_type(filing, document=document)
+        # First pass: text only (filing_fees=None suppresses the fee-exhibit
+        # fetch). Only if the text is inconclusive do we fetch the exhibit once
+        # and reuse it for both the classifier's structural fallback and the
+        # filing_fees cache below — avoiding a redundant download.
+        classification = classify_offering_type(filing, document=document, filing_fees=None)
+        eager_filing_fees = None
+        if classification.get('type') == 'unknown':
+            from edgar.offerings._424b_xbrl import extract_filing_fees_xbrl
+            try:
+                fees_dict = extract_filing_fees_xbrl(filing)
+            except Exception:
+                fees_dict = {'has_exhibit': False}
+            classification = classify_offering_type(
+                filing, document=document, filing_fees=fees_dict)
+            eager_filing_fees = _build_filing_fees_data(fees_dict)
+
         offering_type = OfferingType(classification.get('type', 'unknown'))
         confidence = classification.get('confidence', 'low')
 
@@ -1443,6 +1559,9 @@ class Prospectus424B:
             offering_type=offering_type,
             confidence=confidence,
             document=document,
+            filing_fees=eager_filing_fees,
+            signals=classification.get('signals') or [],
+            sub_type=classification.get('sub_type'),
         )
 
     # ------------------------------------------------------------------
@@ -1460,6 +1579,26 @@ class Prospectus424B:
     @property
     def offering_type(self) -> OfferingType:
         return self._offering_type
+
+    @property
+    def offering_type_confidence(self) -> str:
+        """Classifier confidence in offering_type: 'high' | 'medium' | 'low'."""
+        return self._confidence
+
+    @property
+    def offering_type_signals(self) -> List[str]:
+        """Signals behind the offering_type classification.
+
+        Includes structural-fallback markers such as 'xbrl_security_type:equity'
+        / ':debt' / ':rights'. Use with offering_type_confidence to tier values
+        (e.g. exclude low-confidence firm_commitment rows sourced from the equity
+        prior before summing gross_proceeds — they can be unlabelled resales)."""
+        return list(self._signals)
+
+    @property
+    def offering_type_sub_type(self) -> Optional[str]:
+        """Classifier sub-type (e.g. 'equity_resale' for a PIPE resale), if any."""
+        return self._sub_type
 
     @property
     def form(self) -> str:
@@ -1697,33 +1836,11 @@ class Prospectus424B:
     def filing_fees(self) -> FilingFeesData:
         """Filing fees from EX-FILING FEES XBRL exhibit.
         Available for ~43% of 424B2, ~23% of 424B5. Returns empty if no exhibit."""
+        # Reuse the exhibit already fetched during classification, if any.
+        if self._eager_filing_fees is not None:
+            return self._eager_filing_fees
         from edgar.offerings._424b_xbrl import extract_filing_fees_xbrl
-
-        data = extract_filing_fees_xbrl(self._filing)
-        if not data.get('has_exhibit'):
-            return FilingFeesData()
-
-        rows = []
-        for row in data.get('offering_rows', []):
-            rows.append(FilingFeesRow(
-                security_type=row.get('security_type'),
-                security_title=row.get('security_title'),
-                max_aggregate_offering_price=row.get('max_aggregate_offering_price'),
-                fee_rate=row.get('fee_rate'),
-                fee_amount=row.get('fee_amount'),
-                fee_rule=row.get('fee_rule'),
-            ))
-
-        return FilingFeesData(
-            has_exhibit=True,
-            exhibit_url=data.get('exhibit_url'),
-            form_type=data.get('form_type'),
-            registration_file_number=data.get('registration_file_number'),
-            total_offering_amount=data.get('total_offering_amount'),
-            total_fee_amount=data.get('total_fee_amount'),
-            offering_rows=rows,
-            is_final_prospectus=data.get('is_final_prospectus', True),
-        )
+        return _build_filing_fees_data(extract_filing_fees_xbrl(self._filing))
 
     # ------------------------------------------------------------------
     # Lifecycle navigation

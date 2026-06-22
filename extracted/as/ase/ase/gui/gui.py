@@ -154,12 +154,13 @@ class GUI(View):
     @functools.cached_property
     def arrowkey_hint(self):
         hint = ui.tk.Frame(
-            self.window.canvas, bg='#ffffff'
+            self.window.canvas, bg=self.window.bg
         )
         hint.label = ui.tk.Label(hint)
         hint.qm = ui.tk.Label(
             hint, text='(?)', padx=3,
-            bg='#ffffff', activeforeground="#ffb617"
+            bg=self.window.bg,
+            fg=self.window.fg
         )
         hint.qm.grid(row=0, column=0)
         hint.label.grid(row=0, column=1)
@@ -617,15 +618,15 @@ class GUI(View):
                 value=False),
               M(_('Show _magmoms'), self.toggle_show_magmoms,
                 value=False),
-              M(_('Show _Labels'), self.show_labels,
+              M(_('Show _labels'), self.show_labels,
                 choices=[_('_None'),
-                         _('Atom _Index'),
-                         _('_Magnetic Moments'),  # XXX check if exist
-                         _('_Element Symbol'),
-                         _('_Initial Charges'),  # XXX check if exist
+                         _('Atom _index'),
+                         _('_Magnetic moments'),  # XXX check if exist
+                         _('_Element symbol'),
+                         _('_Initial charges'),  # XXX check if exist
                          ]),
               M('---'),
-              M(_('Quick Info ...'), self.quick_info_window, 'Ctrl+I'),
+              M(_('Quick info ...'), self.quick_info_window, 'Ctrl+I'),
               M(_('Repeat ...'), self.repeat_window, 'R'),
               M(_('Rotate ...'), self.rotate_window),
               M(_('Colors ...'), self.colors_window, 'C'),
@@ -633,9 +634,9 @@ class GUI(View):
               M(_('Focus'), self.focus, 'F'),
               M(_('Zoom in'), self.zoom, '+'),
               M(_('Zoom out'), self.zoom, '-'),
-              M(_('Change View'),
+              M(_('Change view'),
                 submenu=[
-                    M(_('Reset View'), self.reset_view, '='),
+                    M(_('Reset view'), self.reset_view, '='),
                     M(_('xy-plane'), self.set_view, 'Z'),
                     M(_('yz-plane'), self.set_view, 'X'),
                     M(_('zx-plane'), self.set_view, 'Y'),
@@ -664,7 +665,7 @@ class GUI(View):
               M(_('_Rotate selected atoms'), self.toggle_rotate_mode,
                 'Ctrl+R'),
               M(_('NE_B plot'), self.neb),
-              M(_('B_ulk Modulus'), self.bulk_modulus),
+              M(_('B_ulk modulus'), self.bulk_modulus),
               M(_('Reciprocal space ...'), self.reciprocal),
               M(_('Wrap atoms'), self.wrap_atoms, 'Ctrl+W')]),
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-cli
-Version: 1.10.5
+Version: 1.11.1
 Summary: A CLI tool for installing and using ComfyUI.
 Maintainer-email: Yoland Yan <yoland@drip.art>, James Kwon <hongilkwon316@gmail.com>, Robin Huang <robin@drip.art>, "Dr.Lt.Data" <dr.lt.data@gmail.com>
 License: GPL-3.0-only
@@ -19,7 +19,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: charset-normalizer>=3
 Requires-Dist: cookiecutter
-Requires-Dist: gitpython
+Requires-Dist: gitpython>=3.1.50
 Requires-Dist: httpx
 Requires-Dist: mixpanel
 Requires-Dist: packaging
@@ -35,13 +35,16 @@ Requires-Dist: semver~=3.0.2
 Requires-Dist: tomlkit
 Requires-Dist: typer>=0.12.5
 Requires-Dist: typing-extensions>=4.7
-Requires-Dist: uv>=0.6.9
+Requires-Dist: uv>=0.11.15
 Requires-Dist: websocket-client
 Provides-Extra: dev
+Requires-Dist: jsonschema; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
+Provides-Extra: preview
+Requires-Dist: term-image<0.8,>=0.7; extra == "preview"
 Dynamic: license-file
 
 # comfy-cli: A Command Line Tool for ComfyUI
@@ -72,6 +75,18 @@ workflows, and call hosted partner image models, all from your terminal.
 - 🎬 Run workflows against a local ComfyUI server, including auto-conversion of UI-format JSON
 - 🧪 Test ComfyUI and frontend pull requests with one flag
 - 💻 Cross-platform: Windows, macOS, Linux
+- ☁️  Route any workflow to **Comfy Cloud** with `--where cloud` (no GPU required)
+- 🤖 Agent-friendly: every command emits structured `--json` envelopes
+- 📚 Bundled skills teach Claude / Cursor to drive comfy natively
+
+## Quick Start
+
+```bash
+pip install comfy-cli
+comfy setup
+```
+
+`comfy setup` walks you through everything — local or cloud routing, authentication, and agent skill installation — in one interactive wizard. Pass `-y` for non-interactive (CI/scripted) installs.
 
 ## Installation
 

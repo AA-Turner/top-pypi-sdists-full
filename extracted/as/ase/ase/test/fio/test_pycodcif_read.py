@@ -1,4 +1,3 @@
-# fmt: off
 import pytest
 
 from ase.io.cif import read_cif
@@ -46,7 +45,7 @@ def test_pycodcif():
     pytest.importorskip('pycodcif')
 
     with open('myfile.cif', 'wb') as temp:
-        temp.write(cif.encode("latin-1"))
+        temp.write(cif.encode('latin-1'))
 
     with open('myfile.cif') as temp:
         cif_ase = read_cif(temp, 0, reader='ase')

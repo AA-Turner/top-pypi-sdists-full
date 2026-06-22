@@ -1,4 +1,3 @@
-# fmt: off
 import os
 
 import numpy as np
@@ -12,7 +11,7 @@ from ase.phonons import Phonons
 
 
 def check_set_atoms(atoms, set_atoms, expected_atoms):
-    """ Perform a test that .set_atoms() only displaces the expected atoms. """
+    """Perform a test that .set_atoms() only displaces the expected atoms."""
     atoms.calc = EMT()
     phonons = Phonons(atoms, EMT())
     phonons.set_atoms(set_atoms)
@@ -57,7 +56,7 @@ def test_check_consistent_format(testdir):
     eq_data = phonons.cache['eq']
     disp_data = phonons.cache['0x-']
     assert isinstance(eq_data, dict) and isinstance(disp_data, dict)
-    assert set(eq_data) == set(disp_data), "dict keys mismatch"
+    assert set(eq_data) == set(disp_data), 'dict keys mismatch'
     for array_key in eq_data:
         assert eq_data[array_key].shape == disp_data[array_key].shape, array_key
 
@@ -66,7 +65,7 @@ def test_get_band_structure_with_modes(testdir):
 
     atoms = bulk('Al', 'fcc', a=4.05)
     N = 7
-    npoints = 100   # k-points in band path
+    npoints = 100  # k-points in band path
     natoms = len(atoms)
 
     ph = Phonons(atoms, EMT(), supercell=(N, N, N), delta=0.05)
@@ -75,16 +74,17 @@ def test_get_band_structure_with_modes(testdir):
     ph.clean()
 
     path = atoms.cell.bandpath('GXULGK', npoints=npoints)
-    band_structure, modes = ph.get_band_structure(path,
-                                                  modes=True,
-                                                  verbose=False)
+    band_structure, modes = ph.get_band_structure(
+        path, modes=True, verbose=False
+    )
 
     # Assertions
-    assert band_structure is not None, "Band structure should not be None"
-    assert modes is not None, "Modes should not be None"
-    assert modes.ndim == 4, "Modes should be a 4-dimensional numpy array"
-    assert modes.shape == (npoints, 3 * natoms, natoms, 3), \
-        "Modes should have shape (k-points, nbands, natoms, 3)"
+    assert band_structure is not None, 'Band structure should not be None'
+    assert modes is not None, 'Modes should not be None'
+    assert modes.ndim == 4, 'Modes should be a 4-dimensional numpy array'
+    assert modes.shape == (npoints, 3 * natoms, natoms, 3), (
+        'Modes should have shape (k-points, nbands, natoms, 3)'
+    )
 
 
 def test_frequencies_amplitudes(testdir):
@@ -108,32 +108,30 @@ def test_frequencies_amplitudes(testdir):
     LJ_sigma = (LJ_sigma_O + LJ_sigma_Cu) / 2
 
     # Equilibrium distance
-    d0 = 2**(1 / 6) * LJ_sigma
+    d0 = 2 ** (1 / 6) * LJ_sigma
     # Spring constant
-    C = 36 * 2**(2 / 3) * LJ_epsilon / LJ_sigma**2
+    C = 36 * 2 ** (2 / 3) * LJ_epsilon / LJ_sigma**2
     print(f'LJ epsilon: {LJ_epsilon:.5f} eV    sigma: {LJ_sigma:.5f} Å')
     print(f'Bond length d0 = {d0:.5f} Å.     C = {C:.5f} eV / Å^2')
 
     # Make chain of Cu-O atoms
-    pos = np.array(
-        [[0, 0, 0],
-         [d0, 0, 0]]
-    )
+    pos = np.array([[0, 0, 0], [d0, 0, 0]])
     atoms = Atoms(
         symbols='CuO',
         positions=pos,
-        cell=[2 * d0, 10., 10.],
-        pbc=(True, False, False)
+        cell=[2 * d0, 10.0, 10.0],
+        pbc=(True, False, False),
     )
     atoms.center()
     calc = LennardJones(sigma=LJ_sigma, epsilon=LJ_epsilon, rc=1.5 * d0)
 
     print('Calculating phonons')
     N = 7
-    ph = Phonons(atoms, calc, supercell=(N, 1, 1),
-                 delta=0.005, name='phonon_CuO')
+    ph = Phonons(
+        atoms, calc, supercell=(N, 1, 1), delta=0.005, name='phonon_CuO'
+    )
     ph.run()
-    assert ph.check_eq_forces()[1] < 1e-9, "System is not at equilibrium"
+    assert ph.check_eq_forces()[1] < 1e-9, 'System is not at equilibrium'
     # Read forces and assemble the dynamical matrix
     ph.read(acoustic=True)
     ph.clean()
@@ -199,8 +197,9 @@ def test_frequencies_amplitudes(testdir):
 
     for kk, br, hbaromega in checkmodes:
         print(f'Ckecking k-point {kk} branch {br}')
-        ph.write_modes(kk, branches=(br,),
-                       repeat=(repeat, 1, 1), kT=T * units.kB)
+        ph.write_modes(
+            kk, branches=(br,), repeat=(repeat, 1, 1), kT=T * units.kB
+        )
         filename = f'{ph.name}.mode.{br}.traj'
         pos = []
         with Trajectory(filename) as traj:
@@ -223,7 +222,7 @@ def test_frequencies_amplitudes(testdir):
 
         ekin_avg = np.mean(ekin)
         ekin_exp = units.kB * T / 2
-        print(f"Avg. kinetic energy: {ekin_avg} eV - expected {ekin_exp} eV")
+        print(f'Avg. kinetic energy: {ekin_avg} eV - expected {ekin_exp} eV')
         assert np.isclose(ekin_avg, ekin_exp, rtol=0.01)
 
 
@@ -243,7 +242,7 @@ def test_partial_dos(testdir):
     LJ_sigma = (Sigma_Zn + Sigma_S) / 2
 
     # Equilibrium distance
-    d0 = 2**(1 / 6) * LJ_sigma
+    d0 = 2 ** (1 / 6) * LJ_sigma
     latconst = d0 * np.sqrt(2)
     cutoff = d0 * (1 + np.sqrt(2)) / 2  # Between first and second neighbor
 
@@ -253,10 +252,11 @@ def test_partial_dos(testdir):
 
     # Calculating phonons
     N = 3
-    ph = Phonons(atoms, calc, supercell=(N, N, N),
-                 delta=0.005, name='phonon_ZnS')
+    ph = Phonons(
+        atoms, calc, supercell=(N, N, N), delta=0.005, name='phonon_ZnS'
+    )
     ph.run()
-    assert ph.check_eq_forces()[1] < 1e-9, "System is not at equilibrium"
+    assert ph.check_eq_forces()[1] < 1e-9, 'System is not at equilibrium'
     # Read forces and assemble the dynamical matrix
     ph.read(acoustic=True)
     ph.clean()

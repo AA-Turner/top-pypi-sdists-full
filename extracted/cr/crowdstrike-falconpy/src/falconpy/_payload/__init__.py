@@ -19,6 +19,9 @@
                                                         |::.|     CrowdStrike Falcon      |::.|
                                                         `---' OAuth2 API SDK for Python 3 `---'
 """
+from ._api_clients import create_api_client_payload, update_api_client_payload
+from ._cloud_security_assets import cloud_security_assets_entities_post_payload
+from ._federated_connections import patch_federated_connections_config_payload, post_federated_connections_config_payload
 from ._generic import (
     generic_payload_list,
     aggregate_payload,
@@ -62,6 +65,17 @@ from ._case_management import (
     update_case_payload
     )
 from ._host_group import host_group_create_payload, host_group_update_payload
+from ._intel import cao_incidents_aggregates_v1_payload, cao_incidents_entities_v1_payload
+from ._knowledge_bases import entities_knowledge_bases_create_v1_payload, entities_knowledge_bases_update_v1_payload
+from ._profile_groups import (
+    create_group_v1_mixin0_payload,
+    get_group_users_v1_payload,
+    get_groups_v1_mixin0_payload,
+    get_user_groups_v1_payload,
+    group_actions_v1_mixin0_payload,
+    group_users_actions_v1_mixin0_payload,
+    update_group_v1_mixin0_payload
+    )
 from ._recon import (
     recon_action_payload,
     recon_action_update_payload,
@@ -75,7 +89,9 @@ from ._cloud_aws_registration import cloud_aws_registration_payload
 from ._cloud_azure_registration import (
     cloud_azure_registration_payload,
     cloud_azure_registration_create_payload,
-    cloud_azure_registration_legacy_payload
+    cloud_azure_registration_legacy_payload,
+    cloud_registration_azure_create_suppressions_payload,
+    cloud_registration_azure_update_suppressions_payload
     )
 from ._cloud_google_cloud_registration import (
     cloud_google_registration_create_payload
@@ -141,7 +157,8 @@ from ._it_automation import (
     automation_policy_payload,
     policy_host_group_payload,
     automation_live_query_payload,
-    automation_user_group_payload
+    automation_user_group_payload,
+    cancel_task_execution_payload
     )
 from ._mobile_enrollment import mobile_enrollment_payload
 from ._network_scan_global_configs import network_scan_global_configs_payload
@@ -171,8 +188,15 @@ from ._ngsiem import (
     ngsiem_bulk_install_parsers_payload,
     ngsiem_connector_config_payload,
     ngsiem_data_connection_payload,
-    ngsiem_clone_parser_payload
-)
+    ngsiem_clone_parser_payload,
+    bulk_create_dashboards_from_template_payload,
+    bulk_create_lookup_files_payload,
+    bulk_create_saved_queries_from_template_payload,
+    bulk_update_dashboards_from_template_payload,
+    bulk_update_lookup_files_payload,
+    bulk_update_saved_queries_from_template_payload,
+    create_parser_extension_payload
+    )
 from ._prevention_policy import prevention_policy_payload
 from ._sensor_update_policy import sensor_policy_payload, maintenance_token_payload
 from ._response_policy import response_policy_payload
@@ -280,7 +304,8 @@ __all__ = [
     "retrieve_relay_node_payload", "inventory_scan_payload", "cloud_azure_registration_create_payload",
     "task_payload", "task_execution_payload", "execution_results_search_payload", "rerun_payload",
     "scheduled_task_payload", "automation_policy_payload", "policy_host_group_payload",
-    "automation_live_query_payload", "automation_user_group_payload", "ngsiem_parser_payload",
+    "automation_live_query_payload", "automation_user_group_payload", "cancel_task_execution_payload",
+    "ngsiem_parser_payload",
     "case_management_notification_groups_payload", "case_management_create_notification_payload",
     "case_management_sla_payload", "case_management_template_payload", "data_protection_classification_payload",
     "data_protection_cloud_app_payload", "data_protection_content_pattern_payload",
@@ -306,5 +331,19 @@ __all__ = [
     "network_scan_template_create_payload", "network_scan_template_update_payload",
     "network_scan_network_create_payload", "network_scan_network_update_payload",
     "network_scan_scan_create_payload", "network_scan_scan_update_payload",
-    "network_scan_zone_create_payload", "network_scan_zone_update_payload"
+    "network_scan_zone_create_payload", "network_scan_zone_update_payload",
+    "create_api_client_payload", "update_api_client_payload",
+    "cloud_security_assets_entities_post_payload", "patch_federated_connections_config_payload",
+    "post_federated_connections_config_payload", "cao_incidents_aggregates_v1_payload",
+    "cao_incidents_entities_v1_payload", "entities_knowledge_bases_create_v1_payload",
+    "entities_knowledge_bases_update_v1_payload", "create_group_v1_mixin0_payload",
+    "get_group_users_v1_payload", "get_groups_v1_mixin0_payload",
+    "get_user_groups_v1_payload", "group_actions_v1_mixin0_payload",
+    "group_users_actions_v1_mixin0_payload", "update_group_v1_mixin0_payload",
+    "cloud_registration_azure_create_suppressions_payload",
+    "cloud_registration_azure_update_suppressions_payload",
+    "bulk_create_dashboards_from_template_payload", "bulk_create_lookup_files_payload",
+    "bulk_create_saved_queries_from_template_payload",
+    "bulk_update_dashboards_from_template_payload", "bulk_update_lookup_files_payload",
+    "bulk_update_saved_queries_from_template_payload", "create_parser_extension_payload"
 ]

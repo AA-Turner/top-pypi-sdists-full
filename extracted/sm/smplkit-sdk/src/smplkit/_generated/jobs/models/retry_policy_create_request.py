@@ -21,8 +21,8 @@ class RetryPolicyCreateRequest:
     Attributes:
         data (RetryPolicyCreateResource): JSON:API resource envelope for creating a retry policy (id required). Example:
             {'attributes': {'backoff': 'exponential', 'delay_seconds': 2, 'max_delay_seconds': 60, 'max_retries': 5, 'name':
-            'Retry on server errors', 'retry_on': {'reasons': ['TIMEOUT', 'CONNECTION_ERROR'], 'statuses': [429, 503]}},
-            'id': 'retry-on-5xx', 'type': 'retry_policy'}.
+            'Retry on server errors', 'retry_on_connection_error': True, 'retry_on_timeout': True, 'retry_statuses': ['429',
+            '5xx'], 'retry_statuses_except': ['501']}, 'id': 'retry-on-5xx', 'type': 'retry_policy'}.
     """
 
     data: RetryPolicyCreateResource

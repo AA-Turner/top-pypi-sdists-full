@@ -1,5 +1,5 @@
-# fmt: off
 """Test Pourbaix diagram."""
+
 import numpy as np
 import pytest
 
@@ -24,7 +24,7 @@ def refs():
         'Zn++(aq)': -1.525613424,
         'ZnOH+(aq)': -3.4125107,
         'HZnO2-(aq)': -4.8087349,
-        'ZnO2--(aq)': -4.03387383
+        'ZnO2--(aq)': -4.03387383,
     }
 
 
@@ -48,8 +48,15 @@ def test_old_pourbaix():
     d, names, _ = pb.diagram(U, pH, plot=False)
     assert d.shape == (3, 11)
     assert np.ptp(d) == 6
-    assert names == ['Zn', 'ZnO2(aq)', 'Zn++(aq)', 'HZnO2-(aq)',
-                     'ZnOH+(aq)', 'ZnO', 'ZnO2--(aq)']
+    assert names == [
+        'Zn',
+        'ZnO2(aq)',
+        'Zn++(aq)',
+        'HZnO2-(aq)',
+        'ZnOH+(aq)',
+        'ZnO',
+        'ZnO2--(aq)',
+    ]
 
 
 def test_Zn_diagram(pbx):
@@ -88,24 +95,30 @@ def test_plotting(pbx, figure):
 
     ax = figure.gca()
 
-    args = {'include_text': True,
-            'include_water': True,
-            'labeltype': 'phases',
-            'cap': 1.0,
-            # 'figsize': [12, 6],
-            'cmap': "RdYlGn_r",
-            'normalize': True,
-            'show': False,
-            'filename': None,
-            'ax': ax}
+    args = {
+        'include_text': True,
+        'include_water': True,
+        'labeltype': 'phases',
+        'cap': 1.0,
+        # 'figsize': [12, 6],
+        'cmap': 'RdYlGn_r',
+        'normalize': True,
+        'show': False,
+        'filename': None,
+        'ax': ax,
+    }
 
     diagram.plot(**args)
 
-    args.update({'include_text': False,
-                 'include_water': False,
-                 'labeltype': 'numbers',
-                 'normalize': False,
-                 'cap': [0, 1]})
+    args.update(
+        {
+            'include_text': False,
+            'include_water': False,
+            'labeltype': 'numbers',
+            'normalize': False,
+            'cap': [0, 1],
+        }
+    )
 
     diagram.plot(**args)
 
@@ -158,10 +171,7 @@ def test_species_extras():
 
 def test_trigger_phases_error():
     """Produce an error when provided refs don't produce valid reactions"""
-    refs = {
-        'Zn': 0.0,
-        'Mn': 0.0
-    }
+    refs = {'Zn': 0.0, 'Mn': 0.0}
 
     with pytest.raises(ValueError):
         Pourbaix('Zn', refs)

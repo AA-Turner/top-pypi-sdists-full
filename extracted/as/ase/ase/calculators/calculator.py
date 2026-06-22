@@ -1,5 +1,3 @@
-# fmt: off
-
 import copy
 import os
 import shlex
@@ -181,7 +179,7 @@ special = {
 }
 
 
-external_calculators = {}
+external_calculators: dict[str, type] = {}
 
 
 def register_calculator_class(name, cls):
@@ -200,8 +198,8 @@ def get_calculator_class(name):
         from gpaw import GPAW as Calculator
     elif name == 'hotbit':
         from hotbit import Calculator
-    elif name == 'vasp2':
-        from ase.calculators.vasp import Vasp2 as Calculator
+    elif name == 'vasp':
+        from ase.calculators.vasp import Vasp as Calculator
     elif name == 'ace':
         from ase.calculators.acemolecule import ACE as Calculator
     elif name == 'Psi4':
@@ -228,9 +226,9 @@ def equal(a, b, tol=None, rtol=None, atol=None):
     if tol is not None:
         msg = 'Use `equal(a, b, rtol=..., atol=...)` instead of `tol=...`'
         warnings.warn(msg, DeprecationWarning)
-        assert (
-            rtol is None and atol is None
-        ), 'Do not use deprecated `tol` with `atol` and/or `rtol`'
+        assert rtol is None and atol is None, (
+            'Do not use deprecated `tol` with `atol` and/or `rtol`'
+        )
         rtol = tol
         atol = tol
 
@@ -316,7 +314,7 @@ def kpts2sizeandoffsets(
 
     if size is not None and density is not None:
         raise ValueError(
-            'Cannot specify k-point mesh size and ' 'density simultaneously'
+            'Cannot specify k-point mesh size and density simultaneously'
         )
     elif density is not None and atoms is None:
         raise ValueError(
@@ -484,8 +482,7 @@ class BaseCalculator(GetPropertiesMixin):
         return props
 
     @abstractmethod
-    def calculate(self, atoms, properties, system_changes):
-        ...
+    def calculate(self, atoms, properties, system_changes): ...
 
     def check_state(self, atoms, tol=1e-15):
         """Check for any system changes since last calculation."""
@@ -523,7 +520,7 @@ class BaseCalculator(GetPropertiesMixin):
             # For some reason the calculator was not able to do what we want,
             # and that is OK.
             raise PropertyNotImplementedError(
-                '{} not present in this ' 'calculation'.format(name)
+                '{} not present in this calculation'.format(name)
             )
 
         result = self.results[name]
@@ -729,7 +726,8 @@ class Calculator(BaseCalculator):
     def set_label(self, label):
         """Set label and convert label to directory and prefix.
 
-        Examples:
+        Examples
+        --------
 
         * label='abc': (directory='.', prefix='abc')
         * label='dir1/abc': (directory='dir1', prefix='abc')
@@ -974,6 +972,7 @@ class FileIORules:
 
     Currently names can contain "{prefix}" which will be substituted by
     calc.prefix.  This will go away if/when we can remove prefix."""
+
     extend_argv: Sequence[str] = tuple()
     stdin_name: str | None = None
     stdout_name: str | None = None
@@ -1017,8 +1016,10 @@ class StandardProfile:
             self._call(calc, subprocess.check_call)
         except subprocess.CalledProcessError as err:
             directory = Path(calc.directory).resolve()
-            msg = (f'Calculator {calc.name} failed with args {err.args} '
-                   f'in directory {directory}')
+            msg = (
+                f'Calculator {calc.name} failed with args {err.args} '
+                f'in directory {directory}'
+            )
             raise CalculationFailed(msg) from err
 
     def execute_nonblocking(self, calc):
@@ -1052,9 +1053,8 @@ class StandardProfile:
             argv = [*self._split_command, *fileio_rules.extend_argv]
             argv = [arg.format(prefix=calc.prefix) for arg in argv]
             return subprocess_function(
-                argv, cwd=directory,
-                stdout=stdout_fd,
-                stdin=stdin_fd)
+                argv, cwd=directory, stdout=stdout_fd, stdin=stdin_fd
+            )
 
 
 class FileIOCalculator(Calculator):
@@ -1094,8 +1094,9 @@ class FileIOCalculator(Calculator):
             Command used to start calculation.
         """
 
-        super().__init__(restart, ignore_bad_restart_file, label, atoms,
-                         **kwargs)
+        super().__init__(
+            restart, ignore_bad_restart_file, label, atoms, **kwargs
+        )
 
         if profile is None:
             profile = self._initialize_profile(command)
@@ -1131,7 +1132,8 @@ class FileIOCalculator(Calculator):
             command = section['command']
         except KeyError:
             raise BadConfiguration(
-                f'No command field in {section_name!r} section')
+                f'No command field in {section_name!r} section'
+            )
 
         return StandardProfile(command, configvars)
 
@@ -1151,7 +1153,8 @@ class FileIOCalculator(Calculator):
         if command is None:
             raise EnvironmentError(
                 f'No configuration of {self.name}.  '
-                f'Missing section [{self.name}] in configuration')
+                f'Missing section [{self.name}] in configuration'
+            )
 
         return OldShellProfile(command)
 

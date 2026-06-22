@@ -51,11 +51,11 @@ classifiers = [
 dependencies = [
     "playwright>=1.40",
     "httpx>=0.24",
+    "cryptography>=41.0",  # verify Ed25519 signature on SHA256SUMS before trusting it
 ]
 
 [project.optional-dependencies]
 geoip = ["geoip2>=4.0", "socksio>=1.0"]  # socksio: SOCKS5 transport for httpx
-patchright = ["patchright>=1.40"]
 serve = ["aiohttp>=3.9", "websockets>=12.0"]
 dev = ["pytest>=7.0", "pytest-asyncio>=0.23"]
 

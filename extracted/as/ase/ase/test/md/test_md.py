@@ -1,18 +1,16 @@
-# fmt: off
 import pytest
 
 from ase import Atoms, units
 from ase.build import bulk
 from ase.calculators.emt import EMT
 from ase.io import Trajectory
-from ase.md import VelocityVerlet
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
+from ase.md import VelocityVerlet, thermalize_momenta
 
 
-@pytest.fixture(name="atoms")
+@pytest.fixture(name='atoms')
 def fixture_atoms():
-    atoms = bulk("Au") * 2
-    MaxwellBoltzmannDistribution(atoms, temperature_K=100.0)
+    atoms = bulk('Au') * 2
+    thermalize_momenta(atoms, 100.0)
     atoms.calc = EMT()
     return atoms
 
@@ -32,7 +30,7 @@ def test_md(atoms, testdir):
         assert isinstance(traj[-1], Atoms)
 
 
-@pytest.mark.parametrize("md_class", [VelocityVerlet])
+@pytest.mark.parametrize('md_class', [VelocityVerlet])
 def test_run_twice(md_class, atoms):
     """Test if `steps` increments `max_steps` when `run` is called twice."""
     steps = 5

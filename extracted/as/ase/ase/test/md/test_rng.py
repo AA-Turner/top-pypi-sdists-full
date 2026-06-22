@@ -1,5 +1,5 @@
-# fmt: off
 """Tests for legacy and modern NumPy PRNGs."""
+
 import numpy as np
 import pytest
 

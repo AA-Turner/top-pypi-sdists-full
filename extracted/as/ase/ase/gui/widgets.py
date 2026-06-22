@@ -1,5 +1,3 @@
-# fmt: off
-
 import ase.data
 import ase.gui.ui as ui
 from ase import Atoms
@@ -8,11 +6,15 @@ from ase.gui.i18n import _
 
 class Element(list):
     def __init__(self, symbol='', callback=None):
-        list.__init__(self,
-                      [_('Element:'),
-                       ui.Entry(symbol, 3, self.enter),
-                       ui.Button(_('Help'), self.show_help),
-                       ui.Label('', 'red')])
+        list.__init__(
+            self,
+            [
+                _('Element:'),
+                ui.Entry(symbol, 3, self.enter),
+                ui.Button(_('Help'), self.show_help),
+                ui.Label('', 'red'),
+            ],
+        )
         self.callback = callback
 
     @property
@@ -92,7 +94,8 @@ def pywindow(title, callback):
     if code is None:
         ui.error(
             _('No Python code'),
-            _('You have not (yet) specified a consistent set of parameters.'))
+            _('You have not (yet) specified a consistent set of parameters.'),
+        )
     else:
         win = ui.Window(title)
         win.add(ui.Text(code))

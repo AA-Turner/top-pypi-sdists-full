@@ -1,4 +1,3 @@
-# fmt: off
 from pytest import approx, fixture
 
 from ase import Atoms
@@ -25,8 +24,9 @@ def test_bulk(Cbulk, testdir):
     delta = 0.02
 
     name = 'bp'
-    rm = StaticRamanCalculator(Cbulk, BondPolarizability, name=name,
-                               delta=delta)
+    rm = StaticRamanCalculator(
+        Cbulk, BondPolarizability, name=name, delta=delta
+    )
     rm.run()
 
     pz = PlaczekStatic(Cbulk, name=name)
@@ -36,10 +36,14 @@ def test_bulk(Cbulk, testdir):
     pz.summary()
 
     name = 'phbp'
-    rm = StaticRamanPhononsCalculator(Cbulk, BondPolarizability,
-                                      calc=EMT(),
-                                      name=name,
-                                      delta=delta, supercell=(1, 1, 1))
+    rm = StaticRamanPhononsCalculator(
+        Cbulk,
+        BondPolarizability,
+        calc=EMT(),
+        name=name,
+        delta=delta,
+        supercell=(1, 1, 1),
+    )
     rm.run()
 
     pz = PlaczekStaticPhonons(Cbulk, name=name)
@@ -57,9 +61,14 @@ def test_bulk_kpts(Cbulk, testdir):
     """Bulk FCC carbon (for EMT) for phonons"""
 
     name = 'phbp'
-    rm = StaticRamanPhononsCalculator(Cbulk, BondPolarizability,
-                                      calc=EMT(), name=name,
-                                      delta=0.05, supercell=(2, 1, 1))
+    rm = StaticRamanPhononsCalculator(
+        Cbulk,
+        BondPolarizability,
+        calc=EMT(),
+        name=name,
+        delta=0.05,
+        supercell=(2, 1, 1),
+    )
     rm.run()
 
     pz = PlaczekStaticPhonons(Cbulk, name=name, supercell=(2, 1, 1))
@@ -79,8 +88,9 @@ def test_c3(testdir):
     atoms.calc = EMT()
 
     name = 'bp'
-    rm = StaticRamanCalculator(atoms, BondPolarizability,
-                               name=name, exname=name, txt='-')
+    rm = StaticRamanCalculator(
+        atoms, BondPolarizability, name=name, exname=name, txt='-'
+    )
     rm.run()
 
     pz = PlaczekStatic(atoms, name=name)

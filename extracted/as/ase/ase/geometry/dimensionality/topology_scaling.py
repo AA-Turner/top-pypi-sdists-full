@@ -1,5 +1,3 @@
-# fmt: off
-
 """Implements the Topology-Scaling Algorithm (TSA)
 
 Method is described in:
@@ -14,7 +12,6 @@ A disjoint set is used here to allow insertion of bonds one at a time.
 This permits k-interval analysis.
 """
 
-
 import itertools
 
 import numpy as np
@@ -23,7 +20,6 @@ from ase.geometry.dimensionality.disjoint_set import DisjointSet
 
 
 class TSA:
-
     def __init__(self, num_atoms, n=2):
         """Initializes the TSA class.
 
@@ -32,7 +28,8 @@ class TSA:
         the dimensionality classification is dependent on the size of the
         initial cell.
 
-        Parameters:
+        Parameters
+        ----------
 
         num_atoms: int    The number of atoms in the unit cell.
         n: int            The number size of the (n, n, n) periodic supercell.
@@ -50,7 +47,8 @@ class TSA:
         """Inserts a bond into the component graph, both in the single cell and
         each of the n^3 subcells of the supercell.
 
-        Parameters:
+        Parameters
+        ----------
 
         i: int           The index of the first atom.
         n: int           The index of the second atom.
@@ -60,7 +58,7 @@ class TSA:
         nbr_offsets = self.num_atoms * np.dot(self.m, nbr_cells.T)
 
         self.gsingle.union(i, j)
-        for (a, b) in zip(self.offsets, nbr_offsets):
+        for a, b in zip(self.offsets, nbr_offsets):
             self.gsuper.union(a + i, b + j)
             self.gsuper.union(b + i, a + j)
 
@@ -73,7 +71,6 @@ class TSA:
 
         component_dim = {}
         for i in single_roots:
-
             num_clusters = len(np.unique(super_components[offsets + i]))
             dim = {n**3: 0, n**2: 1, n: 2, 1: 3}[num_clusters]
             component_dim[i] = dim
@@ -82,20 +79,22 @@ class TSA:
     def check(self):
         """Determines the dimensionality histogram.
 
-        Returns:
+        Returns
+        -------
         hist : tuple         Dimensionality histogram.
         """
         cdim = self._get_component_dimensionalities()
         hist = np.zeros(4).astype(int)
         bc = np.bincount(list(cdim.values()))
-        hist[:len(bc)] = bc
+        hist[: len(bc)] = bc
         return tuple(hist)
 
     def get_components(self):
         """Determines the dimensionality and constituent atoms of each
         component.
 
-        Returns:
+        Returns
+        -------
         components: array    The component ID every atom
         """
         relabelled_dim = {}

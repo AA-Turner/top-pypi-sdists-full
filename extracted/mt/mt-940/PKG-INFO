@@ -1,223 +1,270 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mt-940
-Version: 4.30.0
+Version: 5.0.0
 Summary: A library to parse MT940 files and returns smart Python collections for statistics and manipulation.
-Home-page: https://github.com/WoLpH/mt940
-Author: Rick van Hattem (wolph)
-Author-email: wolph@wol.ph
-License: BSD
 Keywords: MT940
+Author: Rick van Hattem
+Author-email: Rick van Hattem <wolph@wol.ph>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Dist: sphinx>=8.0 ; extra == 'docs'
+Requires-Dist: furo>=2024.8 ; extra == 'docs'
+Requires-Dist: pytest>=8.0 ; extra == 'tests'
+Requires-Dist: pytest-cov>=5.0 ; extra == 'tests'
+Requires-Dist: coverage>=7.0 ; extra == 'tests'
+Requires-Dist: pyyaml ; extra == 'tests'
+Requires-Dist: types-pyyaml ; extra == 'tests'
+Requires-Dist: tox>=4.0 ; extra == 'tox'
+Requires-Dist: tox-uv>=1.0 ; extra == 'tox'
+Requires-Dist: tox-gh-actions>=3.0 ; extra == 'tox'
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/WoLpH/mt940
 Provides-Extra: docs
 Provides-Extra: tests
-License-File: LICENSE
-License-File: AUTHORS.rst
+Provides-Extra: tox
+Description-Content-Type: text/markdown
 
-=====
-MT940
-=====
+# MT940
 
-.. image:: https://github.com/wolph/mt940/actions/workflows/main.yml/badge.svg?branch=master
-    :alt: MT940 test status
-    :target: https://github.com/wolph/mt940/actions/workflows/main.yml
+[![CI](https://github.com/WoLpH/mt940/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/WoLpH/mt940/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/mt-940)](https://pypi.org/project/mt-940/)
+[![Python](https://img.shields.io/pypi/pyversions/mt-940)](https://pypi.org/project/mt-940/)
+[![Downloads](https://img.shields.io/pypi/dm/mt-940)](https://pypi.org/project/mt-940/)
+[![Documentation](https://readthedocs.org/projects/mt940/badge/?version=latest)](https://mt940.readthedocs.io/)
+[![Coverage](https://coveralls.io/repos/github/WoLpH/mt940/badge.svg?branch=develop)](https://coveralls.io/github/WoLpH/mt940?branch=develop)
+[![License](https://img.shields.io/pypi/l/mt-940)](https://github.com/WoLpH/mt940/blob/develop/LICENSE)
 
-.. image:: https://badge.fury.io/py/mt-940.svg
-    :alt: MT940 Pypi version
-    :target: https://pypi.python.org/pypi/mt-940
+`mt940` parses **MT940 bank statement files** into smart, fully typed Python
+collections you can iterate, aggregate and serialize. It has no runtime
+dependencies, ships type information (`py.typed`), and copes with the quirks of
+many real-world banks.
 
-.. image:: https://coveralls.io/repos/WoLpH/mt940/badge.svg?branch=master
-    :alt: MT940 code coverage
-    :target: https://coveralls.io/r/WoLpH/mt940?branch=master
+```python
+import mt940
 
-.. image:: https://img.shields.io/pypi/pyversions/mt-940.svg
+transactions = mt940.parse('statement.sta')
+for transaction in transactions:
+    print(transaction.data['date'], transaction.data['amount'])
+```
 
-``mt940`` - A library to parse MT940 files and returns smart Python collections
-for statistics and manipulation.
+## Why mt940
 
-Links
------
+- **Zero runtime dependencies** — pure standard library.
+- **Fully typed** — ships `py.typed`; checked under pyright, mypy and pyrefly.
+- **Battle-tested** — 100% test coverage against fixtures from many banks.
+- **Smart models** — amounts, balances and dates come back as rich Python
+  objects, not raw strings.
+- **JSON-ready** — a single encoder serializes a whole statement.
+- **Extensible** — opt-in tags and pre/post processors for bank-specific
+  formats.
+- **Modern Python** — supports 3.10 through 3.13.
 
-* Documentation
-    - http://mt940.readthedocs.org/en/latest/
-* Source
-    - https://github.com/WoLpH/mt940
-* Bug reports 
-    - https://github.com/WoLpH/mt940/issues
-* Package homepage
-    - https://pypi.python.org/pypi/mt-940
-* My blog
-    - http://wol.ph/
+## Installation
 
-Install
--------
+```bash
+pip install mt-940
+```
 
-To install the latest release:
+Using [uv](https://docs.astral.sh/uv/):
 
-.. code-block:: bash
+```bash
+uv add mt-940
+```
 
-    pip install mt-940
+Requires Python 3.10 or newer.
 
-Or if `pip` is not available:
-    
-.. code-block:: bash
+## Quick start
 
-    easy_install mt-940
-   
-To install the latest development release:
+`parse()` accepts a filename, an open file handle, or the raw `str`/`bytes`
+contents, and returns a `Transactions` collection:
 
-.. code-block:: bash
+```python
+import mt940
+import pprint
 
-    git clone --branch develop https://github.com/WoLpH/mt940.git mt940
-    cd ./mt940
-    virtualenv .env
-    source .env/bin/activate
-    pip install -e .
+transactions = mt940.parse('mt940_tests/jejik/abnamro.sta')
 
-To run the tests you can use the `py.test` command or just run `tox` to test
-everything in all supported python versions.
+# Statement-level data (balances, account, ...) lives on the collection:
+pprint.pprint(transactions.data)
 
-Usage
------
+# Iterate the individual transactions:
+for transaction in transactions:
+    print(transaction.data['date'], transaction.data['amount'])
+    pprint.pprint(transaction.data)
+```
 
-Basic parsing:
+Each `Transaction` exposes a `data` dictionary with the parsed fields. Which
+fields are present depends on the source bank and the tags in the file.
 
-.. code-block:: python
+## Usage
 
-   import mt940
-   import pprint
+### Reading balances
 
-   transactions = mt940.parse('mt940_tests/jejik/abnamro.sta')
+Statement-level balances live on the `Transactions` object's `data`, not on the
+individual transactions — this works even for files with no transactions at all:
 
-   print('Transactions:')
-   print(transactions)
-   pprint.pprint(transactions.data)
+```python
+import mt940
 
-   print()
-   for transaction in transactions:
-       print('Transaction: ', transaction)
-       pprint.pprint(transaction.data)
+transactions = mt940.parse('statement.sta')
+print(transactions.data['final_opening_balance'])
+print(transactions.data['final_closing_balance'])
+print(transactions.data['available_balance'])
+```
 
+### Set opening / closing balance on each transaction
 
-Set opening / closing balance information on each transaction:
+```python
+import mt940
+import pprint
 
-.. code-block:: python
+mt940.tags.BalanceBase.scope = mt940.models.Transaction
 
-   import mt940
-   import pprint
+# The currency has to be set manually when moving the BalanceBase scope to
+# Transaction.
+transactions = mt940.models.Transactions(processors=dict(
+    pre_statement=[mt940.processors.add_currency_pre_processor('EUR')],
+))
 
-   mt940.tags.BalanceBase.scope = mt940.models.Transaction
+with open('mt940_tests/jejik/abnamro.sta') as fh:
+    transactions.parse(fh.read())
 
-   # The currency has to be set manually when setting the BalanceBase scope to Transaction.
-   transactions = mt940.models.Transactions(processors=dict(
-       pre_statement=[
-           mt940.processors.add_currency_pre_processor('EUR'),
-       ],
-   ))
+for transaction in transactions:
+    pprint.pprint(transaction.data)
+```
 
-   with open('mt940_tests/jejik/abnamro.sta') as f:
-       data = f.read()
+### Multiple statements in one file
 
-   transactions.parse(data)
+A single `parse()` merges everything into one `Transactions` and keeps only the
+**last** block's statement-level data (e.g. balances). For files that
+concatenate several statements (including balance-only blocks), use
+`parse_statements()`, which splits on `:20:` boundaries and returns one
+`Transactions` per statement, each with its own balances:
 
-   for transaction in transactions:
-       print('Transaction: ', transaction)
-       pprint.pprint(transaction.data)
+```python
+import mt940
 
-Simple json encoding:
+# src may be a filename, a file handle or the raw data, just like parse()
+for statement in mt940.parse_statements('statements.sta'):
+    print(statement.data['final_opening_balance'])
+    print(statement.data['final_closing_balance'])
+```
 
-.. code-block:: python
+### Serializing to JSON
 
-    import json
-    import mt940
+```python
+import json
+import mt940
 
+transactions = mt940.parse('statement.sta')
+print(json.dumps(transactions, indent=4, cls=mt940.JSONEncoder))
+```
 
-    transactions = mt940.parse('mt940_tests/jejik/abnamro.sta')
+### Transaction grouping (opt-in)
 
-    print(json.dumps(transactions, indent=4, cls=mt940.JSONEncoder))
+By default a new transaction is started only on the `:61:` statement tag. Some
+banks delimit transactions differently — for example by repeating the `:20:`
+transaction reference per block. Because changing the default grouping would
+break existing users, this behaviour is **opt-in**: pass `transaction_boundary`
+(an iterable of tag *slugs*) to start a new transaction on those tags too.
 
-Parsing statements from the Dutch bank ASN where tag 61 does not follow the Swift specifications:
+```python
+import mt940
 
-.. code-block:: python
+# Each `:20:` (transaction_reference_number) starts its own transaction:
+transactions = mt940.parse(
+    'statement.sta', transaction_boundary={'transaction_reference_number'}
+)
+```
 
-    def ASNB_mt940_data():
-        with open('mt940_tests/ASNB/0708271685_09022020_164516.940.txt') as fh:
-            return fh.read()
+The same option is accepted by
+`mt940.models.Transactions(transaction_boundary=...)`.
 
-    def test_ASNB_tags(ASNB_mt940_data):
-        tag_parser = mt940.tags.StatementASNB()
-        trs = mt940.models.Transactions(tags={
-            tag_parser.id: tag_parser
-        })
+### Banks with longer reference fields (opt-in)
 
-    trs.parse(ASNB_mt940_data)
-    trs_data = pprint.pformat(trs.data, sort_dicts=False)
-    print(trs_data)
+Some banks (e.g. GLS / Atruvia) put a customer reference longer than the SWIFT
+16-character cap on the `:61:` line, followed by the `//` bank reference.
+Relaxing the default would change how other banks (e.g. Rabobank) split
+same-line data, so this is handled by an **opt-in** `StatementGLS` tag:
 
-Contributing
-------------
+```python
+import mt940
 
-Help is greatly appreciated, just please remember to clone the **development**
-branch and to run `tox` before creating pull requests.
+gls = mt940.tags.StatementGLS()
+transactions = mt940.parse('statement.sta', tags={gls.id: gls})
+```
 
-Travis tests for `flake8` support and test coverage so it's always good to
-check those before creating a pull request.
+(Longer *supplementary details* — issue #117, e.g. Wise — are handled by the
+default parser and need no opt-in.)
 
-Development branch: https://github.com/WoLpH/mt940/tree/develop
+### Statements from the Dutch bank ASN (opt-in)
 
-To run the tests:
+Tag 61 in ASN statements does not follow the SWIFT specification, so the opt-in
+`StatementASNB` tag is used:
 
-.. code-block:: shell
+```python
+import mt940
+import pprint
 
-    pip install -r mt940_tests/requirements.txt
-    py.test
+tag = mt940.tags.StatementASNB()
+transactions = mt940.models.Transactions(tags={tag.id: tag})
 
-Or to run the tests on all available Python versions:
+with open('mt940_tests/ASNB/mt940.txt') as fh:
+    transactions.parse(fh.read())
 
-.. code-block:: shell
+pprint.pprint(transactions.data, sort_dicts=False)
+```
 
-    pip install tox
-    tox
+## Supported tags
 
-Info
-----
+| Tag | Meaning |
+| --- | --- |
+| `:13:` | Date/time the report was created |
+| `:20:` | Transaction reference number |
+| `:21:` | Related reference |
+| `:25:` | Account identification |
+| `:28C:` | Statement number / sequence number |
+| `:34F:` | Floor limit for debit and credit |
+| `:60F:` / `:60M:` | (Final / intermediate) opening balance |
+| `:61:` | Statement line (a transaction) |
+| `:62F:` / `:62M:` | (Final / intermediate) closing balance |
+| `:64:` | Available balance |
+| `:65:` | Forward available balance |
+| `:86:` | Transaction details |
+| `:90C:` / `:90D:` | Number and sum of credit / debit entries |
+| `:NS:` | Bank-specific non-SWIFT extensions |
 
-==============  ==========================================================
-Python support  Python 2.7, >= 3.3
-Blog            http://wol.ph/
-Source          https://github.com/WoLpH/mt940
-Documentation   http://mt940.rtfd.org
-Changelog       http://mt940.readthedocs.org/en/latest/history.html
-API             http://mt940.readthedocs.org/en/latest/modules.html
-Issues/roadmap  https://github.com/WoLpH/mt940/issues
-Travis          http://travis-ci.org/WoLpH/mt940
-Test coverage   https://coveralls.io/r/WoLpH/mt940
-Pypi            https://pypi.python.org/pypi/mt-940
-Ohloh           https://www.ohloh.net/p/mt-940
-License         `BSD`_.
-git repo        .. code-block:: bash
+## Contributing
 
-                    $ git clone https://github.com/WoLpH/mt940.git
-install dev     .. code-block:: bash
+Help is greatly appreciated. Please clone the **develop** branch and run `tox`
+before opening a pull request; CI checks linting (ruff), type-checking
+(pyright, mypy, pyrefly), the test suite (100% coverage required), and the
+documentation build.
 
-                    $ git clone https://github.com/WoLpH/mt940.git mt940
-                    $ cd ./mt940
-                    $ virtualenv .env
-                    $ source .env/bin/activate
-                    $ pip install -e .
-tests           .. code-block:: bash
+```bash
+git clone --branch develop https://github.com/WoLpH/mt940.git
+cd mt940
+uv sync
+uv run tox          # run the full matrix
+uv run tox -e py312 # or a single environment
+```
 
-                    $ py.test
-==============  ==========================================================
+## Links
 
-.. _BSD: http://opensource.org/licenses/BSD-3-Clause
-.. _Documentation: http://mt940.readthedocs.org/en/latest/
-.. _API: http://mt940.readthedocs.org/en/latest/modules.html
+- **Documentation**: https://mt940.readthedocs.io/
+- **Source**: https://github.com/WoLpH/mt940
+- **Bug reports**: https://github.com/WoLpH/mt940/issues
+- **Package**: https://pypi.org/project/mt-940/
+- **License**: [BSD-3-Clause](https://github.com/WoLpH/mt940/blob/develop/LICENSE)

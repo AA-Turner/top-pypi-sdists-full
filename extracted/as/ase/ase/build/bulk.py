@@ -1,6 +1,5 @@
-# fmt: off
-
 """Build crystalline systems"""
+
 from math import sqrt
 from typing import Any
 
@@ -87,25 +86,35 @@ def bulk(
                 # then. We used to just return the cubic one but that must
                 # have been wrong somehow.  --askhl
                 raise ValueError(
-                    f'The reference structure of {name} is not implemented')
+                    f'The reference structure of {name} is not implemented'
+                )
 
     # Mapping of name to number of atoms in primitive cell.
-    structures = {'sc': 1, 'fcc': 1, 'bcc': 1,
-                  'tetragonal': 1,
-                  'bct': 1,
-                  'hcp': 1,
-                  'rhombohedral': 1,
-                  'orthorhombic': 1,
-                  'mcl': 1,
-                  'diamond': 1,
-                  'zincblende': 2, 'rocksalt': 2, 'cesiumchloride': 2,
-                  'fluorite': 3, 'wurtzite': 2}
+    structures = {
+        'sc': 1,
+        'fcc': 1,
+        'bcc': 1,
+        'tetragonal': 1,
+        'bct': 1,
+        'hcp': 1,
+        'rhombohedral': 1,
+        'orthorhombic': 1,
+        'mcl': 1,
+        'diamond': 1,
+        'zincblende': 2,
+        'rocksalt': 2,
+        'cesiumchloride': 2,
+        'fluorite': 3,
+        'wurtzite': 2,
+    }
 
     if crystalstructure is None:
         crystalstructure = xref
         if crystalstructure not in structures:
-            raise ValueError(f'No suitable reference data for bulk {name}.'
-                             f'  Reference data: {ref}')
+            raise ValueError(
+                f'No suitable reference data for bulk {name}.'
+                f'  Reference data: {ref}'
+            )
 
     magmom_per_atom = None
     if crystalstructure == xref:
@@ -118,9 +127,11 @@ def bulk(
     natoms = len(string2symbols(name))
     natoms0 = structures[crystalstructure]
     if natoms != natoms0:
-        raise ValueError('Please specify {} for {} and not {}'
-                         .format(plural(natoms0, 'atom'),
-                                 crystalstructure, natoms))
+        raise ValueError(
+            'Please specify {} for {} and not {}'.format(
+                plural(natoms0, 'atom'), crystalstructure, natoms
+            )
+        )
 
     if alpha is None:
         alpha = ref.get('alpha')
@@ -154,13 +165,15 @@ def bulk(
 
     if crystalstructure == 'bct':
         from ase.lattice import BCT
+
         if basis is None:
             basis = ref.get('basis')
         if basis is not None:
             natoms = len(basis)
         lat = BCT(a=a, c=c)
-        atoms = Atoms([name] * natoms, cell=lat.tocell(), pbc=True,
-                      scaled_positions=basis)
+        atoms = Atoms(
+            [name] * natoms, cell=lat.tocell(), pbc=True, scaled_positions=basis
+        )
     elif crystalstructure == 'rhombohedral':
         atoms = _build_rhl(name, a, alpha, basis)
     elif crystalstructure == 'orthorhombic':
@@ -184,6 +197,7 @@ def bulk(
 
 def _build_rhl(name, a, alpha, basis):
     from ase.lattice import RHL
+
     lat = RHL(a, alpha)
     cell = lat.tocell()
     if basis is None:
@@ -215,16 +229,20 @@ def _orthorhombic_bulk(name, crystalstructure, a, covera=None, u=None):
         b = a / sqrt(2)
         cell = (b, b, a)
         scaled_positions = [
-            (0.0, 0.0, 0.0), (0.5, 0.0, 0.25),
-            (0.5, 0.5, 0.5), (0.0, 0.5, 0.75),
+            (0.0, 0.0, 0.0),
+            (0.5, 0.0, 0.25),
+            (0.5, 0.5, 0.5),
+            (0.0, 0.5, 0.75),
         ]
         atoms = Atoms(4 * name, cell=cell, scaled_positions=scaled_positions)
     elif crystalstructure == 'rocksalt':
         b = a / sqrt(2)
         cell = (b, b, a)
         scaled_positions = [
-            (0.0, 0.0, 0.0), (0.5, 0.5, 0.0),
-            (0.5, 0.5, 0.5), (0.0, 0.0, 0.5),
+            (0.0, 0.0, 0.0),
+            (0.5, 0.5, 0.0),
+            (0.5, 0.5, 0.5),
+            (0.0, 0.0, 0.5),
         ]
         atoms = Atoms(2 * name, cell=cell, scaled_positions=scaled_positions)
     elif crystalstructure == 'zincblende':
@@ -235,10 +253,14 @@ def _orthorhombic_bulk(name, crystalstructure, a, covera=None, u=None):
         cell = (a, a * sqrt(3), covera * a)
         u = u or 0.25 + 1 / 3 / covera**2
         scaled_positions = [
-            (0.0, 0 / 6, 0.0), (0.0, 2 / 6, 0.5 - u),
-            (0.0, 2 / 6, 0.5), (0.0, 0 / 6, 1.0 - u),
-            (0.5, 3 / 6, 0.0), (0.5, 5 / 6, 0.5 - u),
-            (0.5, 5 / 6, 0.5), (0.5, 3 / 6, 1.0 - u),
+            (0.0, 0 / 6, 0.0),
+            (0.0, 2 / 6, 0.5 - u),
+            (0.0, 2 / 6, 0.5),
+            (0.0, 0 / 6, 1.0 - u),
+            (0.5, 3 / 6, 0.0),
+            (0.5, 5 / 6, 0.5 - u),
+            (0.5, 5 / 6, 0.5),
+            (0.5, 3 / 6, 1.0 - u),
         ]
         atoms = Atoms(4 * name, cell=cell, scaled_positions=scaled_positions)
     else:
@@ -269,10 +291,14 @@ def _cubic_bulk(name: str, crystalstructure: str, a: float) -> Atoms:
         atoms = Atoms(2 * name, cell=cell, scaled_positions=scaled_positions)
     elif crystalstructure == 'diamond':
         scaled_positions = [
-            (0.0, 0.0, 0.0), (0.25, 0.25, 0.25),
-            (0.0, 0.5, 0.5), (0.25, 0.75, 0.75),
-            (0.5, 0.0, 0.5), (0.75, 0.25, 0.75),
-            (0.5, 0.5, 0.0), (0.75, 0.75, 0.25),
+            (0.0, 0.0, 0.0),
+            (0.25, 0.25, 0.25),
+            (0.0, 0.5, 0.5),
+            (0.25, 0.75, 0.75),
+            (0.5, 0.0, 0.5),
+            (0.75, 0.25, 0.75),
+            (0.5, 0.5, 0.0),
+            (0.75, 0.75, 0.25),
         ]
         atoms = Atoms(8 * name, cell=cell, scaled_positions=scaled_positions)
     elif crystalstructure == 'cesiumchloride':
@@ -285,18 +311,30 @@ def _cubic_bulk(name: str, crystalstructure: str, a: float) -> Atoms:
         atoms.symbols[[1, 3, 5, 7]] = symbol1
     elif crystalstructure == 'rocksalt':
         scaled_positions = [
-            (0.0, 0.0, 0.0), (0.5, 0.0, 0.0),
-            (0.0, 0.5, 0.5), (0.5, 0.5, 0.5),
-            (0.5, 0.0, 0.5), (0.0, 0.0, 0.5),
-            (0.5, 0.5, 0.0), (0.0, 0.5, 0.0),
+            (0.0, 0.0, 0.0),
+            (0.5, 0.0, 0.0),
+            (0.0, 0.5, 0.5),
+            (0.5, 0.5, 0.5),
+            (0.5, 0.0, 0.5),
+            (0.0, 0.0, 0.5),
+            (0.5, 0.5, 0.0),
+            (0.0, 0.5, 0.0),
         ]
         atoms = Atoms(4 * name, cell=cell, scaled_positions=scaled_positions)
     elif crystalstructure == 'fluorite':
         scaled_positions = [
-            (0.00, 0.00, 0.00), (0.25, 0.25, 0.25), (0.75, 0.75, 0.75),
-            (0.00, 0.50, 0.50), (0.25, 0.75, 0.75), (0.75, 0.25, 0.25),
-            (0.50, 0.00, 0.50), (0.75, 0.25, 0.75), (0.25, 0.75, 0.25),
-            (0.50, 0.50, 0.00), (0.75, 0.75, 0.25), (0.25, 0.25, 0.75),
+            (0.00, 0.00, 0.00),
+            (0.25, 0.25, 0.25),
+            (0.75, 0.75, 0.75),
+            (0.00, 0.50, 0.50),
+            (0.25, 0.75, 0.75),
+            (0.75, 0.25, 0.25),
+            (0.50, 0.00, 0.50),
+            (0.75, 0.25, 0.75),
+            (0.25, 0.75, 0.25),
+            (0.50, 0.50, 0.00),
+            (0.75, 0.75, 0.25),
+            (0.25, 0.25, 0.75),
         ]
         atoms = Atoms(4 * name, cell=cell, scaled_positions=scaled_positions)
     else:
@@ -327,34 +365,35 @@ def _primitive_bulk(name, crystalstructure, a, covera=None, u=None):
         ]
         atoms = Atoms(2 * name, cell=cell, scaled_positions=scaled_positions)
     elif crystalstructure == 'diamond':
-        atoms = \
-            _primitive_bulk(name, 'fcc', a) + \
-            _primitive_bulk(name, 'fcc', a)
+        atoms = _primitive_bulk(name, 'fcc', a) + _primitive_bulk(
+            name, 'fcc', a
+        )
         atoms.positions[1, :] += 0.25 * a
     elif crystalstructure == 'rocksalt':
         symbol0, symbol1 = string2symbols(name)
-        atoms = \
-            _primitive_bulk(symbol0, 'fcc', a) + \
-            _primitive_bulk(symbol1, 'fcc', a)
+        atoms = _primitive_bulk(symbol0, 'fcc', a) + _primitive_bulk(
+            symbol1, 'fcc', a
+        )
         atoms.positions[1, 0] += 0.5 * a
     elif crystalstructure == 'cesiumchloride':
         symbol0, symbol1 = string2symbols(name)
-        atoms = \
-            _primitive_bulk(symbol0, 'sc', a) + \
-            _primitive_bulk(symbol1, 'sc', a)
+        atoms = _primitive_bulk(symbol0, 'sc', a) + _primitive_bulk(
+            symbol1, 'sc', a
+        )
         atoms.positions[1, :] += 0.5 * a
     elif crystalstructure == 'zincblende':
         symbol0, symbol1 = string2symbols(name)
-        atoms = \
-            _primitive_bulk(symbol0, 'fcc', a) + \
-            _primitive_bulk(symbol1, 'fcc', a)
+        atoms = _primitive_bulk(symbol0, 'fcc', a) + _primitive_bulk(
+            symbol1, 'fcc', a
+        )
         atoms.positions[1, :] += 0.25 * a
     elif crystalstructure == 'fluorite':
         symbol0, symbol1, symbol2 = string2symbols(name)
-        atoms = \
-            _primitive_bulk(symbol0, 'fcc', a) + \
-            _primitive_bulk(symbol1, 'fcc', a) + \
-            _primitive_bulk(symbol2, 'fcc', a)
+        atoms = (
+            _primitive_bulk(symbol0, 'fcc', a)
+            + _primitive_bulk(symbol1, 'fcc', a)
+            + _primitive_bulk(symbol2, 'fcc', a)
+        )
         atoms.positions[1, :] += 0.25 * a
         atoms.positions[2, :] += 0.75 * a
     elif crystalstructure == 'wurtzite':
@@ -362,8 +401,10 @@ def _primitive_bulk(name, crystalstructure, a, covera=None, u=None):
         cell = ((a, 0, 0), (-0.5 * a, 0.5 * sqrt(3) * a, 0), (0, 0, c))
         u = u or 0.25 + 1 / 3 / covera**2
         scaled_positions = [
-            (0 / 3, 0 / 3, 0.0), (1 / 3, 2 / 3, 0.5 - u),
-            (1 / 3, 2 / 3, 0.5), (0 / 3, 0 / 3, 1.0 - u),
+            (0 / 3, 0 / 3, 0.0),
+            (1 / 3, 2 / 3, 0.5 - u),
+            (1 / 3, 2 / 3, 0.5),
+            (0 / 3, 0 / 3, 1.0 - u),
         ]
         atoms = Atoms(2 * name, cell=cell, scaled_positions=scaled_positions)
     else:

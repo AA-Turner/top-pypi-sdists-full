@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 
 from ase.build import bulk
@@ -7,7 +6,7 @@ from ase.constraints import FixScaled
 
 
 def test_fixscaled():
-    a = bulk("Ni", cubic=True)
+    a = bulk('Ni', cubic=True)
     a.calc = EMT()
 
     pos = a.get_positions()

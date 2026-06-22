@@ -1,4 +1,3 @@
-# fmt: off
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -12,29 +11,33 @@ from ase.spacegroup import (
 )
 from ase.spacegroup.spacegroup import SpacegroupNotFoundError
 
-TOL = 1E-10
+TOL = 1e-10
 
 functions = [get_bravais_class, get_point_group, polar_space_group]
 
 
-@pytest.mark.parametrize("sg,lattice,point_group,polar",
-                         [[100, ase.lattice.TET, '4mm', True],
-                          [225, ase.lattice.FCC, '4/m -3 2/m', False]])
+@pytest.mark.parametrize(
+    'sg,lattice,point_group,polar',
+    [
+        [100, ase.lattice.TET, '4mm', True],
+        [225, ase.lattice.FCC, '4/m -3 2/m', False],
+    ],
+)
 def test_valid_spacegroup(sg, lattice, point_group, polar):
     assert get_bravais_class(sg) == lattice
     assert get_point_group(sg) == point_group
     assert polar_space_group(sg) == polar
 
 
-@pytest.mark.parametrize("func", functions)
+@pytest.mark.parametrize('func', functions)
 def test_nonpositive_spacegroup(func):
-    with pytest.raises(ValueError, match="positive"):
+    with pytest.raises(ValueError, match='positive'):
         func(0)
 
 
-@pytest.mark.parametrize("func", functions)
+@pytest.mark.parametrize('func', functions)
 def test_bad_spacegroup(func):
-    with pytest.raises(ValueError, match="Bad"):
+    with pytest.raises(ValueError, match='Bad'):
         func(400)
 
 

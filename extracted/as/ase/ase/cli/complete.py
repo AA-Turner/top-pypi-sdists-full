@@ -72,7 +72,8 @@ commands = {
          '-o', '--output', '-g', '--graph', '-t', '--terminal',
          '--interpolate', '-b', '--bonds', '-s', '--scale'],
     'info':
-        ['--files', '-v', '--verbose', '--formats', '--calculators'],
+        ['--files', '-v', '--verbose', '--formats', '--calculators',
+         '--all-calculators', '--plugins'],
     'nebplot':
         ['--nimages', '--share-x', '--share-y'],
     'reciprocal':
