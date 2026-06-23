@@ -36,6 +36,15 @@ def get_latest_version() -> str | None:
     return None
 
 
+def changelog_has_version(version: str) -> bool:
+    # Only the newest (first) release heading counts: a release must match the
+    # block assembled at the top, not an older section or stray text in the body.
+    if not CHANGELOG_FILE.exists():
+        return False
+    match = re.search(r"^## \[([^\]]+)\]", CHANGELOG_FILE.read_text(), flags=re.MULTILINE)
+    return match is not None and match.group(1) == version
+
+
 def render_release(version: str, fragments: list[Fragment]) -> str:
     today = date.today().strftime("%Y-%m-%d")
     by_kind: defaultdict[str, list[str]] = defaultdict(list)

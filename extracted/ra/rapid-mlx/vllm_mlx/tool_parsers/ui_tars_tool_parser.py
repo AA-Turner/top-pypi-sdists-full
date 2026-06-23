@@ -906,18 +906,26 @@ def _trailing_action_prefix_len(text: str) -> int:
     tool-parser side of the hand-off so a leak that snuck past the
     reasoning parser's gate (e.g. via the postprocessor's fast-path
     short-circuit on ``<``/``[``-free deltas) is still suppressed.
+
+    Codex r4 BLOCKING — pre-fix, an early-return ``if _ACTION_TOKEN in
+    text: return 0`` disabled trailing-prefix holdback for the entire
+    buffer once any full ``Action:`` appeared anywhere earlier. Shapes
+    like ``["Action: is required.\\nAc", "tion: wait()"]`` or
+    ``["Action: wait() Ac", "tion: click(...)"]`` then leaked the
+    trailing ``"Ac"`` as content BEFORE the structured ``tool_calls``
+    flush. The fix evaluates only the TAIL overlap — a full ``Action:``
+    earlier in the buffer (whether completed or prose) must not
+    suppress holding a later trailing strict prefix.
     """
     if not text:
         return 0
-    # If the full token is already present anywhere in the buffer,
-    # the strict-prefix check is moot — the streaming consumer should
-    # handle the completed-action accounting and emit the residual.
-    if _ACTION_TOKEN in text:
-        return 0
     # Longest non-empty suffix of ``text`` that matches a strict prefix
     # of ``_ACTION_TOKEN``. We scan from longest-to-shortest so that a
-    # single delta containing ``"....Acti"`` returns 4, not 1.
-    max_overlap = len(_ACTION_TOKEN) - 1  # 6 bytes (we already excluded full token)
+    # single delta containing ``"....Acti"`` returns 4, not 1. The
+    # candidate cannot be the full token itself (handled by the
+    # completed-action / signature-gate paths upstream); we cap at
+    # ``len(_ACTION_TOKEN) - 1``.
+    max_overlap = len(_ACTION_TOKEN) - 1  # 6 bytes (strict prefix only)
     for k in range(min(max_overlap, len(text)), 0, -1):
         candidate = text[-k:]
         if not _ACTION_TOKEN.startswith(candidate):
@@ -1235,6 +1243,49 @@ def translate_to_responses_spec_keys(args: dict[str, Any]) -> dict[str, Any]:
 # behavior for shared single-point cases. Slated for removal after a
 # deprecation cycle.
 translate_to_spec_coordinate_keys = translate_to_anthropic_spec_keys
+
+
+# r7-A R7-H1: the OpenAI Computer-Use tool spec (published under the
+# Responses API but applicable to any OpenAI surface that exposes a
+# Computer-Use tool, including the chat-completions function-tool lane
+# UI-TARS adopters use today) is bytes-identical to the Responses
+# translator — single-point verbs emit ``coordinate``; drag folds into
+# a ``path=[{"x","y"}, …]`` array. Alias rather than duplicate so any
+# future spec change updates both surfaces atomically. The chat-lane
+# normalization site lives in ``routes/chat.py`` and gates on
+# ``function.name == "computer"`` so vanilla function tools whose
+# arguments happen to carry ``point`` are untouched (mirrors the
+# Anthropic adapter's gate at ``api/anthropic_adapter.py``).
+translate_to_openai_chat_spec_keys = translate_to_responses_spec_keys
+
+
+def normalize_ui_tars_chat_tool_call_arguments(
+    arguments_json: str, tool_name: str | None
+) -> str:
+    """Apply chat-lane Computer-Use key translation to an arguments string.
+
+    Centralizes the chat lane's UI-TARS coordinate normalization so the
+    non-stream response builder (``routes/chat.py`` synchronous path)
+    and the streaming SSE emitter (``routes/chat.py`` ``tool_call``
+    event branch) share one decision. Gated on ``tool_name ==
+    "computer"`` — non-Computer-Use function tools whose arguments
+    happen to carry a ``point`` key pass through unchanged.
+
+    Invariant: the returned string is always valid JSON when the input
+    was valid JSON. On any parse failure we surface the original bytes
+    rather than 500 — the downstream tool-call schema validator is the
+    correct site to reject malformed arguments, not the spec translator.
+    """
+    if tool_name != "computer":
+        return arguments_json
+    try:
+        parsed = json.loads(arguments_json)
+    except (ValueError, TypeError):
+        return arguments_json
+    if not isinstance(parsed, dict):
+        return arguments_json
+    translated = translate_to_openai_chat_spec_keys(parsed)
+    return json.dumps(translated, ensure_ascii=False)
 
 
 @ToolParserManager.register_module(["ui_tars", "ui-tars", "uitars"])

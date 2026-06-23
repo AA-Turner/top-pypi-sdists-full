@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rapids-dependency-file-generator
-Version: 1.20.3
+Version: 1.21.0
 Summary: Tool for generating RAPIDS environment files
 Author-email: RAPIDS Development Team <pypi@rapids.ai>
 License-Expression: Apache-2.0

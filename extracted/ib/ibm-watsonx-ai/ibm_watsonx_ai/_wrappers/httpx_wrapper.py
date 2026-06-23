@@ -14,19 +14,15 @@ import time
 from contextlib import asynccontextmanager, contextmanager
 from functools import wraps
 from random import random
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncIterator,
-    Callable,
-    Iterable,
-    Iterator,
-    TypeVar,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Iterator, TypeVar
 
 import httpx
 from httpx._utils import get_environment_proxies
 
+from ibm_watsonx_ai._wrappers.httpx import (
+    GlobalHttpxSettings,
+    retry_transport_factory,
+)
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 if TYPE_CHECKING:
@@ -54,15 +50,6 @@ RETRY_CONFIG: dict = {
     "status_forcelist": (401, 500, 502, 503, 504, 520, 521, 524),
 }
 
-additional_settings: dict = {}
-verify: bool | str | None = None
-
-TTransport = TypeVar(
-    "TTransport",
-    httpx.HTTPTransport,
-    httpx.AsyncHTTPTransport,
-)
-
 
 def set_verify_for_httpx(func: Callable) -> Callable:
     """
@@ -73,7 +60,7 @@ def set_verify_for_httpx(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(*args: Any, **kw: Any) -> Any:
         # Use the centralized function to get effective verify value
-        effective_verify = _get_effective_verify()
+        effective_verify = GlobalHttpxSettings.get_effective_verify()
 
         if "verify" not in kw:
             kw.update({"verify": effective_verify})
@@ -83,121 +70,14 @@ def set_verify_for_httpx(func: Callable) -> Callable:
     return wrapper
 
 
-def _get_effective_verify() -> bool | str:
-    """
-    Get the effective verify value from global verify and environment variable.
-    Priority order: environment variable > global verify > default (True)
-
-    Returns the verify value to use for SSL verification.
-    """
-    global verify
-
-    env_verify = os.environ.get("WX_CLIENT_VERIFY_REQUESTS")
-
-    if env_verify is not None:
-        if env_verify == "True" or env_verify == "":
-            # Empty string means True (default verification)
-            return True
-        elif env_verify == "False":
-            return False
-        else:
-            return env_verify
-
-    if verify is not None:
-        return verify
-
-    return True
-
-
-def _raise_verify_error(error: Exception) -> None:
-    """
-    Raise OSError with detailed message for SSL verification errors.
-
-    Args:
-        error: The original exception
-    """
-    raise OSError(
-        f"Connection cannot be verified with default trusted CAs. "
-        f"Please provide correct path to a CA_BUNDLE file or directory with "
-        f"certificates of trusted CAs. Error: {error}"
-    ) from error
-
-
-def set_additional_settings_for_requests(
-    func: Callable,
-) -> Callable:
-    @wraps(func)
-    def wrapper(*args: Any, **kw: Any) -> Any:
-        kwargs = {}
-        kwargs.update(additional_settings)
-        kwargs.update(kw)
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
-def _build_transport(
-    transport_cls: type[TTransport],
-    api_client: APIClient,
-    limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
-    proxy: str | None = None,
-) -> TTransport:
-    global verify
-
-    # Get credentials_verify from api_client
-    credentials_verify = getattr(api_client.credentials, "verify", None)
-
-    # Check if environment variable is set (even if empty)
-    env_verify = os.environ.get("WX_CLIENT_VERIFY_REQUESTS")
-
-    # Parse env_verify to proper type
-    if env_verify is not None:
-        if env_verify == "True" or env_verify == "":
-            env_verify_parsed = True
-        elif env_verify == "False":
-            env_verify_parsed = False
-        else:
-            env_verify_parsed = env_verify  # type: ignore[assignment]
-    else:
-        env_verify_parsed = None
-
-    # Calculate verify_initial with priority: credentials > env > global
-    verify_initial = (
-        credentials_verify
-        if credentials_verify is not None
-        else (env_verify_parsed if env_verify_parsed is not None else verify)
-    )
-
-    # Allow SSL fallback only if all verify sources (credentials, env var, global verify) are None
-    allow_ssl_fallback = (
-        credentials_verify is None and env_verify_parsed is None and verify is None
-    )
-
-    try:
-        return transport_cls(  # type: ignore[call-arg]
-            retries=RETRY_CONFIG["retries"],
-            backoff_factor=RETRY_CONFIG["backoff_factor"],
-            status_forcelist=RETRY_CONFIG["status_forcelist"],
-            verify_initial=verify_initial,
-            allow_ssl_fallback=allow_ssl_fallback,
-            limits=limits,
-            proxy=proxy,
-        )
-    except FileNotFoundError as e:
-        # When verify is a string path that doesn't exist
-        if isinstance(verify_initial, str):
-            _raise_verify_error(e)
-        raise
-
-
-@set_additional_settings_for_requests
+@GlobalHttpxSettings.inject_settings
 def _get_httpx_client_with_config(
     api_client: APIClient,
-    httpx_client_cls: type[HTTPXClient] | type[HTTPXAsyncClient],
-    httpx_transport_cls: type[TTransport],
+    httpx_client_cls: type[HClient],
+    is_async: bool,
     limits: httpx.Limits,
     timeout: httpx.Timeout,
-    proxies: dict | None = None,
+    proxies: dict[str, str | None] | None = None,
     **kwargs: Any,
 ) -> HTTPXClient | HTTPXAsyncClient:
     def correct_key(key: str) -> str:
@@ -210,14 +90,14 @@ def _get_httpx_client_with_config(
         # if no proxies were passed, check proxies setting from environment
         transport = None
         mounts = {
-            correct_key(key): _build_transport(
-                httpx_transport_cls, api_client, limits=limits, proxy=value
+            correct_key(key): retry_transport_factory(
+                is_async, api_client, limits=limits, proxy=value
             )
             for key, value in proxies.items()
         }
     else:
         # no proxies, no problem, usual transport is initialised
-        transport = _build_transport(httpx_transport_cls, api_client, limits)
+        transport = retry_transport_factory(is_async, api_client, limits)
         mounts = None
 
     # Get verify from transport if it's a RetryTransport
@@ -228,10 +108,7 @@ def _get_httpx_client_with_config(
     else:
         raise WMLClientError("No transport object passed")
 
-    if hasattr(t, "get_effective_verify_for_client"):
-        verify = t.get_effective_verify_for_client()
-    else:
-        verify = None
+    verify = t.effective_verify
 
     return httpx_client_cls(
         transport=transport, mounts=mounts, timeout=timeout, verify=verify
@@ -244,7 +121,7 @@ def _get_httpx_client(
     timeout: httpx.Timeout = HTTPX_DEFAULT_TIMEOUT,
 ) -> HTTPXClient:
     return _get_httpx_client_with_config(
-        api_client, HTTPXClient, RetryTransport, limits, timeout
+        api_client, HTTPXClient, False, limits, timeout
     )
 
 
@@ -254,7 +131,7 @@ def _get_async_httpx_client(
     timeout: httpx.Timeout = HTTPX_DEFAULT_TIMEOUT,
 ) -> HTTPXAsyncClient:
     return _get_httpx_client_with_config(
-        api_client, HTTPXAsyncClient, AsyncRetryTransport, limits, timeout
+        api_client, HTTPXAsyncClient, True, limits, timeout
     )
 
 
@@ -420,6 +297,9 @@ class HTTPXAsyncClient(httpx.AsyncClient):
             asyncio.get_running_loop().create_task(self.aclose())
         except Exception:
             pass
+
+
+HClient = TypeVar("HClient", HTTPXClient, HTTPXAsyncClient)
 
 
 def backoff_timeout(wx_delay_time: float, attempt: int) -> float:
@@ -761,285 +641,3 @@ class TokenBucket:
         """Adjust token count based on RateLimit-Remaining."""
         async with self.async_lock:
             self.tokens = min(self.capacity, remaining_tokens)
-
-
-class NoneResponseError(ValueError):
-    """The value returned from HTTPTransport.handle_request is None"""
-
-
-class RetryTransport(httpx.HTTPTransport):
-    def __init__(
-        self,
-        retries: int,
-        backoff_factor: float,
-        status_forcelist: Iterable[int],
-        verify_initial: bool | str | None,
-        allow_ssl_fallback: bool,
-        **kwargs: Any,
-    ) -> None:
-        verify_for_transport = True if verify_initial is None else verify_initial
-        # Get proxies from additional_settings if available
-        self.proxies = additional_settings.get("proxies")
-        if self.proxies:
-            proxy_url = self.proxies.get("https") or self.proxies.get("http")
-            if proxy_url:
-                kwargs["proxy"] = httpx.Proxy(proxy_url)
-        super().__init__(verify=verify_for_transport, **kwargs)
-        self.retries = retries
-        self.backoff_factor = backoff_factor
-        self.status_forcelist = status_forcelist
-        self.allow_ssl_fallback = allow_ssl_fallback
-        self.original_verify = verify_initial
-        self._ssl_fallback_attempted = False
-        self._effective_verify: bool | str | None = None
-
-    def get_effective_verify_for_client(self) -> bool | str:
-        """Get the effective verify value for the HTTP client."""
-        if self._effective_verify is None:
-            effective = _get_effective_verify()
-            self._effective_verify = effective
-            return effective
-        return self._effective_verify
-
-    def handle_request(self, request: httpx.Request) -> httpx.Response:
-        response: httpx.Response | None = None
-        exceptions: list[Exception] = []
-
-        effective_verify = self.get_effective_verify_for_client()
-
-        for attempt in range(self.retries + 1):
-            if response is not None:
-                response.close()
-
-            try:
-                response = super().handle_request(request)
-
-                # super().handle_request may return None in cases when certificate
-                # verification fails. The reason for this behavior is unknown,
-                # but retrying with certificate validation turned off fixes this.
-                if response is None:
-                    raise NoneResponseError
-            except (
-                httpx.ConnectError,
-                httpx.RemoteProtocolError,
-                httpx.ReadTimeout,
-                httpx.ConnectTimeout,
-                NoneResponseError,
-            ) as e:
-                exceptions.append(e)
-
-                error_str = str(e)
-
-                is_ssl_error = isinstance(e, NoneResponseError) or any(
-                    ssl_keyword in error_str
-                    for ssl_keyword in [
-                        "CERTIFICATE_VERIFY_FAILED",
-                        "certificate verify failed",
-                        "SSL",
-                        "TLS",
-                        "self-signed certificate",
-                    ]
-                )
-
-                # Retry on server disconnect (stale keep-alive connection) - but not SSL errors
-                if isinstance(e, httpx.RemoteProtocolError) and not is_ssl_error:
-                    if attempt < self.retries:
-                        continue
-                    raise
-
-                if (
-                    is_ssl_error
-                    and not self._ssl_fallback_attempted
-                    and self.original_verify is None
-                    and self.allow_ssl_fallback
-                ):
-                    self._ssl_fallback_attempted = True
-
-                    # Update global verify to False for SSL fallback
-                    global verify
-                    verify = False
-
-                    self.close()
-                    RetryTransport.__init__(
-                        self,
-                        retries=self.retries,
-                        backoff_factor=self.backoff_factor,
-                        status_forcelist=self.status_forcelist,
-                        verify_initial=False,
-                        allow_ssl_fallback=self.allow_ssl_fallback,
-                    )
-                    response = super().handle_request(request)
-                elif is_ssl_error and (
-                    effective_verify is True or isinstance(effective_verify, str)
-                ):
-                    # When verify is explicitly set to True or a path to CA bundle
-                    _raise_verify_error(e)
-                else:
-                    # If proxies are configured, and we get a connection error,
-                    # raise httpx.ProxyError
-                    if self.proxies and isinstance(
-                        e, (httpx.ConnectError, httpx.ConnectTimeout)
-                    ):
-                        raise httpx.ProxyError(str(e)) from e
-                    raise
-
-            if (
-                response is not None
-                and response.status_code in self.status_forcelist
-                and attempt != self.retries
-            ):
-                sleep_time = min(self.backoff_factor * (2**attempt), self.retries)
-                time.sleep(sleep_time)
-            else:
-                break
-
-        if response is not None:
-            return response
-
-        if exceptions:
-            raise ExceptionGroup(
-                f"Request could not be completed successfully in {self.retries + 1} attempts",
-                exceptions,
-            )
-
-        # If any iteration has been performed, either `response` or `exceptions` must be truthy
-        raise ValueError(f"Number of retries ({self.retries}) cannot be negative")
-
-
-class AsyncRetryTransport(httpx.AsyncHTTPTransport):
-    def __init__(
-        self,
-        retries: int,
-        backoff_factor: float,
-        status_forcelist: Iterable[int],
-        verify_initial: bool | str | None,
-        allow_ssl_fallback: bool,
-        **kwargs: Any,
-    ) -> None:
-        verify_for_transport = True if verify_initial is None else verify_initial
-        # Get proxies from additional_settings if available
-        self.proxies = additional_settings.get("proxies")
-        if self.proxies:
-            proxy_url = self.proxies.get("https") or self.proxies.get("http")
-            if proxy_url:
-                kwargs["proxy"] = httpx.Proxy(proxy_url)
-        super().__init__(verify=verify_for_transport, **kwargs)
-        self.retries = retries
-        self.backoff_factor = backoff_factor
-        self.status_forcelist = status_forcelist
-        self.allow_ssl_fallback = allow_ssl_fallback
-        self.original_verify = verify_initial
-        self._ssl_fallback_attempted = False
-        self._effective_verify: bool | str | None = None  # Will be computed when needed
-
-    def get_effective_verify_for_client(self) -> bool | str:
-        """Get the effective verify value for the HTTP client."""
-        if self._effective_verify is None:
-            effective = _get_effective_verify()
-            self._effective_verify = effective
-            return effective
-        return self._effective_verify
-
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        response: httpx.Response | None = None
-        exceptions: list[Exception] = []
-
-        effective_verify = self.get_effective_verify_for_client()
-
-        for attempt in range(self.retries + 1):
-            if response is not None:
-                await response.aclose()
-
-            try:
-                response = await super().handle_async_request(request)
-
-                # super().handle_request may return None in cases when certificate
-                # verification fails. The reason for this behavior is unknown,
-                # but retrying with certificate validation turned off fixes this.
-                if response is None:
-                    raise NoneResponseError
-            except (
-                httpx.ConnectError,
-                httpx.RemoteProtocolError,
-                httpx.ReadTimeout,
-                httpx.ConnectTimeout,
-                NoneResponseError,
-            ) as e:
-                exceptions.append(e)
-
-                error_str = str(e)
-
-                is_ssl_error = isinstance(e, NoneResponseError) or any(
-                    ssl_keyword in error_str
-                    for ssl_keyword in [
-                        "CERTIFICATE_VERIFY_FAILED",
-                        "certificate verify failed",
-                        "SSL",
-                        "TLS",
-                        "self-signed certificate",
-                    ]
-                )
-
-                # Retry on server disconnect (stale keep-alive connection) - but not SSL errors
-                if isinstance(e, httpx.RemoteProtocolError) and not is_ssl_error:
-                    if attempt < self.retries:
-                        continue
-                    raise
-
-                if (
-                    is_ssl_error
-                    and not self._ssl_fallback_attempted
-                    and self.original_verify is None
-                    and self.allow_ssl_fallback
-                ):
-                    self._ssl_fallback_attempted = True
-
-                    # Update global verify to False for SSL fallback
-                    global verify
-                    verify = False
-
-                    await self.aclose()
-                    AsyncRetryTransport.__init__(
-                        self,
-                        retries=self.retries,
-                        backoff_factor=self.backoff_factor,
-                        status_forcelist=self.status_forcelist,
-                        verify_initial=False,
-                        allow_ssl_fallback=self.allow_ssl_fallback,
-                    )
-                    response = await super().handle_async_request(request)
-                elif is_ssl_error and (
-                    effective_verify is True or isinstance(effective_verify, str)
-                ):
-                    # When verify is explicitly set to True or a path to CA bundle
-                    _raise_verify_error(e)
-                else:
-                    # If proxies are configured, and we get a connection error,
-                    # raise httpx.ProxyError
-                    if self.proxies and isinstance(
-                        e, (httpx.ConnectError, httpx.ConnectTimeout)
-                    ):
-                        raise httpx.ProxyError(str(e)) from e
-                    raise
-
-            if (
-                response is not None
-                and response.status_code in self.status_forcelist
-                and attempt != self.retries
-            ):
-                sleep_time = min(self.backoff_factor * (2**attempt), self.retries)
-                await asyncio.sleep(sleep_time)
-            else:
-                break
-
-        if response is not None:
-            return response
-
-        if exceptions:
-            raise ExceptionGroup(
-                f"Request could not be completed successfully in {self.retries + 1} attempts",
-                exceptions,
-            )
-
-        # If any iteration has been performed, either `response` or `exceptions` must be truthy
-        raise ValueError(f"Number of retries ({self.retries}) cannot be negative")

@@ -12,7 +12,12 @@ from typing import Any  # noqa: TID251 — generated proto types are dynamically
 
 import grpc
 
-from aigie._grpc import _DEFAULT_DECISION_GRPC_PORT, split_host_port
+from aigie._grpc import (
+    _DEFAULT_DECISION_GRPC_PORT,
+    grpc_is_unreachable,
+    split_host_port,
+    unreachable_hint,
+)
 from aigie.decision._pb.kytte.decision.v1 import decision_pb2 as _decision_pb2
 from aigie.decision._pb.kytte.decision.v1 import decision_pb2_grpc as pb_grpc
 
@@ -49,6 +54,8 @@ class DecisionClient:
         self._metadata: tuple[tuple[str, str], ...] = (("x-api-key", api_key),) if api_key else ()
         self._channel: grpc.aio.Channel | None = None
         self._stub: pb_grpc.DecisionOrchestratorStub | None = None
+        # Warn at most once per outage; reset on the next successful call.
+        self._unreachable_logged = False
 
     @property
     def target(self) -> str:
@@ -75,10 +82,29 @@ class DecisionClient:
                 metadata=self._metadata,
                 timeout=self._timeout_s,
             )
+            self._unreachable_logged = False
         except Exception as e:
-            # Fire-and-forget contract: any failure (transport, timeout,
-            # orchestrator down) is logged at debug and dropped.
-            logger.debug("[AIGIE] EvaluateSpan dropped for span=%s: %s", span.span_id, e)
+            # Fire-and-forget contract: any failure is dropped, not raised. A
+            # connectivity failure surfaces once as a warning (so a silently
+            # disabled error-evaluation path is visible); everything else, and
+            # repeats of the same outage, stay at debug.
+            if grpc_is_unreachable(e) and not self._unreachable_logged:
+                self._log_unreachable(e)
+            else:
+                logger.debug("[AIGIE] EvaluateSpan dropped for span=%s: %s", span.span_id, e)
+
+    def _log_unreachable(self, error: BaseException) -> None:
+        """Warn once per outage when the Decision Orchestrator can't be reached."""
+        self._unreachable_logged = True
+        code = getattr(error, "code", None)
+        status = code().name if callable(code) else "UNAVAILABLE"
+        logger.warning(
+            "[AIGIE] Cannot reach the Decision Orchestrator at %s (%s) — error "
+            "evaluation is paused; tracing is unaffected. Hint: %s.",
+            self._target,
+            status,
+            unreachable_hint(use_tls=self._use_tls, plaintext_port=_DEFAULT_DECISION_GRPC_PORT),
+        )
 
     async def close(self) -> None:
         if self._channel is not None:

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 import pandas as pd
 
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+from ibm_watsonx_ai.metanames import GenChatParamsMetaNames, GenTextParamsMetaNames
 from ibm_watsonx_ai.utils.utils import _get_default_args, get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     UnexpectedKeyWordArgument,
@@ -191,8 +191,27 @@ def get_max_input_tokens(
     else:
         params_dict = model.params or {}
 
-    model_max_new_tokens = params_dict.get(GenTextParamsMetaNames.MAX_NEW_TOKENS, 20)
-    return model_max_sequence_length - model_max_new_tokens
+    # Default value for max completion tokens according to API docs
+    default_max_completion_tokens = 1024
+
+    # Parameter priority order for clarity
+    token_param_keys = [
+        GenChatParamsMetaNames.MAX_COMPLETION_TOKENS,
+        GenChatParamsMetaNames.MAX_TOKENS,
+        GenTextParamsMetaNames.MAX_NEW_TOKENS,
+    ]
+
+    # Retrieve value with fallback chain
+    model_max_completion_tokens = next(
+        (
+            params_dict.get(key)
+            for key in token_param_keys
+            if params_dict.get(key) is not None
+        ),
+        default_max_completion_tokens,
+    )
+
+    return model_max_sequence_length - model_max_completion_tokens
 
 
 class FunctionTransformer(ast.NodeTransformer):

@@ -21,8 +21,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .diagnostics import N002, N005, R001, R003, R004, format_diagnostic
-from .types import EventPayload, OfflineModeStats, OfflineStorageStats
+from aigie.diagnostics import N002, N005, R001, R003, R004, format_diagnostic
+from aigie.types import EventPayload, OfflineModeStats, OfflineStorageStats
 
 logger = logging.getLogger(__name__)
 

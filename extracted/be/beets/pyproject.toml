@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "beets"
-version = "2.11.0"
+version = "2.12.0"
 description = "music tagger and library organizer"
 authors = ["Adrian Sampson <adrian@radbox.org>"]
 maintainers = ["Serene-Arc"]
@@ -48,7 +48,7 @@ colorama = { version = "*", markers = "sys_platform == 'win32'" }
 confuse = ">=2.2.0"
 jellyfish = "*"
 lap = ">=0.5.12"
-mediafile = ">=0.16.2"
+mediafile = ">=0.17.0"
 numpy = [
     { python = "<3.13", version = ">=2.0.2" },
     { python = ">=3.13", version = ">=2.3.5" },
@@ -176,6 +176,7 @@ replaygain = [
 ] # python-gi and GStreamer 1.0+ or mp3gain/aacgain or Python Audio Tools or ffmpeg
 scrub = ["mutagen"]
 sonosupdate = ["soco"]
+tidal = ["requests-oauthlib"]
 titlecase = ["titlecase"]
 thumbnails = ["Pillow", "pyxdg"]
 web = ["flask", "flask-cors"]
@@ -304,9 +305,13 @@ extend-exclude = [
 target-version = "py310"
 line-length = 80
 
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
 [tool.ruff.lint]
 future-annotations = true
 select = [
+    "A", # flake8-builtins
     # "ARG", # flake8-unused-arguments
     # "C4", # flake8-comprehensions
     "E", # pycodestyle
@@ -316,7 +321,9 @@ select = [
     "I", # isort
     "ISC", # flake8-implicit-str-concat
     "N", # pep8-naming
+    "PIE", # flake8-pie
     "PT", # flake8-pytest-style
+    "RET", # flake8-return
     "RUF", # ruff
     "UP", # pyupgrade
     "TC", # flake8-type-checking

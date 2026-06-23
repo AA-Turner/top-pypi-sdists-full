@@ -9,7 +9,15 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from dazzle.core.environment import pin_production_env
 from dazzle.core.ir import AppSpec
+from dazzle.core.manifest import resolve_database_url
+from dazzle.core.renderer_registry import known_renderer_names
+from dazzle.http.runtime.server import DazzleBackendApp, ServerConfig
+from dazzle.http.runtime.tenant.cache import TenantCache
+from dazzle.log_setup import ensure_dazzle_logging_configured
+from dazzle.page.converters.workspace_converter import compute_persona_default_routes
+from dazzle.tenant.cache_registry import _register_cache, _register_slug_field
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -138,7 +146,6 @@ def _mount_tenant_resolution_middleware(
 
     from collections import defaultdict
 
-    from dazzle.http.runtime.tenant.cache import TenantCache
     from dazzle.http.runtime.tenant.middleware import (
         TenantHostBinding,
         TenantResolutionMiddleware,
@@ -270,7 +277,6 @@ def _mount_tenant_resolution_middleware(
         # invalidate it from project code on raw-SQL renames or admin tooling.
         # Also register each entity's slug field so Repository.update can
         # auto-bust on slug renames without any project-side wiring.
-        from dazzle.tenant.cache_registry import _register_cache, _register_slug_field
 
         _register_cache(binding.cache)
         for table_name, slug_col in slug_field_by_entity.items():
@@ -384,11 +390,8 @@ def create_app(
     # onboarding.startup:*, etc.) silently drop on bare uvicorn boots.
     # Idempotent + conservative — does nothing if root or dazzle.*
     # already has a handler attached. See `dazzle.log_setup`.
-    from dazzle.log_setup import ensure_dazzle_logging_configured
 
     ensure_dazzle_logging_configured()
-
-    from dazzle.http.runtime.server import DazzleBackendApp
 
     builder = DazzleBackendApp(
         appspec,
@@ -679,7 +682,6 @@ def build_server_config(
     Process adapter resolution is left to the caller (env-var-driven,
     deployment-specific).
     """
-    from dazzle.http.runtime.server import ServerConfig
 
     # Validate audit_integrity at the build boundary so a misconfigured
     # value (e.g. "hash-chain" hyphen typo) fails loud here rather than
@@ -813,6 +815,7 @@ def assemble_post_build_routes(
     sitespec_data: dict[str, Any] | None = None,
     theme_css: str = "",
     bundled_css: str = "",
+    dark_mode_toggle: bool = True,
 ) -> None:
     """Mount all post-build routes on a FastAPI app in the correct order.
 
@@ -877,6 +880,7 @@ def assemble_post_build_routes(
                 analytics_spec=appspec.analytics,
                 consent_default_jurisdiction=_site_jurisdiction,
                 consent_override=_site_override,
+                dark_mode_toggle=dark_mode_toggle,
             )
             app.include_router(site_page_router)
             logger.info("  Site pages: landing, /site.js, /styles/dazzle.css")
@@ -928,7 +932,12 @@ def assemble_post_build_routes(
             # #1422: thread the runtime service map + auto-includes so page
             # handlers read entity data in-process (no REST self-fetch). fk_graph
             # + admin_personas are derived from the appspec inside create_page_routes.
-            entity_services=builder.services,
+            # #1428: page handlers look services up by ENTITY name (`MarkingResult`),
+            # but `builder.services` is keyed by *service* name (`get_markingresult`,
+            # …) — an entity-name lookup against it silently misses for every entity,
+            # so every in-process detail read 404'd and every in-process list went
+            # silently empty. Feed the entity-name-keyed view (same #1181 footgun).
+            entity_services=builder.services_by_entity(),
             entity_auto_includes=builder.entity_auto_includes,
         )
         app.include_router(page_router, prefix="/app")
@@ -1112,7 +1121,7 @@ def create_app_factory(
         process_adapter_class: Custom ProcessAdapter class.
             Can also be set via DAZZLE_PROCESS_ADAPTER env var:
             - "eventbus" -> EventBusProcessAdapter (recommended with REDIS_URL)
-            - "celery" or "redis" -> CeleryProcessAdapter (legacy)
+            - "temporal" -> TemporalAdapter
 
     Environment Variables:
         DAZZLE_PROJECT_ROOT: Project root directory (default: current directory)
@@ -1122,7 +1131,7 @@ def create_app_factory(
         DAZZLE_ENV: Environment name (development/staging/production)
         DAZZLE_SECRET_KEY: Secret key for sessions/tokens
         DAZZLE_ENABLE_PROCESSES: Enable/disable process workflows (default: "true")
-        DAZZLE_PROCESS_ADAPTER: Process adapter type ("eventbus", "celery", "temporal")
+        DAZZLE_PROCESS_ADAPTER: Process adapter type ("eventbus", "temporal")
         DAZZLE_AUDIT_INTEGRITY: Audit-log tamper-evidence mode (#1206).
             "none" (default) | "hash_chain". Overrides `[audit] integrity`
             in `dazzle.toml`. See `docs/guides/security.md` T5.
@@ -1143,7 +1152,6 @@ def create_app_factory(
     Returns:
         FastAPI application configured for production
     """
-    from dazzle.http.runtime.server import DazzleBackendApp
 
     # Determine project root
     project_root = Path(os.environ.get("DAZZLE_PROJECT_ROOT", ".")).resolve()
@@ -1173,16 +1181,7 @@ def create_app_factory(
     logger.info("Loading Dazzle project from %s", project_root)
     manifest = load_manifest(manifest_path)
 
-    # #938 — wire `[ui] dark_mode_toggle` into the theme module before
-    # any template renders. Same hook as the CLI serve path.
-    # #958 cycle 5 — same wiring for `[ui] haptic`.
-    from dazzle.page.runtime.theme import configure_dark_mode_toggle, configure_haptic
-
-    configure_dark_mode_toggle(manifest.dark_mode_toggle)
-    configure_haptic(manifest.haptic)
-
     # Resolve DATABASE_URL: env → dazzle.toml [database] → default
-    from dazzle.core.manifest import resolve_database_url
 
     database_url = resolve_database_url(manifest)
     logger.info("Database URL resolved (%s chars)", len(database_url))
@@ -1195,7 +1194,6 @@ def create_app_factory(
     # Determine environment. This factory (uvicorn --factory) treats an unset
     # DAZZLE_ENV as production — pin it so the downstream fail-closed auth guard
     # (which reads DAZZLE_ENV directly) sees the same intent (#1420).
-    from dazzle.core.environment import pin_production_env
 
     pin_production_env()
     dazzle_env = os.environ.get("DAZZLE_ENV", "production")
@@ -1223,7 +1221,6 @@ def create_app_factory(
     # PLUS any project-declared extras (`[renderers] extra` in
     # dazzle.toml) — see `dazzle.core.renderer_registry.known_renderer_names`
     # (#1116).
-    from dazzle.core.renderer_registry import known_renderer_names
 
     try:
         dsl_files = discover_dsl_files(project_root, manifest)
@@ -1247,7 +1244,6 @@ def create_app_factory(
             logger.warning("Failed to load sitespec.yaml: %s", e)
 
     # Extract personas with default routes for auth redirect (#255)
-    from dazzle.page.converters.workspace_converter import compute_persona_default_routes
 
     persona_routes = compute_persona_default_routes(appspec.personas, appspec.workspaces)
     personas = [
@@ -1273,16 +1269,6 @@ def create_app_factory(
                 logger.info("Using EventBusProcessAdapter (DAZZLE_PROCESS_ADAPTER=eventbus)")
             except ImportError:
                 logger.warning("EventBusProcessAdapter requested but not available (install redis)")
-        elif adapter_env in ("celery", "redis"):
-            try:
-                from dazzle.core.process import CeleryProcessAdapter
-
-                resolved_adapter_class = CeleryProcessAdapter
-                logger.info("Using CeleryProcessAdapter (DAZZLE_PROCESS_ADAPTER=celery)")
-            except ImportError:
-                logger.warning(
-                    "CeleryProcessAdapter requested but not available (install celery+redis)"
-                )
         elif adapter_env == "temporal":
             try:
                 from dazzle.core.process import TemporalAdapter
@@ -1336,6 +1322,7 @@ def create_app_factory(
         project_root=project_root,
         sitespec_data=sitespec_data,
         theme_css=theme_css,
+        dark_mode_toggle=manifest.dark_mode_toggle,
     )
 
     _stash_tenant_state_marker(app, appspec)

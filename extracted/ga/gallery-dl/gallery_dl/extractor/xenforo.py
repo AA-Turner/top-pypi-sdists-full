@@ -10,7 +10,6 @@
 
 from .common import BaseExtractor, Message
 from .. import text, util
-import binascii
 
 
 class XenforoExtractor(BaseExtractor):
@@ -278,8 +277,7 @@ class XenforoExtractor(BaseExtractor):
         return content
 
     def _b64decode(self, value):
-        return binascii.a2b_base64(
-            value.replace("-", "+").replace("_", "/") + "==").decode()
+        return util.b64decode(value.replace("-", "+").replace("_", "/") + "==")
 
     def _extract_error(self, html):
         if msg := (text.extr(html, "blockMessage--error", "</") or

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder
-Version: 1.0.13
+Version: 1.0.14
 Summary: ESPHome Device Builder
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 Maintainer-email: Open Home Foundation <esphome@openhomefoundation.org>
@@ -20,7 +20,7 @@ Classifier: Topic :: Home Automation
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: esphome-device-builder-frontend==0.1.177
+Requires-Dist: esphome-device-builder-frontend==0.1.178
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: aiohttp-asyncmdnsresolver>=0.1.1
 Requires-Dist: colorlog>=6.8.0
@@ -42,13 +42,13 @@ Requires-Dist: jsonschema>=4.20.0; extra == "test"
 Requires-Dist: mypy==2.1.0; extra == "test"
 Requires-Dist: pre-commit==4.6.0; extra == "test"
 Requires-Dist: pre-commit-hooks==6.0.0; extra == "test"
-Requires-Dist: pytest==9.1.0; extra == "test"
+Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: pytest-aiohttp==1.1.1; extra == "test"
 Requires-Dist: pytest-codspeed==5.0.3; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
-Requires-Dist: ruff==0.15.17; extra == "test"
+Requires-Dist: ruff==0.15.18; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Dynamic: license-file
 
@@ -541,7 +541,9 @@ receiver is paired.
 - **[docs/API.md](docs/API.md)** — every WebSocket command, request/response
   shapes, event types.
 - **[esphome_device_builder/definitions/README.md](esphome_device_builder/definitions/README.md)** —
-  contributor guide for board manifests.
+  board (and component) contributor guide: manifest schema plus the
+  workflow for adding or updating a board (edit the manifest, then run
+  `python script/update_board.py` to regenerate and validate).
 
 ## Contributing
 

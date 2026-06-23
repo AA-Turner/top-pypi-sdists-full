@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_ingest
-Version: 1.6.16
+Version: 1.6.20
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -19,6 +19,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <3.14,>=3.11
 Requires-Dist: certifi>=2026.1.4
 Requires-Dist: click
+Requires-Dist: ijson>=3.2.0
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: pydantic>=2.7
 Requires-Dist: python-dateutil

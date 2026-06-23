@@ -1,4 +1,4 @@
-__version__ = "6.8.3"
+__version__ = "6.9.0"
 
 from bleak_retry_connector import Allocations
 
@@ -28,7 +28,7 @@ from .models import (
     HaScannerRegistrationEvent,
     HaScannerType,
 )
-from .scanner import BluetoothScanningMode, HaScanner, ScannerStartError
+from .scanner_bleak import BluetoothScanningMode, HaScanner, ScannerStartError
 from .scanner_device import BluetoothScannerDevice
 from .storage import (
     DiscoveredDeviceAdvertisementData,

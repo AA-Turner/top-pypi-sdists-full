@@ -16,9 +16,9 @@ from jsii._type_checking import check_type
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/asset-awscli-v1",
-    "2.2.284",
+    "2.2.285",
     __name__[0:-6],
-    "asset-awscli-v1@2.2.284.jsii.tgz",
+    "asset-awscli-v1@2.2.285.jsii.tgz",
 )
 
 __all__ = [

@@ -190,6 +190,7 @@ class ScheduleDefinitionOutput(_ScheduleDefinitionBase):
         description="Remaining workflow executions before this schedule stops triggering automatically. null means unlimited; 0 means the limit has been reached and the schedule is exhausted.",  # noqa: E501
     )
     workflow_name: str = Field(description="Name of the workflow this schedule triggers.")
+    deployment_name: str | None = Field(default=None, description="Name of the deployment this schedule targets.")
     paused: bool = Field(description="Whether the schedule is currently paused.")
     note: str | None = Field(
         default=None, description="Human-readable note associated with the current pause or resume state."

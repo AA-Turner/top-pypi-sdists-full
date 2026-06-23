@@ -12,15 +12,15 @@ authors = [
 ]
 description = "A package defining a Zarr I/O backend for HDMF"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "BSD"}
 classifiers = [
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: BSD License",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -34,7 +34,7 @@ dependencies = [
     "hdmf>=4.1.0",
     "zarr>=2.18.0, <3.0",  # pin below 3.0 until HDMF-zarr supports zarr 3.0
     "numpy>=1.24.0",
-    "numcodecs>=0.12.0, <0.16.0",  # numcodecs 0.16.0 is not compatible with zarr<3
+    "numcodecs>=0.12.0, <0.16.0",  # numcodecs 0.16.0 is not compatible with some versions of zarr 2.18.* and those versions do not include this restriction
     "pynwb>=2.8.3",
     "threadpoolctl>=3.1.0",
 ]
@@ -48,6 +48,10 @@ full = [
     "s3fs",
 ]
 
+# all runtime optional dependencies
+all = ["hdmf-zarr[full]"]
+
+[dependency-groups]
 # development dependencies
 test = [
     "black",
@@ -58,22 +62,19 @@ test = [
     "pytest-cov",
     "python-dateutil",  # used in some tests
     "ruff",
-    "scipy",  # used in some tests
+    "scipy>=1.7",  # used in some tests
     "tox",
 ]
 
 # documentation dependencies
 docs = [
-    "matplotlib",
-    "scipy",  # used in some docs
+    "matplotlib>=3.6",
+    "scipy>=1.7",  # used in some docs
     "sphinx>=4",  # improved support for docutils>=0.17
     "sphinx_rtd_theme>=1",  # <1 does not work with docutils>=0.17
-    "sphinx-gallery",
-    "sphinx-copybutton",
+    "sphinx-gallery>=0.16",
+    "sphinx-copybutton>=0.5",
 ]
-
-# all possible dependencies
-all = ["hdmf-zarr[full,test,docs]"]
 
 
 [project.urls]

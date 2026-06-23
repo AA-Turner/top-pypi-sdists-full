@@ -18,7 +18,7 @@ import datetime
 if TYPE_CHECKING:
     from ..models.forwarder_environments import ForwarderEnvironments
     from ..models.forwarder_filter_type_0 import ForwarderFilterType0
-    from ..models.http_configuration import HttpConfiguration
+    from ..models.forwarder_http_configuration import ForwarderHttpConfiguration
 
 
 T = TypeVar("T", bound="Forwarder")
@@ -36,16 +36,12 @@ class Forwarder:
         Attributes:
             name (str): Human-readable name for the forwarder. Must contain at least one non-whitespace character.
             forwarder_type (ForwarderType): Supported forwarder destination types (ADR-050).
-            configuration (HttpConfiguration): HTTP request configuration for delivering a payload to a destination.
+            configuration (ForwarderHttpConfiguration): HTTP request a forwarder makes to deliver an event.
 
-                The shared base shape for any product that posts to a customer-supplied
-                HTTP destination. Smpl Audit forwarders use it directly; Smpl Jobs
-                extends it (adding ``body`` and ``timeout``). When other transports land
-                (``FTP``, ``SQS``, …) their own configuration schemas will join this one
-                as members of a discriminated union under a ``configuration`` field.
+                Identical to the shared HTTP configuration except that ``headers`` is a
+                name→value object so an individual header can be overridden per environment
+                by its name.
             description (None | str | Unset): Free-text description for the forwarder.
-            enabled (bool | Unset): Always false. Enablement is per-environment: a forwarder delivers in an environment only
-                when `environments[<env>].enabled` is true. The base value is pinned false and cannot be set. Default: False.
             forward_smplkit_events (bool | Unset): When true, this forwarder also receives platform change events that
                 smplkit records about your own resources (flag, configuration, and similar changes). Each such event is
                 delivered through every environment this forwarder is enabled in, using that environment's resolved
@@ -60,9 +56,12 @@ class Forwarder:
                 ``transform_type``: for `JSONATA`, a string containing a JSONata expression. Omit to deliver the event JSON
                 unchanged.
             environments (ForwarderEnvironments | Unset): Per-environment overrides keyed by environment key (e.g.
-                `production`, `staging`). Each entry sets `enabled` (whether the forwarder delivers in that environment) and an
-                optional `configuration` override (omit to inherit the base `configuration`). A forwarder with no entry for an
-                environment is disabled there. Every referenced environment must exist and be managed for the account.
+                `production`, `staging`). Each entry is a sparse map of only the fields that differ in that environment:
+                `enabled` (whether the forwarder delivers there) plus any of `url`, `method`, `success_status`, `tls_verify`,
+                `ca_cert`, and individual headers as `headers.<name>` (e.g. `headers.Authorization`). Fields you omit are
+                inherited from the base `configuration`; an entry never needs to repeat the whole configuration. A forwarder
+                with no entry for an environment is disabled there. Every referenced environment must exist and be managed for
+                the account.
             created_at (datetime.datetime | None | Unset): When the forwarder was created.
             updated_at (datetime.datetime | None | Unset): When the forwarder was last modified.
             deleted_at (datetime.datetime | None | Unset): When the forwarder was deleted. `null` for active forwarders.
@@ -71,9 +70,8 @@ class Forwarder:
 
     name: str
     forwarder_type: ForwarderType
-    configuration: HttpConfiguration
+    configuration: ForwarderHttpConfiguration
     description: None | str | Unset = UNSET
-    enabled: bool | Unset = False
     forward_smplkit_events: bool | Unset = False
     filter_: ForwarderFilterType0 | None | Unset = UNSET
     transform_type: Literal["JSONATA"] | None | Unset = UNSET
@@ -99,8 +97,6 @@ class Forwarder:
             description = UNSET
         else:
             description = self.description
-
-        enabled = self.enabled
 
         forward_smplkit_events = self.forward_smplkit_events
 
@@ -169,8 +165,6 @@ class Forwarder:
         )
         if description is not UNSET:
             field_dict["description"] = description
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
         if forward_smplkit_events is not UNSET:
             field_dict["forward_smplkit_events"] = forward_smplkit_events
         if filter_ is not UNSET:
@@ -196,14 +190,14 @@ class Forwarder:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.forwarder_environments import ForwarderEnvironments
         from ..models.forwarder_filter_type_0 import ForwarderFilterType0
-        from ..models.http_configuration import HttpConfiguration
+        from ..models.forwarder_http_configuration import ForwarderHttpConfiguration
 
         d = dict(src_dict)
         name = d.pop("name")
 
         forwarder_type = check_forwarder_type(d.pop("forwarder_type"))
 
-        configuration = HttpConfiguration.from_dict(d.pop("configuration"))
+        configuration = ForwarderHttpConfiguration.from_dict(d.pop("configuration"))
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
@@ -213,8 +207,6 @@ class Forwarder:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
-        enabled = d.pop("enabled", UNSET)
 
         forward_smplkit_events = d.pop("forward_smplkit_events", UNSET)
 
@@ -329,7 +321,6 @@ class Forwarder:
             forwarder_type=forwarder_type,
             configuration=configuration,
             description=description,
-            enabled=enabled,
             forward_smplkit_events=forward_smplkit_events,
             filter_=filter_,
             transform_type=transform_type,

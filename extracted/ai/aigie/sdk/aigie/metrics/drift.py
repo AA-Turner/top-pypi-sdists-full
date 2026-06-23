@@ -11,8 +11,8 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from ..evaluation import EvaluationResult, ScoreType
-from .base import BaseMetric
+from aigie.evaluation import EvaluationResult, ScoreType
+from aigie.metrics.base import BaseMetric
 
 logger = logging.getLogger(__name__)
 

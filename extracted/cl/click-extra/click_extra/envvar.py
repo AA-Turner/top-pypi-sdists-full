@@ -30,9 +30,17 @@ from boltons.iterutils import flatten_iter
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
     from typing import Any
 
-    from ._types import TEnvVarID, TEnvVars, TNestedEnvVarIDs
+    TEnvVarID = str | None
+    """Type of environment variable names."""
+
+    TNestedEnvVarIDs = Iterable[TEnvVarID | Iterable["TNestedEnvVarIDs"]]
+    """Type for arbitrary nested environment variable names."""
+
+    TEnvVars = Mapping[str, str | None]
+    """Type for ``dict``-like environment variables."""
 
 
 def merge_envvar_ids(*envvar_ids: TEnvVarID | TNestedEnvVarIDs) -> tuple[str, ...]:
@@ -71,7 +79,7 @@ def clean_envvar_id(envvar_id: str) -> str:
 
     .. attention::
         We do not rely too much on this utility to try to reproduce the `current
-        behavior of Click, which is is not consistent regarding case-handling of
+        behavior of Click, which is not consistent regarding case-handling of
         environment variable <https://github.com/pallets/click/issues/2483>`_.
     """
     return "_".join(p for p in re.split(r"[^a-zA-Z0-9]+", envvar_id) if p).upper()
@@ -83,7 +91,7 @@ def param_auto_envvar_id(
 ) -> str | None:
     """Compute the auto-generated environment variable of an option or argument.
 
-    Returns the auto envvar as it is exactly computed within Click's internals, i.e.
+    Returns the auto envvar exactly as computed within Click's internals, by
     ``click.core.Parameter.resolve_envvar_value()`` and
     ``click.core.Option.resolve_envvar_value()``.
     """
@@ -113,11 +121,7 @@ def param_envvar_ids(
     user-defined envvars takes precedence. This respects the current implementation
     of ``click.core.Option.resolve_envvar_value()``.
 
-    .. caution::
-        `On Windows, environment variable names are case-insensitive
-        <https://docs.python.org/3/library/os.html#os.environ>`_, so we `normalize them
-        to uppercase as the standard library does
-        <https://github.com/python/cpython/blob/3.14/Lib/os.py#L770-L782>`_.
+    Names are normalized to uppercase on Windows by :func:`merge_envvar_ids`.
     """
     return merge_envvar_ids(param.envvar, param_auto_envvar_id(param, ctx))
 

@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: launchdarkly-eventsource
-Version: 1.5.1
+Version: 1.6.0
 Summary: LaunchDarkly SSE Client
-License: Apache-2.0
+Project-URL: Homepage, https://docs.launchdarkly.com/sdk/server-side/python
+Project-URL: Repository, https://github.com/launchdarkly/python-eventsource
+Project-URL: Documentation, https://launchdarkly-sse-client-library.readthedocs.io/en/latest/
+Author-email: LaunchDarkly <dev@launchdarkly.com>
+License-Expression: Apache-2.0
 License-File: LICENSE
-Author: LaunchDarkly
-Author-email: dev@launchdarkly.com
-Requires-Python: >=3.9
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -19,10 +20,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
-Requires-Dist: urllib3 (>=1.26.0,<3)
-Project-URL: Documentation, https://launchdarkly-sse-client-library.readthedocs.io/en/latest/
-Project-URL: Homepage, https://docs.launchdarkly.com/sdk/server-side/python
-Project-URL: Repository, https://github.com/launchdarkly/python-eventsource
+Requires-Python: >=3.9
+Requires-Dist: urllib3<3,>=1.26.0
+Provides-Extra: async
+Requires-Dist: aiohttp<4,>=3.8.0; extra == 'async'
 Description-Content-Type: text/markdown
 
 # LaunchDarkly SSE Client for Python
@@ -41,7 +42,18 @@ This package's primary purpose is to support the [LaunchDarkly SDK for Python](h
 * Setting read timeouts, custom headers, and other HTTP request properties.
 * Specifying that connections should be retried under circumstances where the standard EventSource behavior would not retry them, such as if the server returns an HTTP error status.
 
-This is a synchronous implementation which blocks the caller's thread when reading events or reconnecting. By default, it uses `urllib3` to make HTTP requests, but it can be configured to read any input stream.
+The default `SSEClient` is a synchronous implementation which blocks the caller's thread when reading events or reconnecting. By default, it uses `urllib3` to make HTTP requests, but it can be configured to read any input stream.
+
+An async implementation, `AsyncSSEClient`, is also available for use with `asyncio`-based applications. It uses `aiohttp` for HTTP and requires installing the optional `async` extra:
+
+```
+pip install launchdarkly-eventsource[async]
+```
+
+> [!CAUTION]
+> The async implementation (`AsyncSSEClient` and its associated `AsyncConnectStrategy` API) is experimental and should NOT be considered ready for production use. It may change or be removed without notice and is not subject to backwards compatibility guarantees.
+>
+> Pin to a specific minor version and review the changelog before upgrading.
 
 ## Supported Python versions
 
@@ -64,4 +76,3 @@ We encourage pull requests and other contributions from the community. Check out
     * [docs.launchdarkly.com](https://docs.launchdarkly.com/  "LaunchDarkly Documentation") for our documentation and SDK reference guides
     * [apidocs.launchdarkly.com](https://apidocs.launchdarkly.com/  "LaunchDarkly API Documentation") for our API documentation
     * [blog.launchdarkly.com](https://blog.launchdarkly.com/  "LaunchDarkly Blog Documentation") for the latest product updates
-

@@ -45,7 +45,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import uuid4
 
-from .context_manager import (
+from aigie.context_manager import (
     RunContext,
     get_current_span_context,
     get_current_trace_context,
@@ -57,11 +57,11 @@ from .context_manager import (
     set_current_span_context,
     set_current_trace_context,
 )
-from .utils.safe import dont_throw, schedule_async
+from aigie.utils.safe import dont_throw, schedule_async
 
 if TYPE_CHECKING:
-    from .judges import JudgeType
-    from .metrics.base import BaseMetric
+    from aigie.judges import JudgeType
+    from aigie.metrics.base import BaseMetric
 
 logger = logging.getLogger(__name__)
 
@@ -492,7 +492,7 @@ async def _run_judges(
 ) -> None:
     """Run judges and store results."""
     try:
-        from .judges import JudgesClient
+        from aigie.judges import JudgesClient
 
         async with JudgesClient() as client:
             results = []
@@ -555,7 +555,7 @@ def _schedule_async_evaluations(
 async def _queue_events(run_ctx: RunContext, parent_ctx: RunContext | None) -> None:
     """Queue trace and span events."""
     try:
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         aigie = get_aigie()
         if not aigie or not aigie._buffer:

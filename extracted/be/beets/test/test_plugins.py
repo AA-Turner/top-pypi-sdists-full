@@ -27,26 +27,21 @@ from mediafile import MediaFile
 
 from beets import config, plugins, ui
 from beets.dbcore import types
-from beets.importer import (
-    Action,
-    ArchiveImportTask,
-    SentinelImportTask,
-    SingletonImportTask,
-)
+from beets.importer import Action, SingletonImportTask
 from beets.library import Item
-from beets.test import helper
 from beets.test.helper import (
+    RUNNING_IN_CI,
     AutotagStub,
     ImportHelper,
     IOMixin,
     PluginMixin,
-    PluginTestCase,
+    PluginTestHelper,
     TerminalImportMixin,
 )
 from beets.util import PromptChoice, displayable_path, syspath
 
 
-class TestPluginRegistration(IOMixin, PluginTestCase):
+class TestPluginRegistration(IOMixin, PluginTestHelper):
     class RatingPlugin(plugins.BeetsPlugin):
         item_types: ClassVar[dict[str, types.Type]] = {
             "rating": types.Float(),
@@ -62,9 +57,8 @@ class TestPluginRegistration(IOMixin, PluginTestCase):
             if tags["artist"] == "XXX":
                 tags["artist"] = "YYY"
 
-    def setUp(self):
-        super().setUp()
-
+    @pytest.fixture(autouse=True)
+    def _setup(self):
         self.register_plugin(self.RatingPlugin)
 
     def test_field_type_registered(self):
@@ -99,31 +93,35 @@ class TestPluginRegistration(IOMixin, PluginTestCase):
         assert out == "one; two; three\n"
 
 
-class PluginImportTestCase(ImportHelper, PluginTestCase):
-    def setUp(self):
-        super().setUp()
+class PluginImportHelper(PluginMixin, ImportHelper):
+    def setup_beets(self):
+        super().setup_beets()
         self.prepare_album_for_import(2)
 
 
-class EventsTest(PluginImportTestCase):
-    def test_import_task_created(self):
+class TestEvents(PluginImportHelper):
+    def test_import_task_created(self, caplog):
         self.importer = self.setup_importer(pretend=True)
 
-        with helper.capture_log() as logs:
+        with caplog.at_level("DEBUG"):
             self.importer.run()
 
         # Exactly one event should have been imported (for the album).
         # Sentinels do not get emitted.
-        assert logs.count("Sending event: import_task_created") == 1
+        assert caplog.text.count("Sending event: import_task_created") == 1
 
-        logs = [line for line in logs if not line.startswith("Sending event:")]
+        logs = [
+            msg
+            for msg in caplog.messages
+            if not msg.startswith("Sending event:")
+        ]
         assert logs == [
             f"Album: {displayable_path(os.path.join(self.import_dir, b'album'))}",
             f"  {displayable_path(self.import_media[0].path)}",
             f"  {displayable_path(self.import_media[1].path)}",
         ]
 
-    def test_import_task_created_with_plugin(self):
+    def test_import_task_created_with_plugin(self, caplog):
         class ToSingletonPlugin(plugins.BeetsPlugin):
             def __init__(self):
                 super().__init__()
@@ -133,39 +131,34 @@ class EventsTest(PluginImportTestCase):
                 )
 
             def import_task_created_event(self, session, task):
-                if (
-                    isinstance(task, SingletonImportTask)
-                    or isinstance(task, SentinelImportTask)
-                    or isinstance(task, ArchiveImportTask)
-                ):
-                    return task
-
-                new_tasks = []
-                for item in task.items:
-                    new_tasks.append(SingletonImportTask(task.toppath, item))
-
-                return new_tasks
+                return [
+                    SingletonImportTask(task.toppath, i) for i in task.items
+                ]
 
         to_singleton_plugin = ToSingletonPlugin
         self.register_plugin(to_singleton_plugin)
 
         self.importer = self.setup_importer(pretend=True)
 
-        with helper.capture_log() as logs:
+        with caplog.at_level("DEBUG"):
             self.importer.run()
 
         # Exactly one event should have been imported (for the album).
         # Sentinels do not get emitted.
-        assert logs.count("Sending event: import_task_created") == 1
+        assert caplog.text.count("Sending event: import_task_created") == 1
 
-        logs = [line for line in logs if not line.startswith("Sending event:")]
+        logs = [
+            msg
+            for msg in caplog.messages
+            if not msg.startswith("Sending event:")
+        ]
         assert logs == [
             f"Singleton: {displayable_path(self.import_media[0].path)}",
             f"Singleton: {displayable_path(self.import_media[1].path)}",
         ]
 
 
-class ListenersTest(PluginTestCase):
+class TestListeners(PluginTestHelper):
     def test_register(self):
         class DummyPlugin(plugins.BeetsPlugin):
             def __init__(self):
@@ -267,21 +260,19 @@ class ListenersTest(PluginTestCase):
         plugins.send("event9", foo=5)
 
 
-class PromptChoicesTest(TerminalImportMixin, PluginImportTestCase):
-    def setUp(self):
-        super().setUp()
+class TestPromptChoices(TerminalImportMixin, PluginImportHelper):
+    @pytest.fixture(autouse=True)
+    def setup_prompt_choice(self, io):
         self.setup_importer()
         self.matcher = AutotagStub(AutotagStub.IDENT).install()
-        self.addCleanup(self.matcher.restore)
         # keep track of ui.input_option() calls
         self.input_options_patcher = patch(
             "beets.ui.input_options", side_effect=ui.input_options
         )
         self.mock_input_options = self.input_options_patcher.start()
-
-    def tearDown(self):
-        super().tearDown()
+        yield
         self.input_options_patcher.stop()
+        self.matcher.restore()
 
     def test_plugin_choices_in_ui_input_options_album(self):
         """Test the presence of plugin choices on the prompt (album)."""
@@ -520,7 +511,7 @@ class TestImportPlugin(PluginMixin):
         self.unload_plugins()
 
     @pytest.mark.skipif(
-        os.environ.get("GITHUB_ACTIONS") != "true",
+        not RUNNING_IN_CI,
         reason=(
             "Requires all dependencies to be installed, which we can't"
             " guarantee in the local environment."

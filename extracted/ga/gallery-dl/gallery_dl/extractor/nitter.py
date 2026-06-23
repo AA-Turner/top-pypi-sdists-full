@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2022-2025 Mike Fährmann
+# Copyright 2022-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -10,7 +10,6 @@
 
 from .common import BaseExtractor, Message
 from .. import text, util
-import binascii
 
 
 class NitterExtractor(BaseExtractor):
@@ -54,8 +53,8 @@ class NitterExtractor(BaseExtractor):
                         continue
 
                     if "/enc/" in url:
-                        name = binascii.a2b_base64(url.rpartition(
-                            "/")[2]).decode().rpartition("/")[2]
+                        name = util.b64decode(
+                            url.rpartition("/")[2]).rpartition("/")[2]
                     else:
                         name = url.rpartition("%2F")[2]
 
@@ -75,8 +74,8 @@ class NitterExtractor(BaseExtractor):
                                 attachments, 'data-url="', '"'):
 
                             if "/enc/" in url:
-                                name = binascii.a2b_base64(url.rpartition(
-                                    "/")[2]).decode().rpartition("/")[2]
+                                name = util.b64decode(
+                                    url.rpartition("/")[2]).rpartition("/")[2]
                             else:
                                 name = url.rpartition("%2F")[2]
 
@@ -160,8 +159,7 @@ class NitterExtractor(BaseExtractor):
 
         try:
             if "/enc/" in banner:
-                uid = binascii.a2b_base64(banner.rpartition(
-                    "/")[2]).decode().split("/")[4]
+                uid = util.b64decode(banner.rpartition("/")[2]).split("/")[4]
             else:
                 uid = banner.split("%2F")[4]
         except Exception:

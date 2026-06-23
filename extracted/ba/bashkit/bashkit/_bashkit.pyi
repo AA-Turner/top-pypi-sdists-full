@@ -130,7 +130,7 @@ BuiltinCallback = Callable[
 ]
 
 class FileSystem:
-    """Direct access to BashKit's virtual filesystem or a standalone mountable FS.
+    """Direct access to Bashkit's virtual filesystem or a standalone mountable FS.
 
     Two ways to create:
 
@@ -458,7 +458,7 @@ class Bash:
         ...     external_functions=["api_request"],
         ...     external_handler=handler,
         ... )
-        >>> result = await bash.execute("python3 -c 'print(api_request(url=\"/data\"))'")
+        >>> result = await bash.execute("python3 -c 'print(api_request())'")
     """
 
     def __init__(

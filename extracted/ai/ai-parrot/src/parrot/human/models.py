@@ -424,6 +424,49 @@ class HumanInteraction(BaseModel):
         ),
     )
 
+    # Originator (the end-user who triggered the request) — FEAT: HITL
+    # escalation notifications. These let the manager keep the *requesting
+    # user* informed while their case is escalated tier-to-tier, and optionally
+    # CC them on the final NOTIFY. They are intentionally separate from
+    # ``target_humans`` (the approver/manager) and from ``channel`` (the
+    # manager's interaction channel).
+    originator: Optional[str] = Field(
+        default=None,
+        description=(
+            "Identifier of the end-user who triggered this interaction "
+            "(e.g. their email or session id). Used for audit and as the CC "
+            "recipient when a NOTIFY tier sets ``cc_originator``."
+        ),
+    )
+    notify_channel: Optional[str] = Field(
+        default=None,
+        description=(
+            "How to reach the originator with status updates. May be the name "
+            "of a registered HumanChannel (e.g. 'web', 'telegram', 'teams') to "
+            "push an in-conversation notice, or an async-notify provider name "
+            "(e.g. 'email', 'ses', 'sms', 'telegram') for an out-of-band notice."
+        ),
+    )
+    notify_recipient: Optional[str] = Field(
+        default=None,
+        description=(
+            "Address/id of the originator on ``notify_channel`` — a web "
+            "session id, a Telegram chat id, an email address, a phone number, "
+            "etc. Defaults to ``originator`` when omitted."
+        ),
+    )
+    notify_provider_options: Optional[Dict[str, Any]] = Field(
+        default=None,
+        exclude=True,  # Never persisted — may contain credentials (tokens, passwords).
+        description=(
+            "Runtime-only connection kwargs forwarded to the async-notify provider "
+            "when ``notify_channel`` resolves to one (e.g. SMTP hostname/port, a "
+            "Telegram bot_token). Intentionally excluded from serialization so "
+            "credentials are never written to Redis. Populate from environment "
+            "variables or a secrets manager at call time."
+        ),
+    )
+
     # State (managed by the engine)
     status: InteractionStatus = InteractionStatus.PENDING
 

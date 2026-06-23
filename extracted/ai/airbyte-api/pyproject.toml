@@ -1,0 +1,63 @@
+[project]
+name = "airbyte-api"
+dynamic = ["version"]
+description = "Python Client SDK for Airbyte API"
+authors = [{ name = "Airbyte" }]
+readme = "README-PYPI.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpcore >=1.0.9",
+    "httpx >=0.28.1",
+    "pydantic >=2.11.2",
+]
+
+[project.urls]
+Repository = "https://github.com/airbytehq/airbyte-api-python-sdk"
+
+[dependency-groups]
+dev = [
+    "mypy==2.1.0",
+    "poethepoet >=0.32",
+    "pylint==4.0.6",
+    "pyright==1.1.410",
+    "ruff >=0.11",
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+[tool.uv-dynamic-versioning.from-file]
+source = "src/airbyte_api/_version.py"
+pattern = "__version__: str = \"(?P<version>[^\"]+)\""
+
+[tool.hatch.build.targets.sdist]
+include = ["src/airbyte_api", "py.typed", "README-PYPI.md"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/airbyte_api"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["src"]
+
+[tool.mypy]
+disable_error_code = "misc"
+explicit_package_bases = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = "typing_inspect"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jsonpath"
+ignore_missing_imports = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

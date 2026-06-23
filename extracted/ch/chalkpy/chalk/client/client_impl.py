@@ -6293,6 +6293,7 @@ https://docs.chalk.ai/cli/apply
         resources: Optional["ScalingGroupResourceRequest"] = None,
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
+        skip_upload_to_volumes: bool = False,
         environment: Optional[EnvironmentId] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
@@ -6313,6 +6314,9 @@ https://docs.chalk.ai/cli/apply
             Dotted path to handler function (default: "model.handler").
         env_vars
             Extra environment variables to inject into the container.
+        skip_upload_to_volumes
+            When True, skip uploading model artifacts to a chalkfs volume.
+            Defaults to False.
         environment
             Environment to deploy to.
         """
@@ -6331,6 +6335,7 @@ https://docs.chalk.ai/cli/apply
             gpu=_resources.gpu,
             handler=handler,
             env_vars=env_vars,
+            skip_upload_to_volumes=skip_upload_to_volumes,
         )
 
     def list_scaling_groups(self, environment: Optional[EnvironmentId] = None) -> ListScalingGroupsResponse:

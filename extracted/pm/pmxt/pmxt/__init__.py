@@ -20,7 +20,7 @@ from typing import Any, Dict, List
 
 from .client import Exchange
 from .constants import ENV, ENV_BASE_URL, ENV_API_KEY
-from ._exchanges import Polymarket, Limitless, Kalshi, KalshiDemo, Probable, Baozi, Myriad, Opinion, Metaculus, Smarkets, PolymarketUS, Polymarket_us, Hyperliquid, GeminiTitan, SuiBets, Suibets, Rain, Mock, Router
+from ._exchanges import Polymarket, Limitless, Kalshi, KalshiDemo, Probable, Baozi, Myriad, Opinion, Metaculus, Smarkets, PolymarketUS, Polymarket_us, Hyperliquid, GeminiTitan, SuiBets, Suibets, Rain, Hunch, Mock, Router
 from .router import Router
 from .feed_client import FeedClient
 from .server_manager import ServerManager
@@ -165,7 +165,7 @@ def restart_server() -> None:
     )
     _default_manager.restart()
 
-__version__ = "2.50.16"
+__version__ = "2.51.1"
 __all__ = [
     # Exchanges
     "Polymarket",
@@ -185,6 +185,7 @@ __all__ = [
     "SuiBets",
     "Suibets",
     "Rain",
+    "Hunch",
     "Mock",
     "Router",
     "Exchange",

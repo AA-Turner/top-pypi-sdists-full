@@ -132,6 +132,7 @@ __all__ = (
     "DeleteRetentionPolicyRequestTypeDef",
     "DeleteScheduledQueryRequestTypeDef",
     "DeleteSubscriptionFilterRequestTypeDef",
+    "DeleteSyslogConfigurationRequestTypeDef",
     "DeleteTransformerRequestTypeDef",
     "DeliveryDestinationConfigurationTypeDef",
     "DeliveryDestinationTypeDef",
@@ -273,6 +274,8 @@ __all__ = (
     "ListSourcesForS3TableIntegrationRequestPaginateTypeDef",
     "ListSourcesForS3TableIntegrationRequestTypeDef",
     "ListSourcesForS3TableIntegrationResponseTypeDef",
+    "ListSyslogConfigurationsRequestTypeDef",
+    "ListSyslogConfigurationsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListTagsLogGroupRequestTypeDef",
@@ -356,6 +359,7 @@ __all__ = (
     "PutResourcePolicyResponseTypeDef",
     "PutRetentionPolicyRequestTypeDef",
     "PutSubscriptionFilterRequestTypeDef",
+    "PutSyslogConfigurationRequestTypeDef",
     "PutTransformerRequestTypeDef",
     "QueryDefinitionTypeDef",
     "QueryInfoTypeDef",
@@ -398,6 +402,7 @@ __all__ = (
     "SubstituteStringTypeDef",
     "SubstituteStringUnionTypeDef",
     "SuppressionPeriodTypeDef",
+    "SyslogConfigurationTypeDef",
     "TagFilterTypeDef",
     "TagLogGroupRequestTypeDef",
     "TagResourceRequestTypeDef",
@@ -676,6 +681,10 @@ class DeleteScheduledQueryRequestTypeDef(TypedDict):
 class DeleteSubscriptionFilterRequestTypeDef(TypedDict):
     logGroupName: str
     filterName: str
+
+class DeleteSyslogConfigurationRequestTypeDef(TypedDict):
+    logGroupIdentifier: str
+    vpcEndpointId: NotRequired[str]
 
 class DeleteTransformerRequestTypeDef(TypedDict):
     logGroupIdentifier: str
@@ -1121,6 +1130,18 @@ class ListSourcesForS3TableIntegrationRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
+class ListSyslogConfigurationsRequestTypeDef(TypedDict):
+    logGroupIdentifier: NotRequired[str]
+    vpcEndpointId: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class SyslogConfigurationTypeDef(TypedDict):
+    logGroupArn: NotRequired[str]
+    sourceType: NotRequired[Literal["VPCE"]]
+    vpcEndpointId: NotRequired[str]
+    createdAt: NotRequired[int]
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -1323,6 +1344,10 @@ class PutSubscriptionFilterRequestTypeDef(TypedDict):
     applyOnTransformedLogs: NotRequired[bool]
     fieldSelectionCriteria: NotRequired[str]
     emitSystemFields: NotRequired[Sequence[str]]
+
+class PutSyslogConfigurationRequestTypeDef(TypedDict):
+    logGroupIdentifier: str
+    vpcEndpointId: NotRequired[str]
 
 class RenameKeyEntryTypeDef(TypedDict):
     key: str
@@ -1969,6 +1994,11 @@ class ListLogGroupsRequestTypeDef(TypedDict):
 
 class ListLogGroupsResponseTypeDef(TypedDict):
     logGroups: list[LogGroupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListSyslogConfigurationsResponseTypeDef(TypedDict):
+    syslogConfigurations: list[SyslogConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

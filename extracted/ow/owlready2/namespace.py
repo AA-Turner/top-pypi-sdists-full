@@ -217,13 +217,15 @@ WHERE q1.p=? AND q1.o=?
       if   o < 0: return self._parse_bnode(o)
       if   o in _universal_abbrev_2_datatype: return _universal_abbrev_2_datatype[o] 
       else: return self.world._get_by_storid(o, None, main_type, main_onto, None, default_to_none)
-    else: return from_literal(o, d)
+    else: return from_literal(o, d, self.world)
     raise ValueError
   
   def _to_rdf(self, o):
     if hasattr(o, "storid"): return o.storid, None
-    d = _universal_datatype_2_abbrev.get(o)
-    if not d is None: return d, None
+    try:
+      d = _universal_datatype_2_abbrev.get(o)
+      if not d is None: return d, None
+    except TypeError: pass # o cannot by hashed => not in the dict!
     return to_literal(o)
   
   def classes(self):
@@ -975,7 +977,7 @@ class Ontology(Namespace, _GraphManager):
       f = fileobj or _get_onto_file(self._orig_base_iri, self.name, "r", only_local)
     else:
       f = ""
-
+    
     if reload_if_newer and not(f.startswith("http:") or f.startswith("https:")):
       reload = os.path.getmtime(f) > self.graph.get_last_update_time()
       

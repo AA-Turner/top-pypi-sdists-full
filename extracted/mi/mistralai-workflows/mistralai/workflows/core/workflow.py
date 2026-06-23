@@ -1,4 +1,5 @@
 import inspect
+import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -87,6 +88,7 @@ class _HandlerMetadata:
     user_params_dict: dict[str, Type]
     original_func: Callable
     has_kwargs: bool = False
+    is_internal: bool = False
 
 
 class workflow:
@@ -109,7 +111,9 @@ class workflow:
         Args:
             name: The workflow name used for identification and execution. Required.
             workflow_description: Optional description of what the workflow does.
-            schedules: Optional list of schedule definitions for automated workflow execution.
+            schedules: DEPRECATED. Optional list of schedule definitions for automated workflow execution.
+                This parameter is deprecated and will be removed in the next major release. Use the API or
+                AI Studio to create and manage schedules instead (POST /v1/workflows/{id}/schedules).
 
         Returns:
             A decorator function that transforms the class into a Mistral workflow.
@@ -126,6 +130,14 @@ class workflow:
         """
 
         def decorator(cls_type: ClassType) -> ClassType:
+            if schedules is not None:
+                warnings.warn(
+                    "The 'schedules' parameter in @workflow.define is deprecated and will be removed "
+                    "in the next major release. Please use the API or AI Studio to create and manage "
+                    "schedules instead (POST /v1/workflows/{workflow_id}/schedules).",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
             actual_name = name
             if config.worker.workflow_name_prefix:
                 actual_name = f"{config.worker.workflow_name_prefix}{actual_name}"
@@ -416,6 +428,7 @@ class workflow:
                 user_params_dict=user_params_dict,
                 original_func=func,
                 has_kwargs=has_kwargs,
+                is_internal=_internal,
             )
 
             @wraps(func, assigned=_WRAPS_ASSIGNED)
@@ -491,6 +504,7 @@ class workflow:
                 user_params_dict=user_params_dict,
                 original_func=func,
                 has_kwargs=has_kwargs,
+                is_internal=_internal,
             )
 
             @wraps(func, assigned=_WRAPS_ASSIGNED)

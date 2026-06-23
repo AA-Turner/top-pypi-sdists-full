@@ -10,7 +10,7 @@ from .api import SHCAPI, JSONRPCError
 from .device import SHCDevice
 from .device_helper import SHCDeviceHelper
 from .domain_impl import SHCIntrusionSystem
-from .exceptions import SHCAuthenticationError, SHCSessionError
+from .exceptions import SHCSessionError
 from .information import SHCInformation
 from .room import SHCRoom
 from .scenario import SHCScenario
@@ -32,6 +32,7 @@ class SHCSession:
         zeroconf=None,
         long_poll_timeout: int = 10,
         verify_hostname: bool = False,
+        ssl_verify: bool = True,
     ):
         # API
         self._long_poll_timeout = long_poll_timeout
@@ -40,6 +41,7 @@ class SHCSession:
             certificate=certificate,
             key=key,
             verify_hostname=verify_hostname,
+            ssl_verify=ssl_verify,
         )
         self._device_helper = SHCDeviceHelper(self._api)
 
@@ -264,7 +266,7 @@ class SHCSession:
             if device_id in self._devices_by_id.keys():
                 self._update_device(raw_result)
                 if (
-                    "deleted" in raw_result and raw_result["deleted"] == True
+                    "deleted" in raw_result and raw_result["deleted"] is True
                 ):  # Device deleted
                     logger.debug("Deleting device with id %s", device_id)
                     self._services_by_device_id.pop(device_id, None)
@@ -321,7 +323,7 @@ class SHCSession:
                             "Stopping polling thread after expected runtime error."
                         )
                         logger.debug(f"Error description: {err}. {err.args}")
-                        logger.debug(f"Attempting unsubscribe...")
+                        logger.debug("Attempting unsubscribe...")
                         try:
                             self._maybe_unsubscribe()
                         except Exception as ex:
@@ -343,7 +345,7 @@ class SHCSession:
 
     def stop_polling(self):
         if self._polling_thread is not None:
-            logger.debug(f"Unsubscribing from long poll")
+            logger.debug("Unsubscribing from long poll")
             self._stop_polling_thread = True
             # The polling thread may be blocked inside a long-poll HTTP call
             # (timeout = long_poll_timeout + 5). Bound the join so an in-flight

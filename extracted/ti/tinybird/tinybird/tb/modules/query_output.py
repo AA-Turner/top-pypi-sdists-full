@@ -26,7 +26,9 @@ def print_table_formatted(res: dict, name: str):
         click.echo(FeedbackManager.success(message=stats_message))
         click.echo(FeedbackManager.gray(message=rows_message))
     except ValueError as exc:
-        if str(exc) == "max() arg is an empty sequence":
+        # Python 3.11 wording: "max() arg is an empty sequence"
+        # Python 3.12 wording: "max() iterable argument is empty"
+        if str(exc) in ("max() arg is an empty sequence", "max() iterable argument is empty"):
             click.echo("------------")
         else:
             raise

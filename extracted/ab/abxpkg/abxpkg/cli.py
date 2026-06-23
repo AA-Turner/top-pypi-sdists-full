@@ -462,9 +462,12 @@ def _dependency_options(dep: dict[str, Any], options: ScriptOptions) -> ScriptOp
         overrides=dep_overrides,
         handler_overrides=handler_overrides or None,
     )
+    # Dependency metadata is the closest statement of intent for that binary.
+    # Merge caller-wide overrides first so per-dependency install/version/path
+    # values always win and both CLI aliases and JSON overrides hit one cache key.
     values["overrides"] = merge_binary_overrides(
-        dep_binary_overrides,
         options.overrides,
+        dep_binary_overrides,
     )
     return ScriptOptions(**values)
 
@@ -615,17 +618,29 @@ def _run_script(argv: list[str]) -> int | None:
         print(f"abxpkg: {binary_name}: binary could not be loaded", file=sys.stderr)
         return 1
 
-    env = None
     exec_providers = _runtime_exec_providers(binary, runtime_providers)
-    if exec_providers:
-        env = build_exec_env(providers=exec_providers, base_env=os.environ.copy())
-    proc = binary.loaded_binprovider.exec(
-        bin_name=binary.loaded_abspath,
-        cmd=script_args,
-        capture_output=False,
-        env=env,
+    final_env = build_exec_env(
+        # The loaded provider owns the target executable. Merge it before
+        # sibling dependency providers so single-value runtime aliases like
+        # NODE_MODULES_DIR describe the target provider, while NODE_PATH/PATH
+        # still include the full dependency chain.
+        providers=[
+            binary.loaded_binprovider,
+            *binary.loaded_binprovider.exec_env_providers(),
+            *exec_providers,
+        ],
+        base_env=os.environ.copy(),
     )
-    return proc.returncode
+    exec_abspath = binary.loaded_binprovider._exec_bin_abspath(
+        Path(binary.loaded_abspath),
+    )
+    argv = [str(exec_abspath), *script_args]
+    try:
+        os.execvpe(str(exec_abspath), argv, final_env)
+    except OSError as err:
+        print(f"abxpkg: failed to exec {exec_abspath}: {err}", file=sys.stderr)
+        return 1
+    return 1
 
 
 def main() -> None:
@@ -647,10 +662,26 @@ def abx_main() -> None:
 def __getattr__(name: str) -> Any:
     if name.startswith("__"):
         raise AttributeError(name)
+    if name in {
+        "ALL_PROVIDER_NAMES",
+        "DEFAULT_PROVIDER_NAMES",
+        "PROVIDER_CLASS_BY_NAME",
+    }:
+        import abxpkg as package
+
+        value = getattr(package, name)
+        globals()[name] = value
+        return value
     from . import click_cli
 
+    for override_name in (
+        "build_binary",
+        "build_providers",
+        "run_binary_command",
+    ):
+        if override_name in globals():
+            setattr(click_cli, override_name, globals()[override_name])
     value = getattr(click_cli, name)
-    globals()[name] = value
     return value
 
 

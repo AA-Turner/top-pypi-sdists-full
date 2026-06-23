@@ -13,10 +13,10 @@ import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
-from ...context_manager import merge_metadata
-from ...tracing.retention import is_retention_suppressed
-from ...tracing.trace_state import deregister_open_span, register_open_span
-from .monitoring import (
+from aigie.context_manager import merge_metadata
+from aigie.tracing.retention import is_retention_suppressed
+from aigie.tracing.trace_state import deregister_open_span, register_open_span
+from aigie.integrations.claude_agent_sdk.monitoring import (
     DetectedError,
     DriftDetector,
     ErrorDetector,
@@ -36,7 +36,7 @@ def _utc_isoformat() -> str:
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from .session_context import ClaudeSessionContext
+    from aigie.integrations.claude_agent_sdk.session_context import ClaudeSessionContext
 
 
 def _shorten_model_name(model: str) -> str:
@@ -159,7 +159,7 @@ def _format_subagent_name(subagent_type: str) -> str:
 # Late import: ._events.* modules import helpers (_format_subagent_name,
 # _serialize_tool_result, ...) from this module, so the imports must run
 # after those helpers are defined to avoid a circular import.
-from ._events import (  # noqa: E402
+from aigie.integrations.claude_agent_sdk._events import (
     LLMSubagentEvents,
     QueryEvents,
     SessionTurnEvents,
@@ -283,7 +283,6 @@ class ClaudeAgentSDKEvents(
         # Trace finalization folds into the root span's close_span. No-op.
         return
 
-
     def __init__(
         self,
         trace_name: str | None = None,
@@ -315,7 +314,7 @@ class ClaudeAgentSDKEvents(
     ) -> None:
         """Trace-level identity fields. Honors ambient tracing_context() so
         harness-supplied metadata/tags propagate into TRACE_CREATE."""
-        from ...context_manager import merge_metadata, merge_tags
+        from aigie.context_manager import merge_metadata, merge_tags
 
         self.trace_name = trace_name
         self.metadata = merge_metadata(metadata)
@@ -465,7 +464,7 @@ class ClaudeAgentSDKEvents(
     def _get_aigie(self):
         """Lazy load Aigie client."""
         if self._aigie is None:
-            from ...client import get_aigie
+            from aigie.client import get_aigie
 
             self._aigie = get_aigie()
         return self._aigie
@@ -561,7 +560,7 @@ class ClaudeAgentSDKEvents(
             if self._remediation_engine:
                 await self._remediation_engine.report_result(result, self.trace_id)
         except Exception as exc:  # noqa: BLE001
-            logger.debug('remediation result reporting failed' + ': %s', exc)
+            logger.debug("remediation result reporting failed" + ": %s", exc)
 
     def __repr__(self) -> str:
         return (
@@ -578,4 +577,3 @@ class ClaudeAgentSDKEvents(
 ClaudeAgentSDKNativeCallback = ClaudeAgentSDKEvents
 
 __all__ = ["ClaudeAgentSDKEvents", "ClaudeAgentSDKNativeCallback"]
-

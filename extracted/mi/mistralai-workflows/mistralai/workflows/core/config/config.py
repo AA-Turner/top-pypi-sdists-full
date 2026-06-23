@@ -129,11 +129,16 @@ class CommonConfig(_ConflictDetectionMixin, BaseSettings):
     log_format: LogFormat = LogFormat.CONSOLE
     log_level: LogLevel = LogLevel.INFO
 
-    otel_enabled: bool = False
+    otel_enabled: bool = True
+    # Independent per-signal OTLP export toggles, gated under the otel_enabled master switch.
+    mistral_workflows_otel_traces_export: bool = True
+    mistral_workflows_otel_metrics_export: bool = True
+    mistral_workflows_otel_logs_export: bool = True
     # For backward compatibility; will be deprecated
     otel_endpoint: str | None = None
     otel_traces_endpoint: str | None = None
-    otel_metrics_endpoint: str = "http://localhost:4318"
+    otel_metrics_endpoint: str | None = None
+    otel_logs_endpoint: str | None = None
     otel_sample_rate: float = 1.0
     otel_export_interval_ms: int = 30000
     otel_tail_sampling: bool = False
@@ -369,6 +374,28 @@ class DeploymentLocationConfig(BaseSettings):
     )
 
 
+class GraphConfig(BaseSettings):
+    upload_graph: bool = Field(
+        default=False,
+        description="If True, workflow graphs are generated and uploaded to the API after registration.",
+    )
+    graph_summarise_enabled: bool = Field(
+        default=True,
+        description="If True, LLM summaries are generated for workflow graph nodes during upload.",
+    )
+    graph_summarise_model: str = Field(
+        default="mistral-small-latest",
+        description="LLM model used to recursively summarise each node in the workflow's AST.",
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=env_file,
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_parse_none_str="null",
+    )
+
+
 class WorkerConfig(BaseSettings):
     retry_policy_max_attempts: int = 3
     retry_policy_backoff_coefficient: float = 2.0
@@ -403,14 +430,13 @@ class WorkerConfig(BaseSettings):
     agent: AgentConfig = Field(default_factory=AgentConfig)
     versioning: WorkerVersioningConfig = Field(default_factory=WorkerVersioningConfig)
     deployment_location: DeploymentLocationConfig = Field(default_factory=DeploymentLocationConfig)
+    graph: GraphConfig = Field(default_factory=GraphConfig)
 
     workflow_name_prefix: str = Field(default="", description="If set, all workflows will be prefixed with this value.")
     default_enforce_determinism: bool = Field(
         default=True,
         description="If True, all workflows will be sandboxed by default to enforce deterministic execution.",
     )
-
-    upload_graph: bool = False
 
     deployment_name: DeploymentName = None
     worker_name: str = Field(default_factory=socket.gethostname)

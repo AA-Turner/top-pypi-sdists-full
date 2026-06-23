@@ -1,3 +1,4 @@
+import warnings
 from datetime import timedelta
 from typing import Any
 
@@ -221,3 +222,43 @@ class TestOnBehalfOfValidation:
 
         spec = get_workflow_definition(TestWorkflow)
         assert spec.on_behalf_of is False
+
+
+class TestSchedulesDeprecation:
+    """Tests for schedules parameter deprecation."""
+
+    def test_schedules_parameter_emits_deprecation_warning(self) -> None:
+        """Using schedules parameter should emit a DeprecationWarning."""
+        with pytest.warns(
+            DeprecationWarning,
+            match="schedules.*parameter.*deprecated.*will be removed in the next major release",
+        ):
+
+            @workflow.define(
+                name="test-schedules-deprecated",
+                schedules=[ScheduleDefinition(input={}, intervals=[ScheduleInterval(every=timedelta(hours=1))])],
+            )
+            class TestWorkflow:
+                @workflow.entrypoint
+                async def run(self) -> None:
+                    pass
+
+        spec = get_workflow_definition(TestWorkflow)
+        assert len(spec.schedules) == 1
+
+    def test_no_warning_without_schedules(self) -> None:
+        """Not using schedules parameter should not emit a warning."""
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.simplefilter("always")
+
+            @workflow.define(name="test-no-schedules")
+            class TestWorkflow:
+                @workflow.entrypoint
+                async def run(self) -> None:
+                    pass
+
+            spec = get_workflow_definition(TestWorkflow)
+            assert len(spec.schedules) == 0
+
+        # Verify no DeprecationWarning was raised
+        assert not any(issubclass(w.category, DeprecationWarning) for w in warning_list)

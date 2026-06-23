@@ -5,7 +5,7 @@ __description__ = (
     "Framework for running Tasks and from CLI and API for orchestation. "
     "Component-based Task builder/Runner for non-programmers."
 )
-__version__ = "5.12.1"
+__version__ = "5.12.3"
 __copyright__ = "Copyright (c) 2018-2025 Jesus Lara"
 __author__ = "Jesus Lara"
 __author_email__ = "jesuslarag@gmail.com"

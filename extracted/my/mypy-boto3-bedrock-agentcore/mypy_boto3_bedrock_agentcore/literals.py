@@ -41,6 +41,7 @@ __all__ = (
     "DescriptorTypeType",
     "EventFilterConditionType",
     "ExtractionJobStatusType",
+    "ExtractionModeType",
     "HarnessBedrockApiFormatType",
     "HarnessConversationRoleType",
     "HarnessOpenAiApiFormatType",
@@ -135,6 +136,7 @@ CurrencyType = Literal["USD"]
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
+ExtractionModeType = Literal["SKIP"]
 HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
 HarnessConversationRoleType = Literal["assistant", "user"]
 HarnessOpenAiApiFormatType = Literal["chat_completions", "responses"]
@@ -486,6 +488,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

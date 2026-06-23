@@ -6,18 +6,18 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-"""Extractors for https://motherless.com/"""
+"""Extractors for https://motherless.xxx/"""
 
 from .common import Extractor, Message
 from .. import text, dt
 
-BASE_PATTERN = r"(?:https?://)?motherless\.com"
+BASE_PATTERN = r"(?:https?://)?motherless\.(?:xxx|com)"
 
 
 class MotherlessExtractor(Extractor):
     """Base class for motherless extractors"""
     category = "motherless"
-    root = "https://motherless.com"
+    root = "https://motherless.xxx"
     filename_fmt = "{id} {title}.{extension}"
     archive_fmt = "{id}"
 
@@ -149,12 +149,12 @@ class MotherlessExtractor(Extractor):
 
 
 class MotherlessMediaExtractor(MotherlessExtractor):
-    """Extractor for a single image/video from motherless.com"""
+    """Extractor for a single image/video from motherless.xxx"""
     subcategory = "media"
     pattern = (BASE_PATTERN +
                r"/((?:g/[^/?#]+/|G[IV]?[A-Z0-9]+/)?"
                r"(?!G)[A-Z0-9]+)")
-    example = "https://motherless.com/ABC123"
+    example = "https://motherless.xxx/ABC123"
 
     def items(self):
         file = self._extract_media(self.groups[0])
@@ -164,13 +164,13 @@ class MotherlessMediaExtractor(MotherlessExtractor):
 
 
 class MotherlessGalleryExtractor(MotherlessExtractor):
-    """Extractor for a motherless.com gallery"""
+    """Extractor for a motherless.xxx gallery"""
     subcategory = "gallery"
     directory_fmt = ("{category}", "{uploader}",
                      "{gallery_id} {gallery_title}")
     archive_fmt = "{gallery_id}_{id}"
     pattern = BASE_PATTERN + "/G([IVG])?([A-Z0-9]+)/?$"
-    example = "https://motherless.com/GABC123"
+    example = "https://motherless.xxx/GABC123"
 
     def items(self):
         type, gid = self.groups
@@ -207,7 +207,7 @@ class MotherlessGroupExtractor(MotherlessExtractor):
                      "{group_id} {group_title}")
     archive_fmt = "{group_id}_{id}"
     pattern = BASE_PATTERN + "/g([iv]?)/?([a-z0-9_]+)/?$"
-    example = "https://motherless.com/g/abc123"
+    example = "https://motherless.xxx/g/abc123"
 
     def items(self):
         type, gid = self.groups

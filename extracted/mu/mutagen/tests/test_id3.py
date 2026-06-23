@@ -10,9 +10,8 @@ from mutagen.id3 import ID3, Frames, ID3UnsupportedVersionError, TIT2, \
     TDAT, TIME, LNK, IPLS, TPE1, BinaryFrame, TIT3, POPM, APIC, CRM, \
     TALB, TPE2, TSOT, TDEN, TIPL, ParseID3v1, Encoding, ID3Tags, RVAD, \
     ID3NoHeaderError, Frames_2_2
-from mutagen.id3._util import BitPaddedInt, error as ID3Error
-from mutagen.id3._tags import determine_bpi, ID3Header, \
-    save_frame, ID3SaveConfig
+from mutagen.id3._util import BitPaddedInt, error as ID3Error, ID3SaveConfig
+from mutagen.id3._tags import determine_bpi, ID3Header, save_frame
 from mutagen.id3._id3v1 import find_id3v1
 
 from tests import TestCase, DATA_DIR, get_temp_copy, get_temp_empty
@@ -31,6 +30,7 @@ class TID3Read(TestCase):
     silence = os.path.join(DATA_DIR, 'silence-44-s.mp3')
     silence_v1 = os.path.join(DATA_DIR, 'silence-44-s-v1.mp3')
     unsynch = os.path.join(DATA_DIR, 'id3v23_unsynch.id3')
+    extended_header = os.path.join(DATA_DIR, 'id3v24_extended_header.id3')
     v22 = os.path.join(DATA_DIR, "id3v22-test.mp3")
     bad_tyer = os.path.join(DATA_DIR, 'bad-TYER-frame.mp3')
     v1v2_combined = os.path.join(DATA_DIR, "id3v1v2-combined.mp3")
@@ -231,6 +231,10 @@ class TID3Read(TestCase):
     def test_load_v23_unsynch(self):
         id3 = ID3(self.unsynch)
         self.assertEquals(id3["TPE1"], ["Nina Simone"])
+
+    def test_v24_extended_header(self):
+        id3 = ID3(self.extended_header)
+        self.assertEquals(id3["TIT2"], ["One Second of Silence"])
 
     def test_bad_extended_header_flags(self):
         # Files with bad extended header flags failed to read tags.
@@ -622,7 +626,7 @@ class ID3v1Tags(TestCase):
     def test_v1_not_v11(self):
         self.id3["TRCK"] = TRCK(encoding=0, text="32")
         tag = MakeID3v1(self.id3)
-        self.failUnless(32, ParseID3v1(tag)["TRCK"])
+        self.assertEqual("32", ParseID3v1(tag)["TRCK"])
         del self.id3["TRCK"]
         tag = MakeID3v1(self.id3)
         tag = tag[:125] + b'  ' + tag[-1:]
@@ -638,7 +642,7 @@ class ID3v1Tags(TestCase):
         self.assertEquals(b'qrst'.decode('latin1'), tags['TALB'])
 
     def test_nonascii(self):
-        s = u'TAG%(title)30s%(artist)30s%(album)30s%(year)4s%(cmt)29s\x03\x01'
+        s = u'TAG%(title)30s%(artist)30s%(album)30s%(year)4s%(cmt)28s\x00\x03\x01'
         s = s % dict(artist=u'abcd\xe9fg', title=u'hijklmn\xf3p',
                      album=u'qrst\xfcv', cmt=u'wxyz', year=u'1234')
         tags = ParseID3v1(s.encode("latin-1"))
@@ -684,6 +688,96 @@ class ID3v1Tags(TestCase):
         tag["TCON"] = TCON(encoding=0, text="Pop")
         v1tag = MakeID3v1(tag)
         self.failUnlessEqual(ParseID3v1(v1tag)["TCON"].genres, ["Pop"])
+
+    def test_make_comm_from_hashkey(self):
+        frame = COMM(encoding=0, lang="eng",
+                     desc="ID3v1 Comment", text="hello")
+        tag = {frame.HashKey: frame}
+        self.failUnlessEqual(ParseID3v1(MakeID3v1(tag))["COMM"], "hello")
+
+    def test_v1_comment(self):
+        written = MakeID3v1({"COMM": COMM(encoding=0,
+                                          text="abcdefghijklmnopqrstuvwxyzABCDEFG")})
+        self.assertEqual(len(written), 128)
+        # without a track number, the comment gets truncated to 30 bytes/characters
+        self.assertEqual(written[97:127], b"abcdefghijklmnopqrstuvwxyzABCD")
+
+        parsed = ParseID3v1(written)
+        self.assertEqual(parsed["COMM"], "abcdefghijklmnopqrstuvwxyzABCD")
+        self.assertFalse("TRCK" in parsed)
+
+    def test_v1_comment_pad(self):
+        written = MakeID3v1({"COMM": COMM(encoding=0, text="abc")})
+        self.assertEqual(len(written), 128)
+        # shorter comments get padded with null-bytes to 30 bytes/characters
+        self.assertEqual(written[97:127], b"abc" + (b"\x00" * 27))
+
+        parsed = ParseID3v1(written)
+        self.assertEqual(parsed["COMM"], "abc")
+        self.assertFalse("TRCK" in parsed)
+
+    def test_v1_comment_trim(self):
+        written = MakeID3v1({"COMM": COMM(encoding=0,
+                                          text="  abcdefgh  \x00ABCDEFGH\x0012345678")})
+        self.assertEqual(len(written), 128)
+        # everything after the first null-byte is ignored, but whitespace preserved
+        self.assertEqual(written[97:127], b"  abcdefgh  " + (b"\x00" * 18))
+
+        # add back in the extra comment data after the first null byte
+        crafted = written[:110] + b"ABCDEFGH\x0012345678" + written[127:]
+        self.assertEqual(len(crafted), 128)
+
+        parsed = ParseID3v1(crafted)
+        # everything after the first null-byte is ignored,
+        # and any leading/trailing whitespace is stripped
+        self.assertEqual(parsed["COMM"], "abcdefgh")
+        self.assertFalse("TRCK" in parsed)
+
+    def test_v1_nocomment(self):
+        written = MakeID3v1({})
+        self.assertEqual(len(written), 128)
+        # if no comment (and no track number) is given, it will be all null bytes
+        self.assertEqual(written[97:127], b"\x00" * 30)
+
+        parsed = ParseID3v1(written)
+        self.assertFalse("COMM" in parsed)
+        self.assertFalse("TRCK" in parsed)
+
+    def test_v11_comment(self):
+        written = MakeID3v1({
+            "COMM": COMM(encoding=0, text="abcdefghijklmnopqrstuvwxyzABCDEFG"),
+            "TRCK": TRCK(encoding=0, text="5")
+        })
+        self.assertEqual(len(written), 128)
+        # with a track number, the comment gets truncated to 28 bytes/characters,
+        # followed by the null-byte separator and the track number
+        self.assertEqual(written[97:127], b"abcdefghijklmnopqrstuvwxyzAB\x00\x05")
+
+        parsed = ParseID3v1(written)
+        self.assertEqual(parsed["COMM"], "abcdefghijklmnopqrstuvwxyzAB")
+        self.assertEqual(parsed["TRCK"], "5")
+
+    def test_v11_nocomment(self):
+        written = MakeID3v1({"TRCK": TRCK(encoding=0, text="6")})
+        self.assertEqual(len(written), 128)
+        self.assertEqual(written[97:127], (b"\x00" * 28) + b"\x00\x06")
+
+        parsed = ParseID3v1(written)
+        self.assertFalse("COMM" in parsed)
+        self.assertEqual(parsed["TRCK"], "6")
+
+    def test_v11_invalid_track(self):
+        written = MakeID3v1({
+            "COMM": COMM(encoding=0, text="abcdefghijklmnopqrstuvwxyzABCDEFG"),
+            "TRCK": TRCK(encoding=0, text="#7")
+        })
+        self.assertEqual(len(written), 128)
+        # if the track number is non-numeric, it is silently ignored
+        self.assertEqual(written[97:127], b"abcdefghijklmnopqrstuvwxyzABCD")
+
+        parsed = ParseID3v1(written)
+        self.assertEqual(parsed["COMM"], "abcdefghijklmnopqrstuvwxyzABCD")
+        self.assertFalse("TRCK" in parsed)
 
 
 class TestWriteID3v1(TestCase):

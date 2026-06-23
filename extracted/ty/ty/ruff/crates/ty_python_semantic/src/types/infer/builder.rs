@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::rc::Rc;
 
 use itertools::Itertools;
@@ -246,9 +246,10 @@ pub(super) struct TypeInferenceBuilder<'db, 'ast> {
 
     /// Reachability evaluations reused while inferring this region.
     ///
-    /// Speculative builders share this cache with their parent so repeated place lookups performed
+    /// Most inference regions never evaluate reachability, so allocate the cache lazily. Speculative
+    /// builders share an initialized cache with their parent so repeated place lookups performed
     /// during multi-inference can reuse predicate truthiness computed by the parent builder.
-    reachability_cache: Rc<ReachabilityEvaluationCache<'db>>,
+    reachability_cache: OnceCell<Rc<ReachabilityEvaluationCache<'db>>>,
 
     /// Type qualifiers (`Required`, `NotRequired`, etc.) for annotation expressions.
     /// Only populated for expressions that have non-empty qualifiers.
@@ -369,10 +370,6 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         module: &'ast ParsedModuleRef,
     ) -> Self {
         let scope = region.scope(db);
-        let reachability_constraints = index
-            .use_def_map(scope.file_scope_id(db))
-            .reachability_constraints();
-
         Self {
             context: InferContext::new(db, scope, module),
             index,
@@ -383,10 +380,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             deferred_state: DeferredExpressionState::None,
             expressions: FxHashMap::default(),
             expression_cache: None,
-            reachability_cache: Rc::new(ReachabilityEvaluationCache::new(
-                scope,
-                reachability_constraints,
-            )),
+            reachability_cache: OnceCell::new(),
             qualifiers: FxHashMap::default(),
             type_expression_flags: FxHashMap::default(),
             collection_use_constraints: FxHashMap::default(),
@@ -401,6 +395,22 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             discards_dict_key_assignments: false,
             dataclass_field_specifiers: SmallVec::new(),
         }
+    }
+
+    fn reachability_cache(&self) -> &ReachabilityEvaluationCache<'db> {
+        self.reachability_cache
+            .get_or_init(|| {
+                let scope = self.scope();
+                let reachability_constraints = self
+                    .index
+                    .use_def_map(scope.file_scope_id(self.db()))
+                    .reachability_constraints();
+                Rc::new(ReachabilityEvaluationCache::new(
+                    scope,
+                    reachability_constraints,
+                ))
+            })
+            .as_ref()
     }
 
     fn discard_dict_key_assignments_for(&mut self, definition: Definition<'db>) {
@@ -1258,7 +1268,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         let (mut place_and_quals, conflicting) = place_from_declarations_with_reachability_cache(
             self.db(),
             declarations,
-            &self.reachability_cache,
+            self.reachability_cache(),
         )
         .into_place_and_conflicting_declarations();
 
@@ -1449,7 +1459,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         let inferred_ty = place_from_bindings_with_reachability_cache(
             self.db(),
             prior_bindings,
-            &self.reachability_cache,
+            self.reachability_cache(),
         )
         .place
         .with_qualifiers(TypeQualifiers::empty())
@@ -2319,7 +2329,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             let Some(ty) = place_from_bindings_with_reachability_cache(
                 db,
                 use_def.reachable_bindings(nested_symbol_id.into()),
-                &self.reachability_cache,
+                self.reachability_cache(),
             )
             .place
             .raw_type() else {
@@ -6839,15 +6849,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     // Reuse nested expressions that receive the same field context across candidates.
                     let teardown = self.setup_expression_cache();
                     for typed_dict in typed_dicts {
-                        // Disable diagnostics as we attempt to narrow to specific `TypedDict`
-                        // elements of the union. Mixed unions like `TypedDict | dict[str, Any]`
-                        // should not emit `TypedDict` diagnostics if a non-`TypedDict` arm accepts
+                        // Suppress diagnostics for discarded candidates. A mixed union like
+                        // `TypedDict | dict[str, Any]` should remain quiet when the dict arm accepts
                         // the literal.
-                        if let Some(inferred_ty) = self.speculate().infer_typed_dict_expression(
-                            dict,
-                            typed_dict,
-                            &mut item_types,
-                        ) {
+                        if let Some(inferred_ty) = self
+                            .speculate_without_diagnostics()
+                            .infer_typed_dict_expression(dict, typed_dict, &mut item_types)
+                        {
                             narrowed_tys.push(inferred_ty);
                         }
 
@@ -8179,7 +8187,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             let place = place_from_bindings_with_reachability_cache(
                 db,
                 bindings.clone(),
-                &self.reachability_cache,
+                self.reachability_cache(),
             );
             let Some(key) = place.first_definition.and_then(definition_key) else {
                 continue;
@@ -9160,7 +9168,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     for binding in bindings {
                         let static_reachability = evaluate_reachability_with_cache(
                             db,
-                            Some(&self.reachability_cache),
+                            Some(self.reachability_cache()),
                             reachability_constraints,
                             predicates,
                             binding.reachability_constraint,
@@ -9332,7 +9340,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 place_from_bindings_with_reachability_cache(
                     db,
                     use_def.reachable_bindings(place_id),
-                    &self.reachability_cache,
+                    self.reachability_cache(),
                 )
                 .place
             } else {
@@ -9368,7 +9376,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             let place = place_from_bindings_with_reachability_cache(
                 db,
                 use_def.bindings_at_use(use_id),
-                &self.reachability_cache,
+                self.reachability_cache(),
             )
             .place;
 
@@ -9422,7 +9430,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     let mut place_and_qualifiers = place_from_bindings_with_reachability_cache(
                         db,
                         bindings,
-                        &self.reachability_cache,
+                        self.reachability_cache(),
                     );
                     if assume_bound && let Place::Defined(defined) = place_and_qualifiers.place {
                         place_and_qualifiers.place =
@@ -9631,7 +9639,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                             let place = place_from_bindings_with_reachability_cache(
                                 db,
                                 bindings,
-                                &self.reachability_cache,
+                                self.reachability_cache(),
                             )
                             .place
                             .map_type(|ty| {
@@ -11168,6 +11176,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             .dataclass_field_specifiers
             .clone_from(dataclass_field_specifiers);
 
+        builder
+    }
+
+    /// Returns a speculative builder that does not construct diagnostics.
+    fn speculate_without_diagnostics(&self) -> Self {
+        let mut builder = self.speculate();
+        builder.context.suppress_diagnostics();
         builder
     }
 

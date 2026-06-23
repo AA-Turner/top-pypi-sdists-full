@@ -228,7 +228,7 @@ def get_langchain_cost(
     # Fallback to main aigie cost tracking
     if not pricing and fallback_to_aigie:
         try:
-            from ...cost_tracking import get_model_pricing
+            from aigie.cost_tracking import get_model_pricing
 
             pricing = get_model_pricing(model)
         except ImportError:

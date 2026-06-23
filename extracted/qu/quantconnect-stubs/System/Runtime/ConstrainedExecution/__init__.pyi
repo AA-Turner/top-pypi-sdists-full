@@ -6,6 +6,13 @@ import System
 import System.Runtime.ConstrainedExecution
 
 
+class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
 class Consistency(IntEnum):
     """This class has no documentation."""
 
@@ -44,13 +51,6 @@ class ReliabilityContractAttribute(System.Attribute):
 
 
 class PrePrepareMethodAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     def __init__(self) -> None:

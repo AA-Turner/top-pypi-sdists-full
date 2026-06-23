@@ -89,6 +89,7 @@ from .type_defs import (
     DeleteRetentionPolicyRequestTypeDef,
     DeleteScheduledQueryRequestTypeDef,
     DeleteSubscriptionFilterRequestTypeDef,
+    DeleteSyslogConfigurationRequestTypeDef,
     DeleteTransformerRequestTypeDef,
     DescribeAccountPoliciesRequestTypeDef,
     DescribeAccountPoliciesResponseTypeDef,
@@ -184,6 +185,8 @@ from .type_defs import (
     ListScheduledQueriesResponseTypeDef,
     ListSourcesForS3TableIntegrationRequestTypeDef,
     ListSourcesForS3TableIntegrationResponseTypeDef,
+    ListSyslogConfigurationsRequestTypeDef,
+    ListSyslogConfigurationsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListTagsLogGroupRequestTypeDef,
@@ -216,6 +219,7 @@ from .type_defs import (
     PutResourcePolicyResponseTypeDef,
     PutRetentionPolicyRequestTypeDef,
     PutSubscriptionFilterRequestTypeDef,
+    PutSyslogConfigurationRequestTypeDef,
     PutTransformerRequestTypeDef,
     StartLiveTailRequestTypeDef,
     StartLiveTailResponseTypeDef,
@@ -625,6 +629,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_subscription_filter.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#delete_subscription_filter)
+        """
+
+    def delete_syslog_configuration(
+        self, **kwargs: Unpack[DeleteSyslogConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a syslog configuration for a log group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_syslog_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#delete_syslog_configuration)
         """
 
     def delete_transformer(
@@ -1128,6 +1142,16 @@ class CloudWatchLogsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#list_sources_for_s3_table_integration)
         """
 
+    def list_syslog_configurations(
+        self, **kwargs: Unpack[ListSyslogConfigurationsRequestTypeDef]
+    ) -> ListSyslogConfigurationsResponseTypeDef:
+        """
+        Returns a list of syslog configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/list_syslog_configurations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#list_syslog_configurations)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -1324,6 +1348,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_subscription_filter.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_subscription_filter)
+        """
+
+    def put_syslog_configuration(
+        self, **kwargs: Unpack[PutSyslogConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Creates or updates a syslog configuration for a log group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_syslog_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_syslog_configuration)
         """
 
     def put_transformer(

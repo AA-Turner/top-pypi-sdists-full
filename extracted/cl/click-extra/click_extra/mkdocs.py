@@ -24,7 +24,7 @@ Decomposing tokens into classes only strips the raw escape codes: the classes ca
 color until a matching stylesheet is present. Unlike Sphinx's ``PygmentsBridge``, which
 regenerates ``pygments.css`` from the active formatter on every build, MkDocs never emits
 one for these classes. The plugin therefore writes the ANSI rules to a dedicated
-stylesheet (:func:`_ansi_stylesheet`) and registers it in ``extra_css`` so every page
+stylesheet (``_ansi_stylesheet``) and registers it in ``extra_css`` so every page
 links it.
 
 When `mkdocs-click <https://pypi.org/project/mkdocs-click/>`_ is installed, the plugin
@@ -52,7 +52,7 @@ except ImportError:
 
 import pymdownx.highlight
 
-from .colorize import forced_color
+from .color import forced_color
 from .pygments import AnsiHtmlFormatter
 
 ANSI_OUTPUT_FENCE = "```ansi-output"
@@ -87,7 +87,7 @@ def _patch_mkdocs_click() -> None:
     use the ANSI-aware lexer instead of plain ``text``, and so that the help they
     capture is rendered with color forced on. ``mkdocs-click`` builds help from
     ``ctx.make_formatter()`` rather than executing the command, so the environment
-    override (:func:`~click_extra.colorize.forced_color`) is the only lever available
+    override (:func:`~click_extra.color.forced_color`) is the only lever available
     here, and the capture is materialized inside it: the wrapped generators read their
     formatter eagerly so the escape codes are produced while the override is active, not
     lazily once the caller iterates and the environment has been restored. The patch is
@@ -124,25 +124,19 @@ def _patch_mkdocs_click() -> None:
 def _ansi_stylesheet() -> str:
     """Build the CSS that colors Click Extra's ``-Ansi-*`` token classes.
 
-    Filters :meth:`~click_extra.pygments.AnsiHtmlFormatter.get_style_defs` down to the
-    ANSI-specific rules: the named and 256-color palette, the SGR text-attribute
-    declarations, the blink keyframes, and the OSC 8 hyperlink rule. The standard
-    Pygments token rules are dropped on purpose. Dumping the full style would override
-    the theme's own syntax-highlighting colors (and, on themes like Material, their
-    light and dark variants) for every code block. The ANSI rules are additive and
-    theme-agnostic, so they layer safely on top.
+    Delegates to :meth:`~click_extra.pygments.AnsiHtmlFormatter.get_ansi_style_defs`,
+    which returns only the ANSI-specific rules: the named and 256-color palette, the
+    SGR text-attribute declarations, the blink keyframes, and the OSC 8 hyperlink rule.
+    The standard Pygments token rules are dropped on purpose. Dumping the full style
+    would override the theme's own syntax-highlighting colors (and, on themes like
+    Material, their light and dark variants) for every code block. The ANSI rules are
+    additive and theme-agnostic, so they layer safely on top.
 
     Scoped under the formatter's default ``cssclass`` (``.highlight``), the wrapper
     ``pymdownx.highlight`` and the Material theme both emit.
     """
     formatter = AnsiHtmlFormatter()
-    container = f".{formatter.cssclass}"
-    rules = [
-        line
-        for line in formatter.get_style_defs(container).splitlines()
-        if "-Ansi" in line or "ansi-blink" in line or "a { color: inherit" in line
-    ]
-    return "\n".join(rules) + "\n"
+    return formatter.get_ansi_style_defs(f".{formatter.cssclass}") + "\n"
 
 
 class AnsiColorPlugin(BasePlugin):

@@ -86,7 +86,7 @@ class TraceDecorator:
                         raise
 
             return async_wrapper
-        from .decorators_v3 import traceable
+        from aigie.decorators_v3 import traceable
 
         return traceable(name=self.name)(func)
 

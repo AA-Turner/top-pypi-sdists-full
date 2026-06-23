@@ -84,15 +84,12 @@ class _StructuredTypeInfoManager:
         schema = schema if schema else self.default_schema
 
         if "." in str(table_name):
-            parts = self.name_utils.identifier_preparer._split_schema_by_dot(
-                str(table_name)
-            )
-            table_name = str(parts[-1])
+            ip = self.name_utils.identifier_preparer
+            table_name = ip._split_schema_by_dot(str(table_name))[-1]
 
-        ip = self.name_utils.identifier_preparer
-        quoted_schema = ip.quote(self.name_utils.denormalize_name(schema))
-        quoted_table = ip.quote(self.name_utils.denormalize_name(table_name))
-        return self.get_table_columns_by_full_name(f"{quoted_schema}.{quoted_table}")
+        return self.get_table_columns_by_full_name(
+            self.name_utils.always_quote_join(schema, table_name)
+        )
 
     def _parse_desc_result(self, result):
         """Parse DESC TABLE result into column information"""

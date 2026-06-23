@@ -30,14 +30,14 @@ Usage:
         trigger = result["remediation_trigger"]
 """
 
-from .llm_judge import (
+from aigie.evaluation.llm_judge import (
     CriterionScore,
     EvaluationCriteria,
     EvaluationResult,
     JudgeConfig,
     LLMJudge,
 )
-from .scorers import (
+from aigie.evaluation.scorers import (
     BaseScorer,
     CoherenceScorer,
     FactualityScorer,

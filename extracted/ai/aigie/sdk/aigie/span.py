@@ -8,8 +8,8 @@ from uuid import uuid4
 
 import httpx
 
-from .buffer import EventBuffer
-from .tracing.trace_state import deregister_open_span, register_open_span
+from aigie.buffer import EventBuffer
+from aigie.tracing.trace_state import deregister_open_span, register_open_span
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyannote-audio
-Version: 4.0.4
+Version: 4.0.5
 Summary: State-of-the-art speaker diarization toolkit
 Author-email: Hervé BREDIN <herve@pyannote.ai>
 License-File: LICENSE

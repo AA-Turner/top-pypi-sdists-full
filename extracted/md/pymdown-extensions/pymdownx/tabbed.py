@@ -172,7 +172,7 @@ class TabbedProcessor(BlockProcessor):
 
         if m:
             special = m.group(1) if m.group(1) else ''
-            title = m.group(2) if m.group(2) else m.group(3)
+            title = m.group(2) if m.group(2) else ''
             index = 0
             labels = None
             content = None
@@ -374,7 +374,7 @@ class TabbedTreeprocessor(Treeprocessor):
                                 labels.append(i)
 
                     # Generate slugged IDs
-                    for inpt, label in zip(inputs, labels):
+                    for inpt, label in zip(inputs, labels, strict=True):
                         innerhtml = toc.render_inner_html(toc.remove_fnrefs(label), self.md)
                         innertext = html.unescape(toc.strip_tags(innerhtml))
                         if self.combine_header_slug:

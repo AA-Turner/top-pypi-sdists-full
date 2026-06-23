@@ -156,7 +156,6 @@ from chalk.client.exc import ChalkCustomException
 from chalk.client.model_image import (
     build_chalk_model_handler_image,
     build_inferred_image,
-    chalk_handler_volume_exists,
     chalk_handler_volume_name,
     generate_volume_name,
     upload_chalk_handler_artifacts,
@@ -3223,7 +3222,6 @@ class ChalkGRPCClient:
         >>> from chalk.client import ChalkClient
         >>> from chalk.ml import model_handler
         >>> import pyarrow as pa
-        >>>
         >>> @model_handler
         ... class RFModel:
         ...     def handler(self, input: pa.RecordBatch) -> pa.RecordBatch:
@@ -4361,7 +4359,7 @@ class ChalkGRPCClient:
         return create_responses
 
     def _ensure_model_image(
-        self, model_name: str, model_version: int, validate: bool = True
+        self, model_name: str, model_version: int, validate: bool = True, skip_upload_to_volumes: bool = False
     ) -> tuple[int, List[Dict[str, str]]]:
         """If the model version has no model_image, create a new version with an inferred image.
 
@@ -4378,22 +4376,50 @@ class ChalkGRPCClient:
         )
         spec = model_version_resp.model_version.model_artifact.spec
         if spec.HasField("model_image") and spec.model_image:
-            # Image-only registration. The deploy proto has no field for a
-            # caller-supplied volume name, so we probe for a deterministic
-            # name derived from (model_name, version). If the caller pre-
-            # uploaded artifacts to that volume (the @model_handler path), mount
-            # it at the canonical artifact path; otherwise return no mounts
-            # (legacy `model_image=<uri>` registrations work unchanged).
             volume_name = chalk_handler_volume_name(model_name, model_version)
             volume_mounts: List[Dict[str, str]] = []
-            if chalk_handler_volume_exists(volume_name, chalk_client=self):
-                volume_mounts = [
-                    {
-                        "name": volume_name,
-                        "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
-                        "type": "chalkfs",
-                    }
-                ]
+
+            if not skip_upload_to_volumes:
+                from chalkcompute import (  # pyright: ignore[reportMissingImports]
+                    ConnectClient,
+                    VolumeError,
+                    resolve_referenced_volume_type,
+                )
+
+                try:
+                    vol_type = resolve_referenced_volume_type(ConnectClient(chalk_client=self), volume_name)
+                    volume_mounts = [
+                        {
+                            "name": volume_name,
+                            "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
+                            "type": vol_type,
+                        }
+                    ]
+                except (VolumeError, Exception):
+                    artifact_result = self.download_model_artifact(model_name, model_version)
+                    model_files = artifact_result.downloaded_model_files
+                    if model_files:
+                        try:
+                            model_filename = os.path.basename(model_files[0])
+                            upload_model_to_volume(
+                                volume_name=volume_name,
+                                model_filename=model_filename,
+                                model_file_path=model_files[0],
+                                chalk_client=self,
+                            )
+                            volume_mounts = [
+                                {
+                                    "name": volume_name,
+                                    "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
+                                    "type": "versioned_chalkfs",
+                                }
+                            ]
+                        finally:
+                            import shutil
+
+                            download_dir = os.path.dirname(model_files[0])
+                            if download_dir and os.path.exists(download_dir):
+                                shutil.rmtree(download_dir)
             return model_version, volume_mounts
 
         artifact_result = self.download_model_artifact(model_name, model_version)
@@ -4471,13 +4497,16 @@ class ChalkGRPCClient:
         env_vars: Optional[Dict[str, str]] = None,
         target_cpu_utilization_percentage: Optional[int] = None,
         validate: bool = True,
+        skip_upload_to_volumes: bool = False,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
 
         Uses the authenticated gRPC channel with a raw unary call since
         Python scaling group proto stubs are not yet generated.
         """
-        model_version, inferred_volumes = self._ensure_model_image(model_name, model_version, validate=validate)
+        model_version, inferred_volumes = self._ensure_model_image(
+            model_name, model_version, validate=validate, skip_upload_to_volumes=skip_upload_to_volumes
+        )
 
         if inferred_volumes:
             if handler is None:

@@ -3479,19 +3479,19 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
                  ),
              ),
              FunctionParameterDecl(
+                 name='d',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjData', is_const=True),
+                 ),
+             ),
+             FunctionParameterDecl(
                  name='dst',
                  type=PointerType(
                      inner_type=ValueType(name='mjtNum'),
                  ),
              ),
-             FunctionParameterDecl(
-                 name='M',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjtNum', is_const=True),
-                 ),
-             ),
          ),
-         doc='Convert sparse inertia matrix M into full (i.e. dense) matrix.',
+         doc='Convert sparse inertia matrix into full (i.e. dense) matrix.',
      )),
     ('mj_mulM',
      FunctionDecl(
@@ -6288,44 +6288,6 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
          ),
          doc='Main error function; does not return to caller.',
      )),
-    ('mju_error_i',
-     FunctionDecl(
-         name='mju_error_i',
-         return_type=ValueType(name='void'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='msg',
-                 type=PointerType(
-                     inner_type=ValueType(name='char', is_const=True),
-                 ),
-             ),
-             FunctionParameterDecl(
-                 name='i',
-                 type=ValueType(name='int'),
-             ),
-         ),
-         doc='Deprecated: use mju_error.',
-     )),
-    ('mju_error_s',
-     FunctionDecl(
-         name='mju_error_s',
-         return_type=ValueType(name='void'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='msg',
-                 type=PointerType(
-                     inner_type=ValueType(name='char', is_const=True),
-                 ),
-             ),
-             FunctionParameterDecl(
-                 name='text',
-                 type=PointerType(
-                     inner_type=ValueType(name='char', is_const=True),
-                 ),
-             ),
-         ),
-         doc='Deprecated: use mju_error.',
-     )),
     ('mju_warning',
      FunctionDecl(
          name='mju_warning',
@@ -6340,50 +6302,75 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
          ),
          doc='Main warning function; returns to caller.',
      )),
-    ('mju_warning_i',
-     FunctionDecl(
-         name='mju_warning_i',
-         return_type=ValueType(name='void'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='msg',
-                 type=PointerType(
-                     inner_type=ValueType(name='char', is_const=True),
-                 ),
-             ),
-             FunctionParameterDecl(
-                 name='i',
-                 type=ValueType(name='int'),
-             ),
-         ),
-         doc='Deprecated: use mju_warning.',
-     )),
-    ('mju_warning_s',
-     FunctionDecl(
-         name='mju_warning_s',
-         return_type=ValueType(name='void'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='msg',
-                 type=PointerType(
-                     inner_type=ValueType(name='char', is_const=True),
-                 ),
-             ),
-             FunctionParameterDecl(
-                 name='text',
-                 type=PointerType(
-                     inner_type=ValueType(name='char', is_const=True),
-                 ),
-             ),
-         ),
-         doc='Deprecated: use mju_warning.',
-     )),
     ('mju_clearHandlers',
      FunctionDecl(
          name='mju_clearHandlers',
          return_type=ValueType(name='void'),
          parameters=(),
          doc='Clear user error and memory handlers.',
+     )),
+    ('mju_setLogHandler',
+     FunctionDecl(
+         name='mju_setLogHandler',
+         return_type=ValueType(name='mjfLogHandler'),
+         parameters=(
+             FunctionParameterDecl(
+                 name='handler',
+                 type=ValueType(name='mjfLogHandler'),
+             ),
+         ),
+         doc='Set the active log handler; return the previous handler. If handler is NULL, restore the default handler.',  # pylint: disable=line-too-long
+     )),
+    ('mju_getLogConfig',
+     FunctionDecl(
+         name='mju_getLogConfig',
+         return_type=ValueType(name='mjLogConfig'),
+         parameters=(),
+         doc='Get default handler configuration.',
+     )),
+    ('mju_setLogConfig',
+     FunctionDecl(
+         name='mju_setLogConfig',
+         return_type=ValueType(name='void'),
+         parameters=(
+             FunctionParameterDecl(
+                 name='config',
+                 type=ValueType(name='mjLogConfig'),
+             ),
+         ),
+         doc='Set default handler configuration.',
+     )),
+    ('mju_info',
+     FunctionDecl(
+         name='mju_info',
+         return_type=ValueType(name='void'),
+         parameters=(
+             FunctionParameterDecl(
+                 name='topic',
+                 type=ValueType(name='int'),
+             ),
+             FunctionParameterDecl(
+                 name='msg',
+                 type=PointerType(
+                     inner_type=ValueType(name='char', is_const=True),
+                 ),
+             ),
+         ),
+         doc='Log an info message with optional topic filtering.',
+     )),
+    ('mju_message',
+     FunctionDecl(
+         name='mju_message',
+         return_type=ValueType(name='void'),
+         parameters=(
+             FunctionParameterDecl(
+                 name='msg',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjLogMessage', is_const=True),
+                 ),
+             ),
+         ),
+         doc='Dispatch a structured log message to the active handler.',
      )),
     ('mju_malloc',
      FunctionDecl(
@@ -6499,7 +6486,41 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
                  ),
              ),
          ),
-         doc='Return 1 if compiler error is a warning.',
+         doc='Return 1 if compiler error is a warning. Deprecated: use mjs_numWarnings(s) > 0.',  # pylint: disable=line-too-long
+     )),
+    ('mjs_numWarnings',
+     FunctionDecl(
+         name='mjs_numWarnings',
+         return_type=ValueType(name='int'),
+         parameters=(
+             FunctionParameterDecl(
+                 name='spec',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjSpec', is_const=True),
+                 ),
+             ),
+         ),
+         doc='Get number of warnings accumulated in the spec.',
+     )),
+    ('mjs_getWarning',
+     FunctionDecl(
+         name='mjs_getWarning',
+         return_type=PointerType(
+             inner_type=ValueType(name='char', is_const=True),
+         ),
+         parameters=(
+             FunctionParameterDecl(
+                 name='spec',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjSpec', is_const=True),
+                 ),
+             ),
+             FunctionParameterDecl(
+                 name='index',
+                 type=ValueType(name='int'),
+             ),
+         ),
+         doc='Get the i-th warning message (returns nullptr if index out of bounds).',  # pylint: disable=line-too-long
      )),
     ('mju_zero3',
      FunctionDecl(
@@ -9985,23 +10006,9 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
          ),
          doc='Find the decoder for a resource and return the decoded spec. The caller takes ownership of the spec and is responsible for cleaning it up.',  # pylint: disable=line-too-long
      )),
-    ('mju_threadPoolCreate',
+    ('mju_threadpool',
      FunctionDecl(
-         name='mju_threadPoolCreate',
-         return_type=PointerType(
-             inner_type=ValueType(name='mjThreadPool'),
-         ),
-         parameters=(
-             FunctionParameterDecl(
-                 name='number_of_threads',
-                 type=ValueType(name='size_t'),
-             ),
-         ),
-         doc='Create a thread pool with the specified number of threads running.',  # pylint: disable=line-too-long
-     )),
-    ('mju_bindThreadPool',
-     FunctionDecl(
-         name='mju_bindThreadPool',
+         name='mju_threadpool',
          return_type=ValueType(name='void'),
          parameters=(
              FunctionParameterDecl(
@@ -10011,75 +10018,11 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
                  ),
              ),
              FunctionParameterDecl(
-                 name='thread_pool',
-                 type=PointerType(
-                     inner_type=ValueType(name='void'),
-                 ),
+                 name='nthread',
+                 type=ValueType(name='int'),
              ),
          ),
-         doc='Adds a thread pool to mjData and configures it for multi-threaded use.',  # pylint: disable=line-too-long
-     )),
-    ('mju_threadPoolEnqueue',
-     FunctionDecl(
-         name='mju_threadPoolEnqueue',
-         return_type=ValueType(name='void'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='thread_pool',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjThreadPool'),
-                 ),
-             ),
-             FunctionParameterDecl(
-                 name='task',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjTask'),
-                 ),
-             ),
-         ),
-         doc='Enqueue a task in a thread pool.',
-     )),
-    ('mju_threadPoolDestroy',
-     FunctionDecl(
-         name='mju_threadPoolDestroy',
-         return_type=ValueType(name='void'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='thread_pool',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjThreadPool'),
-                 ),
-             ),
-         ),
-         doc='Destroy a thread pool.',
-     )),
-    ('mju_defaultTask',
-     FunctionDecl(
-         name='mju_defaultTask',
-         return_type=ValueType(name='void'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='task',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjTask'),
-                 ),
-             ),
-         ),
-         doc='Initialize an mjTask.',
-     )),
-    ('mju_taskJoin',
-     FunctionDecl(
-         name='mju_taskJoin',
-         return_type=ValueType(name='void'),
-         parameters=(
-             FunctionParameterDecl(
-                 name='task',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjTask'),
-                 ),
-             ),
-         ),
-         doc='Wait for a task to complete.',
+         doc='Create a thread pool with nthread worker threads.',
      )),
     ('mjs_attach',
      FunctionDecl(
@@ -10365,6 +10308,144 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
          ),
          doc='Add flex.',
+     )),
+    ('mjs_makeFlex',
+     FunctionDecl(
+         name='mjs_makeFlex',
+         return_type=PointerType(
+             inner_type=ValueType(name='mjsFlex'),
+         ),
+         parameters=(
+             FunctionParameterDecl(
+                 name='body',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjsBody'),
+                 ),
+             ),
+             FunctionParameterDecl(
+                 name='name',
+                 type=PointerType(
+                     inner_type=ValueType(name='char', is_const=True),
+                 ),
+             ),
+             FunctionParameterDecl(
+                 name='type',
+                 type=PointerType(
+                     inner_type=ValueType(name='char', is_const=True),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='dim',
+                 type=ValueType(name='int'),
+             ),
+             FunctionParameterDecl(
+                 name='dof',
+                 type=PointerType(
+                     inner_type=ValueType(name='char', is_const=True),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='count',
+                 type=ArrayType(
+                     inner_type=ValueType(name='int', is_const=True),
+                     extents=(3,),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='cellcount',
+                 type=ArrayType(
+                     inner_type=ValueType(name='int', is_const=True),
+                     extents=(3,),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='spacing',
+                 type=ArrayType(
+                     inner_type=ValueType(name='double', is_const=True),
+                     extents=(3,),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='scale',
+                 type=ArrayType(
+                     inner_type=ValueType(name='double', is_const=True),
+                     extents=(3,),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='radius',
+                 type=ValueType(name='double'),
+             ),
+             FunctionParameterDecl(
+                 name='mass',
+                 type=ValueType(name='double'),
+             ),
+             FunctionParameterDecl(
+                 name='inertiabox',
+                 type=ValueType(name='double'),
+             ),
+             FunctionParameterDecl(
+                 name='equality',
+                 type=ValueType(name='int'),
+             ),
+             FunctionParameterDecl(
+                 name='rigid',
+                 type=ValueType(name='int'),
+             ),
+             FunctionParameterDecl(
+                 name='flatskin',
+                 type=ValueType(name='int'),
+             ),
+             FunctionParameterDecl(
+                 name='elastic2d',
+                 type=ValueType(name='int'),
+             ),
+             FunctionParameterDecl(
+                 name='pos',
+                 type=ArrayType(
+                     inner_type=ValueType(name='double', is_const=True),
+                     extents=(3,),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='quat',
+                 type=ArrayType(
+                     inner_type=ValueType(name='double', is_const=True),
+                     extents=(4,),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='origin',
+                 type=ArrayType(
+                     inner_type=ValueType(name='double', is_const=True),
+                     extents=(3,),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='file',
+                 type=PointerType(
+                     inner_type=ValueType(name='char', is_const=True),
+                 ),
+                 nullable=True,
+             ),
+             FunctionParameterDecl(
+                 name='vfs',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjVFS', is_const=True),
+                 ),
+                 nullable=True,
+             ),
+         ),
+         doc='Add flexcomp: create flex with auto-generated bodies/joints, return flex spec.',  # pylint: disable=line-too-long
      )),
     ('mjs_addPair',
      FunctionDecl(

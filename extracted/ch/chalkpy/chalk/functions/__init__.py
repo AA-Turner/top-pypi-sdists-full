@@ -5285,7 +5285,6 @@ def inference(
     >>> from chalk.features import _, features
     >>> from chalk.models import ModelReference
     >>> user_churn_risk = ModelReference.from(name="user_churn_model", version=1)
-    >>>
     >>> @features
     ... class User:
     ...    id: str

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-slim
-Version: 2.104.0
+Version: 2.105.0
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -25,7 +25,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0,>=3.10
 Requires-Dist: certifi>=2024.7.4
-Requires-Dist: docling-core<3.0.0,>=2.80.0
+Requires-Dist: docling-core<3.0.0,>=2.83.1
 Requires-Dist: filetype<2.0.0,>=1.2.0
 Requires-Dist: pluggy<2.0.0,>=1.0.0
 Requires-Dist: pydantic-settings<3.0.0,>=2.3.0
@@ -102,6 +102,8 @@ Requires-Dist: easyocr<2.0,>=1.7; extra == 'feat-ocr-easyocr'
 Requires-Dist: scikit-image>=0.19; extra == 'feat-ocr-easyocr'
 Provides-Extra: feat-ocr-mac
 Requires-Dist: ocrmac<2.0.0,>=1.0.0; (sys_platform == 'darwin') and extra == 'feat-ocr-mac'
+Provides-Extra: feat-ocr-nemotron
+Requires-Dist: nemotron-ocr>=2.0.0; (python_version == '3.12' and sys_platform == 'linux' and platform_machine == 'x86_64') and extra == 'feat-ocr-nemotron'
 Provides-Extra: feat-ocr-rapidocr
 Requires-Dist: rapidocr<4.0.0,>=3.8; extra == 'feat-ocr-rapidocr'
 Provides-Extra: feat-ocr-rapidocr-onnx

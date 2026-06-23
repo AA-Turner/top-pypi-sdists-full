@@ -28,14 +28,15 @@ import acoustid
 import confuse
 
 from beets import config, ui, util
-from beets.autotag.distance import Distance
+from beets.autotag import Distance
+from beets.exceptions import UserError
 from beets.metadata_plugins import MetadataSourcePlugin, get_metadata_source
 from beets.util.color import colorize
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-    from beets.autotag.hooks import TrackInfo
+    from beets.autotag import TrackInfo
     from beets.library.models import Item
     from beetsplug.musicbrainz import MusicBrainzPlugin
 
@@ -51,13 +52,13 @@ MAX_RELEASES = 5
 # candidates. It maps audio file paths to (recording_ids, release_ids)
 # pairs. If a given path is not present in the mapping, then no match
 # was found.
-_matches = {}
+_matches: dict[bytes, tuple[list[str], list[str]]] = {}
 
 # Stores the fingerprint and Acoustid ID for each track. This is stored
 # as metadata for each track for later use but is not relevant for
 # autotagging.
-_fingerprints = {}
-_acoustids = {}
+_fingerprints: dict[bytes, str] = {}
+_acoustids: dict[bytes, str] = {}
 
 
 def prefix(it, count):
@@ -103,7 +104,7 @@ def acoustid_match(log, path):
             util.displayable_path(repr(path)),
             exc,
         )
-        return None
+        return
     fp = fp.decode()
     _fingerprints[path] = fp
     try:
@@ -116,23 +117,23 @@ def acoustid_match(log, path):
             util.displayable_path(repr(path)),
             exc,
         )
-        return None
+        return
     log.debug("chroma: fingerprinted {}", util.displayable_path(repr(path)))
 
     # Ensure the response is usable and parse it.
     if res["status"] != "ok" or not res.get("results"):
         log.debug("no match found")
-        return None
+        return
     result = res["results"][0]  # Best match.
     if result["score"] < SCORE_THRESH:
         log.debug("no results above threshold")
-        return None
+        return
     _acoustids[path] = result["id"]
 
     # Get recording and releases from the result
     if not result.get("recordings"):
         log.debug("no recordings found")
-        return None
+        return
     recording_ids = []
     releases = []
     for recording in result["recordings"]:
@@ -185,11 +186,7 @@ def _all_releases(items):
 class AcoustidPlugin(MetadataSourcePlugin):
     def __init__(self):
         super().__init__()
-        self.config.add(
-            {
-                "auto": True,
-            }
-        )
+        self.config.add({"auto": True})
         config["acoustid"]["apikey"].redact = True
 
         if self.config["auto"]:
@@ -276,7 +273,7 @@ class AcoustidPlugin(MetadataSourcePlugin):
             try:
                 apikey = config["acoustid"]["apikey"].as_str()
             except confuse.NotFoundError:
-                raise ui.UserError("no Acoustid user API key provided")
+                raise UserError("no Acoustid user API key provided")
             submit_items(self._log, apikey, lib.items(args))
 
         submit_cmd.func = submit_cmd_func
@@ -331,9 +328,9 @@ class AcoustidPlugin(MetadataSourcePlugin):
 
         def search_cmd_func(lib, opts, args):
             if not opts.search:
-                raise ui.UserError("no --search provided")
+                raise UserError("no --search provided")
             if opts.count <= 0:
-                raise ui.UserError("--count must be > 0")
+                raise UserError("--count must be > 0")
 
             target = (0, opts.search.encode("utf-8"))
             top = TopN(opts.count)
@@ -411,10 +408,7 @@ def submit_items(log, userkey, items, chunksize=64):
         fp = fingerprint_item(log, item, write=ui.should_write())
 
         # Construct a submission dictionary for this item.
-        item_data = {
-            "duration": int(item.length),
-            "fingerprint": fp,
-        }
+        item_data = {"duration": int(item.length), "fingerprint": fp}
         if item.mb_trackid:
             item_data["mbid"] = item.mb_trackid
             log.debug("submitting MBID")
@@ -472,6 +466,7 @@ def fingerprint_item(log, item, write=False, quiet=False):
             return item.acoustid_fingerprint
         except acoustid.FingerprintGenerationError as exc:
             log.info("fingerprint generation failed: {}", exc)
+    return None
 
 
 # Classes for search.

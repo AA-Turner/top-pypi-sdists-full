@@ -13,10 +13,10 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import IO, Any, Optional
 
 from mcp.server import Server
-from mcp.types import Tool, TextContent, Resource, Prompt, PromptMessage, GetPromptResult
+from mcp.types import Tool, TextContent, Resource, Prompt, PromptMessage, GetPromptResult, CallToolResult
 
 from . import __version__
 from . import config as config_module
@@ -27,7 +27,6 @@ from . import config as config_module
 from .parser.symbols import VALID_KINDS
 from .summarizer import get_provider_name
 from .reindex_state import await_freshness_if_strict
-from .path_map import ENV_VAR as _PATH_MAP_ENV_VAR
 from .storage import result_cache_invalidate as _result_cache_invalidate
 from .storage import write_pulse as _write_pulse
 
@@ -336,7 +335,7 @@ def _catalog_names() -> set:
 import threading
 import uuid
 import weakref
-from typing import Any, Hashable
+from typing import Hashable
 
 # Tier overrides are keyed by MCP session identity so concurrent HTTP clients
 # don't clobber each other. Stdio and tests have no active session; they land
@@ -565,6 +564,13 @@ _COMPACT_STRIP_PARAMS: dict[str, set[str]] = {
         "debug", "fusion", "semantic", "semantic_only", "semantic_weight",
         "fuzzy", "fuzzy_threshold", "max_edit_distance", "sort_by", "fqn",
         "decorator", "token_budget",
+    },
+    # Bounded-source mode is an advanced opt-in; the tool still accepts these
+    # params under compact, they're just hidden from the schema to protect the
+    # core_compact budget (the body is always callable with them).
+    "get_symbol_source": {
+        "source_start_line", "source_end_line", "max_source_lines",
+        "max_source_bytes", "max_total_source_bytes",
     },
     "get_context_bundle": {"budget_strategy"},
     "get_ranked_context": {"detail_level"},
@@ -1316,7 +1322,7 @@ def _build_tools_list() -> list[Tool]:
         ),
         Tool(
             name="get_symbol_source",
-            description="Get full source of one symbol (symbol_id → flat object) or many (symbol_ids[] → {symbols, errors}). Supports verify, context_lines, and fqn (PHP FQN via PSR-4).",
+            description="Get full source of one symbol (symbol_id → flat object) or many (symbol_ids[] → {symbols, errors}). Supports verify, context_lines, fqn (PHP FQN via PSR-4), and an optional bounded mode that caps returned source for large symbols/batches.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1352,6 +1358,26 @@ def _build_tools_list() -> list[Tool]:
                     "fqn": {
                         "type": "string",
                         "description": "PHP fully-qualified class name (e.g. 'App\\Models\\User'). Resolves to symbol_id via PSR-4. Alternative to symbol_id."
+                    },
+                    "source_start_line": {
+                        "type": "integer",
+                        "description": "Bounded mode: absolute file line (1-based, same frame as `line`/`end_line`) to start the returned source slice; clamped to the symbol body."
+                    },
+                    "source_end_line": {
+                        "type": "integer",
+                        "description": "Bounded mode: absolute file line (1-based, inclusive) to end the returned source slice; clamped to the symbol body."
+                    },
+                    "max_source_lines": {
+                        "type": "integer",
+                        "description": "Bounded mode: keep at most the first N lines of the (ranged) slice. Sets source_truncated + metadata when it shortens the body."
+                    },
+                    "max_source_bytes": {
+                        "type": "integer",
+                        "description": "Bounded mode: UTF-8-safe per-symbol byte cap on the returned source. Verify still hashes the full body."
+                    },
+                    "max_total_source_bytes": {
+                        "type": "integer",
+                        "description": "Bounded mode (batch): cap on total returned source bytes across all symbols. Oversized symbols come back partial (source_truncated) rather than dropped, preventing an N×per-symbol blowup."
                     }
                 },
                 "required": ["repo"]
@@ -4019,7 +4045,7 @@ async def _handle_counter_tool(name: str, arguments: dict) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps({"error": f"Unknown front-door tool '{name}'"}))]
 
 
-async def _handle_order(arguments: dict) -> list[TextContent]:
+async def _handle_order(arguments: dict) -> list[TextContent] | CallToolResult:
     """order(action, args): validate against the catalog + charter gate, then
     re-enter the normal pipeline for the resolved action."""
     action = arguments.get("action")
@@ -4054,7 +4080,7 @@ def _handle_menu(arguments: dict) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(payload, separators=(",", ":")))]
 
 
-async def _handle_route(arguments: dict) -> list[TextContent]:
+async def _handle_route(arguments: dict) -> list[TextContent] | CallToolResult:
     """route(task, repo?, execute?, model?): intent -> recommended action(s),
     optionally dispatching the top one in the same call."""
     task = arguments.get("task")
@@ -4093,13 +4119,30 @@ async def _handle_route(arguments: dict) -> list[TextContent]:
         if model and action == "plan_turn":
             exec_args["model"] = model
         result = await call_tool(action, exec_args)
-        routed = {"tool": "route", "task": task, "executed_action": action, "args": exec_args}
-        return [TextContent(type="text", text=json.dumps(routed, separators=(",", ":")))] + list(result)
+        head = TextContent(type="text", text=json.dumps(
+            {"tool": "route", "task": task, "executed_action": action, "args": exec_args},
+            separators=(",", ":")))
+        if isinstance(result, CallToolResult):
+            # The routed action failed (isError); surface its content under the
+            # route envelope and propagate the error signal rather than list()-ing
+            # a non-iterable CallToolResult.
+            return CallToolResult(content=[head, *result.content], isError=result.isError)
+        return [head] + list(result)
     return [TextContent(type="text", text=json.dumps(payload, separators=(",", ":")))]
 
 
+def _error_call_result(text: str) -> CallToolResult:
+    """Wrap an error payload so MCP clients that branch on ``isError`` see the
+    failure (F-P01), while the JSON body stays in ``content`` for in-band
+    parsers (the v1.108.30 contract). Success results stay a plain
+    ``list[TextContent]`` (the SDK wraps them ``isError=False``), so this is
+    additive on the wire — only failures gain the ``isError`` signal.
+    """
+    return CallToolResult(content=[TextContent(type="text", text=text)], isError=True)
+
+
 @server.call_tool(validate_input=False)
-async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolResult:
     """Handle tool calls."""
     _signal_handshake()
     storage_path = os.environ.get("CODE_INDEX_PATH")
@@ -4120,9 +4163,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             try:
                 jsonschema.validate(instance=arguments, schema=schema)
             except jsonschema.ValidationError as e:
-                return [TextContent(type="text", text=json.dumps(
+                return _error_call_result(json.dumps(
                     {"error": f"Input validation error: {e.message}"}, indent=2
-                ))]
+                ))
 
         # The Counter front door: order/menu/route. Handled before repo-scoped
         # strict-freshness/auto-watch (the front door isn't repo-scoped; order
@@ -4140,7 +4183,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 arguments.get("query", ""), bool(arguments.get("is_regex", False))
             )
             if _arg_err is not None:
-                return [TextContent(type="text", text=json.dumps(_arg_err, indent=2))]
+                return _error_call_result(json.dumps(_arg_err, indent=2))
 
         # Strict freshness mode: wait for any in-progress reindex to complete
         # before serving query results (except for write/index tools).
@@ -4158,13 +4201,13 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         allow_disable_tier = config_module.get("allow_disabling_tier_controls", False, repo=repo_arg)
         protected_at_call = frozenset() if allow_disable_tier else _UNDISABLEABLE_TOOLS
         if name not in protected_at_call and config_module.is_tool_disabled(name, repo=repo_arg):
-            return [TextContent(type="text", text=json.dumps({
+            return _error_call_result(json.dumps({
                 "error": (
                     f"Tool '{name}' is disabled in this project's configuration. "
                     f"Project-level tool disabling is set via the 'disabled_tools' key "
                     f"in the .jcodemunch.jsonc file. Remove '{name}' from 'disabled_tools' to re-enable."
                 )
-            }, indent=2))]
+            }, indent=2))
 
         # Auto-watch: ensure unwatched repos are indexed before tool execution
         try:
@@ -4365,6 +4408,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     context_lines=arguments.get("context_lines", 0),
                     storage_path=storage_path,
                     fqn=arguments.get("fqn"),
+                    source_start_line=arguments.get("source_start_line"),
+                    source_end_line=arguments.get("source_end_line"),
+                    max_source_lines=arguments.get("max_source_lines"),
+                    max_source_bytes=arguments.get("max_source_bytes"),
+                    max_total_source_bytes=arguments.get("max_total_source_bytes"),
                 )
             )
         elif name == "search_symbols":
@@ -5411,7 +5459,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         except Exception:
             logger.debug("Compact encoding failed; emitting JSON", exc_info=True)
 
-        return [TextContent(type="text", text=json.dumps(result, separators=(',', ':')))]
+        _text = json.dumps(result, separators=(',', ':'))
+        if isinstance(result, dict) and "error" in result:
+            # In-band tool error (e.g. ambiguous/not-found repo, Unknown tool).
+            # Carry the same JSON body but flag isError for clients that branch
+            # on it (F-P01); the v1.108.30 passthrough already kept errors JSON.
+            _call_ok = False
+            return _error_call_result(_text)
+        return [TextContent(type="text", text=_text)]
 
     except KeyError as e:
         _call_ok = False
@@ -5429,8 +5484,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 "error": f"Internal error processing {name}",
                 "summary": f"KeyError: {e}",
             }
-            return [TextContent(type="text", text=json.dumps(payload, separators=(',', ':')))]
-        return [TextContent(type="text", text=json.dumps({"error": f"Missing required argument: {e}. Check the tool schema for correct parameter names."}, separators=(',', ':')))]
+            return _error_call_result(json.dumps(payload, separators=(',', ':')))
+        return _error_call_result(json.dumps({"error": f"Missing required argument: {e}. Check the tool schema for correct parameter names."}, separators=(',', ':')))
     except Exception as exc:
         _call_ok = False
         logger.error("call_tool %s failed", name, exc_info=True)
@@ -5442,7 +5497,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             "error": f"Internal error processing {name}",
             "summary": summary,
         }
-        return [TextContent(type="text", text=json.dumps(payload, separators=(',', ':')))]
+        return _error_call_result(json.dumps(payload, separators=(',', ':')))
     finally:
         try:
             from .storage.token_tracker import record_tool_latency
@@ -5473,7 +5528,6 @@ async def _run_server_with_watcher(
             "Install with: pip install 'jcodemunch-mcp[watch]'"
         )
 
-    import sys
     import tempfile
 
     # Resolve log file path
@@ -7967,7 +8021,7 @@ def main(argv: Optional[list[str]] = None):
                 else:
                     value = _getpass.getpass(f"Enter value for {name}: ")
                 if not value:
-                    print(f"keyring set: empty value, aborted", file=sys.stderr)
+                    print("keyring set: empty value, aborted", file=sys.stderr)
                     sys.exit(2)
                 _creds.keyring_set(name, value)
                 print(f"Stored {name} in system keyring under service '{_creds.SERVICE_NAME}'.")

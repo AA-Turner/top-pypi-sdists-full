@@ -148,7 +148,7 @@ def set_current_trace_context(context: RunContext | None) -> None:
 
     # Also set process-level trace ID for OTel bridge (thread pool workers)
     try:
-        from .auto_instrument.span_enricher import set_active_trace_id
+        from aigie.auto_instrument.span_enricher import set_active_trace_id
 
         set_active_trace_id(context.id if context else None)
     except Exception:

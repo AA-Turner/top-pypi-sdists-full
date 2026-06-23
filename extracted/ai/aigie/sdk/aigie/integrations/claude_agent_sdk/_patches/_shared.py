@@ -9,9 +9,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def _extract_agent_name(
-    system_prompt: str, model: str, aigie: Any = None
-) -> str:
+def _extract_agent_name(system_prompt: str, model: str, aigie: Any = None) -> str:
     """
     Resolve the trace display name. Honors `aigie.init(agent_name=...)` first,
     then falls back to a heuristic on the system prompt, then to a model-based
@@ -66,7 +64,7 @@ def _enable_hook_events(options: Any) -> None:
         if getattr(options, "include_hook_events", False) is False:
             options.include_hook_events = True
     except Exception as exc:  # noqa: BLE001
-        logger.debug('could not enable include_hook_events on options' + ': %s', exc)
+        logger.debug("could not enable include_hook_events on options" + ": %s", exc)
 
 
 def _wrap_user_hooks(options: Any, handler: Any):  # noqa: C901, PLR0915
@@ -90,7 +88,7 @@ def _wrap_user_hooks(options: Any, handler: Any):  # noqa: C901, PLR0915
                     tool_name = input_data.get("tool_name")
                 handler._record_user_hook(event_name, tuid, tool_name)
             except Exception as exc:  # noqa: BLE001
-                logger.debug('user hook record failed' + ': %s', exc)
+                logger.debug("user hook record failed" + ": %s", exc)
             return await original_cb(input_data, tool_use_id, context)
 
         return wrapped
@@ -159,8 +157,8 @@ def _wrap_tools_with_remediation(  # noqa: C901, PLR0915
                                 try:
                                     fix_action = engine.to_fix_action(rem)
                                     if fix_action:
-                                        from ....interceptor.protocols import InterceptionContext
-                                        from ....realtime.auto_fix import AutoFixApplicator
+                                        from aigie.interceptor.protocols import InterceptionContext
+                                        from aigie.realtime.auto_fix import AutoFixApplicator
 
                                         applicator = AutoFixApplicator()
 
@@ -192,7 +190,7 @@ def _wrap_tools_with_remediation(  # noqa: C901, PLR0915
                     except type(e):
                         raise  # Re-raise the enhanced error
                     except Exception as exc:  # noqa: BLE001
-                        logger.debug('remediation query failed, raising original' + ': %s', exc)
+                        logger.debug("remediation query failed, raising original" + ": %s", exc)
                     raise
 
             wrapped.append(remediation_tool)

@@ -13,9 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-"""Drop-in replacement for :class:`cloup.Style` with extra features.
+"""Drop-in replacement for ``cloup.Style`` with extra features.
 
-The module name mirrors :mod:`cloup.styling`, the upstream module that hosts
+The module name mirrors ``cloup.styling``, the upstream module that hosts
 the original ``Style`` class. Click Extra's :class:`Style` is a subclass that
 keeps cloup's runtime contract (calling, equality, hashing, ``with_()``)
 intact and adds:
@@ -42,8 +42,10 @@ intact and adds:
 
 from __future__ import annotations
 
+import os
 import re
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
+from functools import lru_cache
 
 import cloup
 
@@ -91,17 +93,29 @@ _ANSI_NAMES: tuple[str, ...] = (
 # Channel values for the 6×6×6 color cube (palette indices 16–231).
 _CUBE_VALUES: tuple[int, ...] = (0, 95, 135, 175, 215, 255)
 
-# Boolean style attributes processed in repr/css/from_ansi.
-_BOOL_ATTRS: tuple[str, ...] = (
-    "bold",
-    "dim",
-    "italic",
-    "underline",
-    "overline",
-    "blink",
-    "reverse",
-    "strikethrough",
-)
+# Single source of truth mapping each boolean style attribute to its CSS
+# ``(property, value)`` equivalent. Consumed by :meth:`Style.to_css` (which
+# groups the three ``text-decoration`` attributes into one declaration) and,
+# in its declaration-string form, by ``click_extra.theme_docs._PALETTE_ATTR_CSS``
+# to render the documentation palette's attribute pills.
+#
+# ``blink`` maps to an empty pair on purpose: there is no standard CSS for it
+# (the legacy ``text-decoration: blink`` keyword is non-functional in modern
+# browsers). It is therefore omitted from the rendered CSS. Animated blink is
+# handled separately by ``click_extra.pygments`` via a ``@keyframes`` rule.
+_ATTR_CSS: dict[str, tuple[str, str]] = {
+    "bold": ("font-weight", "bold"),
+    "dim": ("opacity", "0.6"),
+    "italic": ("font-style", "italic"),
+    "underline": ("text-decoration", "underline"),
+    "overline": ("text-decoration", "overline"),
+    "blink": ("", ""),
+    "reverse": ("filter", "invert(1)"),
+    "strikethrough": ("text-decoration", "line-through"),
+}
+
+# Boolean style attributes processed in repr/css/from_ansi, in palette order.
+_BOOL_ATTRS: tuple[str, ...] = tuple(_ATTR_CSS)
 
 # Match a single ANSI SGR escape: ``\x1b[...m``.
 _ANSI_SGR_RE: re.Pattern[str] = re.compile(r"\x1b\[(\d+(?:;\d+)*)m")
@@ -109,7 +123,7 @@ _ANSI_SGR_RE: re.Pattern[str] = re.compile(r"\x1b\[(\d+(?:;\d+)*)m")
 
 # --- Shared dict round-trip helpers ------------------------------------------
 #
-# ``Style`` (per-attribute) and ``HelpExtraTheme`` (per-slot) both serialize
+# ``Style`` (per-attribute) and ``HelpTheme`` (per-slot) both serialize
 # their dataclass fields to plain dicts for TOML/JSON/YAML round-tripping.
 # These helpers codify the shared rules: walk ``dataclasses.fields``, skip
 # cloup's lazy ``_style_kwargs`` cache, skip values that match the field
@@ -179,36 +193,6 @@ def dict_to_fields(
     return kwargs
 
 
-def cascade_fields(
-    base: Any,
-    overlay: Any,
-    *,
-    is_set: Callable[[Any, Any], bool] = lambda field, value: value != field.default,
-) -> dict[str, Any]:
-    """Layer *overlay*'s set fields on top of *base*, returning a merged kwargs dict.
-
-    Walks both instances' fields and produces a dict suitable for
-    ``type(base)(**kwargs)`` (or ``dataclasses.replace(base, **kwargs)``).
-    The slot-level analogue of ``Style.cascade``'s attribute-level merge.
-
-    :param base: the underlying instance whose fields fill any gaps.
-    :param overlay: the instance whose set fields win on conflicts.
-    :param is_set: callable ``(field, value) -> bool`` distinguishing
-        "set" from "unset" fields. Default treats a value equal to the
-        field default as unset.
-    """
-    out: dict[str, Any] = {}
-    for f in fields(base):
-        if f.name == "_style_kwargs":
-            continue
-        overlay_val = getattr(overlay, f.name)
-        if is_set(f, overlay_val):
-            out[f.name] = overlay_val
-        else:
-            out[f.name] = getattr(base, f.name)
-    return out
-
-
 def _hex_to_rgb(value: str) -> tuple[int, int, int]:
     """Parse a hex color (``#rrggbb`` or shorthand ``#rgb``) to an RGB tuple."""
     s = value.lstrip("#").lower()
@@ -220,6 +204,17 @@ def _hex_to_rgb(value: str) -> tuple[int, int, int]:
         return int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16)
     except ValueError as exc:
         raise ValueError(f"Not a valid hex color: {value!r}") from exc
+
+
+def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    """Format an ``(r, g, b)`` tuple as a ``#rrggbb`` hex string.
+
+    The inverse of :func:`_hex_to_rgb`. The single source of truth for the
+    RGB-to-hex rendering shared by ``__repr__``, ``to_css``, ``to_dict``, and
+    the documentation palette.
+    """
+    r, g, b = rgb
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def _palette_to_rgb(idx: int) -> tuple[int, int, int]:
@@ -237,6 +232,45 @@ def _palette_to_rgb(idx: int) -> tuple[int, int, int]:
         v = (idx - 232) * 10 + 8
         return v, v, v
     raise ValueError(f"Palette index out of range: {idx}")
+
+
+@lru_cache(maxsize=512)
+def _nearest_256(r: int, g: int, b: int) -> int:
+    """Map a 24-bit RGB triplet to the nearest index in the 256-color palette.
+
+    The inverse of :func:`_palette_to_rgb`. Compares the Euclidean distance in RGB
+    space against both the 6x6x6 color cube (indices 16-231) and the grayscale ramp
+    (indices 232-255), returning whichever is closer.
+
+    Used by ``Style.__call__`` to downsample branded-theme colors when the
+    terminal lacks truecolor (see :func:`supports_truecolor`), and by
+    ``click_extra.pygments`` and ``click_extra.cli`` for the same 24-bit-to-8-bit
+    quantization.
+
+    .. seealso::
+        `Previous implementation
+        <https://github.com/kdeldycke/dotfiles/blob/64d29369/starship-ansi-colors.py>`_
+        of full-color to 8-bit quantization.
+    """
+    # Color cube (indices 16-231).
+    ci = [
+        min(
+            range(6),
+            key=lambda i, v=v: abs(v - _CUBE_VALUES[i]),  # type: ignore[misc]
+        )
+        for v in (r, g, b)
+    ]
+    cube_idx = 16 + 36 * ci[0] + 6 * ci[1] + ci[2]
+    cube_dist = sum((v - _CUBE_VALUES[i]) ** 2 for v, i in zip((r, g, b), ci))
+
+    # Grayscale ramp (indices 232-255).
+    gray = round((r + g + b) / 3)
+    gi = min(range(24), key=lambda i: abs(gray - (10 * i + 8)))
+    gray_idx = 232 + gi
+    gray_val = 10 * gi + 8
+    gray_dist = sum((v - gray_val) ** 2 for v in (r, g, b))
+
+    return gray_idx if gray_dist < cube_dist else cube_idx
 
 
 def _resolve_rgb(color: object) -> tuple[int, int, int]:
@@ -264,7 +298,7 @@ def _resolve_rgb(color: object) -> tuple[int, int, int]:
 def _color_repr(value: object) -> str:
     """Compact human-readable form of a color value for ``__repr__``."""
     if isinstance(value, tuple) and len(value) == 3:
-        return f"#{value[0]:02x}{value[1]:02x}{value[2]:02x}"
+        return _rgb_to_hex(value)
     if hasattr(value, "name") and not isinstance(value, str):
         return value.name  # type: ignore[no-any-return]
     return repr(value)
@@ -273,17 +307,15 @@ def _color_repr(value: object) -> str:
 def _color_to_css(color: object) -> str:
     """Render a color value as a CSS color string."""
     if isinstance(color, tuple) and len(color) == 3:
-        return f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
+        return _rgb_to_hex(color)
     if isinstance(color, str):
         if color.startswith("#"):
             return color
         if color.startswith("bright_"):
-            r, g, b = _resolve_rgb(color)
-            return f"#{r:02x}{g:02x}{b:02x}"
+            return _rgb_to_hex(_resolve_rgb(color))
         return color  # plain CSS keyword: 'red', 'blue', etc.
     if isinstance(color, int):
-        r, g, b = _palette_to_rgb(color)
-        return f"#{r:02x}{g:02x}{b:02x}"
+        return _rgb_to_hex(_palette_to_rgb(color))
     if hasattr(color, "name") and not isinstance(color, type):
         return _color_to_css(color.name)
     return str(color)
@@ -303,16 +335,73 @@ def _relative_luminance(color: object) -> float:
     return 0.2126 * _channel(r) + 0.7152 * _channel(g) + 0.0722 * _channel(b)
 
 
+# --- Terminal color-depth detection -----------------------------------------
+
+_TRUECOLOR_COLORTERMS = frozenset({"truecolor", "24bit"})
+"""``COLORTERM`` values that advertise 24-bit (truecolor) support.
+
+The two tokens `Rich
+<https://github.com/Textualize/rich/blob/master/rich/console.py>`_ and the wider
+terminal ecosystem agree on. Any other non-empty ``COLORTERM`` is read as a
+deliberate *non*-truecolor advertisement.
+"""
+
+
+def supports_truecolor() -> bool:
+    """Whether the terminal is assumed to render 24-bit (truecolor) ANSI.
+
+    Drives ``Style.__call__``'s choice between emitting a 24-bit
+    ``38;2;r;g;b`` sequence and quantizing it to the nearest ``38;5;n`` 256-color
+    index, so a branded theme's RGB colors degrade gracefully on a terminal that
+    cannot display them.
+
+    The policy is optimistic: assume truecolor unless the environment positively
+    says otherwise. Precedence, highest first:
+
+    #. ``COLORTERM`` of ``truecolor`` / ``24bit`` (see
+       ``_TRUECOLOR_COLORTERMS``) keeps 24-bit.
+    #. Any other non-empty ``COLORTERM`` quantizes: an explicit lower
+       advertisement.
+    #. A ``TERM`` ending in ``-16color`` quantizes: an unambiguous sub-256
+       terminal. ``*-256color`` is deliberately *not* treated as a downgrade,
+       since truecolor terminals routinely report it while advertising their
+       24-bit support through ``COLORTERM`` instead. Honoring it would strip
+       truecolor from the very terminals this optimistic default protects.
+    #. Otherwise keeps 24-bit.
+
+    A ``dumb`` / ``unknown`` ``TERM`` never reaches this decision for CLI output:
+    it has already disabled color upstream through
+    :func:`~click_extra.color.resolve_color_env`.
+    """
+    colorterm = os.environ.get("COLORTERM", "").strip().lower()
+    if colorterm:
+        return colorterm in _TRUECOLOR_COLORTERMS
+    return not os.environ.get("TERM", "").strip().lower().endswith("-16color")
+
+
+def _quantize_color(
+    color: str | tuple[int, int, int] | int | None,
+) -> str | tuple[int, int, int] | int | None:
+    """Map a 24-bit RGB ``(r, g, b)`` color to its nearest 256-palette index.
+
+    Any non-tuple color (a named ANSI string, an existing palette ``int``, or
+    ``None``) is returned untouched: only true-color values need quantizing.
+    """
+    if isinstance(color, tuple) and len(color) == 3:
+        return _nearest_256(*color)
+    return color
+
+
 # --- Style ------------------------------------------------------------------
 
 
 @dataclass(frozen=True, repr=False)
 class Style(cloup.Style):
-    """:class:`cloup.Style` with extra ergonomics.
+    """``cloup.Style`` with extra ergonomics.
 
     See the module docstring for the full list of additions. The runtime
     contract (calling the instance to apply styling, equality, hashing,
-    ``with_()``) is otherwise identical to :class:`cloup.Style`.
+    ``with_()``) is otherwise identical to ``cloup.Style``.
     """
 
     fg: str | tuple[int, int, int] | int | None = None  # type: ignore[assignment]
@@ -333,6 +422,27 @@ class Style(cloup.Style):
             object.__setattr__(self, "fg", _hex_to_rgb(self.fg))
         if isinstance(self.bg, str) and self.bg.startswith("#"):
             object.__setattr__(self, "bg", _hex_to_rgb(self.bg))
+
+    def __call__(self, text: str) -> str:
+        """Apply the style, quantizing 24-bit colors when truecolor is unavailable.
+
+        On a truecolor terminal (see :func:`supports_truecolor`) this is cloup's
+        unchanged behavior: RGB ``fg`` / ``bg`` emit ``38;2;r;g;b`` sequences. When
+        the terminal does not advertise truecolor, RGB colors are downsampled to the
+        nearest ``38;5;n`` 256-color index so a branded theme degrades instead of
+        relying on the terminal to convert. Named and palette-index colors are
+        unaffected either way.
+        """
+        if supports_truecolor():
+            return super().__call__(text)
+        fg = _quantize_color(self.fg)
+        bg = _quantize_color(self.bg)
+        if fg is self.fg and bg is self.bg:
+            return super().__call__(text)
+        # Quantize on a transient copy. ``replace`` resets cloup's lazy
+        # ``_style_kwargs`` cache (the field is ``init=False``), so the singleton
+        # theme styles keep their truecolor cache intact for the next call.
+        return replace(self, fg=fg, bg=bg)(text)
 
     def __repr__(self) -> str:
         """Compact repr that lists only the attributes actually set."""
@@ -431,7 +541,7 @@ class Style(cloup.Style):
         ``.name`` are serialized by name; everything else passes through.
         """
         if isinstance(value, tuple) and len(value) == 3:
-            return f"#{value[0]:02x}{value[1]:02x}{value[2]:02x}"
+            return _rgb_to_hex(value)
         if hasattr(value, "name") and not isinstance(value, str):
             return value.name
         return value
@@ -467,23 +577,28 @@ class Style(cloup.Style):
             parts.append(f"color: {_color_to_css(self.fg)}")
         if self.bg is not None:
             parts.append(f"background-color: {_color_to_css(self.bg)}")
+        # Per-attribute CSS comes from the shared ``_ATTR_CSS`` source of
+        # truth. The three ``text-decoration`` attributes are grouped into a
+        # single declaration; ``blink`` (empty pair) is skipped.
         if self.bold:
-            parts.append("font-weight: bold")
+            prop, value = _ATTR_CSS["bold"]
+            parts.append(f"{prop}: {value}")
         if self.italic:
-            parts.append("font-style: italic")
-        decorations: list[str] = []
-        if self.underline:
-            decorations.append("underline")
-        if self.overline:
-            decorations.append("overline")
-        if self.strikethrough:
-            decorations.append("line-through")
+            prop, value = _ATTR_CSS["italic"]
+            parts.append(f"{prop}: {value}")
+        decorations = [
+            _ATTR_CSS[attr][1]
+            for attr in ("underline", "overline", "strikethrough")
+            if getattr(self, attr)
+        ]
         if decorations:
             parts.append(f"text-decoration: {' '.join(decorations)}")
         if self.dim:
-            parts.append("opacity: 0.6")
+            prop, value = _ATTR_CSS["dim"]
+            parts.append(f"{prop}: {value}")
         if self.reverse:
-            parts.append("filter: invert(1)")
+            prop, value = _ATTR_CSS["reverse"]
+            parts.append(f"{prop}: {value}")
         return "; ".join(parts)
 
     @classmethod

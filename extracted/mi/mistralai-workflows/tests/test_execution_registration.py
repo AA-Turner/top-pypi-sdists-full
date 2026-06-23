@@ -279,6 +279,35 @@ class TestExecutionRegistration:
         assert _fixtures._observed_tokens[0] is None
 
     @pytest.mark.asyncio
+    async def test_registration_method_not_allowed_does_not_fail_workflow(self) -> None:
+        tracker = _RegistrationTracker()
+        mock_response = AsyncMock()
+        mock_response.status_code = 405
+        tracker._mock_client.register_execution_async = AsyncMock(
+            side_effect=SDKError("Method Not Allowed", mock_response)
+        )
+
+        async with _env_with_converter() as env:
+            with tracker.activate():
+                async with create_test_worker(
+                    env,
+                    workflows=[SingleActivityWorkflow],
+                    activities=[capture_token, _register_execution],
+                    interceptors=_make_interceptors(),
+                ):
+                    wf = get_workflow_definition(SingleActivityWorkflow)
+                    handle = await env.client.start_workflow(
+                        wf.name,
+                        _make_initial_arg(),
+                        id="test-reg-method-not-allowed",
+                        task_queue="test-task-queue",
+                    )
+                    await handle.result()
+
+        assert len(_fixtures._observed_tokens) == 1
+        assert _fixtures._observed_tokens[0] is None
+
+    @pytest.mark.asyncio
     async def test_registration_server_error_fails_workflow(self) -> None:
         tracker = _RegistrationTracker()
         mock_response = AsyncMock()

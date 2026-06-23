@@ -180,17 +180,18 @@ class Shimmie2PostExtractor(Shimmie2Extractor):
         qt = self._quote_type(page)
 
         post = {
-            "id"      : post_id,
-            "tags"    : extr(": ", "<").partition(" - ")[0].rstrip(")"),
-            "md5"     : extr("/_thumbs/", "/"),
-            "file_url": base + (
-                extr(f"id={qt}main_image{qt} src={qt}", qt) or
-                extr("<source src="+qt, qt)).lstrip("."),
-            "width"   : extr("data-width=", " ").strip("\"'"),
-            "height"  : extr("data-height=", ">").partition(
-                " ")[0].strip("\"'"),
-            "size"    : 0,
+            "id"  : post_id,
+            "tags": extr(": ", "<").partition(" - ")[0].rstrip(")"),
+            "md5" : extr("/_thumbs/", "/"),
+            "size": 0,
         }
+
+        file = (extr(f"id={qt}main_image{qt}", ">") or
+                extr("<source ", ">"))
+        post["file_url"] = base + text.extr(file, "src="+qt, qt).lstrip(".")
+        post["width"] = text.extr(file, "data-width="+qt, qt)
+        post["height"] = text.extr(
+            file, "data-height="+qt, qt).partition(" ")[0]
 
         if not post["md5"]:
             post["md5"] = text.extr(post["file_url"], "/_images/", "/")

@@ -65,6 +65,9 @@ def _load_mask_expr(
     cause a shape mismatch against the smaller ref.
     """
     from helion._compiler.compile_environment import CompileEnvironment
+    from helion._compiler.pallas.plan_tiling import ArbitraryIndexPattern
+    from helion._compiler.pallas.plan_tiling import TileBeginWithOffsetPattern
+    from helion._compiler.pallas.plan_tiling import TileIndexWithOffsetPattern
     from helion._compiler.pallas.plan_tiling import TilePattern
 
     assert state.fx_node is not None
@@ -75,10 +78,19 @@ def _load_mask_expr(
     indexing_patterns = _get_indexing_patterns(state, tensor)
     env = CompileEnvironment.current()
     output_sizes = [*output_val.size()]
+    # Dims whose mask has been deferred to a downstream ``_mask_to`` by
+    # ``defer_pallas_load_masks`` -- masked later in the consumer layout instead.
+    deferred = state.fx_node.meta.get("pallas_deferred_mask_block_ids") or frozenset()
     mask_exprs: list[str] = []
     dtype_str: str | None = None
     out_dim = 0
     tensor_dim = 0
+
+    squeezing_patterns = (
+        ArbitraryIndexPattern,
+        TileIndexWithOffsetPattern,
+        TileBeginWithOffsetPattern,
+    )
 
     for idx, pattern in zip(subscript, indexing_patterns, strict=True):
         if idx is None:
@@ -87,7 +99,15 @@ def _load_mask_expr(
 
         if isinstance(pattern, TilePattern):
             block_id = pattern.block_id
-            if _tile_needs_mask(state, block_id, tensor, tensor_dim):
+            # Skip masking for size-1 (broadcast) dims: a single element is
+            # always valid, and applying a block-sized mask would broadcast
+            # the dim from 1 to block_size, causing shape mismatches.
+            dim_size = tensor.shape[tensor_dim]
+            if (
+                block_id not in deferred
+                and (not isinstance(dim_size, int) or dim_size > 1)
+                and _tile_needs_mask(state, block_id, tensor, tensor_dim)
+            ):
                 mask_var = state.codegen.mask_var(block_id)
                 if mask_var is not None:
                     if dtype_str is None:
@@ -98,7 +118,8 @@ def _load_mask_expr(
 
         # TODO(dunfanlu): Do other patterns beside TilePattern require masking?
 
-        out_dim += 1
+        if not isinstance(pattern, squeezing_patterns):
+            out_dim += 1
         tensor_dim += 1
 
     if not mask_exprs:
@@ -296,6 +317,22 @@ def _get_indexing_patterns(state: CodegenState, tensor: torch.Tensor) -> list[ob
     return patterns
 
 
+def _arbitrary_index_pattern_code(
+    pattern: object,
+    idx: object,
+    state: CodegenState,
+    subscript_index: int,
+    in_pipeline: bool,
+) -> str:
+    from helion._utils import is_scalar_index
+
+    if in_pipeline and is_scalar_index(idx):
+        return "0"
+    if isinstance(idx, int):
+        return str(idx)
+    return _index_expr_from_ast(state, subscript_index)
+
+
 def _generated_index_code(
     pattern: object,
     idx: object,
@@ -309,6 +346,8 @@ def _generated_index_code(
     """Generate index code based on the indexing pattern."""
     from helion._compiler.pallas.plan_tiling import ArbitraryIndexPattern
     from helion._compiler.pallas.plan_tiling import ArbitrarySlicePattern
+    from helion._compiler.pallas.plan_tiling import IndirectGatherPattern
+    from helion._compiler.pallas.plan_tiling import IndirectScatterPattern
     from helion._compiler.pallas.plan_tiling import TileBeginWithOffsetPattern
     from helion._compiler.pallas.plan_tiling import TileIndexWithOffsetPattern
     from helion._compiler.pallas.plan_tiling import TilePattern
@@ -319,20 +358,34 @@ def _generated_index_code(
         )
 
     if isinstance(pattern, TileIndexWithOffsetPattern):
-        return _tile_index_with_offset_pattern_code(pattern, state, tensor, tensor_dim)
+        return _tile_index_with_offset_pattern_code(
+            pattern, state, tensor, tensor_dim, in_pipeline, pipeline_block_ids
+        )
 
     if isinstance(pattern, TileBeginWithOffsetPattern):
         return _tile_begin_with_offset_pattern_code(
-            pattern, state, subscript_index, tensor_dim
+            pattern, state, subscript_index, tensor_dim, in_pipeline, pipeline_block_ids
         )
 
     if isinstance(pattern, ArbitrarySlicePattern):
         return _slice_code(idx, pattern, state, tensor, tensor_dim)
 
     if isinstance(pattern, ArbitraryIndexPattern):
-        if isinstance(idx, int):
-            return str(idx)
-        return _index_expr_from_ast(state, subscript_index)
+        return _arbitrary_index_pattern_code(
+            pattern, idx, state, subscript_index, in_pipeline
+        )
+
+    if isinstance(pattern, IndirectGatherPattern):
+        # The gather emitter consumes the tensor index and projects the full
+        # resident table axis through one-hot, so normal load codegen must
+        # expose that axis instead of indexing it a second time.
+        return ":"
+
+    if isinstance(pattern, IndirectScatterPattern):
+        # The scatter emitter consumes the tensor index and projects source lanes
+        # through one-hot matrices, so normal store codegen must expose the full
+        # resident target axis instead of indexing it a second time.
+        return ":"
 
     raise RuntimeError(
         f"Unhandled indexing pattern type: {type(pattern).__name__}. "
@@ -389,6 +442,8 @@ def _tile_index_with_offset_pattern_code(
     state: CodegenState,
     tensor: torch.Tensor,
     tensor_dim: int,
+    in_pipeline: bool,
+    pipeline_block_ids: set[int],
 ) -> str:
     from helion._compiler.pallas.plan_tiling import TileIndexWithOffsetPattern
 
@@ -404,11 +459,19 @@ def _tile_begin_with_offset_pattern_code(
     state: CodegenState,
     subscript_index: int,
     tensor_dim: int,
+    in_pipeline: bool,
+    pipeline_block_ids: set[int],
 ) -> str:
     from helion._compiler.pallas.plan_tiling import TileBeginWithOffsetPattern
     from helion._compiler.tile_strategy import DeviceLoopState
 
     assert isinstance(pattern, TileBeginWithOffsetPattern)
+
+    block_id = pattern.block_id
+    offset_str = state.device_function.literal_expr(pattern.offset)
+
+    if in_pipeline and block_id in pipeline_block_ids:
+        return offset_str
 
     can_tile = _can_tile_dimension(state, tensor_dim)
 
@@ -417,9 +480,9 @@ def _tile_begin_with_offset_pattern_code(
 
     assert isinstance(pattern.offset, int)
 
-    loops = state.codegen.active_device_loops.get(pattern.block_id)
+    loops = state.codegen.active_device_loops.get(block_id)
     if loops and any(isinstance(loop, DeviceLoopState) for loop in loops):
-        offset = state.codegen.offset_var(pattern.block_id)
+        offset = state.codegen.offset_var(block_id)
         if pattern.offset != 0:
             offset = f"{offset} + {pattern.offset}"
         return offset
@@ -464,6 +527,29 @@ def _slice_code(
     return ":"
 
 
+def _is_compact_aligned_load(
+    state: CodegenState, block_id: int, tensor: torch.Tensor | None
+) -> bool:
+    """True if *tensor* is a compact-tile aligned-load or exact-store tensor.
+
+    Both get a per-tile ``pl.Element`` BlockSpec sliced at ``tile_start`` (Pallas
+    double-buffers the load's prefetch and the store's write-back), so the body
+    accesses the whole sliced block at local offset 0.
+    """
+    from helion._compiler.compile_environment import CompileEnvironment
+
+    if tensor is None:
+        return False
+    plan = CompileEnvironment.current().compact_worklist_plan
+    if plan is None or block_id != plan.compact_axis.block_id:
+        return False
+    host = state.device_function.tensor_arg(tensor).host_str()
+    return any(
+        p.kind in ("compact_aligned_load", "compact_exact_store") and p.arg_name == host
+        for p in plan.tensor_policies
+    )
+
+
 def _ds_expr(
     state: CodegenState,
     block_id: int,
@@ -483,6 +569,12 @@ def _ds_expr(
     block_size = state.device_function.block_size_var(block_id)
     if block_size is None:
         return ":"
+    # compact_aligned_load: the tensor is a per-tile sliced BlockSpec block (the
+    # launcher slices it to one tile at tile_start via pl.Element, so Pallas
+    # double-buffers it across work items).  The body therefore reads the whole
+    # sliced block at local offset 0, not the absolute tile_start.
+    if not tile_offset and _is_compact_aligned_load(state, block_id, tensor):
+        return f"pl.ds(0, {block_size})"
     if tensor is not None and tensor_dim is not None:
         from helion.language.memory_ops import _record_pad_info
 

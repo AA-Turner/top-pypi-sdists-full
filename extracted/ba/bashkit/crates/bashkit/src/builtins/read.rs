@@ -279,12 +279,16 @@ impl Builtin for Read {
             return Ok(result);
         }
 
-        // If no variable names given, use REPLY
-        let var_names: Vec<&str> = if var_args.is_empty() {
-            vec!["REPLY"]
-        } else {
-            var_args
-        };
+        if var_args.is_empty() {
+            let mut result = ExecResult::ok(String::new());
+            result.side_effects.push(BuiltinSideEffect::SetVariable {
+                name: "REPLY".to_string(),
+                value: line,
+            });
+            return Ok(result);
+        }
+
+        let var_names = var_args;
 
         // Assign words to variables via side effects (respects local scoping)
         let mut result = ExecResult::ok(String::new());
@@ -294,11 +298,16 @@ impl Builtin for Read {
                 continue;
             }
             let value = if i == var_names.len() - 1 {
-                // Bash gives the final variable the unsplit remaining input.
-                // Preserve original separators instead of reconstructing from IFS.
+                // Bash gives the final variable the unsplit remaining input,
+                // then strips trailing IFS whitespace. Preserve original
+                // separators without keeping whitespace Bash trims.
                 words
                     .get(i)
-                    .map(|field| line[field.start..].to_string())
+                    .map(|field| {
+                        line[field.start..]
+                            .trim_end_matches(|ch| ifs.contains(ch) && " \t\n".contains(ch))
+                            .to_string()
+                    })
                     .unwrap_or_default()
             } else if i < words.len() {
                 words[i].text.to_string()
@@ -375,6 +384,25 @@ mod tests {
         assert_eq!(result.exit_code, 0);
         let vars = extract_vars(&result);
         assert_eq!(vars.get("REPLY").unwrap(), "hello world");
+    }
+
+    #[tokio::test]
+    async fn read_into_reply_preserves_trailing_ifs_whitespace() {
+        let (fs, mut cwd, mut variables) = setup().await;
+        let env = HashMap::new();
+        let args: Vec<String> = vec![];
+        let ctx = Context::new_for_test(
+            &args,
+            &env,
+            &mut variables,
+            &mut cwd,
+            fs.clone(),
+            Some("secret  "),
+        );
+        let result = Read.execute(ctx).await.unwrap();
+        assert_eq!(result.exit_code, 0);
+        let vars = extract_vars(&result);
+        assert_eq!(vars.get("REPLY").unwrap(), "secret  ");
     }
 
     // ==================== read into named variable ====================
@@ -679,6 +707,48 @@ mod tests {
         let vars = extract_vars(&result);
         assert_eq!(vars.get("A").unwrap(), "1");
         assert_eq!(vars.get("B").unwrap(), "2:3");
+    }
+
+    #[tokio::test]
+    async fn read_last_var_trims_trailing_ifs_whitespace() {
+        let (fs, mut cwd, mut variables) = setup().await;
+        let mut env = HashMap::new();
+        env.insert("IFS".to_string(), " ".to_string());
+        let args = vec!["A".to_string(), "B".to_string()];
+        let ctx = Context::new_for_test(
+            &args,
+            &env,
+            &mut variables,
+            &mut cwd,
+            fs.clone(),
+            Some("a   b  c  "),
+        );
+        let result = Read.execute(ctx).await.unwrap();
+        assert_eq!(result.exit_code, 0);
+        let vars = extract_vars(&result);
+        assert_eq!(vars.get("A").unwrap(), "a");
+        assert_eq!(vars.get("B").unwrap(), "b  c");
+    }
+
+    #[tokio::test]
+    async fn read_last_var_trims_only_trailing_ifs_whitespace() {
+        let (fs, mut cwd, mut variables) = setup().await;
+        let mut env = HashMap::new();
+        env.insert("IFS".to_string(), ",:".to_string());
+        let args = vec!["A".to_string(), "B".to_string()];
+        let ctx = Context::new_for_test(
+            &args,
+            &env,
+            &mut variables,
+            &mut cwd,
+            fs.clone(),
+            Some("1,2:3  "),
+        );
+        let result = Read.execute(ctx).await.unwrap();
+        assert_eq!(result.exit_code, 0);
+        let vars = extract_vars(&result);
+        assert_eq!(vars.get("A").unwrap(), "1");
+        assert_eq!(vars.get("B").unwrap(), "2:3  ");
     }
 
     #[tokio::test]

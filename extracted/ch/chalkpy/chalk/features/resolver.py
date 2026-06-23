@@ -5015,7 +5015,6 @@ def make_model_resolver(
     >>> from chalk.features import features, feature
     >>> from chalk.features.resolver import make_model_resolver
     >>> from chalk.ml import ModelVersion
-    >>>
     >>> @features
     ... class User:
     ...     id: str = feature(primary=True)
@@ -5023,7 +5022,6 @@ def make_model_resolver(
     ...     income: float
     ...     risk_score: float
     ...     credit_score: float
-    >>>
     >>> # Create a model version reference
     >>> model = ModelVersion(
     ...     name="risk_model",
@@ -5032,7 +5030,6 @@ def make_model_resolver(
     ...     model_encoding="pickle",
     ...     filename="model.pkl"
     ... )
-    >>>
     >>> # Create resolver with single output
     >>> resolver = make_model_resolver(
     ...     name="risk_model",
@@ -5040,7 +5037,6 @@ def make_model_resolver(
     ...     input=[User.age, User.income],
     ...     output=User.risk_score,
     ... )
-    >>>
     >>> # Create resolver with multiple outputs (list)
     >>> resolver = make_model_resolver(
     ...     name="multi_output_model",
@@ -5048,7 +5044,6 @@ def make_model_resolver(
     ...     input=[User.age, User.income],
     ...     output=[User.risk_score, User.credit_score],
     ... )
-    >>>
     >>> # Create resolver with named inputs and outputs (dict)
     >>> resolver = make_model_resolver(
     ...     name="named_model",

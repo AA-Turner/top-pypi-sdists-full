@@ -20,7 +20,6 @@ from smplkit import AsyncSmplClient
 from smplkit.audit import (
     ForwarderType,
     HttpConfiguration,
-    HttpHeader,
     HttpMethod,
     TransformType,
 )
@@ -113,11 +112,11 @@ async def main() -> None:
         forwarder_id = "showcase-forwarder"
 
         try:
-            # create a forwarder (disabled by default)
+            # create a forwarder
             forwarder = client.audit.forwarders.new(
                 forwarder_id,
                 configuration=HttpConfiguration(
-                    headers=[HttpHeader(name="X-Showcase", value="ok")],
+                    headers={"X-Showcase": "ok"},
                     method=HttpMethod.POST,
                     url="https://example.com",
                 ),
@@ -140,23 +139,16 @@ async def main() -> None:
             assert forwarder.id == forwarder_id
 
             # configure where to forward events in production
-            forwarder.set_configuration(
-                HttpConfiguration(
-                    headers=[HttpHeader(name="X-Showcase", value="ok")],
-                    method=HttpMethod.POST,
-                    url="https://httpbin.org/post",
-                ),
-                environment="production",
-            )
+            forwarder.environment("production").url = "https://httpbin.org/post"
+            forwarder.environment("production").set_header("X-Showcase", "ok")
             await forwarder.save()
             assert (
-                forwarder.environments["production"].configuration.url
-                == "https://httpbin.org/post"
+                forwarder.environments["production"].url == "https://httpbin.org/post"
             )
             print(f"Updated forwarder: {forwarder.name}")
 
             # start forwarding events in production
-            forwarder.set_enabled(True, environment="production")
+            forwarder.environment("production").enabled = True
             await forwarder.save()
             print(
                 f"Enabled forwarder {forwarder.name} (id={forwarder.id}) "

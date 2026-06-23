@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
-from .diagnostics import N002, N005, N006, format_diagnostic
+from aigie.diagnostics import N002, N005, N006, format_diagnostic
 
 logger = logging.getLogger("aigie.backend_client")
 

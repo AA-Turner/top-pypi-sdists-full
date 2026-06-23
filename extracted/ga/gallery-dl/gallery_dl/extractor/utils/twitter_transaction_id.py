@@ -20,7 +20,6 @@ import math
 import time
 import random
 import hashlib
-import binascii
 import itertools
 from ... import text, util
 
@@ -57,7 +56,7 @@ class ClientTransaction():
         if not frames:
             extractor.log.error("Failed to extract animation frame data")
 
-        self.key_bytes = key_bytes = binascii.a2b_base64(key)
+        self.key_bytes = key_bytes = util.b64rdecode(key)
         self.animation_key = self._calculate_animation_key(
             frames, indices[0], key_bytes, indices[1:])
 
@@ -151,7 +150,7 @@ class ClientTransaction():
             for byte in itertools.chain(
                 (0,), bytes_key, bytes_time, bytes_hash, (rndnum,))
         )
-        return binascii.b2a_base64(result).rstrip(b"=\n")
+        return util.b64rencode(result)
 
 
 # Cubic Curve

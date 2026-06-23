@@ -7665,6 +7665,7 @@ data = {
  '4764':{'en': 'Akershus'},
  '4766':{'en': 'Akershus'},
  '4767':{'en': 'Akershus'},
+ '4768':{'en': u('\u00d8stfold/Akershus')},
  '4769':{'en': u('\u00d8stfold')},
  '4770':{'en': u('M\u00f8re og Romsdal')},
  '4771':{'en': u('M\u00f8re og Romsdal')},
@@ -10018,5 +10019,4 @@ data = {
  '494546':{'de': 'Mustin Lauenburg', 'en': 'Mustin Lauenburg'},
  '494547':{'de': 'Gudow Lauenburg', 'en': 'Gudow Lauenburg'},
  '494550':{'de': u('B\u00fchnsdorf'), 'en': u('B\u00fchnsdorf')},
- '494551':{'de': 'Bad Segeberg', 'en': 'Bad Segeberg'},
 }

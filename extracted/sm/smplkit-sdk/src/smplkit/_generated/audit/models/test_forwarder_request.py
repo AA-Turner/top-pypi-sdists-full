@@ -12,7 +12,7 @@ from ..models.test_forwarder_request_method import TestForwarderRequestMethod
 from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.http_header import HttpHeader
+    from ..models.test_forwarder_request_headers import TestForwarderRequestHeaders
 
 
 T = TypeVar("T", bound="TestForwarderRequest")
@@ -29,7 +29,8 @@ class TestForwarderRequest:
             url (str): Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g.
                 `https://siem.example.com/in`).
             method (TestForwarderRequestMethod | Unset): HTTP method used for the test request. Default: 'POST'.
-            headers (list[HttpHeader] | Unset): HTTP headers attached to the test request.
+            headers (TestForwarderRequestHeaders | Unset): HTTP headers attached to the test request, as a name→value object
+                (e.g. `{"Authorization": "Bearer s3cr3t"}`).
             success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
                 `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
             timeout_ms (int | None | Unset): Per-request timeout in milliseconds. Capped at 30 seconds.
@@ -45,7 +46,7 @@ class TestForwarderRequest:
 
     url: str
     method: TestForwarderRequestMethod | Unset = "POST"
-    headers: list[HttpHeader] | Unset = UNSET
+    headers: TestForwarderRequestHeaders | Unset = UNSET
     success_status: str | Unset = "2xx"
     timeout_ms: int | None | Unset = UNSET
     tls_verify: bool | Unset = True
@@ -59,12 +60,9 @@ class TestForwarderRequest:
         if not isinstance(self.method, Unset):
             method = self.method
 
-        headers: list[dict[str, Any]] | Unset = UNSET
+        headers: dict[str, Any] | Unset = UNSET
         if not isinstance(self.headers, Unset):
-            headers = []
-            for headers_item_data in self.headers:
-                headers_item = headers_item_data.to_dict()
-                headers.append(headers_item)
+            headers = self.headers.to_dict()
 
         success_status = self.success_status
 
@@ -114,7 +112,7 @@ class TestForwarderRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.http_header import HttpHeader
+        from ..models.test_forwarder_request_headers import TestForwarderRequestHeaders
 
         d = dict(src_dict)
         url = d.pop("url")
@@ -127,13 +125,11 @@ class TestForwarderRequest:
             method = check_test_forwarder_request_method(_method)
 
         _headers = d.pop("headers", UNSET)
-        headers: list[HttpHeader] | Unset = UNSET
-        if _headers is not UNSET:
-            headers = []
-            for headers_item_data in _headers:
-                headers_item = HttpHeader.from_dict(headers_item_data)
-
-                headers.append(headers_item)
+        headers: TestForwarderRequestHeaders | Unset
+        if isinstance(_headers, Unset):
+            headers = UNSET
+        else:
+            headers = TestForwarderRequestHeaders.from_dict(_headers)
 
         success_status = d.pop("success_status", UNSET)
 

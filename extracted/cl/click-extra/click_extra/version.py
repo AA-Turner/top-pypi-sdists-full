@@ -13,63 +13,72 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-"""Gather CLI metadata and print them.
+"""Introspect CLI metadata at runtime and print a colored ``--version`` string.
 
-Pre-baking is inspired by `shadow-rs
-<https://github.com/baoyachi/shadow-rs>`_, which injects build-time
-constants (``BRANCH``, ``SHORT_COMMIT``, ``COMMIT_HASH``,
-``COMMIT_DATE``, ``TAG``, ...) into Rust binaries at compile time.
+:class:`VersionOption` gathers the executed CLI's metadata (module and
+package names, distribution version, author and license, environment profile,
+and the live Git state) and renders them through a customizable, colorized
+message template.
 
-.. todo::
-    shadow-rs also provides constants not yet covered here:
-    ``BUILD_TIME``, ``BUILD_TIME_2822``, ``BUILD_TIME_3339``,
-    ``BUILD_OS``, ``BUILD_TARGET``, ``BUILD_TARGET_ARCH``. Some overlap
-    with data already in ``{env_info}`` (Python version, OS,
-    architecture). Others like ``BUILD_TIME`` could be added as new
-    template fields.
+Git fields (``git_branch``, ``git_short_hash``, ...) are resolved at runtime by
+shelling out to ``git``, with two fallbacks for ``git``-less environments: a
+pre-baked ``__<field>__`` dunder in the CLI module (injected before build by
+:mod:`click_extra.prebake`), then a committed ``.git_archival.json`` populated
+by ``git archive``.
 """
 
 from __future__ import annotations
 
-import ast
 import importlib
 import inspect
+import json
 import logging
 import os
+import re
 import subprocess
 import sys
+from email.utils import getaddresses
 from functools import cached_property
 from gettext import gettext as _
 from importlib import metadata
 from pathlib import Path
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # type: ignore[import-not-found]
-
 import click
-from boltons.ecoutils import get_profile
 from boltons.formatutils import BaseFormatField, tokenize_format_str
 
 from . import Style, echo, get_current_context
 from .context import _LazyMetaDict
 from .parameters import ExtraOption
-from .theme import BUILTIN_THEMES
+
+# The build-time pre-baking helpers moved to ``click_extra.prebake``. Re-exported
+# here so the historical ``from click_extra.version import prebake_*`` import path
+# keeps working. ``prebake`` imports nothing from this module, so there is no
+# circular import.
+from .prebake import (  # noqa: F401
+    discover_package_init_files,
+    prebake_dunder,
+    prebake_version,
+)
+from .theme import BUILTIN_THEMES, nocolor_theme
 
 # Frozen reference to the default theme's invoked-command style. Used as the
 # default for several version-template fields below. Captured at module load
 # time on purpose: defaults bind once at function-definition time, so reading
 # through ``get_default_theme()`` here would hide later overrides anyway.
-_default_invoked_command = BUILTIN_THEMES["dark"].invoked_command
+# Falls back to the colorless theme when themes.toml is absent (some packaging
+# setups drop the data file, so the built-in "dark" palette is unavailable).
+_default_invoked_command = BUILTIN_THEMES.get("dark", nocolor_theme).invoked_command
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
+    from importlib.metadata import PackageMetadata
     from types import FrameType, ModuleType
-    from typing import Any
+    from typing import Any, ClassVar
 
     from cloup.styling import IStyle
+
+logger = logging.getLogger(__name__)
 
 
 GIT_FIELDS: dict[str, tuple[str, ...]] = {
@@ -79,18 +88,34 @@ GIT_FIELDS: dict[str, tuple[str, ...]] = {
     "git_date": ("show", "-s", "--format=%ci", "HEAD"),
     "git_tag": ("describe", "--tags", "--exact-match", "HEAD"),
 }
-"""Git fields that can be pre-baked, mapped to their ``git`` subcommand args.
+"""Git fields whose live value *is* the stripped output of one static ``git``
+subcommand, mapped to that subcommand's args.
 
-``git_tag_sha`` is excluded because its resolution depends on
-``git_tag`` (it runs ``git rev-list -1 <tag>``), so it cannot be
-expressed as a static argument tuple.
+``git_tag_sha``, ``git_distance`` and ``git_dirty`` are excluded: their
+resolution is not a single static ``git`` invocation whose stripped output is
+the value. ``git_tag_sha`` dereferences the tag (``git rev-list -1 <tag>``),
+``git_distance`` parses ``git describe`` and ``git_dirty`` maps the porcelain
+status to a label. See :func:`resolve_git_tag_sha`, :func:`resolve_git_distance`
+and :func:`resolve_git_dirty`.
+
+For the resolver of *every* pre-bakeable git field (these five plus the three
+computed ones), keyed uniformly by field ID, see :data:`GIT_RESOLVERS`.
 """
 
 
-def run_git(*args: str, cwd: Path | None = None) -> str | None:
+def run_git(
+    *args: str,
+    cwd: Path | None = None,
+    allow_empty: bool = False,
+) -> str | None:
     """Run a ``git`` command and return its stripped output, or ``None``.
 
     *cwd* defaults to the current working directory when not provided.
+
+    By default an empty output is collapsed to ``None`` (treated like a
+    failure). Set *allow_empty* to keep an empty string instead, which some
+    commands use meaningfully: ``git status --porcelain`` prints nothing for a
+    clean work tree, and that is distinct from the command failing.
     """
     try:
         result = subprocess.run(
@@ -101,212 +126,279 @@ def run_git(*args: str, cwd: Path | None = None) -> str | None:
             check=True,
             timeout=5,
         )
-        return result.stdout.strip() or None
     except (
         subprocess.CalledProcessError,
         FileNotFoundError,
         subprocess.TimeoutExpired,
     ):
         return None
-
-
-def _find_dunder_str(source: str, name: str) -> ast.Constant | None:
-    """Find a top-level dunder string constant in parsed source.
-
-    Locates the first top-level ``name = "..."`` assignment and returns
-    the :class:`ast.Constant` node for the string value. Returns
-    ``None`` if no matching assignment is found.
-    """
-    tree = ast.parse(source)
-    for node in ast.iter_child_nodes(tree):
-        if (
-            isinstance(node, ast.Assign)
-            and len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id == name
-            and isinstance(node.value, ast.Constant)
-            and isinstance(node.value.value, str)
-        ):
-            return node.value
+    output = result.stdout.strip()
+    if output or allow_empty:
+        return output
     return None
 
 
-def _rewrite_str_literal(
-    file_path: Path,
-    source: str,
-    node: ast.Constant,
-    new_value: str,
-) -> None:
-    """Replace a string literal's content in a source file.
+def resolve_git_dirty(cwd: Path | None = None) -> str | None:
+    """Report the work-tree state as ``"dirty"``, ``"clean"`` or ``None``.
 
-    Uses the AST node's line/column positions to swap the text between
-    the opening and closing quotes, preserving quoting style and all
-    surrounding content.
+    Returns ``"dirty"`` when ``git status --porcelain`` reports uncommitted
+    changes, ``"clean"`` when it reports none, and ``None`` when the state
+    cannot be determined (not a Git repository, or ``git`` is unavailable).
+
+    The empty output of a clean work tree is meaningful here, so the command is
+    run with ``allow_empty`` to tell it apart from a failure.
     """
-    col_offset = node.col_offset
-    end_lineno = node.end_lineno
-    col_end = node.end_col_offset
-    assert col_offset is not None
-    assert end_lineno is not None and col_end is not None
-    lines = source.splitlines(keepends=True)
-    line = lines[end_lineno - 1]
-    # Replace everything between the opening and closing quotes.
-    new_line = line[: col_offset + 1] + new_value + line[col_end - 1 :]
-    lines[end_lineno - 1] = new_line
-    file_path.write_text("".join(lines), encoding="utf-8")
+    status = run_git("status", "--porcelain", cwd=cwd, allow_empty=True)
+    if status is None:
+        return None
+    return "dirty" if status else "clean"
 
 
-def prebake_version(
-    file_path: Path,
-    local_version: str,
-) -> str | None:
-    """Pre-bake a ``__version__`` string with a `PEP 440 local version
-    identifier
-    <https://peps.python.org/pep-0440/#local-version-identifiers>`_.
+def resolve_git_distance(cwd: Path | None = None) -> str | None:
+    """Count commits since the most recent tag, as a string, or ``None``.
 
-    Reads *file_path*, finds the ``__version__`` assignment via
-    :mod:`ast`, and — if the version contains ``.dev`` and does not
-    already contain ``+`` — appends ``+<local_version>``.
-
-    This is the compile-time complement to the runtime
-    :attr:`ExtraVersionOption.version` property: Nuitka/PyInstaller
-    binaries cannot run ``git`` at runtime, so the hash must be baked
-    into ``__version__`` in the source file **before** compilation.
-
-    Returns the new version string on success, or ``None`` if no change
-    was made (release version, already pre-baked, or no ``__version__``
-    found).
+    Parses ``git describe --tags --long``, whose output has the form
+    ``<tag>-<distance>-g<short_hash>``. Returns ``None`` when no tag is
+    reachable, the directory is not a Git repository, or ``git`` is
+    unavailable.
     """
-    source = file_path.read_text(encoding="utf-8")
-    node = _find_dunder_str(source, "__version__")
-    if node is None:
-        logging.warning("No __version__ found in %s", file_path)
+    described = run_git("describe", "--tags", "--long", cwd=cwd)
+    if described is None:
         return None
-
-    version = node.value
-    assert isinstance(version, str)
-
-    if ".dev" not in version:
-        logging.info(
-            "Release version %r in %s — skipping.",
-            version,
-            file_path,
-        )
-        return None
-
-    if "+" in version:
-        logging.info(
-            "Version %r in %s already has a local identifier — skipping.",
-            version,
-            file_path,
-        )
-        return None
-
-    new_version = f"{version}+{local_version}"
-    _rewrite_str_literal(file_path, source, node, new_version)
-
-    logging.info(
-        "Pre-baked %s: %r → %r",
-        file_path,
-        version,
-        new_version,
-    )
-    return new_version
+    match = re.search(r"-(\d+)-g[0-9a-f]+$", described)
+    return match.group(1) if match else None
 
 
-def prebake_dunder(
-    file_path: Path,
-    name: str,
-    value: str,
-) -> str | None:
-    """Replace an empty dunder variable's value in a Python source file.
+def resolve_git_tag_sha(cwd: Path | None = None) -> str | None:
+    """Resolve the commit SHA the tag at ``HEAD`` points at, or ``None``.
 
-    Reads *file_path*, finds a top-level ``name = ""`` assignment via
-    :mod:`ast`, and — if the current value is an empty string — replaces
-    it with *value*.
-
-    Placeholders must use empty strings (``__field__ = ""``, not
-    ``None``). The AST matcher only recognizes string literals, and
-    the empty string serves as a falsy sentinel that stays
-    type-consistent with baked values (always ``str``).
-
-    This is the generic counterpart to :func:`prebake_version`: where
-    ``prebake_version`` appends a PEP 440 local identifier to
-    ``__version__``, this function does a full replacement of any dunder
-    variable that starts empty. Typical use case: injecting a release
-    commit SHA into ``__git_tag_sha__ = ""`` at build time.
-
-    Returns the new value on success, or ``None`` if no change was made
-    (variable not found, or already has a non-empty value).
+    Runs ``git describe --tags --exact-match HEAD`` to find the tag, then
+    ``git rev-list -1 <tag>`` to dereference it to a commit SHA. Returns
+    ``None`` when ``HEAD`` is not at a tagged commit, the directory is not a
+    Git repository, or ``git`` is unavailable.
     """
-    source = file_path.read_text(encoding="utf-8")
-    node = _find_dunder_str(source, name)
-    if node is None:
-        logging.warning("No %s found in %s", name, file_path)
+    tag = run_git(*GIT_FIELDS["git_tag"], cwd=cwd)
+    if not tag:
         return None
-
-    current = node.value
-
-    if current:
-        logging.info(
-            "%s in %s already has value %r — skipping.",
-            name,
-            file_path,
-            current,
-        )
-        return None
-
-    _rewrite_str_literal(file_path, source, node, value)
-
-    logging.info(
-        "Pre-baked %s in %s: %r → %r",
-        name,
-        file_path,
-        current,
-        value,
-    )
-    return value
+    return run_git("rev-list", "-1", tag, cwd=cwd)
 
 
-def discover_package_init_files() -> list[Path]:
-    """Discover ``__init__.py`` files from ``[project.scripts]``.
+def _direct_git_resolver(
+    field_id: str,
+) -> Callable[[Path | None], str | None]:
+    """Build a ``cwd``-taking resolver for a direct :data:`GIT_FIELDS` field.
 
-    Reads the ``pyproject.toml`` in the current working directory,
-    extracts ``[project.scripts]`` entry points, and returns the
-    unique ``__init__.py`` paths for each top-level package.
-
-    Only returns paths that exist on disk. Returns an empty list if
-    ``pyproject.toml`` is missing or has no ``[project.scripts]``.
+    The returned callable runs the field's static ``git`` subcommand and
+    returns its stripped output. Defined as a named factory (rather than an
+    inline ``lambda``) so each resolver binds its own ``field_id``.
     """
-    pyproject_path = Path("pyproject.toml")
-    if not pyproject_path.exists():
-        logging.warning("No pyproject.toml found in current directory.")
-        return []
+    args = GIT_FIELDS[field_id]
 
-    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-    scripts = data.get("project", {}).get("scripts", {})
-    if not scripts:
-        logging.warning("No [project.scripts] entries found in pyproject.toml.")
-        return []
+    def resolver(cwd: Path | None = None) -> str | None:
+        return run_git(*args, cwd=cwd)
 
-    seen: set[Path] = set()
-    paths: list[Path] = []
-    for script in scripts.values():
-        # "repomatic.__main__:main" → "repomatic".
-        module_id = script.split(":")[0]
-        package_dir = module_id.split(".")[0]
-        init_path = Path(package_dir) / "__init__.py"
-        if init_path in seen:
+    return resolver
+
+
+GIT_RESOLVERS: dict[str, Callable[[Path | None], str | None]] = {
+    **{field_id: _direct_git_resolver(field_id) for field_id in GIT_FIELDS},
+    "git_tag_sha": resolve_git_tag_sha,
+    "git_distance": resolve_git_distance,
+    "git_dirty": resolve_git_dirty,
+}
+"""Canonical live resolver for every pre-bakeable ``git_*`` field.
+
+Maps each field ID to a callable that takes an optional working directory and
+returns the field's value by shelling out to ``git`` (or ``None`` when it
+cannot be resolved). This is the single source of truth for *how each git field
+is computed live*, shared by two consumers:
+
+- :class:`VersionOption`'s runtime accessors, which wrap each resolver with the
+  pre-baked-dunder and ``.git_archival.json`` fallbacks.
+- the ``click-extra prebake all`` command, which calls every resolver to bake
+  values into source files at build time.
+
+Keeping it here means adding a new git field is a one-line edit in this module,
+with no matching change needed in the CLI.
+"""
+
+
+def find_archival_file(start: Path) -> Path | None:
+    """Walk up from *start* to find a ``.git_archival.json`` file.
+
+    Returns the first match in *start* or any of its parents, or ``None``.
+    """
+    for path in (start, *start.parents):
+        candidate = path / ".git_archival.json"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def read_archival(path: Path) -> dict[str, str]:
+    """Parse a ``.git_archival.json`` file into a string mapping.
+
+    Returns an empty mapping when the file is missing, unreadable, or not a
+    valid JSON object.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(key): str(value) for key, value in data.items()}
+
+
+def archival_field(data: Mapping[str, str], field_id: str) -> str | None:
+    """Resolve a ``git_*`` field from parsed ``.git_archival.json`` data.
+
+    *data* follows the `setuptools-scm archival schema
+    <https://setuptools-scm.readthedocs.io/en/latest/usage/#git-archives>`_:
+    ``node`` (full hash), ``node-date``, ``describe-name`` and ``ref-names``.
+    The same file is read by setuptools-scm and Dunamai, so a single committed
+    ``.git_archival.json`` serves all three.
+
+    Returns ``None`` when the field is absent, empty, or still holds an
+    unsubstituted ``$Format:…$`` placeholder. That last case is what a plain
+    checkout contains: ``git archive`` performs the substitution, so values are
+    real only inside an exported archive (including GitHub's source tarballs).
+
+    There is no entry for ``git_dirty``: an archive has no work tree, so its
+    state is unknowable.
+    """
+
+    def value(key: str) -> str | None:
+        raw = data.get(key, "").strip()
+        if not raw or "$Format" in raw:
+            return None
+        return raw
+
+    if field_id == "git_long_hash":
+        return value("node")
+    if field_id == "git_short_hash":
+        node = value("node")
+        return node[:7] if node else None
+    if field_id == "git_date":
+        return value("node-date")
+    if field_id == "git_branch":
+        refs = value("ref-names")
+        if refs:
+            for ref in refs.split(", "):
+                # "HEAD -> main" names the checked-out branch.
+                if " -> " in ref:
+                    return ref.split(" -> ", 1)[1]
+        return None
+    if field_id == "git_tag":
+        refs = value("ref-names")
+        if refs:
+            for ref in refs.split(", "):
+                if ref.startswith("tag: "):
+                    return ref[len("tag: ") :]
+        return None
+    if field_id == "git_tag_sha":
+        # A tag among the refs points at the archived commit itself.
+        if archival_field(data, "git_tag"):
+            return value("node")
+        return None
+    if field_id == "git_distance":
+        described = value("describe-name")
+        if described is None:
+            return None
+        # "<tag>-<distance>-g<short_hash>"; a bare "<tag>" means distance zero.
+        match = re.search(r"-(\d+)-g[0-9a-f]+$", described)
+        return match.group(1) if match else "0"
+    return None
+
+
+def resolve_distribution(names: Iterable[str]) -> str | None:
+    """Return the first installed distribution among *names*, or ``None``.
+
+    Probes each candidate name in order with :func:`importlib.metadata.distribution`
+    and returns the first that resolves to an installed distribution. Used to
+    pick a distribution from a set of plausible spellings (for example the
+    program name with ``-`` / ``_`` variants) before reading its metadata.
+    """
+    for name in names:
+        if not name:
             continue
-        seen.add(init_path)
-        if init_path.exists():
-            paths.append(init_path)
-        else:
-            logging.warning("Package init not found: %s", init_path)
-    return paths
+        try:
+            metadata.distribution(name)
+        except metadata.PackageNotFoundError:
+            continue
+        return name
+    return None
 
 
-class ExtraVersionOption(ExtraOption):
+def meta_value(meta: PackageMetadata, *keys: str) -> str | None:
+    """Return the first non-empty value among core-metadata *keys*.
+
+    Accessed through ``in`` + ``[]`` (rather than ``.get()``) to dodge the
+    deprecated implicit-``None`` return on missing keys.
+    """
+    for key in keys:
+        if key in meta:
+            value = meta[key]
+            if value:
+                return value
+    return None
+
+
+def resolve_author(meta: PackageMetadata | None) -> str | None:
+    """Return the author(s) from *meta*'s core metadata, or ``None``.
+
+    Prefers the ``Author`` field, then the ``Maintainer`` field, then the
+    display name parsed out of the ``Author-email`` / ``Maintainer-email``
+    fields (``Name <email>``). Returns ``None`` when *meta* is ``None`` or no
+    author can be determined.
+    """
+    if not meta:
+        return None
+
+    # Plain-name fields, in order of preference.
+    name = meta_value(meta, "Author", "Maintainer")
+    if name:
+        return name
+
+    # ``Name <email>`` combined fields: keep only the display names, falling
+    # back to the raw value when no name part is present.
+    contact = meta_value(meta, "Author-email", "Maintainer-email")
+    if contact:
+        names = [n for n, _addr in getaddresses([contact]) if n]
+        return ", ".join(names) if names else contact
+
+    return None
+
+
+def resolve_license(meta: PackageMetadata | None) -> str | None:
+    """Return the license from *meta*'s core metadata, or ``None``.
+
+    Prefers the SPDX ``License-Expression`` field (`core metadata 2.4+
+    <https://packaging.python.org/en/latest/specifications/core-metadata/#license-expression>`_).
+    Falls back to the human-readable name of the first ``License ::`` trove
+    classifier, then to the free-form ``License`` field (which may hold the
+    full license text). Returns ``None`` when *meta* is ``None`` or no license
+    can be determined.
+    """
+    if not meta:
+        return None
+
+    # SPDX expression (core metadata 2.4+), the modern canonical field.
+    expression = meta_value(meta, "License-Expression")
+    if expression:
+        return expression
+
+    # ``License :: OSI Approved :: GNU GPL v3 (GPLv3)`` → ``GNU GPL v3 (GPLv3)``.
+    for classifier in meta.get_all("Classifier") or []:
+        text = str(classifier)
+        if text.startswith("License ::"):
+            return text.split("::")[-1].strip()
+
+    # Free-form legacy field (may hold the full license text).
+    return meta_value(meta, "License")
+
+
+class VersionOption(ExtraOption):
     """Gather CLI metadata and prints a colored version string.
 
     .. note::
@@ -336,6 +428,8 @@ class ExtraVersionOption(ExtraOption):
         "module_version",
         "package_name",
         "package_version",
+        "author",
+        "license",
         "exec_name",
         "version",
         "git_repo_path",
@@ -345,52 +439,46 @@ class ExtraVersionOption(ExtraOption):
         "git_date",
         "git_tag",
         "git_tag_sha",
+        "git_distance",
+        "git_dirty",
         "prog_name",
         "env_info",
     )
     """List of field IDs recognized by the message template."""
 
+    default_styles: ClassVar[dict[str, IStyle]] = {
+        "module_name": _default_invoked_command,
+        "module_version": Style(fg="green"),
+        "package_name": _default_invoked_command,
+        "package_version": Style(fg="green"),
+        "exec_name": _default_invoked_command,
+        "version": Style(fg="green"),
+        "git_repo_path": Style(fg="bright_black"),
+        "git_branch": Style(fg="cyan"),
+        "git_long_hash": Style(fg="yellow"),
+        "git_short_hash": Style(fg="yellow"),
+        "git_date": Style(fg="bright_black"),
+        "git_tag": Style(fg="cyan"),
+        "git_tag_sha": Style(fg="yellow"),
+        "git_distance": Style(fg="green"),
+        "git_dirty": Style(fg="red"),
+        "prog_name": _default_invoked_command,
+        "env_info": Style(fg="bright_black"),
+    }
+    """Default style for each template field.
+
+    Fields absent from this mapping render with no style of their own and fall
+    back to ``message_style`` (or no color when that is unset). User-provided
+    ``styles`` are merged over these defaults.
+    """
+
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
         message: str | None = None,
-        # Field value overrides.
-        module: str | None = None,
-        module_name: str | None = None,
-        module_file: str | None = None,
-        module_version: str | None = None,
-        package_name: str | None = None,
-        package_version: str | None = None,
-        exec_name: str | None = None,
-        version: str | None = None,
-        git_repo_path: str | None = None,
-        git_branch: str | None = None,
-        git_long_hash: str | None = None,
-        git_short_hash: str | None = None,
-        git_date: str | None = None,
-        git_tag: str | None = None,
-        git_tag_sha: str | None = None,
-        prog_name: str | None = None,
-        env_info: dict[str, str] | None = None,
-        # Field style overrides.
+        fields: Mapping[str, Any] | None = None,
+        styles: Mapping[str, IStyle | None] | None = None,
         message_style: IStyle | None = None,
-        module_style: IStyle | None = None,
-        module_name_style: IStyle | None = _default_invoked_command,
-        module_file_style: IStyle | None = None,
-        module_version_style: IStyle | None = Style(fg="green"),
-        package_name_style: IStyle | None = _default_invoked_command,
-        package_version_style: IStyle | None = Style(fg="green"),
-        exec_name_style: IStyle | None = _default_invoked_command,
-        version_style: IStyle | None = Style(fg="green"),
-        git_repo_path_style: IStyle | None = Style(fg="bright_black"),
-        git_branch_style: IStyle | None = Style(fg="cyan"),
-        git_long_hash_style: IStyle | None = Style(fg="yellow"),
-        git_short_hash_style: IStyle | None = Style(fg="yellow"),
-        git_date_style: IStyle | None = Style(fg="bright_black"),
-        git_tag_style: IStyle | None = Style(fg="cyan"),
-        git_tag_sha_style: IStyle | None = Style(fg="yellow"),
-        prog_name_style: IStyle | None = _default_invoked_command,
-        env_info_style: IStyle | None = Style(fg="bright_black"),
         is_flag=True,
         expose_value=False,
         is_eager=True,
@@ -403,62 +491,51 @@ class ExtraVersionOption(ExtraOption):
             <https://docs.python.org/3/library/string.html#format-string-syntax>`_.
             Defaults to ``{prog_name}, version {version}``.
 
-        :param module: forces the value of ``{module}``.
-        :param module_name: forces the value of ``{module_name}``.
-        :param module_file: forces the value of ``{module_file}``.
-        :param module_version: forces the value of ``{module_version}``.
-        :param package_name: forces the value of ``{package_name}``.
-        :param package_version: forces the value of ``{package_version}``.
-        :param exec_name: forces the value of ``{exec_name}``.
-        :param version: forces the value of ``{version}``.
-        :param git_repo_path: forces the value of ``{git_repo_path}``.
-        :param git_branch: forces the value of ``{git_branch}``.
-        :param git_long_hash: forces the value of ``{git_long_hash}``.
-        :param git_short_hash: forces the value of ``{git_short_hash}``.
-        :param git_date: forces the value of ``{git_date}``.
-        :param git_tag: forces the value of ``{git_tag}``.
-        :param git_tag_sha: forces the value of ``{git_tag_sha}``.
-        :param prog_name: forces the value of ``{prog_name}``.
-        :param env_info: forces the value of ``{env_info}``.
+        :param fields: mapping of template field name to a forced value,
+            overriding the value auto-computed for that field. Keys must be
+            members of ``template_fields`` (for example
+            ``{"version": "1.2.3"}``).
 
-        :param message_style: default style of the message.
+        :param styles: mapping of template field name to its ``Style``, merged
+            over ``default_styles``. Pass ``None`` as a value to clear a
+            field's default style. Keys must be members of ``template_fields``.
 
-        :param module_style: style of ``{module}``.
-        :param module_name_style: style of ``{module_name}``.
-        :param module_file_style: style of ``{module_file}``.
-        :param module_version_style: style of ``{module_version}``.
-        :param package_name_style: style of ``{package_name}``.
-        :param package_version_style: style of ``{package_version}``.
-        :param exec_name_style: style of ``{exec_name}``.
-        :param version_style: style of ``{version}``.
-        :param git_repo_path_style: style of ``{git_repo_path}``.
-        :param git_branch_style: style of ``{git_branch}``.
-        :param git_long_hash_style: style of ``{git_long_hash}``.
-        :param git_short_hash_style: style of ``{git_short_hash}``.
-        :param git_date_style: style of ``{git_date}``.
-        :param git_tag_style: style of ``{git_tag}``.
-        :param git_tag_sha_style: style of ``{git_tag_sha}``.
-        :param prog_name_style: style of ``{prog_name}``.
-        :param env_info_style: style of ``{env_info}``.
+        :param message_style: fallback style for the message literals and for
+            any field that has no style of its own.
         """
         if not param_decls:
             param_decls = ("--version",)
 
         if message is not None:
             self.message = message
-
         self.message_style = message_style
 
-        # Overrides default field's value and style with user-provided parameters.
-        for field_id in self.template_fields:
-            # Override field value.
-            user_value = locals().get(field_id)
-            if user_value is not None:
-                setattr(self, field_id, user_value)
+        field_overrides = dict(fields) if fields else {}
+        style_overrides = dict(styles) if styles else {}
 
-            # Set field style.
-            style_id = f"{field_id}_style"
-            setattr(self, style_id, locals()[style_id])
+        # Reject unknown field names early to catch typos.
+        valid_fields = set(self.template_fields)
+        for label, mapping in (
+            ("fields", field_overrides),
+            ("styles", style_overrides),
+        ):
+            unknown = set(mapping) - valid_fields
+            if unknown:
+                msg = (
+                    f"Unknown {label}: {sorted(unknown)}. "
+                    f"Must be among {self.template_fields}."
+                )
+                raise ValueError(msg)
+
+        # A field value override shadows the cached_property of the same name.
+        for field_id, field_value in field_overrides.items():
+            setattr(self, field_id, field_value)
+
+        # Per-field styles: class defaults overridden by user-provided styles.
+        self.styles: dict[str, IStyle | None] = {
+            **self.default_styles,
+            **style_overrides,
+        }
 
         kwargs.setdefault("callback", self.print_and_exit)
 
@@ -504,7 +581,7 @@ class ExtraVersionOption(ExtraOption):
                 frame.f_locals.get("self"),
                 click.testing.CliRunner,
             ):
-                # Because click_extra.testing.ExtraCliRunner inherits from
+                # Because click_extra.testing.CliRunner inherits from
                 # click.testing.CliRunner, we'd like to keep looking for candidate as
                 # long as the frame is an invoke() function of a CliRunner class.
                 candidate = frame
@@ -532,9 +609,8 @@ class ExtraVersionOption(ExtraOption):
         # Our heuristics to locate the CLI implementation failed. Fall back to
         # the outermost frame in the stack. This happens in Nuitka-compiled
         # binaries where the entry point module's ``__name__`` may be a
-        # submodule of the Click ecosystem package (e.g.
+        # submodule of the Click ecosystem package (like
         # ``click_extra.__main__``) and all frames get skipped.
-        logger = logging.getLogger("click_extra")
         count_size = len(str(len(frame_chain)))
         for counter, (p_name, f_name) in enumerate(frame_chain):
             logger.debug(f"Frame {counter:<{count_size}} # {p_name}:{f_name}")
@@ -556,22 +632,22 @@ class ExtraVersionOption(ExtraOption):
         if not module:
             raise RuntimeError(f"Cannot find module of {frame!r}")
 
-        # If the module is a generated entry point script (e.g., .venv/bin/cli-name),
+        # If the module is a generated entry point script (like .venv/bin/cli-name),
         # try to find the actual CLI module.
         if module.__name__ == "__main__" and not module.__package__:
             module_file = getattr(module, "__file__", None)
             if module_file:
                 module_path = Path(module_file)
-                # Entry points are typically in bin/ or Scripts/ directories
+                # Entry points are typically in bin/ or Scripts/ directories.
                 if module_path.parent.name in ("bin", "Scripts"):
                     script_name = module_path.name
 
-                    # Try to find the package via entry_points API
+                    # Try to find the package via entry_points API.
                     actual_module = self._resolve_entry_point_module(script_name)
                     if actual_module:
                         return actual_module
 
-                    # Fallback: inspect frame globals for imported callables
+                    # Fallback: inspect frame globals for imported callables.
                     actual_module = self._resolve_module_from_frame(frame)
                     if actual_module:
                         return actual_module
@@ -610,7 +686,7 @@ class ExtraVersionOption(ExtraOption):
 
     @cached_property
     def module_name(self) -> str:
-        """Returns the full module name or ``__main__`."""
+        """Returns the full module name or ``__main__``."""
         return self.module.__name__
 
     @cached_property
@@ -638,7 +714,7 @@ class ExtraVersionOption(ExtraOption):
 
         # If not found, try to get it from the command's callback globals.
         # This handles cases where the command is defined in a different context
-        # (e.g., Sphinx documentation blocks, or standalone scripts).
+        # (like Sphinx documentation blocks, or standalone scripts).
         if version is None:
             ctx = get_current_context(silent=True)
             if ctx and ctx.command and hasattr(ctx.command, "callback"):
@@ -650,7 +726,7 @@ class ExtraVersionOption(ExtraOption):
 
         # If still not found, check the parent package. This handles
         # ``__main__`` entry points where ``__version__`` is defined in
-        # the package's ``__init__.py`` (e.g. Nuitka-compiled binaries).
+        # the package's ``__init__.py`` (like Nuitka-compiled binaries).
         # Skip modules belonging to the Click ecosystem because
         # ``cli_frame()`` may resolve to a CliRunner frame instead of
         # the user's module, producing false-positive lookups. ``__main__``
@@ -684,33 +760,37 @@ class ExtraVersionOption(ExtraOption):
         return self.module.__package__
 
     @cached_property
-    def package_version(self) -> str | None:
-        """Returns the package version if installed.
+    def _distribution_name(self) -> str | None:
+        """Resolve :attr:`package_name` to an installed distribution name.
 
-        If ``package_name`` does not match an installed distribution
-        directly, it is resolved as an import (top-level module) name
-        via :func:`importlib.metadata.packages_distributions`. This
-        covers packages whose top-level module name differs from their
-        distribution name (``PIL`` vs ``Pillow``, ``jwt`` vs ``PyJWT``).
-        Ambiguous mappings (one import name to several distributions)
-        return ``None``: pass ``package_name`` explicitly to disambiguate.
+        :attr:`package_name` is an *import* (top-level module) name, which
+        may differ from the *distribution* name (``PIL`` vs ``Pillow``,
+        ``jwt`` vs ``PyJWT``). This resolves it to the distribution name
+        used for :mod:`importlib.metadata` lookups.
+
+        If :attr:`package_name` already matches an installed distribution
+        it is returned as-is. Otherwise it is resolved as an import name
+        via :func:`importlib.metadata.packages_distributions`. Ambiguous
+        mappings (one import name to several distributions) return
+        ``None``: pass ``package_name`` explicitly to disambiguate.
         """
-        logger = logging.getLogger("click_extra")
-
         if not self.package_name:
-            logger.debug("Cannot guess version from package: no package name provided.")
+            logger.debug("No package name provided.")
             return None
 
+        # ``package_name`` already matches an installed distribution.
         try:
-            return metadata.version(self.package_name)
+            metadata.distribution(self.package_name)
         except metadata.PackageNotFoundError:
             pass
+        else:
+            return self.package_name
 
         # The given name didn't match an installed distribution. Try
         # resolving it as an import (top-level module) name.
         distributions = metadata.packages_distributions().get(self.package_name, [])
         if len(distributions) == 1:
-            return metadata.version(distributions[0])
+            return distributions[0]
         if len(distributions) > 1:
             logger.debug(
                 f"{self.package_name!r} maps to multiple installed "
@@ -718,11 +798,56 @@ class ExtraVersionOption(ExtraOption):
                 "'package_name' to disambiguate."
             )
             return None
-        logger.debug(
-            f"Cannot get version: {self.package_name!r} package not found or not "
-            "installed."
-        )
+        logger.debug(f"{self.package_name!r} package not found or not installed.")
         return None
+
+    @cached_property
+    def package_version(self) -> str | None:
+        """Returns the package version if installed.
+
+        Resolved from the distribution name (see
+        ``_distribution_name``) via :func:`importlib.metadata.version`.
+        Returns ``None`` if the package is not installed or cannot be
+        resolved.
+        """
+        name = self._distribution_name
+        return metadata.version(name) if name else None
+
+    @cached_property
+    def _package_metadata(self) -> PackageMetadata | None:
+        """Returns the distribution's core metadata, or ``None``.
+
+        Reads the `core metadata
+        <https://packaging.python.org/en/latest/specifications/core-metadata/>`_
+        (``Author``, ``License-Expression``, classifiers, ...) of the
+        resolved distribution (see ``_distribution_name``). Returns
+        ``None`` when the package is not installed or cannot be resolved.
+        """
+        name = self._distribution_name
+        return metadata.metadata(name) if name else None
+
+    @cached_property
+    def author(self) -> str | None:
+        """Returns the package author(s) from its core metadata.
+
+        Delegates to :func:`~click_extra.version.resolve_author`: prefers the
+        ``Author`` field,
+        then the ``Maintainer`` field, then the display name parsed out of the
+        ``Author-email`` / ``Maintainer-email`` fields (``Name <email>``).
+        Returns ``None`` if no author can be determined.
+        """
+        return resolve_author(self._package_metadata)
+
+    @cached_property
+    def license(self) -> str | None:
+        """Returns the package license from its core metadata.
+
+        Delegates to :func:`~click_extra.version.resolve_license`: prefers the SPDX
+        ``License-Expression`` field, falls back to the human-readable name of
+        the first ``License ::`` trove classifier, then to the free-form
+        ``License`` field. Returns ``None`` if no license can be determined.
+        """
+        return resolve_license(self._package_metadata)
 
     @cached_property
     def exec_name(self) -> str:
@@ -770,7 +895,7 @@ class ExtraVersionOption(ExtraOption):
         dev build was produced from. If Git is unavailable, the plain dev version is
         returned.
 
-        Versions that already contain a ``+`` (i.e., a pre-baked local version
+        Versions that already contain a ``+`` (a pre-baked local version
         identifier, typically set at build time by CI pipelines) are returned as-is
         to avoid producing invalid double-suffixed versions like
         ``1.2.3.dev0+abc1234+xyz5678``.
@@ -813,38 +938,76 @@ class ExtraVersionOption(ExtraOption):
         """
         dunder_name = f"__{field_id}__"
         value = getattr(self.module, dunder_name, None)
-        if value and isinstance(value, str):
-            return value  # type: ignore[no-any-return]
+        # ``isinstance`` first so mypy narrows ``value`` from ``Any`` to ``str``
+        # for the return; the ``and value`` keeps only non-empty strings.
+        if isinstance(value, str) and value:
+            return value
         return None
+
+    @cached_property
+    def _archival_data(self) -> dict[str, str]:
+        """Parsed ``.git_archival.json`` for the CLI, or an empty mapping.
+
+        Found by walking up from the CLI module's directory (falling back to
+        the current working directory). Only populated inside an archive
+        produced by ``git archive`` (including GitHub's source tarballs),
+        where git substitutes the ``$Format:…$`` placeholders. A normal
+        checkout holds the raw placeholders and yields nothing here, so live
+        ``git`` calls take precedence and this is consulted only as a fallback.
+        """
+        if self.module_file:
+            start = Path(self.module_file).parent
+        else:
+            start = Path.cwd()
+        path = find_archival_file(start)
+        return read_archival(path) if path else {}
+
+    def _resolve_uniform_git_field(self, field_id: str) -> str | None:
+        """Resolve a ``git_*`` field that has a single static ``git`` command.
+
+        Applies the precedence shared by every uniform git field: a pre-baked
+        ``__<field_id>__`` dunder, then the live value from
+        :data:`GIT_RESOLVERS` (run inside :attr:`git_repo_path`), then the
+        ``.git_archival.json`` fallback.
+
+        Only valid for the fields in :data:`GIT_FIELDS`. The computed fields
+        (:attr:`git_tag_sha`, :attr:`git_distance`, :attr:`git_dirty`) diverge
+        in their fallbacks and resolve themselves.
+        """
+        live = None
+        if self.git_repo_path:
+            live = GIT_RESOLVERS[field_id](self.git_repo_path)
+        return (
+            self._get_prebaked(field_id)
+            or live
+            or archival_field(self._archival_data, field_id)
+        )
 
     @cached_property
     def git_branch(self) -> str | None:
         """Returns the current Git branch name.
 
         Checks for a pre-baked ``__git_branch__`` dunder first, then
-        falls back to ``git rev-parse --abbrev-ref HEAD``.
+        ``git rev-parse --abbrev-ref HEAD``, then ``.git_archival.json``.
         """
-        return self._get_prebaked("git_branch") or self._run_git_command(
-            *GIT_FIELDS["git_branch"]
-        )
+        return self._resolve_uniform_git_field("git_branch")
 
     @cached_property
     def git_long_hash(self) -> str | None:
         """Returns the full Git commit hash.
 
         Checks for a pre-baked ``__git_long_hash__`` dunder first, then
-        falls back to ``git rev-parse HEAD``.
+        ``git rev-parse HEAD``, then ``.git_archival.json``.
         """
-        return self._get_prebaked("git_long_hash") or self._run_git_command(
-            *GIT_FIELDS["git_long_hash"]
-        )
+        return self._resolve_uniform_git_field("git_long_hash")
 
     @cached_property
     def git_short_hash(self) -> str | None:
         """Returns the short Git commit hash.
 
         Checks for a pre-baked ``__git_short_hash__`` dunder first, then
-        falls back to ``git rev-parse --short HEAD``.
+        ``git rev-parse --short HEAD``, then ``.git_archival.json`` (where it
+        is derived from the first 7 characters of the full hash).
 
         .. hint::
             The short hash is usually the first 7 characters of the full hash, but this
@@ -854,49 +1017,80 @@ class ExtraVersionOption(ExtraOption):
             a `minimum of 4 characters
             <https://git-scm.com/docs/git-config#Documentation/git-config.txt-coreabbrev>`_.
         """
-        return self._get_prebaked("git_short_hash") or self._run_git_command(
-            *GIT_FIELDS["git_short_hash"]
-        )
+        return self._resolve_uniform_git_field("git_short_hash")
 
     @cached_property
     def git_date(self) -> str | None:
         """Returns the commit date in ISO format: ``YYYY-MM-DD HH:MM:SS +ZZZZ``.
 
         Checks for a pre-baked ``__git_date__`` dunder first, then
-        falls back to ``git show -s --format=%ci HEAD``.
+        ``git show -s --format=%ci HEAD``, then ``.git_archival.json`` (whose
+        ``node-date`` is strict ISO 8601, like ``2021-01-01T12:00:00+00:00``).
         """
-        return self._get_prebaked("git_date") or self._run_git_command(
-            *GIT_FIELDS["git_date"]
-        )
+        return self._resolve_uniform_git_field("git_date")
 
     @cached_property
     def git_tag(self) -> str | None:
         """Returns the Git tag pointing at HEAD, if any.
 
         Checks for a pre-baked ``__git_tag__`` dunder first, then
-        falls back to ``git describe --tags --exact-match HEAD``.
+        ``git describe --tags --exact-match HEAD``, then ``.git_archival.json``.
 
         Returns ``None`` if HEAD is not at a tagged commit.
         """
-        return self._get_prebaked("git_tag") or self._run_git_command(
-            *GIT_FIELDS["git_tag"]
-        )
+        return self._resolve_uniform_git_field("git_tag")
 
     @cached_property
     def git_tag_sha(self) -> str | None:
         """Returns the commit SHA that the current tag points at.
 
         Checks for a pre-baked ``__git_tag_sha__`` dunder first, then
-        falls back to ``git rev-list -1`` on the tag returned by
-        :attr:`git_tag`. Returns ``None`` if HEAD is not at a tag.
+        ``git rev-list -1`` on the tag returned by :attr:`git_tag`, then
+        ``.git_archival.json``. Returns ``None`` if HEAD is not at a tag.
         """
         prebaked = self._get_prebaked("git_tag_sha")
         if prebaked:
             return prebaked
         tag = self.git_tag
         if tag:
-            return self._run_git_command("rev-list", "-1", tag)
-        return None
+            live = self._run_git_command("rev-list", "-1", tag)
+            if live:
+                return live
+        return archival_field(self._archival_data, "git_tag_sha")
+
+    @cached_property
+    def git_distance(self) -> str | None:
+        """Number of commits since the most recent tag, or ``None``.
+
+        Checks for a pre-baked ``__git_distance__`` dunder first, then parses
+        ``git describe --tags --long``, then falls back to
+        ``.git_archival.json``. ``None`` when no tag is reachable or Git is
+        unavailable.
+        """
+        prebaked = self._get_prebaked("git_distance")
+        if prebaked:
+            return prebaked
+        if self.git_repo_path:
+            distance = resolve_git_distance(self.git_repo_path)
+            if distance is not None:
+                return distance
+        return archival_field(self._archival_data, "git_distance")
+
+    @cached_property
+    def git_dirty(self) -> str | None:
+        """Work-tree state: ``"dirty"``, ``"clean"`` or ``None``.
+
+        Checks for a pre-baked ``__git_dirty__`` dunder first, then runs
+        ``git status --porcelain``. ``None`` when not in a Git repository or
+        Git is unavailable. There is no ``.git_archival.json`` fallback: an
+        archive has no work tree, so its state is unknowable.
+        """
+        prebaked = self._get_prebaked("git_dirty")
+        if prebaked:
+            return prebaked
+        if not self.git_repo_path:
+            return None
+        return resolve_git_dirty(self.git_repo_path)
 
     @cached_property
     def prog_name(self) -> str | None:
@@ -917,6 +1111,13 @@ class ExtraVersionOption(ExtraOption):
         Returns the data produced by `boltons.ecoutils.get_profile()
         <https://boltons.readthedocs.io/en/latest/ecoutils.html#boltons.ecoutils.get_profile>`_.
         """
+        # ``boltons.ecoutils`` introspects the interpreter, OS and platform to
+        # build its profile, and is comparatively expensive to import. It is
+        # only consulted when a version string actually renders ``{env_info}``,
+        # so it is imported lazily here to keep it off every CLI's startup
+        # path. Do not hoist this back to module scope.
+        from boltons.ecoutils import get_profile
+
         return get_profile(scrub=True)
 
     def colored_template(self, template: str | None = None) -> str:
@@ -943,7 +1144,7 @@ class ExtraVersionOption(ExtraOption):
         # Associate each field with its own style.
         field_styles = {}
         for field_id in self.template_fields:
-            field_style = getattr(self, f"{field_id}_style")
+            field_style = self.styles.get(field_id)
             # If no style is defined for this field, use the default style of the
             # message.
             if not field_style:
@@ -1009,7 +1210,6 @@ class ExtraVersionOption(ExtraOption):
         .. todo::
             Pretty print JSON output (easier to read in bug reports)?
         """
-        logger = logging.getLogger("click_extra")
         if logger.getEffectiveLevel() == logging.DEBUG:
             all_fields = {
                 f"{{{{{field_id}}}}}": f"{{{field_id}}}"

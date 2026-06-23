@@ -20,7 +20,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from ..client import Aigie
+    from aigie.client import Aigie
 
 logger = logging.getLogger(__name__)
 

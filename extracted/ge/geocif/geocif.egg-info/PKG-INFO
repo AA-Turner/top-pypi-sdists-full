@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.757
+Version: 0.4.759
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -27,6 +27,7 @@ Requires-Dist: pyproj
 Requires-Dist: rasterio
 Requires-Dist: rtree
 Requires-Dist: shap>=0.48.0
+Requires-Dist: numba>=0.59
 Requires-Dist: shapiq>=1.0
 Requires-Dist: shapely
 Requires-Dist: optuna
@@ -34,7 +35,7 @@ Requires-Dist: xarray>=2026.2.0
 Requires-Dist: pooch>=1.8.0
 Requires-Dist: arrow>=1.4.0
 Requires-Dist: icclim>=7.0.4
-Requires-Dist: geoprepare>=0.6.274
+Requires-Dist: geoprepare>=0.6.275
 Requires-Dist: logzero>=1.7.0
 Requires-Dist: geopandas>=1.1.2
 Requires-Dist: tabpfn>=6.4.1

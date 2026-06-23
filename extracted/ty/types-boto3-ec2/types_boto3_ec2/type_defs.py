@@ -2204,6 +2204,8 @@ __all__ = (
     "ImageUsageResourceTypeOptionTypeDef",
     "ImageUsageResourceTypeRequestTypeDef",
     "ImageUsageResourceTypeTypeDef",
+    "ImageWatermarkFilterRequestTypeDef",
+    "ImageWatermarkFilterResponseTypeDef",
     "ImageWatermarkTypeDef",
     "ImportClientVpnClientCertificateRevocationListRequestTypeDef",
     "ImportClientVpnClientCertificateRevocationListResultTypeDef",
@@ -7182,6 +7184,20 @@ class LaunchPermissionTypeDef(TypedDict):
     OrganizationalUnitArn: NotRequired[str]
     UserId: NotRequired[str]
     Group: NotRequired[Literal["all"]]
+
+
+class ImageWatermarkFilterRequestTypeDef(TypedDict):
+    WatermarkKey: NotRequired[str]
+    SourceImageRegion: NotRequired[str]
+    MaximumDaysSinceSourceImageCreated: NotRequired[int]
+    MaximumDaysSinceWatermarkCreated: NotRequired[int]
+
+
+class ImageWatermarkFilterResponseTypeDef(TypedDict):
+    WatermarkKey: NotRequired[str]
+    SourceImageRegion: NotRequired[str]
+    MaximumDaysSinceSourceImageCreated: NotRequired[int]
+    MaximumDaysSinceWatermarkCreated: NotRequired[int]
 
 
 class UserBucketTypeDef(TypedDict):
@@ -12360,22 +12376,6 @@ class DeregisterImageResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ImageCriterionRequestTypeDef(TypedDict):
-    ImageProviders: NotRequired[Sequence[str]]
-    MarketplaceProductCodes: NotRequired[Sequence[str]]
-    ImageNames: NotRequired[Sequence[str]]
-    DeprecationTimeCondition: NotRequired[DeprecationTimeConditionRequestTypeDef]
-    CreationDateCondition: NotRequired[CreationDateConditionRequestTypeDef]
-
-
-class ImageCriterionTypeDef(TypedDict):
-    ImageProviders: NotRequired[list[str]]
-    MarketplaceProductCodes: NotRequired[list[str]]
-    ImageNames: NotRequired[list[str]]
-    DeprecationTimeCondition: NotRequired[DeprecationTimeConditionTypeDef]
-    CreationDateCondition: NotRequired[CreationDateConditionTypeDef]
-
-
 class DeregisterInstanceEventNotificationAttributesRequestTypeDef(TypedDict):
     InstanceTagAttribute: DeregisterInstanceTagAttributeRequestTypeDef
     DryRun: NotRequired[bool]
@@ -16238,6 +16238,24 @@ class LaunchPermissionModificationsTypeDef(TypedDict):
     Remove: NotRequired[Sequence[LaunchPermissionTypeDef]]
 
 
+class ImageCriterionRequestTypeDef(TypedDict):
+    ImageProviders: NotRequired[Sequence[str]]
+    MarketplaceProductCodes: NotRequired[Sequence[str]]
+    ImageNames: NotRequired[Sequence[str]]
+    DeprecationTimeCondition: NotRequired[DeprecationTimeConditionRequestTypeDef]
+    CreationDateCondition: NotRequired[CreationDateConditionRequestTypeDef]
+    ImageWatermarks: NotRequired[Sequence[ImageWatermarkFilterRequestTypeDef]]
+
+
+class ImageCriterionTypeDef(TypedDict):
+    ImageProviders: NotRequired[list[str]]
+    MarketplaceProductCodes: NotRequired[list[str]]
+    ImageNames: NotRequired[list[str]]
+    DeprecationTimeCondition: NotRequired[DeprecationTimeConditionTypeDef]
+    CreationDateCondition: NotRequired[CreationDateConditionTypeDef]
+    ImageWatermarks: NotRequired[list[ImageWatermarkFilterResponseTypeDef]]
+
+
 class ImageDiskContainerTypeDef(TypedDict):
     Description: NotRequired[str]
     DeviceName: NotRequired[str]
@@ -18962,18 +18980,6 @@ class DeleteQueuedReservedInstancesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ReplaceImageCriteriaInAllowedImagesSettingsRequestTypeDef(TypedDict):
-    ImageCriteria: NotRequired[Sequence[ImageCriterionRequestTypeDef]]
-    DryRun: NotRequired[bool]
-
-
-class GetAllowedImagesSettingsResultTypeDef(TypedDict):
-    State: str
-    ImageCriteria: list[ImageCriterionTypeDef]
-    ManagedBy: ManagedByType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribePrincipalIdFormatResultTypeDef(TypedDict):
     Principals: list[PrincipalIdFormatTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -19421,6 +19427,18 @@ class ModifyImageAttributeRequestTypeDef(TypedDict):
     OrganizationalUnitArns: NotRequired[Sequence[str]]
     ImdsSupport: NotRequired[AttributeValueTypeDef]
     DryRun: NotRequired[bool]
+
+
+class ReplaceImageCriteriaInAllowedImagesSettingsRequestTypeDef(TypedDict):
+    ImageCriteria: NotRequired[Sequence[ImageCriterionRequestTypeDef]]
+    DryRun: NotRequired[bool]
+
+
+class GetAllowedImagesSettingsResultTypeDef(TypedDict):
+    State: str
+    ImageCriteria: list[ImageCriterionTypeDef]
+    ManagedBy: ManagedByType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class InstanceImageMetadataTypeDef(TypedDict):

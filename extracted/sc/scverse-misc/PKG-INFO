@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scverse-misc
-Version: 0.0.9
+Version: 0.1.1
 Summary: Miscellaneous utility code used by scverse packages
 Project-URL: Documentation, https://scverse-misc.readthedocs.io/
 Project-URL: Homepage, https://github.com/scverse/scverse-misc
@@ -42,10 +42,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.12
-Requires-Dist: anndata
 Requires-Dist: session-info2
 Requires-Dist: typing-extensions; python_version < '3.13'
 Provides-Extra: datasets
+Requires-Dist: anndata; extra == 'datasets'
 Requires-Dist: pooch; extra == 'datasets'
 Requires-Dist: pyyaml; extra == 'datasets'
 Requires-Dist: tqdm; extra == 'datasets'

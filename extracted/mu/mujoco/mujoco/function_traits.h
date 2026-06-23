@@ -1608,9 +1608,9 @@ struct mj_id2name {
 
 struct mj_fullM {
   static constexpr char name[] = "mj_fullM";
-  static constexpr char doc[] = "Convert sparse inertia matrix M into full (i.e. dense) matrix.";
-  using type = void (const mjModel *, mjtNum *, const mjtNum *);
-  static constexpr auto param_names = std::make_tuple("m", "dst", "M");
+  static constexpr char doc[] = "Convert sparse inertia matrix into full (i.e. dense) matrix.";
+  using type = void (const mjModel *, const mjData *, mjtNum *);
+  static constexpr auto param_names = std::make_tuple("m", "d", "dst");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_fullM;
@@ -2629,28 +2629,6 @@ struct mjui_render {
   }
 };
 
-struct mju_warning_i {
-  static constexpr char name[] = "mju_warning_i";
-  static constexpr char doc[] = "Deprecated: use mju_warning.";
-  using type = void (const char *, int);
-  static constexpr auto param_names = std::make_tuple("msg", "i");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mju_warning_i;
-  }
-};
-
-struct mju_warning_s {
-  static constexpr char name[] = "mju_warning_s";
-  static constexpr char doc[] = "Deprecated: use mju_warning.";
-  using type = void (const char *, const char *);
-  static constexpr auto param_names = std::make_tuple("msg", "text");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mju_warning_s;
-  }
-};
-
 struct mju_clearHandlers {
   static constexpr char name[] = "mju_clearHandlers";
   static constexpr char doc[] = "Clear user error and memory handlers.";
@@ -2659,6 +2637,50 @@ struct mju_clearHandlers {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mju_clearHandlers;
+  }
+};
+
+struct mju_setLogHandler {
+  static constexpr char name[] = "mju_setLogHandler";
+  static constexpr char doc[] = "Set the active log handler; return the previous handler. If handler is NULL, restore the default handler.";
+  using type = mjfLogHandler (mjfLogHandler);
+  static constexpr auto param_names = std::make_tuple("handler");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mju_setLogHandler;
+  }
+};
+
+struct mju_getLogConfig {
+  static constexpr char name[] = "mju_getLogConfig";
+  static constexpr char doc[] = "Get default handler configuration.";
+  using type = mjLogConfig ();
+  static constexpr auto param_names = std::make_tuple();
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mju_getLogConfig;
+  }
+};
+
+struct mju_setLogConfig {
+  static constexpr char name[] = "mju_setLogConfig";
+  static constexpr char doc[] = "Set default handler configuration.";
+  using type = void (mjLogConfig);
+  static constexpr auto param_names = std::make_tuple("config");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mju_setLogConfig;
+  }
+};
+
+struct mju_message {
+  static constexpr char name[] = "mju_message";
+  static constexpr char doc[] = "Dispatch a structured log message to the active handler.";
+  using type = void (const mjLogMessage *);
+  static constexpr auto param_names = std::make_tuple("msg");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mju_message;
   }
 };
 
@@ -2730,12 +2752,34 @@ struct mjs_getTimer {
 
 struct mjs_isWarning {
   static constexpr char name[] = "mjs_isWarning";
-  static constexpr char doc[] = "Return 1 if compiler error is a warning.";
+  static constexpr char doc[] = "Return 1 if compiler error is a warning. Deprecated: use mjs_numWarnings(s) > 0.";
   using type = int (mjSpec *);
   static constexpr auto param_names = std::make_tuple("s");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_isWarning;
+  }
+};
+
+struct mjs_numWarnings {
+  static constexpr char name[] = "mjs_numWarnings";
+  static constexpr char doc[] = "Get number of warnings accumulated in the spec.";
+  using type = int (const mjSpec *);
+  static constexpr auto param_names = std::make_tuple("spec");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_numWarnings;
+  }
+};
+
+struct mjs_getWarning {
+  static constexpr char name[] = "mjs_getWarning";
+  static constexpr char doc[] = "Get the i-th warning message (returns nullptr if index out of bounds).";
+  using type = const char * (const mjSpec *, int);
+  static constexpr auto param_names = std::make_tuple("spec", "index");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getWarning;
   }
 };
 
@@ -4213,69 +4257,14 @@ struct mju_decodeResource {
   }
 };
 
-struct mju_threadPoolCreate {
-  static constexpr char name[] = "mju_threadPoolCreate";
-  static constexpr char doc[] = "Create a thread pool with the specified number of threads running.";
-  using type = mjThreadPool * (size_t);
-  static constexpr auto param_names = std::make_tuple("number_of_threads");
+struct mju_threadpool {
+  static constexpr char name[] = "mju_threadpool";
+  static constexpr char doc[] = "Create a thread pool with nthread worker threads.";
+  using type = void (mjData *, int);
+  static constexpr auto param_names = std::make_tuple("d", "nthread");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mju_threadPoolCreate;
-  }
-};
-
-struct mju_bindThreadPool {
-  static constexpr char name[] = "mju_bindThreadPool";
-  static constexpr char doc[] = "Adds a thread pool to mjData and configures it for multi-threaded use.";
-  using type = void (mjData *, void *);
-  static constexpr auto param_names = std::make_tuple("d", "thread_pool");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mju_bindThreadPool;
-  }
-};
-
-struct mju_threadPoolEnqueue {
-  static constexpr char name[] = "mju_threadPoolEnqueue";
-  static constexpr char doc[] = "Enqueue a task in a thread pool.";
-  using type = void (mjThreadPool *, mjTask *);
-  static constexpr auto param_names = std::make_tuple("thread_pool", "task");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mju_threadPoolEnqueue;
-  }
-};
-
-struct mju_threadPoolDestroy {
-  static constexpr char name[] = "mju_threadPoolDestroy";
-  static constexpr char doc[] = "Destroy a thread pool.";
-  using type = void (mjThreadPool *);
-  static constexpr auto param_names = std::make_tuple("thread_pool");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mju_threadPoolDestroy;
-  }
-};
-
-struct mju_defaultTask {
-  static constexpr char name[] = "mju_defaultTask";
-  static constexpr char doc[] = "Initialize an mjTask.";
-  using type = void (mjTask *);
-  static constexpr auto param_names = std::make_tuple("task");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mju_defaultTask;
-  }
-};
-
-struct mju_taskJoin {
-  static constexpr char name[] = "mju_taskJoin";
-  static constexpr char doc[] = "Wait for a task to complete.";
-  using type = void (mjTask *);
-  static constexpr auto param_names = std::make_tuple("task");
-
-  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mju_taskJoin;
+    return ::mju_threadpool;
   }
 };
 
@@ -4419,6 +4408,17 @@ struct mjs_addFlex {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_addFlex;
+  }
+};
+
+struct mjs_makeFlex {
+  static constexpr char name[] = "mjs_makeFlex";
+  static constexpr char doc[] = "Add flexcomp: create flex with auto-generated bodies/joints, return flex spec.";
+  using type = mjsFlex * (mjsBody *, const char *, const char *, int, const char *, const int (*)[3], const int (*)[3], const double (*)[3], const double (*)[3], double, double, double, int, int, int, int, const double (*)[3], const double (*)[4], const double (*)[3], const char *, const mjVFS *);
+  static constexpr auto param_names = std::make_tuple("body", "name", "type", "dim", "dof", "count", "cellcount", "spacing", "scale", "radius", "mass", "inertiabox", "equality", "rigid", "flatskin", "elastic2d", "pos", "quat", "origin", "file", "vfs");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return *reinterpret_cast<type*>(&::mjs_makeFlex);
   }
 };
 

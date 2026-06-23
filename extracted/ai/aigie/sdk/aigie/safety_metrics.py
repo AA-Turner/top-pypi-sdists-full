@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable
 from typing import Any
 
-from .evaluation import EvaluationResult, Evaluator, ScoreType
+from aigie.evaluation import EvaluationResult, Evaluator, ScoreType
 
 # PII (Personally Identifiable Information) patterns
 PII_PATTERNS = {

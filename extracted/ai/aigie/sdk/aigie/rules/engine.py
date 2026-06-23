@@ -12,8 +12,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
-    from ..config import Config
-    from ..interceptor.protocols import InterceptionContext, PreCallResult
+    from aigie.config import Config
+    from aigie.interceptor.protocols import InterceptionContext, PreCallResult
 
 logger = logging.getLogger("aigie.rules")
 
@@ -216,67 +216,6 @@ class LocalRulesEngine:
             "total_latency_ms": 0.0,
         }
 
-        # Initialize built-in rules from config
-        if config:
-            self._init_builtin_rules(config)
-
-    def _init_builtin_rules(self, config: "Config") -> None:
-        """Initialize built-in rules from configuration."""
-        from .builtin import (
-            BlockedPatternsRule,
-            ContextDriftRule,
-            CostLimitRule,
-            RateLimitRule,
-            TokenLimitRule,
-        )
-
-        # Cost limit rules
-        if config.cost_limit_per_request:
-            self.add_rule(
-                CostLimitRule(
-                    max_cost=config.cost_limit_per_request,
-                    limit_type="request",
-                ),
-                priority=10,
-            )
-
-        if config.cost_limit_per_trace:
-            self.add_rule(
-                CostLimitRule(
-                    max_cost=config.cost_limit_per_trace,
-                    limit_type="trace",
-                ),
-                priority=11,
-            )
-
-        # Token limit rule
-        if config.token_limit_per_request:
-            self.add_rule(
-                TokenLimitRule(max_tokens=config.token_limit_per_request),
-                priority=12,
-            )
-
-        # Blocked patterns rule
-        if config.blocked_patterns:
-            self.add_rule(
-                BlockedPatternsRule(patterns=config.blocked_patterns),
-                priority=5,  # High priority for security
-            )
-
-        # Rate limit rule
-        if config.rate_limit_per_minute:
-            self.add_rule(
-                RateLimitRule(max_requests_per_minute=config.rate_limit_per_minute),
-                priority=8,
-            )
-
-        # Drift detection rule
-        if config.enable_drift_detection:
-            self.add_rule(
-                ContextDriftRule(threshold=config.drift_threshold),
-                priority=25,
-            )
-
     def add_rule(
         self,
         rule: Rule,
@@ -333,7 +272,7 @@ class LocalRulesEngine:
         Returns:
             PreCallResult with the aggregated decision
         """
-        from ..interceptor.protocols import PreCallResult
+        from aigie.interceptor.protocols import PreCallResult
 
         start_time = time.perf_counter()
         self._stats["evaluations"] += 1

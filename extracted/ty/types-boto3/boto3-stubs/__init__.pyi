@@ -244,6 +244,8 @@ from types_boto3_kinesisvideo.client import KinesisVideoClient
 from types_boto3_kms.client import KMSClient
 from types_boto3_lakeformation.client import LakeFormationClient
 from types_boto3_lambda.client import LambdaClient
+from types_boto3_lambda_core.client import LambdaCoreClient
+from types_boto3_lambda_microvms.client import LambdaMicroVMsClient
 from types_boto3_launch_wizard.client import LaunchWizardClient
 from types_boto3_lex_models.client import LexModelBuildingServiceClient
 from types_boto3_lex_runtime.client import LexRuntimeServiceClient
@@ -4442,6 +4444,42 @@ def client(
 ) -> LambdaClient:
     """
     Create client for Lambda service.
+    """
+
+@overload
+def client(
+    service_name: Literal["lambda-core"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> LambdaCoreClient:
+    """
+    Create client for LambdaCore service.
+    """
+
+@overload
+def client(
+    service_name: Literal["lambda-microvms"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> LambdaMicroVMsClient:
+    """
+    Create client for LambdaMicroVMs service.
     """
 
 @overload

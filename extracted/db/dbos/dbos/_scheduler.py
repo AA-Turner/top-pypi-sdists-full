@@ -1,5 +1,6 @@
 import random
 import threading
+import time
 import traceback
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional
@@ -70,6 +71,7 @@ class _ScheduleThread:
                         self.workflow_name,
                         next_exec_time,
                         workflow_id,
+                        self.schedule_name,
                         self.context,
                         self.class_name,
                         self.queue_name,
@@ -98,6 +100,7 @@ def _enqueue_scheduled_workflow(
     workflow_name: str,
     scheduled_at: datetime,
     workflow_id: str,
+    schedule_name: str,
     context: Any = None,
     class_name: Optional[str] = None,
     queue_name: Optional[str] = None,
@@ -136,6 +139,8 @@ def _enqueue_scheduled_workflow(
         "started_at_epoch_ms": None,
         "owner_xid": None,
         "delay_until_epoch_ms": None,
+        "attributes": None,
+        "schedule_name": schedule_name,
     }
     sys_db.init_workflow(
         status,
@@ -179,6 +184,7 @@ def backfill_schedule(
                 schedule["workflow_name"],
                 next_time,
                 workflow_id,
+                schedule_name,
                 context,
                 class_name,
                 queue_name,
@@ -202,11 +208,19 @@ def trigger_schedule(sys_db: "SystemDatabase", schedule_name: str) -> str:
         schedule["workflow_name"],
         now,
         workflow_id,
+        schedule_name,
         context,
         class_name,
         queue_name,
     )
     return workflow_id
+
+
+# During the first minute after startup, poll for schedules every second so
+# schedules registered around launch are picked up promptly rather than after
+# a full polling interval.
+_STARTUP_FAST_POLL_DURATION_SEC = 60.0
+_STARTUP_FAST_POLL_INTERVAL_SEC = 1.0
 
 
 def dynamic_scheduler_loop(
@@ -219,6 +233,13 @@ def dynamic_scheduler_loop(
     # Active schedule threads keyed by schedule_id
     schedule_threads: dict[str, _ScheduleThread] = {}
 
+    startup_deadline = time.monotonic() + _STARTUP_FAST_POLL_DURATION_SEC
+
+    def poll_timeout() -> float:
+        if time.monotonic() < startup_deadline:
+            return min(_STARTUP_FAST_POLL_INTERVAL_SEC, polling_interval_sec)
+        return polling_interval_sec
+
     while not stop_event.is_set():
         try:
             schedules = dbos._sys_db.list_schedules()
@@ -226,7 +247,7 @@ def dynamic_scheduler_loop(
             dbos_logger.warning(
                 f"Exception polling schedules: {traceback.format_exc()}"
             )
-            if stop_event.wait(timeout=polling_interval_sec):
+            if stop_event.wait(timeout=poll_timeout()):
                 break
             continue
 
@@ -272,7 +293,7 @@ def dynamic_scheduler_loop(
                     schedule, dbos._sys_db.serializer
                 )
 
-        if stop_event.wait(timeout=polling_interval_sec):
+        if stop_event.wait(timeout=poll_timeout()):
             break
 
     # Clean up all threads on shutdown

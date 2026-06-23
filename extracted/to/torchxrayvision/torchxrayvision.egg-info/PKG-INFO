@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: torchxrayvision
-Version: 1.4.0
+Version: 1.5.1
 Summary: TorchXRayVision: A library of chest X-ray datasets and models
 Home-page: https://github.com/mlmed/torchxrayvision
 Author: Joseph Paul Cohen

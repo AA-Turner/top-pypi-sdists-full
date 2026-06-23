@@ -7,7 +7,7 @@ Automatically traces Cohere API calls
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from .cost_tracking import extract_and_calculate_cost
+from aigie.cost_tracking import extract_and_calculate_cost
 
 
 def wrap_cohere(
@@ -40,7 +40,7 @@ def wrap_cohere(
         ...     prompt='Hello!'
         ... )
     """
-    from .client import get_aigie
+    from aigie.client import get_aigie
 
     aigie = get_aigie()
 

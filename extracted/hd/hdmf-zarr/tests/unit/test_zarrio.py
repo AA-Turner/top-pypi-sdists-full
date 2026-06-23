@@ -21,7 +21,8 @@ from zarr.storage import DirectoryStore, NestedDirectoryStore
 from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
 
 import zarr
-from hdmf_zarr.backend import ZarrIO
+import numpy as np
+from hdmf_zarr.backend import ZarrIO, ROOT_NAME
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 import os
@@ -225,6 +226,54 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             except ValueError as e:
                 self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
+    def test_is_remote_local_with_consolidated(self):
+        """Test that is_remote() returns False for local stores with consolidated metadata."""
+        self.create_zarr(consolidate_metadata=True)
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            self.assertFalse(read_io.is_remote())
+
+    def test_is_remote_local_without_consolidated(self):
+        """Test that is_remote() returns False for local stores without consolidated metadata."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r-") as read_io:
+            read_io.open()
+            self.assertFalse(read_io.is_remote())
+
+
+class TestResolveRef(ZarrStoreTestCase):
+    """
+    Tests for ``ZarrIO.resolve_ref``, focusing on the ``source == "."`` self-reference
+    short-circuit that reuses the already-open file instead of re-opening the store.
+    """
+
+    def test_resolve_self_reference_to_object(self):
+        """A self-reference to an object returns that object and its name."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            target_name, target_obj = read_io.resolve_ref({"source": ".", "path": "/dataset_1"})
+            self.assertEqual(target_name, "dataset_1")
+            self.assertEqual(target_obj.name, "/dataset_1")
+            np.testing.assert_array_equal(target_obj[:], read_io._file["/dataset_1"][:])
+
+    def test_resolve_self_reference_to_root(self):
+        """A self-reference with no path returns the root group named ROOT_NAME."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            target_name, target_obj = read_io.resolve_ref({"source": ".", "path": None})
+            self.assertEqual(target_name, ROOT_NAME)
+            self.assertIs(target_obj, read_io._file)
+
+    def test_resolve_self_reference_bad_path(self):
+        """A self-reference to a nonexistent path raises a descriptive ValueError."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            with self.assertRaisesRegex(ValueError, "Found bad link to object /does_not_exist"):
+                read_io.resolve_ref({"source": ".", "path": "/does_not_exist"})
+
 
 class TestOverwriteExistingFile(ZarrStoreTestCase):
     def test_force_overwrite_when_file_exists(self):
@@ -335,3 +384,56 @@ class TestDatasetOfReferences(TestCase):
             read_container = append_io.read()
             self.assertEqual(len(read_container.baz_data.data), 11)
             self.assertIs(read_container.baz_data.data[10], read_container.bazs["new"])
+
+
+class TestGenerateDatasetHtml(TestCase):
+    """Test the generate_dataset_html static method"""
+
+    def test_generate_dataset_html_basic(self):
+        """Test basic HTML generation for a Zarr array"""
+        # Create a test zarr array
+        store = zarr.MemoryStore()
+        z = zarr.open_array(store, mode="w", shape=(100, 100), chunks=(10, 10), dtype="f4", compressor=zarr.Blosc())
+        z[:] = np.random.random((100, 100))
+
+        # Generate HTML representation
+        html = ZarrIO.generate_dataset_html(z)
+
+        # Verify that HTML is generated and contains expected content
+        self.assertIsInstance(html, str)
+        self.assertIn("Zarr Array", html)
+        self.assertIn("float32", html)
+        self.assertIn("(100, 100)", html)
+        self.assertIn("(10, 10)", html)  # chunk shape
+        self.assertIn("table", html)  # Should contain HTML table
+
+    def test_generate_dataset_html_with_compression(self):
+        """Test HTML generation includes compression information"""
+        # Create a zarr array with specific compression
+        store = zarr.MemoryStore()
+        compressor = zarr.Blosc(cname="zstd", clevel=9)
+        z = zarr.open_array(store, mode="w", shape=(50, 50), chunks=(25, 25), dtype="i4", compressor=compressor)
+        z[:] = np.arange(2500).reshape(50, 50)
+
+        # Generate HTML representation
+        html = ZarrIO.generate_dataset_html(z)
+
+        # Verify compression info is included
+        self.assertIn("Compressor", html)
+        self.assertIn("zstd", html)
+        self.assertIn("int32", html)
+
+    def test_generate_dataset_html_no_compression(self):
+        """Test HTML generation for uncompressed array"""
+        # Create an uncompressed zarr array
+        store = zarr.MemoryStore()
+        z = zarr.open_array(store, mode="w", shape=(10, 10), chunks=(5, 5), dtype="f8", compressor=None)
+        z[:] = np.random.random((10, 10))
+
+        # Generate HTML representation
+        html = ZarrIO.generate_dataset_html(z)
+
+        # Verify basic info is present
+        self.assertIn("Zarr Array", html)
+        self.assertIn("float64", html)
+        self.assertIn("(10, 10)", html)

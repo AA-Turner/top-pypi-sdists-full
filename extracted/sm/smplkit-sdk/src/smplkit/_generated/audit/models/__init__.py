@@ -36,9 +36,12 @@ from .forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
 from .forwarder_delivery_resource import ForwarderDeliveryResource
 from .forwarder_delivery_response import ForwarderDeliveryResponse
 from .forwarder_delivery_status import ForwarderDeliveryStatus
-from .forwarder_environment import ForwarderEnvironment
 from .forwarder_environments import ForwarderEnvironments
+from .forwarder_environments_additional_property import ForwarderEnvironmentsAdditionalProperty
 from .forwarder_filter_type_0 import ForwarderFilterType0
+from .forwarder_http_configuration import ForwarderHttpConfiguration
+from .forwarder_http_configuration_headers import ForwarderHttpConfigurationHeaders
+from .forwarder_http_configuration_method import ForwarderHttpConfigurationMethod
 from .forwarder_list_response import ForwarderListResponse
 from .forwarder_request import ForwarderRequest
 from .forwarder_resource import ForwarderResource
@@ -53,9 +56,6 @@ from .forwarder_type_placeholder import ForwarderTypePlaceholder
 from .forwarder_type_resource import ForwarderTypeResource
 from .forwarder_type_response import ForwarderTypeResponse
 from .forwarder_type_transform import ForwarderTypeTransform
-from .http_configuration import HttpConfiguration
-from .http_configuration_method import HttpConfigurationMethod
-from .http_header import HttpHeader
 from .list_categories_sort import ListCategoriesSort
 from .list_event_types_sort import ListEventTypesSort
 from .list_events_format_type_0 import ListEventsFormatType0
@@ -72,6 +72,7 @@ from .retry_failed_deliveries_request import RetryFailedDeliveriesRequest
 from .retry_failed_deliveries_summary import RetryFailedDeliveriesSummary
 from .severity import Severity
 from .test_forwarder_request import TestForwarderRequest
+from .test_forwarder_request_headers import TestForwarderRequestHeaders
 from .test_forwarder_request_method import TestForwarderRequestMethod
 from .test_forwarder_response import TestForwarderResponse
 from .test_forwarder_response_response_headers import TestForwarderResponseResponseHeaders
@@ -116,9 +117,12 @@ __all__ = (
     "ForwarderDeliveryResource",
     "ForwarderDeliveryResponse",
     "ForwarderDeliveryStatus",
-    "ForwarderEnvironment",
     "ForwarderEnvironments",
+    "ForwarderEnvironmentsAdditionalProperty",
     "ForwarderFilterType0",
+    "ForwarderHttpConfiguration",
+    "ForwarderHttpConfigurationHeaders",
+    "ForwarderHttpConfigurationMethod",
     "ForwarderListResponse",
     "ForwarderRequest",
     "ForwarderResource",
@@ -133,9 +137,6 @@ __all__ = (
     "ForwarderTypeResource",
     "ForwarderTypeResponse",
     "ForwarderTypeTransform",
-    "HttpConfiguration",
-    "HttpConfigurationMethod",
-    "HttpHeader",
     "ListCategoriesSort",
     "ListEventsFormatType0",
     "ListEventsSort",
@@ -152,6 +153,7 @@ __all__ = (
     "RetryFailedDeliveriesSummary",
     "Severity",
     "TestForwarderRequest",
+    "TestForwarderRequestHeaders",
     "TestForwarderRequestMethod",
     "TestForwarderResponse",
     "TestForwarderResponseResponseHeaders",

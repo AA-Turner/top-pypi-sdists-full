@@ -62,9 +62,18 @@ DOWNLOAD_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
 # Auto-update check interval (1 hour)
 UPDATE_CHECK_INTERVAL = 3600
 
+# Pro Chromium major shown in the free-tier welcome banner. Bump at each Pro
+# major release (there is no local constant to derive it from — the live Pro
+# version comes from the network, which we don't call just to print a banner).
+PRO_MAJOR = "148"
 
-def _show_welcome() -> None:
-    """Show welcome message on first launch. Uses a marker file to show only once."""
+
+def _show_welcome(pro: bool = False) -> None:
+    """Show welcome message on first launch. Uses a marker file to show only once.
+
+    The Pro-upsell line is shown to free-tier users only; Pro users get a plain
+    banner (no "running free tier" message, which would be false for them).
+    """
     marker = get_cache_dir() / ".welcome_shown"
     if marker.exists():
         return
@@ -72,7 +81,18 @@ def _show_welcome() -> None:
     sys.stderr.write("  CloakBrowser — stealth Chromium for automation\n")
     sys.stderr.write("  https://github.com/CloakHQ/CloakBrowser\n")
     sys.stderr.write("\n")
-    sys.stderr.write("  Donate?  https://ko-fi.com/cloakhq\n")
+    if pro:
+        sys.stderr.write(
+            f"  CloakBrowser Pro active (v{PRO_MAJOR}) — latest binary, newest patches.\n"
+        )
+        sys.stderr.write("  Pro support → support@cloakbrowser.dev\n")
+    else:
+        free_major = CHROMIUM_VERSION.split(".")[0]
+        sys.stderr.write(
+            f"  Running free tier (v{free_major}). "
+            f"Pro = latest binary (v{PRO_MAJOR}) + newest anti-bot patches.\n"
+        )
+        sys.stderr.write("  Stay ahead of detection → https://cloakbrowser.dev\n")
     sys.stderr.write("  Star us if CloakBrowser helps your project!\n")
     sys.stderr.write("\n")
     try:
@@ -232,7 +252,7 @@ def _ensure_pro_binary(license_key: str) -> str:
 
     if binary_path.exists() and _is_executable(binary_path):
         logger.debug("Pro binary found in cache: %s (version %s)", binary_path, effective)
-        _show_welcome()
+        _show_welcome(pro=True)
         _maybe_trigger_pro_update_check(license_key)
         return str(binary_path)
 
@@ -243,7 +263,7 @@ def _ensure_pro_binary(license_key: str) -> str:
     binary_path = get_binary_path(version, pro=True)
     if binary_path.exists() and _is_executable(binary_path):
         logger.debug("Pro binary found in cache: %s (version %s)", binary_path, version)
-        _show_welcome()
+        _show_welcome(pro=True)
         return str(binary_path)
 
     logger.info("Downloading Pro Chromium %s for %s...", version, get_platform_tag())
@@ -264,7 +284,7 @@ def _ensure_pro_binary(license_key: str) -> str:
     except OSError:
         pass
 
-    _show_welcome()
+    _show_welcome(pro=True)
     return str(binary_path)
 
 

@@ -20,6 +20,7 @@ import subprocess
 from os.path import relpath
 
 from beets import config, ui, util
+from beets.exceptions import UserError
 from beets.plugins import BeetsPlugin
 from beets.ui import Subcommand
 from beets.util import PromptChoice, get_temp_filename
@@ -60,7 +61,7 @@ def play(
         else:
             util.interactive_open(open_args, command_str)
     except OSError as exc:
-        raise ui.UserError(f"Could not play the query: {exc}")
+        raise UserError(f"Could not play the query: {exc}")
 
 
 class PlayPlugin(BeetsPlugin):
@@ -180,19 +181,15 @@ class PlayPlugin(BeetsPlugin):
         if args:
             if ARGS_MARKER in command_str:
                 return command_str.replace(ARGS_MARKER, args)
-            else:
-                return f"{command_str} {args}"
-        else:
-            # Don't include the marker in the command.
-            return command_str.replace(f" {ARGS_MARKER}", "")
+            return f"{command_str} {args}"
+        # Don't include the marker in the command.
+        return command_str.replace(f" {ARGS_MARKER}", "")
 
     def _playlist_or_paths(self, paths):
         """Return either the raw paths of items or a playlist of the items."""
         if config["play"]["raw"]:
             return paths
-        else:
-            return [self._create_tmp_playlist(paths)]
-            return [shlex.quote(self._create_tmp_playlist(paths))]
+        return [self._create_tmp_playlist(paths)]
 
     def _exceeds_threshold(
         self, selection, command_str, open_args, item_type="track"

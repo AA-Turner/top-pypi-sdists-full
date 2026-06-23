@@ -140,6 +140,115 @@ class RenderTest(parameterized.TestCase):
     self.assertGreater(np.count_nonzero(rgb), 0)
     self.assertTrue(np.any(seg[..., 1] == int(mjw.ObjType.GEOM)))
 
+  def test_render_spot_light_with_attenuation(self):
+    """Kernel runs under `has_spot_lights=True` and non-default attenuation."""
+    xml = """
+    <mujoco>
+      <visual>
+        <headlight active="0"/>
+      </visual>
+      <worldbody>
+        <camera pos="0 -2 0.8" xyaxes="1 0 0 0 0.5 1" resolution="32 32"/>
+        <light pos="0 0 2.5" dir="0 0 -1" cutoff="25" exponent="10"
+               attenuation="1 0.1 0.05" diffuse="1 0.9 0.7"/>
+        <geom type="plane" size="2 2 0.1" rgba="0.7 0.7 0.7 1"/>
+        <geom pos="0 0 0.3" size="0.3" rgba="0.8 0.8 0.8 1"/>
+      </worldbody>
+    </mujoco>
+    """
+    mjm, _, m, d = test_data.fixture(xml=xml)
+    rc = mjw.create_render_context(mjm, cam_res=(32, 32), render_rgb=True)
+    self.assertTrue(rc.has_spot_lights, "fixture must trigger `has_spot_lights`")
+    self.assertFalse(rc.light_attenuation_is_default, "fixture must trigger non-default attenuation")
+    mjw.render(m, d, rc)
+    rgb = _unpack_rgb(rc.rgb_data.numpy()[0]).reshape(32, 32, 3)
+    self.assertGreater(int(rgb.max()), 10, "spot light should illuminate the floor cone")
+
+  def test_render_with_features_disabled(self):
+    """Kernel compiles + runs with static options disabled."""
+    xml = """
+    <mujoco>
+      <asset>
+        <material name="m" specular="0.7" emission="0.3" rgba="0.4 0.5 0.8 1"/>
+      </asset>
+      <worldbody>
+        <camera pos="0 -2 0.5" xyaxes="1 0 0 0 0.3 1" resolution="32 32"/>
+        <light pos="0 0 3" dir="0 0 -1" directional="true"
+               diffuse="0.6 0.6 0.6" ambient="0.15 0.15 0.15"/>
+        <geom type="sphere" pos="0 0 0.3" size="0.3" material="m"/>
+      </worldbody>
+    </mujoco>
+    """
+    mjm, _, m, d = test_data.fixture(xml=xml)
+    rc = mjw.create_render_context(
+      mjm,
+      cam_res=(32, 32),
+      render_rgb=True,
+      enable_specular=False,
+      enable_emission=False,
+      enable_per_light_ambient=False,
+    )
+    mjw.render(m, d, rc)
+    rgb = _unpack_rgb(rc.rgb_data.numpy()[0]).reshape(32, 32, 3)
+    self.assertGreater(int(rgb.max()), 10, "directional light + headlight should still light the scene")
+
+  def test_render_per_world_mat_texid_batch_size(self):
+    """Tests render uses per-world material texture IDs allocated by put_model."""
+    nworld = 2
+    mjm = mujoco.MjModel.from_xml_string(
+      """
+      <mujoco>
+        <asset>
+          <texture name="red" type="2d" builtin="flat" width="4" height="4"
+            rgb1="1 0 0" rgb2="1 0 0"/>
+          <texture name="green" type="2d" builtin="flat" width="4" height="4"
+            rgb1="0 1 0" rgb2="0 1 0"/>
+          <material name="mat" texture="red" rgba="1 1 1 1"/>
+        </asset>
+        <worldbody>
+          <camera pos="0 0 2" xyaxes="1 0 0 0 1 0"/>
+          <geom type="plane" size="2 2 0.1" material="mat"/>
+        </worldbody>
+      </mujoco>
+      """
+    )
+    mjd = mujoco.MjData(mjm)
+    mujoco.mj_forward(mjm, mjd)
+    m = mjw.put_model(mjm, batch_sizes={"mat_texid": nworld})
+    d = mjw.put_data(mjm, mjd, nworld=nworld)
+
+    red_id = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_TEXTURE, "red")
+    green_id = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_TEXTURE, "green")
+    mat_texid = m.mat_texid.numpy()
+    mat_texid[:, 0, 1] = [red_id, green_id]
+    m.mat_texid.assign(mat_texid)
+
+    rc = mjw.create_render_context(
+      mjm,
+      nworld=nworld,
+      cam_res=(16, 16),
+      render_rgb=True,
+      use_textures=True,
+      enable_specular=False,
+      enable_emission=False,
+    )
+    mjw.render(m, d, rc)
+    rgb = _unpack_rgb(rc.rgb_data.numpy()).reshape(nworld, 16, 16, 3).mean(axis=(1, 2))
+
+    # Assert world 0 is red (channel 0 dominates), world 1 is green (channel 1 dominates)
+    self.assertGreater(rgb[0, 0], rgb[0, 1] + 0.1)
+    self.assertGreater(rgb[1, 1], rgb[1, 0] + 0.1)
+
+    # Swap textures and re-render to verify dynamic updates
+    mat_texid[:, 0, 1] = [green_id, red_id]
+    m.mat_texid.assign(mat_texid)
+    mjw.render(m, d, rc)
+    rgb = _unpack_rgb(rc.rgb_data.numpy()).reshape(nworld, 16, 16, 3).mean(axis=(1, 2))
+
+    # Assert world 0 is green (channel 1 dominates), world 1 is red (channel 0 dominates)
+    self.assertGreater(rgb[0, 1], rgb[0, 0] + 0.1)
+    self.assertGreater(rgb[1, 0], rgb[1, 1] + 0.1)
+
   def test_disable_ambient_lighting(self):
     xml = """
     <mujoco>
@@ -188,7 +297,7 @@ class RenderTest(parameterized.TestCase):
   @absltest.skipIf(not _HAS_RENDERER, "MuJoCo rendering requires OpenGL")
   def test_segmentation_matches_mujoco(self):
     """Segmentation should match native MuJoCo's `(object_id, object_type)` output."""
-    mjm, mjd, m, d = test_data.fixture("primitives.xml", nworld=1)
+    mjm, mjd, m, d = test_data.fixture("primitives.xml", nworld=1, overrides={"vis.quality.offsamples": 0})
     cam_w, cam_h = 32, 32
 
     rc = mjw.create_render_context(
@@ -211,7 +320,7 @@ class RenderTest(parameterized.TestCase):
   @absltest.skipIf(not _HAS_RENDERER, "MuJoCo rendering requires OpenGL")
   def test_depth_matches_mujoco(self):
     """Depth values should match native MuJoCo (planar depth, not Euclidean)."""
-    mjm, mjd, m, d = test_data.fixture("primitives.xml", nworld=1)
+    mjm, mjd, m, d = test_data.fixture("primitives.xml", nworld=1, overrides={"vis.quality.offsamples": 0})
     cam_w, cam_h = 32, 32
 
     # mjwarp depth
@@ -317,7 +426,7 @@ class RenderTest(parameterized.TestCase):
   def test_backface_cull_matches_mujoco(self, asset: str, enclosure: str):
     """Backface-cull behavior must match native MuJoCo for every geom type."""
     xml = self._BACKFACE_CULL_SCENE.format(asset=asset, enclosure=enclosure)
-    mjm, mjd, m, d = test_data.fixture(xml=xml, nworld=1)
+    mjm, mjd, m, d = test_data.fixture(xml=xml, nworld=1, overrides={"vis.quality.offsamples": 0})
 
     cam_w, cam_h = 16, 16
     rc = mjw.create_render_context(
@@ -360,6 +469,35 @@ class RenderTest(parameterized.TestCase):
       np.any(hit_ids == mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_GEOM, "enclosure")),
       "with cull disabled, enclosing geom should appear in segmentation",
     )
+
+  def test_per_world_skybox_textures(self):
+    """Verifies that different skybox textures can be assigned to different worlds."""
+    # Load checkerboard skybox fixture (contains skybox and grid textures)
+    mjm, mjd, m, d = test_data.fixture("skybox/checker.xml", nworld=2)
+
+    rc = mjw.create_render_context(
+      mjm,
+      nworld=2,
+      cam_res=(32, 32),
+      render_rgb=True,
+      render_skybox=True,
+    )
+
+    # Manually configure world 0 to use the skybox texture,
+    # and world 1 to use a different texture (e.g. the checkerboard grid texture)
+    tex_ids = np.array([0, 1], dtype=np.int32)
+    widths = np.array([mjm.tex_width[0], mjm.tex_width[1]], dtype=np.int32)
+    rc.skybox_tex_id = wp.array(tex_ids, dtype=int)
+    rc.skybox_face_width = wp.array(widths, dtype=int)
+
+    mjw.render(m, d, rc)
+
+    rgb = rc.rgb_data.numpy()
+    rgb_w0 = _unpack_rgb(rgb[0])
+    rgb_w1 = _unpack_rgb(rgb[1])
+
+    # Verify that the two worlds rendered different skybox backgrounds
+    self.assertFalse(np.array_equal(rgb_w0, rgb_w1))
 
 
 if __name__ == "__main__":

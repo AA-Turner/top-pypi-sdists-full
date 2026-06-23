@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.5.13"
+version = "1.5.14"
 requires-python = ">=3.11,<3.15"
 authors = [
   {name = "IBM"}
@@ -127,7 +127,7 @@ test_core = [
 ]
 dev_common = [
   "ipykernel>=6.29.5,<7",
-  "setuptools",
+  "setuptools<82.0.0",
   "pyarrow",
   "sphinx>=8,<9",
   "sphinx-design",
@@ -190,7 +190,7 @@ dev_autoai_rt25_1 = [
     "pypdf; python_version == '3.12'",
     "pyyaml; python_version == '3.12'",
     "scikit-learn==1.6.*; python_version == '3.12'",
-    "snapml>=1.16.0,<1.18; python_version == '3.12'",
+    "snapml==1.16.4; python_version == '3.12'",
     "timeout-decorator; python_version == '3.12'",
     "xgboost==2.1.*; python_version == '3.12'",
     "xlrd==2.0.*; python_version == '3.12'",

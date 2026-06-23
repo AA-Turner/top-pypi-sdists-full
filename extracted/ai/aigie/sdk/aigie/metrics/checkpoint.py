@@ -10,8 +10,8 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from ..evaluation import EvaluationResult, ScoreType
-from .base import BaseMetric
+from aigie.evaluation import EvaluationResult, ScoreType
+from aigie.metrics.base import BaseMetric
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +236,6 @@ class CheckpointValidityMetric(BaseMetric):
             if isinstance(elem, (str, dict)) or hasattr(elem, "__dict__")
         )
         return valid_elements / len(execution_path) if execution_path else 0.0
-
 
     def _validate_checkpoint_type(
         self, checkpoint_type: str, state_snapshot: dict[str, Any]

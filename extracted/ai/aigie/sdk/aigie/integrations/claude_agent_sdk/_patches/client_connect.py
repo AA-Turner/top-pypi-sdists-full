@@ -8,12 +8,12 @@ from typing import Any
 
 from aigie.tracing.monkey_patch_lifecycle import PatchTarget
 
-from ..session_context import (
+from aigie.integrations.claude_agent_sdk.session_context import (
     clear_session_context,
     get_or_create_session_context,
     get_session_context,
 )
-from ._shared import (
+from aigie.integrations.claude_agent_sdk._patches._shared import (
     _enable_hook_events,
     _extract_agent_name,
     _shorten_model_name,
@@ -37,9 +37,9 @@ def client_connect_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
         @functools.wraps(original_connect)
         async def traced_connect(self, *args, **kwargs):  # noqa: C901, PLR0915, PLR0912
             """Traced version of ClaudeSDKClient.connect()."""
-            from ....client import get_aigie
-            from ..config import ClaudeAgentSDKConfig
-            from ..native_callback import ClaudeAgentSDKEvents
+            from aigie.client import get_aigie
+            from aigie.integrations.claude_agent_sdk.config import ClaudeAgentSDKConfig
+            from aigie.integrations.claude_agent_sdk.native_callback import ClaudeAgentSDKEvents
 
             aigie = get_aigie()
             config = ClaudeAgentSDKConfig.from_env()
@@ -143,5 +143,3 @@ def client_aexit_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
         get_target=get_target,
         make_wrapper=make_wrapper,
     )
-
-

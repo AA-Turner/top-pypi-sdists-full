@@ -4,10 +4,14 @@
 #  -----------------------------------------------------------------------------------------
 
 import ibm_boto3
+import time
 from tests.utils import credential_store
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
+from ibm_botocore.config import Config
+
+config = Config(max_pool_connections=100)
 
 cos_credentials = credential_store.cos_credentials
 
@@ -16,6 +20,7 @@ client_cos = ibm_boto3.client(
     endpoint_url=cos_credentials["endpoint_url"],
     aws_access_key_id=cos_credentials["cos_hmac_keys"]["access_key_id"],
     aws_secret_access_key=cos_credentials["cos_hmac_keys"]["secret_access_key"],
+    config=config,
 )
 
 buckets = client_cos.list_buckets()
@@ -25,6 +30,8 @@ searched_strings_in_name = [
     "basesdktestproject",
     "text-extraction-sdk-tests-",
     "watsonx-ai-sdk-test-pypi-",
+    "wx-autoai-sdk-tests-",
+    "wx-autoai-tests-",
     # OTHERS BUCKETS WE DO NOT INCLUDE
     # "autoai-tests-",
     # "autoairagsmoketestproject-donotdelete-",
@@ -37,11 +44,11 @@ searched_strings_in_name = [
     # "credit-risk-",
     # "product-line-",
     # "wml-autoai-tests-",
-    # "wx-autoai-tests-",
+
 ]
 
 named_bucket_list = []
-bucket_max_age = timedelta(days=2)
+bucket_max_age = timedelta(days=3)
 cutoff_datetime = datetime.now(timezone.utc) - bucket_max_age
 
 for bucket in buckets["Buckets"]:
@@ -53,15 +60,15 @@ for bucket in buckets["Buckets"]:
             named_bucket_list.append(bucket_name)
         else:
             print(
-                "SKIPPED {0}: created at {1}, newer than 2 days.".format(
+                "SKIPPED {0}: created at {1}, newer than 3 days.".format(
                     bucket_name, creation_date
                 )
             )
 
-print("Found {0} buckets older than 2 days to delete.".format(len(named_bucket_list)))
+print("Found {0} buckets older than 3 days to delete.".format(len(named_bucket_list)))
 
-MAX_BUCKET_WORKERS = 10
-MAX_OBJECT_WORKERS = 20
+MAX_BUCKET_WORKERS = 5
+MAX_OBJECT_WORKERS = 10
 
 
 def get_error_response(exception: Exception) -> dict[str, Any]:
@@ -80,6 +87,12 @@ def delete_object(bucket_name, file):
         else:
             raise
 
+def wait_until_deleted(bucket_name, retries=5, delay=1):
+    for _ in range(retries):
+        if not bucket_exists(bucket_name):
+            return True
+        time.sleep(delay)
+    return False
 
 def abort_multipart_upload(bucket_name, upload):
     try:
@@ -164,7 +177,6 @@ def delete_bucket(bucket_name):
     try:
         # Pre-check: skip entirely if already gone
         if not bucket_exists(bucket_name):
-            print("SKIPPED {0}: does not exist.".format(bucket_name))
             return bucket_name, None, "skipped"
 
         # Step 1: collect ALL objects first (paginated)
@@ -207,7 +219,7 @@ def delete_bucket(bucket_name):
         client_cos.delete_bucket(Bucket=bucket_name)
 
         # Step 6: verify the bucket is truly gone
-        if bucket_exists(bucket_name):
+        if not wait_until_deleted(bucket_name):
             return (
                 bucket_name,
                 "Bucket still exists after deletion — may have been recreated.",

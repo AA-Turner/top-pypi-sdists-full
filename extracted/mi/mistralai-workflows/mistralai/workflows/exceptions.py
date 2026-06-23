@@ -20,6 +20,19 @@ from temporalio.service import RPCError, RPCStatusCode
 
 from mistralai.workflows.worker_client.errors import SDKError
 
+_TERMINAL_CODES: dict[str, str] = {
+    # WF_1104 = WorkflowsErrorCode.WORKFLOW_REGISTRATION_FAILED (abraxas)
+    "WF_1104": "Workflow registration failed: credential is not authorized for this deployment",
+}
+
+_TRANSIENT_STATUSES: frozenset[HTTPStatus] = frozenset(
+    {
+        HTTPStatus.BAD_GATEWAY,
+        HTTPStatus.GATEWAY_TIMEOUT,
+        HTTPStatus.SERVICE_UNAVAILABLE,
+    }
+)
+
 
 class ErrorCode(StrEnum):
     EXECUTION_ERROR = "execution_error"
@@ -95,6 +108,20 @@ class WorkflowsException(Exception):
         self.type = type
         self.logging_message = logging_message
         self.logging_properties = logging_properties or {}
+
+    def is_terminal(self) -> bool:
+        """True if this error is non-recoverable and should terminate the worker."""
+        if self.status == HTTPStatus.UNAUTHORIZED:
+            return True
+        return str(self.code) in _TERMINAL_CODES
+
+    def is_transient(self) -> bool:
+        """True if this error is likely transient and safe to retry."""
+        return self.status in _TRANSIENT_STATUSES
+
+    def terminal_label(self) -> str | None:
+        """Human-readable log label for a terminal error, or None if not in the catalog."""
+        return _TERMINAL_CODES.get(str(self.code))
 
     def asdict(self) -> dict[str, str]:
         return {"object": "Error", "message": self.message, "type": self.type, "code": str(self.code)}

@@ -124,6 +124,7 @@ class WorkspaceMarker:
         "node_modules",
         "__pycache__",
         ".next",
+        ".next-*",  # port-suffixed dev-server build dirs (e.g. .next-3000)
         ".venv",
         "*.pyc",
         ".cache",

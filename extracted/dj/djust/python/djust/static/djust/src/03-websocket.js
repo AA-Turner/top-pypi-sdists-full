@@ -360,15 +360,19 @@ class LiveViewWebSocket {
                 this.viewMounted = true;
                 if (globalThis.djustDebug) console.log('[LiveView] View mounted: %s', String(data.view));
 
-                // Fix #1 — stash server-emitted public view state so the
-                // state-snapshot capture on next before-navigate has
-                // something to serialize. The server includes
-                // ``public_state`` only when ``enable_state_snapshot``
-                // is True on the view class; non-opt-in views never
-                // have state cached by the SW.
-                if (data.public_state && typeof data.public_state === 'object' && data.view) {
+                // Fix #1 / Finding #4 — stash the server-emitted SIGNED
+                // state-snapshot blob so the state-snapshot capture on the
+                // next before-navigate can echo it back verbatim. The server
+                // includes ``state_snapshot_signed`` (an opaque
+                // TimestampSigner blob) only when ``enable_state_snapshot``
+                // is True on the view class; non-opt-in views never have
+                // state cached. The blob is OPAQUE — we store it as-is and
+                // never re-serialize it, so the server signature stays valid
+                // on the round-trip. Re-serializing would strip the signature
+                // and the server would (correctly) reject the snapshot.
+                if (typeof data.state_snapshot_signed === 'string' && data.state_snapshot_signed && data.view) {
                     if (!window.djust._clientState) window.djust._clientState = {};
-                    window.djust._clientState[data.view] = data.public_state; // codeql[js/remote-property-injection] -- data.view is a server-sent view name, not arbitrary user input
+                    window.djust._clientState[data.view] = data.state_snapshot_signed; // codeql[js/remote-property-injection] -- data.view is a server-sent view name, not arbitrary user input
                 }
 
                 // Remove dj-cloak from all elements (FOUC prevention)
@@ -606,27 +610,24 @@ class LiveViewWebSocket {
                     } else if (typeof window !== 'undefined' && window.location) {
                         // Fallback — hard navigation if the dispatcher
                         // isn't wired (non-LiveView pages).
-                        // Same-origin guard: server-controlled `nav.to`
-                        // is generally trusted but defense-in-depth
-                        // prevents an attacker who breaches the wire
-                        // protocol from pivoting to open-redirect /
-                        // javascript: scheme XSS. Only allow same-origin
-                        // absolute paths; reject protocol-relative
-                        // (`//evil.com`), absolute URLs to other origins,
-                        // and `javascript:` / `data:` schemes.
+                        // Scheme/origin guard via the SHARED helper so the WS
+                        // and SSE `navigate` paths route through one
+                        // implementation and can't drift (#1646, finding #16).
+                        // server-controlled `nav.to` is generally trusted but
+                        // defense-in-depth prevents an attacker who breaches the
+                        // wire protocol from pivoting to open-redirect /
+                        // javascript: scheme XSS. Allows same-origin absolute
+                        // paths and absolute http(s) URLs (#1599); rejects
+                        // protocol-relative (`//evil.com`) and `javascript:` /
+                        // `data:` schemes.
                         // Closes CodeQL js/client-side-unvalidated-url-redirection.
-                        const target = nav.to;
-                        const isSameOriginPath = (
-                            target.length > 0 &&
-                            target.charAt(0) === '/' &&
-                            target.charAt(1) !== '/'  // reject protocol-relative
-                        );
-                        if (isSameOriginPath) {
-                            window.location.href = target; // codeql[js/xss] -- target validated to same-origin path (charAt(0)==='/' && charAt(1)!=='/')
+                        const navTarget = window.djust.safeNavigationTarget(nav.to);
+                        if (navTarget) {
+                            window.location.href = navTarget; // codeql[js/xss] -- validated via safeNavigationTarget
                         } else if (globalThis.djustDebug) {
                             console.warn(
-                                '[djust] live_redirect rejected non-same-origin target:',
-                                target,
+                                '[djust] live_redirect rejected unsafe target:',
+                                nav.to,
                             );
                         }
                     }

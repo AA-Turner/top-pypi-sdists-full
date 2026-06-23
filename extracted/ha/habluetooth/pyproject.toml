@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "habluetooth"
-version = "6.8.3"
+version = "6.9.0"
 license = "Apache-2.0"
 description = "High availability Bluetooth"
 authors = [{ name = "J. Nick Koston", email = "bluetooth@koston.org" }]
@@ -38,20 +38,20 @@ python = ">=3.11,<3.15"
 bleak = ">=3.0.2"
 bleak-retry-connector = ">=4.6.1"
 bluetooth-data-tools = ">=1.29.18"
-bluetooth-adapters = ">=2.2.0"
+bluetooth-adapters = ">=2.4.0"
 bluetooth-auto-recovery = ">=1.6.4"
 async-interrupt = ">=1.1.1"
-dbus-fast = { version = ">=5.0.16", markers = "platform_system == 'Linux'" }
+dbus-fast = { version = ">=5.0.22", markers = "platform_system == 'Linux'" }
 btsocket = ">=0.3.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=9.0.3,<10"
+pytest = ">=9.1.1,<10"
 pytest-cov = ">=7.1.0,<8"
 pytest-asyncio = ">=1.4.0,<1.5.0"
 pytest-codspeed = ">=5.0.3,<6.0.0"
 pytest-timeout = ">=2.3.1"
 freezegun = "^1.5.5"
-dbus-fast = ">=5.0.16"
+dbus-fast = ">=5.0.22"
 
 [tool.poetry.group.docs]
 optional = true

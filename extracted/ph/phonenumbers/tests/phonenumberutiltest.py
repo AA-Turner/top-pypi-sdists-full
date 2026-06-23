@@ -432,6 +432,19 @@ class PhoneNumberUtilTest(TestMetadataTestCase):
                          phonenumbers.format_number(US_SPOOF_WITH_RAW_INPUT, PhoneNumberFormat.NATIONAL))
         self.assertEqual("0", phonenumbers.format_number(US_SPOOF, PhoneNumberFormat.NATIONAL))
 
+    def testFormatAUShortCodeNumber(self):
+        auShortCodeNumber = phonenumbers.parse("000", "AU")
+        self.assertEqual("+61000", phonenumbers.format_number(auShortCodeNumber, PhoneNumberFormat.E164))
+
+        pgShortCodeNumber = PhoneNumber(country_code=675, national_number=0, raw_input="+675000")
+        self.assertEqual("+675000", phonenumbers.format_number(pgShortCodeNumber, PhoneNumberFormat.E164))
+
+        # Python version extra test
+        # (The added test in upstream change https://github.com/google/libphonenumber/pull/3937 doesn't hit the new library code).
+        pgShortCodeNumber2 = PhoneNumber(country_code=675, national_number=0, raw_input="000",
+                                         country_code_source=CountryCodeSource.FROM_DEFAULT_COUNTRY)
+        self.assertEqual("+675000", phonenumbers.format_number(pgShortCodeNumber2, PhoneNumberFormat.E164))
+
     def testFormatBSNumber(self):
         self.assertEqual("242 365 1234", phonenumbers.format_number(BS_NUMBER, PhoneNumberFormat.NATIONAL))
         self.assertEqual("+1 242 365 1234", phonenumbers.format_number(BS_NUMBER, PhoneNumberFormat.INTERNATIONAL))

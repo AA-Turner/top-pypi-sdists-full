@@ -12,10 +12,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from .engine import RuleResult
+from aigie.rules.engine import RuleResult
 
 if TYPE_CHECKING:
-    from ..interceptor.protocols import InterceptionContext
+    from aigie.interceptor.protocols import InterceptionContext
 
 logger = logging.getLogger("aigie.rules")
 

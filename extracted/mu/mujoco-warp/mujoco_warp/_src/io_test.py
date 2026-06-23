@@ -28,10 +28,10 @@ import mujoco_warp as mjwarp
 from mujoco_warp import ConeType
 from mujoco_warp import IntegratorType
 from mujoco_warp import test_data
+from mujoco_warp._src import types
 from mujoco_warp._src import warp_util
 from mujoco_warp._src.io import put_model
 from mujoco_warp._src.io import set_length_range
-from mujoco_warp._src.util_pkg import check_version
 
 
 def _allocate_worlds(
@@ -509,18 +509,11 @@ class IOTest(parameterized.TestCase):
     m = mjwarp.put_model(mjm)
     d = mjwarp.put_data(mjm, mjd)
 
-    mjd.qLD.fill(-123)
-    if check_version("mujoco>=3.8.1.dev910242375"):
-      mjd.M.fill(-123)
-    else:
-      mjd.qM.fill(-123)
+    mjd.M.fill(-123)
 
     mjwarp.get_data_into(mjd, mjm, d)
     np.testing.assert_allclose(mjd.qLD, mjd_ref.qLD)
-    if check_version("mujoco>=3.8.1.dev910242375"):
-      np.testing.assert_allclose(mjd.M, mjd_ref.M)
-    else:
-      np.testing.assert_allclose(mjd.qM, mjd_ref.qM)
+    np.testing.assert_allclose(mjd.M, mjd_ref.M)
 
   @parameterized.named_parameters(
     dict(testcase_name="nworld=1", nworld=1, world_id=0),
@@ -789,15 +782,15 @@ class IOTest(parameterized.TestCase):
     self.assertTrue((d.qLD.numpy() == 0.0).all())
 
     mujoco.mj_forward(mjm, mjd)
-    if check_version("mujoco>=3.8.1.dev910242375"):
-      mjd.M[:] = 0.0
-    else:
-      mjd.qM[:] = 0.0
+    mjd.M[:] = 0.0
     d = mjwarp.put_data(mjm, mjd)
     self.assertTrue((d.qLD.numpy() == 0.0).all())
 
     mujoco.mj_forward(mjm, mjd)
+    # For block-dense models d.qLD is the packed Cholesky factor recomputed from M, so
+    # zero the mass matrix as well as qLD to drive the factor to zero on both paths.
     mjd.qLD[:] = 0.0
+    mjd.M[:] = 0.0
     d = mjwarp.put_data(mjm, mjd)
     self.assertTrue((d.qLD.numpy() == 0.0).all())
 
@@ -911,6 +904,14 @@ class IOTest(parameterized.TestCase):
       "mocap_pos",
       "mocap_quat",
       "M",
+      "tree_asleep",
+      "tree_awake",
+      "body_awake",
+      "body_awake_ind",
+      "dof_awake_ind",
+      "ntree_awake",
+      "nbody_awake",
+      "nv_awake",
     ]
 
     mjm, mjd, m, d = test_data.fixture(xml)
@@ -1066,28 +1067,6 @@ class IOTest(parameterized.TestCase):
       </mujoco>
       """
       )
-
-  def test_ls_parallel(self):
-    _, _, m, _ = test_data.fixture(
-      xml="""
-    <mujoco>
-    </mujoco>
-    """
-    )
-
-    self.assertEqual(m.opt.ls_parallel, False)
-
-    _, _, m, _ = test_data.fixture(
-      xml="""
-    <mujoco>
-      <custom>
-        <numeric data="1" name="ls_parallel"/>
-      </custom>
-    </mujoco>
-    """
-    )
-
-    self.assertEqual(m.opt.ls_parallel, True)
 
   def test_contact_sensor_maxmatch(self):
     _, _, m, _ = test_data.fixture(
@@ -1446,6 +1425,73 @@ class IOTest(parameterized.TestCase):
     mjwarp.forward(m, d)
     mjwarp.reset_data(m, d)
     mjwarp.forward(m, d)
+
+  def test_put_model_batch_sizes(self):
+    """Test put_model can allocate selected batched Model fields per world."""
+    mjm = mujoco.MjModel.from_xml_string(
+      """
+      <mujoco>
+        <asset>
+          <texture name="red" type="2d" builtin="flat" width="4" height="4" rgb1="1 0 0" rgb2="1 0 0"/>
+          <texture name="green" type="2d" builtin="flat" width="4" height="4" rgb1="0 1 0" rgb2="0 1 0"/>
+          <material name="mat" texture="red" rgba="0.5 0.6 0.7 1"/>
+        </asset>
+        <worldbody>
+          <geom type="sphere" size="0.1" material="mat"/>
+        </worldbody>
+      </mujoco>
+      """
+    )
+
+    m_default = mjwarp.put_model(mjm)
+    m = mjwarp.put_model(mjm, batch_sizes={"mat_texid": 3, "geom_size": 2, "mat_rgba": 4})
+
+    nrole = int(mujoco.mjtTextureRole.mjNTEXROLE)
+    self.assertEqual(tuple(m.mat_texid.shape), (3, mjm.nmat, nrole))
+    self.assertEqual(tuple(m.geom_size.shape), (2, mjm.ngeom))
+    self.assertEqual(tuple(m.mat_rgba.shape), (4, mjm.nmat))
+    self.assertGreater(m.mat_texid.strides[0], 0)
+    self.assertGreater(m.geom_size.strides[0], 0)
+    self.assertGreater(m.mat_rgba.strides[0], 0)
+
+    np.testing.assert_array_equal(m.mat_texid.numpy(), np.repeat(m_default.mat_texid.numpy(), 3, axis=0))
+    np.testing.assert_allclose(m.geom_size.numpy(), np.repeat(m_default.geom_size.numpy(), 2, axis=0))
+    np.testing.assert_allclose(m.mat_rgba.numpy(), np.repeat(m_default.mat_rgba.numpy(), 4, axis=0))
+
+    # Fields not listed in batch_sizes keep the shared legacy allocation.
+    self.assertEqual(m.geom_pos.shape[0], 1)
+    self.assertEqual(m.geom_pos.strides[0], 0)
+
+    red_id = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_TEXTURE, "red")
+    green_id = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_TEXTURE, "green")
+    mat_id = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_MATERIAL, "mat")
+    rgb_role = int(mujoco.mjtTextureRole.mjTEXROLE_RGB)
+
+    mat_texid = m.mat_texid.numpy()
+    mat_texid[:, mat_id, rgb_role] = [red_id, green_id, red_id]
+    m.mat_texid.assign(mat_texid)
+    np.testing.assert_array_equal(m.mat_texid.numpy()[:, mat_id, rgb_role], [red_id, green_id, red_id])
+
+  def test_put_model_batch_sizes_errors(self):
+    """Test invalid put_model batch_sizes requests are rejected."""
+    mjm = mujoco.MjModel.from_xml_string(
+      """
+      <mujoco>
+        <worldbody>
+          <geom type="sphere" size="0.1"/>
+        </worldbody>
+      </mujoco>
+      """
+    )
+
+    with self.assertRaisesRegex(ValueError, "not a batched array field"):
+      mjwarp.put_model(mjm, batch_sizes={"missing": 2})
+    with self.assertRaisesRegex(ValueError, "not a batched array field"):
+      mjwarp.put_model(mjm, batch_sizes={"nmat": 2})
+    with self.assertRaisesRegex(ValueError, "not a batched array field"):
+      mjwarp.put_model(mjm, batch_sizes={"geom_type": 2})
+    with self.assertRaisesRegex(ValueError, "must be positive"):
+      mjwarp.put_model(mjm, batch_sizes={"mat_texid": 0})
 
   def test_set_fixed_body_subtreemass(self):
     """Test body_subtreemass accumulation for multi-level tree."""
@@ -1995,6 +2041,42 @@ class IOTest(parameterized.TestCase):
     self.assertTrue(rc.use_textures, "use_textures")
     self.assertEqual(rc.textures.shape, (mjm.ntex,), "textures")
 
+  def test_render_context_lighting_flags(self):
+    mjm, _, _, _ = test_data.fixture(
+      xml="""
+      <mujoco>
+        <visual>
+          <headlight active="0" ambient="0.2 0.3 0.4" diffuse="0.5 0.6 0.7" specular="0.8 0.9 1.0"/>
+        </visual>
+        <worldbody>
+          <light pos="0 0 3" dir="0 0 -1" attenuation="1 0.1 0.05" cutoff="25"/>
+          <geom type="sphere" size="0.3"/>
+        </worldbody>
+      </mujoco>
+      """
+    )
+    rc = mjwarp.create_render_context(
+      mjm,
+      cam_res=(32, 32),
+      render_rgb=True,
+      use_shadows=False,
+      use_ambient_lighting=False,
+      enable_specular=False,
+      enable_emission=False,
+      enable_per_light_ambient=False,
+    )
+    self.assertFalse(rc.use_shadows)
+    self.assertFalse(rc.use_ambient_lighting)
+    self.assertFalse(rc.enable_specular)
+    self.assertFalse(rc.enable_emission)
+    self.assertFalse(rc.enable_per_light_ambient)
+    self.assertFalse(rc.headlight_active)
+    self.assertFalse(rc.light_attenuation_is_default)
+    self.assertTrue(rc.has_spot_lights)
+    _assert_eq(np.asarray(rc.headlight_ambient), mjm.vis.headlight.ambient, "headlight_ambient")
+    _assert_eq(np.asarray(rc.headlight_diffuse), mjm.vis.headlight.diffuse, "headlight_diffuse")
+    _assert_eq(np.asarray(rc.headlight_specular), mjm.vis.headlight.specular, "headlight_specular")
+
   def test_check_toolkit_driver_warns(self):
     """Tests that check_toolkit_driver warns."""
     mock_device = mock.MagicMock()
@@ -2457,6 +2539,129 @@ class IOTest(parameterized.TestCase):
         created_kernels,
         f"Kernels were re-created on a subsequent step call: {created_kernels}",
       )
+
+  def test_flex_equality_sleep_error(self):
+    """Verify loading flex equality with sleep raises NotImplementedError."""
+    xml = """
+    <mujoco>
+      <worldbody>
+        <body name="b1"/>
+        <body name="b2"/>
+      </worldbody>
+      <equality>
+        <weld body1="b1" body2="b2"/>
+      </equality>
+    </mujoco>
+    """
+    mjm = mujoco.MjModel.from_xml_string(xml)
+    mjm.opt.enableflags |= mujoco.mjtEnableBit.mjENBL_SLEEP
+    mjm.eq_type[0] = mujoco.mjtEq.mjEQ_FLEX
+
+    with self.assertRaises(NotImplementedError):
+      mjwarp.put_model(mjm)
+
+  @parameterized.parameters(
+    mujoco.mjtSleepPolicy.mjSLEEP_NEVER,
+    mujoco.mjtSleepPolicy.mjSLEEP_ALLOWED,
+    mujoco.mjtSleepPolicy.mjSLEEP_INIT,
+  )
+  def test_tree_sleep_policy_error(self, policy):
+    """Verify loading a model with an unsupported sleep policy raises NotImplementedError."""
+    xml = """
+    <mujoco>
+      <worldbody>
+        <body>
+          <geom type="sphere" size="1"/>
+          <joint type="slide"/>
+        </body>
+      </worldbody>
+    </mujoco>
+    """
+    mjm, _, _, _ = test_data.fixture(xml=xml)
+    mjm.tree_sleep_policy[0] = policy
+
+    with self.assertRaises(NotImplementedError):
+      mjwarp.put_model(mjm)
+
+  def test_reset_data_sleep(self):
+    """Verify resetting sleep-related fields on a multi-world setup."""
+    mjm, _, m, d = test_data.fixture(
+      xml="""
+    <mujoco>
+      <worldbody>
+        <body>
+          <geom type="sphere" size="1"/>
+          <joint type="slide"/>
+        </body>
+      </worldbody>
+    </mujoco>
+    """,
+      nworld=2,
+    )
+
+    # Set non-default sleep states (asleep) on both worlds
+    # a tree is asleep if tree_asleep >= 0
+    # There is 1 tree in this model (since 1 body is dynamic)
+    tree_asleep = np.array([[5], [10]], dtype=np.int32)
+    wp.copy(d.tree_asleep, wp.array(tree_asleep, dtype=int))
+
+    # Set different tree_awake, body_awake
+    tree_awake = np.array([[0], [0]], dtype=np.int32)
+    wp.copy(d.tree_awake, wp.array(tree_awake, dtype=int))
+
+    body_awake = np.full((2, 2), types.SleepState.ASLEEP, dtype=np.int32)
+    wp.copy(d.body_awake, wp.array(body_awake, dtype=int))
+
+    # Reset world 0 only
+    reset0 = wp.array([True, False], dtype=bool)
+    mjwarp.reset_data(m, d, reset=reset0)
+
+    # Assert world 0 sleep fields were reset to fully awake
+    np.testing.assert_array_equal(
+      d.tree_asleep.numpy()[0],
+      [-(1 + types.MJ_MINAWAKE)],
+    )
+    np.testing.assert_array_equal(d.tree_awake.numpy()[0], [1])
+    # Body 0 is static/world body (gets STATIC). Body 1 has slide joint (gets AWAKE).
+    np.testing.assert_array_equal(
+      d.body_awake.numpy()[0],
+      [types.SleepState.STATIC, types.SleepState.AWAKE],
+    )
+
+    # Assert world 1 sleep fields were NOT modified
+    np.testing.assert_array_equal(d.tree_asleep.numpy()[1], [10])
+    np.testing.assert_array_equal(d.tree_awake.numpy()[1], [0])
+    np.testing.assert_array_equal(
+      d.body_awake.numpy()[1],
+      [types.SleepState.ASLEEP, types.SleepState.ASLEEP],
+    )
+
+  def test_ls_parallel_deprecation(self):
+    _, _, m, _ = test_data.fixture(xml="<mujoco/>")
+
+    # Constructor with ls_parallel argument raises TypeError (unrecognized parameter)
+    with self.assertRaises(TypeError):
+      types.Option(timestep=wp.array([0.01], dtype=float), ls_parallel=True)
+
+    # Accessing (reading) the fields raises AttributeError
+    with self.assertRaises(AttributeError):
+      _ = m.opt.ls_parallel
+    with self.assertRaises(AttributeError):
+      _ = m.opt.ls_parallel_min_step
+
+    # Directly setting any value raises AttributeError
+    with self.assertRaises(AttributeError):
+      m.opt.ls_parallel = False
+    with self.assertRaises(AttributeError):
+      m.opt.ls_parallel_min_step = 0.0
+
+    # Test that override_model raises ValueError with helpful message
+    from mujoco_warp._src.io import override_model
+
+    with self.assertRaisesRegex(ValueError, "ls_parallel was removed in MuJoCo Warp 3.9.1"):
+      override_model(m, {"opt.ls_parallel": True})
+    with self.assertRaisesRegex(ValueError, "ls_parallel_min_step was removed in MuJoCo Warp 3.9.1"):
+      override_model(m, {"opt.ls_parallel_min_step": 0.01})
 
 
 # TODO(team): test set_const_0 sparse

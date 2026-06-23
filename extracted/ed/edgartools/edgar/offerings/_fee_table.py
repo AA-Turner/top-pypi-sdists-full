@@ -77,15 +77,102 @@ def _resolve_fee_source(filing: 'Filing'):
     return max(at_or_before or candidates, key=lambda rf: str(rf.filing_date))
 
 
+# A single numeric token: the first run of digits (with thousands commas and an
+# optional decimal). Matching only the first token stops trailing footnote
+# markers from being concatenated into the number — '$1 (1)(2)(3)(4)' must parse
+# to 1.0, not 11234, and '$761.12 (3)' to 761.12, not 761123.
+# The leading-decimal alternative ('.0000927') matters for the fee-rate cell,
+# which filers write with no integer part ('$.0000927'); without it the leading
+# '.' is skipped and '0000927' parses to 927.0 instead of 0.0000927.
+_NUMERIC_TOKEN_RE = re.compile(r'\d[\d,]*(?:\.\d+)?|\.\d+')
+
+
 def _parse_dollar_amount(text: str) -> Optional[float]:
-    """Parse a dollar string like '$12,119.07' or '300,000,000' to float."""
+    """Parse a dollar string like '$12,119.07' or '300,000,000' to float.
+
+    Reads only the first numeric token so footnote markers appended to a value
+    ('$1 (1)(2)(3)(4)', '$761.12 (3)') don't get fused into the digits.
+    """
     if not text:
         return None
-    cleaned = re.sub(r'[^\d.]', '', text.replace(',', ''))
+    m = _NUMERIC_TOKEN_RE.search(text)
+    if not m:
+        return None
+    cleaned = m.group(0).replace(',', '')
     try:
         return float(cleaned) if cleaned else None
     except ValueError:
         return None
+
+
+# Filers write the fee rate two ways: a raw per-dollar decimal ('0.00015310' /
+# '$.0000927'), or an amount on a per-million basis ('$153.10 per $1,000,000').
+# The second form is the SEC EX-107 template's own wording; _parse_dollar_amount
+# reads only the leading token (153.10) and drops the basis, so the rate comes
+# out 1,000,000x too large. Normalise it back to a per-dollar decimal.
+_FEE_RATE_BASIS_RE = re.compile(r'per\s*\$?\s*([\d,]+)', re.IGNORECASE)
+
+
+def _parse_fee_rate(text: str) -> Optional[float]:
+    """Parse a fee-rate cell to a per-dollar decimal.
+
+    '0.00015310'             -> 0.00015310   (raw per-dollar decimal)
+    '$.0000927'              -> 0.0000927    (leading-decimal, no integer part)
+    '$153.10 per $1,000,000' -> 0.00015310   (amount per $1,000,000 basis)
+    """
+    amount = _parse_dollar_amount(text)
+    if amount is None:
+        return None
+    m = _FEE_RATE_BASIS_RE.search(text)
+    if m:
+        basis = float(m.group(1).replace(',', ''))
+        if basis > 0:
+            return amount / basis
+    return amount
+
+
+# The SEC registration fee rate is a uniquely tiny decimal (~0.0001 per dollar;
+# it has ranged roughly 0.00005–0.00016 across fiscal years), distinct from
+# prices, aggregates and share counts. Anchoring on it lets us recover the
+# trailing [Maximum Aggregate, Fee Rate, Amount of Registration Fee] columns even
+# when split footnote markers shift cells positionally.
+_FEE_RATE_MIN = 1e-6
+_FEE_RATE_MAX = 1e-3
+
+
+def _refine_fee_columns(security: dict, texts: List[str]) -> None:
+    """Re-derive max_aggregate / fee_rate / fee_amount by anchoring on the fee rate.
+
+    The EX-107 fee table always ends with the column triple
+    [Maximum Aggregate Offering Price, Fee Rate, Amount of Registration Fee].
+    Positional parsing breaks when a footnote like ``(3)`` splits into two cells
+    (``'(3'``, ``')'``) and shifts every later column right — the offering amount
+    then lands in the fee column (333-275559). The fee rate is uniquely tiny, and
+    the identity ``fee = aggregate x rate`` is self-validating, so we scan for a
+    rate-band cell whose immediate numeric neighbours satisfy that identity and
+    trust those over the positional guess. No-op when no such triple exists
+    (carry-forward / deferred rows have no fee rate), so clean rows are unchanged.
+    """
+    # Neighbours (aggregate, fee) are plain dollar amounts; the rate candidate is
+    # parsed with _parse_fee_rate so a 'per $1,000,000' cell (153.10 -> 0.0001531)
+    # lands in the rate band and can still anchor a column-shift recovery.
+    parsed = [_parse_dollar_amount(t) for t in texts]
+    rates = [_parse_fee_rate(t) for t in texts]
+    for i, rate in enumerate(rates):
+        if rate is None or not (_FEE_RATE_MIN < rate < _FEE_RATE_MAX):
+            continue
+        agg = next((parsed[j] for j in range(i - 1, -1, -1)
+                    if parsed[j] is not None and parsed[j] > 0), None)
+        fee = next((parsed[j] for j in range(i + 1, len(parsed))
+                    if parsed[j] is not None and parsed[j] > 0), None)
+        if agg is None or fee is None:
+            continue
+        expected = agg * rate
+        if expected > 0 and abs(expected - fee) <= max(0.02 * fee, 1.0):
+            security['max_aggregate_amount'] = agg
+            security['fee_rate'] = rate
+            security['fee_amount'] = fee
+            return
 
 
 def _join_dollar_cells(texts: List[str]) -> List[str]:
@@ -253,21 +340,37 @@ def _parse_fee_table_html(html: str, exhibit_url: Optional[str] = None) -> dict:
     # Set has_carry_forward only if actual carry-forward data was found
     result['has_carry_forward'] = len(result['carry_forwards']) > 0
 
-    # If total_offering_amount was not found in summary rows, or if the summary
-    # "Total Offering Amounts" row only had the fee (common in 2022 format),
-    # compute from per-security max_aggregate_amount values.
+    # The "Total Offering Amounts" summary cell is the sum of the per-security
+    # Maximum Aggregate Offering Price of the newly-registered rows. When the
+    # summary is missing, or implausibly small relative to that sum, it has been
+    # corrupted — it carried the fee instead of the amount (the 2022 format),
+    # or a typo / split footnote mangled the digits ('$761,12' -> 76112,
+    # '$1 (1)(2)(3)(4)' -> 1.0). The per-security aggregate is authoritative.
     aggregate_from_securities = sum(
         s.get('max_aggregate_amount') or 0
         for s in result['securities']
     )
     if aggregate_from_securities > 0:
-        if result['total_offering_amount'] is None:
+        total = result['total_offering_amount']
+        # A universal shelf may repeat the same capped aggregate on several
+        # security lines while the "Total Offering Amounts" correctly reports the
+        # single cap — there the summary equals the largest line and must be kept,
+        # not inflated into the (double-counted) sum. Only override when the
+        # summary is implausibly small relative to BOTH the sum and the largest
+        # single line, i.e. it carried the fee / a corrupted figure.
+        max_single = max((s.get('max_aggregate_amount') or 0)
+                         for s in result['securities'])
+        if total is None or (total < aggregate_from_securities * 0.5
+                             and total < max_single * 0.99):
             result['total_offering_amount'] = aggregate_from_securities
-        elif (result['net_fee_due'] is not None
-              and result['total_offering_amount'] == result['net_fee_due']
-              and aggregate_from_securities > result['total_offering_amount']):
-            # Summary row had only fee amount, not offering amount (2022 format)
-            result['total_offering_amount'] = aggregate_from_securities
+    elif (result['carry_forwards']
+          and (result['net_fee_due'] in (None, 0.0))
+          and (result['total_offering_amount'] or 0) < 1000):
+        # A carry-forward-only registration (Rule 415(a)(6)) with no newly-paid
+        # fee registers an indeterminate amount carried from a prior statement;
+        # the summary cell is a nominal placeholder ('$1') not real new capacity
+        # (333-272539). Report None rather than a misleading token figure.
+        result['total_offering_amount'] = None
 
     # Detect deferred fees (S-3ASR with Rule 457(r)). Consider only rows that
     # actually carry a fee rule — issuer sub-header rows ("Fees to Be Paid |
@@ -322,10 +425,11 @@ def _parse_security_row_no_category(texts: List[str]) -> Optional[dict]:
     if len(data) >= 6 and not _is_placeholder(data[5]):
         security['max_aggregate_amount'] = _parse_dollar_amount(data[5])
     if len(data) >= 7 and not _is_placeholder(data[6]):
-        security['fee_rate'] = _parse_dollar_amount(data[6])
+        security['fee_rate'] = _parse_fee_rate(data[6])
     if len(data) >= 8 and not _is_placeholder(data[7]):
         security['fee_amount'] = _parse_dollar_amount(data[7])
 
+    _refine_fee_columns(security, texts)
     return security
 
 
@@ -373,10 +477,11 @@ def _parse_security_row(texts: List[str]) -> Optional[dict]:
     if len(data) >= 6 and not _is_placeholder(data[5]):
         security['max_aggregate_amount'] = _parse_dollar_amount(data[5])
     if len(data) >= 7 and not _is_placeholder(data[6]):
-        security['fee_rate'] = _parse_dollar_amount(data[6])
+        security['fee_rate'] = _parse_fee_rate(data[6])
     if len(data) >= 8 and not _is_placeholder(data[7]):
         security['fee_amount'] = _parse_dollar_amount(data[7])
 
+    _refine_fee_columns(security, texts)
     return security
 
 

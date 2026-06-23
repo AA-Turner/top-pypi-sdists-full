@@ -48,14 +48,8 @@ from typing import (
     Union,
 )
 
-from .result import AgentResult, UnifiedError, UsageInfo
-from .run_context import (
-    DepsT,
-    Message,
-    ModelRetry,
-    RunContext,
-    run_context,
-)
+from aigie.result import AgentResult, UnifiedError, UsageInfo
+from aigie.run_context import DepsT, Message, ModelRetry, RunContext, run_context
 
 # Type variables
 OutputT = TypeVar("OutputT")

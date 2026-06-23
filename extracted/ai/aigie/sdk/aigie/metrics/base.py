@@ -5,8 +5,8 @@ Base metric classes for reliability evaluation.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from ..evaluation import EvaluationResult
-from .types import MetricContextBase
+from aigie.evaluation import EvaluationResult
+from aigie.metrics.types import MetricContextBase
 
 
 class BaseMetric(ABC):

@@ -1,22 +1,42 @@
 import ast
-import bisect
 import dataclasses
 import inspect
-import logging
 import sys
 import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, get_type_hints
+from typing import Any, Callable, Literal, get_type_hints
+
+import structlog
 
 from mistralai.workflows.core.activity import check_is_activity
+from mistralai.workflows.core.wire_format import AtlasWireFormat
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Node kinds that count as "visible content" inside a loop or conditional branch.
 # Used to decide whether to prepend a synthetic ellipsis when the body is empty.
-_RENDERABLE_KINDS: frozenset[str] = frozenset({"step", "ellipsis", "conditional", "loop", "try_except", "human_input"})
+_RENDERABLE_KINDS: frozenset[str] = frozenset(
+    {
+        "step",
+        "ellipsis",
+        "conditional",
+        "loop",
+        "try_except",
+        "human_input",
+        "wait_condition",
+        "dispatch",
+        "memory_op",
+        "raise",
+        "parallel",
+    }
+)
 _MEMORY_OPS: frozenset[str] = frozenset({"save_memory", "load_memory", "load_history"})
+
+# Max indirection followed when resolving an awaitable to its underlying call. Real nesting is
+# shallow (e.g. starred -> name -> comprehension -> call is 3 hops); 4 leaves headroom for one
+# extra indirection while still terminating cycles from self-referential bindings (e.g. x = x or []).
+_MAX_AWAITABLE_RESOLVE_DEPTH = 4
 
 
 @dataclass
@@ -45,6 +65,127 @@ def _extract_call(stmt: ast.stmt) -> ast.Call | None:
     return None
 
 
+def _awaited_calls_in_order(stmt: ast.stmt) -> list[ast.Call]:
+    """Return the call expressions that are directly awaited anywhere within a statement,
+    ordered by source position.
+
+    Surfaces activities awaited inside a larger expression — e.g. the ``publish_article``
+    call in ``results.append(await publish_article(title))`` — which ``_extract_call`` does
+    not see because it only yields the statement's outermost call.
+    """
+    awaited: list[ast.Call] = []
+
+    class AwaitedCallVisitor(ast.NodeVisitor):
+        def visit_Await(self, node: ast.Await) -> None:
+            if isinstance(node.value, ast.Call):
+                awaited.append(node.value)
+            self.generic_visit(node)
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            self.visit(node.args)
+
+    AwaitedCallVisitor().visit(stmt)
+    awaited.sort(key=lambda c: (c.lineno, c.col_offset))
+    return awaited
+
+
+def _collect_lane_call_exprs(
+    awaitables: list[ast.expr],
+    name_values: dict[str, ast.expr],
+) -> list[ast.Call]:
+    """Resolve a list of awaitable expressions (e.g. asyncio.gather args, or the list passed
+    to execute_activities_in_parallel) to their underlying call expressions.
+
+    Unwraps starred spreads (``*tasks``), comprehensions, list/tuple/set literals, and simple
+    name references bound to any of those via ``name_values``. A comprehension contributes a
+    single representative lane (its element call), since the whole comprehension is a fan-out
+    of the same operation. Duplicate Call nodes are returned only once.
+    """
+    calls: list[ast.Call] = []
+    seen: set[int] = set()
+
+    def visit(expr: ast.expr, depth: int) -> None:
+        if depth > _MAX_AWAITABLE_RESOLVE_DEPTH:
+            return
+        if isinstance(expr, ast.Starred):
+            visit(expr.value, depth + 1)
+        elif isinstance(expr, ast.Call):
+            if id(expr) not in seen:
+                seen.add(id(expr))
+                calls.append(expr)
+        elif isinstance(expr, (ast.ListComp, ast.GeneratorExp, ast.SetComp)):
+            visit(expr.elt, depth + 1)
+        elif isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+            for elt in expr.elts:
+                visit(elt, depth + 1)
+        elif isinstance(expr, ast.Name):
+            bound = name_values.get(expr.id)
+            if bound is not None:
+                visit(bound, depth + 1)
+
+    for a in awaitables:
+        visit(a, 0)
+    return calls
+
+
+def _scoped_binding_ctx(ctx: "_TreeCtx") -> "_TreeCtx":
+    """Return a child context whose local-function and name-binding dicts are isolated copies.
+
+    Each statement block gets its own copy seeded from its parent, so bindings recorded while
+    walking a block (incrementally, in source order — see _record_binding) stay local to that
+    block: sibling if/else branches and inlined helpers cannot leak names to one another, and a
+    binding is only visible to statements that follow it. Counters and other fields stay shared
+    by reference so node ids remain unique across the walk.
+    """
+    return dataclasses.replace(ctx, local_funcs=dict(ctx.local_funcs), name_values=dict(ctx.name_values))
+
+
+def _record_binding(stmt: ast.stmt, ctx: "_TreeCtx") -> None:
+    """Record a nested function def or simple name binding so later statements can resolve it.
+
+    Lets calls to local helpers and ``*tasks`` spreads passed to asyncio.gather be resolved.
+    """
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        ctx.local_funcs[stmt.name] = stmt
+    elif isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
+        ctx.name_values[stmt.targets[0].id] = stmt.value
+
+
+def _build_parallel_node(
+    lane_exprs: list[ast.Call],
+    par_call: ast.Call,
+    walk_lane: Callable[[list[ast.stmt]], list[dict]],
+    ctx: "_TreeCtx",
+    index: "_FileIndex",
+    file_ranges: dict[str, dict],
+    file_path: str,
+    workflow_name: str,
+) -> dict | None:
+    """Build a tree ``parallel`` node from a set of lane call expressions.
+
+    Each lane is walked back through ``walk_lane`` (the caller's own body walker) so every
+    call kind — activity, human_input, execute_workflow, nested local helper — is recognised
+    uniformly. Returns None when no lane yields renderable content. A comprehension yields a
+    single representative lane (a fan-out).
+    """
+    branches: list[list[dict]] = []
+    for lane_call in lane_exprs:
+        lane_nodes = [n for n in walk_lane([ast.Expr(value=lane_call)]) if n.get("kind") in _RENDERABLE_KINDS]
+        if lane_nodes:
+            branches.append(lane_nodes)
+    if not branches:
+        return None
+    par_idx = ctx.parallel_counter[0]
+    ctx.parallel_counter[0] += 1
+    cb, ce = _ast_span(par_call, index)
+    return {
+        "kind": "parallel",
+        "id": f"{workflow_name}::parallel_{par_idx}",
+        "source_range": _abs_range(file_ranges, file_path, cb, ce, line=par_call.lineno),
+        "branches": branches,
+    }
+
+
 def _resolve(expr: ast.expr, module_ns: dict) -> Any:
     if isinstance(expr, ast.Name):
         return module_ns.get(expr.id)
@@ -66,24 +207,57 @@ def _resolve_call(call: ast.Call, module_ns: dict) -> Any:
 _ACTIVITY_KINDS = frozenset({"step", "human_input", "wait_condition", "dispatch", "memory_op"})
 
 
+def _has_renderable_nodes(nodes: list[dict]) -> bool:
+    """Return True if any top-level node is visible in the rendered graph."""
+    return any(n.get("kind") in _RENDERABLE_KINDS for n in nodes)
+
+
+def _block_exit_kind(stmts: list[ast.stmt]) -> Literal["return", "raise"] | None:
+    """Return how a statement block terminates: 'return', 'raise', or None.
+
+    Inspects the last statement and recurses into transparent compound statements
+    (with-blocks, and if/else where both branches exit) so a return or raise nested
+    inside e.g. a ``with`` is still detected.
+    """
+    if not stmts:
+        return None
+    last = stmts[-1]
+    if isinstance(last, ast.Raise):
+        return "raise"
+    if isinstance(last, ast.Return):
+        return "return"
+    if isinstance(last, (ast.With, ast.AsyncWith)):
+        return _block_exit_kind(last.body)
+    if isinstance(last, ast.If) and last.orelse:
+        true_kind = _block_exit_kind(last.body)
+        false_kind = _block_exit_kind(last.orelse)
+        if true_kind is not None and false_kind is not None:
+            return "raise" if true_kind == "raise" and false_kind == "raise" else "return"
+    return None
+
+
+_BRANCH_KEYS = ("true_branch", "false_branch", "rejoin", "children", "try_body", "finally_body")
+
+
 def _has_activity_nodes(nodes: list[dict]) -> bool:
-    """Return True if any node (recursively) is an activity-like step."""
-    for node in nodes:
-        if node.get("kind") in _ACTIVITY_KINDS:
+    """Return True if any node (recursively) is a workflow activity.
+
+    Used to distinguish guard-only helpers (pure conditionals / assignments)
+    from helpers that contain real workflow steps.  A helper whose inlined
+    tree passes _has_renderable_nodes but fails this check is treated as
+    empty and replaced with a synthetic ellipsis.
+    """
+    for n in nodes:
+        if n.get("kind") in _ACTIVITY_KINDS:
             return True
-        for sub_key in (
-            "true_branch",
-            "false_branch",
-            "rejoin",
-            "children",
-            "try_body",
-            "finally_body",
-        ):
-            sub = node.get(sub_key)
-            if isinstance(sub, list) and _has_activity_nodes(sub):
+        for key in _BRANCH_KEYS:
+            if _has_activity_nodes(n.get(key) or []):
                 return True
-        for h in node.get("handlers") or []:
-            if isinstance(h, dict) and _has_activity_nodes(h.get("body") or []):
+        for h in n.get("handlers") or []:
+            if _has_activity_nodes(h.get("body") or []):
+                return True
+        for branch in n.get("branches") or []:
+            if _has_activity_nodes(branch):
                 return True
     return False
 
@@ -132,10 +306,17 @@ class _TreeCtx:
     wait_counter: list[int] = field(default_factory=lambda: [0])
     memory_counter: list[int] = field(default_factory=lambda: [0])
     task_counter: list[int] = field(default_factory=lambda: [0])
+    raise_counter: list[int] = field(default_factory=lambda: [0])
     cls_def: ast.ClassDef | None = None
     workflow_cls: type | None = None
     visited_methods: set[str] = field(default_factory=set)
     param_types: dict[str, type] = field(default_factory=dict)
+    # Nested local functions (def/async def) defined in the current scope, and simple
+    # name → value bindings, so calls to local helpers and `*tasks` spreads passed to
+    # asyncio.gather can be resolved. inlined_funcs guards against infinite recursion.
+    local_funcs: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = field(default_factory=dict)
+    name_values: dict[str, ast.expr] = field(default_factory=dict)
+    inlined_funcs: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass
@@ -158,10 +339,10 @@ class _WalkCtx:
     param_types: dict[str, type] = field(default_factory=dict)
 
 
-def _abs_range(file_ranges: dict[str, dict], file_path: str, begin: int, end: int) -> dict:
+def _abs_range(file_ranges: dict[str, dict], file_path: str, begin: int, end: int, line: int = 0) -> dict:
     """Absolute byte offsets in the concatenated source blob for a per-file span."""
     fb = file_ranges.get(file_path, {}).get("begin", 0)
-    return {"begin": fb + begin, "end": fb + end}
+    return {"begin": fb + begin, "end": fb + end, "line": line}
 
 
 def _make_ellipsis_node(ctx: _TreeCtx, workflow_name: str, source_range: dict) -> dict:
@@ -863,10 +1044,215 @@ def _extract_hi_label(call: ast.Call) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# ActivityResolver — parameterises _walk_body_tree for dynamic vs static mode
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _InlineTarget:
+    fn_def: ast.FunctionDef | ast.AsyncFunctionDef
+    cls_def: ast.ClassDef
+    file_path: str
+    resolver: "ActivityResolver"
+    param_types: dict[str, type]
+
+
+def _extract_wf_arg(call: ast.Call) -> ast.expr | None:
+    return call.args[0] if call.args else next((kw.value for kw in call.keywords if kw.arg == "workflow"), None)
+
+
+class ActivityResolver:
+    __slots__ = ()
+
+    def resolve_activity(
+        self,
+        call: ast.Call,
+        sources: dict[str, str],
+        asts: dict[str, ast.Module],
+    ) -> str | None:
+        raise NotImplementedError
+
+    def find_method_to_inline(
+        self,
+        method_name: str,
+        sources: dict[str, str],
+        asts: dict[str, ast.Module],
+    ) -> _InlineTarget | None:
+        raise NotImplementedError
+
+    def resolve_workflow_name(self, call: ast.Call) -> str | None:
+        raise NotImplementedError
+
+    def resolve_workflow_file(self, call: ast.Call) -> str | None:
+        """Absolute path of the child workflow class's source file, if resolvable.
+
+        Used to link a child_workflow node to the child's graph. The base
+        implementation returns ``None`` (no link); resolvers with enough symbol
+        information — the static resolver's import table or the dynamic
+        resolver's imported module namespace — can resolve the defining file.
+        """
+        return None
+
+
+class _DynamicResolver(ActivityResolver):
+    __slots__ = ("_module_ns", "_workflow_cls")
+
+    def __init__(self, module_ns: dict, workflow_cls: type | None = None) -> None:
+        self._module_ns = module_ns
+        self._workflow_cls = workflow_cls
+
+    def resolve_activity(self, call: ast.Call, sources: dict[str, str], asts: dict[str, ast.Module]) -> str | None:
+        resolved = _resolve_call(call, self._module_ns)
+        if resolved is not None and check_is_activity(resolved):
+            return str(resolved.__name__)
+        return None
+
+    def find_method_to_inline(
+        self, method_name: str, sources: dict[str, str], asts: dict[str, ast.Module]
+    ) -> _InlineTarget | None:
+        if self._workflow_cls is None:
+            return None
+        result = _find_method_in_mro(self._workflow_cls, method_name, sources, asts)
+        if result is None:
+            return None
+        fn_def, mixin_cls_def, _src, mixin_file, mixin_ns = result
+        param_types: dict[str, type] = {}
+        try:
+            for base in self._workflow_cls.__mro__:
+                if method_name in base.__dict__:
+                    raw = base.__dict__[method_name]
+                    method_obj = getattr(raw, "__func__", raw)
+                    hints = get_type_hints(method_obj)
+                    param_types = {k: v for k, v in hints.items() if k != "return"}
+                    break
+        except Exception:
+            pass
+        return _InlineTarget(
+            fn_def=fn_def,
+            cls_def=mixin_cls_def,
+            file_path=mixin_file,
+            resolver=_DynamicResolver(module_ns=mixin_ns, workflow_cls=self._workflow_cls),
+            param_types=param_types,
+        )
+
+    def resolve_workflow_name(self, call: ast.Call) -> str | None:
+        wf_arg = _extract_wf_arg(call)
+        if wf_arg is None:
+            return None
+        wf_cls = _resolve(wf_arg, self._module_ns)
+        if wf_cls is not None and hasattr(wf_cls, "__workflows_workflow_def"):
+            return str(wf_cls.__name__)
+        return None
+
+    def resolve_workflow_file(self, call: ast.Call) -> str | None:
+        wf_arg = _extract_wf_arg(call)
+        if wf_arg is None:
+            return None
+        wf_cls = _resolve(wf_arg, self._module_ns)
+        if wf_cls is None or not hasattr(wf_cls, "__workflows_workflow_def"):
+            return None
+        try:
+            return str(Path(inspect.getfile(wf_cls)).resolve())
+        except TypeError:
+            return None
+
+
+class _StaticResolver(ActivityResolver):
+    __slots__ = ("_symbols", "_symbol_names", "_file_resolver", "_cls_def", "_file_path")
+
+    def __init__(
+        self,
+        symbols: dict[str, str],
+        symbol_names: dict[str, str],
+        file_resolver: Callable[[str], str | None],
+        cls_def: ast.ClassDef,
+        file_path: str,
+    ) -> None:
+        self._symbols = symbols
+        self._symbol_names = symbol_names
+        self._file_resolver = file_resolver
+        self._cls_def = cls_def
+        self._file_path = file_path
+
+    def resolve_activity(self, call: ast.Call, sources: dict[str, str], asts: dict[str, ast.Module]) -> str | None:
+        fn_name = _resolve_call_fn_name(call)
+        if not fn_name or fn_name not in self._symbols:
+            return None
+        fn_def = _lookup_fn_in_file(fn_name, self._symbols[fn_name], self._file_resolver, sources, asts)
+        if fn_def is not None and _has_activity_decorator(fn_def):
+            return fn_name
+        return None
+
+    def find_method_to_inline(
+        self, method_name: str, sources: dict[str, str], asts: dict[str, ast.Module]
+    ) -> _InlineTarget | None:
+        fn = next(
+            (
+                n
+                for n in self._cls_def.body
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == method_name
+            ),
+            None,
+        )
+        if fn is None:
+            return None
+        return _InlineTarget(
+            fn_def=fn,
+            cls_def=self._cls_def,
+            file_path=self._file_path,
+            resolver=self,
+            param_types={},
+        )
+
+    def _resolve_workflow_target(self, call: ast.Call) -> tuple[str, str | None] | None:
+        """Resolve a child workflow reference to (class name, defining file path).
+
+        The class name is the original ``__name__`` Atlas registers by, not the
+        local import alias; the file path is the candidate module, when known.
+        """
+        wf_arg = _extract_wf_arg(call)
+        if wf_arg is None:
+            return None
+        if isinstance(wf_arg, ast.Name):
+            return self._symbol_names.get(wf_arg.id, wf_arg.id), self._symbols.get(wf_arg.id)
+        if isinstance(wf_arg, ast.Attribute):
+            # `module.WorkflowClass` — attribute access uses the real class name;
+            # resolve the file via the module alias when it is a known import.
+            if isinstance(wf_arg.value, ast.Name):
+                candidate = self._symbols.get(wf_arg.value.id)
+                if candidate is not None:
+                    return wf_arg.attr, candidate
+            return wf_arg.attr, self._symbols.get(wf_arg.attr)
+        return None
+
+    def resolve_workflow_name(self, call: ast.Call) -> str | None:
+        target = self._resolve_workflow_target(call)
+        return target[0] if target is not None else None
+
+    def resolve_workflow_file(self, call: ast.Call) -> str | None:
+        target = self._resolve_workflow_target(call)
+        if target is None:
+            return None
+        name, candidate = target
+        if candidate is None:
+            return None
+        src = self._file_resolver(candidate)
+        if src is None:
+            return None
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            return None
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef) and node.name == name and _is_workflow_cls_def(node):
+                return candidate
+        return None
+
+
 def _walk_body_tree(
     stmts: list[ast.stmt],
-    module_ns: dict,
-    source_text: str,
+    resolver: ActivityResolver,
     sources: dict[str, str],
     asts: dict[str, ast.Module],
     indices: dict[str, _FileIndex],
@@ -875,12 +1261,27 @@ def _walk_body_tree(
     ctx: _TreeCtx,
     file_ranges: dict[str, dict],
 ) -> list[dict]:
-    """Walk statements and return tree nodes."""
-    _register_source_file(file_path, source_text, sources, file_ranges)
+    """Walk statements and return tree nodes.
+
+    Resolution strategy (activity detection, method inlining, execute_workflow)
+    is delegated to ``resolver``, allowing the same walker to be used for both
+    dynamic (imported module) and static (pure-AST) analysis.
+    """
+    src = sources.get(file_path, "")
+    if not src:
+        return []
+    _register_source_file(file_path, src, sources, file_ranges)
     index = _get_index(file_path, sources, asts, indices)
     result: list[dict] = []
 
+    ctx = _scoped_binding_ctx(ctx)
+
+    def _walk_lane(body: list[ast.stmt]) -> list[dict]:
+        return _walk_body_tree(body, resolver, sources, asts, indices, file_path, workflow_name, ctx, file_ranges)
+
     for idx, stmt in enumerate(stmts):
+        _record_binding(stmt, ctx)
+
         # --- return: check for return await act() before stopping ---
         if isinstance(stmt, ast.Return):
             if stmt.value is not None:
@@ -891,17 +1292,35 @@ def _walk_body_tree(
                 elif isinstance(v, ast.Call):
                     ret_call = v
                 if ret_call is not None:
-                    resolved_ret = _resolve_call(ret_call, module_ns)
-                    if resolved_ret is not None and check_is_activity(resolved_ret):
+                    name = resolver.resolve_activity(ret_call, sources, asts)
+                    if name is not None:
                         cb, ce = _ast_span(ret_call, index)
                         result.append(
                             {
                                 "kind": "step",
-                                "id": f"{workflow_name}::{resolved_ret.__name__}@{ret_call.lineno}",
-                                "label": resolved_ret.__name__,
-                                "source_range": _abs_range(file_ranges, file_path, cb, ce),
+                                "id": f"{workflow_name}::{name}@{ret_call.lineno}",
+                                "label": name,
+                                "source_range": _abs_range(file_ranges, file_path, cb, ce, line=ret_call.lineno),
                             }
                         )
+            return result
+
+        # --- raise: terminates the block as an error exit ---
+        if isinstance(stmt, ast.Raise):
+            raise_idx = ctx.raise_counter[0]
+            ctx.raise_counter[0] += 1
+            cb, ce = _ast_span(stmt, index)
+            label = ast.unparse(stmt.exc) if stmt.exc is not None else "raise"
+            if len(label) > 60:
+                label = label[:59] + "…"
+            result.append(
+                {
+                    "kind": "raise",
+                    "id": f"{workflow_name}::raise_{raise_idx}",
+                    "label": label,
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=stmt.lineno),
+                }
+            )
             return result
 
         # --- conditional ---
@@ -909,89 +1328,48 @@ def _walk_body_tree(
             cond_idx = ctx.cond_counter[0]
             ctx.cond_counter[0] += 1
             cb, ce = _ast_span(stmt, index)
-            true_exits = any(isinstance(s, (ast.Return, ast.Raise)) for s in stmt.body)
-            false_exits = any(isinstance(s, (ast.Return, ast.Raise)) for s in stmt.orelse)
-            true_branch = _walk_body_tree(
-                stmt.body,
-                module_ns,
-                source_text,
-                sources,
-                asts,
-                indices,
-                file_path,
-                workflow_name,
-                ctx,
-                file_ranges,
-            )
-            false_branch = _walk_body_tree(
-                stmt.orelse if stmt.orelse else [],
-                module_ns,
-                source_text,
-                sources,
-                asts,
-                indices,
-                file_path,
-                workflow_name,
-                ctx,
-                file_ranges,
-            )
-            sr = _abs_range(file_ranges, file_path, cb, ce)
-            if not true_exits and not _has_activity_nodes(true_branch):
+            true_kind = _block_exit_kind(stmt.body)
+            false_kind = _block_exit_kind(stmt.orelse)
+            true_exits = true_kind is not None
+            false_exits = false_kind is not None
+            true_branch = _walk_lane(stmt.body)
+            false_branch = _walk_lane(stmt.orelse if stmt.orelse else [])
+            sr = _abs_range(file_ranges, file_path, cb, ce, line=stmt.lineno)
+            if not true_exits and not _has_renderable_nodes(true_branch):
                 true_branch = [_make_ellipsis_node(ctx, workflow_name, sr)]
-            if stmt.orelse and not false_exits and not _has_activity_nodes(false_branch):
+            if stmt.orelse and not false_exits and not _has_renderable_nodes(false_branch):
                 false_branch = [_make_ellipsis_node(ctx, workflow_name, sr)]
             rejoin = _walk_body_tree(
-                stmts[idx + 1 :],
-                module_ns,
-                source_text,
-                sources,
-                asts,
-                indices,
-                file_path,
-                workflow_name,
-                ctx,
-                file_ranges,
+                stmts[idx + 1 :], resolver, sources, asts, indices, file_path, workflow_name, ctx, file_ranges
             )
             result.append(
                 {
                     "kind": "conditional",
                     "id": f"{workflow_name}::cond_{cond_idx}",
                     "label": ast.unparse(stmt.test),
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
+                    "source_range": sr,
                     "true_branch": true_branch,
                     "true_exits": true_exits,
+                    "true_exit_error": true_kind == "raise",
                     "false_branch": false_branch,
                     "false_exits": false_exits,
+                    "false_exit_error": false_kind == "raise",
                     "rejoin": rejoin,
                 }
             )
-            return result  # stmts[idx+1:] captured in rejoin
+            return result
 
-        # --- for / async for / while: always emit a loop container ---
-        # If the body has no recognized activity steps, add a synthetic ellipsis
-        # child so the container still shows something meaningful.
+        # --- for / async for / while ---
         if isinstance(stmt, (ast.For, ast.AsyncFor, ast.While)):
             cb, ce = _ast_span(stmt, index)
             if isinstance(stmt, ast.While):
                 raw_label = f"while {ast.unparse(stmt.test)}"
-                label = raw_label if len(raw_label) <= 60 else raw_label[:59] + "…"
             else:
                 async_prefix = "async " if isinstance(stmt, ast.AsyncFor) else ""
                 raw_label = f"{async_prefix}for {ast.unparse(stmt.target)} in {ast.unparse(stmt.iter)}"
-                label = raw_label if len(raw_label) <= 60 else raw_label[:59] + "…"
-            children = _walk_body_tree(
-                stmt.body,
-                module_ns,
-                source_text,
-                sources,
-                asts,
-                indices,
-                file_path,
-                workflow_name,
-                ctx,
-                file_ranges,
-            )
-            sr = _abs_range(file_ranges, file_path, cb, ce)
+            label = raw_label if len(raw_label) <= 60 else raw_label[:59] + "…"
+            children = _walk_lane(stmt.body)
+            sr = _abs_range(file_ranges, file_path, cb, ce, line=stmt.lineno)
             if not any(c["kind"] in _RENDERABLE_KINDS for c in children):
                 children = [_make_ellipsis_node(ctx, workflow_name, sr)] + children
             loop_idx = ctx.loop_counter[0]
@@ -1001,84 +1379,34 @@ def _walk_body_tree(
                     "kind": "loop",
                     "id": f"{workflow_name}::loop_{loop_idx}",
                     "label": label,
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=stmt.lineno),
                     "children": children,
                 }
             )
             continue
 
-        # --- with / async with: transparent — recurse into body, no container node ---
+        # --- with / async with: transparent ---
         if isinstance(stmt, (ast.With, ast.AsyncWith)):
-            result.extend(
-                _walk_body_tree(
-                    stmt.body,
-                    module_ns,
-                    source_text,
-                    sources,
-                    asts,
-                    indices,
-                    file_path,
-                    workflow_name,
-                    ctx,
-                    file_ranges,
-                )
-            )
+            result.extend(_walk_lane(stmt.body))
             continue
 
-        # --- try / except: emit a try_except container ---
+        # --- try / except ---
         if isinstance(stmt, ast.Try):
             cb, ce = _ast_span(stmt, index)
             try_idx = ctx.try_counter[0]
             ctx.try_counter[0] += 1
-            try_body = _walk_body_tree(
-                stmt.body,
-                module_ns,
-                source_text,
-                sources,
-                asts,
-                indices,
-                file_path,
-                workflow_name,
-                ctx,
-                file_ranges,
-            )
-            sr = _abs_range(file_ranges, file_path, cb, ce)
-            if not any(c["kind"] in _RENDERABLE_KINDS for c in try_body):
+            try_body = _walk_lane(stmt.body)
+            sr = _abs_range(file_ranges, file_path, cb, ce, line=stmt.lineno)
+            if stmt.body and not any(c["kind"] in _RENDERABLE_KINDS for c in try_body):
                 try_body = [_make_ellipsis_node(ctx, workflow_name, sr)]
             handlers = [
                 {
                     "exception_type": ast.unparse(h.type) if h.type else None,
-                    "body": _walk_body_tree(
-                        h.body,
-                        module_ns,
-                        source_text,
-                        sources,
-                        asts,
-                        indices,
-                        file_path,
-                        workflow_name,
-                        ctx,
-                        file_ranges,
-                    ),
+                    "body": _walk_lane(h.body),
                 }
                 for h in stmt.handlers
             ]
-            finally_body = (
-                _walk_body_tree(
-                    stmt.finalbody,
-                    module_ns,
-                    source_text,
-                    sources,
-                    asts,
-                    indices,
-                    file_path,
-                    workflow_name,
-                    ctx,
-                    file_ranges,
-                )
-                if stmt.finalbody
-                else []
-            )
+            finally_body = _walk_lane(stmt.finalbody) if stmt.finalbody else []
             result.append(
                 {
                     "kind": "try_except",
@@ -1096,16 +1424,21 @@ def _walk_body_tree(
             logger.debug("unrecognised stmt %s", type(stmt).__name__)
             continue
 
-        # Unwrap asyncio.create_task(inner) / asyncio.ensure_future(inner) so that
-        # inner calls such as execute_workflow(...) are visible to the handlers below.
-        # Intentionally loose: we only check the method name, not the receiver, so any
-        # object with a create_task method would also be unwrapped — acceptable in practice.
+        # --- create_task / ensure_future unwrapping ---
+        # A child workflow spawned via create_task/ensure_future is
+        # fire-and-forget (not awaited); record that for execute_workflow below.
+        # `await asyncio.create_task(...)` is awaited, so it is not fire-and-forget.
+        call_is_awaited = isinstance(stmt, (ast.Expr, ast.Assign, ast.AnnAssign)) and isinstance(
+            getattr(stmt, "value", None), ast.Await
+        )
+        fire_and_forget = False
         if (
             isinstance(call.func, ast.Attribute)
             and call.func.attr in ("create_task", "ensure_future")
             and len(call.args) == 1
             and isinstance(call.args[0], ast.Call)
         ):
+            fire_and_forget = not call_is_awaited
             call = call.args[0]
 
         # --- human_input: await self.wait_for_input(...) ---
@@ -1123,43 +1456,29 @@ def _walk_body_tree(
                     "kind": "human_input",
                     "id": f"{workflow_name}::human_input_{hi_idx}",
                     "label": _extract_hi_label(call) or "human_input",
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=call.lineno),
                 }
             )
             continue
 
         # --- helper method inlining: self.method(...) ---
         if (
-            ctx.workflow_cls is not None
-            and isinstance(call.func, ast.Attribute)
+            isinstance(call.func, ast.Attribute)
             and isinstance(call.func.value, ast.Name)
             and call.func.value.id == "self"
             and call.func.attr != "wait_for_input"
         ):
             method_name = call.func.attr
             if method_name not in ctx.visited_methods:
-                mro_result = _find_method_in_mro(ctx.workflow_cls, method_name, sources, asts)
-                if mro_result is not None:
-                    fn_def, mixin_cls_def, mixin_src, mixin_file, mixin_ns = mro_result
-                    helper_param_types: dict[str, type] = {}
-                    try:
-                        for base in ctx.workflow_cls.__mro__:
-                            if method_name in base.__dict__:
-                                raw = base.__dict__[method_name]
-                                method_obj = getattr(raw, "__func__", raw)
-                                hints = get_type_hints(method_obj)
-                                helper_param_types = {k: v for k, v in hints.items() if k != "return"}
-                                break
-                    except Exception:
-                        pass
+                target = resolver.find_method_to_inline(method_name, sources, asts)
+                if target is not None:
                     inlined = _walk_body_tree(
-                        fn_def.body,
-                        mixin_ns,
-                        mixin_src,
+                        target.fn_def.body,
+                        target.resolver,
                         sources,
                         asts,
                         indices,
-                        mixin_file,
+                        target.file_path,
                         f"{workflow_name}::helper_{method_name}",
                         _TreeCtx(
                             cond_counter=ctx.cond_counter,
@@ -1168,49 +1487,46 @@ def _walk_body_tree(
                             ellipsis_counter=ctx.ellipsis_counter,
                             loop_counter=ctx.loop_counter,
                             try_counter=ctx.try_counter,
-                            cls_def=mixin_cls_def,
+                            raise_counter=ctx.raise_counter,
+                            cls_def=target.cls_def,
                             workflow_cls=ctx.workflow_cls,
                             visited_methods=ctx.visited_methods | {method_name},
-                            param_types=helper_param_types,
+                            param_types=target.param_types,
                         ),
                         file_ranges,
                     )
-                    if _has_activity_nodes(inlined):
+                    if _has_renderable_nodes(inlined) and _has_activity_nodes(inlined):
                         result.extend(inlined)
                     else:
                         cb, ce = _ast_span(call, index)
-                        result.append(
-                            _make_ellipsis_node(ctx, workflow_name, _abs_range(file_ranges, file_path, cb, ce))
-                        )
+                        sr = _abs_range(file_ranges, file_path, cb, ce, line=call.lineno)
+                        result.append(_make_ellipsis_node(ctx, workflow_name, sr))
                 else:
                     cb, ce = _ast_span(call, index)
-                    result.append(_make_ellipsis_node(ctx, workflow_name, _abs_range(file_ranges, file_path, cb, ce)))
-            continue  # always skip generic handlers for self.method() calls
+                    sr = _abs_range(file_ranges, file_path, cb, ce, line=call.lineno)
+                    result.append(_make_ellipsis_node(ctx, workflow_name, sr))
+            continue
 
-        # --- sub-workflow: execute_workflow(WorkflowCls, ...) ---
-        func_name_rt = (
-            call.func.attr
-            if isinstance(call.func, ast.Attribute)
-            else (call.func.id if isinstance(call.func, ast.Name) else None)
-        )
-        if func_name_rt == "execute_workflow":
-            wf_arg = (
-                call.args[0] if call.args else next((kw.value for kw in call.keywords if kw.arg == "workflow"), None)
+        # --- nested local function inlining ---
+        if (
+            isinstance(call.func, ast.Name)
+            and call.func.id in ctx.local_funcs
+            and call.func.id not in ctx.inlined_funcs
+        ):
+            fn_def = ctx.local_funcs[call.func.id]
+            inlined = _walk_body_tree(
+                fn_def.body,
+                resolver,
+                sources,
+                asts,
+                indices,
+                file_path,
+                workflow_name,
+                dataclasses.replace(ctx, inlined_funcs=ctx.inlined_funcs | {call.func.id}),
+                file_ranges,
             )
-            wf_cls = _resolve(wf_arg, module_ns) if wf_arg is not None else None
-            if wf_cls is not None and hasattr(wf_cls, "__workflows_workflow_def"):
-                cb, ce = _ast_span(call, index)
-                result.append(
-                    {
-                        "kind": "step",
-                        "id": f"{workflow_name}::{wf_cls.__name__}@{call.lineno}",
-                        "label": wf_cls.__name__,
-                        "source_range": _abs_range(file_ranges, file_path, cb, ce),
-                    }
-                )
-            else:
-                cb, ce = _ast_span(call, index)
-                result.append(_make_ellipsis_node(ctx, workflow_name, _abs_range(file_ranges, file_path, cb, ce)))
+            if _has_renderable_nodes(inlined) and _has_activity_nodes(inlined):
+                result.extend(inlined)
             continue
 
         func_name = (
@@ -1218,6 +1534,31 @@ def _walk_body_tree(
             if isinstance(call.func, ast.Attribute)
             else (call.func.id if isinstance(call.func, ast.Name) else None)
         )
+
+        # --- sub-workflow: execute_workflow(WorkflowCls, ...) ---
+        if func_name == "execute_workflow":
+            wf_name = resolver.resolve_workflow_name(call)
+            cb, ce = _ast_span(call, index)
+            if wf_name is not None:
+                cw_node: dict = {
+                    "kind": "step",
+                    "id": f"{workflow_name}::{wf_name}@{call.lineno}",
+                    "label": wf_name,
+                    "child_workflow": True,
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=call.lineno),
+                }
+                wf_file = resolver.resolve_workflow_file(call)
+                if wf_file is not None:
+                    # Child is a resolvable workflow → link the node to its graph.
+                    cw_node["child_workflow_id"] = wf_name
+                    cw_node["child_workflow_file"] = wf_file
+                if fire_and_forget:
+                    cw_node["async"] = True
+                result.append(cw_node)
+            else:
+                sr = _abs_range(file_ranges, file_path, cb, ce, line=call.lineno)
+                result.append(_make_ellipsis_node(ctx, workflow_name, sr))
+            continue
 
         # --- continue_as_new: terminates the branch ---
         if func_name == "continue_as_new":
@@ -1227,7 +1568,7 @@ def _walk_body_tree(
                     "kind": "step",
                     "id": f"{workflow_name}::continue_as_new@{call.lineno}",
                     "label": "continue_as_new",
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=call.lineno),
                 }
             )
             return result
@@ -1248,50 +1589,22 @@ def _walk_body_tree(
                     "kind": "wait_condition",
                     "id": f"{workflow_name}::wait_{wait_idx}",
                     "label": label,
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=call.lineno),
                 }
             )
             continue
 
         # --- execute_activities_in_parallel ---
         if func_name == "execute_activities_in_parallel":
-            branches: list[list[dict]] = []
-            arg_calls: list[ast.Call] = []
+            lane_exprs: list[ast.Call] = []
             if call.args and isinstance(call.args[0], ast.List):
-                arg_calls = [elt for elt in call.args[0].elts if isinstance(elt, ast.Call)]
-            for inner_call in arg_calls:
-                inner_resolved = _resolve_call(inner_call, module_ns)
-                if inner_resolved is None:
-                    continue
-                try:
-                    if not check_is_activity(inner_resolved):
-                        continue
-                except Exception:
-                    continue
-                icb, ice = _ast_span(inner_call, index)
-                branches.append(
-                    [
-                        {
-                            "kind": "step",
-                            "id": f"{workflow_name}::{inner_resolved.__name__}@{inner_call.lineno}",
-                            "label": inner_resolved.__name__,
-                            "source_range": _abs_range(file_ranges, file_path, icb, ice),
-                        }
-                    ]
-                )
-            if branches:
-                par_idx = ctx.parallel_counter[0]
-                ctx.parallel_counter[0] += 1
-                cb, ce = _ast_span(call, index)
-                result.append(
-                    {
-                        "kind": "parallel",
-                        "id": f"{workflow_name}::parallel_{par_idx}",
-                        "source_range": _abs_range(file_ranges, file_path, cb, ce),
-                        "branches": branches,
-                    }
-                )
-                continue
+                lane_exprs = _collect_lane_call_exprs(call.args[0].elts, ctx.name_values)
+            par_node = _build_parallel_node(
+                lane_exprs, call, _walk_lane, ctx, index, file_ranges, file_path, workflow_name
+            )
+            if par_node is not None:
+                result.append(par_node)
+            continue
 
         # --- asyncio.gather as parallel ---
         if (
@@ -1300,40 +1613,13 @@ def _walk_body_tree(
             and isinstance(call.func.value, ast.Name)
             and call.func.value.id == "asyncio"
         ):
-            branches = []
-            for inner_call in (a for a in call.args if isinstance(a, ast.Call)):
-                inner_resolved = _resolve_call(inner_call, module_ns)
-                if inner_resolved is None:
-                    continue
-                try:
-                    if not check_is_activity(inner_resolved):
-                        continue
-                except Exception:
-                    continue
-                icb, ice = _ast_span(inner_call, index)
-                branches.append(
-                    [
-                        {
-                            "kind": "step",
-                            "id": f"{workflow_name}::{inner_resolved.__name__}@{inner_call.lineno}",
-                            "label": inner_resolved.__name__,
-                            "source_range": _abs_range(file_ranges, file_path, icb, ice),
-                        }
-                    ]
-                )
-            if branches:
-                par_idx = ctx.parallel_counter[0]
-                ctx.parallel_counter[0] += 1
-                cb, ce = _ast_span(call, index)
-                result.append(
-                    {
-                        "kind": "parallel",
-                        "id": f"{workflow_name}::parallel_{par_idx}",
-                        "source_range": _abs_range(file_ranges, file_path, cb, ce),
-                        "branches": branches,
-                    }
-                )
-                continue
+            lane_exprs = _collect_lane_call_exprs(call.args, ctx.name_values)
+            par_node = _build_parallel_node(
+                lane_exprs, call, _walk_lane, ctx, index, file_ranges, file_path, workflow_name
+            )
+            if par_node is not None:
+                result.append(par_node)
+            continue
 
         # --- memory ops ---
         if isinstance(call.func, ast.Attribute) and call.func.attr in _MEMORY_OPS:
@@ -1347,23 +1633,38 @@ def _walk_body_tree(
                     "id": f"{workflow_name}::memory_{mem_idx}",
                     "label": func_name,
                     "op": op,
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=call.lineno),
                 }
             )
             continue
 
         # --- activity step recognition ---
-        resolved = _resolve_call(call, module_ns)
-        if resolved is not None and check_is_activity(resolved):
+        name = resolver.resolve_activity(call, sources, asts)
+        if name is not None:
             cb, ce = _ast_span(call, index)
             result.append(
                 {
                     "kind": "step",
-                    "id": f"{workflow_name}::{resolved.__name__}@{call.lineno}",
-                    "label": resolved.__name__,
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
+                    "id": f"{workflow_name}::{name}@{call.lineno}",
+                    "label": name,
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=call.lineno),
                 }
             )
+            continue
+
+        # --- activities awaited inside a larger expression, e.g. results.append(await act()) ---
+        for awaited in _awaited_calls_in_order(stmt):
+            awaited_name = resolver.resolve_activity(awaited, sources, asts)
+            if awaited_name is not None:
+                cb, ce = _ast_span(awaited, index)
+                result.append(
+                    {
+                        "kind": "step",
+                        "id": f"{workflow_name}::{awaited_name}@{awaited.lineno}:{awaited.col_offset}",
+                        "label": awaited_name,
+                        "source_range": _abs_range(file_ranges, file_path, cb, ce, line=awaited.lineno),
+                    }
+                )
 
     return result
 
@@ -1402,6 +1703,34 @@ def _lookup_fn_in_file(
     return None
 
 
+_HANDLER_ATTRS: frozenset[str] = frozenset({"signal", "update", "query"})
+
+
+def _handler_name(node: ast.FunctionDef | ast.AsyncFunctionDef, dec: ast.expr) -> str:
+    """Return the decorator's name= kwarg value if present, else the method name."""
+    if isinstance(dec, ast.Call):
+        for kw in dec.keywords:
+            if kw.arg == "name":
+                try:
+                    return str(ast.literal_eval(kw.value))
+                except (ValueError, SyntaxError):
+                    return ast.unparse(kw.value)
+    return node.name
+
+
+def _handler_param_type(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
+    """Return the annotation of the first non-self parameter, or None."""
+    params = [a for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs) if a.arg != "self"]
+    if params and params[0].annotation is not None:
+        return ast.unparse(params[0].annotation)
+    return None
+
+
+def _handler_return_type(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
+    """Return the function's return annotation, or None."""
+    return ast.unparse(node.returns) if node.returns is not None else None
+
+
 def _scan_class_handlers(
     cls_def: ast.ClassDef, index: _FileIndex, file_offset: int = 0
 ) -> tuple[list[dict], list[dict], list[dict]]:
@@ -1409,311 +1738,141 @@ def _scan_class_handlers(
     signals: list[dict] = []
     updates: list[dict] = []
     queries: list[dict] = []
+    by_kind = {"signal": signals, "update": updates, "query": queries}
     for node in cls_def.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for dec in node.decorator_list:
             dec_inner = dec.func if isinstance(dec, ast.Call) else dec
-            if not isinstance(dec_inner, ast.Attribute):
+            if not isinstance(dec_inner, ast.Attribute) or dec_inner.attr not in _HANDLER_ATTRS:
                 continue
-            attr = dec_inner.attr
+            kind = dec_inner.attr
             begin, end = _ast_span(node, index)
-            entry = {"name": node.name, "begin": file_offset + begin, "end": file_offset + end}
-            if attr == "signal":
-                signals.append(entry)
-            elif attr == "update":
-                updates.append(entry)
-            elif attr == "query":
-                queries.append(entry)
+            by_kind[kind].append(
+                {
+                    "kind": kind,
+                    "name": _handler_name(node, dec),
+                    "param_type": _handler_param_type(node),
+                    "return_type": _handler_return_type(node),
+                    "source_range": {"begin": file_offset + begin, "end": file_offset + end},
+                }
+            )
             break
     return signals, updates, queries
 
 
-def _walk_body_tree_ast(
-    stmts: list[ast.stmt],
-    symbols: dict[str, str],
-    resolver: Callable[[str], str | None],
-    sources: dict[str, str],
-    asts: dict[str, ast.Module],
-    indices: dict[str, "_FileIndex"],
-    file_path: str,
-    workflow_name: str,
-    ctx: "_TreeCtx",
-    file_ranges: dict[str, dict],
-) -> list[dict]:
-    """Pure-AST variant of _walk_body_tree.
+# Marker attribute (set by the @workflow.signal/update/query decorators) -> handler kind.
+_HANDLER_DEF_ATTRS: dict[str, str] = {
+    "__wf_signal_def": "signal",
+    "__wf_update_def": "update",
+    "__wf_query_def": "query",
+}
 
-    Identifies activities by checking decorators in resolved source files, not via runtime check.
-    PR 3 scope: handles loops, try/except, with, conditionals, and activity steps.
+
+def _format_runtime_type(annotation: object) -> str | None:
+    """Render a resolved type hint as the same display string the AST scanner emits."""
+    if annotation is None or annotation is type(None):
+        return "None"
+    if isinstance(annotation, type):
+        return annotation.__name__
+    return str(annotation).replace("typing.", "")
+
+
+def _collect_class_handlers_runtime(
+    workflow_cls: type, cls_def: ast.ClassDef, index: _FileIndex
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """Collect signal/update/query handlers from the live class via decorator metadata.
+
+    Unlike _scan_class_handlers (static AST), this reads the authoritative runtime markers
+    the decorators stamp on each handler wrapper, so it resolves dynamic handler names and
+    sees handlers inherited from base classes. Source ranges are attached only for handlers
+    defined directly in this class' file; inherited handlers carry no range.
     """
-    src = sources.get(file_path, "")
-    _register_source_file(file_path, src, sources, file_ranges)
-    if file_path not in sources:
-        return []
-    index = _get_index(file_path, sources, asts, indices)
-    result: list[dict] = []
+    signals: list[dict] = []
+    updates: list[dict] = []
+    queries: list[dict] = []
+    by_kind = {"signal": signals, "update": updates, "query": queries}
 
-    for idx, stmt in enumerate(stmts):
-        # --- return ---
-        if isinstance(stmt, ast.Return):
-            if stmt.value is not None:
-                v = stmt.value
-                ret_call: ast.Call | None = None
-                if isinstance(v, ast.Await) and isinstance(v.value, ast.Call):
-                    ret_call = v.value
-                elif isinstance(v, ast.Call):
-                    ret_call = v
-                if ret_call is not None:
-                    fn_name = _resolve_call_fn_name(ret_call)
-                    if fn_name and fn_name in symbols:
-                        fn_def = _lookup_fn_in_file(fn_name, symbols[fn_name], resolver, sources, asts)
-                        if fn_def is not None and _has_activity_decorator(fn_def):
-                            cb, ce = _ast_span(ret_call, index)
-                            result.append(
-                                {
-                                    "kind": "step",
-                                    "id": f"{workflow_name}::{fn_name}@{ret_call.lineno}",
-                                    "label": fn_name,
-                                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
-                                }
-                            )
-            return result
+    ast_methods: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {
+        node.name: node for node in cls_def.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
 
-        # --- conditional ---
-        if isinstance(stmt, ast.If):
-            cond_idx = ctx.cond_counter[0]
-            ctx.cond_counter[0] += 1
-            cb, ce = _ast_span(stmt, index)
-            true_exits = any(isinstance(s, (ast.Return, ast.Raise)) for s in stmt.body)
-            false_exits = any(isinstance(s, (ast.Return, ast.Raise)) for s in stmt.orelse)
-
-            def _recurse(sub_stmts: list[ast.stmt]) -> list[dict]:
-                return _walk_body_tree_ast(
-                    sub_stmts,
-                    symbols,
-                    resolver,
-                    sources,
-                    asts,
-                    indices,
-                    file_path,
-                    workflow_name,
-                    ctx,
-                    file_ranges,
-                )
-
-            true_branch = _recurse(stmt.body)
-            false_branch = _recurse(stmt.orelse if stmt.orelse else [])
-            sr = _abs_range(file_ranges, file_path, cb, ce)
-            if not true_exits and not any(n["kind"] in _RENDERABLE_KINDS for n in true_branch):
-                true_branch = [_make_ellipsis_node(ctx, workflow_name, sr)]
-            if stmt.orelse and not false_exits and not any(n["kind"] in _RENDERABLE_KINDS for n in false_branch):
-                false_branch = [_make_ellipsis_node(ctx, workflow_name, sr)]
-            rejoin = _recurse(stmts[idx + 1 :])
-            result.append(
-                {
-                    "kind": "conditional",
-                    "id": f"{workflow_name}::cond_{cond_idx}",
-                    "label": ast.unparse(stmt.test),
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
-                    "true_branch": true_branch,
-                    "true_exits": true_exits,
-                    "false_branch": false_branch,
-                    "false_exits": false_exits,
-                    "rejoin": rejoin,
-                }
-            )
-            return result
-
-        # --- loop (for / async for / while) ---
-        if isinstance(stmt, (ast.For, ast.AsyncFor, ast.While)):
-            cb, ce = _ast_span(stmt, index)
-            if isinstance(stmt, ast.While):
-                raw_label = f"while {ast.unparse(stmt.test)}"
-            else:
-                prefix = "async " if isinstance(stmt, ast.AsyncFor) else ""
-                raw_label = f"{prefix}for {ast.unparse(stmt.target)} in {ast.unparse(stmt.iter)}"
-            label = raw_label if len(raw_label) <= 60 else raw_label[:59] + "…"
-            children = _walk_body_tree_ast(
-                stmt.body,
-                symbols,
-                resolver,
-                sources,
-                asts,
-                indices,
-                file_path,
-                workflow_name,
-                ctx,
-                file_ranges,
-            )
-            sr = _abs_range(file_ranges, file_path, cb, ce)
-            if not any(c["kind"] in _RENDERABLE_KINDS for c in children):
-                children = [_make_ellipsis_node(ctx, workflow_name, sr)] + children
-            loop_idx = ctx.loop_counter[0]
-            ctx.loop_counter[0] += 1
-            result.append(
-                {
-                    "kind": "loop",
-                    "id": f"{workflow_name}::loop_{loop_idx}",
-                    "label": label,
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
-                    "children": children,
-                }
-            )
+    seen: set[int] = set()
+    for attr_name in dir(workflow_cls):
+        try:
+            member = getattr(workflow_cls, attr_name)
+        except Exception:
+            continue
+        if id(member) in seen:
             continue
 
-        # --- with / async with: transparent ---
-        if isinstance(stmt, (ast.With, ast.AsyncWith)):
-            result.extend(
-                _walk_body_tree_ast(
-                    stmt.body,
-                    symbols,
-                    resolver,
-                    sources,
-                    asts,
-                    indices,
-                    file_path,
-                    workflow_name,
-                    ctx,
-                    file_ranges,
-                )
-            )
-            continue
+        for def_attr, kind in _HANDLER_DEF_ATTRS.items():
+            handler_def = getattr(member, def_attr, None)
+            if handler_def is None:
+                continue
+            seen.add(id(member))
 
-        # --- try / except ---
-        if isinstance(stmt, ast.Try):
-            cb, ce = _ast_span(stmt, index)
-            try_idx = ctx.try_counter[0]
-            ctx.try_counter[0] += 1
-            try_body = _walk_body_tree_ast(
-                stmt.body,
-                symbols,
-                resolver,
-                sources,
-                asts,
-                indices,
-                file_path,
-                workflow_name,
-                ctx,
-                file_ranges,
-            )
-            handlers = [
-                {
-                    "exception_type": ast.unparse(h.type) if h.type else None,
-                    "body": _walk_body_tree_ast(
-                        h.body,
-                        symbols,
-                        resolver,
-                        sources,
-                        asts,
-                        indices,
-                        file_path,
-                        workflow_name,
-                        ctx,
-                        file_ranges,
-                    ),
-                }
-                for h in stmt.handlers
-            ]
-            finally_body = (
-                _walk_body_tree_ast(
-                    stmt.finalbody,
-                    symbols,
-                    resolver,
-                    sources,
-                    asts,
-                    indices,
-                    file_path,
-                    workflow_name,
-                    ctx,
-                    file_ranges,
-                )
-                if stmt.finalbody
-                else []
-            )
-            result.append(
-                {
-                    "kind": "try_except",
-                    "id": f"{workflow_name}::try_{try_idx}",
-                    "source_range": _abs_range(file_ranges, file_path, cb, ce),
-                    "try_body": try_body,
-                    "handlers": handlers,
-                    "finally_body": finally_body,
-                }
-            )
-            continue
+            meta = getattr(member, "__wf_handler_meta", None)
+            if meta is not None and meta.is_internal:
+                break
 
-        call = _extract_call(stmt)
-        if call is None:
-            logger.debug("unrecognised stmt %s", type(stmt).__name__)
-            continue
+            original = meta.original_func if meta is not None else member
 
-        # --- helper method inlining: self.method_name() ---
-        if (
-            ctx.cls_def is not None
-            and isinstance(call.func, ast.Attribute)
-            and isinstance(call.func.value, ast.Name)
-            and call.func.value.id == "self"
-        ):
-            method_name = call.func.attr
-            if method_name not in ctx.visited_methods:
-                fn_in_cls = next(
-                    (
-                        n
-                        for n in ctx.cls_def.body
-                        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == method_name
-                    ),
-                    None,
-                )
-                if fn_in_cls is not None:
-                    child_ctx = dataclasses.replace(
-                        ctx,
-                        visited_methods=ctx.visited_methods | {method_name},
-                    )
-                    inlined = _walk_body_tree_ast(
-                        fn_in_cls.body,
-                        symbols,
-                        resolver,
-                        sources,
-                        asts,
-                        indices,
-                        file_path,
-                        workflow_name,
-                        child_ctx,
-                        file_ranges,
-                    )
-                    if _has_activity_nodes(inlined):
-                        result.extend(inlined)
-                    else:
-                        cb, ce = _ast_span(call, index)
-                        result.append(
-                            _make_ellipsis_node(ctx, workflow_name, _abs_range(file_ranges, file_path, cb, ce))
-                        )
-                else:
-                    cb, ce = _ast_span(call, index)
-                    result.append(_make_ellipsis_node(ctx, workflow_name, _abs_range(file_ranges, file_path, cb, ce)))
-            continue  # always skip generic handlers for self.method() calls
+            param_type: str | None = None
+            if meta is not None and meta.user_params_dict:
+                param_type = _format_runtime_type(next(iter(meta.user_params_dict.values())))
 
-        func_name_str = _resolve_call_fn_name(call)
+            try:
+                return_type = _format_runtime_type(get_type_hints(original).get("return"))
+            except Exception:
+                return_type = None
 
-        # --- regular activity call ---
-        if func_name_str and func_name_str in symbols:
-            fn_def = _lookup_fn_in_file(func_name_str, symbols[func_name_str], resolver, sources, asts)
-            if fn_def is not None and _has_activity_decorator(fn_def):
-                cb, ce = _ast_span(call, index)
-                result.append(
-                    {
-                        "kind": "step",
-                        "id": f"{workflow_name}::{func_name_str}@{call.lineno}",
-                        "label": func_name_str,
-                        "source_range": _abs_range(file_ranges, file_path, cb, ce),
-                    }
-                )
+            entry: dict = {
+                "kind": kind,
+                "name": handler_def.name,
+                "param_type": param_type,
+                "return_type": return_type,
+            }
+            ast_node = ast_methods.get(getattr(original, "__name__", ""))
+            if ast_node is not None:
+                begin, end = _ast_span(ast_node, index)
+                entry["source_range"] = {"begin": begin, "end": end}
 
-    return result
+            by_kind[kind].append(entry)
+            break
+
+    def _sort_key(entry: dict) -> tuple[int, object]:
+        sr = entry.get("source_range")
+        return (0, sr["begin"]) if sr is not None else (1, entry["name"])
+
+    for handlers in (signals, updates, queries):
+        handlers.sort(key=_sort_key)
+
+    return signals, updates, queries
 
 
 class GraphValidationError(ValueError):
     pass
+
+
+def _apply_child_workflow_fields(flat: dict, tree_node: dict) -> dict:
+    """Promote a step flat node to a child_workflow node, copying link fields.
+
+    execute_workflow calls are emitted as ``step`` tree nodes tagged with
+    ``child_workflow`` so they reuse the normal step wiring; here that tag is
+    turned into the child_workflow wire type plus the optional cross-file
+    navigation fields and the fire-and-forget ``async`` flag.
+    """
+    if not tree_node.get("child_workflow"):
+        return flat
+    flat["type"] = "child_workflow"
+    if "child_workflow_id" in tree_node:
+        flat["child_workflow_id"] = tree_node["child_workflow_id"]
+    if "child_workflow_file" in tree_node:
+        flat["child_workflow_file"] = tree_node["child_workflow_file"]
+    if tree_node.get("async"):
+        flat["async"] = True
+    return flat
 
 
 def _flatten_tree(
@@ -1722,9 +1881,9 @@ def _flatten_tree(
     ep_name: str | None,
     ep_begin: int | None,
     ep_end: int | None,
+    ep_line: int | None,
     output_type: str | None,
     file_ranges: dict[str, dict],
-    source: str,
 ) -> tuple[list[dict], list[dict]]:
     """Convert hierarchical tree from _walk_body_tree into flat nodes + edges."""
     flat_nodes: list[dict] = []
@@ -1732,23 +1891,11 @@ def _flatten_tree(
     seen_edge_ids: set[str] = set()
     seen_edge_pairs: set[tuple[str, str]] = set()
     seen_node_ids: set[str] = set()
-
-    source_bytes = source.encode("utf-8")
-    # Precompute newline positions for O(log n) per-file line lookup.
-    _newline_offsets: list[int] = [i for i, b in enumerate(source_bytes) if b == ord("\n")]
-
-    def line_for(begin: int) -> int:
-        # Find which file owns this byte offset and count newlines from that
-        # file's start, so multi-file (MRO-inlined) nodes get file-relative
-        # line numbers rather than blob-absolute ones.
-        file_begin = 0
-        for r in file_ranges.values():
-            if r["begin"] <= begin < r["end"]:
-                file_begin = r["begin"]
-                break
-        n_before_file = bisect.bisect_left(_newline_offsets, file_begin)
-        n_before_begin = bisect.bisect_left(_newline_offsets, begin)
-        return n_before_begin - n_before_file + 1
+    conditional_ids: set[str] = set()
+    # Nodes that are themselves terminal exits (raise outputs + early-exit outputs).
+    # A branch/body ending in one of these is already terminated, so it is not
+    # re-wired to a merge sink or the normal workflow output.
+    terminal_exit_ids: set[str] = set()
 
     def add_node(node: dict) -> None:
         if node["id"] not in seen_node_ids:
@@ -1766,18 +1913,20 @@ def _flatten_tree(
     def has_edge_between(from_id: str, to_id: str) -> bool:
         return (from_id, to_id) in seen_edge_pairs
 
-    def emit_early_exit(from_id: str, cond_id: str, is_true: bool) -> None:
+    def emit_early_exit(from_id: str, cond_id: str, is_true: bool, is_error: bool = False) -> None:
         suffix = "true" if is_true else "false"
         exit_node_id = f"{cond_id}::exit_{suffix}"
         add_node(
             {
                 "id": exit_node_id,
                 "type": "output",
-                "name": "exit",
+                "name": "raises" if is_error else "exit",
+                "is_error": is_error,
                 "line": 1,
-                "source_range": {"begin": 0, "end": 0},
+                "source_range": {"begin": 0, "end": 0, "line": 1},
             }
         )
+        terminal_exit_ids.add(exit_node_id)
         edge_kind = f"branch_exit_{suffix}"
         add_edge(
             {
@@ -1788,20 +1937,23 @@ def _flatten_tree(
             }
         )
 
-    def emit_inner_node(child: dict, child_ids: list[str]) -> None:
+    def emit_inner_node(child: dict, child_ids: list[str], sink: str | None = None) -> None:
         """Emit a node that lives inside a container (no sequential edges)."""
         kind = child["kind"]
         child_id = child["id"]
-        child_line = line_for(child["source_range"]["begin"])
+        child_line = child["source_range"]["line"]
         if kind == "step":
             add_node(
-                {
-                    "id": child_id,
-                    "type": "activity",
-                    "name": child.get("label", child_id),
-                    "line": child_line,
-                    "source_range": child["source_range"],
-                }
+                _apply_child_workflow_fields(
+                    {
+                        "id": child_id,
+                        "type": "activity",
+                        "name": child.get("label", child_id),
+                        "line": child_line,
+                        "source_range": child["source_range"],
+                    },
+                    child,
+                )
             )
         elif kind == "human_input":
             add_node(
@@ -1843,12 +1995,24 @@ def _flatten_tree(
                     "source_range": child["source_range"],
                 }
             )
+        elif kind == "raise":
+            add_node(
+                {
+                    "id": child_id,
+                    "type": "output",
+                    "name": child.get("label", "raise"),
+                    "is_error": True,
+                    "line": child_line,
+                    "source_range": child["source_range"],
+                }
+            )
+            terminal_exit_ids.add(child_id)
         elif kind == "ellipsis":
             add_node(
                 {
                     "id": child_id,
                     "type": "unknown",
-                    "name": "Python code...",
+                    "name": "...",
                     "line": child_line,
                     "source_range": child["source_range"],
                 }
@@ -1865,10 +2029,15 @@ def _flatten_tree(
                     "dispatch_label": child.get("dispatch_label", ""),
                 }
             )
+        elif kind == "conditional":
+            if sink is None:
+                return
+            emit_contained_conditional(child, child_ids, sink)
+            return
         elif kind == "loop":
             inner_ids: list[str] = []
             for grandchild in child.get("children", []):
-                emit_inner_node(grandchild, inner_ids)
+                emit_inner_node(grandchild, inner_ids, child_id)
             add_node(
                 {
                     "id": child_id,
@@ -1882,12 +2051,12 @@ def _flatten_tree(
         elif kind == "try_except":
             te_inner_ids: list[str] = []
             for tb in child.get("try_body", []):
-                emit_inner_node(tb, te_inner_ids)
+                emit_inner_node(tb, te_inner_ids, child_id)
             for handler in child.get("handlers", []):
                 for hc in handler.get("body", []):
-                    emit_inner_node(hc, te_inner_ids)
+                    emit_inner_node(hc, te_inner_ids, child_id)
             for fc in child.get("finally_body", []):
-                emit_inner_node(fc, te_inner_ids)
+                emit_inner_node(fc, te_inner_ids, child_id)
             if te_inner_ids:
                 add_node(
                     {
@@ -1901,9 +2070,101 @@ def _flatten_tree(
                 )
             else:
                 return
+        elif kind == "parallel":
+            par_branch_ids: list[list[str]] = []
+            for branch in child.get("branches", []):
+                lane_ids: list[str] = []
+                for grandchild in branch:
+                    emit_inner_node(grandchild, lane_ids, child_id)
+                par_branch_ids.append(lane_ids)
+            add_node(
+                {
+                    "id": child_id,
+                    "type": "parallel",
+                    "name": "parallel",
+                    "line": child_line,
+                    "source_range": child["source_range"],
+                    "branches": par_branch_ids,
+                }
+            )
         else:
             return
         child_ids.append(child_id)
+
+    def emit_contained_conditional(node: dict, child_ids: list[str], sink: str) -> None:
+        """Emit a conditional that lives inside a container (e.g. a loop body).
+
+        Unlike top-level conditionals (handled by process_list), the conditional is
+        positioned by the container's own layout pass, so it carries no incoming
+        sequential edge. Its branches are emitted as contained nodes with branch
+        edges between them; ``branchTrue``/``branchFalse`` record each branch's node
+        ids so the container layout can place them side by side, and an empty branch
+        emits a ``branch_*_skip`` edge to ``sink`` so the conditional keeps exactly
+        one true and one false output (see _validate_flat_graph)."""
+        cond_id = node["id"]
+        conditional_ids.add(cond_id)
+        add_node(
+            {
+                "id": cond_id,
+                "type": "conditional",
+                "name": node.get("label", cond_id),
+                "line": node["source_range"]["line"],
+                "source_range": node["source_range"],
+            }
+        )
+
+        branch_sink = _first_emittable_id(node.get("rejoin", [])) or sink
+
+        def emit_branch(branch_nodes: list[dict], suffix: str) -> tuple[list[str], list[str]]:
+            ids: list[str] = []
+            branch_start = len(flat_nodes)
+            for bn in branch_nodes:
+                emit_inner_node(bn, ids, branch_sink)
+            descendants = [flat_nodes[i]["id"] for i in range(branch_start, len(flat_nodes))]
+            if ids:
+                add_edge(
+                    {
+                        "id": f"e-{cond_id}-{ids[0]}-branch_{suffix}",
+                        "from": cond_id,
+                        "to": ids[0],
+                        "kind": f"branch_{suffix}",
+                    }
+                )
+                for from_id, to_id in zip(ids, ids[1:]):
+                    add_edge(
+                        {
+                            "id": f"e-{from_id}-{to_id}",
+                            "from": from_id,
+                            "to": to_id,
+                            "kind": "sequential",
+                        }
+                    )
+            else:
+                add_edge(
+                    {
+                        "id": f"e-skip-{cond_id}-{branch_sink}-branch_{suffix}",
+                        "from": cond_id,
+                        "to": branch_sink,
+                        "kind": f"branch_{suffix}_skip",
+                    }
+                )
+            return ids, descendants
+
+        true_ids, true_descendants = emit_branch(node.get("true_branch", []), "true")
+        false_ids, false_descendants = emit_branch(node.get("false_branch", []), "false")
+        cond_node = next(n for n in flat_nodes if n["id"] == cond_id)
+        cond_node["branchTrue"] = true_ids
+        cond_node["branchFalse"] = false_ids
+        cond_node["branchDescendants"] = true_descendants + false_descendants
+        child_ids.append(cond_id)
+
+        # Statements after the if within the same loop body (rejoin) follow the
+        # conditional as further container children.
+        for rj in node.get("rejoin", []):
+            if rj["kind"] == "conditional":
+                emit_contained_conditional(rj, child_ids, sink)
+            else:
+                emit_inner_node(rj, child_ids)
 
     def _first_emittable_id(nodes: list[dict]) -> str | None:
         # try_except is transparent (no flat node emitted); skip into its body.
@@ -1920,7 +2181,7 @@ def _flatten_tree(
         for node_idx, node in enumerate(nodes):
             kind = node["kind"]
             node_id = node["id"]
-            line = line_for(node["source_range"]["begin"])
+            line = node["source_range"]["line"]
 
             if kind in ("step", "human_input", "wait_condition", "task", "memory_op", "ellipsis"):
                 type_map = {
@@ -1939,11 +2200,34 @@ def _flatten_tree(
                     "memory_op": node.get("label", node_id),
                     "ellipsis": "...",
                 }
+                flat = {
+                    "id": node_id,
+                    "type": type_map[kind],
+                    "name": name_map[kind],
+                    "line": line,
+                    "source_range": node["source_range"],
+                }
+                if kind == "step":
+                    flat = _apply_child_workflow_fields(flat, node)
+                add_node(flat)
+                add_edge(
+                    {
+                        "id": f"e-{prev_id}-{node_id}",
+                        "from": prev_id,
+                        "to": node_id,
+                        "kind": first_kind,
+                    }
+                )
+                prev_id = node_id
+                first_kind = "sequential"
+
+            elif kind == "raise":
                 add_node(
                     {
                         "id": node_id,
-                        "type": type_map[kind],
-                        "name": name_map[kind],
+                        "type": "output",
+                        "name": node.get("label", "raise"),
+                        "is_error": True,
                         "line": line,
                         "source_range": node["source_range"],
                     }
@@ -1956,11 +2240,13 @@ def _flatten_tree(
                         "kind": first_kind,
                     }
                 )
+                terminal_exit_ids.add(node_id)
                 prev_id = node_id
                 first_kind = "sequential"
 
             elif kind == "try_except":
-                prev_id = process_list(node["try_body"], prev_id, first_kind, terminal_id)
+                try_body_last_id = process_list(node["try_body"], prev_id, first_kind, terminal_id)
+                prev_id = try_body_last_id
                 handler_child_ids: list[str] = []
                 for handler in node.get("handlers", []):
                     for child in handler.get("body", []):
@@ -1976,14 +2262,15 @@ def _flatten_tree(
                             "children": handler_child_ids,
                         }
                     )
-                    add_edge(
-                        {
-                            "id": f"e-{prev_id}-{node_id}",
-                            "from": prev_id,
-                            "to": node_id,
-                            "kind": "sequential",
-                        }
-                    )
+                    if try_body_last_id not in terminal_exit_ids:
+                        add_edge(
+                            {
+                                "id": f"e-{try_body_last_id}-{node_id}",
+                                "from": try_body_last_id,
+                                "to": node_id,
+                                "kind": "sequential",
+                            }
+                        )
                     prev_id = node_id
                 finally_body = node.get("finally_body", [])
                 if finally_body:
@@ -2045,19 +2332,9 @@ def _flatten_tree(
 
             elif kind == "loop":
                 child_ids = []
+                loop_sink = node_id
                 for child in node.get("children", []):
-                    child_kind = child["kind"]
-                    if child_kind == "conditional":
-                        # Flatten conditionals inside a loop including post-if rejoin steps.
-                        for bn in [
-                            *child.get("true_branch", []),
-                            *child.get("false_branch", []),
-                            *child.get("rejoin", []),
-                        ]:
-                            if bn["kind"] in ("step", "dispatch", "human_input", "ellipsis"):
-                                emit_inner_node(bn, child_ids)
-                    else:
-                        emit_inner_node(child, child_ids)
+                    emit_inner_node(child, child_ids, loop_sink)
                 add_node(
                     {
                         "id": node_id,
@@ -2082,21 +2359,21 @@ def _flatten_tree(
             else:
                 # conditional
                 cond_id = node_id
+                conditional_ids.add(cond_id)
                 true_exits = node.get("true_exits", False)
                 false_exits = node.get("false_exits", False)
                 rejoin = node.get("rejoin", [])
                 true_branch = node.get("true_branch", [])
                 false_branch = node.get("false_branch", [])
 
-                add_node(
-                    {
-                        "id": cond_id,
-                        "type": "conditional",
-                        "name": node.get("label", cond_id),
-                        "line": line,
-                        "source_range": node["source_range"],
-                    }
-                )
+                cond_node: dict = {
+                    "id": cond_id,
+                    "type": "conditional",
+                    "name": node.get("label", cond_id),
+                    "line": line,
+                    "source_range": node["source_range"],
+                }
+                add_node(cond_node)
                 add_edge(
                     {
                         "id": f"e-{prev_id}-{cond_id}",
@@ -2107,20 +2384,41 @@ def _flatten_tree(
                 )
 
                 if rejoin:
-                    branch_sink = _first_emittable_id(rejoin)
+                    branch_sink = _first_emittable_id(rejoin) or terminal_id
                 else:
                     remaining = nodes[node_idx + 1 :]
-                    branch_sink = _first_emittable_id(remaining) if remaining else terminal_id
-                true_last = process_list(true_branch, cond_id, "branch_true", branch_sink)
-                false_last = process_list(false_branch, cond_id, "branch_false", branch_sink)
+                    branch_sink = _first_emittable_id(remaining) or terminal_id
 
-                def wire_branch(last_id: str, exits: bool, is_true: bool, sink: str | None) -> None:
+                true_start = len(flat_nodes)
+                true_last = process_list(true_branch, cond_id, "branch_true", branch_sink)
+                true_end = len(flat_nodes)
+
+                false_start = len(flat_nodes)
+                false_last = process_list(false_branch, cond_id, "branch_false", branch_sink)
+                false_end = len(flat_nodes)
+
+                # Terminal exits (raise outputs, early-exit outputs) are branch boundaries,
+                # not collapsible inner content. Excluding them keeps a raise-exit branch
+                # consistent with a return-exit branch (whose synthetic exit node is added
+                # after this snapshot) — both yield empty branchDescendants.
+                cond_node["branchDescendants"] = [
+                    flat_nodes[i]["id"]
+                    for i in (*range(true_start, true_end), *range(false_start, false_end))
+                    if flat_nodes[i]["id"] not in terminal_exit_ids
+                ]
+
+                def wire_branch(
+                    last_id: str, exits: bool, is_true: bool, sink: str | None, is_error: bool = False
+                ) -> None:
                     suffix = "true" if is_true else "false"
                     if exits:
-                        emit_early_exit(last_id, cond_id, is_true)
+                        # Terminal nodes and nested conditionals already emitted their exit edges.
+                        if last_id in terminal_exit_ids or (last_id in conditional_ids and last_id != cond_id):
+                            return
+                        emit_early_exit(last_id, cond_id, is_true, is_error)
                     elif sink is not None:
                         if last_id != cond_id:
-                            if not has_edge_between(last_id, sink):
+                            if last_id not in conditional_ids and not has_edge_between(last_id, sink):
                                 add_edge(
                                     {
                                         "id": f"e-merge-{cond_id}-{sink}-branch_{suffix}",
@@ -2140,8 +2438,8 @@ def _flatten_tree(
                                 }
                             )
 
-                wire_branch(true_last, true_exits, True, branch_sink)
-                wire_branch(false_last, false_exits, False, branch_sink)
+                wire_branch(true_last, true_exits, True, branch_sink, node.get("true_exit_error", False))
+                wire_branch(false_last, false_exits, False, branch_sink, node.get("false_exit_error", False))
 
                 if rejoin:
                     rejoin_start = branch_sink if branch_sink is not None else cond_id
@@ -2160,21 +2458,21 @@ def _flatten_tree(
             "type": "workflow",
             "name": wf_name,
             "line": 1,
-            "source_range": {"begin": 0, "end": 0},
+            "source_range": {"begin": 0, "end": 0, "line": 1},
         }
     )
     chain_start = wf_name
 
     if ep_name is not None and ep_begin is not None:
         ep_id = f"{wf_name}::entrypoint"
-        ep_line = line_for(ep_begin)
+        ep_line_ = ep_line or 1
         add_node(
             {
                 "id": ep_id,
                 "type": "entrypoint",
                 "name": ep_name,
-                "line": ep_line,
-                "source_range": {"begin": ep_begin, "end": ep_end or ep_begin},
+                "line": ep_line_,
+                "source_range": {"begin": ep_begin, "end": ep_end or ep_begin, "line": ep_line_},
             }
         )
         add_edge({"id": f"e-{wf_name}-{ep_id}", "from": wf_name, "to": ep_id, "kind": "sequential"})
@@ -2182,18 +2480,25 @@ def _flatten_tree(
 
     out_id = f"{wf_name}::output"
     out_label = output_type or "exit"
-    add_node(
-        {
-            "id": out_id,
-            "type": "output",
-            "name": out_label,
-            "line": 1,
-            "source_range": {"begin": 0, "end": 0},
-        }
-    )
 
     last_id = process_list(tree_nodes, chain_start, "sequential", out_id)
-    add_edge({"id": f"e-{last_id}-{out_id}", "from": last_id, "to": out_id, "kind": "sequential"})
+
+    # Suppress the normal "exit" node when nothing reaches it (e.g. the whole body
+    # ends in a raise): only the red error terminal should be shown.
+    body_falls_through = last_id not in terminal_exit_ids
+    out_referenced = any(e["to"] == out_id for e in flat_edges)
+    if body_falls_through or out_referenced:
+        add_node(
+            {
+                "id": out_id,
+                "type": "output",
+                "name": out_label,
+                "line": 1,
+                "source_range": {"begin": 0, "end": 0, "line": 1},
+            }
+        )
+    if body_falls_through:
+        add_edge({"id": f"e-{last_id}-{out_id}", "from": last_id, "to": out_id, "kind": "sequential"})
 
     return flat_nodes, flat_edges
 
@@ -2220,7 +2525,7 @@ def _validate_flat_graph(wf_name: str, flat_nodes: list[dict], flat_edges: list[
             )
 
 
-def build_graph(workflow_cls: type) -> dict:
+def build_graph_dynamically(workflow_cls: type) -> AtlasWireFormat:
     from mistralai.workflows.core.definition.workflow_definition import (
         _get_workflow_entrypoint_method,
     )
@@ -2256,11 +2561,11 @@ def build_graph(workflow_cls: type) -> dict:
     file_ranges: dict[str, dict] = {file_path: {"begin": 0, "end": byte_len}}
 
     module_ns = vars(inspect.getmodule(entrypoint_fn))
+    resolver = _DynamicResolver(module_ns=module_ns, workflow_cls=workflow_cls)
 
     tree_nodes = _walk_body_tree(
         ep_def.body,
-        module_ns,
-        source_text,
+        resolver,
         sources,
         asts,
         indices,
@@ -2270,13 +2575,11 @@ def build_graph(workflow_cls: type) -> dict:
         file_ranges,
     )
 
-    source = "".join(sources[p] for p in sorted(file_ranges, key=lambda p: file_ranges[p]["begin"]) if p in sources)
-
     index = _get_index(file_path, sources, asts, indices)
     ep_begin, ep_end = _ast_span(ep_def, index)
     output_type: str | None = ast.unparse(ep_def.returns) if ep_def.returns is not None else None
 
-    signals, updates, queries = _scan_class_handlers(cls_def, index)
+    signals, updates, queries = _collect_class_handlers_runtime(workflow_cls, cls_def, index)
 
     flat_nodes, flat_edges = _flatten_tree(
         tree_nodes,
@@ -2284,28 +2587,29 @@ def build_graph(workflow_cls: type) -> dict:
         ep_name,
         ep_begin,
         ep_end,
+        ep_def.lineno,
         output_type,
         file_ranges,
-        source,
     )
     _validate_flat_graph(workflow_name, flat_nodes, flat_edges)
 
-    return {
-        "version": 3,
-        "workflow_name": workflow_name,
-        "source": source,
-        "files": file_ranges,
-        "primary_file": next(iter(file_ranges), ""),
-        "nodes": flat_nodes,
-        "edges": flat_edges,
-        "incomplete": False,
-        "entrypoint": {"name": ep_name, "begin": ep_begin, "end": ep_end},
-        "output_type": output_type,
-        "signals": signals,
-        "updates": updates,
-        "queries": queries,
-        "schedule": None,
-    }
+    return AtlasWireFormat.model_validate(
+        {
+            "version": 3,
+            "workflow_name": workflow_name,
+            "files": file_ranges,
+            "primary_file": next(iter(file_ranges), ""),
+            "nodes": flat_nodes,
+            "edges": flat_edges,
+            "incomplete": False,
+            "entrypoint": {"name": ep_name, "begin": ep_begin, "end": ep_end},
+            "output_type": output_type,
+            "signals": signals,
+            "updates": updates,
+            "queries": queries,
+            "schedule": None,
+        }
+    )
 
 
 def _is_workflow_cls_def(cls_def: ast.ClassDef) -> bool:
@@ -2337,15 +2641,27 @@ def _find_entrypoint_method_ast(
 def _build_import_symbol_table(
     module_ast: ast.Module,
     file_path: str,
-) -> dict[str, str]:
-    """Map locally-defined activity names and imported names to candidate file paths."""
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Map local symbols to candidate file paths and to their original names.
+
+    Returns ``(paths, names)`` where ``paths`` maps a locally-bound name (which
+    may be an import alias) to a candidate source file, and ``names`` maps that
+    local name back to the original defined/imported name — the class ``__name__``
+    Atlas registers and navigates by.
+    """
     file_dir = Path(file_path).parent
     result: dict[str, str] = {}
+    symbol_names: dict[str, str] = {}
+
+    def add_symbol(local_name: str, original_name: str, candidate_path: str) -> None:
+        if local_name not in result:
+            result[local_name] = candidate_path
+            symbol_names[local_name] = original_name
 
     for node in module_ast.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if _has_activity_decorator(node):
-                result[node.name] = file_path
+                add_symbol(node.name, node.name, file_path)
 
     for stmt in module_ast.body:
         if not isinstance(stmt, ast.ImportFrom):
@@ -2361,36 +2677,33 @@ def _build_import_symbol_table(
                 candidate_path = str(candidate.with_suffix(".py"))
                 for alias in stmt.names:
                     local_name = alias.asname or alias.name
-                    if local_name not in result:
-                        result[local_name] = candidate_path
+                    add_symbol(local_name, alias.name, candidate_path)
             else:
                 # from . import name  — each alias is a separate sibling module
                 for alias in stmt.names:
                     local_name = alias.asname or alias.name
                     candidate_path = str((base / alias.name).with_suffix(".py"))
-                    if local_name not in result:
-                        result[local_name] = candidate_path
+                    add_symbol(local_name, alias.name, candidate_path)
         else:
             candidate = file_dir / module.replace(".", "/")
             candidate_path = str(candidate.with_suffix(".py"))
             for alias in stmt.names:
                 local_name = alias.asname or alias.name
-                if local_name not in result:
-                    result[local_name] = candidate_path
+                add_symbol(local_name, alias.name, candidate_path)
 
-    return result
+    return result, symbol_names
 
 
-def analyze_file(
+def build_graph_statically(
     source: str,
     path: str,
-    resolver: Callable[[str], str | None],
-) -> list[dict]:
-    """Parse `source` and return one AtlasWireFormatV3 dict per workflow class found.
+    file_resolver: Callable[[str], str | None],
+) -> list[AtlasWireFormat]:
+    """Parse *source* and return one :class:`AtlasWireFormat` per workflow class found.
 
-    `path` is the absolute path used for source-range anchoring and import resolution.
-    `resolver` is called lazily with an absolute path and returns the source text of that
-    file, or None when the file is unavailable.
+    ``path`` is the absolute path used for source-range anchoring and import resolution.
+    ``file_resolver`` is called lazily with an absolute path and returns the source text
+    of that file, or ``None`` when the file is unavailable.
     """
     try:
         module_ast = ast.parse(source)
@@ -2400,8 +2713,8 @@ def analyze_file(
     sources: dict[str, str] = {path: source}
     asts: dict[str, ast.Module] = {path: module_ast}
     indices: dict[str, _FileIndex] = {}
-    symbols = _build_import_symbol_table(module_ast, path)
-    results: list[dict] = []
+    symbols, symbol_names = _build_import_symbol_table(module_ast, path)
+    results: list[AtlasWireFormat] = []
 
     for node in module_ast.body:
         if not isinstance(node, ast.ClassDef):
@@ -2422,9 +2735,15 @@ def analyze_file(
         ep_begin, ep_end = _ast_span(ep_def, index)
         output_type: str | None = ast.unparse(ep_def.returns) if ep_def.returns is not None else None
 
-        tree_nodes = _walk_body_tree_ast(
+        resolver = _StaticResolver(
+            symbols=symbols,
+            symbol_names=symbol_names,
+            file_resolver=file_resolver,
+            cls_def=cls_def,
+            file_path=path,
+        )
+        tree_nodes = _walk_body_tree(
             ep_def.body,
-            symbols,
             resolver,
             sources,
             asts,
@@ -2433,10 +2752,6 @@ def analyze_file(
             workflow_name,
             _TreeCtx(cls_def=cls_def),
             file_ranges,
-        )
-
-        assembled_source = "".join(
-            sources[p] for p in sorted(file_ranges, key=lambda p: file_ranges[p]["begin"]) if p in sources
         )
 
         file_offset = file_ranges[path]["begin"]
@@ -2448,9 +2763,9 @@ def analyze_file(
             ep_def.name,
             ep_begin,
             ep_end,
+            ep_def.lineno,
             output_type,
             file_ranges,
-            assembled_source,
         )
 
         try:
@@ -2461,22 +2776,23 @@ def analyze_file(
             incomplete = True
 
         results.append(
-            {
-                "version": 3,
-                "workflow_name": workflow_name,
-                "source": assembled_source,
-                "files": file_ranges,
-                "primary_file": next(iter(file_ranges), ""),
-                "nodes": flat_nodes,
-                "edges": flat_edges,
-                "incomplete": incomplete,
-                "entrypoint": {"name": ep_def.name, "begin": ep_begin, "end": ep_end},
-                "output_type": output_type,
-                "signals": signals,
-                "updates": updates,
-                "queries": queries,
-                "schedule": None,
-            }
+            AtlasWireFormat.model_validate(
+                {
+                    "version": 3,
+                    "workflow_name": workflow_name,
+                    "files": file_ranges,
+                    "primary_file": next(iter(file_ranges), ""),
+                    "nodes": flat_nodes,
+                    "edges": flat_edges,
+                    "incomplete": incomplete,
+                    "entrypoint": {"name": ep_def.name, "begin": ep_begin, "end": ep_end},
+                    "output_type": output_type,
+                    "signals": signals,
+                    "updates": updates,
+                    "queries": queries,
+                    "schedule": None,
+                }
+            )
         )
 
     return results

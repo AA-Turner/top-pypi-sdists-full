@@ -114,6 +114,7 @@ __all__ = (
     "BatchGetRouterOutputErrorTypeDef",
     "BatchGetRouterOutputRequestTypeDef",
     "BatchGetRouterOutputResponseTypeDef",
+    "BlackFramesConfigurationTypeDef",
     "BlackFramesTypeDef",
     "BridgeFlowOutputTypeDef",
     "BridgeFlowSourceTypeDef",
@@ -122,6 +123,7 @@ __all__ = (
     "BridgeOutputTypeDef",
     "BridgeSourceTypeDef",
     "BridgeTypeDef",
+    "ContentQualityAnalysisFeatureConfigurationTypeDef",
     "CreateBridgeRequestTypeDef",
     "CreateBridgeResponseTypeDef",
     "CreateFlowRequestTypeDef",
@@ -192,6 +194,7 @@ __all__ = (
     "FmtpRequestTypeDef",
     "FmtpTypeDef",
     "FrameResolutionTypeDef",
+    "FrozenFramesConfigurationTypeDef",
     "FrozenFramesTypeDef",
     "GatewayBridgeSourceTypeDef",
     "GatewayInstanceTypeDef",
@@ -341,6 +344,7 @@ __all__ = (
     "RevokeFlowEntitlementResponseTypeDef",
     "RistRouterInputConfigurationTypeDef",
     "RistRouterOutputConfigurationTypeDef",
+    "RouterContentQualityAnalysisConfigurationTypeDef",
     "RouterInputConfigurationOutputTypeDef",
     "RouterInputConfigurationTypeDef",
     "RouterInputConfigurationUnionTypeDef",
@@ -375,6 +379,7 @@ __all__ = (
     "SecretsManagerEncryptionKeyConfigurationTypeDef",
     "SetGatewayBridgeSourceRequestTypeDef",
     "SetSourceRequestTypeDef",
+    "SilentAudioConfigurationTypeDef",
     "SilentAudioTypeDef",
     "SourcePriorityTypeDef",
     "SourceTypeDef",
@@ -547,6 +552,10 @@ class BatchGetRouterOutputErrorTypeDef(TypedDict):
 class BatchGetRouterOutputRequestTypeDef(TypedDict):
     Arns: Sequence[str]
 
+class BlackFramesConfigurationTypeDef(TypedDict):
+    State: ContentQualityAnalysisStateType
+    ThresholdSeconds: int
+
 class BlackFramesTypeDef(TypedDict):
     State: NotRequired[StateType]
     ThresholdSeconds: NotRequired[int]
@@ -581,6 +590,14 @@ class MessageDetailTypeDef(TypedDict):
     Code: str
     Message: str
     ResourceName: NotRequired[str]
+
+class FrozenFramesConfigurationTypeDef(TypedDict):
+    State: ContentQualityAnalysisStateType
+    ThresholdSeconds: int
+
+class SilentAudioConfigurationTypeDef(TypedDict):
+    State: ContentQualityAnalysisStateType
+    ThresholdSeconds: int
 
 class EncodingConfigTypeDef(TypedDict):
     EncodingProfile: NotRequired[EncodingProfileType]
@@ -1253,6 +1270,11 @@ class ThumbnailDetailsTypeDef(TypedDict):
     Timecode: NotRequired[str]
     Timestamp: NotRequired[datetime]
 
+class ContentQualityAnalysisFeatureConfigurationTypeDef(TypedDict):
+    BlackFrames: NotRequired[BlackFramesConfigurationTypeDef]
+    FrozenFrames: NotRequired[FrozenFramesConfigurationTypeDef]
+    SilentAudio: NotRequired[SilentAudioConfigurationTypeDef]
+
 class CreateGatewayRequestTypeDef(TypedDict):
     EgressCidrBlocks: Sequence[str]
     Name: str
@@ -1648,6 +1670,9 @@ class DescribeGatewayInstanceResponseTypeDef(TypedDict):
 class DescribeFlowSourceThumbnailResponseTypeDef(TypedDict):
     ThumbnailDetails: ThumbnailDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class RouterContentQualityAnalysisConfigurationTypeDef(TypedDict):
+    ContentLevel: NotRequired[ContentQualityAnalysisFeatureConfigurationTypeDef]
 
 class CreateGatewayResponseTypeDef(TypedDict):
     Gateway: GatewayTypeDef
@@ -2457,6 +2482,8 @@ RouterInputTypeDef = TypedDict(
         "StreamDetails": RouterInputStreamDetailsTypeDef,
         "MaintenanceType": MaintenanceTypeType,
         "MaintenanceConfiguration": MaintenanceConfigurationOutputTypeDef,
+        "ContentQualityAnalysisType": Literal["CONTENT_LEVEL"],
+        "ContentQualityAnalysisConfiguration": RouterContentQualityAnalysisConfigurationTypeDef,
         "MaximumRoutedOutputs": NotRequired[int],
         "IpAddress": NotRequired[str],
         "MaintenanceScheduleType": NotRequired[Literal["WINDOW"]],
@@ -2535,6 +2562,9 @@ CreateRouterInputRequestTypeDef = TypedDict(
         "MaintenanceConfiguration": NotRequired[MaintenanceConfigurationUnionTypeDef],
         "Tags": NotRequired[Mapping[str, str]],
         "ClientToken": NotRequired[str],
+        "ContentQualityAnalysisConfiguration": NotRequired[
+            RouterContentQualityAnalysisConfigurationTypeDef
+        ],
     },
 )
 
@@ -2547,6 +2577,9 @@ class UpdateRouterInputRequestTypeDef(TypedDict):
     Tier: NotRequired[RouterInputTierType]
     TransitEncryption: NotRequired[RouterInputTransitEncryptionUnionTypeDef]
     MaintenanceConfiguration: NotRequired[MaintenanceConfigurationUnionTypeDef]
+    ContentQualityAnalysisConfiguration: NotRequired[
+        RouterContentQualityAnalysisConfigurationTypeDef
+    ]
 
 class BatchGetRouterOutputResponseTypeDef(TypedDict):
     RouterOutputs: list[RouterOutputTypeDef]

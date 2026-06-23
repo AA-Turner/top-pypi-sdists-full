@@ -476,7 +476,7 @@ class Graph(BaseMainGraph):
           else:
             cur = self.execute("SELECT s,p,o,d FROM datas INDEXED BY index_datas_sp WHERE s=? AND p=? AND o=? AND d=?", (s, p, o, d,))
     return cur.fetchall()
-    
+
   def _get_triples_spod_spod(self, s, p, o, d):
     if s is None:
       if p is None:
@@ -862,8 +862,15 @@ END;""" % (prop_storid, prop_storid, prop_storid,   prop_storid, prop_storid, pr
     self.execute("""DROP TRIGGER fts_%s_after_delete""" % prop_storid)
     self.execute("""DROP TRIGGER fts_%s_after_update""" % prop_storid)
     
-
-
+  def _get_triple_from_rowid(self, rowid):
+    if rowid > 0:
+      return self.execute("SELECT s, p, o, NULL FROM objs WHERE rowid=?", (rowid,)).fetchone()
+    else:
+      return self.execute("SELECT s, p, o, d FROM datas WHERE rowid=?", (-rowid,)).fetchone()
+    
+  def _get_data_triples_d_o(self, d):
+    return self.execute("SELECT o FROM datas WHERE d=?", (d,)).fetchone()
+  
 
     
 class SubGraph(BaseSubGraph):
@@ -875,6 +882,7 @@ class SubGraph(BaseSubGraph):
     self._abbreviate       = parent._abbreviate
     self._unabbreviate     = parent._unabbreviate
     self._new_numbered_iri = parent._new_numbered_iri
+    self._get_triple_from_rowid = parent._get_triple_from_rowid
     
     self.parent.onto_2_subgraph[onto] = self
     self.read_only = parent.read_only
@@ -925,6 +933,17 @@ class SubGraph(BaseSubGraph):
         cur.executemany("INSERT INTO resources VALUES (?,?)", new_abbrevs)
         new_abbrevs.clear()
         
+    def insert_tripleterm(triples):
+      for triple in triples:
+        if len(triple) == 3:
+          triple = (_abbreviate(triple[0]), _abbreviate(triple[1]), _abbreviate(triple[2]))
+          rowid = cur.execute("INSERT OR IGNORE INTO objs VALUES (%s,?,?,?)" % self.c, triple).lastrowid
+        else:
+          d = triple[3]
+          if triple[2] is None: triple = (_abbreviate(triple[0]), _abbreviate(triple[1]), rowid, _abbreviate(d))
+          else:                 triple = (_abbreviate(triple[0]), _abbreviate(triple[1]), triple[2], _abbreviate(d) if (d and (not d.startswith("@"))) else d or 60)
+          rowid = -cur.execute("INSERT OR IGNORE INTO datas VALUES (%s,?,?,?,?)" % self.c, triple).lastrowid
+          
     def finish():
       onto_base_iri = cur.execute("SELECT resources.iri FROM objs, resources WHERE objs.c=? AND objs.o=? AND resources.storid=objs.s LIMIT 1", (self.c, owl_ontology)).fetchone()
       if onto_base_iri: onto_base_iri = onto_base_iri[0]
@@ -943,7 +962,7 @@ class SubGraph(BaseSubGraph):
       self.parent.select_abbreviate_method()
       self.parent.analyze()
       return onto_base_iri
-    
+
     if queue:
       while True:
         command, triples = queue.get()
@@ -959,7 +978,9 @@ class SubGraph(BaseSubGraph):
           import owlready2
           raise owlready2.OwlReadyOntologyParsingError(*triples)
         
-    return insert_objs, insert_datas, finish
+        elif command == "tripleterm": insert_tripleterm(triples)
+        
+    return insert_objs, insert_datas, insert_tripleterm, finish
 
   def create_parse_func(self, filename = None, delete_existing_triples = True, datatype_attr = "http://www.w3.org/1999/02/22-rdf-syntax-ns#datatype"):
     objs         = []
@@ -1305,7 +1326,7 @@ class SubGraph(BaseSubGraph):
     
   def _get_obj_triples_cspo_cspo(self, c, s, p, o):
     return [(self.c, s, p, o) for (s, p, o) in self._get_obj_triples_spo_spo(s, p, o)]
-  
+ 
   def search(self, prop_vals, c = None, debug = False): return self.parent.search(prop_vals, self.c, debug)
   
   def __len__(self):
@@ -1351,6 +1372,21 @@ SELECT x FROM transit""", (self.c, p, o, self.c, p)).fetchall(): yield x
 #      r.add(o)
 #    yield from r
 
+  def _get_rowid(self, s, p, o, d = None, auto_create = True):
+    if d is None:
+      r = self.execute("SELECT rowid FROM objs WHERE s=? AND p=? AND o=?", (s, p, o)).fetchone()
+      if r: return r[0]
+      if auto_create: return self.execute("INSERT INTO objs VALUES (?,?,?,?)", (self.c, s, p, o)).lastrowid
+    else:
+      r = self.execute("SELECT rowid FROM datas WHERE s=? AND p=? AND o=? AND d=?", (s, p, o, d)).fetchone()
+      if r: return -r[0]
+      if auto_create: return -self.execute("INSERT INTO datas VALUES (?,?,?,?,?)", (self.c, s, p, o, d)).lastrowid
+      
+  def _get_data_triples_d_o(self, d):
+    return self.execute("SELECT o FROM datas WHERE c=? AND d=?", (self.c, d,)).fetchone()
+  
+    
+      
 
 class _SearchMixin(list):
   __slots__ = []
@@ -1850,3 +1886,5 @@ class _IntersectionSearchList(FirstList, _SearchMixin, _LazyListMixin):
   
   def __len__(self):
     return len(self._do_search_rdf())
+
+    

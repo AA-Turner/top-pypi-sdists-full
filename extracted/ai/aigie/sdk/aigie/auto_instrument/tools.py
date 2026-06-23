@@ -32,8 +32,8 @@ def _patch_langchain_tools() -> None:
         @functools.wraps(original_run)
         def traced_run(self, tool_input: str, **kwargs) -> str:
             """Traced version of Tool.run."""
-            from ..auto_instrument.trace import get_or_create_trace_sync
-            from ..client import get_aigie
+            from aigie.auto_instrument.trace import get_or_create_trace_sync
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if aigie and aigie._initialized:
@@ -61,8 +61,8 @@ def _patch_langchain_tools() -> None:
         @functools.wraps(original_arun)
         async def traced_arun(self, tool_input: str, **kwargs) -> str:
             """Traced version of Tool.arun."""
-            from ..auto_instrument.trace import get_or_create_trace
-            from ..client import get_aigie
+            from aigie.auto_instrument.trace import get_or_create_trace
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if aigie and aigie._initialized:

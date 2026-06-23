@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol, TypeVar
 
-from .evaluation import EvaluationResult, Evaluator
+from aigie.evaluation import EvaluationResult, Evaluator
 
 
 @dataclass

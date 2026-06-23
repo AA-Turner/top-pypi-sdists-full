@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import warnings
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -87,6 +88,78 @@ def test_write_to_absolute_path_passes_when_subdir_of_root(tmp_path: Path) -> No
         match=r".*VERSION.py' .* .*subdir.*",
     ):
         write_version_files(replace(c, root=subdir), "1.0", v)
+
+
+@pytest.mark.issue(468)
+@pytest.mark.parametrize("scm", ["git", "hg"])
+def test_warn_when_version_file_tracked(tmp_path: Path, scm: str) -> None:
+    """Writing a version file that is tracked should emit a warning."""
+    wd = WorkDir(tmp_path)
+    if scm == "git":
+        wd.setup_git()
+    else:
+        wd.setup_hg()
+    version_file = tmp_path / "_version.py"
+    version_file.write_text("__version__ = '0.0.0'\n")
+    wd.add_and_commit("add tracked version file")
+
+    c = Configuration(root=tmp_path, write_to="_version.py")
+    v = meta("1.0", config=c)
+
+    from vcs_versioning._get_version_impl import write_version_files
+
+    with pytest.warns(UserWarning, match="tracked by version control"):
+        write_version_files(c, "1.0", v)
+
+
+@pytest.mark.issue(468)
+@pytest.mark.parametrize("scm", ["git", "hg"])
+def test_no_warn_when_version_file_not_tracked(tmp_path: Path, scm: str) -> None:
+    """An untracked version file should not trigger the warning."""
+    wd = WorkDir(tmp_path)
+    if scm == "git":
+        wd.setup_git()
+    else:
+        wd.setup_hg()
+    wd.write("dummy.txt", "hello")
+    wd.add_and_commit("initial commit")
+
+    c = Configuration(root=tmp_path, write_to="_version.py")
+    v = meta("1.0", config=c)
+
+    from vcs_versioning._get_version_impl import write_version_files
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_version_files(c, "1.0", v)
+    tracked_warnings = [
+        w for w in caught if "tracked by version control" in str(w.message)
+    ]
+    assert tracked_warnings == []
+
+
+@pytest.mark.issue(1423)
+def test_parse_version_importable_from_get_version_impl() -> None:
+    """setuptools-scm <=10.0.x imports parse_version from this module."""
+    from vcs_versioning._get_version_impl import parse_version
+
+    assert callable(parse_version)
+
+
+@pytest.mark.issue(1423)
+def test_parse_version_shim_returns_version(tmp_path: Path) -> None:
+    """The compat shim should resolve and return a ScmVersion."""
+    wd = WorkDir(tmp_path).setup_git()
+    wd.add_and_commit("initial")
+    wd("git tag -a v1.0.0 -m v1.0.0")
+
+    c = Configuration(root=tmp_path)
+
+    from vcs_versioning._get_version_impl import parse_version
+    from vcs_versioning._scm_version import ScmVersion
+
+    result = parse_version(c)
+    assert isinstance(result, ScmVersion)
 
 
 @pytest.mark.parametrize(

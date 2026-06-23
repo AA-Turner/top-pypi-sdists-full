@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oc-piloci
-Version: 0.3.124
+Version: 0.3.125
 Summary: Self-hosted multi-user LLM memory service for Raspberry Pi 5. MCP-compatible.
 Author: piLoci contributors
 License: MIT

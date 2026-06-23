@@ -13,8 +13,8 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from ....context_manager import merge_metadata
-from ..native_callback import (
+from aigie.context_manager import merge_metadata
+from aigie.integrations.claude_agent_sdk.native_callback import (
     _format_subagent_name,
     _sanitize_error,
     _utc_isoformat,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: taskiq-redis
-Version: 1.2.2
+Version: 1.2.3
 Summary: Redis integration for taskiq
 Keywords: async,distributed,redis,result_backend,taskiq,tasks
 Author: Taskiq team
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: redis>=7.0.0,<8
+Requires-Dist: redis>=8.0.0,<9
 Requires-Dist: taskiq>=0.12.0
 Maintainer: Taskiq team
 Maintainer-email: Taskiq team <taskiq@no-reply.com>

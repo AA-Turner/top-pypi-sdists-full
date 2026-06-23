@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.757"
+version = "0.4.759"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -32,6 +32,12 @@ dependencies = [
     "rasterio",
     "rtree",
     "shap>=0.48.0",
+    # Pin numba >=0.59 (first version to officially support Python
+    # 3.12). Without this, uv's resolver can pick numba==0.53.1
+    # through shap's unconstrained numba dep — and 0.53.1 only
+    # supports Python <3.10, so the install fails with
+    # "RuntimeError: Cannot install on Python version 3.12.x".
+    "numba>=0.59",
     "shapiq>=1.0",            # TabPFN-native explainer + k-SII interactions + PDP
     "shapely",
     "optuna",
@@ -39,7 +45,7 @@ dependencies = [
     "pooch>=1.8.0",
     "arrow>=1.4.0",
     "icclim>=7.0.4",
-    "geoprepare>=0.6.274",   # 0.6.274 picks year-specific optimized masks when annual_mask=True
+    "geoprepare>=0.6.275",   # 0.6.275 wires cell_optimizer's mask into the daily-EO geom_extract path (NDVI etc.)
     "logzero>=1.7.0",
     "geopandas>=1.1.2",
     "tabpfn>=6.4.1",

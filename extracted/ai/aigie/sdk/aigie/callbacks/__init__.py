@@ -22,8 +22,8 @@ Usage:
     aigie.add_callback(webhook)
 """
 
-from .base import BaseCallback, CallbackEvent, CallbackEventType
-from .generic_webhook import GenericWebhookCallback
+from aigie.callbacks.base import BaseCallback, CallbackEvent, CallbackEventType
+from aigie.callbacks.generic_webhook import GenericWebhookCallback
 
 __all__ = [
     "BaseCallback",

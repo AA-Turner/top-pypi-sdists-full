@@ -349,14 +349,17 @@ def upload_model_to_volume(
     model_file_path: str,
     chalk_client: Any = None,
 ) -> None:
-    """Upload a model file to a chalkfs volume."""
+    """Upload a model file to a versioned chalkfs volume."""
     try:
-        from chalkcompute import ConnectClient, VolumeClient  # pyright: ignore[reportMissingImports]
+        from chalkcompute import ConnectClient, VersionedVolumeClient  # pyright: ignore[reportMissingImports]
     except ImportError:
         raise ImportError("Please install `chalkcompute` to enable model image builds.")
 
-    vol_client = VolumeClient.from_connect(ConnectClient(chalk_client=chalk_client))
-    vol = vol_client.create(volume_name)
+    vol_client = VersionedVolumeClient.from_connect(ConnectClient(chalk_client=chalk_client))
+    if vol_client.exists(volume_name):
+        vol = vol_client.from_name(volume_name)
+    else:
+        vol = vol_client.create(volume_name)
     vol.put_file_from_path(model_filename, model_file_path)
 
 
@@ -370,26 +373,6 @@ def chalk_handler_volume_name(model_name: str, model_version: int) -> str:
     deploy-time mounts can agree without persisting state.
     """
     return f"chalk-handler-{model_name}-v{model_version}"
-
-
-def chalk_handler_volume_exists(volume_name: str, chalk_client: Any = None) -> bool:
-    """Probe for a managed volume by name. Used by the deploy path.
-
-    Returns ``True`` if the volume exists, ``False`` otherwise — including when
-    ``chalkcompute`` is not installed or the lookup transport fails. The
-    image-only deploy path falls back to attaching no volume when this returns
-    ``False``, which is the correct behavior for legacy image-only
-    registrations that never uploaded an artifact volume.
-    """
-    try:
-        from chalkcompute import ConnectClient, VolumeClient  # pyright: ignore[reportMissingImports]
-    except ImportError:
-        return False
-    try:
-        VolumeClient.from_connect(ConnectClient(chalk_client=chalk_client)).lookup(volume_name)
-        return True
-    except Exception:
-        return False
 
 
 # -----------------------------------------------------------------------------

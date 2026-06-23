@@ -8,27 +8,22 @@ try:
 except ImportError:
     import distutils  # Python < 3.10
 
-import functools
 import os
-import os.path
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from contextlib import contextmanager
 from unittest.mock import patch
 
-import _pytest.tmpdir
-import py.path
 import requests
 
 from skbuild.platform_specifics import get_platform
 from skbuild.utils import push_dir
 
-SAMPLES_DIR = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)),
-    "samples",
-)
+SAMPLES_DIR = pathlib.Path(__file__).resolve().parent / "samples"
 
 __all__ = [
     "SAMPLES_DIR",
@@ -37,7 +32,6 @@ __all__ = [
     "initialize_git_repo_and_commit",
     "list_ancestors",
     "prepare_project",
-    "project_setup_py_test",
     "push_dir",
     "push_env",
 ]
@@ -77,34 +71,29 @@ def prepend_sys_path(paths):
     sys.path = saved_paths
 
 
-def _tmpdir(basename: str) -> py.path.local:
+def _tmpdir(basename: str) -> pathlib.Path:
     """This function returns a temporary directory similar to the one
-    returned by the ``tmpdir`` pytest fixture.
+    returned by the ``tmp_path`` pytest fixture.
     The difference is that the `basetemp` is not configurable using
     the pytest settings."""
 
-    # Adapted from _pytest.tmpdir.tmpdir()
     basename = re.sub(r"[\W]", "_", basename)
     max_val = 30
     if len(basename) > max_val:
         basename = basename[:max_val]
 
-    # Adapted from _pytest.tmpdir.TempdirFactory.getbasetemp()
     try:
         basetemp = _tmpdir._basetemp  # type: ignore[attr-defined]
     except AttributeError:
-        temproot = py.path.local.get_temproot()
-        user = _pytest.tmpdir.get_user()
+        rootdir = pathlib.Path(tempfile.gettempdir())
+        user = os.environ.get("USER")
+        if user:
+            rootdir = rootdir / f"pytest-of-{user}"
+        rootdir.mkdir(parents=True, exist_ok=True)
+        basetemp = pathlib.Path(tempfile.mkdtemp(prefix="pytest-", dir=rootdir))
+        _tmpdir._basetemp = basetemp  # type: ignore[attr-defined]
 
-        # use a sub-directory in the temproot to speed-up
-        # make_numbered_dir() call
-        rootdir = temproot.join(f"pytest-of-{user}") if user else temproot
-
-        rootdir.ensure(dir=1)
-        basetemp = py.path.local.make_numbered_dir(prefix="pytest-", rootdir=rootdir)
-
-    # Adapted from _pytest.tmpdir.TempdirFactory.mktemp
-    return py.path.local.make_numbered_dir(prefix=basename, keep=0, rootdir=basetemp, lock_timeout=None)
+    return pathlib.Path(tempfile.mkdtemp(prefix=f"{basename}-", dir=basetemp))
 
 
 def _copy(src, target):
@@ -114,16 +103,19 @@ def _copy(src, target):
 
     Copied from pytest-datafiles/pytest_datafiles.py (MIT License)
     """
-    if not src.exists():
+    src_path = pathlib.Path(src)
+    target_path = pathlib.Path(target)
+
+    if not src_path.exists():
         msg = f"'{src}' does not exist!"
         raise ValueError(msg)
 
-    if src.isdir():
-        src.copy(target / src.basename)
-    elif src.islink():
-        (target / src.basename).mksymlinkto(src.realpath())
+    if src_path.is_symlink():
+        (target_path / src_path.name).symlink_to(os.readlink(src_path))
+    elif src_path.is_dir():
+        shutil.copytree(src_path, target_path / src_path.name, symlinks=True)
     else:  # file
-        src.copy(target)
+        shutil.copy2(src_path, target_path)
 
 
 def _copy_dir(target_dir, src_dir, on_duplicate="exception", keep_top_dir=False):
@@ -135,19 +127,18 @@ def _copy_dir(target_dir, src_dir, on_duplicate="exception", keep_top_dir=False)
     Adapted from pytest-datafiles/pytest_datafiles.py (MIT License)
     """
     src_files = []
-
-    if isinstance(src_dir, str):
-        src_dir = py.path.local(src_dir)
+    target_dir = pathlib.Path(target_dir)
+    src_dir = pathlib.Path(src_dir)
 
     if keep_top_dir:
-        src_files = src_dir
-    elif src_dir.isdir():
-        src_files.extend(src_dir.listdir())
+        src_files = [src_dir]
+    elif src_dir.is_dir():
+        src_files.extend(src_dir.iterdir())
     else:
         src_files.append(src_dir)
 
     for entry in src_files:
-        target_entry = target_dir / entry.basename
+        target_entry = target_dir / entry.name
         if not target_entry.exists() or on_duplicate == "overwrite":
             _copy(entry, target_dir)
         elif on_duplicate == "exception":
@@ -162,14 +153,13 @@ def initialize_git_repo_and_commit(project_dir, verbose=True):
     git repository with one commit containing all the directories and files
     is created.
     """
-    if isinstance(project_dir, str):
-        project_dir = py.path.local(project_dir)
+    project_dir = pathlib.Path(project_dir)
 
-    if project_dir.join(".git").exists():
+    if (project_dir / ".git").exists():
         return
 
     # If any, exclude virtualenv files
-    project_dir.join(".gitignore").write(".env")
+    (project_dir / ".gitignore").write_text(".env")
 
     with push_dir(str(project_dir)):
         for cmd in [
@@ -194,16 +184,20 @@ def prepare_project(project, tmp_project_dir, force=False):
     Specifying ``force=True`` will copy the files even if ``tmp_project_dir``
     is not empty.
     """
-    if isinstance(tmp_project_dir, str):
-        tmp_project_dir = py.path.local(tmp_project_dir)
+    tmp_project_dir = pathlib.Path(tmp_project_dir)
 
     # Create project directory if it does not exist
     if not tmp_project_dir.exists():
         tmp_project_dir = _tmpdir(project)
 
     # If empty or if force is True, copy project files and initialize git
-    if not tmp_project_dir.listdir() or force:
-        _copy_dir(tmp_project_dir, os.path.join(SAMPLES_DIR, project))
+    if not any(tmp_project_dir.iterdir()) or force:
+        _copy_dir(tmp_project_dir, SAMPLES_DIR / project)
+
+        version_actual = tmp_project_dir / "VERSION.actual"
+        version = version_actual.with_name("VERSION")
+        if version_actual.exists() and not version.exists():
+            version.symlink_to(version_actual.name)
 
 
 @contextmanager
@@ -245,32 +239,6 @@ def execute_setup_py(project_dir, setup_args, disable_languages_test=False):
                     exec(setup_code)
 
         yield
-
-
-def project_setup_py_test(project, setup_args, tmp_dir=None, verbose_git=True, disable_languages_test=False, ret=False):
-    def dec(fun):
-        @functools.wraps(fun)
-        def wrapped(*iargs, **ikwargs):
-            if wrapped.tmp_dir is None:  # type: ignore[attr-defined]
-                wrapped.tmp_dir = _tmpdir(fun.__name__)  # type: ignore[attr-defined]
-                prepare_project(wrapped.project, wrapped.tmp_dir)  # type: ignore[attr-defined]
-                initialize_git_repo_and_commit(wrapped.tmp_dir, verbose=wrapped.verbose_git)  # type: ignore[attr-defined]
-
-            with execute_setup_py(wrapped.tmp_dir, wrapped.setup_args, disable_languages_test=disable_languages_test):  # type: ignore[attr-defined]
-                result2 = fun(*iargs, **ikwargs)
-
-            if ret:
-                return wrapped.tmp_dir, result2  # type: ignore[attr-defined]
-            return None
-
-        wrapped.project = project  # type: ignore[attr-defined]
-        wrapped.setup_args = setup_args  # type: ignore[attr-defined]
-        wrapped.tmp_dir = tmp_dir  # type: ignore[attr-defined]
-        wrapped.verbose_git = verbose_git  # type: ignore[attr-defined]
-
-        return wrapped
-
-    return dec
 
 
 def get_cmakecache_variables(cmakecache):

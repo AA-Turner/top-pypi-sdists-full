@@ -1,22 +1,20 @@
 Metadata-Version: 2.4
 Name: prospector
-Version: 1.18.0
+Version: 1.19.0
 Summary: Prospector is a tool to analyse Python code by aggregating the result of other tools.
-License: GPLv2+
+License-Expression: GPL-2.0-or-later
 License-File: LICENSE
 Keywords: prospector,pylint,static code analysis
 Author: Carl Crowder
 Author-email: git@carlcrowder.com
 Maintainer: Carl Crowder
 Maintainer-email: git@carlcrowder.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

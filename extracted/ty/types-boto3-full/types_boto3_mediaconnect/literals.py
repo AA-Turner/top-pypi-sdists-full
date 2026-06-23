@@ -85,6 +85,7 @@ __all__ = (
     "ReservationStateType",
     "ResourceServiceName",
     "ResourceTypeType",
+    "RouterContentQualityAnalysisTypeType",
     "RouterInputProtocolType",
     "RouterInputStateType",
     "RouterInputTierType",
@@ -202,6 +203,7 @@ ProtocolType = Literal[
 RangeType = Literal["FULL", "FULLPROTECT", "NARROW"]
 ReservationStateType = Literal["ACTIVE", "CANCELED", "EXPIRED", "PROCESSING"]
 ResourceTypeType = Literal["Mbps_Outbound_Bandwidth"]
+RouterContentQualityAnalysisTypeType = Literal["CONTENT_LEVEL"]
 RouterInputProtocolType = Literal["RIST", "RTP", "SRT_CALLER", "SRT_LISTENER"]
 RouterInputStateType = Literal[
     "ACTIVE",
@@ -471,6 +473,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

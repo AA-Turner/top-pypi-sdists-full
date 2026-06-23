@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.0
+Version: 4.6.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -27,7 +27,7 @@ Requires-Dist: requests<3,>=2.28.1
 Requires-Dist: shandy-sqlfmt==0.11.1
 Requires-Dist: shandy-sqlfmt[jinjafmt]==0.11.1
 Requires-Dist: toposort==1.10
-Requires-Dist: tornado~=6.0.0
+Requires-Dist: tornado~=6.5.5
 Requires-Dist: urllib3<2,>=1.26.14
 Requires-Dist: watchdog==6.0.0
 Requires-Dist: wheel
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.1
+*******
+
+- `Changed` `tb pull` to overwrite existing local files when pulling from a Tinybird workspace.
 
 4.6.0
 *******

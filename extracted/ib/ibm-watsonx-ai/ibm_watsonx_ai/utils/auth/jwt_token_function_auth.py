@@ -65,7 +65,14 @@ class JWTTokenFunctionAuth(RefreshableTokenAuth):
         :rtype: TokenInfo
         """
 
-        token_function = getattr(self._api_client.credentials, "token_function")
+        token_function = getattr(self._api_client.credentials, "token_function", None)
+
+        if token_function is None:
+            raise WMLClientError(
+                "Synchronous token generation requested but only 'atoken_function' is provided. "
+                "Please provide 'token_function' for synchronous operations or use async methods. "
+                "Note that 'APIClient' is being initialized with synchronous token request."
+            )
 
         return self._handle_token_function_result(
             token_function(self._api_client.httpx_client)
@@ -78,7 +85,13 @@ class JWTTokenFunctionAuth(RefreshableTokenAuth):
         :rtype: TokenInfo
         """
 
-        atoken_function = getattr(self._api_client.credentials, "atoken_function")
+        atoken_function = getattr(self._api_client.credentials, "atoken_function", None)
+
+        if atoken_function is None:
+            raise WMLClientError(
+                "Asynchronous token generation requested but only 'token_function' is provided. "
+                "Please provide 'atoken_function' for asynchronous operations."
+            )
 
         return self._handle_token_function_result(
             await atoken_function(self._api_client.async_httpx_client)

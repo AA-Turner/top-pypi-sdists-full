@@ -26,6 +26,7 @@ class User:
         operator (bool):
         disabled (bool):
         folders (List[str]):
+        folders_read (List[str]):
         folders_owners (List[str]):
         name (Union[Unset, str]):
         groups (Union[Unset, List[str]]):
@@ -41,6 +42,7 @@ class User:
     operator: bool
     disabled: bool
     folders: List[str]
+    folders_read: List[str]
     folders_owners: List[str]
     name: Union[Unset, str] = UNSET
     groups: Union[Unset, List[str]] = UNSET
@@ -58,6 +60,8 @@ class User:
         operator = self.operator
         disabled = self.disabled
         folders = self.folders
+
+        folders_read = self.folders_read
 
         folders_owners = self.folders_owners
 
@@ -84,6 +88,7 @@ class User:
                 "operator": operator,
                 "disabled": disabled,
                 "folders": folders,
+                "folders_read": folders_read,
                 "folders_owners": folders_owners,
             }
         )
@@ -119,6 +124,8 @@ class User:
 
         folders = cast(List[str], d.pop("folders"))
 
+        folders_read = cast(List[str], d.pop("folders_read"))
+
         folders_owners = cast(List[str], d.pop("folders_owners"))
 
         name = d.pop("name", UNSET)
@@ -145,6 +152,7 @@ class User:
             operator=operator,
             disabled=disabled,
             folders=folders,
+            folders_read=folders_read,
             folders_owners=folders_owners,
             name=name,
             groups=groups,

@@ -18,7 +18,7 @@ import re
 import time
 from typing import Any
 
-from .base import BaseGuardrail, GuardrailAction, GuardrailResult
+from aigie.guardrails.base import BaseGuardrail, GuardrailAction, GuardrailResult
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +230,7 @@ class ToxicityDetector(BaseGuardrail):
     ) -> GuardrailResult:
         """LLM-based toxicity check."""
         try:
-            from ..evaluation.llm_judge import JudgeConfig, LLMJudge
+            from aigie.evaluation.llm_judge import JudgeConfig, LLMJudge
 
             judge = LLMJudge(JudgeConfig(model=self.llm_model))
             result = await judge.evaluate(
@@ -376,7 +376,7 @@ class HallucinationDetector(BaseGuardrail):
     ) -> GuardrailResult:
         """LLM-based hallucination check."""
         try:
-            from ..evaluation.llm_judge import JudgeConfig, LLMJudge
+            from aigie.evaluation.llm_judge import JudgeConfig, LLMJudge
 
             judge = LLMJudge(JudgeConfig(model=self.llm_model))
             result = await judge.evaluate(

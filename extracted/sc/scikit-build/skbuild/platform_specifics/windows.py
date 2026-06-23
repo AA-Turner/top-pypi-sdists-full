@@ -20,6 +20,7 @@ VS_YEAR_TO_VERSION = {
     "2017": 15,
     "2019": 16,
     "2022": 17,
+    "2026": 18,
 }
 """Describes the version of `Visual Studio` supported by
 :class:`CMakeVisualStudioIDEGenerator` and
@@ -32,6 +33,7 @@ VS_YEAR_TO_MSC_VER = {
     "2017": "1910",  # VS 2017 - can be +9
     "2019": "1920",  # VS 2019 - can be +9
     "2022": "1930",  # VS 2022 - can be +19
+    "2026": "1950",  # VS 2026
 }
 
 ARCH_TO_MSVC_ARCH = {
@@ -58,13 +60,19 @@ class WindowsPlatform(abstract.CMakePlatform):
             """
             Building windows wheels requires Microsoft Visual Studio.
             Get it from:
-n
+
              https://visualstudio.microsoft.com/vs/
             """
         ).strip()
 
-        # For Python 3.8 and above: VS2022, VS2019, VS2017
-        supported_vs_years = [("2022", "v144"), ("2022", "v143"), ("2019", "v142"), ("2017", "v141")]
+        # For Python 3.8 and above: VS2026, VS2022, VS2019, VS2017
+        supported_vs_years = [
+            ("2026", "v145"),
+            ("2022", "v144"),
+            ("2022", "v143"),
+            ("2019", "v142"),
+            ("2017", "v141"),
+        ]
 
         try:
             import ninja  # noqa: PLC0415
@@ -192,7 +200,9 @@ def find_visual_studio(vs_version: int) -> str:
 
 # To avoid multiple slow calls to ``subprocess.run()`` (either directly or
 # indirectly through ``query_vcvarsall``), results of previous calls are cached.
-__get_msvc_compiler_env_cache: dict[str, CachedEnv] = {}
+# Failures (an empty mapping) are cached too, so a missing or broken Visual
+# Studio edition is probed at most once.
+__get_msvc_compiler_env_cache: dict[str, CachedEnv | dict[str, str]] = {}
 
 
 def _get_msvc_compiler_env(vs_version: int, vs_toolset: str | None = None) -> CachedEnv | dict[str, str]:
@@ -220,14 +230,15 @@ def _get_msvc_compiler_env(vs_version: int, vs_toolset: str | None = None) -> Ca
     vc_dir = find_visual_studio(vs_version)
     vcvarsall = os.path.join(vc_dir, "vcvarsall.bat")
     if not os.path.exists(vcvarsall):
+        __get_msvc_compiler_env_cache[cache_key] = {}
         return {}
 
     # Set vcvars_ver argument based on toolset
     vcvars_ver = ""
     if vs_toolset is not None:
-        match = re.findall(r"^v(\d\d)(\d+)$", vs_toolset)[0]
+        match = re.match(r"^v(\d\d)(\d+)$", vs_toolset)
         if match:
-            match_str = ".".join(match)
+            match_str = ".".join(match.groups())
             vcvars_ver = f"-vcvars_ver={match_str}"
 
     try:
@@ -254,6 +265,7 @@ def _get_msvc_compiler_env(vs_version: int, vs_toolset: str | None = None) -> Ca
     except subprocess.CalledProcessError as exc:
         print(exc.output.decode("utf-16le", errors="replace"), file=sys.stderr, flush=True)
 
+    __get_msvc_compiler_env_cache[cache_key] = {}
     return {}
 
 
@@ -278,8 +290,20 @@ class CMakeVisualStudioCommandLineGenerator(CMakeGenerator):
 
         The platform (32-bit or 64-bit or ARM) is automatically selected.
         """
-        arch = _compute_arch()
-        vc_env = _get_msvc_compiler_env(VS_YEAR_TO_VERSION[year], toolset)
-        env = {str(key.upper()): str(value) for key, value in vc_env.items()}
-        super().__init__(name, env, arch=arch, args=args)
+        self._vs_version = VS_YEAR_TO_VERSION[year]
+        self._vs_toolset = toolset
+        super().__init__(name, arch=_compute_arch(), args=args)
         self._description = f"{self.name} ({CMakeVisualStudioIDEGenerator(year, toolset).description})"
+
+    @property
+    def env(self) -> dict[str, str]:
+        """Visual Studio environment, resolved lazily on first use.
+
+        ``WindowsPlatform`` builds one generator per supported toolset, so
+        resolving the environment here (rather than in ``__init__``) avoids
+        running ``vswhere.exe`` / ``vcvarsall.bat`` for editions that are never
+        selected. Results are cached in :data:`__get_msvc_compiler_env_cache`.
+        """
+        vc_env = _get_msvc_compiler_env(self._vs_version, self._vs_toolset)
+        msvc_env = {str(key.upper()): str(value) for key, value in vc_env.items()}
+        return {**os.environ, **msvc_env}

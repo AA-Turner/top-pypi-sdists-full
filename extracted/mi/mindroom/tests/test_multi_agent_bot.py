@@ -57,6 +57,7 @@ from mindroom.constants import (
     STREAM_STATUS_COMPLETED,
     STREAM_STATUS_KEY,
     STREAM_STATUS_PENDING,
+    TOOL_TRACE_CONTENT_KEY,
     VOICE_RAW_AUDIO_FALLBACK_KEY,
     RuntimePaths,
     resolve_runtime_paths,
@@ -129,6 +130,7 @@ from mindroom.response_runner import (
     ResponseRunner,
     _merge_response_extra_content,
 )
+from mindroom.runtime_shutdown import ORDERLY_SHUTDOWN
 from mindroom.runtime_state import get_runtime_state, reset_runtime_state, set_runtime_ready
 from mindroom.runtime_support import StartupThreadPrewarmRegistry
 from mindroom.startup_errors import PermanentStartupError
@@ -2581,6 +2583,7 @@ class TestAgentBot:
             assert ai_kwargs["media"] == MediaInputs()
             assert ai_kwargs["reply_to_event_id"] == "event123"
             assert ai_kwargs["show_tool_calls"] is True
+            assert ai_kwargs["collect_streamed_response"] is True
             assert ai_kwargs["tool_trace_collector"] == []
             assert ai_kwargs["run_metadata_collector"] == {}
             assert ai_kwargs["compaction_outcomes_collector"] == []
@@ -5543,7 +5546,84 @@ class TestAgentBot:
 
         assert delivery.event_id == "$response"
         assert mock_ai.call_args.kwargs["show_tool_calls"] is False
+        assert mock_ai.call_args.kwargs["collect_streamed_response"] is False
         assert "io.mindroom.tool_trace" not in bot.client.room_send.await_args.kwargs["content"]
+
+    @pytest.mark.asyncio
+    async def test_non_streaming_visible_tool_calls_are_passed_to_ai_response(
+        self,
+        mock_agent_user: AgentMatrixUser,
+        tmp_path: Path,
+    ) -> None:
+        """Offline/non-streaming runs should let ai_response use the stream-equivalent path."""
+
+        @asynccontextmanager
+        async def noop_typing_indicator(*_args: object, **_kwargs: object) -> AsyncGenerator[None]:
+            yield
+
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(
+                        display_name="CalculatorAgent",
+                        rooms=["!test:localhost"],
+                        show_tool_calls=True,
+                    ),
+                },
+            ),
+            tmp_path,
+        )
+        bot = AgentBot(mock_agent_user, tmp_path, config=config, runtime_paths=runtime_paths_for(config))
+        bot.client = AsyncMock()
+        bot.client.room_send.return_value = _room_send_response("$response")
+        _install_runtime_cache_support(bot)
+        _set_knowledge_for_agent(bot, MagicMock(return_value=None))
+
+        async def fake_ai_response(*_args: object, **kwargs: object) -> str:
+            assert kwargs["show_tool_calls"] is True
+            assert kwargs["collect_streamed_response"] is True
+            collector = kwargs["tool_trace_collector"]
+            collector.append(
+                ToolTraceEntry(
+                    type="tool_call_completed",
+                    tool_name="run_shell_command",
+                    args_preview="cmd=git status",
+                    result_preview="clean",
+                ),
+            )
+            return "Final answer"
+
+        with patch_response_runner_module(
+            typing_indicator=noop_typing_indicator,
+            ai_response=AsyncMock(side_effect=fake_ai_response),
+        ):
+            delivery = await bot._response_runner.process_and_respond(
+                _response_request(
+                    room_id="!test:localhost",
+                    prompt="Check status",
+                    reply_to_event_id="$event",
+                    thread_history=[],
+                    user_id="@user:localhost",
+                    response_envelope=request_envelope(
+                        room_id="!test:localhost",
+                        reply_to_event_id="$event",
+                        prompt="Check status",
+                        user_id="@user:localhost",
+                    ),
+                ),
+            )
+
+        assert delivery.event_id == "$response"
+        content = bot.client.room_send.await_args.kwargs["content"]
+        assert content["body"] == "Final answer"
+        assert content[TOOL_TRACE_CONTENT_KEY]["events"] == [
+            {
+                "type": "tool_call_completed",
+                "tool_name": "run_shell_command",
+                "args_preview": "cmd=git status",
+                "result_preview": "clean",
+            },
+        ]
 
     @pytest.mark.asyncio
     async def test_generate_response_prefixes_user_turns_with_local_datetime(
@@ -9561,7 +9641,7 @@ class TestAgentBot:
                         ],
                         eligible_members=[bot.matrix_id],
                         outcome=TeamOutcome.REJECT,
-                        reason="Team request includes private agent 'mind'; private agents cannot participate in teams yet",
+                        reason="Team request includes private agent 'mind'; private agents are only supported in explicit Matrix ad hoc teams with requester identity",
                     ),
                 ),
             ),
@@ -9578,7 +9658,10 @@ class TestAgentBot:
             )
 
         assert action.kind == "reject"
-        assert "private agents cannot participate in teams yet" in action.rejection_message
+        assert (
+            "private agents are only supported in explicit Matrix ad hoc teams with requester identity"
+            in action.rejection_message
+        )
         mock_decide_agent_response.assert_not_called()
 
     @pytest.mark.asyncio
@@ -10111,7 +10194,7 @@ class TestAgentBot:
                         ],
                         eligible_members=[entity_ids(config, runtime_paths_for(config))["calculator"]],
                         outcome=TeamOutcome.REJECT,
-                        reason="Team request includes private agent 'alpha'; private agents cannot participate in teams yet",
+                        reason="Team request includes private agent 'alpha'; private agents are only supported in explicit Matrix ad hoc teams with requester identity",
                     ),
                 ),
             ),
@@ -10128,16 +10211,19 @@ class TestAgentBot:
             )
 
         assert action.kind == "reject"
-        assert "private agents cannot participate in teams yet" in action.rejection_message
+        assert (
+            "private agents are only supported in explicit Matrix ad hoc teams with requester identity"
+            in action.rejection_message
+        )
         mock_decide_agent_response.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_resolve_response_action_uses_actual_team_resolution_for_private_member_reject_ownership(
+    async def test_resolve_response_action_lets_shared_bot_own_private_ad_hoc_team(
         self,
         mock_agent_user: AgentMatrixUser,
         tmp_path: Path,
     ) -> None:
-        """Real team resolution should keep private requested members from owning the reject reply."""
+        """Real team resolution should use a live shared owner for private ad hoc teams."""
         config = _runtime_bound_config(
             Config(
                 agents={
@@ -10153,7 +10239,7 @@ class TestAgentBot:
         )
         bot = AgentBot(mock_agent_user, tmp_path, config=config, runtime_paths=runtime_paths_for(config))
         bot.orchestrator = MagicMock()
-        bot.orchestrator.agent_bots = {"alpha": MagicMock(), "calculator": MagicMock()}
+        bot.orchestrator.agent_bots = {"calculator": MagicMock(running=True)}
         room = _matrix_room(
             own_user_id=bot.matrix_id.full_id,
             user_ids=[
@@ -10184,10 +10270,10 @@ class TestAgentBot:
                 has_active_response_for_target=bot._response_runner.has_active_response_for_target,
             )
 
-        assert action.kind == "reject"
-        assert action.rejection_message == (
-            "Team request includes private agent 'alpha'; private agents cannot participate in teams yet"
-        )
+        assert action.kind == "team"
+        assert action.form_team is not None
+        assert action.form_team.outcome is TeamOutcome.TEAM
+        assert [member.name for member in action.form_team.member_statuses] == ["alpha", "calculator"]
         mock_decide_agent_response.assert_not_called()
 
     @pytest.mark.asyncio
@@ -11309,7 +11395,7 @@ class TestAgentBot:
         )
         action = ResponseAction(
             kind="reject",
-            rejection_message="Team request includes private agent 'mind'; private agents cannot participate in teams yet",
+            rejection_message="Team request includes private agent 'mind'; private agents are only supported in explicit Matrix ad hoc teams with requester identity",
         )
 
         bot.client = AsyncMock(spec=nio.AsyncClient)
@@ -11329,7 +11415,7 @@ class TestAgentBot:
         send_text.assert_awaited_once()
         delivered_request = send_text.await_args.args[0]
         assert delivered_request.response_text.endswith(
-            "private agents cannot participate in teams yet",
+            "private agents are only supported in explicit Matrix ad hoc teams with requester identity",
         )
         tracker.record_handled_turn.assert_called_once_with(
             HandledTurnState.from_source_event_id(
@@ -15388,7 +15474,7 @@ class TestMultiAgentOrchestrator:
             assert decision.status == "expired"
             assert decision.reason == "MindRoom shut down before approval completed."
             assert router_bot.running is False
-            router_bot.stop.assert_awaited_once_with(reason="shutdown")
+            router_bot.stop.assert_awaited_once_with(shutdown_intent=ORDERLY_SHUTDOWN)
         finally:
             allow_send_to_finish.set()
             if task is not None and not task.done():

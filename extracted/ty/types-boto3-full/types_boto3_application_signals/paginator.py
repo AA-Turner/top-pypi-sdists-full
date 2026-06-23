@@ -12,7 +12,9 @@ Usage::
 
     from types_boto3_application_signals.client import CloudWatchApplicationSignalsClient
     from types_boto3_application_signals.paginator import (
+        GetInstrumentationConfigurationStatusPaginator,
         ListEntityEventsPaginator,
+        ListInstrumentationConfigurationsPaginator,
         ListServiceDependenciesPaginator,
         ListServiceDependentsPaginator,
         ListServiceLevelObjectiveExclusionWindowsPaginator,
@@ -25,7 +27,9 @@ Usage::
     session = Session()
     client: CloudWatchApplicationSignalsClient = session.client("application-signals")
 
+    get_instrumentation_configuration_status_paginator: GetInstrumentationConfigurationStatusPaginator = client.get_paginator("get_instrumentation_configuration_status")
     list_entity_events_paginator: ListEntityEventsPaginator = client.get_paginator("list_entity_events")
+    list_instrumentation_configurations_paginator: ListInstrumentationConfigurationsPaginator = client.get_paginator("list_instrumentation_configurations")
     list_service_dependencies_paginator: ListServiceDependenciesPaginator = client.get_paginator("list_service_dependencies")
     list_service_dependents_paginator: ListServiceDependentsPaginator = client.get_paginator("list_service_dependents")
     list_service_level_objective_exclusion_windows_paginator: ListServiceLevelObjectiveExclusionWindowsPaginator = client.get_paginator("list_service_level_objective_exclusion_windows")
@@ -44,8 +48,12 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    GetInstrumentationConfigurationStatusRequestPaginateTypeDef,
+    GetInstrumentationConfigurationStatusResponseTypeDef,
+    InstrumentationConfigurationsPageTypeDef,
     ListEntityEventsInputPaginateTypeDef,
     ListEntityEventsOutputTypeDef,
+    ListInstrumentationConfigurationsRequestPaginateTypeDef,
     ListServiceDependenciesInputPaginateTypeDef,
     ListServiceDependenciesOutputTypeDef,
     ListServiceDependentsInputPaginateTypeDef,
@@ -69,7 +77,9 @@ else:
 
 
 __all__ = (
+    "GetInstrumentationConfigurationStatusPaginator",
     "ListEntityEventsPaginator",
+    "ListInstrumentationConfigurationsPaginator",
     "ListServiceDependenciesPaginator",
     "ListServiceDependentsPaginator",
     "ListServiceLevelObjectiveExclusionWindowsPaginator",
@@ -78,6 +88,31 @@ __all__ = (
     "ListServiceStatesPaginator",
     "ListServicesPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _GetInstrumentationConfigurationStatusPaginatorBase = Paginator[
+        GetInstrumentationConfigurationStatusResponseTypeDef
+    ]
+else:
+    _GetInstrumentationConfigurationStatusPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class GetInstrumentationConfigurationStatusPaginator(
+    _GetInstrumentationConfigurationStatusPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/GetInstrumentationConfigurationStatus.html#CloudWatchApplicationSignals.Paginator.GetInstrumentationConfigurationStatus)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_application_signals/paginators/#getinstrumentationconfigurationstatuspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetInstrumentationConfigurationStatusRequestPaginateTypeDef]
+    ) -> PageIterator[GetInstrumentationConfigurationStatusResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/GetInstrumentationConfigurationStatus.html#CloudWatchApplicationSignals.Paginator.GetInstrumentationConfigurationStatus.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_application_signals/paginators/#getinstrumentationconfigurationstatuspaginator)
+        """
 
 
 if TYPE_CHECKING:
@@ -98,6 +133,29 @@ class ListEntityEventsPaginator(_ListEntityEventsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/ListEntityEvents.html#CloudWatchApplicationSignals.Paginator.ListEntityEvents.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_application_signals/paginators/#listentityeventspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListInstrumentationConfigurationsPaginatorBase = Paginator[
+        InstrumentationConfigurationsPageTypeDef
+    ]
+else:
+    _ListInstrumentationConfigurationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListInstrumentationConfigurationsPaginator(_ListInstrumentationConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/ListInstrumentationConfigurations.html#CloudWatchApplicationSignals.Paginator.ListInstrumentationConfigurations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_application_signals/paginators/#listinstrumentationconfigurationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListInstrumentationConfigurationsRequestPaginateTypeDef]
+    ) -> PageIterator[InstrumentationConfigurationsPageTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/ListInstrumentationConfigurations.html#CloudWatchApplicationSignals.Paginator.ListInstrumentationConfigurations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_application_signals/paginators/#listinstrumentationconfigurationspaginator)
         """
 
 

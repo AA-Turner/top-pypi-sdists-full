@@ -38,8 +38,8 @@ from typing import (
     TypeVar,
 )
 
-from .run_context import RunContext
-from .schemas import generate_json_schema
+from aigie.run_context import RunContext
+from aigie.schemas import generate_json_schema
 
 # Type variables
 DepsT = TypeVar("DepsT")

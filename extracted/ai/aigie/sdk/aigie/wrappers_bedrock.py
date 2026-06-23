@@ -7,7 +7,7 @@ Automatically traces AWS Bedrock API calls
 import json
 from typing import Any
 
-from .cost_tracking import extract_and_calculate_cost
+from aigie.cost_tracking import extract_and_calculate_cost
 
 
 def wrap_bedrock(
@@ -40,7 +40,7 @@ def wrap_bedrock(
         ...     body=json.dumps({'prompt': 'Hello!'})
         ... )
     """
-    from .client import get_aigie
+    from aigie.client import get_aigie
 
     aigie = get_aigie()
 

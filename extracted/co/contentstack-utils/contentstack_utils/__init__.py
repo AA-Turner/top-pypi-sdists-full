@@ -10,6 +10,7 @@ __author__, __status__, __version__, __endpoint__ and __email__
 
 from contentstack_utils.embedded.item_type import ItemType
 from contentstack_utils.embedded.styletype import StyleType
+from contentstack_utils.endpoint import Endpoint
 from contentstack_utils.helper.metadata import Metadata
 from contentstack_utils.helper.node_to_html import NodeToHtml
 from contentstack_utils.render.options import Options
@@ -17,8 +18,10 @@ from contentstack_utils.utils import Utils
 from contentstack_utils.gql import GQL
 from contentstack_utils.automate import Automate
 from contentstack_utils.entry_editable import addEditableTags, addTags, getTag
+from contentstack_utils.region_refresh import refresh_regions
 
 __all__ = (
+"Endpoint",
 "Utils",
 "Options",
 "Metadata",
@@ -30,11 +33,12 @@ __all__ = (
 "addEditableTags",
 "addTags",
 "getTag",
+"refresh_regions",
 )
 
 __title__ = 'contentstack_utils'
 __author__ = 'contentstack'
 __status__ = 'debug'
-__version__ = '1.4.0'
+__version__ = '1.6.0'
 __endpoint__ = 'cdn.contentstack.io'
 __contact__ = 'support@contentstack.com'

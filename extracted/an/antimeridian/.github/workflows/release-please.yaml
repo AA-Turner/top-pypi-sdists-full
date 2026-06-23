@@ -16,13 +16,13 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: actions/create-github-app-token@v3.0.0
+      - uses: actions/create-github-app-token@v3.2.0
         id: app-token
         with:
           app-id: ${{ vars.ORCA_BRO_ID }}
           private-key: ${{ secrets.ORCA_BRO_PRIVATE_KEY }}
       - id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           token: ${{ steps.app-token.outputs.token }}
 
@@ -36,7 +36,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/antimeridian
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
       - uses: actions/setup-python@v6

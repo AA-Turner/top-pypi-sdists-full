@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-parse
-Version: 6.2.0
+Version: 7.0.0
 Summary: Simple package to extract text with coordinates from programmatic PDFs
 Author-email: Peter Staar <taa@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>
 License-Expression: MIT
@@ -23,7 +23,6 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: tabulate<1.0.0,>=0.9.0
 Requires-Dist: pillow<13.0.0,>=10.0.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: docling-core>=2.65.2
@@ -124,17 +123,17 @@ Parse pages from one or more PDFs in parallel using a thread pool with backpress
 
 ```python
 from docling_parse.pdf_parser import (
+    DecodeConfig,
     DoclingThreadedPdfParser,
     ThreadedPdfParserConfig,
 )
-from docling_parse.pdf_parsers import DecodePageConfig  # type: ignore[import]
 
 parser_config = ThreadedPdfParserConfig(
     loglevel="fatal",
     threads=4,                # worker threads
     max_concurrent_results=32 # cap buffered results to limit memory
 )
-decode_config = DecodePageConfig()
+decode_config = DecodeConfig()
 
 parser = DoclingThreadedPdfParser(
     parser_config=parser_config,
@@ -221,6 +220,12 @@ The latter will only work after a clean `git clone`. If you are developing and u
 ```sh
 # uv pip install --force-reinstall --no-deps -e .
 rm -rf .venv; uv venv; uv pip install --force-reinstall --no-deps -e ".[perf-tools]"
+```
+
+or 
+
+```sh
+BUILD_THREADS=12 uv pip install --force-reinstall --no-deps -e ".[perf]"
 ```
 
 To test the package, run:

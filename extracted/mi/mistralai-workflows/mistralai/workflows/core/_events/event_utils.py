@@ -56,6 +56,17 @@ def get_lineage_workflow_exec_id() -> tuple[str, str | None]:
         raise NotInTemporalContextError()
 
 
+def try_get_lineage_workflow_exec_id() -> tuple[str | None, str | None]:
+    """Like get_lineage_workflow_exec_id but returns (None, None) outside a Temporal context.
+
+    Convenient for log enrichment, which runs for every record including non-workflow logs.
+    """
+    try:
+        return get_lineage_workflow_exec_id()
+    except NotInTemporalContextError:
+        return None, None
+
+
 def create_base_event_fields() -> dict[str, Any]:
     """Create common fields for all workflow events.
 

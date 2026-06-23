@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools==80.9.0",
+    "setuptools==82.0.1",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -51,21 +51,21 @@ ds_store = "ds_store.__main__:main"
 
 [dependency-groups]
 package = [
-    "build == 1.2.1",
-    "twine == 6.1.0",
+    "build == 1.5.0",
+    "twine == 6.2.0",
 ]
 
 pre-commit = [
-    "prek == 0.2.19",
+    "prek == 0.4.4",
 ]
 
 test = [
-    "coverage == 7.10.7",
-    "pytest == 8.4.2",
+    "coverage == 7.14.1",
+    "pytest == 9.0.3",
 ]
 
 tox = [
-    "tox-uv == 1.29.0"
+    "tox-uv == 1.35.2"
 ]
 
 dev = [
@@ -76,7 +76,7 @@ dev = [
 
 # Docs are always built on Py3.12; see RTD and tox config files.
 docs = [
-    "furo == 2025.9.25",
+    "furo == 2025.12.19",
     "sphinx == 8.2.3",
 ]
 
@@ -124,7 +124,6 @@ extend-select = [
     "FURB",   # refurb
     "ISC",    # flake8-implicit-str-concat
     "PGH",    # pygrep-hooks
-    "T20",    # flake8-print
     "PIE",    # flake8-pie
     # "SIM",    # flake8-simplify
 ]

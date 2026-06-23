@@ -42,6 +42,7 @@ import jnpr.junos.facts.get_chassis_cluster_status
 import jnpr.junos.facts.get_chassis_inventory
 import jnpr.junos.facts.get_route_engine_information
 import jnpr.junos.facts.get_software_information
+import jnpr.junos.facts.get_jnu_satellites_information
 import jnpr.junos.facts.get_virtual_chassis_information
 import jnpr.junos.facts.ifd_style
 import jnpr.junos.facts.iri_mapping

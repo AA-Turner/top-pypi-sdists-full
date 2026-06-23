@@ -16,6 +16,10 @@ class AddLogAnalyticsLogGroupDetails(object):
     Some actions may not be applicable to specific integration types.
     """
 
+    #: A constant which can be used with the attachment_type property of a AddLogAnalyticsLogGroupDetails.
+    #: This constant has a value of "PROCESS_AUTOMATION"
+    ATTACHMENT_TYPE_PROCESS_AUTOMATION = "PROCESS_AUTOMATION"
+
     def __init__(self, **kwargs):
         """
         Initializes a new AddLogAnalyticsLogGroupDetails object with values from keyword arguments.
@@ -25,14 +29,22 @@ class AddLogAnalyticsLogGroupDetails(object):
             The value to assign to the log_group_id property of this AddLogAnalyticsLogGroupDetails.
         :type log_group_id: str
 
+        :param attachment_type:
+            The value to assign to the attachment_type property of this AddLogAnalyticsLogGroupDetails.
+            Allowed values for this property are: "PROCESS_AUTOMATION"
+        :type attachment_type: str
+
         """
         self.swagger_types = {
-            'log_group_id': 'str'
+            'log_group_id': 'str',
+            'attachment_type': 'str'
         }
         self.attribute_map = {
-            'log_group_id': 'logGroupId'
+            'log_group_id': 'logGroupId',
+            'attachment_type': 'attachmentType'
         }
         self._log_group_id = None
+        self._attachment_type = None
 
     @property
     def log_group_id(self):
@@ -57,6 +69,37 @@ class AddLogAnalyticsLogGroupDetails(object):
         :type: str
         """
         self._log_group_id = log_group_id
+
+    @property
+    def attachment_type(self):
+        """
+        Gets the attachment_type of this AddLogAnalyticsLogGroupDetails.
+        Type of attachment. Supported at this include PROCESS_AUTOMATION
+
+        Allowed values for this property are: "PROCESS_AUTOMATION"
+
+
+        :return: The attachment_type of this AddLogAnalyticsLogGroupDetails.
+        :rtype: str
+        """
+        return self._attachment_type
+
+    @attachment_type.setter
+    def attachment_type(self, attachment_type):
+        """
+        Sets the attachment_type of this AddLogAnalyticsLogGroupDetails.
+        Type of attachment. Supported at this include PROCESS_AUTOMATION
+
+
+        :param attachment_type: The attachment_type of this AddLogAnalyticsLogGroupDetails.
+        :type: str
+        """
+        allowed_values = ["PROCESS_AUTOMATION"]
+        if not value_allowed_none_or_none_sentinel(attachment_type, allowed_values):
+            raise ValueError(
+                f"Invalid value for `attachment_type`, must be None or one of {allowed_values}"
+            )
+        self._attachment_type = attachment_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -7,7 +7,7 @@ name = "any-llm-sdk"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-version = "1.17.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
+version = "1.18.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
 dependencies = [
   "pydantic>2,<3",
   "openai>=1.99.3",
@@ -21,7 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 
 all = [
-  "any-llm-sdk[mistral,anthropic,huggingface,gemini,vertexai,vertexaianthropic,cohere,cerebras,fireworks,groq,bedrock,azure,azureanthropic,azureopenai,watsonx,together,sambanova,ollama,moonshot,neosantara,nebius,xai,databricks,deepseek,inception,openai,otari,openrouter,portkey,qiniu,lmstudio,llama,voyage,perplexity,platform,llamafile,llamacpp,sagemaker,gateway,github,zai,minimax,mzai,vllm,dashscope,deepinfra]"
+  "any-llm-sdk[mistral,anthropic,huggingface,gemini,vertexai,vertexaianthropic,cohere,cerebras,fireworks,groq,bedrock,azure,azureanthropic,azureopenai,watsonx,together,sambanova,ollama,moonshot,neosantara,nebius,xai,databricks,deepseek,inception,openai,otari,openrouter,portkey,qiniu,lmstudio,llama,voyage,perplexity,platform,llamafile,llamacpp,sagemaker,github,zai,minimax,mzai,vllm,dashscope,deepinfra]"
 ]
 
 platform = [
@@ -113,11 +113,8 @@ azureopenai = []
 databricks = []
 deepseek = []
 fireworks = []
-gateway = [
-  "otari>=0.0.1",
-]
 otari = [
-  "otari>=0.0.1",
+  "otari>=0.2.0",
 ]
 github = []
 inception = []
@@ -146,6 +143,13 @@ Source = "https://github.com/mozilla-ai/any-llm"
 
 [tool.uv]
 exclude-newer = "7 days"
+# otari is first-party (mozilla.ai owns it) and co-developed with any-llm, so we
+# intentionally exempt it from the global 7-day exclude-newer soak and always resolve the
+# latest published otari. The far-future date is a sentinel meaning "never soak otari".
+# Trade-off: uv.lock is gitignored and CI re-resolves on every run, so a broken otari
+# release reaches CI immediately with no pinned fallback. We accept that for this dep
+# because we control its publishing; the soak still applies to every other dependency.
+exclude-newer-package = { otari = "2100-01-01" }
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]

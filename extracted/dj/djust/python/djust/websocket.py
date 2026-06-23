@@ -30,6 +30,46 @@ from .signals import full_html_update, liveview_server_error
 logger = logging.getLogger(__name__)
 hotreload_logger = logging.getLogger("djust.hotreload")
 
+
+def _tenant_context(tenant):
+    """Bind *tenant* as the current tenant for a live dispatch (Finding #6).
+
+    Lazily imports ``djust.tenants.middleware.tenant_context`` so the WS path
+    establishes the tenant ContextVar around mount + every event/url dispatch.
+    ``TenantMiddleware`` only runs on the HTTP path, so without this the
+    tenant-scoped managers see ``None`` on the live path and (fail-closed)
+    return empty querysets — or, pre-fix, disclosed every tenant's rows.
+
+    Falls back to a no-op context if the tenants module is unavailable, so the
+    consumer keeps working for non-tenant deployments.
+    """
+    try:
+        from .tenants.middleware import tenant_context
+
+        return tenant_context(tenant)
+    except Exception:  # noqa: BLE001 — tenants is optional; never break the live path
+        from contextlib import nullcontext
+
+        return nullcontext()
+
+
+def _bind_tenant(tenant):
+    """Set the current tenant ContextVar for the live path (Finding #6).
+
+    Used on the mount path: after the view resolves its tenant via
+    ``_ensure_tenant``, bind it so ``mount()`` and the initial render — which
+    run later in the same consumer task — see the correct tenant in the
+    tenant-scoped managers. Cleared in :meth:`disconnect`. No-op when tenants
+    is unavailable.
+    """
+    try:
+        from .tenants.middleware import set_current_tenant
+
+        set_current_tenant(tenant)
+    except Exception:  # noqa: BLE001 — tenants is optional; never break the live path
+        pass
+
+
 __all__ = [
     "LiveViewConsumer",
     "_check_event_security",
@@ -108,10 +148,32 @@ def _is_allowed_origin(origin: Optional[bytes]) -> bool:
         # allowed host by any definition.
         return False
 
+    return _host_in_allowed_hosts(host)
+
+
+def _host_in_allowed_hosts(host: str) -> bool:
+    """Validate a bare hostname against ``settings.ALLOWED_HOSTS``.
+
+    This is the single ALLOWED_HOSTS check shared by the CSWSH Origin gate
+    (:func:`_is_allowed_origin`) and the WS/runtime reconstructed-request Host
+    propagation (:func:`validated_host_from_scope`), so the two cannot drift
+    (#1646). The policy mirrors Django's HTTP layer exactly:
+
+      * Re-add brackets around IPv6 literals (Django stores them with brackets).
+      * Empty ALLOWED_HOSTS -> localhost variants in DEBUG, REJECT in prod.
+      * Otherwise defer to ``django.http.request.validate_host`` so wildcard
+        (".example.com", "*") semantics match HTTP verbatim.
+
+    ``host`` must already be stripped of scheme/port/path/userinfo (e.g. the
+    output of ``urlparse(...).hostname`` or a Host header split on ":").
+    """
+    if not host:
+        return False
+
     # urlparse strips the brackets from IPv6 literals, but Django's
     # ALLOWED_HOSTS / get_host() stores IPv6 addresses WITH brackets
     # (e.g. "[::1]"). Re-add them so validate_host() matches correctly.
-    if ":" in host:
+    if ":" in host and not host.startswith("["):
         match_host = f"[{host.lower()}]"
     else:
         match_host = host.lower()
@@ -131,73 +193,81 @@ def _is_allowed_origin(origin: Optional[bytes]) -> bool:
     return validate_host(match_host, allowed_hosts)
 
 
-def _validate_mount_url(url: Optional[str]) -> str:
+def validated_host_from_scope(
+    scope: Optional[Dict[str, Any]],
+) -> "tuple[Optional[str], bool]":
+    """Extract the validated client Host (and secure flag) from an ASGI scope.
+
+    Finding #26 (WS/runtime reconstructed-request host omission): the WebSocket
+    ``handle_mount`` and ``ViewRuntime._build_request`` rebuild an ``HttpRequest``
+    via ``RequestFactory().get(...)`` with NO ``HTTP_HOST``, so
+    ``request.get_host()`` defaults to ``RequestFactory``'s ``"testserver"`` on
+    the live path. Host/subdomain ``TenantResolver``\\ s then misresolve the
+    tenant (None) — cross-tenant disclosure with ``STRICT_MODE=False`` or broken
+    tenancy with the default. The HTTP (SSR) path uses the real request and is
+    unaffected; this restores parity for the live path.
+
+    Returns ``(host, is_secure)`` where:
+
+      * ``host`` is the validated bare Host header value (no port stripped — a
+        ``host:port`` value is passed through to ``HTTP_HOST`` so Django's
+        ``get_host()`` handles it the same way it does for a real request), or
+        ``None`` if the scope has no Host header OR the Host fails
+        ALLOWED_HOSTS validation. ``None`` means "fall back to the current
+        ``RequestFactory`` default" — so non-browser clients (curl, the Python
+        ``WebsocketCommunicator``) that send no Host, and spoofed Hosts outside
+        ALLOWED_HOSTS, do not break and do not gain tenant-resolution authority
+        beyond what the HTTP layer grants.
+      * ``is_secure`` is True when the handshake was over TLS (``scope["scheme"]``
+        is ``"wss"`` / ``"https"``), so a propagated request reports
+        ``request.is_secure()`` correctly too.
+
+    Validation reuses :func:`_host_in_allowed_hosts` — the SAME ALLOWED_HOSTS
+    logic the CSWSH Origin check uses — so the WS host bound here is no weaker
+    and no stronger than the HTTP layer. A browser victim cannot spoof the
+    handshake Host (the browser sets it); a non-browser client is bounded by
+    ALLOWED_HOSTS exactly as the HTTP request would be.
     """
-    Validate a client-supplied mount/redirect URL, falling back to ``"/"``.
+    if not scope:
+        return None, False
 
-    The client sends the current page URL in the WebSocket ``mount`` /
-    ``live_redirect`` frames so the server can rebuild a faithful
-    ``HttpRequest`` (via ``RequestFactory``). That value is fully
-    attacker-controlled, so it must be a *site-relative path* before it is
-    fed to ``RequestFactory.get()``, ``resolve()``, log statements, or string
-    concatenation with a query string.
+    headers = dict(scope.get("headers", []) or [])
+    raw_host = headers.get(b"host")
+    host: Optional[str] = None
+    if raw_host:
+        try:
+            host_str = raw_host.decode("ascii")
+        except (UnicodeDecodeError, AttributeError):
+            host_str = ""
+        # Extract the bare domain with Django's own ``split_domain_port`` — the
+        # exact parser ``HttpRequest.get_host()`` runs — so this boundary rejects
+        # everything ``get_host()`` would reject (userinfo ``user@host``,
+        # leading/trailing whitespace, control chars, bad characters):
+        # ``split_domain_port`` returns ``("", "")`` for any host its strict
+        # ``host_validation_re`` doesn't match. We must parse-then-validate
+        # because ``validate_host`` alone does NOT format-validate — e.g.
+        # ``"evil.com@acme.example.com"`` ``endswith(".example.com")`` and would
+        # wrongly match a wildcard ALLOWED_HOSTS entry. The FULL header (incl.
+        # port) is passed through to HTTP_HOST when valid so ``get_host()``
+        # behaves identically to a real request (#F26 review hardening).
+        if host_str:
+            from django.http.request import split_domain_port
 
-    This is defense-in-depth. Django's WSGI path parsing already strips bare
-    ``\\r``/``\\n`` from the path and discards the scheme/host of an absolute
-    URL, but it does NOT normalize ``..`` segments (``"../../admin/"`` lands
-    in ``request.path`` as ``/..../admin/`` and in ``request.path_info``
-    verbatim as ``../../admin/``), and it silently *accepts* an absolute or
-    protocol-relative URL by dropping the authority. A view that inspects
-    ``request.path`` for an auth/routing decision would see the traversed
-    path. We reject all of those shapes here rather than relying on every
-    downstream consumer to re-sanitize.
+            domain, _port = split_domain_port(host_str)
+            if domain and _host_in_allowed_hosts(domain):
+                host = host_str
 
-    Rejected (all fall back to ``"/"``):
-      * empty / non-string / not starting with ``"/"`` (relative path,
-        traversal such as ``"../../admin/"``)
-      * protocol-relative (``"//evil.com/page"``) -- ``urlparse`` reports a netloc
-      * absolute (``"https://evil.com/page"``) -- ``urlparse`` reports a scheme
-      * contains a ``\\r`` or ``\\n`` (CRLF / header / log injection)
-      * contains a ``".."`` path segment (path traversal)
+    scheme = (scope.get("scheme") or "").lower()
+    is_secure = scheme in ("wss", "https")
+    return host, is_secure
 
-    Accepted (returned unchanged): a site-relative path, optionally with a
-    query string and/or fragment, e.g. ``"/dashboard?q=1"``.
 
-    See #1819 (unvalidated mount URL -- path traversal / CRLF / log injection).
-    """
-    if not url or not isinstance(url, str):
-        return "/"
-    # CRLF / log / header injection -- reject before any further parsing.
-    if "\r" in url or "\n" in url:
-        return "/"
-    # Must be a site-relative absolute path. Rejects relative paths
-    # ("../../admin/", "foo") and is the first half of the protocol-relative
-    # ("//evil.com") rejection (completed by the netloc check below).
-    if not url.startswith("/"):
-        return "/"
-    from urllib.parse import unquote, urlparse
-
-    try:
-        parsed = urlparse(url)
-    except ValueError:
-        return "/"
-    # Absolute ("https://evil.com/page") or protocol-relative ("//evil.com").
-    if parsed.scheme or parsed.netloc:
-        return "/"
-    # Path traversal: reject any ".." path segment. ``RequestFactory.get()``
-    # percent-DECODES the path once, so a raw-segment check on ``parsed.path``
-    # would miss "/%2e%2e/admin/" — which lands in ``request.path`` as
-    # "/../admin/" after Django decodes it (#1819 review: encoded-traversal
-    # bypass). Decode once here (matching RequestFactory's single decode)
-    # before the segment check, and reject backslashes / control bytes that
-    # decode into alternate separators or null bytes ("/..%5cadmin",
-    # "/foo/..%00/admin").
-    decoded_path = unquote(parsed.path)
-    if "\\" in decoded_path or any(ord(ch) < 0x20 for ch in decoded_path):
-        return "/"
-    if ".." in decoded_path.split("/"):
-        return "/"
-    return url
+# F23 (#1819 traversal fix) is now implemented once in
+# ``djust.security.mount.validate_mount_url`` so the WebSocket, SSE, and
+# ``ViewRuntime`` mount paths share a single validator and cannot drift
+# (#1646). ``_validate_mount_url`` is kept as a module-level alias because
+# existing tests and call sites reference it by this name.
+from .security.mount import validate_mount_url as _validate_mount_url  # noqa: E402
 
 
 def _should_expose_timing() -> bool:
@@ -1038,10 +1108,9 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 # "Recovery HTML unavailable", and the client freezes at the
                 # transitional state even though the backend advanced (#1636).
                 # Stamp the consumer-owned wire version (#1788), discarding the
-                # Rust ``version`` for the wire. Order: _next_version() THEN
-                # _arm_recovery (so _recovery_version == this frame's version).
-                version = self._next_version()
-                self._arm_recovery(html)
+                # Rust ``version`` for the wire, AND arm recovery in one step so
+                # _recovery_version == this frame's version (#1817).
+                version = self._next_version_armed(html)
                 await self._send_update(
                     patches=patch_list,
                     version=version,
@@ -1060,9 +1129,8 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 )(html)
                 # The fallback sends the full render to the client, so the
                 # recovery baseline must track it too (#1636). Consumer-owned
-                # wire version (#1788); order: _next_version() THEN _arm_recovery.
-                version = self._next_version()
-                self._arm_recovery(html)
+                # wire version + recovery arm in one step (#1788, #1817).
+                version = self._next_version_armed(html)
                 await self._send_update(
                     html=html_content,
                     version=version,
@@ -1097,9 +1165,12 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
                     if patches is not None:
                         patch_list = fast_json_loads(patches) if patches else []
+                        # Render-send: arm recovery so _recovery_version tracks
+                        # this error re-render's version (#1817). ``html`` is the
+                        # pre-strip render from render_with_diff() above.
                         await self._send_update(
                             patches=patch_list,
-                            version=self._next_version(),  # consumer-owned (#1788)
+                            version=self._next_version_armed(html),
                             event_name=event_name,
                             source="async",
                         )
@@ -1114,7 +1185,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         )(html)
                         await self._send_update(
                             html=html_content,
-                            version=self._next_version(),  # consumer-owned (#1788)
+                            version=self._next_version_armed(html),
                             event_name=event_name,
                             source="async",
                         )
@@ -1166,6 +1237,47 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         """
         self._recovery_html = html
         self._recovery_version = getattr(self, "_last_sent_version", 0)
+
+    def _next_version_armed(self, html: str) -> int:
+        """Advance the wire version AND refresh the recovery baseline in one step.
+
+        This is the canonical primitive for every RENDER-SEND path — any frame
+        that ships a freshly-rendered patch/HTML the client applies as new
+        display state (and that WRITES ``clientVdomVersion = data.version``,
+        ``static/djust/src/02-response-handler.js:77``). It folds the
+        ``_next_version()`` allocation and the ``_arm_recovery(html)`` capture
+        into a single call so the two can never drift apart.
+
+        Why this exists (#1817): before #1816 (#1788) several render-send paths —
+        the async-result error arms, the deferred-activity render, the hotreload
+        frame, the time-travel jumps, and the tick / db_notify broadcasts —
+        advanced ``_next_version()`` WITHOUT arming recovery. After such a frame
+        the client's applied version was ahead of ``_recovery_version``, so a
+        later ``request_html`` returned an ``html_recovery`` stamped with the
+        STALE ``_recovery_version`` (``handle_request_html`` uses
+        ``self._recovery_version`` for the wire). The client then reset
+        ``clientVdomVersion`` backwards (``03-websocket.js:727``) and the NEXT
+        successful diff's ``data.version - 1`` no longer matched — forcing an
+        extra recovery round-trip. Routing every render-send path through this
+        helper keeps ``_recovery_version == _last_sent_version`` after each
+        applied frame, so recovery always resets the client to the version it is
+        actually on (#1646 parallel-path discipline: one helper, not N hand-copied
+        two-line pairs).
+
+        ``html`` MUST be the full PRE-STRIP HTML returned by
+        ``render_with_diff()`` (before ``_strip_comments_and_whitespace`` /
+        ``_extract_liveview_content``) — ``handle_request_html`` strips and
+        extracts the cached ``_recovery_html`` on demand, so arming with the
+        already-stripped/extracted content would double-process it.
+
+        NON-render frames (the mount baseline, ``navigate`` / ``reload`` /
+        error-only frames with no new render HTML) must stay on the bare
+        ``_next_version()`` — they advance the wire sequence but have no
+        client-applied display HTML to recover to.
+        """
+        version = self._next_version()
+        self._arm_recovery(html)
+        return version
 
     async def _send_update(
         self,
@@ -1424,9 +1536,11 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
         has_async = getattr(self.view_instance, "_async_pending", None) is not None
         if patch_list is not None:
+            # Render-send: arm recovery so _recovery_version tracks this deferred
+            # render's version (#1817). ``html`` is the pre-strip render.
             await self._send_update(
                 patches=patch_list,
-                version=self._next_version(),  # consumer-owned (#1788)
+                version=self._next_version_armed(html),
                 event_name=event_name,
                 async_pending=has_async,
                 source="event",
@@ -1437,6 +1551,10 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             # VDOM diff returned no patches — send full HTML like the
             # main path does. Mirrors the fallback branch so clients
             # behave identically for deferred vs live events.
+            # Capture the PRE-STRIP html for recovery arming BEFORE the
+            # strip/extract reassigns ``html`` (#1817 — _arm_recovery expects
+            # the unstripped render, which handle_request_html strips on demand).
+            recovery_html = html
             try:
 
                 def _sync_strip_and_extract(raw_html):
@@ -1450,7 +1568,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 return
             await self._send_update(
                 html=html_content,
-                version=self._next_version(),  # consumer-owned (#1788)
+                version=self._next_version_armed(recovery_html),
                 event_name=event_name,
                 async_pending=has_async,
                 source="event",
@@ -1499,15 +1617,21 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             logger.debug("Failed to attach debug payload: %s", e)
 
     def _get_client_ip(self) -> Optional[str]:
-        """Extract client IP from scope, with X-Forwarded-For support."""
+        """Extract the trustworthy client IP from the ASGI scope.
+
+        Defaults to the real socket peer; ``X-Forwarded-For`` is honored only
+        when ``DJUST_TRUSTED_PROXY_COUNT`` is set (peeled from the right). See
+        :func:`djust._client_ip.resolve_client_ip` — this keeps a client from
+        spoofing XFF to bypass per-IP rate limiting or poison a cooldown.
+        """
+        from ._client_ip import resolve_client_ip
+
         headers = dict(self.scope.get("headers", []))
         forwarded = headers.get(b"x-forwarded-for")
-        if forwarded:
-            return forwarded.decode("utf-8").split(",")[0].strip()
+        fwd = forwarded.decode("utf-8") if forwarded else None
         client = self.scope.get("client")
-        if client:
-            return client[0]
-        return None
+        peer = client[0] if client else None
+        return resolve_client_ip(fwd, peer)
 
     async def connect(self):
         """Handle WebSocket connection"""
@@ -1556,6 +1680,8 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             rate=rl_cfg.get("rate", 100),
             burst=rl_cfg.get("burst", 20),
             max_warnings=rl_cfg.get("max_warnings", 3),
+            upload_rate=rl_cfg.get("upload_rate", 200),
+            upload_burst=rl_cfg.get("upload_burst", 400),
         )
 
         # Send connection acknowledgment
@@ -1568,6 +1694,11 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         """Handle WebSocket disconnection"""
+        # Clear the tenant ContextVar bound at mount (Finding #6) so the
+        # consumer task doesn't carry a stale tenant if the executor/context is
+        # reused. No-op when tenants is unavailable.
+        _bind_tenant(None)
+
         # Release observability registry entry first — it's weakly-held
         # anyway but explicit cleanup avoids a brief stale entry window.
         session_id = getattr(self, "session_id", None)
@@ -1707,6 +1838,32 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 # Check if this looks like an upload frame (first byte is 0x01-0x03)
                 frame_type = bytes_data[0]
                 if frame_type in (0x01, 0x02, 0x03):
+                    # Rate-account upload frames BEFORE dispatch (#F17). The
+                    # global gate below "applies to ALL message types (#107)",
+                    # but binary upload frames used to early-return here without
+                    # passing it — leaving the highest-volume message class
+                    # unthrottled and never tripping the abuse-disconnect. Use a
+                    # dedicated higher-ceiling upload bucket so legitimate
+                    # high-volume uploads aren't throttled, while a flood still
+                    # depletes the bucket → should_disconnect() → close(4429).
+                    if not self._rate_limiter.check_upload():
+                        if self._rate_limiter.should_disconnect():
+                            logger.warning("Upload-frame rate limit exceeded, disconnecting client")
+                            if getattr(self, "_client_ip", None):
+                                _rl = djust_config.get("rate_limit", {})
+                                cooldown = (
+                                    _rl.get("reconnect_cooldown", 5) if isinstance(_rl, dict) else 5
+                                )
+                                ip_tracker.add_cooldown(self._client_ip, cooldown)
+                            await self.close(code=4429)
+                            return
+                        await self.send_json(
+                            {
+                                "type": "rate_limit_exceeded",
+                                "message": "Too many upload frames, some are being dropped",
+                            }
+                        )
+                        return
                     await self._handle_upload_frame(bytes_data)
                     return
 
@@ -1836,75 +1993,35 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self.send_error("Missing view path in mount request")
             return
 
-        # Security: Check if view is in allowed modules
-        allowed_modules = getattr(settings, "LIVEVIEW_ALLOWED_MODULES", [])
-        if allowed_modules:
-            # Check if view_path starts with any allowed module
-            if not any(view_path.startswith(module) for module in allowed_modules):
-                logger.warning(
-                    "Blocked attempt to mount view from unauthorized module: %s", view_path
-                )
-                await self.send_error(
-                    _safe_error(f"View {view_path} is not in allowed modules", "View not found")
-                )
-                return
+        # Security (F22 — unsafe reflection / arbitrary module import + insecure
+        # default allowlist + boundary-less prefix match): resolve the
+        # client-supplied dotted view path through the single shared resolver.
+        # It validates the path SHAPE, checks the allowlist BEFORE importing
+        # anything (fail-closed to LIVEVIEW_ALLOWED_MODULES, else INSTALLED_APPS
+        # roots + djust), imports via import_module + vars() (PEP 562-safe), and
+        # confirms the LiveView subclass. Shared with the runtime/SSE paths so
+        # they cannot drift (#1646). See djust.security.mount.
+        from .security.mount import available_liveview_names, resolve_view_class
 
-        # Import the view class
-        module = None
-        module_path = ""
-        class_name = ""
-        try:
-            module_path, class_name = view_path.rsplit(".", 1)
-            module = __import__(module_path, fromlist=[class_name])
-            view_class = getattr(module, class_name)
-        except ValueError:
-            error_msg = (
-                f"Invalid view path format: {view_path}. Expected format: module.path.ClassName"
+        resolution = resolve_view_class(view_path)
+        if not resolution:
+            logger.warning(
+                "Blocked/failed mount of view: %s (%s)",
+                sanitize_for_log(view_path),
+                resolution.generic,
             )
-            logger.error(error_msg)
-            await self.send_error(_safe_error(error_msg, "View not found"))
-            return
-        except ImportError as e:
-            error_msg = f"Failed to import module {module_path}: {str(e)}"
-            logger.error(error_msg)
-            await self.send_error(_safe_error(error_msg, "View not found"))
-            return
-        except AttributeError:
-            error_msg = f"Class {class_name} not found in module {module_path}"
-            logger.error(error_msg)
             hint = None
-            if getattr(settings, "DEBUG", False):
-                try:
-                    import inspect as _inspect
-
-                    from .live_view import LiveView as _LV
-
-                    available = [
-                        name
-                        for name, obj in _inspect.getmembers(module, _inspect.isclass)
-                        if issubclass(obj, _LV) and obj is not _LV
-                    ]
-                    if available:
-                        hint = "Available LiveView classes in %s: %s" % (
-                            module_path,
-                            ", ".join(sorted(available)),
-                        )
-                except Exception as exc:
-                    logger.debug("Could not enumerate LiveView classes: %s", exc)
-            await self.send_error(_safe_error(error_msg, "View not found"), hint=hint)
+            # DEBUG-only enumeration hint for the "class not found" case — only
+            # meaningful once the module imported (allowlist passed). Enumerate
+            # via vars()/__dict__ (PEP 562-safe), never getattr.
+            if getattr(settings, "DEBUG", False) and resolution.generic == "View not found":
+                names = available_liveview_names(view_path)
+                if names:
+                    module_path = view_path.rsplit(".", 1)[0]
+                    hint = "Available LiveView classes in %s: %s" % (module_path, ", ".join(names))
+            await self.send_error(_safe_error(resolution.detail, resolution.generic), hint=hint)
             return
-
-        # Security: Validate that the class is actually a LiveView
-        from .live_view import LiveView
-
-        if not (isinstance(view_class, type) and issubclass(view_class, LiveView)):
-            error_msg = (
-                f"Security: {view_path} is not a LiveView subclass. "
-                f"Only LiveView classes can be mounted via WebSocket."
-            )
-            logger.error(error_msg)
-            await self.send_error(_safe_error(error_msg, "Invalid view class"))
-            return
+        view_class = resolution.view_class
 
         # Instantiate the view
         try:
@@ -2025,7 +2142,35 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             # against path traversal / CRLF / absolute-URL injection (#1819).
             page_url = _validate_mount_url(data.get("url", "/"))
             path_with_query = f"{page_url}?{query_string}" if query_string else page_url
-            request = factory.get(path_with_query)
+
+            # Finding #26: propagate the validated client Host (and TLS scheme)
+            # from the handshake scope into the reconstructed request so
+            # host/subdomain TenantResolvers — and every other
+            # ``request.get_host()`` consumer — resolve identically on the live
+            # path to the HTTP (SSR) path. Without HTTP_HOST the request defaults
+            # to RequestFactory's "testserver", misresolving the tenant to None
+            # (cross-tenant disclosure with STRICT_MODE=False, broken tenancy by
+            # default). ``validated_host_from_scope`` validates the Host against
+            # ALLOWED_HOSTS using the SAME logic as the CSWSH Origin check, and
+            # returns ``(None, ...)`` for absent/invalid Hosts so non-browser
+            # clients (WebsocketCommunicator) keep working.
+            host, is_secure = validated_host_from_scope(self.scope)
+            request_extra = {}
+            if host:
+                request_extra["HTTP_HOST"] = host
+            if is_secure:
+                request_extra["secure"] = True
+                request_extra["HTTP_X_FORWARDED_PROTO"] = "https"
+            request = factory.get(path_with_query, **request_extra)
+
+            # Stash the validated host on the view so runtime-rebuilt requests
+            # (``ViewRuntime._build_request`` for url_change etc.) carry the same
+            # host. Mirrors the ``_websocket_path`` stash above (#1646: one seam,
+            # both reconstructed-request paths). ``None`` when absent/invalid so
+            # the runtime falls back to the same RequestFactory default.
+            if self.view_instance is not None:
+                self.view_instance._websocket_host = host
+                self.view_instance._websocket_secure = is_secure
 
             # Add session from WebSocket scope.
             # session_key is an ATTRIBUTE of the session object, not a dict key.
@@ -2129,6 +2274,15 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             #   See: https://github.com/djust-org/djust/issues/342
             if hasattr(self.view_instance, "_ensure_tenant"):
                 await sync_to_async(self.view_instance._ensure_tenant)(request)
+
+            # Bind the resolved tenant into the ContextVar for the rest of the
+            # mount (mount() + initial render run later in this same consumer
+            # task). Finding #6: TenantMiddleware only binds the tenant on the
+            # HTTP path; without this the tenant-scoped managers see None and
+            # (fail-closed) return empty querysets on the live mount. Cleared in
+            # disconnect(). Sourced from the view's resolved _tenant (None for
+            # non-tenant views — a no-op).
+            _bind_tenant(getattr(self.view_instance, "_tenant", None))
 
             # --- on_mount hooks (after auth, before mount) ---
             from .hooks import run_on_mount_hooks
@@ -2255,12 +2409,29 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     snapshot_slug = state_snapshot.get("view_slug", "")
                     if snapshot_slug == view_path:
                         state_dict = None
-                        raw_state = state_snapshot.get("state_json", "{}")
-                        # Fix #6 — hard server-side size cap on inbound
-                        # snapshot JSON. Matches the 64 KB client clamp
-                        # and guards against oversized payloads that
-                        # bypass the client.
-                        if isinstance(raw_state, str) and len(raw_state) > 65536:
+                        # Finding #4 (CWE-345 → CWE-915): the snapshot is
+                        # client-supplied and MUST carry a server HMAC
+                        # signature. ``state_json`` is now the OPAQUE signed
+                        # blob the client echoes back verbatim (see the emit
+                        # path below + 46-state-snapshot.js). Verify the
+                        # signature + TTL + identity (slug + session) BEFORE
+                        # trusting any bytes. An unsigned/forged/tampered/
+                        # expired/cross-context snapshot returns None here and
+                        # falls through to a normal mount() — there is no
+                        # bypass via the legacy plain ``state_json``.
+                        from .security import unsign_snapshot
+
+                        signed_blob = state_snapshot.get("state_json", "")
+                        session_key = getattr(self.view_instance, "_django_session_key", None)
+                        raw_state = unsign_snapshot(signed_blob, view_path, session_key)
+                        if raw_state is None:
+                            # Rejected at the signature/identity/TTL gate.
+                            # unsign_snapshot already logged the reason.
+                            state_dict = None
+                        # Fix #6 — hard server-side size cap on the VERIFIED
+                        # inner snapshot JSON. Matches the 64 KB client clamp
+                        # and guards against oversized payloads.
+                        elif len(raw_state) > 65536:
                             logger.warning(
                                 "state_snapshot state_json too large "
                                 "(%d bytes > 64KB) for %s; ignoring",
@@ -2486,12 +2657,21 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
         # Fix #1 — end-to-end wiring for state-snapshot capture.
         # When the view opts in via ``enable_state_snapshot = True`` AND
-        # the master switch is enabled, emit the JSON-serializable
-        # public state alongside the mount frame so the client can
-        # populate ``djust._clientState[<view_slug>]`` for the next
-        # before-navigate capture. Non-opt-in views never have their
-        # state shipped — matches the security posture of the
-        # opt-in-only model.
+        # the master switch is enabled, emit the public state alongside
+        # the mount frame so the client can populate
+        # ``djust._clientState[<view_slug>]`` for the next before-navigate
+        # capture. Non-opt-in views never have their state shipped —
+        # matches the security posture of the opt-in-only model.
+        #
+        # Finding #4 (CWE-345 → CWE-915): the snapshot is now SIGNED with a
+        # ``TimestampSigner`` (keyed on ``SECRET_KEY``) and the OPAQUE signed
+        # blob is what crosses the wire (``state_snapshot_signed``). The
+        # client stores it verbatim and echoes it back unchanged; the restore
+        # path verifies the signature + TTL + identity before applying any
+        # state. This closes the unsigned-snapshot forgery vector — a client
+        # can no longer fabricate ``{"is_admin": true, ...}`` and inject it.
+        # The signature binds the view slug + Django session key so a valid
+        # snapshot cannot be replayed across views or sessions.
         try:
             state_master_on = getattr(settings, "DJUST_STATE_SNAPSHOT_ENABLED", True)
             if state_master_on and getattr(self.view_instance, "enable_state_snapshot", False):
@@ -2499,10 +2679,19 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 if callable(snapshot_fn):
                     public_state = await sync_to_async(snapshot_fn)()
                     if isinstance(public_state, dict) and public_state:
-                        response["public_state"] = public_state
+                        from .security import sign_snapshot
+
+                        # Canonical serialization so the signed bytes are
+                        # stable (and match the inner JSON the restore path
+                        # json.loads-es after unsigning).
+                        state_json = json.dumps(public_state, sort_keys=True, separators=(",", ":"))
+                        session_key = getattr(self.view_instance, "_django_session_key", None)
+                        response["state_snapshot_signed"] = sign_snapshot(
+                            state_json, view_path, session_key
+                        )
         except Exception:  # noqa: BLE001 — snapshot emission must never break mount
             logger.exception(
-                "Failed to emit public_state for %s; proceeding without snapshot",
+                "Failed to emit state_snapshot_signed for %s; proceeding without snapshot",
                 sanitize_for_log(view_path),
             )
 
@@ -2847,7 +3036,23 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self.send_json(frame)
 
     async def handle_event(self, data: Dict[str, Any]):
-        """Handle client events"""
+        """Handle client events.
+
+        Thin wrapper that establishes the tenant context for the duration of
+        the event dispatch (Finding #6). ``TenantMiddleware`` only binds the
+        tenant on the HTTP path; on the WebSocket path the tenant is resolved
+        onto ``view_instance._tenant`` at mount, but the tenant-scoped managers
+        read it from a ContextVar. Bind it here so every handler + render inside
+        the event sees the correct tenant — and so the tenant-aware managers
+        fail CLOSED (empty queryset) rather than disclosing other tenants' rows
+        when the view is NOT tenant-aware. Cleared on exit via try/finally.
+        """
+        tenant = getattr(self.view_instance, "_tenant", None) if self.view_instance else None
+        with _tenant_context(tenant):
+            await self._handle_event_inner(data)
+
+    async def _handle_event_inner(self, data: Dict[str, Any]):
+        """Handle client events (see :meth:`handle_event` for the tenant wrapper)."""
         import time
         from djust.performance import PerformanceTracker
 
@@ -3864,11 +4069,10 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         # Store rendered HTML for on-demand recovery.
                         # Client sends request_html when applyPatches() fails
                         # (e.g., {% if %} blocks shifting DOM structure).
-                        # Consumer-owned wire version (#1788): allocate it, THEN
-                        # arm recovery (so _recovery_version == this frame's
-                        # version — recovery sets clientVdomVersion directly).
-                        wire_version = self._next_version()
-                        self._arm_recovery(html)
+                        # Consumer-owned wire version + recovery arm in one step
+                        # (#1788, #1817): _recovery_version == this frame's version
+                        # (recovery sets clientVdomVersion directly).
+                        wire_version = self._next_version_armed(html)
 
                         await self._send_update(
                             patches=patch_list,
@@ -3898,11 +4102,13 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         # #1788 path: a baseline loss makes the Rust ``version``
                         # non-sequential, but ``wire_version`` stays monotonic so
                         # the client accepts the html_update without recovery.
-                        # Allocate it BEFORE _arm_recovery (so _recovery_version
-                        # == this frame's version). The Rust ``version`` is still
-                        # used below for the DJE-053 warning + telemetry reason.
-                        wire_version = self._next_version()
-                        self._arm_recovery(html)
+                        # Allocate the wire version AND arm recovery in one step
+                        # (#1788, #1817) so _recovery_version == this frame's
+                        # version, arming with the RAW pre-strip ``html`` before
+                        # the strip/extract below reassigns it. The Rust
+                        # ``version`` is still used below for the DJE-053 warning
+                        # + telemetry reason.
+                        wire_version = self._next_version_armed(html)
 
                         # Batch strip + extract into a single thread hop
                         # to avoid two separate sync_to_async crossings.
@@ -4032,10 +4238,34 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             engine = engines["django"] if "django" in engines else list(engines.all())[0]
             tmpl = engine.from_string(template_str)
             html = tmpl.render(context)
+            # Record the child's dj-model auto-allowlist from ITS own TEMPLATE
+            # SOURCE — child update_model events gate against the child's
+            # _dj_model_fields, and this is the child's only render path (it
+            # bypasses render_with_diff). Derived from the Rust template AST
+            # (Text-node literals), immune to rendered-output poisoning
+            # (#3 review #1646).
+            if hasattr(child_view, "_record_dj_model_fields_from_source"):
+                from .utils import get_template_dirs
+
+                child_view._record_dj_model_fields_from_source(template_str, get_template_dirs())
             return html
         except Exception as e:
             logger.error("Failed to render embedded child %s: %s", child_view.__class__.__name__, e)
-            return f"<!-- Error rendering embedded child: {e} -->"
+            # SECURITY (#1646 parallel-path drift): this site bypassed the
+            # central handle_exception / create_safe_error_response path, which
+            # is DEBUG-gated and generic in production. Returning the raw str(e)
+            # here (a) leaked exception detail into the live page in production
+            # (CWE-209) and (b) was unescaped, so an attacker-influenced message
+            # containing ``-->`` broke out of the HTML comment into live DOM
+            # (CWE-79 DOM XSS). escape() neutralises the comment-breakout and any
+            # tag injection in BOTH modes; production additionally emits no
+            # detail. Mirrors the DEBUG gate in simple_live_view.render_template.
+            from django.conf import settings
+            from django.utils.html import escape
+
+            if getattr(settings, "DEBUG", False):
+                return f"<!-- Error rendering embedded child: {escape(str(e))} -->"
+            return "<!-- Error rendering embedded child -->"
 
     # ========================================================================
     # File Upload Handling
@@ -4467,9 +4697,15 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 # the consumer counter — otherwise the NEXT normal event would be
                 # rejected against a stale client version. The separate
                 # ``_hvr_version`` (``hvr-applied`` telemetry frame) is untouched.
+                # Render-send: the hotreload frame is exempt from the client
+                # version CHECK but it still WRITES clientVdomVersion (#1788,
+                # HIDDEN #1), so it advances the client past _recovery_version.
+                # Arm recovery so a later request_html serves the post-HVR HTML,
+                # not a stale pre-HVR baseline (#1817). ``html`` is the pre-strip
+                # render from render_with_diff() above.
                 await self._send_update(
                     patches=patches,
-                    version=self._next_version(),  # consumer-owned (#1788, HIDDEN #1)
+                    version=self._next_version_armed(html),
                     hotreload=True,
                     file_path=file_path,
                 )
@@ -5096,7 +5332,9 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self._send_update(
                 patches=patch_list,
                 html=html,
-                version=self._next_version(),  # consumer-owned (#1788)
+                # Render-send: arm recovery so _recovery_version tracks this
+                # jump's version (#1817). ``html`` is the pre-strip render.
+                version=self._next_version_armed(html),
                 event_name="__time_travel_jump__",
             )
         except Exception as exc:  # noqa: BLE001 — dev-only, log + report
@@ -5169,7 +5407,9 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self._send_update(
                 patches=patch_list,
                 html=html,
-                version=self._next_version(),  # consumer-owned (#1788)
+                # Render-send: arm recovery so _recovery_version tracks this
+                # component-jump's version (#1817). ``html`` is the pre-strip render.
+                version=self._next_version_armed(html),
                 event_name="__time_travel_component_jump__",
             )
         except Exception as exc:  # noqa: BLE001 — dev-only, log + report
@@ -5261,7 +5501,9 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self._send_update(
                 patches=patch_list,
                 html=html,
-                version=self._next_version(),  # consumer-owned (#1788)
+                # Render-send: arm recovery so _recovery_version tracks this
+                # forward-replay's version (#1817). ``html`` is the pre-strip render.
+                version=self._next_version_armed(html),
                 event_name="__forward_replay__",
             )
         except Exception as exc:  # noqa: BLE001 — dev-only, log + report
@@ -5350,8 +5592,18 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 # final Python state to Rust for rendering.
                 state = event.get("state")
                 if state and isinstance(state, dict):
+                    # Apply via safe_setattr — the same guard every other
+                    # state-restore sink uses (snapshot restore at ~:2311,
+                    # time_travel.py:276, mixins/request.py). A channel-layer
+                    # attacker (the framework's own stated threat model, see the
+                    # restricted handler path just below) must NOT be able to
+                    # overwrite dunders (__class__/__init__), framework internals
+                    # (_framework_attrs/_components/_rust_view), or private `_`
+                    # state via mass assignment (#F21, CWE-915/CWE-913).
+                    from .security import safe_setattr
+
                     for key, value in state.items():
-                        setattr(self.view_instance, key, value)
+                        safe_setattr(self.view_instance, key, value, allow_private=False)
 
                 # Call handler if specified — restricted to handle_* prefixed or
                 # @event_handler-decorated methods to prevent arbitrary method calls
@@ -5394,11 +5646,9 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     # handle_event. Without this, request_html after a failed
                     # broadcast-triggered patch finds _recovery_html=None and
                     # forces a page reload. See #1202.
-                    # Consumer-owned wire version (#1788); order: _next_version()
-                    # THEN _arm_recovery (so _recovery_version == this frame's
-                    # version).
-                    wire_version = self._next_version()
-                    self._arm_recovery(html)
+                    # Consumer-owned wire version + recovery arm in one step
+                    # (#1788, #1817): _recovery_version == this frame's version.
+                    wire_version = self._next_version_armed(html)
                     await self._send_update(
                         patches=patches,
                         version=wire_version,
@@ -5508,9 +5758,12 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 if patches is not None:
                     if isinstance(patches, str):
                         patches = fast_json_loads(patches)
+                    # Render-send: arm recovery so _recovery_version tracks this
+                    # db_notify broadcast's version (#1817), mirroring server_push.
+                    # ``html`` is the pre-strip render from render_with_diff() above.
                     await self._send_update(
                         patches=patches,
-                        version=self._next_version(),  # consumer-owned (#1788)
+                        version=self._next_version_armed(html),
                         broadcast=True,
                         source="broadcast",
                     )
@@ -5601,9 +5854,12 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         if patches is not None:
                             if isinstance(patches, str):
                                 patches = fast_json_loads(patches)
+                            # Render-send: arm recovery so _recovery_version
+                            # tracks this tick's version (#1817). ``html`` is the
+                            # pre-strip render from render_with_diff() above.
                             await self._send_update(
                                 patches=patches,
-                                version=self._next_version(),  # consumer-owned (#1788)
+                                version=self._next_version_armed(html),
                                 event_name="tick",
                                 source="tick",
                             )

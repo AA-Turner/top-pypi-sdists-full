@@ -7,7 +7,7 @@ This module provides structured logging setup using structlog.
 import json
 import logging
 from enum import StrEnum
-from typing import Any
+from typing import Any, TypedDict
 
 import structlog
 import temporalio.activity
@@ -16,7 +16,17 @@ from opentelemetry import trace
 from pydantic import BaseModel
 from structlog.typing import EventDict, Processor
 
+from mistralai.workflows.core._events.event_utils import try_get_lineage_workflow_exec_id
 from mistralai.workflows.worker_client.errors import SDKError
+
+
+class ErrorContext(TypedDict, total=False):
+    error_type: str
+    error_message: str
+    http_status: int | None
+    api_error_body: str | None
+    api_error_code: str
+    api_error_message: str
 
 
 class Env(StrEnum):
@@ -87,6 +97,12 @@ def _add_temporal_context_processor(logger: Any, method_name: str, event_dict: E
 
     event_dict.setdefault("workflow.execution_id", workflow_id)
     event_dict.setdefault("workflow.run_id", run_id)
+
+    root_id, parent_id = try_get_lineage_workflow_exec_id()
+    if root_id is not None:
+        event_dict.setdefault("workflow.root_execution_id", root_id)
+    if parent_id is not None:
+        event_dict.setdefault("workflow.parent_execution_id", parent_id)
     return event_dict
 
 
@@ -101,34 +117,19 @@ def _add_otel_trace_processor(logger: Any, method_name: str, event_dict: EventDi
     return event_dict
 
 
-def setup_logging(
-    log_level: LogLevel = LogLevel.INFO,
-    log_format: LogFormat = LogFormat.CONSOLE,
-    app_version: str = "0.0.0",
-    inject_otel_trace: bool = False,
-    extra_config: list[LoggerConfig] | None = None,
-) -> None:
-    logging.basicConfig(
-        format="%(message)s",
-        level=_get_log_level_value(log_level),
-    )
+_shared_processors: list[Processor] = []
 
-    if extra_config:
-        for logger_config in extra_config:
-            logger = logging.getLogger(logger_config.name)
-            logger.setLevel(_get_log_level_value(logger_config.level))
 
+def _build_shared_processors(inject_otel_trace: bool) -> list[Processor]:
     processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
-        structlog.stdlib.filter_by_level,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
+        _add_temporal_context_processor,
     ]
-
-    processors.append(_add_temporal_context_processor)
 
     if inject_otel_trace:
         processors.append(_add_otel_trace_processor)
@@ -141,33 +142,71 @@ def setup_logging(
             }
         )
     )
+    return processors
 
-    if log_format == LogFormat.JSON:
-        processors.extend(
-            [
-                structlog.processors.format_exc_info,
-                structlog.processors.JSONRenderer(),
-            ]
-        )
-    else:
-        processors.extend(
-            [
-                structlog.processors.format_exc_info,
-                structlog.dev.ConsoleRenderer(),
-            ]
-        )
+
+def _build_formatter(renderer: Processor) -> structlog.stdlib.ProcessorFormatter:
+    return structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=_shared_processors,
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.processors.format_exc_info,
+            renderer,
+        ],
+    )
+
+
+def build_json_log_formatter() -> structlog.stdlib.ProcessorFormatter:
+    """structlog formatter that always renders log records as JSON.
+
+    Attached to the OTLP log handler so exported log bodies are JSON regardless of the
+    console ``log_format`` chosen by the user. This is pure structlog (no OpenTelemetry);
+    relies on ``setup_logging`` having populated the shared processor chain first.
+    """
+    return _build_formatter(structlog.processors.JSONRenderer())
+
+
+def setup_logging(
+    log_level: LogLevel = LogLevel.INFO,
+    log_format: LogFormat = LogFormat.CONSOLE,
+    app_version: str = "0.0.0",
+    inject_otel_trace: bool = False,
+    extra_config: list[LoggerConfig] | None = None,
+) -> None:
+    global _shared_processors
+    _shared_processors = _build_shared_processors(inject_otel_trace)
 
     structlog.configure(
-        processors=processors,
+        processors=[
+            structlog.stdlib.filter_by_level,
+            *_shared_processors,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
         wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
+    console_renderer: Processor = (
+        structlog.processors.JSONRenderer() if log_format == LogFormat.JSON else structlog.dev.ConsoleRenderer()
+    )
+    handler = logging.StreamHandler()
+    handler.setFormatter(_build_formatter(console_renderer))
 
-def extract_error_context(exc: Exception) -> dict:
-    ctx: dict = {
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+    root_logger.setLevel(_get_log_level_value(log_level))
+
+    if extra_config:
+        for logger_config in extra_config:
+            logger = logging.getLogger(logger_config.name)
+            logger.setLevel(_get_log_level_value(logger_config.level))
+
+
+def extract_error_context(exc: Exception) -> ErrorContext:
+    ctx: ErrorContext = {
         "error_type": type(exc).__name__,
         "error_message": str(exc),
     }

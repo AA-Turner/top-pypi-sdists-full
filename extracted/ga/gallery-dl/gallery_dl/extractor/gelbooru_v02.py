@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2021-2025 Mike Fährmann
+# Copyright 2021-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,6 +27,8 @@ class GelbooruV02Extractor(booru.BooruExtractor):
 
         if self.category == "rule34":
             self._file_url = self._file_url_rule34
+        elif self.category == "hypnohub":
+            self._file_url = self._file_url_hypnohub
 
     def import_blacklist(self):
         url = self.root + "/index.php?page=account&s=options"
@@ -125,6 +127,10 @@ class GelbooruV02Extractor(booru.BooruExtractor):
             post["file_url"] = url = "https://wimg." + path
 
         return url
+
+    def _file_url_hypnohub(self, post):
+        url = post["file_url"]
+        return f"{url[:20]}/{url[20:]}"
 
     def _prepare(self, post):
         post["tags"] = post["tags"].strip()

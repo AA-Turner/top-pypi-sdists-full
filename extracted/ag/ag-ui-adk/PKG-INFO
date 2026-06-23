@@ -1,15 +1,18 @@
 Metadata-Version: 2.4
 Name: ag_ui_adk
-Version: 0.6.5
+Version: 0.7.0
 Summary: ADK Middleware for AG-UI Protocol
 Author: Mark Fogle
 Author-email: Mark Fogle <mark@contextable.com>
 License-Expression: MIT
+License-File: LICENSE
 Requires-Dist: ag-ui-protocol>=0.1.15
-Requires-Dist: aiohttp>=3.12.0
+Requires-Dist: ag-ui-a2ui-toolkit>=0.0.3
+Requires-Dist: a2ui-agent-sdk>=0.2.4,<0.3.0
+Requires-Dist: aiohttp>=3.14.1
 Requires-Dist: asyncio>=3.4.3
 Requires-Dist: fastapi>=0.115.2
-Requires-Dist: google-adk>=1.16.0,<3.0.0
+Requires-Dist: google-adk>=1.28.1,<3.0.0
 Requires-Dist: pydantic>=2.11.7
 Requires-Dist: sse-starlette>=2.1.0
 Requires-Dist: uvicorn>=0.35.0
@@ -410,7 +413,7 @@ from google.adk.agents import Agent
 
 hello_agent = LlmAgent(
     name='HelloAgent',
-    model='gemini-2.5-flash',
+    model='gemini-3.5-flash',
     description="An agent that greets users",
     instruction="""
     You are a friendly assistant that greets users.
@@ -423,7 +426,7 @@ hello_agent = LlmAgent(
 
 goodbye_agent = LlmAgent(
     name='GoodbyeAgent',
-    model='gemini-2.5-flash',
+    model='gemini-3.5-flash',
     description="An agent that says goodbye",
     instruction="""
     You are a friendly assistant that says goodbye to users.
@@ -437,7 +440,7 @@ goodbye_agent = LlmAgent(
 # create an agent
 agent = LlmAgent(
     name='QaAgent',
-    model='gemini-2.5-flash',
+    model='gemini-3.5-flash',
     description="The QaAgent helps users by answering their questions.",
     instruction="""
     You are a helpful assistant. Help users by answering their questions and assisting with their needs.

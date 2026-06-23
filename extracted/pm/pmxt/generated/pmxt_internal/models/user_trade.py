@@ -33,10 +33,12 @@ class UserTrade(BaseModel):
     side: StrictStr = Field(description="Trade side from the taker's perspective.")
     outcome_id: Optional[StrictStr] = Field(default=None, description="The outcome this trade is for (if known).", alias="outcomeId")
     order_id: Optional[StrictStr] = Field(default=None, description="The order that produced this trade, if known.", alias="orderId")
+    market_id: Optional[StrictStr] = Field(default=None, description="The market this trade belongs to, when the venue exposes it (e.g. derivable from the fill's coin/asset).", alias="marketId")
+    fee: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Trading fee paid by the user for this fill, when the venue exposes it.")
     tx_hash: Optional[StrictStr] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.", alias="txHash")
     chain: Optional[StrictStr] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.")
     block_number: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.", alias="blockNumber")
-    __properties: ClassVar[List[str]] = ["id", "timestamp", "price", "amount", "side", "outcomeId", "orderId", "txHash", "chain", "blockNumber"]
+    __properties: ClassVar[List[str]] = ["id", "timestamp", "price", "amount", "side", "outcomeId", "orderId", "marketId", "fee", "txHash", "chain", "blockNumber"]
 
     @field_validator('side')
     def side_validate_enum(cls, value):
@@ -118,6 +120,8 @@ class UserTrade(BaseModel):
             "side": obj.get("side"),
             "outcomeId": obj.get("outcomeId"),
             "orderId": obj.get("orderId"),
+            "marketId": obj.get("marketId"),
+            "fee": obj.get("fee"),
             "txHash": obj.get("txHash"),
             "chain": obj.get("chain"),
             "blockNumber": obj.get("blockNumber")

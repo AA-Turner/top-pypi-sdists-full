@@ -51,7 +51,14 @@ def parse_ntriples(object f, object queue, str default_base, int batch_size):
   cdef list objs  = []
   cdef list datas = []
   
-  while line:
+  if line.lstrip().startswith("VERSION"):
+    version = line.split()[1].strip('"\'')
+    if not version in { "1.0", "1.1", "1.2", "1.2-basic" }:
+      print("* Owlready2 * Warning, unsupported RDF %s!" % line.strip())
+    line = f.readline().decode("utf8")
+
+  def parse_line(line, depth = 0):
+    nonlocal objs, datas
     if (not line.startswith("#")) and (not line.startswith("\n")):
       if not line.endswith("\n"): s,p,o = splitter.split(line[:-2], 2)
       else:                       s,p,o = splitter.split(line[:-3], 2)
@@ -60,7 +67,18 @@ def parse_ntriples(object f, object queue, str default_base, int batch_size):
       
       p = p[1:-1]
       
-      if   o.startswith("<"):
+      if   o.startswith("<<("):
+        if not depth:
+          saved = objs, datas
+          objs  = datas = [] # Same list
+        parse_line("%s ." % o[3:-3].strip(), depth + 1)
+        datas.append((s, p, None, "http://www.w3.org/2000/01/rdf-schema#Proposition"))
+        
+        if not depth:
+          queue.put(("tripleterm", datas))
+          objs, datas = saved
+          
+      elif o.startswith("<"):
         objs.append((s, p, o[1:-1]))
         if len(objs) > batch_size:
           queue.put(("objs", objs))
@@ -82,8 +100,10 @@ def parse_ntriples(object f, object queue, str default_base, int batch_size):
           queue.put(("datas", datas))
           datas = []
           
+  while line:
+    parse_line(line)
     line = f.readline().decode("utf8")
-
+    
   if objs:  queue.put(("objs", objs))
   if datas: queue.put(("datas", datas))
 
@@ -177,6 +197,9 @@ def parse_rdfxml(object f, object queue, str default_base, int batch_size):
   cdef dict axiom_annotation_props    = {}
   cdef dict axiom_annotation_targets  = {}
   cdef dict triples_with_unnamed_bn   = {}
+
+  cdef int triple_term_depth = 0
+  cdef saved = None
   
   cdef str xml_base
   cdef str xml_dir
@@ -206,16 +229,18 @@ def parse_rdfxml(object f, object queue, str default_base, int batch_size):
     prefixes = prefixess[-1]
     
   def startElement(str tag, dict attrs):
-    nonlocal tag_is_predicate, stack, current_content, current_attrs, dont_create_unnamed_bn, xml_base, xml_dir, known_nodes
+    nonlocal objs, datas, tag_is_predicate, stack, current_content, current_attrs, dont_create_unnamed_bn, xml_base, xml_dir, known_nodes, triple_term_depth, saved
     cdef str iri
     cdef str iri2 = ""
     cdef str namespace_base
+    cdef str parse_type
     
     tag_is_predicate = not tag_is_predicate
     if tag_is_predicate:
       
-      if   attrs.get("http://www.w3.org/1999/02/22-rdf-syntax-ns#parseType") == "Collection":
-        stack.append(["Collection", []])
+      parse_type = attrs.get("http://www.w3.org/1999/02/22-rdf-syntax-ns#parseType")
+      if   parse_type == "Collection": stack.append(["Collection", []])
+      elif parse_type == "Triple":     stack.append(["Triple", []])
         
       elif tag == "http://www.w3.org/1999/02/22-rdf-syntax-ns#RDF":
         stack.append(["RDF", 0])
@@ -278,16 +303,25 @@ def parse_rdfxml(object f, object queue, str default_base, int batch_size):
         if iri2.startswith("_"):
           add_to_bn2(bns, known_nodes,  iri2, "REL", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", tag)
           
-      if stack[-1][0] == "Collection":
+      if   stack[-1][0] == "Collection":
         stack[-1][1].append(iri2)
         
+      elif stack[-1][0] == "Triple":
+        stack[-1][1].append(iri2)
+        triple_term_depth += 1
+        if triple_term_depth == 1:
+          saved = objs, datas
+          objs  = datas = [] # Same list
+          #on_prepare_obj  = on_prepare_triple_term
+          #on_prepare_data = on_prepare_triple_term
+          
       else:
         if stack[-1][0] == "Literal": stack[-1][0] = "Resource"
         stack[-1][1] = iri2
         
         
   def endElement(str tag):
-    nonlocal objs, datas, tag_is_predicate, dont_create_unnamed_bn,  stack, axiom_annotation_sources, axiom_annotation_props, axiom_annotation_targets, triples_with_unnamed_bn
+    nonlocal objs, datas, tag_is_predicate, dont_create_unnamed_bn,  stack, axiom_annotation_sources, axiom_annotation_props, axiom_annotation_targets, triples_with_unnamed_bn, triple_term_depth, saved
     cdef str iri2
     cdef str parse_type
     cdef object value
@@ -298,8 +332,8 @@ def parse_rdfxml(object f, object queue, str default_base, int batch_size):
     if tag_is_predicate:
       parse_type, value = stack.pop()
       
-      if stack[-1][0] == "Collection": iri2 = stack[-1][1][-1]
-      else:                            iri2 = stack[-1][1]
+      if stack[-1][0] == "Collection" or stack[-1][0] == "Triple": iri2 = stack[-1][1][-1]
+      else:                                                        iri2 = stack[-1][1]
       
       if   tag == "http://www.w3.org/2002/07/owl#annotatedSource":
         dont_create_unnamed_bn = False
@@ -327,6 +361,11 @@ def parse_rdfxml(object f, object queue, str default_base, int batch_size):
         if not iri2 in fake_blanks:
           objs.append((iri2, tag, value))
           
+        if stack[-1][0] == "Triple":
+          stack[-1][1].append(tag)
+          stack[-1][1].append(value)
+          stack[-1][1].append(None)
+          
         if iri2.startswith("_"):
           add_to_bn2(bns, known_nodes,  iri2, "REL", tag, value)
           
@@ -344,6 +383,11 @@ def parse_rdfxml(object f, object queue, str default_base, int batch_size):
         else:
           d = "@%s" % d
           
+        if stack[-1][0] == "Triple":
+          stack[-1][1].append(tag)
+          stack[-1][1].append(o)
+          stack[-1][1].append(d)
+          
         if not iri2 in fake_blanks:
           datas.append((iri2, tag, o, d))
         if iri2.startswith("_"):
@@ -355,7 +399,16 @@ def parse_rdfxml(object f, object queue, str default_base, int batch_size):
         if iri2.startswith("_"):
           add_to_bn2(bns, known_nodes,  iri2, "COL", tag, value)
           
-          
+      elif parse_type == "Triple":
+        datas.append((iri2, tag, None, "http://www.w3.org/2000/01/rdf-schema#Proposition"))
+        triple_term_depth -= 1
+        if triple_term_depth == 0:
+          queue.put(("tripleterm", datas))
+          objs, datas = saved
+        #  on_prepare_obj  = on_prepare_obj0
+        #  on_prepare_data = on_prepare_data0
+        #on_prepare_triple_term(iri, tag, None, "http://www.w3.org/2000/01/rdf-schema#Proposition", triple_term_depth)
+        
     if   len(objs)  > batch_size:
       queue.put(("objs", objs))
       objs = []

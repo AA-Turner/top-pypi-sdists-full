@@ -10,7 +10,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from ._callback_utils import _safe_add_callback  # noqa: F401
+from aigie.auto_instrument._callback_utils import _safe_add_callback  # noqa: F401
 
 _patched_classes = set()
 _callback_manager_patched = False
@@ -37,8 +37,8 @@ def _patch_callback_manager() -> None:
     try:
         from langchain_core.callbacks import BaseCallbackManager
 
-        from ..callback import AigieCallbackHandler
-        from ..client import get_aigie
+        from aigie.callback import AigieCallbackHandler
+        from aigie.client import get_aigie
 
         original_init = BaseCallbackManager.__init__
 
@@ -49,7 +49,7 @@ def _patch_callback_manager() -> None:
 
             # Skip injection when we're already in a callback-traced context
             # (LangGraph auto-instrument already injected our handler)
-            from .trace import is_in_callback_context
+            from aigie.auto_instrument.trace import is_in_callback_context
 
             if is_in_callback_context():
                 return
@@ -65,7 +65,7 @@ def _patch_callback_manager() -> None:
 
                 if not has_aigie_handler:
                     # Get current trace from context
-                    from .trace import get_current_trace
+                    from aigie.auto_instrument.trace import get_current_trace
 
                     trace = get_current_trace()
 
@@ -109,9 +109,9 @@ def _patch_agent_executor() -> None:
             """Traced version of ainvoke."""
             if config is not None:
                 kwargs["config"] = config
-            from ..auto_instrument.trace import get_or_create_trace
-            from ..callback import AigieCallbackHandler
-            from ..client import get_aigie
+            from aigie.auto_instrument.trace import get_or_create_trace
+            from aigie.callback import AigieCallbackHandler
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if aigie and aigie._initialized:
@@ -185,7 +185,7 @@ def _patch_agent_executor() -> None:
                     trace_metadata["domain"] = domain
 
                 # Clear any existing trace context to ensure each workflow gets its own trace
-                from ..auto_instrument.trace import clear_current_trace
+                from aigie.auto_instrument.trace import clear_current_trace
 
                 clear_current_trace()
 
@@ -230,7 +230,7 @@ def _patch_agent_executor() -> None:
                     kwargs["config"] = {}
                 _safe_add_callback(kwargs["config"], callback)
 
-            from ..auto_instrument.trace import set_callback_context
+            from aigie.auto_instrument.trace import set_callback_context
 
             set_callback_context(True)
             try:
@@ -243,9 +243,9 @@ def _patch_agent_executor() -> None:
             """Traced version of invoke."""
             if config is not None:
                 kwargs["config"] = config
-            from ..auto_instrument.trace import get_or_create_trace_sync
-            from ..callback import AigieCallbackHandler
-            from ..client import get_aigie
+            from aigie.auto_instrument.trace import get_or_create_trace_sync
+            from aigie.callback import AigieCallbackHandler
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if aigie and aigie._initialized:
@@ -332,7 +332,7 @@ def _patch_agent_executor() -> None:
                     trace_metadata["domain"] = domain
 
                 # Clear any existing trace context to ensure each workflow gets its own trace
-                from ..auto_instrument.trace import clear_current_trace
+                from aigie.auto_instrument.trace import clear_current_trace
 
                 clear_current_trace()
 
@@ -375,7 +375,7 @@ def _patch_agent_executor() -> None:
                         kwargs["config"] = {}
                     _safe_add_callback(kwargs["config"], callback)
 
-            from ..auto_instrument.trace import set_callback_context
+            from aigie.auto_instrument.trace import set_callback_context
 
             set_callback_context(True)
             try:
@@ -421,9 +421,9 @@ def _patch_create_agent() -> None:
                 original_ainvoke = agent.ainvoke
 
                 async def traced_ainvoke(inputs: dict[str, Any], **kwargs):
-                    from ..auto_instrument.trace import get_or_create_trace
-                    from ..callback import AigieCallbackHandler
-                    from ..client import get_aigie
+                    from aigie.auto_instrument.trace import get_or_create_trace
+                    from aigie.callback import AigieCallbackHandler
+                    from aigie.client import get_aigie
 
                     aigie = get_aigie()
                     if aigie and aigie._initialized:

@@ -65,6 +65,18 @@ class SHCDeviceService:
     def put_state_element(self, key, value):
         self.put_state({key: value})
 
+    async def async_put_state(self, key_value_pairs):
+        """Async counterpart to put_state — awaits the async API."""
+        await self._api.put_device_service_state(
+            self.device_id.replace("#", "%23"),
+            self.id,
+            {"@type": self.state["@type"], **key_value_pairs},
+        )
+
+    async def async_put_state_element(self, key, value):
+        """Async counterpart to put_state_element — awaits the async API."""
+        await self.async_put_state({key: value})
+
     def short_poll(self, fire_callbacks=False):
         if self._last_update is None or (
             datetime.now(timezone.utc) - self._last_update
@@ -92,6 +104,32 @@ class SHCDeviceService:
             # state itself.  Firing here on every poll would fan out redundant
             # schedule_update_ha_state() calls to every co-registered entity.
             # At initial setup _callbacks is empty, so firing is a no-op anyway.
+            if fire_callbacks:
+                for cb in list(self._callbacks):
+                    fn = self._callbacks.get(cb)
+                    if fn is not None:
+                        fn()
+
+    async def async_short_poll(self, fire_callbacks=False):
+        """Async counterpart to short_poll for the aiohttp (SHCAPIAsync) path.
+
+        The sync short_poll calls a blocking GET; under the async session the
+        device's api is SHCAPIAsync whose get_device_service is a coroutine —
+        so an on-demand refresh (HA should_poll entities) must await here.
+        Mirrors short_poll line-for-line otherwise.
+        """
+        if self._last_update is None or (
+            datetime.now(timezone.utc) - self._last_update
+        ) > timedelta(seconds=1):
+            self._raw_device_service = await self._api.get_device_service(
+                self.device_id.replace("#", "%23"), self.id
+            )
+            self._last_update = datetime.now(timezone.utc)
+            self._raw_state = (
+                self._raw_device_service["state"]
+                if "state" in self._raw_device_service
+                else {}
+            )
             if fire_callbacks:
                 for cb in list(self._callbacks):
                     fn = self._callbacks.get(cb)

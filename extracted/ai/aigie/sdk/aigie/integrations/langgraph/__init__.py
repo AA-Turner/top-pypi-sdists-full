@@ -57,117 +57,117 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
     """Lazy imports for performance."""
 
     if name == "LangGraphConfig":
-        from .config import LangGraphConfig
+        from aigie.integrations.langgraph.config import LangGraphConfig
 
         return LangGraphConfig
 
     # Utilities
     if name == "is_langgraph_available":
-        from .utils import is_langgraph_available
+        from aigie.integrations.langgraph.utils import is_langgraph_available
 
         return is_langgraph_available
     if name == "get_langgraph_version":
-        from .utils import get_langgraph_version
+        from aigie.integrations.langgraph.utils import get_langgraph_version
 
         return get_langgraph_version
     if name == "safe_str":
-        from .utils import safe_str
+        from aigie.integrations.langgraph.utils import safe_str
 
         return safe_str
     if name == "extract_node_name":
-        from .utils import extract_node_name
+        from aigie.integrations.langgraph.utils import extract_node_name
 
         return extract_node_name
     if name == "extract_edge_name":
-        from .utils import extract_edge_name
+        from aigie.integrations.langgraph.utils import extract_edge_name
 
         return extract_edge_name
     if name == "extract_graph_structure":
-        from .utils import extract_graph_structure
+        from aigie.integrations.langgraph.utils import extract_graph_structure
 
         return extract_graph_structure
     if name == "extract_state_info":
-        from .utils import extract_state_info
+        from aigie.integrations.langgraph.utils import extract_state_info
 
         return extract_state_info
     if name == "format_state_for_trace":
-        from .utils import format_state_for_trace
+        from aigie.integrations.langgraph.utils import format_state_for_trace
 
         return format_state_for_trace
     if name == "get_execution_path":
-        from .utils import get_execution_path
+        from aigie.integrations.langgraph.utils import get_execution_path
 
         return get_execution_path
     if name == "mask_sensitive_state":
-        from .utils import mask_sensitive_state
+        from aigie.integrations.langgraph.utils import mask_sensitive_state
 
         return mask_sensitive_state
     if name == "calculate_state_diff":
-        from .utils import calculate_state_diff
+        from aigie.integrations.langgraph.utils import calculate_state_diff
 
         return calculate_state_diff
 
     # Retry/Timeout utilities (legacy stubs)
     if name == "RetryExhaustedError":
-        from ..._legacy_stubs import RetryExhaustedError
+        from aigie._legacy_stubs import RetryExhaustedError
 
         return RetryExhaustedError
     if name == "TimeoutExceededError":
-        from ..._legacy_stubs import TimeoutExceededError
+        from aigie._legacy_stubs import TimeoutExceededError
 
         return TimeoutExceededError
     if name == "GraphExecutionError":
-        from ..._legacy_stubs import GraphExecutionError
+        from aigie._legacy_stubs import GraphExecutionError
 
         return GraphExecutionError
     if name == "with_timeout":
-        from ..._legacy_stubs import with_timeout
+        from aigie._legacy_stubs import with_timeout
 
         return with_timeout
     if name == "with_retry":
-        from ..._legacy_stubs import with_retry
+        from aigie._legacy_stubs import with_retry
 
         return with_retry
     if name == "with_timeout_and_retry":
-        from ..._legacy_stubs import with_timeout_and_retry
+        from aigie._legacy_stubs import with_timeout_and_retry
 
         return with_timeout_and_retry
     if name == "retry_decorator":
-        from ..._legacy_stubs import retry_decorator
+        from aigie._legacy_stubs import retry_decorator
 
         return retry_decorator
     if name == "RetryContext":
-        from ..._legacy_stubs import RetryContext
+        from aigie._legacy_stubs import RetryContext
 
         return RetryContext
     if name == "GraphRetryContext":
-        from ..._legacy_stubs import GraphRetryContext
+        from aigie._legacy_stubs import GraphRetryContext
 
         return GraphRetryContext
 
     # Session management
     if name == "LangGraphSessionContext":
-        from .session import LangGraphSessionContext
+        from aigie.integrations.langgraph.session import LangGraphSessionContext
 
         return LangGraphSessionContext
     if name == "langgraph_session":
-        from .session import langgraph_session
+        from aigie.integrations.langgraph.session import langgraph_session
 
         return langgraph_session
     if name == "get_session_context":
-        from .session import get_session_context
+        from aigie.integrations.langgraph.session import get_session_context
 
         return get_session_context
     if name == "set_session_context":
-        from .session import set_session_context
+        from aigie.integrations.langgraph.session import set_session_context
 
         return set_session_context
     if name == "get_or_create_session_context":
-        from .session import get_or_create_session_context
+        from aigie.integrations.langgraph.session import get_or_create_session_context
 
         return get_or_create_session_context
     if name == "clear_session_context":
-        from .session import clear_session_context
+        from aigie.integrations.langgraph.session import clear_session_context
 
         return clear_session_context
 
@@ -175,7 +175,7 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
 
 if TYPE_CHECKING:
-    from ..._legacy_stubs import (
+    from aigie._legacy_stubs import (
         GraphExecutionError,
         GraphRetryContext,
         RetryContext,
@@ -186,8 +186,8 @@ if TYPE_CHECKING:
         with_timeout,
         with_timeout_and_retry,
     )
-    from .config import LangGraphConfig
-    from .session import (
+    from aigie.integrations.langgraph.config import LangGraphConfig
+    from aigie.integrations.langgraph.session import (
         LangGraphSessionContext,
         clear_session_context,
         get_or_create_session_context,
@@ -195,7 +195,7 @@ if TYPE_CHECKING:
         langgraph_session,
         set_session_context,
     )
-    from .utils import (
+    from aigie.integrations.langgraph.utils import (
         calculate_state_diff,
         extract_edge_name,
         extract_graph_structure,
@@ -213,4 +213,4 @@ if TYPE_CHECKING:
 # Eager: register the LangGraph FrameworkAdapter (tracing + autonomous).
 # Must happen before `aigie.init()` looks up the framework in the registry —
 # this is the one import this module cannot defer.
-from .adapter import LangGraphAdapter  # noqa: F401, E402
+from aigie.integrations.langgraph.adapter import LangGraphAdapter  # noqa: F401, E402

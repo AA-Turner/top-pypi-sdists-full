@@ -5,14 +5,14 @@ This module provides a fast, local rules engine that can make interception
 decisions without network calls, enabling sub-5ms decision latency.
 """
 
-from .builtin import (
+from aigie.rules.builtin import (
     BlockedPatternsRule,
     ContextDriftRule,
     CostLimitRule,
     RateLimitRule,
     TokenLimitRule,
 )
-from .engine import LocalRulesEngine, Rule, RuleDecision, RuleResult
+from aigie.rules.engine import LocalRulesEngine, Rule, RuleDecision, RuleResult
 
 __all__ = [
     # Core

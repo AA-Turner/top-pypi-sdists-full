@@ -34,6 +34,7 @@ from .ast_read_writes import dead_assignment_elimination
 from .ast_read_writes import dead_lane_loop_elimination
 from .backend_registry import all_reserved_launch_param_names
 from .compile_environment import CompileEnvironment
+from .cute.device_state import CuteDeviceFunctionState
 from .host_function import HostFunction
 from .host_function import NoCurrentFunction
 from .output_header import reserved_names
@@ -45,11 +46,11 @@ from .variable_origin import TensorSizeOrigin
 
 if TYPE_CHECKING:
     from ..runtime.config import Config
-    from .cute.aux_tensor import Tcgen05AuxTensorDescriptor
     from .device_ir import HelperFunctionGraphInfo
     from .generate_ast import GenerateAST
     from .indexing_strategy import IndexingStrategy
     from .program_id import ProgramIDs
+    from helion._compiler.pallas.ordered_carry import CarryBoundaryTile
     from helion._compiler.pallas.plan_tiling import DimensionTiling
 
     _P = TypeVar("_P", bound="TensorPropertyArg")
@@ -87,7 +88,6 @@ def find_block_size_symbols(
     non_block_size_symbols = set()
 
     for symbol in expr.free_symbols:
-        # pyrefly: ignore [no-matching-overload, bad-argument-type]
         origin_info = hf.expr_to_origin.get(symbol)
         if origin_info is None or not isinstance(origin_info.origin, BlockSizeOrigin):
             # pyrefly: ignore [bad-argument-type]
@@ -198,317 +198,6 @@ class StaticShape(Argument):
         super().__init__(repr(val))
 
 
-@dataclasses.dataclass(frozen=True)
-class CuteTcgen05StoreValue:
-    bm: int = 0
-    bn: int = 0
-    bk: int = 0
-    thr_mma: str = ""
-    epi_warp_count: int = 0
-    epi_acc_frag_base: str = ""
-    epi_tidx: str = ""
-    epi_active: str = ""
-    exec_active: str = ""
-    warp_idx: str = ""
-    epi_tile: str = ""
-    c_stage_count: int = 0
-    epilog_sync_barrier_id: int = 0
-    tmem_load_atom: str = ""
-    epilogue_rest_mode: str = ""
-    acc_pipeline: str = ""
-    acc_producer_state: str = ""
-    acc_consumer_state: str = ""
-    tmem_alloc_barrier: str = ""
-    tmem_allocator: str = ""
-    tmem_holding_buf: str = ""
-    tmem_dealloc_mbar_ptr: str = ""
-    epi_acc_tmem_ptr: str = ""
-    acc_tmem_cols: str = ""
-    tma_warp: str = ""
-    tma_pipeline: str = ""
-    tma_producer_state: str = ""
-    tma_store_atom: str = ""
-    tma_store_tensor: str = ""
-    role_local_tile_counter: str = ""
-    is_two_cta: bool = False
-    use_tma: bool = False
-    use_role_local_epi: bool = False
-    use_tma_store_epilogue: bool = False
-    ab_stage_count: int = 0
-    acc_stage_count: int = 0
-    skip_ab_producer_advance: bool = False
-    # Output element dtype (cutlass type-string, e.g. "cutlass.BFloat16") that
-    # the matmul plan used when computing `epi_tile` /
-    # `tcgen05_tmem_load_atom`. The store path
-    # (`_codegen_cute_store_tcgen05_tile`) asserts the runtime D-tensor dtype
-    # agrees with this so the role-local `tcgen05_epi_tile` and the
-    # store-side `tcgen05_store_epi_tile` cannot silently disagree on
-    # `compute_epilogue_tile_shape`.
-    epi_elem_dtype_str: str = ""
-
-
-@dataclasses.dataclass(frozen=True)
-class CuteTcgen05MatmulPlan:
-    """Kernel-wide tcgen05 collective contract selected by CuTe matmul codegen.
-
-    Warp-role layout in the launched CTA:
-
-    - ``epi_warp_count`` epilogue warps starting at warp 0
-    - one MMA exec warp at ``exec_warp_id``
-    - one A/B load warp at ``tma_warp_id`` -- doubles as the TMA warp and,
-      in the persistent path, also owns the tile scheduler
-
-    ``ab_load_warp_count`` defaults to 1 -- the current lowering has a
-    single TMA / A-B load warp. The field is kept so the role layout /
-    launch shape continues to plumb through if a future role-local
-    persistent rewrite splits TMA load and A/B prefetch onto separate
-    warps.
-
-    The scheduler-warp role came back via ``scheduler_warp_count``
-    once ``Tcgen05Strategy.ROLE_LOCAL_WITH_SCHEDULER`` was wired —
-    when set to 1, the scheduler warp owns a centralized
-    ``StaticPersistentTileScheduler`` and broadcasts work-tile
-    metadata through ``cute_tcgen05_sched_pipeline_plan`` to the
-    consumer warps. The C-input epi-load warp slot Quack uses for
-    C input became reachable in cycle 34 (G3.1 first slice,
-    ``cute_plan.md`` §7.5.3.2) via ``c_input_warp_count`` — when
-    set to 1 under WITH_SCHEDULER the role-warp layout grows to
-    8 role warps that exactly matches the warpgroup-aligned launch
-    envelope (no inert padding). The C-input warp body is inert
-    in cycle 34; the productive TMA-prefetch body is deferred.
-    """
-
-    bm: int
-    bn: int
-    bk: int
-    k_tile_count: int
-    cluster_m: int
-    is_two_cta: bool
-    uses_role_local_persistent_body: bool
-    uses_cluster_m2_one_cta_role_local_bridge: bool
-    cta_thread_count: int
-    physical_m_threads: int
-    acc_stage_count: int
-    ab_stage_count: int
-    c_stage_count: int
-    epi_warp_count: int
-    ab_load_warp_count: int = 1
-    # Scheduler-warp count for ``Tcgen05Strategy.ROLE_LOCAL_WITH_SCHEDULER``.
-    # Default 0 matches ``ROLE_LOCAL_MONOLITHIC`` (the byte-identity-pinned
-    # path) where persistent scheduling rides on the TMA warp; 1 dedicates
-    # one warp to centralized scheduling that broadcasts via a
-    # ``PipelineAsync`` to the consumer warps. The scheduler warp sits
-    # *after* the AB-load warps in the launched-CTA layout when present so
-    # all ``MONOLITHIC`` warp IDs are unchanged by the addition.
-    scheduler_warp_count: int = 0
-    # ``sched_stage_count`` is meaningful only when
-    # ``scheduler_warp_count > 0``; controls the depth of the scheduler
-    # broadcast pipeline. Today's value is 1 (single SMEM mailbox
-    # shared across consumer warps requires the producer to wait
-    # for *all* consumers to release before the next publish); see
-    # the comment at the ``tcgen05_sched_stage_count_value =`` site
-    # in ``cute_mma._codegen_cute_mma`` for why Helion does not
-    # mirror Quack's depth-2.
-    sched_stage_count: int = 0
-    # ``c_input_warp_count`` is the dedicated C-input / auxiliary-tensor
-    # warp count for the role-local layout (``cute_plan.md`` §7.5.3.2).
-    # Default 0 keeps the historical ``WITH_SCHEDULER`` 7-role-warp +
-    # 1-inert-padding layout. The validator accepts the value 1 under
-    # WITH_SCHEDULER — the C-input warp then occupies what was
-    # previously the inert padding slot (sitting after the scheduler
-    # warp in the launched-CTA layout). ``launched_warp_count`` stays
-    # at 8 either way because ``role_warp_count`` (8 with the slot
-    # lifted) already matches the warpgroup-aligned envelope.
-    #
-    # The C-input warp's sched-pipeline participation depends on
-    # whether the productive-body gate fires (``c_input_warp_count
-    # > 0`` AND non-empty ``aux_tensor_descriptors``):
-    #
-    # - Gate fires: ``program_id._build_c_input_warp_role_local_while``
-    #   emits a consumer-side role-local while that calls
-    #   ``consumer_wait`` / ``consumer_release`` on the
-    #   sched_pipeline every iteration. The sched-pipeline consumer
-    #   arrive count in ``cute_mma._codegen_cute_mma`` includes the
-    #   C-input warp.
-    #
-    # - Gate closed (no aux residual, or ``c_input_warps=0``): the
-    #   C-input warp body is fully inert and never calls
-    #   ``consumer_arrive`` on the sched_pipeline. The arrive count
-    #   subtracts ``c_input_warp_count`` to compensate so
-    #   ``producer_commit`` does not block on a missing arrival.
-    #
-    # MONOLITHIC keeps this at 0 by validator; only WITH_SCHEDULER
-    # hosts the slot.
-    c_input_warp_count: int = 0
-    # ``persistence_model`` selects the persistence axis of the
-    # generated kernel. ``STATIC_PERSISTENT`` (default) keeps the
-    # existing ``StaticPersistentTileScheduler`` path. ``CLC_PERSISTENT``
-    # (G2-H, cute_plan.md) emits ``nvvm.clusterlaunchcontrol_try_cancel``
-    # from the dedicated scheduler warp instead — only valid under
-    # ``ROLE_LOCAL_WITH_SCHEDULER`` (scheduler_warp_count == 1) on
-    # arch >= 100. Stored as the enum value (string) so the dataclass
-    # stays free of cute-internal imports.
-    persistence_model: str = "static_persistent"
-    # ``cluster_n`` is the multicast factor along the N axis of the cluster
-    # layout. Default 1 preserves byte-identity for every cluster_m=1 and
-    # cluster_m=2/cluster_n=1 path. ``cluster_n=2`` only runs under the
-    # validated ``cluster_m=2 use_2cta=True`` Quack-canonical 4-CTA cluster.
-    # See cute_plan.md §6.12 for the V-leader gate / mcast_size derivation
-    # that lets cluster_n=2 close the G2 perf gap.
-    cluster_n: int = 1
-    # ``l2_swizzle_size`` is the L2 tile-scheduler grouping factor (Quack's
-    # ``max_swizzle_size`` equivalent). Default 1 means no swizzle (the
-    # cycle 41 byte-identity path); concrete values map onto
-    # ``cutlass.utils.PersistentTileSchedulerParams(swizzle_size=...)``,
-    # which groups consecutive cluster linear-IDs along the slow raster
-    # axis to promote L2 reuse on bandwidth-bound shapes.
-    # See ``cute_plan.md`` §7.6.7 (cycle 42 wiring + bench).
-    l2_swizzle_size: int = 1
-    # ``aux_tensor_descriptors`` is the set of auxiliary-tensor
-    # descriptors discovered by the forward FX walker
-    # (``cute.aux_tensor.discover_tcgen05_aux_tensor_descriptors``)
-    # at MMA-codegen time. Each descriptor carries the FX node
-    # identity, shape, dtype, and broadcast axis of one aux tensor
-    # consumed by a downstream store's epilogue chain (e.g. the
-    # ``residual[tile_m, tile_n]`` operand in
-    # ``out[tile] = (acc + residual[tile]).to(dtype)``). The
-    # productive C-input warp (``cute_plan.md`` §7.5.3.2) uses these
-    # to allocate the SMEM ring + TMA atom for the aux load at the
-    # same point where the matmul plan is constructed, well before
-    # the store-codegen splice runs and discovers the same chains
-    # backward. Default empty tuple keeps the field optional so
-    # non-residual kernels — and every kernel until the productive
-    # body lands — preserve byte identity (the codegen consumers
-    # gate on ``aux_tensor_descriptors`` being non-empty, which is
-    # only true on chains the walker actually accepts).
-    #
-    # ``compare=False``: the descriptors are *per-anchor* data —
-    # two matmuls with identical collective parameters (cluster
-    # shape, stages, warp roles, …) but distinct downstream aux
-    # tensors must not be rejected as "mixed collective plans" by
-    # ``register_cute_tcgen05_matmul_plan``'s equality gate, and
-    # ``Tcgen05AuxTensorDescriptor.host_tensor_val: torch.Tensor``
-    # would otherwise drive the auto-generated ``__eq__`` through a
-    # tensor ``==`` that does not reduce to ``bool`` for non-scalar
-    # tensors. Excluding the field from ``__eq__`` keeps the plan
-    # equality semantics strictly about collective parameters; the
-    # descriptors are read by their per-anchor consumers without
-    # going through the equality path.
-    aux_tensor_descriptors: tuple[Tcgen05AuxTensorDescriptor, ...] = dataclasses.field(
-        default=(), compare=False
-    )
-
-    @property
-    def is_clc_persistent(self) -> bool:
-        # Lazy enum import to avoid a top-level cycle (cute.strategies
-        # imports from this module's siblings) and to keep the enum
-        # value the single source of truth — a rename of
-        # ``Tcgen05PersistenceModel.CLC_PERSISTENT`` would propagate
-        # via the ``.value`` lookup instead of silently degrading to
-        # always-False against a stale string literal.
-        from .cute.strategies import Tcgen05PersistenceModel
-
-        return self.persistence_model == Tcgen05PersistenceModel.CLC_PERSISTENT.value
-
-    @property
-    def exec_warp_id(self) -> int:
-        return self.epi_warp_count
-
-    @property
-    def ab_load_warp_begin(self) -> int:
-        return self.exec_warp_id + 1
-
-    @property
-    def ab_load_warp_end(self) -> int:
-        return self.ab_load_warp_begin + self.ab_load_warp_count
-
-    @property
-    def tma_warp_id(self) -> int:
-        return self.ab_load_warp_begin
-
-    @property
-    def has_scheduler_warp(self) -> bool:
-        return self.scheduler_warp_count > 0
-
-    @property
-    def scheduler_warp_id(self) -> int:
-        # Dedicated scheduler warp sits after the AB-load warps. Reading
-        # this when ``scheduler_warp_count == 0`` is a contract violation —
-        # callers must guard on ``has_scheduler_warp``.
-        assert self.has_scheduler_warp, (
-            "scheduler_warp_id is only valid when scheduler_warp_count > 0"
-        )
-        return self.ab_load_warp_end
-
-    @property
-    def persistent_scheduler_owner_warp_id(self) -> int:
-        # ``ROLE_LOCAL_MONOLITHIC``: persistent scheduling rides on the
-        # TMA warp because the role-local body uses one producer sync
-        # structure shared between TMA load and scheduler state.
-        # ``ROLE_LOCAL_WITH_SCHEDULER``: a dedicated warp owns the
-        # scheduler; consumers wait on its broadcast pipeline.
-        if self.has_scheduler_warp:
-            return self.scheduler_warp_id
-        return self.tma_warp_id
-
-    @property
-    def has_c_input_warp(self) -> bool:
-        return self.c_input_warp_count > 0
-
-    @property
-    def c_input_warp_id(self) -> int:
-        # Dedicated C-input warp sits after the scheduler warp. The
-        # validator rejects ``c_input_warps>0`` under ``MONOLITHIC``
-        # (which has no scheduler warp), so the read implies
-        # ``has_scheduler_warp`` in practice; callers must guard on
-        # ``has_c_input_warp`` before reading. Consumed by the C-input
-        # role-local while builder in ``program_id.py`` to gate the
-        # producer body on the matching warp predicate.
-        assert self.has_c_input_warp, (
-            "c_input_warp_id is only valid when c_input_warp_count > 0"
-        )
-        return self.scheduler_warp_id + self.scheduler_warp_count
-
-    @property
-    def role_warp_count(self) -> int:
-        return (
-            self.epi_warp_count
-            + 1
-            + self.ab_load_warp_count
-            + self.scheduler_warp_count
-            + self.c_input_warp_count
-        )
-
-    @property
-    def launched_warp_count(self) -> int:
-        # ``setmaxregister`` is warpgroup-uniform on sm_100a (all 4
-        # warps of a warpgroup must request the same register
-        # budget). For ``WITH_SCHEDULER`` with the default
-        # ``c_input_warp_count=0`` the 7 role warps split as 4 epi
-        # (consumers) + 3 producer warps; padding to 8 launched
-        # warps moves the partial producer warpgroup back to a
-        # clean 4-warp warpgroup that uniformly decreases. With
-        # ``c_input_warp_count=1`` the 8 role warps already match
-        # the warpgroup-aligned launch envelope so no padding is
-        # needed — the launched-warp count stays at 8 and the
-        # C-input warp simply occupies what was previously the
-        # inert padding slot.
-        # ``MONOLITHIC`` keeps 6 launched warps because byte-identity
-        # against the recorded golden is load-bearing and the
-        # 6-warp shape happens to work in practice (mma+tma alone
-        # produces a 2-warp partial warpgroup that only the exec
-        # warp inside increases — empirically tolerated by the
-        # hardware on the validated cluster_m=1/2 paths).
-        if self.has_scheduler_warp:
-            warpgroup = 4
-            return (self.role_warp_count + warpgroup - 1) // warpgroup * warpgroup
-        return self.role_warp_count
-
-    @property
-    def block_shape(self) -> tuple[int, int, int]:
-        return (self.physical_m_threads, self.launched_warp_count, 1)
-
-
 _sort_order: dict[type[Argument], int] = {
     TensorDescriptorArg: 0,
     TensorArg: 0,
@@ -594,6 +283,12 @@ class DeviceFunction:
         )
         self._variable_renames: dict[str, list[str]] = {}
         self.dce_vars: list[str] = []
+        # Names of matmul-fallback running-sum accumulators emitted as
+        # ``acc = acc + product`` inside a constexpr V-loop.  The
+        # ``hoist_warp_reduce`` pass reads this to reduce the FINAL value once
+        # (instead of building a per-lane V-fold, which would double-count the
+        # already-accumulated running sum).  See ``_emit_cute_matmul``.
+        self.cute_matmul_running_sums: set[str] = set()
         # Arg names referenced only by fusion placeholder strings
         # (<STORE_OUTPUT_*>, <LOAD_INPUT_*>), not by the AST body.
         # DCE would incorrectly strip them without this exemption.
@@ -605,64 +300,7 @@ class DeviceFunction:
         self.block_size_var_cache: dict[tuple[int, ...], str] = {}
         self.expr_to_var_info: dict[sympy.Expr, VarInfo] = {}
         self.deferred_rdim_defs: list[tuple[str, sympy.Expr]] = []
-        self._cute_tcgen05_store_values: dict[str, CuteTcgen05StoreValue] = {}
-        # FX nodes (matmul / hl.dot / addmm) that were lowered to the tcgen05
-        # MMA path. The cute store codegen consults this set to detect the
-        # "fused-epilogue store after a tcgen05 matmul" pattern (the FX
-        # chain from the store value reaches a tcgen05-lowered matmul) and
-        # raise a structured `BackendUnsupported` instead of falling
-        # through to the SIMT-fallback store path, which would crash inside
-        # the cute DSL on undefined `indices_<n>` / `mask_<n>` names.
-        self.cute_tcgen05_matmul_fx_nodes: set[torch.fx.Node] = set()
-        # Mapping from a tcgen05-lowered matmul fx_node to the AST variable
-        # name (registered in ``_cute_tcgen05_store_values``) that holds
-        # the per-thread MMA result. The G3.1.1 fused-epilogue splice
-        # path walks back from the store value's FX chain to the matmul
-        # fx_node, then looks the result var up here so the splice can
-        # reuse the existing ``CuteTcgen05StoreValue`` registered under
-        # the matmul's result var (the user's chained value-name was
-        # registered to the cast result, not the matmul). Populated in
-        # ``_codegen_cute_mma`` at the
-        # ``register_cute_tcgen05_store_value`` call site, which is
-        # where ``result_var`` is finalized — the
-        # ``cute_tcgen05_matmul_fx_nodes.add(fx_node)`` line earlier in
-        # the same function happens before ``result_var`` exists.
-        # Lifetime is one-to-one with ``cute_tcgen05_matmul_fx_nodes``:
-        # both live for the duration of one ``DeviceFunction`` (i.e.
-        # one ``to_triton_code`` call) and are repopulated on each
-        # compile. There is no eviction logic; relying on the
-        # ``DeviceFunction`` instance going out of scope is the
-        # cleanup model.
-        self.cute_tcgen05_matmul_fx_node_result_vars: dict[torch.fx.Node, str] = {}
-        self.cute_tcgen05_matmul_plan: CuteTcgen05MatmulPlan | None = None
-        # Variable names for the ``ROLE_LOCAL_WITH_SCHEDULER`` broadcast
-        # pipeline. Set in ``_codegen_cute_mma`` when the strategy is
-        # active; ``program_id.py`` reads them when emitting the
-        # consumer-side ``consumer_wait``/``consumer_release`` and the
-        # scheduler-warp role-local while.
-        self.cute_tcgen05_sched_pipeline_plan: object | None = None
-        # ``_Tcgen05AuxPipelinePlan`` for the C-input warp's
-        # auxiliary-tensor SMEM-ring pipeline (``cute_plan.md``
-        # §7.5.3.2 cycle 2). Set in ``_codegen_cute_mma`` when the
-        # productive-body gate fires (``c_input_warp_count > 0`` AND
-        # non-empty ``aux_tensor_descriptors``); ``program_id.py``
-        # reads it when emitting the C-input warp role-local while
-        # body (per-descriptor ``producer_acquire`` → cooperative
-        # ``cute.copy(GMEM, SMEM_ring[stage])`` → ``producer_commit``),
-        # and ``memory_ops._aux_subtile_load_source`` reads the
-        # per-descriptor SMEM ring when cycle 3's consumer flip
-        # lands.
-        self.cute_tcgen05_aux_pipeline_plan: object | None = None
-        self._cute_tcgen05_per_tile_stmt_ids: set[int] = set()
-        self._cute_tcgen05_post_loop_stmt_ids: set[int] = set()
-        self._cute_tcgen05_tma_load_role_stmt_ids: set[int] = set()
-        self._cute_tcgen05_mma_exec_role_stmt_ids: set[int] = set()
-        self._cute_tcgen05_epi_role_stmt_ids: set[int] = set()
-        self.cute_tcgen05_epi_role_tile_counter_var: str | None = None
-        self._cute_collective_handled_loads: set[str] = set()
-        self.cute_cluster_shape: tuple[int, int, int] | None = None
-        self.cute_block_shape: tuple[int, int, int] | None = None
-        self.suppress_cute_root_lane_loops = False
+        self._cute_state = CuteDeviceFunctionState()
 
         from .helper_function import HelperFunctionManager
 
@@ -683,10 +321,12 @@ class DeviceFunction:
 
         self.rng_seed_count = 0
         self.device_load_index = 0
+        self.device_load_cache_modifier_index = 0
         self.device_store_index = 0
         # Single counter for both loads and stores for indexing assignment
         self.device_memory_op_index = 0
         self.epilogue_subtile_store_indices: dict[str, int] = {}
+        self.epilogue_subtile_atomic_indices: dict[str, int] = {}
         self.rng_seed_buffer_param_name = None
 
         # Pallas: id(fake_tensor) → [DimensionTiling], recorded during `plan_tiling`
@@ -703,6 +343,12 @@ class DeviceFunction:
         # Pallas: id(fake_tensor) → {dim: (block_id, extra_pad)} for dims
         # using pl.ds() that may need host-side padding.
         self.pallas_pad_info: dict[int, dict[int, tuple[int, int]]] = {}
+        # Pallas ordered carry: jagged row block_id -> CarryBoundaryTile.  Filled by
+        # the emit_pipeline codegen when the tile is a legal map axis; read by
+        # the store codegen to stitch the boundary across neighbouring groups.
+        self.carry_tiles: dict[int, CarryBoundaryTile] = {}
+        # row block_id -> carry scratch var name (allocated lazily at the store).
+        self.carry_scratch: dict[int, str] = {}
 
     def allocate_store_index(self) -> int:
         """Bump store counters and return the indexing strategy slot."""
@@ -844,205 +490,12 @@ class DeviceFunction:
         for n in name_group:
             self._variable_renames[n] = name_group
 
-    def register_cute_tcgen05_store_value(
-        self, name: str, value: CuteTcgen05StoreValue
-    ) -> None:
-        self._cute_tcgen05_store_values[name] = value
-
-    def register_cute_tcgen05_matmul_plan(self, plan: CuteTcgen05MatmulPlan) -> None:
-        if self.cute_tcgen05_matmul_plan is not None:
-            if self.cute_tcgen05_matmul_plan != plan:
-                raise exc.BackendUnsupported(
-                    "cute", "mixed tcgen05 matmul collective plans in one kernel"
-                )
-            return
-        self.cute_tcgen05_matmul_plan = plan
-
-    def register_cute_tcgen05_sched_pipeline_plan(self, plan: object) -> None:
-        """Register the scheduler-broadcast ``PipelineAsync`` plan.
-
-        Set by ``cute_mma._codegen_cute_mma`` when the active strategy
-        is ``ROLE_LOCAL_WITH_SCHEDULER`` so ``program_id.py`` can
-        reach the variable names for the consumer-side
-        ``consumer_wait`` / ``consumer_release`` emissions and for
-        the scheduler-warp role-local while.
-        """
-        self.cute_tcgen05_sched_pipeline_plan = plan
-
-    def register_cute_tcgen05_aux_pipeline_plan(self, plan: object) -> None:
-        """Register the C-input warp's auxiliary-tensor SMEM-ring
-        ``PipelineAsync`` plan (``cute_plan.md`` §7.5.3.2 cycle 2).
-
-        Set by ``cute_mma._codegen_cute_mma`` when the productive-body
-        gate fires (``c_input_warp_count > 0`` AND non-empty
-        ``aux_tensor_descriptors``). ``program_id.py`` reads it when
-        emitting the C-input warp's role-local while body
-        (per-descriptor ``producer_acquire`` → cooperative
-        ``cute.copy(GMEM, SMEM_ring[stage])`` → ``producer_commit``),
-        and ``memory_ops._aux_subtile_load_source`` reads the
-        per-descriptor SMEM ring when cycle 3's consumer flip lands.
-        """
-        self.cute_tcgen05_aux_pipeline_plan = plan
-
-    def register_cute_tcgen05_per_tile_stmts(self, stmts: list[ast.AST]) -> None:
-        """Mark statements that depend on per-tile coordinates.
-
-        When the persistent kernel splits the device-loop prefix into a
-        once-per-CTA setup and a per-tile body, statements registered here
-        stay inside the work-tile loop; everything else can be hoisted out.
-        Use for things like ``cute.local_tile`` over the per-tile (m, n)
-        offset, ``tma_partition`` of those per-tile tensors, and the initial
-        ``producer_acquire`` / TMA prefetch that warm the pipeline at the
-        start of each tile.
-        """
-        self._cute_tcgen05_per_tile_stmt_ids.update(id(stmt) for stmt in stmts)
-
-    def is_cute_tcgen05_per_tile(self, stmt: ast.stmt) -> bool:
-        return id(stmt) in self._cute_tcgen05_per_tile_stmt_ids
+    def variable_aliases(self, name: str) -> tuple[str, ...]:
+        return tuple(self._variable_renames.get(name, [name]))
 
     @property
-    def has_cute_tcgen05_per_tile_marks(self) -> bool:
-        return bool(self._cute_tcgen05_per_tile_stmt_ids)
-
-    def register_cute_tcgen05_post_loop_stmts(self, stmts: list[ast.AST]) -> None:
-        """Mark statements that should run AFTER the persistent work-tile loop.
-
-        This is the natural home for one-shot pipeline drains (``producer_tail``),
-        TMEM deallocation, and any other cleanup that conceptually runs once
-        the kernel has finished all its tiles. Without this tag, those
-        statements would remain inside the work-tile loop and execute on
-        every virtual tile, which is at best wasted work and at worst
-        incorrect (re-freeing a TMEM buffer the next tile still needs).
-
-        Non-persistent kernels skip the post-loop split entirely; the
-        statements stay where the codegen emitted them, which is already
-        the end of the device function.
-        """
-        self._cute_tcgen05_post_loop_stmt_ids.update(id(stmt) for stmt in stmts)
-
-    def is_cute_tcgen05_post_loop(self, stmt: ast.stmt) -> bool:
-        return id(stmt) in self._cute_tcgen05_post_loop_stmt_ids
-
-    @property
-    def has_cute_tcgen05_post_loop_marks(self) -> bool:
-        return bool(self._cute_tcgen05_post_loop_stmt_ids)
-
-    def register_cute_tcgen05_tma_load_role_stmts(self, stmts: list[ast.AST]) -> None:
-        """Mark statements that belong to the TMA-load warp's role block.
-
-        When the persistent kernel splits the work-tile body into role
-        blocks (see ``Tcgen05PersistentProgramIDs._collect_tcgen05_role_blocks``),
-        statements registered here are pulled into a TMA-load-specific
-        role block. The block is gated by the TMA-load warp predicate so
-        only that warp executes its body. Use for statements whose work
-        is conceptually owned by the TMA-load warp -- e.g. the initial
-        TMA prefetch ``producer_acquire`` / ``cute.copy`` /
-        ``producer_commit`` cycle that warms the AB pipeline at the
-        start of each tile.
-
-        Statements registered here must be reachable from the per-tile
-        wrapped body when the role partitioner runs. Two registration
-        shapes are valid:
-
-        - **Top-level statements** -- register the statement as per-tile
-          first via ``register_cute_tcgen05_per_tile_stmts``, otherwise
-          the splitter will hoist it out of the work-tile body before
-          the role partitioner ever sees it. The initial TMA prefetch
-          IF-blocks emitted from ``cute_mma.py`` take this shape.
-        - **Nested statements inside a per-tile container** (e.g. the
-          per-K-iter TMA producer block emitted inside the K-loop body
-          via ``cg.add_statement(...)``) -- the containing statement
-          stays in the work-tile body because it transitively depends
-          on per-tile names, and the role partitioner recurses into
-          top-level ``for`` / ``while`` loops to find tagged children.
-          These tagged children do NOT need to be per-tile-registered
-          themselves; the parent loop carries them.
-        """
-        self._cute_tcgen05_tma_load_role_stmt_ids.update(id(stmt) for stmt in stmts)
-
-    def is_cute_tcgen05_tma_load_role(self, stmt: ast.stmt) -> bool:
-        return id(stmt) in self._cute_tcgen05_tma_load_role_stmt_ids
-
-    @property
-    def has_cute_tcgen05_tma_load_role_marks(self) -> bool:
-        return bool(self._cute_tcgen05_tma_load_role_stmt_ids)
-
-    @property
-    def cute_tcgen05_tma_load_role_stmt_ids(self) -> frozenset[int]:
-        """Snapshot of every registered TMA-load role-tag id. The role
-        partitioner uses this to validate that every registered tag was
-        consumed (either at top level or via the one-level for/while
-        recursion) -- a registered tag that never gets visited indicates
-        a bad registration shape that would otherwise silently miscompile.
-        """
-        return frozenset(self._cute_tcgen05_tma_load_role_stmt_ids)
-
-    def register_cute_tcgen05_mma_exec_role_stmts(self, stmts: list[ast.AST]) -> None:
-        """Mark statements that belong to the MMA-exec warp's role block.
-
-        The persistent tcgen05 role partitioner pulls these statements into
-        an MMA-exec-specific role-local ``while``. Use for AB consumer wait /
-        release, UMMA issue, and acc-pipeline producer work that must advance
-        once per tile on the exec warp.
-        """
-        self._cute_tcgen05_mma_exec_role_stmt_ids.update(id(stmt) for stmt in stmts)
-
-    def is_cute_tcgen05_mma_exec_role(self, stmt: ast.stmt) -> bool:
-        return id(stmt) in self._cute_tcgen05_mma_exec_role_stmt_ids
-
-    @property
-    def has_cute_tcgen05_mma_exec_role_marks(self) -> bool:
-        return bool(self._cute_tcgen05_mma_exec_role_stmt_ids)
-
-    @property
-    def cute_tcgen05_mma_exec_role_stmt_ids(self) -> frozenset[int]:
-        """Snapshot of every registered MMA-exec role-tag id."""
-        return frozenset(self._cute_tcgen05_mma_exec_role_stmt_ids)
-
-    def register_cute_tcgen05_epi_role_stmts(self, stmts: list[ast.AST]) -> None:
-        """Mark statements that belong to the epilogue warp role block.
-
-        The persistent tcgen05 role partitioner pulls these statements into
-        an epi-warp-local ``while``. Use for acc-pipeline consumer work and
-        TMEM-to-GMEM store work that must advance once per tile on epi warps.
-        """
-        self._cute_tcgen05_epi_role_stmt_ids.update(id(stmt) for stmt in stmts)
-
-    def register_cute_tcgen05_epi_role_tile_counter(self, name: str) -> None:
-        """Publish the per-iteration tile counter used by the epi role.
-
-        Persistent TMA-store epilogues use this counter to rotate SMEM stages
-        across work tiles. The role-local while builder owns its lifetime; the
-        store body only reads it.
-        """
-        if self.cute_tcgen05_epi_role_tile_counter_var is None:
-            self.cute_tcgen05_epi_role_tile_counter_var = name
-            return
-        assert self.cute_tcgen05_epi_role_tile_counter_var == name
-
-    def is_cute_tcgen05_epi_role(self, stmt: ast.stmt) -> bool:
-        return id(stmt) in self._cute_tcgen05_epi_role_stmt_ids
-
-    @property
-    def has_cute_tcgen05_epi_role_marks(self) -> bool:
-        return bool(self._cute_tcgen05_epi_role_stmt_ids)
-
-    @property
-    def cute_tcgen05_epi_role_stmt_ids(self) -> frozenset[int]:
-        """Snapshot of every registered epilogue role-tag id."""
-        return frozenset(self._cute_tcgen05_epi_role_stmt_ids)
-
-    def get_cute_tcgen05_store_value(self, name: str) -> CuteTcgen05StoreValue | None:
-        for alias in self._variable_renames.get(name, [name]):
-            if (value := self._cute_tcgen05_store_values.get(alias)) is not None:
-                return value
-        return None
-
-    def register_cute_collective_handled_load(self, name: str) -> None:
-        self._cute_collective_handled_loads.add(name)
-
-    def is_cute_collective_handled_load(self, name: str) -> bool:
-        return name in self._cute_collective_handled_loads
+    def cute_state(self) -> CuteDeviceFunctionState:
+        return self._cute_state
 
     def set_pid(self, pid: ProgramIDs) -> None:
         if self.pid is not None:
@@ -1119,6 +572,8 @@ class DeviceFunction:
 
     def literal_expr(self, expr: object) -> str:
         if isinstance(expr, (torch.SymInt, torch.SymFloat, torch.SymBool)):
+            # SymBool's `_sympy_()` is a boolean, not an Expr that sympy_expr wants.
+            # pyrefly: ignore [bad-argument-type]
             return self.sympy_expr(expr._sympy_())
         if isinstance(expr, sympy.Expr):
             return self.sympy_expr(expr)
@@ -1366,6 +821,118 @@ class DeviceFunction:
             scalar_preamble.extend(backend.scalar_arg_preamble(arg))
 
         function_decorator = backend.function_decorator_for_args(param_args)
+        kernel_body: list[ast.stmt] = cast(
+            "list[ast.stmt]",
+            [
+                *scalar_preamble,
+                *self.preamble,
+                *self.body,
+            ],
+        )
+        if backend.name == "cute":
+            from .cute.fuse_two_pass_loads import fuse_two_pass_loads
+
+            # Collect static integer values for constexpr names so the
+            # fusion pass can resolve range(..., step=cutlass.Int32(NAME))
+            # trip counts. Three sources: literal constexpr inlined args,
+            # host-side literal assignments to constexpr-named variables,
+            # and the inlined module-level constexpr decls.
+            constexpr_values: dict[str, int] = {}
+            for arg in constexpr_to_inline:
+                try:
+                    value = int(arg.host_str())
+                except (TypeError, ValueError):
+                    continue
+                constexpr_values[arg.name] = value
+            for stmt in self.codegen.host_statements:
+                if (
+                    isinstance(stmt, ast.Assign)
+                    and len(stmt.targets) == 1
+                    and isinstance(stmt.targets[0], ast.Name)
+                    and isinstance(stmt.value, ast.Constant)
+                    and isinstance(stmt.value.value, int)
+                ):
+                    constexpr_values[stmt.targets[0].id] = stmt.value.value
+            # Pass the per-axis thread dims so the fuser can size
+            # SMEM-backed caches correctly and build a per-thread
+            # linear slot index when ``cache_size`` exceeds the
+            # register-fragment threshold (opt-in via
+            # ``HELION_FUSER_MODE=smem``).
+            try:
+                thread_dims = self.tile_strategy.thread_block_dims()
+                thread_block_dims: tuple[int, int, int] = (
+                    int(thread_dims[0]),
+                    int(thread_dims[1]),
+                    int(thread_dims[2]),
+                )
+            except Exception:
+                thread_block_dims = (1, 1, 1)
+            kernel_body = fuse_two_pass_loads(
+                kernel_body,
+                constexpr_values,
+                thread_block_dims=thread_block_dims,
+            )
+            # Hoist warp reductions out of constexpr V-loops to collapse
+            # 4 per-V-lane warp reductions into 1 V-fold + 1 warp reduce.
+            # For online softmax style kernels this drops per-row reductions
+            # from ~396 to ~99 (4x fewer SHFL trees).
+            from .cute.hoist_warp_reduce import hoist_warp_reduce_from_vloop
+
+            kernel_body = hoist_warp_reduce_from_vloop(
+                kernel_body, running_sum_accumulators=self.cute_matmul_running_sums
+            )
+            # Merge adjacent constexpr V-loops that share an identical
+            # statement prefix.  Caches the last common per-V-lane value
+            # into a register fragment so V-loop 2's bitcast/cast chain
+            # disappears and the SASS scheduler can issue V-loop 2's
+            # arithmetic without waiting for V-loop 1's results.
+            from .cute.merge_sibling_v_loops import merge_sibling_v_loops
+
+            kernel_body = merge_sibling_v_loops(kernel_body)
+            # Fuse adjacent per-lane fp8 decodes in the SIMT matmul V-loop
+            # into one ``cvt.rn.f16x2.e4m3x2`` (decode 2 e4m3 bytes per
+            # instruction) — halves the decode instruction count on the
+            # skinny-M fp8 GEMV path.
+            from .cute.fuse_fp8_pair_decode import fuse_fp8_pair_decode
+
+            kernel_body = fuse_fp8_pair_decode(kernel_body)
+            # Hoist loop-invariant floating-point divisions out of inner
+            # tile loops, replacing each ``x / scalar`` with a hoisted
+            # ``inv = 1.0 / scalar`` + ``x * inv`` in the loop body.
+            # B200 div is ~22 cycles vs ~2 for multiply, so the softmax
+            # consume sweep (~12672 divides per row) sees a measured
+            # +20% bench gain on (4096, 12672) fp16.
+            from .cute.hoist_loop_invariant_recip import hoist_loop_invariant_recips
+
+            # Pass the post-renames map so the invariance analysis can
+            # treat ``v_1_0`` (which will be renamed to ``mi`` by
+            # ast_rename below) as an assignment to ``mi`` for the
+            # purpose of LICM.  Without this the FMA hoist would
+            # mistakenly classify ``mi`` as loop-invariant in the reduce
+            # loop and capture its stale initial value.
+            rename_groups = {k: v[0] for k, v in self._variable_renames.items()}
+            kernel_body = hoist_loop_invariant_recips(
+                kernel_body, rename_groups=rename_groups
+            )
+            # P18: software-pipeline the per-iteration vec load by one
+            # stage.  Pre-issue iter 0's load above the loop and, inside
+            # the body, issue iter N+1's load BEFORE iter N's compute
+            # runs.  The B200 SASS scheduler can then keep multiple
+            # ld.global instructions in flight, hiding HBM round-trip
+            # latency on softmax/online-reduction inner loops where the
+            # ``load -> compute(mi, di) -> next iter`` sequential
+            # dependency chain dominates the per-iter stall budget.
+            from .cute.pipeline_inner_loads import pipeline_inner_loads
+
+            # Pass the post-rename canonical map so the loop-carried-write
+            # gate can correctly identify writes whose pre-rename target
+            # is an alias (e.g. ``v_1_0 = v_1`` will be renamed to
+            # ``mi = v_1``).  Without this, the gate would mis-classify
+            # the softmax reduce sweep as having no loop-carried write
+            # and incorrectly skip pipelining.
+            kernel_body = pipeline_inner_loads(
+                kernel_body, constexpr_values, rename_groups=rename_groups
+            )
         return [
             *prefix,
             ast_rename(
@@ -1373,11 +940,7 @@ class DeviceFunction:
                     ast.FunctionDef,
                     name=self.name,
                     args=create_arguments(args),
-                    body=[
-                        *scalar_preamble,
-                        *self.preamble,
-                        *self.body,
-                    ],
+                    body=kernel_body,
                     decorator_list=[expr_from_string(function_decorator)]
                     if function_decorator
                     else [],

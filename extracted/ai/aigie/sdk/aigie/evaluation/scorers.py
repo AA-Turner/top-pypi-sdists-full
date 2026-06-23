@@ -6,7 +6,7 @@ Provides pre-configured scorers for common evaluation criteria.
 
 from abc import ABC, abstractmethod
 
-from .llm_judge import EvaluationResult, JudgeConfig, LLMJudge
+from aigie.evaluation.llm_judge import EvaluationResult, JudgeConfig, LLMJudge
 
 
 class BaseScorer(ABC):

@@ -107,7 +107,7 @@ async def acall_with_autonomous(
         for retries, or once `_MAX_RETRIES` is reached.
     """
     # Imported lazily to avoid an import cycle with the interceptor package.
-    from ..interceptor.protocols import InterceptionDecision
+    from aigie.interceptor.protocols import InterceptionDecision
 
     attempts = 0
     while True:
@@ -143,7 +143,7 @@ def call_sync_with_autonomous(
     when no loop is running, or onto a temporary helper thread when called
     from inside a running loop.
     """
-    from ..interceptor.protocols import InterceptionDecision
+    from aigie.interceptor.protocols import InterceptionDecision
 
     attempts = 0
     while True:

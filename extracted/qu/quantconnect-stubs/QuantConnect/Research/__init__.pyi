@@ -21,6 +21,31 @@ QuantConnect_Research_QuantBook_PerformSelection_T1 = typing.TypeVar("QuantConne
 QuantConnect_Research_QuantBook_PerformSelection_T2 = typing.TypeVar("QuantConnect_Research_QuantBook_PerformSelection_T2")
 
 
+class FutureHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
+    """Class to manage information from History Request of Futures"""
+
+    def __init__(self, data: typing.List[QuantConnect.Data.Slice]) -> None:
+        """
+        Create a new instance of FutureHistory.
+        
+        :param data: 
+        """
+        ...
+
+    def get_all_data(self) -> typing.Any:
+        """
+        Gets all data from the History Request that are written in a pandas.DataFrame
+        
+        
+        Please use the 'DataFrame' property
+        """
+        warnings.warn("Please use the 'DataFrame' property", DeprecationWarning)
+
+    def get_expiry_dates(self) -> typing.Any:
+        """Gets all expity dates in the future history"""
+        ...
+
+
 class OptionHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
     """Class to manage information from History Request of Options"""
 
@@ -118,31 +143,6 @@ class _QuantBook_PerformSelection:
     """"""
 
     def __getitem__(self, type: typing.Type[QuantConnect_Research_QuantBook_PerformSelection_T1]) -> QuantConnect.Research._Typed_QuantBook_PerformSelection[QuantConnect_Research_QuantBook_PerformSelection_T1]:
-        ...
-
-
-class FutureHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
-    """Class to manage information from History Request of Futures"""
-
-    def __init__(self, data: typing.List[QuantConnect.Data.Slice]) -> None:
-        """
-        Create a new instance of FutureHistory.
-        
-        :param data: 
-        """
-        ...
-
-    def get_all_data(self) -> typing.Any:
-        """
-        Gets all data from the History Request that are written in a pandas.DataFrame
-        
-        
-        Please use the 'DataFrame' property
-        """
-        warnings.warn("Please use the 'DataFrame' property", DeprecationWarning)
-
-    def get_expiry_dates(self) -> typing.Any:
-        """Gets all expity dates in the future history"""
         ...
 
 

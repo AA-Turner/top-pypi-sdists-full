@@ -10,6 +10,30 @@ import QuantConnect.Securities.CryptoFuture
 import System
 
 
+class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
+    """Crypto Future holdings implementation of the base securities class"""
+
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Crypto Future Holding Class constructor
+        
+        :param security: The crypto future security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+    def get_quantity_value(self, quantity: float, price: float) -> QuantConnect.Securities.ConvertibleCashAmount:
+        """
+        Gets the total value of the specified quantity of shares of this security
+        in the account currency
+        
+        :param quantity: The quantity of shares
+        :param price: The current price
+        :returns: The value of the quantity of shares in the account currency.
+        """
+        ...
+
+
 class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
     """The responsability of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
@@ -23,10 +47,6 @@ class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securitie
 
 
 class dYdXFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
-    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
-
-
-class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
     """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
 
@@ -104,6 +124,47 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         ...
 
 
+class BinanceCryptoFutureMarginModel(QuantConnect.Securities.CryptoFuture.CryptoFutureMarginModel):
+    """
+    Binance-specific crypto future margin model that includes supplementary stable coin
+    currencies as alternative collateral for non-coin (USDⓈ-M) futures.
+    """
+
+    def __init__(self, leverage: float = 25) -> None:
+        """
+        Creates a new instance
+        
+        :param leverage: The leverage to use, default 25x
+        """
+        ...
+
+    def get_total_collateral_amount(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, primary_collateral: QuantConnect.Securities.Cash) -> float:
+        """
+        Gets the total collateral amount for a Binance crypto future, including supplementary
+        collateral assets for EU/EEA accounts in MiCA Credits Trading Mode.
+        For coin futures (e.g. BTCUSD), only the primary collateral (base currency) is used.
+        
+        
+        This Class is protected.
+        
+        :param portfolio: The algorithm's portfolio
+        :param security: The crypto future security
+        :param primary_collateral: The primary collateral cash (e.g. USDT)
+        :returns: Total collateral amount in terms of the primary collateral currency.
+        """
+        ...
+
+    def shares_collateral(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, collateral_currency: QuantConnect.Securities.Cash, other_crypto_future: QuantConnect.Securities.Security) -> bool:
+        """
+        When BNFCR is present (EU/MiCA mode), all USDⓈ-M futures share the same collateral
+        pool regardless of quote currency (USDT, USDC, etc.).
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
 class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
     """Crypto Future Security Object Implementation for Crypto Future Assets"""
 
@@ -163,68 +224,7 @@ class CryptoFutureExchange(QuantConnect.Securities.SecurityExchange):
         ...
 
 
-class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
-    """Crypto Future holdings implementation of the base securities class"""
-
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        Crypto Future Holding Class constructor
-        
-        :param security: The crypto future security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-    def get_quantity_value(self, quantity: float, price: float) -> QuantConnect.Securities.ConvertibleCashAmount:
-        """
-        Gets the total value of the specified quantity of shares of this security
-        in the account currency
-        
-        :param quantity: The quantity of shares
-        :param price: The current price
-        :returns: The value of the quantity of shares in the account currency.
-        """
-        ...
-
-
-class BinanceCryptoFutureMarginModel(QuantConnect.Securities.CryptoFuture.CryptoFutureMarginModel):
-    """
-    Binance-specific crypto future margin model that includes supplementary stable coin
-    currencies as alternative collateral for non-coin (USDⓈ-M) futures.
-    """
-
-    def __init__(self, leverage: float = 25) -> None:
-        """
-        Creates a new instance
-        
-        :param leverage: The leverage to use, default 25x
-        """
-        ...
-
-    def get_total_collateral_amount(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, primary_collateral: QuantConnect.Securities.Cash) -> float:
-        """
-        Gets the total collateral amount for a Binance crypto future, including supplementary
-        collateral assets for EU/EEA accounts in MiCA Credits Trading Mode.
-        For coin futures (e.g. BTCUSD), only the primary collateral (base currency) is used.
-        
-        
-        This Class is protected.
-        
-        :param portfolio: The algorithm's portfolio
-        :param security: The crypto future security
-        :param primary_collateral: The primary collateral cash (e.g. USDT)
-        :returns: Total collateral amount in terms of the primary collateral currency.
-        """
-        ...
-
-    def shares_collateral(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, collateral_currency: QuantConnect.Securities.Cash, other_crypto_future: QuantConnect.Securities.Security) -> bool:
-        """
-        When BNFCR is present (EU/MiCA mode), all USDⓈ-M futures share the same collateral
-        pool regardless of quote currency (USDT, USDC, etc.).
-        
-        
-        This Class is protected.
-        """
-        ...
+class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
+    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
 

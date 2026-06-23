@@ -24,7 +24,7 @@ warnings.warn(
     stacklevel=2,
 )
 
-from .context_manager import (
+from aigie.context_manager import (
     RunContext,
     get_current_span_context,
     get_current_trace_context,
@@ -202,7 +202,7 @@ class traceable:
                 return await func(*args, **kwargs)
 
             # Import here to avoid circular dependency
-            from .client import Aigie
+            from aigie.client import Aigie
 
             # Extract inputs
             inputs = _extract_inputs(func, args, kwargs)

@@ -30,11 +30,11 @@ from smplkit._generated.audit.models.forwarder import Forwarder as _GenForwarder
 from smplkit._generated.audit.models.forwarder_create_request import (
     ForwarderCreateRequest as _GenForwarderCreateRequest,
 )
-from smplkit._generated.audit.models.forwarder_environment import (
-    ForwarderEnvironment as _GenForwarderEnvironment,
-)
 from smplkit._generated.audit.models.forwarder_environments import (
     ForwarderEnvironments as _GenForwarderEnvironments,
+)
+from smplkit._generated.audit.models.forwarder_environments_additional_property import (
+    ForwarderEnvironmentsAdditionalProperty as _GenForwarderEnvironment,
 )
 from smplkit._generated.audit.models.forwarder_create_resource import (
     ForwarderCreateResource as _GenForwarderCreateResource,
@@ -42,16 +42,21 @@ from smplkit._generated.audit.models.forwarder_create_resource import (
 from smplkit._generated.audit.models.forwarder_filter_type_0 import (
     ForwarderFilterType0 as _GenForwarderFilter,
 )
+from smplkit._generated.audit.models.forwarder_http_configuration import (
+    ForwarderHttpConfiguration as _GenHttpConfiguration,
+)
+from smplkit._generated.audit.models.forwarder_http_configuration_headers import (
+    ForwarderHttpConfigurationHeaders as _GenHttpConfigurationHeaders,
+)
+from smplkit._generated.audit.models.forwarder_http_configuration_method import (
+    check_forwarder_http_configuration_method as _check_http_method,
+)
 from smplkit._generated.audit.models.forwarder_request import (
     ForwarderRequest as _GenForwarderRequest,
 )
 from smplkit._generated.audit.models.forwarder_resource import (
     ForwarderResource as _GenForwarderResource,
 )
-from smplkit._generated.audit.models.http_configuration import (
-    HttpConfiguration as _GenHttpConfiguration,
-)
-from smplkit._generated.audit.models.http_header import HttpHeader as _GenHttpHeader
 from smplkit._generated.audit.types import UNSET
 from smplkit.audit.models import (
     AsyncForwarder,
@@ -124,15 +129,18 @@ def _http_to_gen(configuration: HttpConfiguration) -> _GenHttpConfiguration:
 
     Going through the typed constructor means a spec change that drops a
     field will fail to compile here, instead of silently passing through
-    on the wire.
+    on the wire. Headers travel as the generated name→value headers object.
     """
     src = configuration._to_dict()
-    headers = [_GenHttpHeader(name=h["name"], value=h["value"]) for h in src["headers"]]
+    gen_headers = _GenHttpConfigurationHeaders()
+    gen_headers.additional_properties = dict(src["headers"])
     return _GenHttpConfiguration(
         url=src["url"],
-        method=src["method"],
-        headers=headers,
+        method=_check_http_method(src["method"]),
+        headers=gen_headers,
         success_status=src["success_status"],
+        tls_verify=src["tls_verify"],
+        ca_cert=src["ca_cert"] if src["ca_cert"] is not None else UNSET,
     )
 
 
@@ -141,21 +149,15 @@ def _normalize_environments(
 ) -> dict[str, ForwarderEnvironment]:
     """Coerce a caller's ``environments`` map to wrapper instances.
 
-    Accepts either :class:`ForwarderEnvironment` values or plain dicts
-    (``{"enabled": True, "configuration": HttpConfiguration(...)}``) so
-    callers can use the lightweight dict form without importing the model.
+    A value may be a :class:`ForwarderEnvironment` (used as-is) or a plain
+    dict of constructor kwargs (``{"enabled": True, "url": ...,
+    "headers": {...}}``), which is splatted into :class:`ForwarderEnvironment`.
     """
     if not environments:
         return {}
     out: dict[str, ForwarderEnvironment] = {}
     for env_key, value in environments.items():
-        if isinstance(value, ForwarderEnvironment):
-            out[env_key] = value
-        else:
-            out[env_key] = ForwarderEnvironment(
-                enabled=bool(value.get("enabled", False)),
-                configuration=value.get("configuration"),
-            )
+        out[env_key] = value if isinstance(value, ForwarderEnvironment) else ForwarderEnvironment(**value)
     return out
 
 
@@ -164,16 +166,15 @@ def _environments_to_gen(
 ) -> _GenForwarderEnvironments:
     """Convert the wrapper ``environments`` map to the generated model.
 
-    Per-environment ``configuration`` overrides are sent as full
-    :class:`HttpConfiguration` payloads (plaintext headers in), mirroring
-    the base configuration's round-trip semantics.
+    Each value is a flat sparse leaf-path overlay (ADR-056): ``enabled`` plus
+    only the leaves the environment overrides, with each header as a
+    ``headers.<name>`` leaf.
     """
     gen = _GenForwarderEnvironments()
     for env_key, env in environments.items():
-        gen[env_key] = _GenForwarderEnvironment(
-            enabled=env.enabled,
-            configuration=(_http_to_gen(env.configuration) if env.configuration is not None else UNSET),
-        )
+        prop = _GenForwarderEnvironment()
+        prop.additional_properties = env._to_payload()
+        gen[env_key] = prop
     return gen
 
 
@@ -267,14 +268,15 @@ class ForwardersClient:
                 often carry credentials and are returned in plaintext on
                 reads, so a get-mutate-put round-trip preserves them
                 without re-entering secrets.
-            environments: Per-environment overrides keyed by environment
-                key (e.g. ``"production"``). A forwarder delivers in an
-                environment only when that environment's entry has
+            environments: Per-environment sparse overrides keyed by
+                environment key (e.g. ``"production"``). A forwarder delivers
+                in an environment only when that environment's entry has
                 ``enabled=True``. Values may be :class:`ForwarderEnvironment`
-                instances or plain dicts (``{"enabled": True}``, optionally
-                with a ``"configuration"`` :class:`HttpConfiguration`
-                override). Omit to create a forwarder that delivers
-                nowhere until enabled per environment.
+                instances or plain dicts of its constructor kwargs
+                (``{"enabled": True, "url": ..., "headers": {...}}``); each
+                entry overrides only the leaves it sets, inheriting the base
+                ``configuration`` for the rest. Omit to create a forwarder
+                that delivers nowhere until enabled per environment.
             description: Optional free-text description.
             forward_smplkit_events: When ``True``, this forwarder also
                 receives platform change events that smplkit records about
@@ -486,14 +488,15 @@ class AsyncForwardersClient:
                 often carry credentials and are returned in plaintext on
                 reads, so a get-mutate-put round-trip preserves them
                 without re-entering secrets.
-            environments: Per-environment overrides keyed by environment
-                key (e.g. ``"production"``). A forwarder delivers in an
-                environment only when that environment's entry has
+            environments: Per-environment sparse overrides keyed by
+                environment key (e.g. ``"production"``). A forwarder delivers
+                in an environment only when that environment's entry has
                 ``enabled=True``. Values may be :class:`ForwarderEnvironment`
-                instances or plain dicts (``{"enabled": True}``, optionally
-                with a ``"configuration"`` :class:`HttpConfiguration`
-                override). Omit to create a forwarder that delivers
-                nowhere until enabled per environment.
+                instances or plain dicts of its constructor kwargs
+                (``{"enabled": True, "url": ..., "headers": {...}}``); each
+                entry overrides only the leaves it sets, inheriting the base
+                ``configuration`` for the rest. Omit to create a forwarder
+                that delivers nowhere until enabled per environment.
             description: Optional free-text description.
             forward_smplkit_events: When ``True``, this forwarder also
                 receives platform change events that smplkit records about

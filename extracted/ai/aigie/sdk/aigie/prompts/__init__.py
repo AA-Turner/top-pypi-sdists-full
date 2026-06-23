@@ -4,12 +4,7 @@ Aigie Prompt Management.
 Provides prompt versioning, registry, and template management.
 """
 
-from .registry import (
-    PromptRegistry,
-    PromptTemplate,
-    PromptVersion,
-    get_registry,
-)
+from aigie.prompts.registry import PromptRegistry, PromptTemplate, PromptVersion, get_registry
 
 __all__ = [
     "PromptRegistry",

@@ -6,18 +6,23 @@ It enforces the call-side half of the compaction invariants
 
 3. Summary calls get exactly one model configuration path.
    ``configure_summary_model`` applies all compaction-specific provider tuning in
-   one place: prompt-cache writes off, Claude thinking cleared (mandatory whenever
-   max_tokens is capped — a thinking budget at or above the cap is a 400 from
-   Anthropic), summary output capped at ``SUMMARY_MAX_OUTPUT_TOKENS``, SDK retries
-   disabled, and one SDK timeout coordinated with the outer chunk budget
+   one place: prompt-cache writes off, Claude thinking cleared (a thinking budget
+   at or above max_tokens is a 400 from Anthropic), SDK retries disabled, and
+   one SDK timeout coordinated with the outer chunk budget
    (``MINDROOM_COMPACTION_CHUNK_TIMEOUT_SECONDS``) instead of two uncoordinated
-   constants in two modules. Unknown providers pass through untouched and rely on
-   the outer chunk timeout alone.
+   constants in two modules. Claude summary output uses the loaded model's own
+   max_tokens as the truncation guard. Unknown providers pass through untouched
+   and rely on the outer chunk timeout alone.
 
 4. Budget shrinks deterministically on provider failure.
    ``SummaryRetryPolicy`` decides which error classes warrant a smaller retry
    (timeouts and the named context-length fragments), the shrink schedule
    (halving), and the give-up floor — no inline string matching at call sites.
+
+5. Output-capped summaries use an explicit retry signal.
+   ``generate_compaction_summary`` refuses to return a likely truncated summary,
+   and the retry wrapper can shrink input through ``SummaryRetryPolicy`` without
+   depending on owned error-message text.
 
 ``build_summary_request_messages`` is the single replaceable request builder; a
 future cache-friendly builder that reuses the active provider prefix (PR #861)
@@ -47,7 +52,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-SUMMARY_MAX_OUTPUT_TOKENS = 4096
 _COMPACTION_CANCEL_DRAIN_TIMEOUT_SECONDS = 1.0
 
 _RETRYABLE_PROVIDER_ERROR_FRAGMENTS = (
@@ -67,6 +71,10 @@ _RETRYABLE_PROVIDER_ERROR_FRAGMENTS = (
 )
 
 
+class CompactionSummaryOutputLimitError(RuntimeError):
+    """Raised when the summary response reaches the configured output-token cap."""
+
+
 @dataclass(frozen=True)
 class SummaryRetryPolicy:
     """Explicit budget-shrink policy for failed compaction summary calls.
@@ -82,7 +90,7 @@ class SummaryRetryPolicy:
 
     def should_shrink(self, error: Exception) -> bool:
         """Return whether a smaller summary input may resolve this provider failure."""
-        if isinstance(error, TimeoutError):
+        if isinstance(error, TimeoutError | CompactionSummaryOutputLimitError):
             return True
         message = str(error).lower()
         return any(fragment in message for fragment in _RETRYABLE_PROVIDER_ERROR_FRAGMENTS)
@@ -119,9 +127,6 @@ def configure_summary_model(model: Model, *, timeout_seconds: float | None = Non
     model.cache_system_prompt = False
     model.extended_cache_time = False
     model.thinking = None
-    model.max_tokens = (
-        min(model.max_tokens, SUMMARY_MAX_OUTPUT_TOKENS) if model.max_tokens else SUMMARY_MAX_OUTPUT_TOKENS
-    )
     model.timeout = min(model.timeout, resolved_timeout) if model.timeout else resolved_timeout
     client_params = dict(model.client_params or {})
     client_params["max_retries"] = 0
@@ -208,7 +213,8 @@ async def generate_compaction_summary(
     """Issue one compaction summary call with tuned provider config and one timeout."""
     del timing_scope
     resolved_timeout = MINDROOM_COMPACTION_CHUNK_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
-    configure_summary_model(model, timeout_seconds=resolved_timeout)
+    configured_model = configure_summary_model(model, timeout_seconds=resolved_timeout)
+    summary_output_limit = _summary_output_token_limit(configured_model)
 
     async def _request_summary() -> ModelResponse:
         try:
@@ -256,6 +262,9 @@ async def generate_compaction_summary(
     if not normalized_text:
         msg = "summary generation returned no result"
         raise RuntimeError(msg)
+    if _summary_response_likely_truncated(response, output_token_limit=summary_output_limit):
+        msg = "compaction summary hit configured output token limit; refusing to persist incomplete summary"
+        raise CompactionSummaryOutputLimitError(msg)
     return SessionSummary(summary=normalized_text, updated_at=datetime.now(UTC))
 
 
@@ -268,3 +277,24 @@ def _normalize_compaction_summary_text(raw_text: str) -> str:
         if first_newline != -1:
             normalized = normalized[first_newline + 1 : -3].strip()
     return normalized
+
+
+def _summary_output_token_limit(model: Model) -> int | None:
+    if isinstance(model, Claude):
+        return model.max_tokens
+    return None
+
+
+def _summary_response_likely_truncated(response: ModelResponse, *, output_token_limit: int | None) -> bool:
+    if output_token_limit is None:
+        return False
+    output_tokens = _response_output_tokens(response)
+    return output_tokens is not None and output_tokens >= output_token_limit
+
+
+def _response_output_tokens(response: ModelResponse) -> int | None:
+    if response.output_tokens is not None:
+        return response.output_tokens
+    if response.response_usage is None:
+        return None
+    return response.response_usage.output_tokens

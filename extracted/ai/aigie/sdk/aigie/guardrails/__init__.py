@@ -13,14 +13,14 @@ Guardrails detect issues and trigger remediation:
 Integrates with Kytte's RemediationService for autonomous fixes.
 """
 
-from .base import (
+from aigie.guardrails.base import (
     BaseGuardrail,
     GuardrailAction,
     GuardrailChain,
     GuardrailRemediationNeeded,
     GuardrailResult,
 )
-from .detectors import (
+from aigie.guardrails.detectors import (
     HallucinationDetector,
     PIIDetector,
     PromptInjectionDetector,

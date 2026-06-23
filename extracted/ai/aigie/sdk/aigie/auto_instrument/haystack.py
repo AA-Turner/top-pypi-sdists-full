@@ -37,8 +37,8 @@ def _patch_pipeline() -> None:
         @functools.wraps(original_run)
         def traced_run(self, data: dict[str, Any], **kwargs):
             """Traced version of Pipeline.run."""
-            from ..auto_instrument.trace import get_or_create_trace_sync
-            from ..client import get_aigie
+            from aigie.auto_instrument.trace import get_or_create_trace_sync
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if not aigie or not aigie._initialized:
@@ -109,7 +109,7 @@ def _patch_component() -> None:
             @functools.wraps(original_call)
             def traced_call(self, *args, **kwargs):
                 """Traced version of Component.__call__."""
-                from ..client import get_aigie
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
                 if not aigie or not aigie._initialized:
@@ -208,8 +208,8 @@ def _patch_generator_class(name: str, cls: type) -> None:
     @functools.wraps(original_run)
     def traced_run(self, *args, **kwargs):
         """Traced version of Generator.run."""
-        from ..auto_instrument.trace import get_or_create_trace_sync
-        from ..client import get_aigie
+        from aigie.auto_instrument.trace import get_or_create_trace_sync
+        from aigie.client import get_aigie
 
         aigie = get_aigie()
         if not aigie or not aigie._initialized:
@@ -309,8 +309,8 @@ def _patch_retriever_class(name: str, cls: type) -> None:
     @functools.wraps(original_run)
     def traced_run(self, *args, **kwargs):
         """Traced version of Retriever.run."""
-        from ..auto_instrument.trace import get_or_create_trace_sync
-        from ..client import get_aigie
+        from aigie.auto_instrument.trace import get_or_create_trace_sync
+        from aigie.client import get_aigie
 
         aigie = get_aigie()
         if not aigie or not aigie._initialized:
@@ -413,8 +413,8 @@ def _patch_embedder_class(name: str, cls: type) -> None:
     @functools.wraps(original_run)
     def traced_run(self, *args, **kwargs):
         """Traced version of Embedder.run."""
-        from ..auto_instrument.trace import get_or_create_trace_sync
-        from ..client import get_aigie
+        from aigie.auto_instrument.trace import get_or_create_trace_sync
+        from aigie.client import get_aigie
 
         aigie = get_aigie()
         if not aigie or not aigie._initialized:

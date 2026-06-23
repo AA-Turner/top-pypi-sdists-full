@@ -12,7 +12,7 @@ dependencies = [
 ovide = "ovide.cli:main"
 
 [tool.uv]
-exclude-newer = "7 days"
+exclude-newer = "2 days"
 
 [build-system]
 requires = ["hatchling"]

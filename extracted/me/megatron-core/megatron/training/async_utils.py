@@ -7,7 +7,6 @@ the async checkpoint save calls.
 import inspect
 import logging
 import time
-
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
@@ -26,10 +25,14 @@ else:
 
 try:
     from nvidia_resiliency_ext.checkpointing.async_ckpt.filesystem_async import _results_queue
-    from nvidia_resiliency_ext.checkpointing.async_ckpt.state_dict_saver import save_state_dict_async_finalize
+    from nvidia_resiliency_ext.checkpointing.async_ckpt.state_dict_saver import (
+        save_state_dict_async_finalize,
+    )
 except (ImportError, ModuleNotFoundError):
     from megatron.core.dist_checkpointing.strategies.filesystem_async import _results_queue
-    from megatron.core.dist_checkpointing.strategies.state_dict_saver import save_state_dict_async_finalize
+    from megatron.core.dist_checkpointing.strategies.state_dict_saver import (
+        save_state_dict_async_finalize,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +66,28 @@ def init_persistent_async_worker(rank: int, mp_mode: str = 'spawn'):
     time_start = time.time()
     if rank == 0:
         print(f"init_persistent_async_worker: {rank}, Starting Async Caller", flush=True)
-    _async_calls_queue = AsyncCallsQueue(persistent=True)
+    _async_calls_queue = AsyncCallsQueue(
+        persistent=True,
+        **(
+            {"cpu_shm_mode": args.async_ckpt_use_cpu_shm}
+            if async_strategy == "nvrx"
+            and "cpu_shm_mode" in inspect.signature(AsyncCallsQueue.__init__).parameters
+            else {}
+        ),
+    )
     # initialize the persistent caller with QoS priorities from args
     warmup_kwargs = {}
     if async_strategy == "mcore":
         # Note: nvidia-resiliency-ext uses is_daemon instead of mp_mode (always spawns)
         warmup_kwargs["mp_mode"] = mp_mode
+    elif async_strategy == "nvrx":
+        if "cpu_shm_mode" in inspect.signature(AsyncCallsQueue.warmup_persistent_caller).parameters:
+            warmup_kwargs["cpu_shm_mode"] = args.async_ckpt_use_cpu_shm
+        elif args.async_ckpt_use_cpu_shm:
+            raise AssertionError(
+                "Installed nvidia-resiliency-ext does not support cpu_shm_mode. "
+                "Update nvidia-resiliency-ext to use --async-ckpt-use-cpu-shm."
+            )
     AsyncCallsQueue.warmup_persistent_caller(
         rank,
         cpu_priority=args.async_ckpt_cpu_priority,

@@ -9,8 +9,7 @@
 """Extractors for https://joyreactor.com/"""
 
 from .common import Extractor, Message
-from .. import text
-import binascii
+from .. import text, util
 
 BASE_PATTERN = r"(?:https?://)?joyreactor\.c(om|c)"
 
@@ -173,8 +172,7 @@ class JoyreactorPostExtractor(JoyreactorExtractor):
 
         if self.metadata:
             data = self._request_graphql("IdPostPageQuery", {
-                "id": binascii.b2a_base64(b"Post:" + bytes(str(pid), "ascii"),
-                                          newline=False).decode(),
+                "id": util.b64encode(b"Post:" + bytes(str(pid), "ascii")),
                 "isAuthorised": False,
             })["node"]
         else:

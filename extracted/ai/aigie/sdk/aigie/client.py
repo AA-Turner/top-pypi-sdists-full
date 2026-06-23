@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Any, Optional
 import grpc
 import httpx
 
-from .buffer import BufferedEvent, EventBuffer
-from .config import Config
-from .diagnostics import (
+from aigie.buffer import BufferedEvent, EventBuffer
+from aigie.config import Config
+from aigie.diagnostics import (
     A001,
     A002,
     A003,
@@ -27,19 +27,36 @@ from .diagnostics import (
     R006,
     format_diagnostic,
 )
-from .ingest import span_to_proto as _span_to_proto
-from .tracing.trace_state import drain_open_spans_as_interrupted
-from .tracing.types import JUDGE_SKIP_STATUSES
-from .trace import TraceContext
+from aigie.ingest import span_to_proto as _span_to_proto
+from aigie.trace import TraceContext
+from aigie.tracing.trace_state import drain_open_spans_as_interrupted
+from aigie.tracing.types import JUDGE_SKIP_STATUSES
 
 if TYPE_CHECKING:
-    from .diagnostics import DoctorResult
-    from .drift import DriftMonitor
-    from .interceptor import InterceptionContext, InterceptorChain, PostCallHook, PreCallHook
-    from .licensing import LicenseInfo, LicenseValidator
-    from .rules import LocalRulesEngine, Rule
+    from aigie.diagnostics import DoctorResult
+    from aigie.drift import DriftMonitor
+    from aigie.interceptor import InterceptionContext, InterceptorChain, PostCallHook, PreCallHook
+    from aigie.licensing import LicenseInfo, LicenseValidator
+    from aigie.rules import LocalRulesEngine, Rule
 
 logger = logging.getLogger(__name__)
+
+# ── Hardcoded behavior constants (formerly Config knobs) ────────────────────
+# Buffering
+_BATCH_SIZE: int = 100
+_FLUSH_INTERVAL: float = 5.0  # seconds
+# Retries
+_MAX_RETRIES: int = 3
+_RETRY_DELAY: float = 1.0  # base delay in seconds
+# HTTP
+_TIMEOUT: float = 30.0
+_CONNECT_TIMEOUT: float = 5.0  # TCP connect timeout — fail fast on unreachable backends
+_MAX_CONNECTIONS: int = 10
+# Circuit breaker
+_CIRCUIT_BREAKER_THRESHOLD: int = 5  # failures before opening
+_CIRCUIT_BREAKER_TIMEOUT: float = 60.0  # seconds before retry
+# Sampling — always send everything
+_SAMPLING_RATE: float = 1.0
 
 # Global singleton instance
 _global_aigie: Optional["Aigie"] = None
@@ -61,13 +78,6 @@ class Aigie:
             # Your code here
             pass
 
-    With data masking:
-        def mask_pii(data: dict) -> dict:
-            # Redact emails, phone numbers, etc.
-            return redacted_data
-
-        aigie = Aigie(mask=mask_pii)
-
     With debug mode:
         aigie = Aigie(debug=True)  # or AIGIE_DEBUG=true
     """
@@ -78,18 +88,8 @@ class Aigie:
         kytte_token: str | None = None,  # Primary: Kytte authentication token
         *,
         config: Config | None = None,
-        mask: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
-        debug: bool = False,
         log_level: str | None = None,
-        llm_api_key: str | None = None,
-        judge_model: str | None = None,
         agent_name: str | None = None,
-        framework: str | None = None,
-        # DEPRECATED aliases — still work, emit warnings
-        aigie_url: str | None = None,
-        aigie_token: str | None = None,
-        api_url: str | None = None,
-        api_key: str | None = None,
     ):
         """
         Initialize Aigie client.
@@ -98,73 +98,13 @@ class Aigie:
             kytte_url: Kytte platform URL (defaults to KYTTE_URL env var)
             kytte_token: Kytte authentication token (REQUIRED for data to be sent)
             config: Optional Config object (if provided, overrides other params)
-            mask: Optional function to mask sensitive data (PII protection)
-            debug: Enable debug mode for detailed logging
-            log_level: Control logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-            aigie_url: DEPRECATED — use kytte_url
-            aigie_token: DEPRECATED — use kytte_token
-            api_url: DEPRECATED — use kytte_url
-            api_key: DEPRECATED — use kytte_token
+            log_level: Control logging verbosity (DEBUG, INFO, WARNING, ERROR,
+                CRITICAL). Pass "DEBUG" for the former debug=True behavior.
+            agent_name: Agent/deployment name for identification
         """
-        import warnings
-
-        # ── URL resolution: kytte_url > aigie_url (deprecated) > api_url (deprecated) > env vars
-        effective_url = kytte_url
-
-        if effective_url is None and aigie_url is not None:
-            effective_url = aigie_url
-            warnings.warn(
-                "Aigie(aigie_url=...) is deprecated, use kytte_url instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if effective_url is None and api_url is not None:
-            effective_url = api_url
-            warnings.warn(
-                "Aigie(api_url=...) is deprecated, use kytte_url instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if effective_url is None:
-            _env_url = os.getenv("KYTTE_URL")
-            if not _env_url:
-                _env_url = os.getenv("AIGIE_URL") or os.getenv("AIGIE_API_URL")
-                if _env_url:
-                    warnings.warn(
-                        "AIGIE_URL / AIGIE_API_URL env vars are deprecated, use KYTTE_URL.",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
-            effective_url = _env_url or ""
-
-        # ── Token resolution: kytte_token > aigie_token (deprecated) > api_key (deprecated) > env vars
-        effective_token = kytte_token
-
-        if effective_token is None and aigie_token is not None:
-            effective_token = aigie_token
-            warnings.warn(
-                "Aigie(aigie_token=...) is deprecated, use kytte_token instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if effective_token is None and api_key is not None:
-            effective_token = api_key
-            warnings.warn(
-                "Aigie(api_key=...) is deprecated, use kytte_token instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if effective_token is None:
-            _env_token = os.getenv("KYTTE_TOKEN")
-            if not _env_token:
-                _env_token = os.getenv("AIGIE_TOKEN") or os.getenv("AIGIE_API_KEY")
-                if _env_token:
-                    warnings.warn(
-                        "AIGIE_TOKEN / AIGIE_API_KEY env vars are deprecated, use KYTTE_TOKEN.",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
-            effective_token = _env_token
+        # ── URL / token resolution: explicit param > KYTTE_* env vars
+        effective_url = kytte_url or os.getenv("KYTTE_URL", "")
+        effective_token = kytte_token or os.getenv("KYTTE_TOKEN")
 
         # Use config if provided, otherwise create from params/env
         if config:
@@ -175,55 +115,35 @@ class Aigie:
         else:
             self.config = Config(
                 aigie_url=effective_url,
-                api_key=api_key or "",  # Deprecated, kept for backward compat
                 aigie_token=effective_token,
-                mask=mask,
-                debug=debug or os.getenv("AIGIE_DEBUG", "").lower() in ("true", "1", "yes"),
+                log_level=log_level or os.getenv("AIGIE_LOG_LEVEL", "WARNING"),
             )
             self._aigie_url = self.config.aigie_url
             self._auth_token = self.config.get_auth_token()
 
-        # DEPRECATED: Keep api_url for backward compatibility but use _aigie_url internally
-        self.api_url = self._aigie_url
-
-        # DEPRECATED: Keep api_key for backward compatibility but use _auth_token internally
-        self.api_key = self._auth_token or ""
-
-        # Store mask function for use in traces/spans
-        self._mask_fn = mask or self.config.mask
-        self._debug = debug or self.config.debug
-
         # Agent identification metadata
         self._agent_name = agent_name or os.getenv("AIGIE_AGENT_NAME")
-        self._framework = framework or os.getenv("AIGIE_FRAMEWORK")
-
-        # Set global mask function for decorators
-        if self._mask_fn:
-            from . import decorators_v3
-
-            decorators_v3.set_global_mask_fn(self._mask_fn)
 
         # Configure logging level
-        # Priority: debug parameter > log_level parameter > AIGIE_LOG_LEVEL env var > default WARNING
-        if debug:
-            effective_log_level = logging.DEBUG
-        else:
-            level_str = log_level or os.getenv("AIGIE_LOG_LEVEL", "WARNING").upper()
-            level_map = {
-                "DEBUG": logging.DEBUG,
-                "INFO": logging.INFO,
-                "WARNING": logging.WARNING,
-                "ERROR": logging.ERROR,
-                "CRITICAL": logging.CRITICAL,
-            }
-            effective_log_level = level_map.get(level_str, logging.WARNING)
+        # Priority: log_level parameter > AIGIE_LOG_LEVEL env var > default WARNING
+        level_str = (
+            log_level or self.config.log_level or os.getenv("AIGIE_LOG_LEVEL", "WARNING")
+        ).upper()
+        level_map = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL,
+        }
+        effective_log_level = level_map.get(level_str, logging.WARNING)
 
         # Configure all AIGIE-related loggers
         self._configure_logging(effective_log_level)
 
-        # Set debug mode
+        self._debug = effective_log_level == logging.DEBUG
         if self._debug:
-            from . import decorators_v3
+            from aigie import decorators_v3
 
             decorators_v3.set_debug_mode(True)
             logger.debug("Aigie client initialized in debug mode")
@@ -241,28 +161,11 @@ class Aigie:
         self._auth_next_retry_at: float = 0.0  # time.monotonic() timestamp
         self._closing: bool = False
         self._buffer: EventBuffer | None = None
-        self._enable_compression: bool = os.getenv("AIGIE_ENABLE_COMPRESSION", "").lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-        self._compressor = None  # Lazily initialized Compressor
 
         # Real-time interception components
         self._interceptor_chain: InterceptorChain | None = None
         self._rules_engine: LocalRulesEngine | None = None
-        self._legacy_backend: Any | None = None  # autonomous mode removed
         self._drift_monitor: DriftMonitor | None = None
-        self._legacy_autofix: Any | None = None  # autonomous mode removed
-
-        # LLM Judge and Runtime components (autonomous mode removed)
-        self._llm_judge: Any | None = None
-        self._context_aggregator: Any | None = None
-        self._span_interceptor: Any | None = None
-        self._legacy_remediation: Any | None = None  # autonomous mode removed
-
-        # User-supplied callable for autonomous retries: (provider, model, messages, **kwargs) -> response
-        self._llm_retry_executor: Any = None
 
         # License validation (for self-hosted installations)
         self._license_validator: LicenseValidator | None = None
@@ -271,41 +174,12 @@ class Aigie:
         # Callback handlers (LiteLLM-style)
         self._callbacks: list[Any] = []
 
-        # Gateway and Autonomous Mode (auto-enabled via env vars)
-        self._legacy_gateway: Any | None = None  # autonomous mode removed
-        self._legacy_mode: Any | None = None  # autonomous mode removed
+        # Backend health / signals
         self._signal_reporter: Any | None = None
         self._health_monitor: Any | None = None
 
-        # Runtime reliability components (Tier 1 + Tier 2)
-        self._fast_detector: Any | None = None
-        self._legacy_async_judge: Any | None = None  # autonomous mode removed
-        self._pattern_cache: Any | None = None
-        self._judge_selector: Any | None = None
-
-        # LLM API key for Aigie's internal judge model
-        # Today: OpenAI gpt-4o-mini / Gemini flash. Future: local SLM in customer's cluster.
-        self._judge_model: str | None = judge_model or os.getenv("AIGIE_JUDGE_MODEL")
-        self._judge_model_from_code: bool = (
-            judge_model is not None
-        )  # Code-level override takes priority over platform
-        self._llm_api_key: str | None = llm_api_key or self._resolve_llm_api_key()
+        # Judge LLM client (closed at shutdown if set externally)
         self._judge_llm_client: Any | None = None
-
-        # Autonomous v2 runtime — single gate: config.autonomous.
-        # (Legacy AIGIE_AUTONOMOUS_DISABLE is honored via Config defaults, which
-        # also emits a one-line deprecation warning at construct time.)
-        self._autonomous_runtime: Any | None = None  # AutonomousRuntime | None
-        if self.config.autonomous and self._aigie_url:
-            try:
-                from aigie.autonomous.runtime import AutonomousRuntime as _AR
-
-                self._autonomous_runtime = _AR(
-                    endpoint=self._aigie_url,
-                    api_key=self._auth_token,
-                )
-            except Exception as _e:
-                logger.debug("AutonomousRuntime init skipped: %s", _e)
 
     def _configure_logging(self, level: int) -> None:
         """Configure logging for AIGIE and related libraries to reduce noise.
@@ -342,15 +216,6 @@ class Aigie:
         """Get the Aigie API URL."""
         return self._aigie_url
 
-    @property
-    def autonomous_runtime(self) -> Any:
-        """Return the v2 AutonomousRuntime instance, or None if disabled/unavailable.
-
-        Integrations (Wave H) call ``runtime.on_span_complete(span)`` here.
-        The runtime type is AutonomousRuntime | None at runtime.
-        """
-        return self._autonomous_runtime
-
     async def initialize(self) -> None:
         """Initialize the HTTP client, event buffer, and interception components.
 
@@ -377,19 +242,19 @@ class Aigie:
                 headers["X-API-Key"] = self._auth_token
             # Include SDK version in headers so the platform can detect it
             try:
-                from . import __version__ as _ver
+                from aigie import __version__ as _ver
 
                 headers["X-SDK-Version"] = str(_ver)
             except Exception:
                 pass
             self.client = httpx.AsyncClient(
                 timeout=httpx.Timeout(
-                    connect=self.config.connect_timeout,
-                    read=self.config.timeout,
-                    write=self.config.timeout,
-                    pool=self.config.connect_timeout,
+                    connect=_CONNECT_TIMEOUT,
+                    read=_TIMEOUT,
+                    write=_TIMEOUT,
+                    pool=_CONNECT_TIMEOUT,
                 ),
-                limits=httpx.Limits(max_connections=self.config.max_connections),
+                limits=httpx.Limits(max_connections=_MAX_CONNECTIONS),
                 headers=headers,
             )
 
@@ -435,19 +300,18 @@ class Aigie:
                     self.config.kytte_grpc_use_tls,
                 )
 
-            # Initialize event buffer if enabled
-            if self.config.enable_buffering:
-                self._buffer = EventBuffer(
-                    max_size=self.config.batch_size,
-                    flush_interval=self.config.flush_interval,
-                    max_retries=self.config.max_retries,
-                    retry_delay=self.config.retry_delay,
-                    enable_circuit_breaker=self.config.enable_circuit_breaker,
-                    circuit_breaker_threshold=self.config.circuit_breaker_threshold,
-                    circuit_breaker_timeout=self.config.circuit_breaker_timeout,
-                )
-                self._buffer.set_flusher(self._flush_events)
-                await self._buffer.start_background_flusher()
+            # Initialize event buffer (always on)
+            self._buffer = EventBuffer(
+                max_size=_BATCH_SIZE,
+                flush_interval=_FLUSH_INTERVAL,
+                max_retries=_MAX_RETRIES,
+                retry_delay=_RETRY_DELAY,
+                enable_circuit_breaker=True,
+                circuit_breaker_threshold=_CIRCUIT_BREAKER_THRESHOLD,
+                circuit_breaker_timeout=_CIRCUIT_BREAKER_TIMEOUT,
+            )
+            self._buffer.set_flusher(self._flush_events)
+            await self._buffer.start_background_flusher()
 
             # Validate configuration for self-hosted deployments
             self.config.validate_and_warn()
@@ -473,26 +337,12 @@ class Aigie:
             parallel_tasks = []
 
             # Platform connectivity check
-            if self.api_url:
+            if self._aigie_url:
                 parallel_tasks.append(_safe_init("platform", self._check_platform_health(), 5.0))
-                parallel_tasks.append(
-                    _safe_init("legacy_transport", self._init_legacy_transport(), 10.0)
-                )
 
             # License validation
             if self.config.aigie_token and not self.config.skip_license_validation:
                 parallel_tasks.append(_safe_init("license", self._initialize_license(), 5.0))
-
-            # Real-time interception (chain). Gated on the single autonomous toggle.
-            if self.config.autonomous:
-                parallel_tasks.append(
-                    _safe_init("interception", self._initialize_interception(), 10.0)
-                )
-
-            # Gateway and Autonomous Mode
-            parallel_tasks.append(
-                _safe_init("autonomous", self._initialize_autonomous_features(), 5.0)
-            )
 
             if parallel_tasks:
                 results = await asyncio.gather(*parallel_tasks)
@@ -511,35 +361,22 @@ class Aigie:
                 failed_summary = ", ".join(name for name, _ in failed)
                 logger.warning(f"[AIGIE] Init partial — failed: {failed_summary}")
 
-            # ── Phase 3: Wiring + pattern cache ─────────────────────────
+            # ── Phase 3: Wiring ─────────────────────────────────────────
             self._wire_components()
 
-            if self._pattern_cache:
-                try:
-                    from .utils.safe import schedule_async
+            # ── Phase 4: Auto-instrumentation (always on, sync, idempotent)
+            try:
+                from aigie.integrations.install import install_framework_adapters
 
-                    schedule_async(self._pattern_cache.initial_sync())
-                    self._pattern_cache.start_background_refresh()
-                except Exception as e:
-                    logger.debug(f"Pattern cache sync failed (non-fatal): {e}")
-
-            # ── Phase 4: Auto-instrumentation (sync, idempotent) ────────
-            should_auto_instrument = getattr(self.config, "enable_auto_instrument", True)
-            explicitly_disabled = getattr(self.config, "disable_auto_instrument", False)
-
-            if should_auto_instrument and not explicitly_disabled:
-                try:
-                    from .integrations.install import install_framework_adapters
-
-                    install_framework_adapters(aigie=self, runtime=self._autonomous_runtime)
-                except Exception as e:
-                    logger.debug("Framework adapter install failed (non-fatal): %s", e)
-                _enable_auto_instrumentation()
-                logger.info("Auto-instrumentation enabled - LLM calls will be automatically traced")
+                install_framework_adapters(aigie=self)
+            except Exception as e:
+                logger.debug("Framework adapter install failed (non-fatal): %s", e)
+            _enable_auto_instrumentation()
+            logger.info("Auto-instrumentation enabled - LLM calls will be automatically traced")
 
             # ── Phase 5: Startup diagnostics banner ────────────────────────
             try:
-                from .diagnostics import format_startup_banner
+                from aigie.diagnostics import format_startup_banner
 
                 diag = self._collect_diagnostics()
                 banner = format_startup_banner(diag)
@@ -553,7 +390,7 @@ class Aigie:
 
         # Version
         try:
-            from . import __version__ as ver
+            from aigie import __version__ as ver
 
             version = str(ver) if ver else "unknown"
         except Exception:
@@ -567,19 +404,10 @@ class Aigie:
         else:
             auth = ("error", "no token [AIGIE-C002]")
 
-        # Gateway
-        if self._legacy_gateway and getattr(self._legacy_gateway, "is_connected", False):
-            gateway = ("ok", "connected")
-        elif not self._auth_token or not self._aigie_url:
-            gateway = ("skip", "skipped (no auth)")
-        else:
-            gateway = ("error", "not connected [AIGIE-N001]")
-
         # Interception
         if self._interceptor_chain is not None:
             rule_count = len(self._rules_engine.list_rules()) if self._rules_engine else 0
-            mode = "full" if self._legacy_backend else "local-only"
-            interception = ("ok", f"enabled ({mode}, {rule_count} rules)")
+            interception = ("ok", f"enabled (local-only, {rule_count} rules)")
         else:
             interception = ("skip", "disabled")
 
@@ -606,22 +434,14 @@ class Aigie:
         except ImportError:
             compression = ("error", "zstandard not installed [AIGIE-I001]")
 
-        # Judge mode
-        if self._judge_llm_client:
-            model = self._judge_model or "gpt-4o-mini"
-            method = "SDK" if getattr(self._judge_llm_client, "_use_sdk", False) else "httpx"
-            judge = ("ok", f"LLM ({model} via {method})")
-        else:
-            judge = ("warn", "heuristic-only (set AIGIE_LLM_API_KEY for LLM evaluation)")
-
         return {
             "version": version,
             "mode": os.getenv("AIGIE_MODE", "observe"),
             "platform_url": self._aigie_url or "not configured",
             "auth": auth,
-            "gateway": gateway,
+            "gateway": ("skip", "disabled"),
             "interception": interception,
-            "judge": judge,
+            "judge": ("skip", "not initialized"),
             "auto_instrument": auto_inst,
             "compression": compression,
         }
@@ -683,173 +503,25 @@ class Aigie:
             raise RuntimeError("httpx client not initialized")
 
         # Try /v1/health (no auth required)
-        health_url = f"{self.api_url}/v1/health"
+        health_url = f"{self._aigie_url}/v1/health"
         response = await self.client.get(health_url, timeout=3.0)
         response.raise_for_status()
 
         health = response.json()
         version = health.get("version", "unknown")
-        logger.info(f"[AIGIE] Platform reachable — {self.api_url} (v{version})")
-
-    async def _init_legacy_transport(self) -> None:
-        """No-op (Redis transport removed with autonomous mode)."""
-        return
-
-    async def _initialize_interception(self) -> None:
-        """Initialize real-time interception components."""
-        from .drift import DriftConfig, DriftMonitor
-        from .interceptor import InterceptorChain
-        from .rules import LocalRulesEngine
-
-        # AutoFixApplicator / FixConfig live in an optional realtime module that
-        # may not be present in all deployments. The chain itself is the critical
-        # path; legacy autofix is not required for IN_STEP_RETRY to work.
-        try:
-            from .realtime import AutoFixApplicator  # type: ignore[import]
-            from .realtime import FixConfig as _FixConfig
-
-            _fix_config = _FixConfig(
-                max_retries=self.config.auto_fix_max_retries,
-                fallback_models=getattr(self.config, "fallback_models", []),
-            )
-            self._legacy_autofix = AutoFixApplicator(config=_fix_config)
-        except ImportError:
-            logger.debug("aigie.realtime not available — legacy autofix disabled")
-
-        logger.info("Initializing real-time interception components")
-
-        # Initialize local rules engine with config-based rules
-        self._rules_engine = LocalRulesEngine(config=self.config)
-        logger.debug(f"Rules engine initialized with {len(self._rules_engine.list_rules())} rules")
-
-        # Initialize drift monitor
-        drift_config = DriftConfig(
-            topic_drift_threshold=self.config.drift_threshold,
-            behavior_drift_threshold=self.config.drift_threshold,
-            enable_topic_detection=self.config.enable_drift_detection,
-            enable_behavior_detection=self.config.enable_drift_detection,
-            enable_quality_detection=self.config.enable_drift_detection,
-            enable_coherence_detection=self.config.enable_drift_detection,
-        )
-        self._drift_monitor = DriftMonitor(config=drift_config)
-
-        # Initialize interceptor chain with rules engine
-        self._interceptor_chain = InterceptorChain(
-            rules_engine=self._rules_engine,
-            local_timeout_ms=self.config.local_decision_timeout_ms,
-        )
-
-        # Backend WebSocket connector removed with autonomous mode.
-
-        # Register drift monitor alerts with interceptor chain
-        async def on_drift_alert(alert):
-            logger.warning(f"Drift alert: {alert.drift_type.value} - {alert.reason}")
-
-        self._drift_monitor.on_alert(on_drift_alert)
-
-        # Initialize LLM Judge and Runtime components
-        await self._initialize_judge_and_runtime()
-
-        logger.info("Real-time interception initialized successfully")
-
-    async def _initialize_autonomous_features(self) -> None:
-        """Start autonomous v2 runtime and bind the interceptor chain.
-
-        When both runtime and chain exist, bind unconditionally so the
-        autonomous_dispatch hook flushes from `_pending_chain_hooks` onto
-        the chain and IN_STEP_RETRY can actually fire.
-        """
-        if self._autonomous_runtime is None:
-            return
-        if self._interceptor_chain is not None:
-            self._autonomous_runtime.bind_interceptor_chain(self._interceptor_chain)
-        try:
-            self._autonomous_runtime.start()
-        except Exception as e:
-            logger.debug("AutonomousRuntime.start() failed (non-fatal): %s", e)
+        logger.info(f"[AIGIE] Platform reachable — {self._aigie_url} (v{version})")
 
     def _wire_components(self) -> None:
-        """Wire all SDK components together using their existing setter APIs.
-
-        This method closes the "connection gap" — components are created in
-        _initialize_interception() and _initialize_autonomous_features() but
-        their cross-references are never set because of initialization order.
-
-        Every connection is guarded by None checks so nothing breaks if a
-        component wasn't initialized (e.g. due to config flags or init failure).
-        """
+        """Wire SDK components together using their existing setter APIs."""
         # InterceptorChain ← Aigie client reference
         if self._interceptor_chain is not None:
             self._interceptor_chain.set_aigie_client(self)
 
-        # Autonomous remediation wiring removed.
-
-        # SpanInterceptor ← retry callback
-        if self._span_interceptor is not None:
-            self._span_interceptor.retry_callback = self._create_retry_callback()
-
-        # Legacy autonomous backend wiring removed.
-        if False:
-            if hasattr(self._legacy_backend, "on_fix_push"):
-                self._legacy_backend.on_fix_push(self._handle_fix_push)
-            if hasattr(self._legacy_backend, "on_alert"):
-                self._legacy_backend.on_alert(self._handle_alert)
-            if hasattr(self._legacy_backend, "on_pattern_update") and self._pattern_cache:
-
-                async def _on_pattern_update(data: dict[str, Any]) -> None:
-                    """Trigger immediate pattern cache refresh on backend notification."""
-                    logger.info(
-                        f"[AIGIE] Pattern update from backend: {data.get('reason', 'unknown')}"
-                    )
-                    if self._pattern_cache:
-                        await self._pattern_cache.force_refresh()
-
-                self._legacy_backend.on_pattern_update(_on_pattern_update)
-
         logger.debug("Component wiring complete")
-
-    def _create_retry_executor(self):
-        """Create a retry executor function for AutoFixApplicator.
-
-        Returns a stub that raises NotImplementedError so that AutoFixApplicator
-        correctly reports fix failure instead of silently returning None.
-        Override by calling set_llm_retry_executor(callable) with a real provider callable.
-        """
-
-        async def retry_executor(provider: str, model: str, messages: list, **kwargs):
-            """Execute a retry through the wrapper layer."""
-            logger.debug(f"Retry executor called: provider={provider}, model={model}")
-            if self._llm_retry_executor is not None:
-                return await self._llm_retry_executor(
-                    provider=provider, model=model, messages=messages, **kwargs
-                )
-            raise NotImplementedError(
-                f"No LLM retry executor configured for provider={provider}, model={model}. "
-                "Call aigie.set_llm_retry_executor(callable) to enable autonomous retries."
-            )
-
-        return retry_executor
-
-    def _create_retry_callback(self):
-        """Create a retry callback for SpanInterceptor."""
-
-        async def retry_callback(span_id: str, messages: list, **kwargs):
-            """Callback invoked when SpanInterceptor decides to retry a span."""
-            logger.debug(f"Retry callback for span {span_id}")
-
-        return retry_callback
-
-    def _handle_fix_push(self, fix_data: dict) -> None:
-        """No-op (autonomous fix push removed)."""
-        return
-
-    def _handle_alert(self, alert_data: dict) -> None:
-        """Handle an alert from the backend via WebSocket."""
-        logger.info(f"Received alert from backend: {alert_data.get('alert_type', 'unknown')}")
 
     async def _initialize_license(self) -> None:
         """Initialize license validation for self-hosted installations."""
-        from .licensing import (
+        from aigie.licensing import (
             LicenseError,
             LicenseExpiredError,
             LicenseRevokedError,
@@ -862,7 +534,7 @@ class Aigie:
             aigie_token=self.config.aigie_token,
             license_server_url=self.config.license_server_url,
             installation_id=self.config.installation_id,
-            enable_telemetry=self.config.enable_usage_telemetry,
+            enable_telemetry=True,
         )
 
         try:
@@ -892,46 +564,6 @@ class Aigie:
         except Exception as e:
             # For network errors, log warning but allow operation if license was previously valid
             logger.warning(f"License validation error (non-fatal): {e}")
-
-    def _resolve_llm_api_key(self) -> str | None:
-        """Resolve LLM API key from env vars (LiteLLM-style fallback chain).
-
-        Priority:
-        1. AIGIE_LLM_API_KEY (explicit Aigie judge key)
-        2. Provider-specific key based on judge_model
-        3. Generic OPENAI_API_KEY fallback
-        """
-        # 1. Explicit Aigie judge key
-        key = os.getenv("AIGIE_LLM_API_KEY")
-        if key:
-            return key
-
-        # 2. Provider-specific key based on judge_model
-        model = (self._judge_model or "").lower()
-        provider_key_map = {
-            "gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
-            "anthropic": ["ANTHROPIC_API_KEY"],
-            "groq": ["GROQ_API_KEY"],
-            "together": ["TOGETHER_API_KEY"],
-            "fireworks": ["FIREWORKS_API_KEY"],
-            "mistral": ["MISTRAL_API_KEY"],
-            "openrouter": ["OPENROUTER_API_KEY"],
-        }
-        for provider, env_vars in provider_key_map.items():
-            if model.startswith(f"{provider}/") or model.startswith(f"{provider}-"):
-                for env_var in env_vars:
-                    key = os.getenv(env_var)
-                    if key:
-                        return key
-        if model.startswith("bedrock/"):
-            return None  # Bedrock uses IAM, not API key
-
-        # 3. Generic fallback
-        return os.getenv("OPENAI_API_KEY")
-
-    async def _initialize_judge_and_runtime(self) -> None:
-        """No-op (LLM judge and remediation runtime removed with autonomous mode)."""
-        return
 
     def trace(
         self,
@@ -992,7 +624,7 @@ class Aigie:
         if not self._initialized:
             raise RuntimeError("Aigie not initialized. Call await aigie.initialize() first.")
 
-        from .decorators_v3 import traceable as _traceable_v3
+        from aigie.decorators_v3 import traceable as _traceable_v3
 
         # Merge session/user tracking into metadata
         enriched_metadata = dict(metadata or {})
@@ -1026,12 +658,12 @@ class Aigie:
         if name is not None and isinstance(name, str):
             ctx = TraceContext(
                 client=self.client,
-                api_url=self.api_url,
+                api_url=self._aigie_url,
                 buffer=self._buffer,
                 name=name,
                 metadata=enriched_metadata,
                 tags=tags or [],
-                sample_rate=self.config.sampling_rate,
+                sample_rate=_SAMPLING_RATE,
             )
             # Allow customers to pass their own trace ID (e.g. request_id, action_id)
             if trace_id:
@@ -1050,7 +682,7 @@ class Aigie:
             if trace:
                 trace.update(metadata={"request_id": req_id})
         """
-        from .trace import get_current_trace
+        from aigie.trace import get_current_trace
 
         return get_current_trace()
 
@@ -1073,7 +705,7 @@ class Aigie:
             )
             await graph.ainvoke(...)
         """
-        from .trace import update_current_trace
+        from aigie.trace import update_current_trace
 
         return update_current_trace(
             metadata=metadata,
@@ -1095,23 +727,11 @@ class Aigie:
                 template="You are a helpful assistant. Customer: {customer_name}"
             )
         """
-        from .prompts import PromptRegistry
+        from aigie.prompts import PromptRegistry
 
         if not hasattr(self, "_prompt_manager"):
             self._prompt_manager = PromptRegistry()
         return self._prompt_manager
-
-    @property
-    def gateway(self):
-        """Get the Gateway client for real-time validation."""
-        return self._legacy_gateway
-
-    @property
-    def mode(self):
-        """Get the current operation mode (observe/autonomous)."""
-        if self._legacy_mode:
-            return self._legacy_mode.current_mode
-        return None
 
     @property
     def signals(self):
@@ -1139,7 +759,7 @@ class Aigie:
         Returns:
             TraceContext if found, None otherwise
         """
-        from .context import extract_trace_context
+        from aigie.context import extract_trace_context
 
         return extract_trace_context(headers)
 
@@ -1158,7 +778,7 @@ class Aigie:
         Returns:
             TraceContext object
         """
-        from .context import TraceContext
+        from aigie.context import TraceContext
 
         if parent_context:
             return parent_context.create_child()
@@ -1179,7 +799,7 @@ class Aigie:
             await self.initialize()
 
         response = await self.client.post(
-            f"{self.api_url}/v1/remediation/autonomous/fix",
+            f"{self._aigie_url}/v1/remediation/autonomous/fix",
             json={
                 "trace_id": trace_id,
                 "error": {"type": type(error).__name__, "message": str(error)},
@@ -1230,7 +850,7 @@ class Aigie:
             return allow_result
 
         try:
-            from .interceptor.protocols import InterceptionContext, InterceptionDecision
+            from aigie.interceptor.protocols import InterceptionContext, InterceptionDecision
 
             ctx = InterceptionContext(
                 provider="tool",
@@ -1309,7 +929,7 @@ class Aigie:
             return noop_result
 
         try:
-            from .interceptor.protocols import InterceptionContext
+            from aigie.interceptor.protocols import InterceptionContext
 
             ctx = InterceptionContext(
                 provider="tool",
@@ -1370,7 +990,7 @@ class Aigie:
             await self.initialize()
 
         response = await self.client.post(
-            f"{self.api_url}/v1/prevention/detect-precursors", json={"context": context}
+            f"{self._aigie_url}/v1/prevention/detect-precursors", json={"context": context}
         )
         response.raise_for_status()
         return response.json().get("precursors", [])
@@ -1392,7 +1012,7 @@ class Aigie:
             await self.initialize()
 
         response = await self.client.post(
-            f"{self.api_url}/v1/prevention/apply-preventive-fix",
+            f"{self._aigie_url}/v1/prevention/apply-preventive-fix",
             json={"trace_id": trace_id, "precursors": precursors},
         )
         response.raise_for_status()
@@ -1534,14 +1154,6 @@ class Aigie:
             )
             return
 
-        # Apply mask function to event payloads before sending (PII protection)
-        if self.config.mask:
-            for event in events:
-                try:
-                    event.payload = self.config.mask(event.payload)
-                except Exception as e:
-                    logger.warning(f"Mask function failed for event {event.event_type.value}: {e}")
-
         await self._dispatch_v2_spans(events)
 
     async def flush(self) -> None:
@@ -1581,7 +1193,7 @@ class Aigie:
         import platform
         import time
 
-        from .diagnostics import DoctorResult, format_doctor_output
+        from aigie.diagnostics import DoctorResult, format_doctor_output
 
         checks = []
         warnings = []
@@ -1589,7 +1201,7 @@ class Aigie:
 
         # SDK version
         try:
-            from . import __version__ as ver
+            from aigie import __version__ as ver
 
             checks.append(("SDK version", "ok", str(ver)))
         except Exception:
@@ -1641,16 +1253,6 @@ class Aigie:
                 errors.append("AIGIE-N002")
         else:
             checks.append(("Ingestion API", "skip", "skipped (no URL configured)"))
-
-        # Gateway WS
-        if self._legacy_gateway:
-            if getattr(self._legacy_gateway, "is_connected", False):
-                checks.append(("Gateway WS", "ok", "connected"))
-            else:
-                checks.append(("Gateway WS", "error", "not connected [AIGIE-N001]"))
-                errors.append("AIGIE-N001")
-        else:
-            checks.append(("Gateway WS", "skip", "skipped (no auth or URL)"))
 
         # License
         if self._license_validator and getattr(self._license_validator, "usage_summary", None):
@@ -1738,22 +1340,6 @@ class Aigie:
         # from in-flight tasks they cancel during shutdown). Nulling the
         # buffer before they're stopped would NPE those final emits.
 
-        # Stop autonomous v2 runtime (additive; does not affect legacy components)
-        if self._autonomous_runtime is not None:
-            try:
-                self._autonomous_runtime.stop()
-            except Exception as e:
-                logger.debug("AutonomousRuntime.stop() failed (non-fatal): %s", e)
-            self._autonomous_runtime = None
-
-        # Close autonomous features
-        if self._legacy_gateway:
-            try:
-                await self._legacy_gateway.disconnect()
-            except Exception as e:
-                logger.debug(f"Gateway disconnect: {e}")
-            self._legacy_gateway = None
-
         if self._signal_reporter:
             try:
                 await self._signal_reporter.close()
@@ -1767,15 +1353,6 @@ class Aigie:
             except Exception as e:
                 logger.debug(f"Health monitor close: {e}")
             self._health_monitor = None
-
-        # Legacy autonomous mode controller and backend connector were removed.
-
-        if self._pattern_cache:
-            try:
-                await self._pattern_cache.stop()
-            except Exception as e:
-                logger.debug(f"Pattern cache stop: {e}")
-            self._pattern_cache = None
 
         # Finalize any spans still open at shutdown before draining the buffer.
         self._finalize_open_spans_at_shutdown()
@@ -1824,8 +1401,6 @@ class Aigie:
                 await self._license_validator.close()
                 self._license_validator = None
 
-        # Legacy Redis intervention transport removed.
-
         if self.client:
             await self.client.aclose()
             self.client = None
@@ -1841,13 +1416,7 @@ class Aigie:
         # Clear all component references to prevent reference cycles
         self._interceptor_chain = None
         self._rules_engine = None
-        self._legacy_backend = None
         self._drift_monitor = None
-        self._legacy_autofix = None
-        self._llm_judge = None
-        self._context_aggregator = None
-        self._span_interceptor = None
-        self._legacy_remediation = None
         self._callbacks = []
 
         logger.debug("Aigie instance fully cleaned up")
@@ -1875,11 +1444,6 @@ class Aigie:
     def drift_monitor(self) -> Optional["DriftMonitor"]:
         """Get the drift monitor for direct access."""
         return self._drift_monitor
-
-    @property
-    def auto_fix(self) -> Any:
-        """Get the auto-fix applicator for direct access (always None now)."""
-        return self._legacy_autofix
 
     def add_pre_call_hook(
         self,
@@ -1911,9 +1475,7 @@ class Aigie:
             Decorator if hook is None, otherwise None
         """
         if self._interceptor_chain is None:
-            raise RuntimeError(
-                "Interception not initialized. Set Config(autonomous=True) (the default) to enable the autonomous chain."
-            )
+            raise RuntimeError("Interception chain not initialized.")
 
         def decorator(fn: "PreCallHook") -> "PreCallHook":
             self._interceptor_chain.add_pre_hook(fn, priority=priority, name=name)
@@ -1955,9 +1517,7 @@ class Aigie:
             Decorator if hook is None, otherwise None
         """
         if self._interceptor_chain is None:
-            raise RuntimeError(
-                "Interception not initialized. Set Config(autonomous=True) (the default) to enable the autonomous chain."
-            )
+            raise RuntimeError("Interception chain not initialized.")
 
         def decorator(fn: "PostCallHook") -> "PostCallHook":
             self._interceptor_chain.add_post_hook(fn, priority=priority, name=name)
@@ -1989,9 +1549,7 @@ class Aigie:
             aigie.add_rule(CostLimitRule(max_cost=0.50, limit_type="request"))
         """
         if self._rules_engine is None:
-            raise RuntimeError(
-                "Interception not initialized. Set Config(autonomous=True) (the default) to enable the autonomous chain."
-            )
+            raise RuntimeError("Interception chain not initialized.")
 
         self._rules_engine.add_rule(rule, priority=priority, name=name)
 
@@ -2032,7 +1590,7 @@ class Aigie:
         """
         if self._interceptor_chain is None:
             # Interception not enabled, create pass-through context
-            from .interceptor.protocols import InterceptionContext, InterceptionDecision
+            from aigie.interceptor.protocols import InterceptionContext, InterceptionDecision
 
             ctx = InterceptionContext(
                 provider=provider,
@@ -2048,7 +1606,7 @@ class Aigie:
             ctx.decision = InterceptionDecision.ALLOW
             return ctx
 
-        from .interceptor.protocols import InterceptionContext
+        from aigie.interceptor.protocols import InterceptionContext
 
         # Create interception context
         ctx = InterceptionContext(
@@ -2185,13 +1743,6 @@ class Aigie:
         ctx.decision = result.decision
         ctx.fixes_applied = result.fixes_applied if hasattr(result, "fixes_applied") else []
 
-        # If retry requested and auto-fix is enabled, apply fixes via applicator
-        if result.should_retry and self._legacy_autofix and result.fixes_applied:
-            fix_result = await self._legacy_autofix.apply_fixes(ctx, result.fixes_applied)
-            if fix_result.success:
-                ctx.modified_response = fix_result.modified_response
-                ctx.retry_kwargs = fix_result.retry_kwargs
-
         return ctx
 
     def get_interception_stats(self) -> dict[str, Any]:
@@ -2218,152 +1769,7 @@ class Aigie:
                 "avg_drift_score": metrics.avg_drift_score,
             }
 
-        if self._legacy_autofix:
-            stats["auto_fix"] = self._legacy_autofix.get_stats()
-
-        if self._legacy_backend:
-            stats["backend_connector"] = self._legacy_backend.get_stats()
-
-        # Add judge and runtime stats
-        if self._llm_judge:
-            stats["judge"] = self._llm_judge.get_stats()
-
-        if self._context_aggregator:
-            stats["context_aggregator"] = self._context_aggregator.get_stats()
-
-        if self._span_interceptor:
-            stats["span_interceptor"] = self._span_interceptor.get_stats()
-
-        if self._legacy_remediation:
-            stats["remediation_loop"] = self._legacy_remediation.get_stats()
-
         return stats
-
-    # ========== Autonomous Mode Control ==========
-
-    def enable_autonomous_mode(self) -> bool:
-        """
-        Enable autonomous mode for automatic fixes in runtime.
-
-        Call this when user clicks the "autonomous" button.
-        Aigie will now automatically fix detected issues instead
-        of just showing what it would do.
-
-        Returns:
-            True if autonomous mode was enabled successfully,
-            False if not enough learning has occurred.
-        """
-        if not self._legacy_remediation:
-            logger.warning("Remediation loop not initialized")
-            return False
-
-        enabled = self._legacy_remediation.enable_autonomous_mode()
-        if enabled:
-            logger.info("🤖 Autonomous mode ENABLED - Aigie will now fix issues automatically")
-        return enabled
-
-    def disable_autonomous_mode(self) -> None:
-        """
-        Disable autonomous mode and return to recommendation mode.
-
-        Aigie will continue detecting issues but will only show
-        what it would do, not automatically fix.
-        """
-        if self._legacy_remediation:
-            self._legacy_remediation.disable_autonomous_mode()
-            logger.info("👁️ Autonomous mode DISABLED - Returning to recommendation mode")
-
-    def is_autonomous_mode(self) -> bool:
-        """Check if autonomous mode is currently enabled."""
-        return False
-
-    def is_ready_for_autonomous(self) -> dict[str, Any]:
-        """
-        Check if the system is ready for autonomous mode.
-
-        Returns a dict with:
-        - ready: bool - Whether autonomous mode can be enabled
-        - traces_processed: int - Number of traces analyzed
-        - traces_needed: int - Minimum traces needed
-        - patterns_learned: int - Workflow patterns identified
-        - avg_pattern_confidence: float - Average confidence in patterns
-        """
-        if self._legacy_remediation:
-            return self._legacy_remediation.is_ready_for_autonomous()
-        return {
-            "ready": False,
-            "traces_processed": 0,
-            "traces_needed": 100,
-            "patterns_learned": 0,
-            "avg_pattern_confidence": 0.0,
-        }
-
-    def get_pending_recommendations(self) -> list[Any]:
-        """
-        Get pending recommendations (what Aigie would fix in autonomous mode).
-
-        These show the customer what fixes would be applied if they
-        enable autonomous mode, helping build trust.
-        """
-        if self._legacy_remediation:
-            return self._legacy_remediation.get_pending_recommendations()
-        return []
-
-    def accept_recommendation(self, span_id: str) -> bool:
-        """
-        Mark a recommendation as accepted (user applied fix manually).
-
-        This helps Aigie learn from manual fixes.
-        """
-        if self._legacy_remediation:
-            return self._legacy_remediation.accept_recommendation(span_id)
-        return False
-
-    def get_workflow_patterns(self) -> list[Any]:
-        """
-        Get the workflow patterns Aigie has learned.
-
-        Shows the customer what workflows Aigie understands.
-        """
-        if self._legacy_remediation:
-            return self._legacy_remediation.get_workflow_patterns()
-        return []
-
-    def set_llm_retry_executor(self, executor: Any) -> None:
-        """
-        Register a callable for autonomous LLM retries.
-
-        Required to enable RETRY_REQUEST and FALLBACK_MODEL fix strategies in
-        autonomous mode. Without this, those strategies report failure instead of
-        silently returning None.
-
-        Args:
-            executor: Async callable with signature:
-                async def executor(provider: str, model: str, messages: list, **kwargs) -> response
-
-        Example::
-
-            async def my_retry(provider, model, messages, **kwargs):
-                client = openai.AsyncOpenAI()
-                return await client.chat.completions.create(
-                    model=model, messages=messages, **kwargs
-                )
-
-            aigie.set_llm_retry_executor(my_retry)
-        """
-        self._llm_retry_executor = executor
-        logger.debug("LLM retry executor set")
-
-    def set_judge_llm_client(self, client: Any) -> None:
-        """
-        Set the LLM client for the judge.
-
-        The judge uses this client to evaluate span outputs.
-        Should be a wrapped OpenAI or Anthropic client.
-        """
-        if self._llm_judge:
-            self._llm_judge.set_llm_client(client)
-            logger.debug("Judge LLM client set")
 
     # ========== License Management ==========
 
@@ -2534,7 +1940,7 @@ class Aigie:
             params["force"] = "true"
 
         response = await self.client.post(
-            f"{self.api_url}/v1/analytics/drift/detect",
+            f"{self._aigie_url}/v1/analytics/drift/detect",
             json={"trace_id": trace_id},
             params=params,
         )
@@ -2569,7 +1975,7 @@ class Aigie:
             await self.initialize()
 
         response = await self.client.get(
-            f"{self.api_url}/v1/analytics/drift/history/{trace_id}",
+            f"{self._aigie_url}/v1/analytics/drift/history/{trace_id}",
         )
         response.raise_for_status()
         return response.json()
@@ -2613,7 +2019,7 @@ class Aigie:
             params["environment"] = environment
 
         response = await self.client.get(
-            f"{self.api_url}/v1/analytics/drift/metrics",
+            f"{self._aigie_url}/v1/analytics/drift/metrics",
             params=params,
         )
         response.raise_for_status()
@@ -2643,7 +2049,7 @@ class Aigie:
         result = {
             "connected": False,
             "latency_ms": None,
-            "api_url": self.api_url,
+            "api_url": self._aigie_url,
             "error": None,
             "server_version": None,
         }
@@ -2652,7 +2058,7 @@ class Aigie:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 start = time.monotonic()
                 response = await client.get(
-                    f"{self.api_url}/v1/health",
+                    f"{self._aigie_url}/v1/health",
                     headers={"X-API-Key": self._auth_token} if self._auth_token else {},
                 )
                 latency = (time.monotonic() - start) * 1000
@@ -2871,123 +2277,35 @@ def init(
     kytte_url: str | None = None,  # Positional arg #1 — Kytte platform URL
     kytte_token: str | None = None,  # Positional arg #2 — Kytte license token
     *,  # Everything else keyword-only
-    debug: bool = False,  # Debug mode
-    mask: Callable | None = None,  # PII masking function
-    llm_api_key: str | None = None,  # LLM API key for Aigie's internal judge
-    judge_model: str | None = None,  # Override judge model (e.g. "gemini/gemini-2.0-flash")
+    log_level: str | None = None,  # Logging verbosity (DEBUG/INFO/WARNING/...)
     agent_name: str | None = None,  # Agent/deployment name for identification
-    framework: str | None = None,  # Agent framework (langchain, langgraph, claude, etc.)
-    # Backward-compatible (hidden from docs, still work)
-    api_url: str | None = None,  # DEPRECATED alias for kytte_url
-    api_key: str | None = None,  # DEPRECATED alias for kytte_token
     config: Config | None = None,
-    **kwargs,
 ) -> Aigie:
     """
     Initialize global Aigie instance with auto-instrumentation.
 
     This is the recommended way to initialize Aigie. After calling init(),
-    all LLM calls will be automatically traced and runtime protection is active.
+    all LLM calls will be automatically traced.
 
     Usage:
         import aigie
         aigie.init("https://your-kytte-instance.com/api", "your-kytte-token")
 
-        # With LLM-powered judge for real-time quality evaluation:
-        aigie.init("https://your-kytte.com/api", "your-token", llm_api_key="sk-...")
-
     Args:
         kytte_url: Kytte platform URL (unique per deployment)
         kytte_token: Kytte license token for authentication
-        debug: Enable debug mode for detailed logging
-        mask: Optional function to mask sensitive data (PII protection)
-        llm_api_key: API key for Aigie's internal judge model (enables Tier 2
-            real-time quality evaluation). Today uses gpt-4o-mini; future
-            releases will use a local SLM in the Kytte cluster for lower latency.
-            Also configurable via AIGIE_LLM_API_KEY env var.
-        api_url: DEPRECATED - Use kytte_url instead
-        api_key: DEPRECATED - Use kytte_token instead
+        log_level: Logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        agent_name: Agent/deployment name for identification
         config: Optional Config object (if provided, overrides other params)
-        **kwargs: Additional config options passed to Config
 
     Returns:
         Initialized Aigie instance
     """
     global _global_aigie, _instrumentation_enabled
-    import warnings
 
-    # Import module-level settings
-    import aigie as _aigie_module
-
-    # ── URL resolution priority chain ────────────────────────────────
-    # kytte_url → api_url (deprecated) → KYTTE_URL env → AIGIE_URL env → module-level vars
-    effective_url = kytte_url
-    _url_source = "kytte_url" if kytte_url else None
-
-    if effective_url is None and api_url is not None:
-        effective_url = api_url
-        _url_source = "api_url"
-        warnings.warn(
-            "api_url is deprecated, use kytte_url instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-    if effective_url is None:
-        # Try env vars — prefer KYTTE_URL, warn on deprecated names
-        _env_url = os.getenv("KYTTE_URL")
-        if not _env_url:
-            _env_url = os.getenv("AIGIE_URL") or os.getenv("AIGIE_API_URL")
-            if _env_url:
-                warnings.warn(
-                    "AIGIE_URL / AIGIE_API_URL env vars are deprecated, use KYTTE_URL.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-        if _env_url:
-            effective_url = _env_url
-
-    if effective_url is None:
-        # Try module-level vars
-        if hasattr(_aigie_module, "kytte_url") and _aigie_module.kytte_url:
-            effective_url = _aigie_module.kytte_url
-        elif hasattr(_aigie_module, "api_url") and _aigie_module.api_url:
-            effective_url = _aigie_module.api_url
-
-    # ── Token resolution priority chain ──────────────────────────────
-    # kytte_token → api_key (deprecated) → KYTTE_TOKEN env → AIGIE_TOKEN env → module-level vars
-    effective_token = kytte_token
-    _token_source = "kytte_token" if kytte_token else None
-
-    if effective_token is None and api_key is not None:
-        effective_token = api_key
-        _token_source = "api_key"
-        warnings.warn(
-            "api_key is deprecated, use kytte_token instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-    if effective_token is None:
-        # Try env vars — prefer KYTTE_TOKEN, warn on deprecated names
-        _env_token = os.getenv("KYTTE_TOKEN")
-        if not _env_token:
-            _env_token = os.getenv("AIGIE_TOKEN") or os.getenv("AIGIE_API_KEY")
-            if _env_token:
-                warnings.warn(
-                    "AIGIE_TOKEN / AIGIE_API_KEY env vars are deprecated, use KYTTE_TOKEN.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-        if _env_token:
-            effective_token = _env_token
-
-    if effective_token is None:
-        # Try module-level vars
-        if hasattr(_aigie_module, "kytte_token") and _aigie_module.kytte_token:
-            effective_token = _aigie_module.kytte_token
-        elif hasattr(_aigie_module, "api_key") and _aigie_module.api_key:
-            effective_token = _aigie_module.api_key
+    # ── URL / token resolution: explicit param > KYTTE_* env vars
+    effective_url = kytte_url or os.getenv("KYTTE_URL")
+    effective_token = kytte_token or os.getenv("KYTTE_TOKEN")
 
     # ── Token validation feedback ────────────────────────────────────
     if not effective_url and not effective_token:
@@ -2995,47 +2313,17 @@ def init(
     elif not effective_token:
         logger.warning(format_diagnostic(C002))
 
-    # Check debug mode from kwargs or module level
-    effective_debug = debug
-    if not effective_debug and hasattr(_aigie_module, "debug"):
-        effective_debug = _aigie_module.debug
-    if effective_debug:
-        kwargs["debug"] = True
-
-    # ── Create config ────────────────────────────────────────────────
-    if config is None:
-        config_kwargs: dict[str, Any] = {}
-        if effective_url:
-            config_kwargs["aigie_url"] = effective_url
-        if effective_token:
-            config_kwargs["aigie_token"] = effective_token
-        if mask:
-            config_kwargs["mask"] = mask
-        config_kwargs.update(kwargs)
-        config = Config(**{k: v for k, v in config_kwargs.items() if v is not None})
-
     # ── Create global instance ───────────────────────────────────────
     _global_aigie = Aigie(
         effective_url,
         effective_token,
         config=config,
-        mask=mask,
-        debug=effective_debug,
-        llm_api_key=llm_api_key,
-        judge_model=judge_model,
+        log_level=log_level,
         agent_name=agent_name,
-        framework=framework,
     )
 
-    # Add any module-level callbacks
-    if hasattr(_aigie_module, "_module_callbacks"):
-        for callback in _aigie_module._module_callbacks:
-            _global_aigie.add_callback(callback)
-
-    # ── Step 1: Auto-instrumentation SYNCHRONOUSLY (must be ready before first LLM call)
-    disable_env = os.getenv("AIGIE_DISABLE_AUTO_INSTRUMENT", "").lower()
-    if disable_env not in ("true", "1", "yes"):
-        _enable_auto_instrumentation()
+    # ── Step 1: Auto-instrumentation SYNCHRONOUSLY (always on)
+    _enable_auto_instrumentation()
 
     # ── Step 2: Async init in dedicated background thread ────────────
     try:
@@ -3117,7 +2405,7 @@ def _enable_auto_instrumentation() -> None:
 
     # Import and enable auto-instrumentation modules
     try:
-        from .auto_instrument import enable_all
+        from aigie.auto_instrument import enable_all
 
         enable_all()
         _instrumentation_enabled = True

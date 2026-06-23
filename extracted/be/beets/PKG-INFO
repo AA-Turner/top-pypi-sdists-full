@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: beets
-Version: 2.11.0
+Version: 2.12.0
 Summary: music tagger and library organizer
 Home-page: https://beets.io/
 License: MIT
@@ -45,6 +45,7 @@ Provides-Extra: replaygain
 Provides-Extra: scrub
 Provides-Extra: sonosupdate
 Provides-Extra: thumbnails
+Provides-Extra: tidal
 Provides-Extra: titlecase
 Provides-Extra: web
 Requires-Dist: Pillow ; extra == "aura" or extra == "embedart" or extra == "fetchart" or extra == "thumbnails"
@@ -60,7 +61,7 @@ Requires-Dist: jellyfish
 Requires-Dist: langdetect ; extra == "fetchart" or extra == "lyrics"
 Requires-Dist: lap (>=0.5.12)
 Requires-Dist: librosa (>=0.11) ; extra == "autobpm"
-Requires-Dist: mediafile (>=0.16.2)
+Requires-Dist: mediafile (>=0.17.0)
 Requires-Dist: mutagen (>=1.33) ; extra == "scrub"
 Requires-Dist: numba (>=0.60) ; python_version < "3.13"
 Requires-Dist: numba (>=0.63.1) ; python_version >= "3.13"
@@ -79,7 +80,7 @@ Requires-Dist: pyyaml
 Requires-Dist: rarfile ; extra == "import"
 Requires-Dist: reflink ; extra == "reflink"
 Requires-Dist: requests (>=2.32.5) ; extra == "absubmit" or extra == "embyupdate" or extra == "fetchart" or extra == "kodiupdate" or extra == "lyrics" or extra == "plexupdate"
-Requires-Dist: requests-oauthlib (>=0.6.1) ; extra == "beatport"
+Requires-Dist: requests-oauthlib (>=0.6.1) ; extra == "beatport" or extra == "tidal"
 Requires-Dist: requests-ratelimiter (>=0.7.0)
 Requires-Dist: resampy (>=0.4.3) ; extra == "autobpm"
 Requires-Dist: scipy (>=1.13.1) ; python_version < "3.13"

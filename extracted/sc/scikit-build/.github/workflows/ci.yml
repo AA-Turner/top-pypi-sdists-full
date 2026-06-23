@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: actions/setup-python@v6
     - uses: pre-commit/action@v3.0.1
 
@@ -30,15 +30,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-latest, macos-15-intel, windows-2022]
+        runs-on: [ubuntu-latest, macos-15-intel, windows-2022, windows-latest]
 
     name: Tests on ${{ matrix.runs-on }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@v8.2.0
 
     - name: Set environment for available GHA MSVCs
       if: matrix.runs-on == 'windows-2022'
@@ -48,6 +48,14 @@ jobs:
         echo "SKBUILD_TEST_FIND_VS2019_INSTALLATION_EXPECTED=0" >> $GITHUB_ENV
         echo "SKBUILD_TEST_FIND_VS2022_INSTALLATION_EXPECTED=1" >> $GITHUB_ENV
 
+    - name: Set environment for available GHA MSVCs
+      if: matrix.runs-on == 'windows-latest'
+      shell: bash
+      run: |
+        echo "SKBUILD_TEST_FIND_VS2017_INSTALLATION_EXPECTED=0" >> $GITHUB_ENV
+        echo "SKBUILD_TEST_FIND_VS2019_INSTALLATION_EXPECTED=0" >> $GITHUB_ENV
+        echo "SKBUILD_TEST_FIND_VS2026_INSTALLATION_EXPECTED=1" >> $GITHUB_ENV
+
     - name: Set environment for Fortran compiler on MacOS
       if: runner.os == 'macOS'
       run: |
@@ -55,7 +63,7 @@ jobs:
         echo "FC=gfortran" >> $GITHUB_ENV
 
     - name: Setup nox
-      uses: wntrblm/nox@2026.02.09
+      uses: wntrblm/nox@2026.04.10
       with:
         python-versions: "3.8,3.9,3.10,3.11,3.12,3.13,3.14"
 
@@ -82,7 +90,7 @@ jobs:
       run: nox -s tests-3.14 -- --cov --cov-report=xml --cov-report=term --cov-append --durations=20
 
     - name: Upload coverage report
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         name: ${{ matrix.runs-on }}-any
         verbose: true
@@ -95,7 +103,7 @@ jobs:
     needs: [lint]
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
@@ -115,43 +123,39 @@ jobs:
 
 
   tests-pypy:
-    name: Tests on 🐍 PyPy ${{ matrix.pypy-version }} • ${{ matrix.runs-on }}
+    name: Tests on 🐍 PyPy 3.11 • ${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 40
     needs: [lint]
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-latest, macos-15-intel, windows-latest]
-        pypy-version: ["3.11"]
-        include:
-        - runs-on: ubuntu-latest
-          pypy-version: "3.9"
+        runs-on: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
     - uses: yezz123/setup-uv@v4
 
     - name: Setup nox
-      uses: wntrblm/nox@2026.02.09
+      uses: wntrblm/nox@2026.04.10
 
     - uses: actions/setup-python@v6
       with:
-        python-version: pypy-${{ matrix.pypy-version }}
+        python-version: pypy3.11-v7.3.22
 
-    - name: Test on 🐍 PyPy ${{ matrix.pypy-version }}
+    - name: Test on 🐍 PyPy
       run: >
-        nox -s tests-pypy${{ matrix.pypy-version }} --
+        nox -s tests-pypy3.11 --
         --cov --cov-report=xml --cov-report=term --durations=20
         ${{ matrix.runs-on == 'windows-latest' && '-k "not pep518"' || '' }}
 
     - name: Upload coverage report
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
-        name: ${{ runner.os }}-${{ matrix.pypy-version }}
+        name: ${{ runner.os }}-pypy3.11
         verbose: true
 
 
@@ -160,7 +164,7 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 

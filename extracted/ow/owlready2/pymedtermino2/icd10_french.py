@@ -31,6 +31,8 @@ def import_icd10_french_rdf(atih_data = None):
   PYM  = get_ontology("http://PYM/").load()
   ICD10 = PYM["ICD10"]
   
+  base_termino = IRIS["http://PYM/SRC/SRC"]
+  
   print("Importing CIM10 from %s..." % atih_data)
   if atih_data.startswith("http:") or atih_data.startswith("https:"):
     f = requests.get(atih_data)
@@ -102,8 +104,8 @@ def import_icd10_french_rdf(atih_data = None):
     class coding_hint   (AnnotationProperty): pass
     
   with onto.get_namespace("http://PYM/SRC/"):
-    ICD10_FRENCH = types.new_class("CIM10", (PYM["SRC"],))
-    onto._set_obj_triple_spo  (ICD10_FRENCH.storid, PYM.terminology.storid, PYM["SRC"].storid)
+    ICD10_FRENCH = types.new_class("CIM10", (base_termino,))
+    onto._set_obj_triple_spo  (ICD10_FRENCH.storid, PYM.terminology.storid, base_termino.storid)
     onto._set_data_triple_spod(ICD10_FRENCH.storid, label.storid, "CIM10", "@fr")
     
   def order_by_name(i): return i.name

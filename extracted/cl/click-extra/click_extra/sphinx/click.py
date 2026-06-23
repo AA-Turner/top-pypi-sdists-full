@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import inspect
 import re
 import shlex
 import subprocess
@@ -50,13 +51,18 @@ from sphinx.directives import SphinxDirective, directives
 from sphinx.directives.code import CodeBlock
 from sphinx.util import logging
 
-from ..colorize import forced_color
-from ._base import StatelessDomain, compile_directive, make_cleanup
+from ..color import forced_color
+from ._base import (
+    StatelessDomain,
+    compile_directive,
+    directive_source,
+    make_cleanup,
+)
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from typing import ClassVar
+    from typing import ClassVar, Literal
 
     from sphinx.util.typing import OptionSpec
 
@@ -68,8 +74,16 @@ RST_INDENT = " " * 3
 """The indentation used for rST code blocks lines."""
 
 
+_CLIRUNNER_HAS_CAPTURE = "capture" in inspect.signature(CliRunner.__init__).parameters
+"""Whether Click's :class:`~click.testing.CliRunner` accepts the ``capture`` keyword.
+
+Added in Click 8.4 to select the stream-capture strategy (``"sys"`` or ``"fd"``).
+Absent in earlier releases, where the runner's capture behavior is fixed.
+"""
+
+
 class TerminatedEchoingStdin(EchoingStdin):
-    """Like :class:`click.testing.EchoingStdin` but adds a visible
+    """Like ``click.testing.EchoingStdin`` but adds a visible
     ``^D`` in place of the EOT character (``\x04``).
 
     :meth:`ClickRunner.invoke` adds ``\x04`` when ``terminate_input=True``.
@@ -135,14 +149,35 @@ class ClickRunner(CliRunner):
     render colors in the HTML output. Because Click Extra executes the documented
     command here, :meth:`invoke` forces color across both color systems a CLI might use:
     ``color=True`` covers Click's (``should_strip_ansi``), and
-    :func:`~click_extra.colorize.forced_color` sets ``FORCE_COLOR`` for Rich's (which
+    :func:`~click_extra.color.forced_color` sets ``FORCE_COLOR`` for Rich's (which
     ``rich-click`` uses and ``color=True`` never reaches). The MkDocs plugin shares the
     latter lever but cannot pass ``color=True``, since it patches a renderer it never
     executes.
+
+    On Click 8.4+ the runner defaults to ``capture="fd"`` on Unix (overridable through
+    the ``click_extra_run_capture`` ``conf.py`` value) so a documented command that
+    writes through ``sys.stdout.fileno()`` is captured and rendered, instead of aborting
+    the build with :exc:`io.UnsupportedOperation`. On Windows, where fd-backed streams
+    are not supported, the default falls back to ``capture="sys"``.
     """
 
-    def __init__(self):
-        super().__init__(echo_stdin=True)
+    def __init__(self, capture: Literal["sys", "fd"] | None = None) -> None:
+        # capture="fd" backs the captured streams with a real file descriptor so a
+        # documented command calling sys.stdout.fileno() renders instead of crashing
+        # the build. It is the default (the click_extra_run_capture conf.py value
+        # selects it), safe at doc-build time unlike under the pytest stream
+        # duplication that got it reverted as a Click default (pallets/click#3391).
+        # Click < 8.4 lacks the parameter and needs none (8.3.3+ exposed a fileno by
+        # default; < 8.3.3 never did), so omitting it is correct.
+        # Windows does not support fd-backed streams (no Unix file descriptors), so
+        # fall back to "sys" when the caller has not pinned a mode explicitly.
+        if _CLIRUNNER_HAS_CAPTURE:
+            default_capture: Literal["sys", "fd"] = (
+                "sys" if sys.platform == "win32" else "fd"
+            )
+            super().__init__(echo_stdin=True, capture=capture or default_capture)
+        else:
+            super().__init__(echo_stdin=True)
         self.namespace = {"click": click, "__file__": "dummy.py"}
 
     @contextlib.contextmanager
@@ -173,7 +208,7 @@ class ClickRunner(CliRunner):
         _output_lines=None,
         **extra,
     ) -> click.testing.Result:
-        """Like :meth:`CliRunner.invoke` but displays what the user
+        """Like ``CliRunner.invoke`` but displays what the user
         would enter in the terminal for env vars, command arguments, and
         prompts.
 
@@ -220,9 +255,6 @@ class ClickRunner(CliRunner):
                 color=True,
                 **extra,
             )
-        # TODO: Maybe we can intercept the exception here either make it:
-        # - part of the output in the rendered Sphinx code block, or
-        # - re-raise it so Sphinx can display it properly in its logs.
         output_lines.extend(result.output.splitlines())
         return result
 
@@ -242,17 +274,13 @@ class ClickRunner(CliRunner):
         functions in the provided ``source_code``:
 
         - :meth:`invoke()`: which is the same as :meth:`ClickRunner.invoke`
-        - :meth:`isolated_filesystem()`: A context manager that changes to a temporary
+        - ``isolated_filesystem()``: A context manager that changes to a temporary
           directory while executing the block.
 
         If any local variable in the provided ``source_code`` conflicts with these
         functions, a :class:`RuntimeError` is raised to help you pinpoint the issue.
         """
-        # Use directive.content instead of directive.block_text as the latter
-        # include the directive text itself in rST.
-        source_code = "\n".join(directive.content)
-        # Get the user-friendly location string as provided by Sphinx.
-        location = directive.get_location()
+        source_code, location = directive_source(directive)
 
         buffer: list[str] = []
 
@@ -302,6 +330,27 @@ class ClickRunner(CliRunner):
         return buffer
 
 
+def _resolve_run_capture(
+    configured: Literal["sys", "fd"],
+) -> Literal["sys", "fd"]:
+    """Degrade the configured stream-capture mode to one the platform supports.
+
+    The ``click_extra_run_capture`` ``conf.py`` value is a build-time
+    *preference*. ``"fd"`` backs the captured streams with a real file descriptor
+    so a command writing through ``sys.stdout.fileno()`` renders (see
+    :class:`ClickRunner`), but Windows has no Unix file descriptors and Click
+    rejects ``capture="fd"`` there. Degrade ``"fd"`` to ``"sys"`` on Windows so
+    the documentation build proceeds: such fileno-writing commands simply do not
+    render, instead of aborting the whole build.
+
+    A direct ``ClickRunner(capture="fd")`` call still honors the explicit pin (and
+    raises on Windows); only the config-derived preference degrades here.
+    """
+    if configured == "fd" and sys.platform == "win32":
+        return "sys"
+    return configured
+
+
 class ClickDirective(SphinxDirective):
     has_content = True
 
@@ -324,12 +373,12 @@ class ClickDirective(SphinxDirective):
 
     Support the `same options
     <https://github.com/sphinx-doc/sphinx/blob/cc7c6f4/sphinx/directives/code.py#L108-L117>`_
-    as :class:`sphinx.directives.code.CodeBlock`, and some specific to Click
+    as ``sphinx.directives.code.CodeBlock``, and some specific to Click
     directives.
 
     The standard ``emphasize-lines`` option applies to the source block only. Use
     ``emphasize-result-lines`` to highlight specific lines in the captured output
-    block, with the same syntax (e.g. ``:emphasize-result-lines: 1,3-5``).
+    block, with the same syntax (like ``:emphasize-result-lines: 1,3-5``).
     """
 
     default_language: str
@@ -350,7 +399,7 @@ class ClickDirective(SphinxDirective):
     runner_attr: ClassVar[str] = "click_runner"
     """Name of the attribute holding the runner on the doctree.
 
-    Subclasses (like :class:`~click_extra.sphinx.python.PythonDirective`)
+    Subclasses (like ``PythonDirective``)
     override this so the Click and Python runners don't collide on the same
     document.
     """
@@ -370,7 +419,9 @@ class ClickDirective(SphinxDirective):
         """
         runner = getattr(self.state.document, self.runner_attr, None)
         if runner is None:
-            runner = self.runner_factory()
+            runner = self.runner_factory(
+                capture=_resolve_run_capture(self.env.config.click_extra_run_capture)
+            )
             setattr(self.state.document, self.runner_attr, runner)
         return runner
 
@@ -554,28 +605,10 @@ class RunDirective(ClickDirective):
     runner_method = "run_cli"
 
 
-class DeprecatedExampleDirective(SourceDirective):
-    """Deprecated alias for SourceDirective.
-
-    .. deprecated:: 7.3.0
-        Use ``click:source`` instead of ``click:example``.
-    """
-
-    def run(self) -> list[nodes.Node]:
-        logger.warning(
-            "The 'click:example' directive is deprecated and will be remove in "
-            "Click Extra 8.0.0. Use 'click:source' instead.",
-            type="click",
-            subtype="deprecated",
-            location=self.get_location(),
-        )
-        return super().run()
-
-
 ClickDirective.runner_factory = ClickRunner
 
 
-class TreeDirective(SphinxDirective):
+class TreeDirective(ClickDirective):
     """Render a complete CLI reference for a Click command and all its subcommands.
 
     Walks the Click command tree at build time and emits, in MyST syntax:
@@ -597,9 +630,7 @@ class TreeDirective(SphinxDirective):
 
     .. note::
         Currently MyST-only. Use the directive in a ``.md`` document with
-        ``myst_parser`` enabled. An rST equivalent could be added later by
-        emitting ``.. _label:`` targets, list-tables, and ``.. click:run::``
-        blocks instead of their MyST counterparts.
+        ``myst_parser`` enabled.
     """
 
     has_content = True
@@ -633,30 +664,11 @@ class TreeDirective(SphinxDirective):
     ``no-root`` skips the root ``--help`` block.
     """
 
-    runner_attr: ClassVar[str] = "click_runner"
-    """The runner is shared with :class:`ClickDirective` so a ``click:source``
-    that ran earlier on the same document has already populated the namespace
-    with the CLI variable this directive expects to resolve.
-    """
-
-    @property
-    def runner(self) -> ClickRunner:
-        """Get or create the per-document Click runner.
-
-        Mirrors :attr:`ClickDirective.runner` so the runner namespace is
-        shared across ``click:source``, ``click:run``, and ``click:tree``
-        within a single document.
-        """
-        runner = getattr(self.state.document, self.runner_attr, None)
-        if runner is None:
-            runner = ClickRunner()
-            setattr(self.state.document, self.runner_attr, runner)
-        return runner
-
-    @cached_property
-    def is_myst_syntax(self) -> bool:
-        """Check if the current directive is written with MyST syntax."""
-        return bool(self.state.__module__.split(".", 1)[0] == "myst_parser")
+    # The runner_attr, runner property and is_myst_syntax cached-property are
+    # inherited unchanged from ClickDirective. Sharing the "click_runner"
+    # attribute means a click:source that ran earlier on the same document has
+    # already populated the namespace with the CLI variable this directive
+    # resolves.
 
     @staticmethod
     def _slug(value: str) -> str:
@@ -827,7 +839,6 @@ class ClickDomain(StatelessDomain):
     """Setup new directives under the same ``click`` namespace:
 
     - ``click:source`` which renders a Click CLI source code
-    - ``click:example``, an alias to ``click:source`` (deprecated)
     - ``click:run`` which renders the results of running a Click CLI
     - ``click:tree`` which walks a Click command tree and renders the full
       ``--help`` reference for every subcommand, with a summary table on top
@@ -837,7 +848,6 @@ class ClickDomain(StatelessDomain):
     label = "Click"
     directives: ClassVar[dict] = {
         "source": SourceDirective,
-        "example": DeprecatedExampleDirective,
         "run": RunDirective,
         "tree": TreeDirective,
     }

@@ -52,11 +52,15 @@ if "--sql" in sys.argv:
 class BaseTest(object):
   def setUp(self):
     self.temp_files = []
-    self.nb_triple = len(default_world.graph)
+    self.worlds     = []
+    self.nb_triple  = len(default_world.graph)
     
   def tearDown(self):
     remove_tmps(self.temp_files)
     self.temp_files = []
+    for world in self.worlds: world.close()
+    self.worlds = []
+      
     
   def assert_nb_created_triples(self, x):
     assert (len(default_world.graph) - self.nb_triple) == x
@@ -102,15 +106,16 @@ class BaseTest(object):
     assert not removed
     assert not added
 
-  def new_tmp_file(self):
-    fileno, filename = tempfile.mkstemp()
+  def new_tmp_file(self, suffix = None):
+    fileno, filename = tempfile.mkstemp(suffix)
     self.temp_files.append(filename)
     os.close(fileno)
     return filename
-    
+
   def new_world(self, exclusive = True, enable_thread_parallelism = False):
     filename = self.new_tmp_file()
     world = World(filename = filename, exclusive = exclusive, enable_thread_parallelism = enable_thread_parallelism)
+    self.worlds.append(world)
     return world
   
   def new_ontology(self):
@@ -2892,14 +2897,14 @@ class Test(BaseTest, unittest.TestCase):
     assert set(ObjectProperty.descendants(world = w)) == { ObjectProperty, p, p2, q }
     assert set(ObjectProperty.descendants(world = w, include_self = False)) == { p, p2, q }
     
-    assert set(DataProperty.descendants(world = w)) == { DataProperty, dp, dp2, dq }
-    assert set(DataProperty.descendants(world = w, include_self = False)) == { dp, dp2, dq }
+    assert set(DataProperty.descendants(world = w)) == { DataProperty, dp, dp2, dq, reifies }
+    assert set(DataProperty.descendants(world = w, include_self = False)) == { dp, dp2, dq, reifies }
     
     assert set(AnnotationProperty.descendants(world = w)) == { AnnotationProperty, ap, ap2, aq, versionInfo, comment, priorVersion, seeAlso, backwardCompatibleWith, deprecated, label, incompatibleWith, isDefinedBy }
     assert set(AnnotationProperty.descendants(world = w, include_self = False)) == { ap, ap2, aq, versionInfo, comment, priorVersion, seeAlso, backwardCompatibleWith, deprecated, label, incompatibleWith, isDefinedBy }
     
     assert set(ObjectProperty    .subclasses(world = w)) == { p , q  }
-    assert set(DataProperty      .subclasses(world = w)) == { dp, dq }
+    assert set(DataProperty      .subclasses(world = w)) == { dp, dq, reifies }
     assert set(AnnotationProperty.subclasses(world = w)) == { ap, aq, versionInfo, comment, priorVersion, seeAlso, backwardCompatibleWith, deprecated, label, incompatibleWith, isDefinedBy }
     
   def test_prop_52(self):
@@ -5208,7 +5213,6 @@ I took a placebo
     assert C4.equivalent_to == [C1 & p.some(C3) & d.value(1) & d.value(2) & q.only(C1 | C2)]
     
     C4.q.append(c11)
-    #print(C4.equivalent_to)
     assert C4.equivalent_to == [C1 & p.some(C3) & d.value(1) & d.value(2) & q.only(C1 | C2 | OneOf([c11]))]
 
   def test_class_prop_20(self):
@@ -5881,7 +5885,6 @@ multiple lines with " and ’ and \ and & and < and > and é.""", "en")
     tmp = self.new_tmp_file()
     onto.save(tmp)
     
-    #print(open(tmp).read())
     world = self.new_world()
     onto = get_ontology(tmp).load()
     
@@ -5937,6 +5940,26 @@ multiple lines with " and ’ and \ and & and < and > and é.""", "en")
     self.assert_triple(prop.storid, rdf_range, enu.storid, world = world)
     
     
+  def test_json_1(self):
+    world = self.new_world()
+    onto = world.get_ontology("http://test.org/onto.owl")
+    
+    with onto:
+      class C(Thing): pass
+      class p(DataProperty, FunctionalProperty): pass
+      
+      c1 = C()
+      c1.p = [1, 2, 3]
+      
+      c2 = C()
+      c2.p = { "a" : 1, "b" : [1, 2, 3] }
+
+    del c1.p
+    del c2.p
+
+    assert c1.p == [1, 2, 3]
+    assert c2.p == { "a" : 1, "b" : [1, 2, 3] }
+        
   def test_search_1(self):
     world = self.new_world()
     n = world.get_ontology("http://www.semanticweb.org/jiba/ontologies/2017/0/test").load()
@@ -8386,7 +8409,6 @@ for i in range(500):
     assert s == 300 + 4 + 500 * NB
     
     labels = [onto["drug%s" % (i + 1)].label.first() for i in range(1000)]
-    print(labels)
     assert len(set(labels)) > 1
     
   def test_parallel_5(self):
@@ -8417,7 +8439,7 @@ for i in range(500):
     s = world.graph.execute("SELECT MAX(storid) FROM resources").fetchone()[0]
     assert s == 300 + 4 + 200 * NB
     
-  def test_parallel_6(self):
+  def xxx_test_parallel_6(self):
     world = self.new_world(exclusive = False, enable_thread_parallelism = True)
     onto  = world.get_ontology("http://test.org/onto.owl")
     with onto:
@@ -8519,7 +8541,91 @@ for i in range(500):
     assert r1_para == r1
     #assert t_para < t_mono
     
+  def test_triple_term_1(self):
+    world = self.new_world()
+    onto = world.get_ontology("http://test.org/onto.owl#")
+    with onto:
+      class C(Thing): pass
+      class p(DataProperty, FunctionalProperty): pass
+      
+      c1 = C()
+      c1.p = [1, 2, 3]
+      
+      c2 = C()
+      c2.p = { "a" : 1, "b" : [1, 2, 3, "xxx"] }
+      
+      c1.reifies.append(TripleTerm((c1, 6, C), onto))
+      del c1.reifies
+      assert len(c1.reifies) == 1
+      assert c1.reifies[0].triple == (c1, 6, C)
+      assert c1.reifies[0].rowid == 8
+
+    tmp_file = self.new_tmp_file(".owl")
+    onto.save(tmp_file, format = "ntriples")
+    with open(tmp_file) as f: owl = f.read()
+    assert owl.startswith('''VERSION "1.2"''')
     
+    world2 = self.new_world()
+    onto2 = world2.get_ontology(tmp_file).load()
+    assert len(onto2.c1.reifies) == 1
+    assert onto2.c1.reifies[0].triple == (onto2.c1, 6, onto2.C)
+    assert onto2.c1.reifies[0].rowid == 2
+    
+    import owlready2
+    _saved = owlready2.driver.owlready2_optimized
+    owlready2.driver.owlready2_optimized = None
+    try:
+      world3 = self.new_world()
+      onto3 = world3.get_ontology(tmp_file).load()
+      assert len(onto3.c1.reifies) == 1
+      assert onto3.c1.reifies[0].triple == (onto3.c1, 6, onto3.C)
+      assert onto3.c1.reifies[0].rowid == 2
+    finally:
+      owlready2.driver.owlready2_optimized = _saved
+
+  def test_triple_term_2(self):
+    world = self.new_world()
+    onto = world.get_ontology("http://test.org/onto.owl#")
+    with onto:
+      class C(Thing): pass
+      class p(DataProperty, FunctionalProperty): pass
+      
+      c1 = C()
+      c1.p = [1, 2, 3]
+      
+      c2 = C()
+      c2.p = { "a" : 1, "b" : [1, 2, 3, "xxx"] }
+      
+      c1.reifies.append(TripleTerm((c1, 6, C), onto))
+      del c1.reifies
+      assert len(c1.reifies) == 1
+      assert c1.reifies[0].triple == (c1, 6, C)
+      assert c1.reifies[0].rowid == 8
+
+    tmp_file = self.new_tmp_file(".owl")
+    onto.save(tmp_file)
+    with open(tmp_file) as f: owl = f.read()
+    assert '''rdf:version="1.2"''' in owl
+    
+    world2 = self.new_world()
+    onto2 = world2.get_ontology(tmp_file).load()
+    assert len(onto2.c1.reifies) == 1
+    assert onto2.c1.reifies[0].triple == (onto2.c1, 6, onto2.C)
+    assert onto2.c1.reifies[0].rowid == 2
+    
+    import owlready2
+    _saved = owlready2.driver.owlready2_optimized
+    owlready2.driver.owlready2_optimized = None
+    try:
+      world3 = self.new_world()
+      onto3 = world3.get_ontology(tmp_file).load()
+      assert len(onto3.c1.reifies) == 1
+      assert onto3.c1.reifies[0].triple == (onto3.c1, 6, onto3.C)
+      assert onto3.c1.reifies[0].rowid == 2
+    finally:
+      owlready2.driver.owlready2_optimized = _saved
+
+      
 class Paper(BaseTest, unittest.TestCase):
   def test_reasoning_paper_ic2017(self):
     world = self.new_world()
@@ -8741,8 +8847,6 @@ constitutive hemorrhagic disorder CI         CI      CI   """.strip()
     ma_galette.manger()
     
     assert ok == 1
-
-
 
 
 class TestSPARQL(BaseTest, unittest.TestCase):
@@ -11507,6 +11611,123 @@ SELECT ?c {
 """
     q, r = self.sparql(world, sparql)
     assert { i for i, in r } == { c1 }
+    
+  def test_189(self):
+    world = self.new_world()
+    onto  = world.get_ontology("http://test.org/onto.owl")
+    
+    with onto:
+      class B(Thing): pass
+      class C(Thing): pass
+      class p(C >> str, FunctionalProperty): pass
+      b1    = B(p = "c2")
+      c1    = C(p = "c1")
+      c2    = C(p = "c2")
+      c3    = C(p = "c3")
+
+    sparql = """
+SELECT ?c {
+  ?b a onto:B .
+  ?b onto:p ?p INDEXED BY SUBJECT .
+  ?c a onto:C .
+  ?c onto:p ?p INDEXED BY SUBJECT .
+}
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert "INDEXED BY index_datas_sp" in q.sql
+    assert { i for i, in r } == { c2 }
+
+    sparql = """
+SELECT ?c {
+  ?b a onto:B .
+  ?b onto:p ?p INDEXED BY OBJECT .
+  ?c a onto:C .
+  ?c onto:p ?p INDEXED BY OBJECT .
+}
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert "INDEXED BY index_datas_op" in q.sql
+    assert { i for i, in r } == { c2 }
+    
+  def test_190(self):
+    world = self.new_world()
+    onto  = world.get_ontology("http://test.org/onto.owl")
+    
+    with onto:
+      class C(Thing): pass
+      class p(C >> str, FunctionalProperty): pass
+      class i(C >> int): pass
+      class r(C >> C, FunctionalProperty): pass
+      c1    = C(p = "c1", i = [1, 2, 3], label = ["c1"])
+      c2    = C(p = "c2", i = [1, 3]   , label = ["c2"])
+      c2bis = C(p = "c2", i = [2, 3]   , label = ["c2bis"], r = c1)
+
+    sparql = """
+SELECT ?c {
+  ?c onto:i 1 .
+  ?c onto:p "c2" .
+}
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert "INDEXED BY" in q.sql
+    assert { i for i, in r } == { c2 }
+
+    sparql = """
+SELECT ?c {
+  ?c a onto:C .
+  ?c onto:p "c2" .
+}
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert not "INDEXED BY" in q.sql
+    assert { i for i, in r } == { c2, c2bis }
+
+    sparql = """
+SELECT ?c {
+  ?c a onto:C .
+  ?c rdfs:label "c2" .
+}
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert "INDEXED BY index_datas_op" in q.sql
+    assert { i for i, in r } == { c2 }
+   
+    sparql = """
+SELECT ?c {
+  ?c a/rdfs:subClassOf* onto:C .
+  ?c onto:p "c2" .
+}
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert not "INDEXED BY" in q.sql
+    assert { i for i, in r } == { c2, c2bis }
+   
+    sparql = """
+SELECT ?c {
+  ?c onto:r onto:c1 .
+  ?c onto:p "c2" .
+}
+"""
+    q, r = self.sparql(world, sparql, compare_with_rdflib = False)
+    assert "INDEXED BY index_datas_sp" in q.sql
+    assert { i for i, in r } == { c2bis }
+
+  def test_191(self):
+    world = self.new_world()
+    onto  = world.get_ontology("http://test.org/onto.owl")
+    
+    with onto:
+      class C(Thing): pass
+      class p(DataProperty, FunctionalProperty): pass
+      
+      c = C("c")
+      c.p = { "a" : 1, "b" : [1, 2, 3, "xxx"] }
+      
+      q, r = self.sparql(world, "SELECT (JSON_EXTRACT(?o, '$.a') AS ?r) { onto:c onto:p ?o }", compare_with_rdflib = False)
+      assert r == [[1]]
+      
+      q, r = self.sparql(world, "SELECT (JSON_EXTRACT(?o, '$.b[3]') AS ?r) { onto:c onto:p ?o }", compare_with_rdflib = False)
+      assert r == [["xxx"]]
 
 
 

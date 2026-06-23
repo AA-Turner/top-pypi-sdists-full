@@ -44,6 +44,20 @@ class TestFSSpecStreaming(unittest.TestCase):
             self.assertIsInstance(read_io._file.store, zarr.storage.FSStore)
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
+    def test_is_remote_with_consolidated(self):
+        """Test that is_remote() returns True for remote HTTPS stores with consolidated metadata."""
+        with NWBZarrIO(self.https_s3_path, mode="r") as read_io:
+            read_io.open()
+            self.assertTrue(read_io.is_remote())
+
+    @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
+    def test_is_remote_without_consolidated(self):
+        """Test that is_remote() returns True for remote HTTPS stores without consolidated metadata."""
+        with NWBZarrIO(self.https_s3_path, mode="-r") as read_io:
+            read_io.open()
+            self.assertTrue(read_io.is_remote())
+
+    @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_fsspec_streaming_via_read_nwb(self):
         """
         Test reading from s3 using the convenience function NWBZarrIO.read_nwb
@@ -52,3 +66,22 @@ class TestFSSpecStreaming(unittest.TestCase):
         nwbfile = NWBZarrIO.read_nwb(self.s3_aind_path)
         self.assertEqual(nwbfile.identifier, "ecephys_625749_2022-08-03_15-15-06")
         self.assertEqual(nwbfile.institution, "AIND")
+
+    @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
+    def test_resolve_ref_self_reference_over_fsspec(self):
+        """Regression: `resolve_ref` must not re-open the URL for `source == "."` self-references.
+
+        Without the fix in `ZarrIO.resolve_ref`, reading any non-trivial NWB Zarr file over
+        fsspec fails with `PathNotFoundError: nothing found at path ''` because hdmf-zarr
+        writes every same-file reference as `{"source": ".", "path": ...}` and the resolver
+        previously passed the `"."` to `__open_file_consolidated`, which interpreted it as
+        an empty key in the fsspec store. The fix short-circuits the `"."` case and reuses
+        the already-open file directly. This test reads a public DANDI Zarr file end-to-end
+        and asserts the read completes; without the fix, the call raises before returning.
+        """
+        # DANDI 000719 file used in this repo's S3 streaming tutorial (PR #330).
+        url = "https://dandiarchive.s3.amazonaws.com/zarr/c8c6b848-fbc6-4f58-85ff-e3f2618ee983/"
+        nwbfile = NWBZarrIO.read_nwb(url)
+        self.assertEqual(nwbfile.identifier, "7208f856-f527-479f-973d-e6e72326a8ea")
+        self.assertIsNotNone(nwbfile.subject)
+        self.assertEqual(nwbfile.subject.subject_id, "R6")

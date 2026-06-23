@@ -1,6 +1,14 @@
 import httpx
 
-from mistralai.workflows._version import USER_AGENT as _MISTRAL_USER_AGENT
+# mistralai-workflows is always installed at runtime alongside this client, but is
+# not a declared dependency of the independently-generated worker client, so the
+# type checkers and linter cannot resolve it during generation.
+# pylint: disable=import-error,no-name-in-module
+from mistralai.workflows._version import (  # type: ignore[import-untyped]
+    USER_AGENT as _MISTRAL_USER_AGENT,
+)
+
+# pylint: enable=import-error,no-name-in-module
 
 from .types import BeforeRequestContext, BeforeRequestHook, Hooks
 

@@ -42,10 +42,25 @@ def _get_proxy_basic_auth(
 
 async def create_temporal_service_client() -> TemporalServiceClient:
     runtime = Runtime(telemetry=TelemetryConfig())
-    if config.common.otel_enabled:
-        metrics_endpoint = config.common.otel_endpoint or config.common.otel_metrics_endpoint
+    if config.common.otel_enabled and config.common.mistral_workflows_otel_metrics_export:
+        explicit_endpoint = config.common.otel_endpoint or config.common.otel_metrics_endpoint
+        if explicit_endpoint:
+            # Explicitly configured endpoints handle auth themselves (e.g. OTEL_EXPORTER_OTLP_HEADERS).
+            metrics_base = explicit_endpoint
+            metrics_headers: dict[str, str] | None = None
+        else:
+            assert config.worker.agent.mistral_client_server_url is not None  # guaranteed by WorkerConfig validator
+            metrics_base = f"{config.worker.agent.mistral_client_server_url.rstrip('/')}/telemetry"
+            api_key = (
+                config.worker.agent.mistral_client_api_key.get_secret_value()
+                if config.worker.agent.mistral_client_api_key
+                else None
+            )
+            metrics_headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
         runtime = Runtime(
-            telemetry=TelemetryConfig(metrics=OpenTelemetryConfig(url=f"{metrics_endpoint}/v1/metrics", http=True))
+            telemetry=TelemetryConfig(
+                metrics=OpenTelemetryConfig(url=f"{metrics_base}/v1/metrics", http=True, headers=metrics_headers)
+            )
         )
     logger.info(
         "creating temporal service client",

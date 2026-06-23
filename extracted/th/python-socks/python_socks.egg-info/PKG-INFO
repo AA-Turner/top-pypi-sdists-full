@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-socks
-Version: 2.8.1
+Version: 2.8.2
 Summary: Proxy (SOCKS4, SOCKS5, HTTP CONNECT) client for Python
 Author-email: Roman Snegirev <snegiryev@gmail.com>
 License: Apache-2.0

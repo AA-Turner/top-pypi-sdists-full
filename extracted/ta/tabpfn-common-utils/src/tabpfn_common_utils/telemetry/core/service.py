@@ -26,8 +26,9 @@ class ProductTelemetry:
     Service for capturing anonymous and aggregated telemetry data.
     """
 
-    # Public PostHog project API key
-    PROJECT_API_KEY = "phc_wemJSoR4e8rGJomHz0clm6aHdOWp0EvpRP368uVsUvJ"
+    # PostHog project ingestion token, read from the environment so no
+    # credential ships in the package. When unset, telemetry is a no-op.
+    PROJECT_API_KEY: Optional[str] = os.getenv("PRIOR_POSTHOG_PROJECT_TOKEN")
 
     # Public PostHog host (EU)
     HOST = "https://eu.i.posthog.com"
@@ -51,6 +52,11 @@ class ProductTelemetry:
 
         if api_key is None:
             api_key = self.PROJECT_API_KEY
+
+        # No token → we cannot emit telemetry; remain a no-op.
+        if not api_key:
+            self._posthog_client = None
+            return
 
         # Initialize the PostHog client
         self._posthog_client = Posthog(
@@ -138,8 +144,12 @@ class ProductTelemetry:
         if self.telemetry_enabled() is False:
             return
 
+        # Add the check just for type safety
+        if self._posthog_client is None:
+            return
+
         try:
-            self._posthog_client.flush()  # type: ignore
+            self._posthog_client.flush()
         except Exception:
             # Silently ignore any errors
             pass

@@ -13,8 +13,8 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from ....context_manager import merge_metadata
-from ..native_callback import (
+from aigie.context_manager import merge_metadata
+from aigie.integrations.claude_agent_sdk.native_callback import (
     _serialize_tool_result,
     _utc_isoformat,
     _utc_now,
@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-class ToolEvents:
 
+class ToolEvents:
     async def handle_tool_use_start(  # noqa: C901, PLR0915
         self,
         tool_name: str,
@@ -115,13 +115,13 @@ class ToolEvents:
 
         # Add tool_category hint for component registry classification
         try:
-            from ....tool_category import infer_tool_category
+            from aigie.tool_category import infer_tool_category
 
             category = infer_tool_category(tool_name, None)
             if category:
                 span_data["metadata"]["tool_category"] = category  # type: ignore[index,call-overload]
         except ImportError as exc:
-            logger.debug('tool_category lookup unavailable' + ': %s', exc)
+            logger.debug("tool_category lookup unavailable" + ": %s", exc)
 
         if aigie._buffer:
             logger.debug(
@@ -131,11 +131,11 @@ class ToolEvents:
 
         # Set process-level span ID for OTel bridge (infra calls inside this tool)
         try:
-            from ....auto_instrument.span_enricher import set_active_span_id
+            from aigie.auto_instrument.span_enricher import set_active_span_id
 
             set_active_span_id(span_id)
         except Exception as exc:  # noqa: BLE001
-            logger.debug('set_active_span_id (start) failed' + ': %s', exc)
+            logger.debug("set_active_span_id (start) failed" + ": %s", exc)
         try:
             intercept = await aigie.intercept_before_tool(
                 tool_name=tool_name,
@@ -146,7 +146,7 @@ class ToolEvents:
             if intercept.get("decision") != "allow":
                 logger.info(f"[AIGIE] Pre-tool signal for {tool_name}: {intercept.get('decision')}")
         except Exception as exc:  # noqa: BLE001
-            logger.debug('pre-tool intercept failed' + ': %s', exc)
+            logger.debug("pre-tool intercept failed" + ": %s", exc)
 
         return span_id
 
@@ -266,7 +266,7 @@ class ToolEvents:
                     rem_result.original_output = error_msg
                     await self._report_remediation(tool_data["spanId"], rem_result)
             except Exception as exc:  # noqa: BLE001
-                logger.debug('remediation lookup failed (best-effort)' + ': %s', exc)
+                logger.debug("remediation lookup failed (best-effort)" + ": %s", exc)
 
         # Post-tool interception: report errors to backend for pattern learning
         if is_error:
@@ -283,11 +283,11 @@ class ToolEvents:
 
         # Restore process-level span to parent for OTel bridge
         try:
-            from ....auto_instrument.span_enricher import set_active_span_id
+            from aigie.auto_instrument.span_enricher import set_active_span_id
 
             set_active_span_id(update_data.get("parent_id"))
         except Exception as exc:  # noqa: BLE001
-            logger.debug('set_active_span_id (end) failed' + ': %s', exc)
+            logger.debug("set_active_span_id (end) failed" + ": %s", exc)
 
         if aigie._buffer:
             logger.debug(
@@ -384,4 +384,3 @@ class ToolEvents:
                 self.close_span(payload=update_data)
 
             del self.tool_map[tool_use_id]
-

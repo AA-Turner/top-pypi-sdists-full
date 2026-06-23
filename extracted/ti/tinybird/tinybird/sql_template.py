@@ -7,7 +7,7 @@ from collections import deque
 from datetime import datetime
 from functools import lru_cache
 from json import loads
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 from tornado import escape
 from tornado.util import ObjectDict, exec_in, unicode_type
@@ -1499,7 +1499,7 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
     )
 
     exec_in(self.compiled, namespace)
-    execute = namespace["_tt_execute"]
+    execute = cast(Callable[[], bytes], namespace["_tt_execute"])
     # Clear the traceback module's cache of source data now that
     # we've generated a new template (mainly for this module's
     # unittests, where different tests reuse the same name).

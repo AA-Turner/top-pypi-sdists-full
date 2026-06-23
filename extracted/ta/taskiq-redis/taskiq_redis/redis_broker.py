@@ -114,7 +114,7 @@ class ListQueueBroker(BaseRedisBroker):
         """
         queue_name = message.labels.get("queue_name") or self.queue_name
         async with Redis(connection_pool=self.connection_pool) as redis_conn:
-            await redis_conn.lpush(queue_name, message.message)  # type: ignore
+            await redis_conn.lpush(queue_name, message.message)
 
     async def listen(self) -> AsyncGenerator[bytes, None]:
         """
@@ -129,9 +129,10 @@ class ListQueueBroker(BaseRedisBroker):
         while True:
             try:
                 async with Redis(connection_pool=self.connection_pool) as redis_conn:
-                    yield (await redis_conn.brpop(self.queue_name))[  # type: ignore
-                        redis_brpop_data_position
-                    ]
+                    brpop_result = await redis_conn.brpop(self.queue_name)
+                    if brpop_result is None:
+                        continue
+                    yield brpop_result[redis_brpop_data_position]  # type: ignore[misc]
             except ConnectionError as exc:
                 logger.warning("Redis connection error: %s", exc)
                 continue
@@ -283,37 +284,42 @@ class RedisStreamBroker(BaseRedisBroker):
                     noack=False,
                     count=self.count,
                 )
-                for stream, msg_list in fetched:
-                    for msg_id, msg in msg_list:
+                if not fetched:
+                    continue
+                for stream, msg_list in fetched:  # type: ignore[str-unpack]
+                    for msg_id, msg in msg_list:  # type: ignore[str-unpack,union-attr]
+                        logger.debug("Received message: %s", msg)
+                        yield AckableMessage(
+                            data=msg[b"data"],  # type: ignore[arg-type,index]
+                            ack=self._ack_generator(id=msg_id, queue_name=stream),  # type: ignore[arg-type]
+                        )
+                logger.debug("Starting fetching unacknowledged messages")
+                for stream in [self.queue_name, *self.additional_streams.keys()]:
+                    pipe = redis_conn.pipeline()
+                    lock = pipe.lock(
+                        f"autoclaim:{self.consumer_group_name}:{stream}",
+                        timeout=self.unacknowledged_lock_timeout,
+                    )
+                    await lock.acquire()
+                    await pipe.xautoclaim(
+                        name=stream,
+                        groupname=self.consumer_group_name,
+                        consumername=self.consumer_name,
+                        min_idle_time=self.idle_timeout,
+                        count=self.unacknowledged_batch_size,
+                    )
+                    await lock.release()
+                    results = await pipe.execute()
+                    pending = results[1]
+
+                    logger.debug(
+                        "Found %d pending messages in stream %s",
+                        len(pending[1]),
+                        stream,
+                    )
+                    for msg_id, msg in pending[1]:
                         logger.debug("Received message: %s", msg)
                         yield AckableMessage(
                             data=msg[b"data"],
                             ack=self._ack_generator(id=msg_id, queue_name=stream),
                         )
-                logger.debug("Starting fetching unacknowledged messages")
-                for stream in [self.queue_name, *self.additional_streams.keys()]:
-                    lock = redis_conn.lock(
-                        f"autoclaim:{self.consumer_group_name}:{stream}",
-                        timeout=self.unacknowledged_lock_timeout,
-                    )
-                    if await lock.locked():
-                        continue
-                    async with lock:
-                        pending = await redis_conn.xautoclaim(
-                            name=stream,
-                            groupname=self.consumer_group_name,
-                            consumername=self.consumer_name,
-                            min_idle_time=self.idle_timeout,
-                            count=self.unacknowledged_batch_size,
-                        )
-                        logger.debug(
-                            "Found %d pending messages in stream %s",
-                            len(pending[1]),
-                            stream,
-                        )
-                        for msg_id, msg in pending[1]:
-                            logger.debug("Received message: %s", msg)
-                            yield AckableMessage(
-                                data=msg[b"data"],
-                                ack=self._ack_generator(id=msg_id, queue_name=stream),
-                            )

@@ -18,54 +18,80 @@
 from __future__ import annotations
 
 import colorsys
+import os
+import random
+import sys
 from pathlib import Path
 
 import click
 import cloup
+from extra_platforms import ALL_IDS
 
 from . import (
+    SPINNERS,
+    Choice,
     ClickException,
     Color,
-    Style,
+    FloatRange,
+    IntRange,
     argument,
+    command,
     context,
     echo,
+    file_path,
     group,
+    jobs_option,
     option,
     pass_context,
     style,
 )
-from .colorize import _nearest_256
-from .decorators import columns_option
-from .man_page import render_manpage, write_manpages
-from .parameters import ShowParamsOption, format_param_row
-from .table import (
-    DEFAULT_FORMAT,
-    SERIALIZATION_FORMATS,
-    print_table,
-    select_columns,
-    select_row,
-)
-from .version import (
-    GIT_FIELDS,
+from .cli_wrapper import WrapperGroup, wrap as wrap_cmd
+from .config import ClickExtraConfig, TestPlanConfig, get_tool_config
+from .envvar import merge_envvar_ids
+from .prebake import (
     _find_dunder_str,
     discover_package_init_files,
     prebake_dunder,
     prebake_version,
+)
+from .spinner import (
+    _DEFAULT_SHOWCASE,
+    _animate_spinners,
+    _spinner_preview,
+    _tour_duration,
+)
+from .styling import _nearest_256
+from .table import print_table
+from .test_plan import (
+    DEFAULT_TEST_PLAN,
+    CLITestCase,
+    parse_test_plan,
+    run_test_plan,
+)
+from .version import (
+    GIT_FIELDS,
+    GIT_RESOLVERS,
     run_git,
 )
-from .wrap import WrapperGroup, resolve_target_command, wrap as wrap_cmd
 
 
 def _resolve_paths(module: Path | None) -> list[Path]:
-    """Resolve target ``__init__.py`` paths from ``--module`` or auto-discovery."""
+    """Resolve target ``__init__.py`` paths.
+
+    Precedence: an explicit ``--module``, then the ``[tool.click-extra.prebake]``
+    ``module`` config value, then ``[project.scripts]`` auto-discovery.
+    """
     if module:
         return [module]
+    config = get_tool_config()
+    if config and config.prebake.module:
+        return [Path(config.prebake.module)]
     paths = discover_package_init_files()
     if not paths:
         raise ClickException(
-            "No __init__.py found. Pass --module explicitly or add "
-            "[project.scripts] to pyproject.toml."
+            "No __init__.py found. Pass --module explicitly, set "
+            "[tool.click-extra.prebake] module, or add [project.scripts] to "
+            "pyproject.toml."
         )
     return paths
 
@@ -99,6 +125,8 @@ _demo_section = cloup.Section(
     name="click-extra",
     cls=WrapperGroup,
     version_fields={"prog_name": "Click Extra"},
+    config_schema=ClickExtraConfig,
+    schema_strict=False,
 )
 def demo():
     """Click Extra CLI."""
@@ -107,207 +135,149 @@ def demo():
 demo.add_command(wrap_cmd)
 
 
-_INTROSPECT_RUNTIME_IDS: frozenset[str] = frozenset({
-    "allowed_in_conf",
-    "value",
-    "source",
-})
-"""Columns the standalone ``show-params`` cannot fill in for a foreign CLI.
-
-``value`` / ``source`` need a live invocation context, and ``allowed_in_conf``
-needs a Click Extra ``--config`` option both of which the standalone wrapper
-cannot synthesize from an arbitrary script. Every other
-:data:`ShowParamsOption.TABLE_HEADERS` entry is structural and renders fine.
-"""
-
-
-def _introspect_columns():
-    """Default column subset displayed by the standalone ``show-params``.
-
-    Drops the runtime/config-dependent entries (see
-    :data:`_INTROSPECT_RUNTIME_IDS`) so the standalone wrapper renders
-    a coherent table even when the target CLI is third-party.
-    """
-    return tuple(
-        col
-        for col in ShowParamsOption.TABLE_HEADERS
-        if col.id not in _INTROSPECT_RUNTIME_IDS
-    )
-
-
-def _walk_cmd_params(cmd, ctx, parent_keys=()):
-    """Walk parameters of a Click command tree.
-
-    Yields ``(path_tuple, param, owning_ctx)`` for every parameter found on
-    *cmd* and its subcommands.
-    """
-    for p in cmd.get_params(ctx):
-        if p.name is not None:
-            yield (*parent_keys, p.name), p, ctx
-
-    if isinstance(cmd, click.Group):
-        for subcmd_name in sorted(cmd.list_commands(ctx)):
-            subcmd = cmd.get_command(ctx, subcmd_name)
-            if subcmd is None:
-                continue
-            subcmd_ctx = click.Context(subcmd, parent=ctx, info_name=subcmd_name)
-            yield from _walk_cmd_params(subcmd, subcmd_ctx, (*parent_keys, subcmd_name))
-
-
-@demo.command(
-    name="show-params",
-    context_settings={"allow_interspersed_args": False},
+@command(name="test-plan")
+@option(
+    "--command",
+    "--binary",
+    required=True,
+    metavar="COMMAND",
+    help="Path to the binary file to test, or a command line to be executed.",
 )
-@click.argument(
-    "script_and_args",
-    nargs=-1,
-    type=click.UNPROCESSED,
-    metavar="SCRIPT [SUBCOMMAND]...",
+@option(
+    "-F",
+    "--plan-file",
+    type=file_path(exists=True, readable=True, resolve_path=True),
+    multiple=True,
+    metavar="FILE_PATH",
+    help="Path to a test plan file in YAML. Repeat to run multiple plans in "
+    "sequence. Without any plan source, a built-in default plan runs.",
 )
-@columns_option(columns=_introspect_columns())
-@click.pass_context
-def show_params_cmd(
-    ctx: click.Context,
-    script_and_args: tuple[str, ...],
+@option(
+    "-E",
+    "--plan-envvar",
+    multiple=True,
+    metavar="ENVVAR_NAME",
+    help="Name of an environment variable holding a test plan in YAML. Repeat "
+    "to collect multiple plans.",
+)
+@option(
+    "-t",
+    "--select-test",
+    type=IntRange(min=1),
+    multiple=True,
+    metavar="INTEGER",
+    help="Only run the cases with these 1-based numbers. Repeat to select "
+    "several; omit to run them all.",
+)
+@option(
+    "-s",
+    "--skip-platform",
+    type=Choice(sorted(ALL_IDS), case_sensitive=False),
+    multiple=True,
+    help="Skip cases on these platforms. Repeat to skip several.",
+)
+@option(
+    "-x",
+    "--exit-on-error",
+    is_flag=True,
+    default=False,
+    help="Exit instantly on the first failed case (sequential runs only).",
+)
+@jobs_option
+@option(
+    "-T",
+    "--timeout",
+    type=FloatRange(min=0, clamp=True),
+    metavar="SECONDS",
+    help="Default timeout for each CLI call, unless the case sets its own.",
+)
+@option(
+    "--show-trace-on-error/--hide-trace-on-error",
+    default=True,
+    help="Show the execution trace of failed cases.",
+)
+@option(
+    "--stats/--no-stats",
+    is_flag=True,
+    default=True,
+    help="Print the worker summary and the result tally.",
+)
+@pass_context
+def test_plan_cmd(
+    ctx: context.Context,
+    command: str,
+    plan_file: tuple[Path, ...],
+    plan_envvar: tuple[str, ...],
+    select_test: tuple[int, ...],
+    skip_platform: tuple[str, ...],
+    exit_on_error: bool,
+    timeout: float | None,
+    show_trace_on_error: bool,
+    stats: bool,
 ) -> None:
-    """Show parameters of an external Click CLI.
+    """Run declarative CLI test cases against a command or binary.
 
-    Resolves SCRIPT as a console_scripts entry point, module:function
-    notation, .py file path, or Python module name. Loads the Click
-    command and prints its parameter table.
+    Resolves the plan by precedence: --plan-file or --plan-envvar, then the
+    [tool.click-extra.test-plan] config (inline, then file), then a built-in
+    default. Each case invokes the target with its parameters and checks the
+    exit code and output.
 
-    Extra arguments after SCRIPT navigate into nested command groups.
+    Cases run in parallel by default (see --jobs): each is an independent
+    process invocation, so they overlap well. Pass --jobs max to use every
+    logical core, or --jobs 1 for sequential execution, which lets
+    --exit-on-error stop on the first failure.
 
-    Pass --columns id,spec,value (etc.) to restrict and reorder the table
-    columns, SQL SELECT-style. See ShowParamsOption.TABLE_HEADERS for the
-    available column IDs.
+    On an interactive terminal a spinner reports how many cases have finished.
+    It stays silent in pipes and CI logs, and --no-progress or --accessible
+    turns it off.
     """
-    if not script_and_args:
-        echo(ctx.get_help(), color=ctx.color)
-        ctx.exit(0)
+    # click-extra's --jobs option stores its resolved worker count on the
+    # context; read it and hand it to the runner.
+    worker_count = context.get(ctx, context.JOBS, 1)
 
-    script = script_and_args[0]
-    subcommands = script_and_args[1:]
+    # The [tool.click-extra.test-plan] config, or its defaults when the section
+    # (or any config file) is absent.
+    config = get_tool_config(ctx)
+    test_plan_config = config.test_plan if config else TestPlanConfig()
 
-    cmd, cmd_ctx = resolve_target_command(script, subcommands)
+    # Collect cases by precedence: CLI sources (--plan-file, --plan-envvar),
+    # then the configured inline plan, then the configured plan file, then a
+    # built-in default.
+    cases: list[CLITestCase] = []
+    for plan in plan_file:
+        cases.extend(parse_test_plan(plan.read_text(encoding="UTF-8")))
+    for envvar_id in merge_envvar_ids(plan_envvar):
+        cases.extend(parse_test_plan(os.getenv(envvar_id)))
+    if not cases and test_plan_config.inline:
+        cases.extend(parse_test_plan(test_plan_config.inline))
+    if not cases and test_plan_config.file:
+        plan_path = Path(test_plan_config.file)
+        if plan_path.exists():
+            cases.extend(parse_test_plan(plan_path.read_text(encoding="UTF-8")))
+    if not cases:
+        cases = DEFAULT_TEST_PLAN
 
-    # Build parameter path prefix.
-    prefix = (cmd.name or script,)
-    sep = "."
-    table_format = context.get(ctx, context.TABLE_FORMAT) or DEFAULT_FORMAT
-    is_structured = table_format in SERIALIZATION_FORMATS
+    # Fall back to the configured timeout when --timeout is not given.
+    if timeout is None and test_plan_config.timeout is not None:
+        timeout = float(test_plan_config.timeout)
 
-    # ``ColumnsOption`` has already validated the selection against
-    # ``_introspect_columns()`` in its callback, so we can trust ``COLUMNS``
-    # here: project the column set without re-checking.
-    selected_ids: tuple[str, ...] = context.get(ctx, context.COLUMNS) or ()
-    if selected_ids:
-        canonical_ids = selected_ids
-        display_columns = select_columns(_introspect_columns(), selected_ids)
-    else:
-        canonical_ids = tuple(col.id for col in _introspect_columns())
-        display_columns = _introspect_columns()
-
-    table: list[tuple] = []
-    for keys, param, param_ctx in _walk_cmd_params(cmd, cmd_ctx, prefix):
-        path = sep.join(keys)
-        row = format_param_row(param, param_ctx, path, is_structured)
-        table.append(select_row(row, selected_ids, canonical_ids))
-
-    def sort_key(row):
-        """Sort by depth first, then path."""
-        row_path = row[0]
-        parts = row_path.split(sep)
-        return len(parts), row_path
-
-    labels = tuple(col.label for col in display_columns)
-    header_labels: tuple
-    if is_structured:
-        header_labels = labels
-    else:
-        header_style = Style(bold=True)
-        header_labels = tuple(map(header_style, labels))
-
-    print_table(
-        sorted(table, key=sort_key),
-        headers=header_labels,
-        table_format=table_format,
+    counter = run_test_plan(
+        command,
+        cases,
+        jobs=worker_count,
+        select_test=select_test,
+        skip_platform=skip_platform,
+        timeout=timeout,
+        exit_on_error=exit_on_error,
+        show_trace_on_error=show_trace_on_error,
+        stats=stats,
+        show_progress=context.get(ctx, context.PROGRESS, True),
     )
+    if counter["failed"]:
+        ctx.exit(1)
 
 
-@demo.command(
-    name="man",
-    context_settings={"allow_interspersed_args": False},
-)
-@click.argument(
-    "script_and_args",
-    nargs=-1,
-    type=click.UNPROCESSED,
-    metavar="SCRIPT [SUBCOMMAND]...",
-)
-@click.option(
-    "--output-dir",
-    type=click.Path(file_okay=False, dir_okay=True, writable=True, path_type=Path),
-    default=None,
-    help=(
-        "Write one .1 file per (sub)command into the given directory instead "
-        "of printing a single page to stdout. The directory is created if "
-        "missing; subcommand pages are named ``<script>-<sub>.1``. Must "
-        "appear before SCRIPT, since arguments after SCRIPT navigate into "
-        "nested subcommands."
-    ),
-)
-@click.pass_context
-def man_cmd(
-    ctx: click.Context,
-    script_and_args: tuple[str, ...],
-    output_dir: Path | None,
-) -> None:
-    """Render the man page of an external Click CLI.
-
-    Resolves SCRIPT as a console_scripts entry point, module:function
-    notation, .py file path, or Python module name. Loads the Click command
-    and prints its man page (roff) to standard output without running it.
-
-    Extra arguments after SCRIPT navigate into nested command groups.
-
-    With ``--output-dir DIR``, the whole subcommand tree rooted at
-    ``SCRIPT [SUBCOMMAND]...`` is written as one ``.1`` file per node into
-    ``DIR`` instead of being printed to stdout. Suitable for invocation
-    from a release pipeline or a distributor's build phase (Debian's
-    ``override_dh_installman``, Guix' ``install-man-page`` snippet, etc.).
-    """
-    if not script_and_args:
-        echo(ctx.get_help(), color=ctx.color)
-        ctx.exit(0)
-
-    script = script_and_args[0]
-    subcommands = script_and_args[1:]
-
-    if output_dir is not None and subcommands:
-        raise ClickException(
-            "--output-dir always emits the full tree rooted at SCRIPT and "
-            "cannot be combined with extra SUBCOMMAND arguments. To render "
-            "a single subcommand page, drop --output-dir and redirect "
-            "stdout into a .1 file instead."
-        )
-
-    cmd, _ = resolve_target_command(script, subcommands)
-    if output_dir is None:
-        prog_name = " ".join((script, *subcommands))
-        echo(render_manpage(cmd, prog_name=prog_name))
-    else:
-        # Filenames are derived from prog_name (joined by hyphens with each
-        # subcommand path segment), so spaces, slashes, or a .py suffix would
-        # produce broken or misleading filenames. Prefer the resolved Click
-        # command's own ``name``, which is the canonical identifier the CLI
-        # publishes (``mpm`` for ``meta_package_manager.cli:mpm``, ``weather``
-        # for a ``kitchen.py`` file path that defines a ``weather`` command).
-        # Fall back to the script string when the command has no name set.
-        prog_name = cmd.name or script
-        for path in write_manpages(cmd, output_dir, prog_name=prog_name):
-            echo(str(path))
-    ctx.exit(0)
+demo.add_command(test_plan_cmd)
 
 
 _ALL_STYLES = (
@@ -498,6 +468,99 @@ def demo_gradient() -> None:
     echo(_render_gradient())
 
 
+@demo.command(name="spinner", section=_demo_section)
+@option(
+    "--all",
+    "every",
+    is_flag=True,
+    help="Show the whole catalog instead of a curated selection.",
+)
+@option(
+    "--random",
+    "sample_size",
+    type=int,
+    metavar="N",
+    default=None,
+    help="Show N spinners chosen at random.",
+)
+@option(
+    "--select",
+    "names",
+    metavar="NAME,...",
+    default=None,
+    help="Show a comma-separated list of spinner names.",
+)
+@option(
+    "--table",
+    "show_table",
+    is_flag=True,
+    help="Print a reference table of the selected spinners.",
+)
+@pass_context
+def demo_spinner(
+    ctx: click.Context,
+    every: bool,
+    sample_size: int | None,
+    names: str | None,
+    show_table: bool,
+) -> None:
+    """Animate the spinner widget; --table lists the catalog instead.
+
+    On an interactive terminal it animates a tour of the selected spinners. By
+    default a curated handful is shown; use --all for the whole catalog,
+    --random N for a random sample, or --select to name specific spinners (these
+    three are mutually exclusive). Pass --table to print a reference table
+    instead of animating: name, frames, per-frame interval, and the tour's
+    per-spinner dwell time.
+    """
+    if sum((every, sample_size is not None, names is not None)) > 1:
+        raise ClickException("--all, --random and --select are mutually exclusive.")
+
+    if every:
+        selection = list(SPINNERS)
+    elif sample_size is not None:
+        if sample_size < 1:
+            raise ClickException("--random needs a count of at least 1.")
+        selection = random.sample(list(SPINNERS), min(sample_size, len(SPINNERS)))
+    elif names is not None:
+        selection = [name.strip() for name in names.split(",") if name.strip()]
+        unknown = [name for name in selection if name not in SPINNERS]
+        if unknown:
+            raise ClickException(
+                f"Unknown spinner(s): {', '.join(unknown)}. "
+                "Run with --all to list every name."
+            )
+        if not selection:
+            raise ClickException("--select needs at least one spinner name.")
+    else:
+        selection = list(_DEFAULT_SHOWCASE)
+
+    # `--table` prints the reference table straight away, with no animation. The
+    # Tour column is the per-spinner dwell time the live tour would spend.
+    if show_table:
+        rows = []
+        for name in selection:
+            preset = SPINNERS[name]
+            rows.append([
+                name,
+                _spinner_preview(preset),
+                f"{preset.interval}s",
+                f"{_tour_duration(preset):.1f}s",
+            ])
+        _find_print_table(ctx)(
+            rows,
+            headers=["Name", "Frames", "Interval", "Tour"],
+            # Right-align Tour so its single-decimal values line up on the dot.
+            colalign=("left", "left", "left", "right"),
+        )
+        return
+
+    # Otherwise animate a live tour on an interactive terminal, honoring
+    # --progress / --accessible. A no-op when captured or piped.
+    if sys.stderr.isatty() and context.get(ctx, context.PROGRESS, True):
+        _animate_spinners(selection)
+
+
 @demo.group()
 def prebake():
     """Pre-bake build-time metadata into Python source files."""
@@ -515,7 +578,7 @@ def version(git_hash: str | None, module: Path | None) -> None:
     """Inject Git commit hash into ``__version__``.
 
     Appends the Git short hash as a PEP 440 local version identifier
-    (e.g. ``1.0.0.dev0`` becomes ``1.0.0.dev0+abc1234``).
+    (for example ``1.0.0.dev0`` becomes ``1.0.0.dev0+abc1234``).
 
     Only modifies ``.dev`` versions without an existing ``+`` suffix.
     Release versions and already pre-baked versions are left untouched.
@@ -543,8 +606,8 @@ def version(git_hash: str | None, module: Path | None) -> None:
 def field(name: str, module: Path | None, value: str) -> None:
     """Replace an empty dunder variable with a value.
 
-    NAME is the template field name (e.g. ``git_tag_sha``) or the full
-    dunder name (e.g. ``__git_tag_sha__``). Double underscores are added
+    NAME is the template field name (like ``git_tag_sha``) or the full
+    dunder name (like ``__git_tag_sha__``). Double underscores are added
     automatically when missing.
 
     VALUE is the string to inject.
@@ -577,9 +640,10 @@ def all_fields(module: Path | None) -> None:
         git_branch, git_long_hash, git_short_hash, git_date, git_tag
 
     \b
-    Additional fields (e.g. ``__git_tag_sha__``) are baked if their
-    dunder placeholder exists and a git resolution is available. Fields
-    without a placeholder in the source file are skipped silently.
+    Additional computed fields (``__git_tag_sha__``, ``__git_distance__``,
+    ``__git_dirty__``) are baked if their dunder placeholder exists and a git
+    resolution is available. Fields without a placeholder in the source file
+    are skipped silently.
     """
     paths = _resolve_paths(module)
     changed = False
@@ -595,9 +659,12 @@ def all_fields(module: Path | None) -> None:
                 echo(f"Pre-baked {init_path}: __version__ = {baked!r}")
                 changed = True
 
-        # Pre-bake each git field that has an empty dunder placeholder.
-        resolved: dict[str, str] = {}
-        for field_name, git_args in GIT_FIELDS.items():
+        # Pre-bake each git field that has an empty dunder placeholder. The
+        # canonical field-to-resolver mapping lives in click_extra.version, so
+        # adding a git field there needs no matching edit here. Direct fields,
+        # the tag-derived git_tag_sha, and the computed git_distance/git_dirty
+        # all resolve uniformly through their GIT_RESOLVERS callable.
+        for field_name, resolver in GIT_RESOLVERS.items():
             dunder_name = f"__{field_name}__"
             node = _find_dunder_str(source, dunder_name)
             if node is None:
@@ -605,30 +672,16 @@ def all_fields(module: Path | None) -> None:
             if node.value:
                 echo(f"Skipped {init_path}: {dunder_name} already set")
                 continue
-            value = run_git(*git_args)
+            value = resolver(None)
             if not value:
                 echo(f"Skipped {init_path}: {dunder_name} (no git value)")
                 continue
-            resolved[field_name] = value
             baked = prebake_dunder(init_path, dunder_name, value)
             if baked:
                 echo(f"Pre-baked {init_path}: {dunder_name} = {baked!r}")
                 changed = True
                 # Re-read source after each write so AST offsets stay valid.
                 source = init_path.read_text(encoding="utf-8")
-
-        # Handle git_tag_sha: resolved from the tag, not a direct git command.
-        dunder_name = "__git_tag_sha__"
-        node = _find_dunder_str(source, dunder_name)
-        if node is not None and not node.value:
-            tag = resolved.get("git_tag")
-            if tag:
-                sha = run_git("rev-list", "-1", tag)
-                if sha:
-                    baked = prebake_dunder(init_path, dunder_name, sha)
-                    if baked:
-                        echo(f"Pre-baked {init_path}: {dunder_name} = {baked!r}")
-                        changed = True
 
     if not changed:
         echo("No changes made.")

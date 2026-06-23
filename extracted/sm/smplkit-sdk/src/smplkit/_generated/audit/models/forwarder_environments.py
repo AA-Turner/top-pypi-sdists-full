@@ -8,7 +8,7 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.forwarder_environment import ForwarderEnvironment
+    from ..models.forwarder_environments_additional_property import ForwarderEnvironmentsAdditionalProperty
 
 
 T = TypeVar("T", bound="ForwarderEnvironments")
@@ -16,14 +16,16 @@ T = TypeVar("T", bound="ForwarderEnvironments")
 
 @_attrs_define
 class ForwarderEnvironments:
-    """Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled`
-    (whether the forwarder delivers in that environment) and an optional `configuration` override (omit to inherit the
-    base `configuration`). A forwarder with no entry for an environment is disabled there. Every referenced environment
-    must exist and be managed for the account.
+    """Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry is a sparse map of
+    only the fields that differ in that environment: `enabled` (whether the forwarder delivers there) plus any of `url`,
+    `method`, `success_status`, `tls_verify`, `ca_cert`, and individual headers as `headers.<name>` (e.g.
+    `headers.Authorization`). Fields you omit are inherited from the base `configuration`; an entry never needs to
+    repeat the whole configuration. A forwarder with no entry for an environment is disabled there. Every referenced
+    environment must exist and be managed for the account.
 
     """
 
-    additional_properties: dict[str, ForwarderEnvironment] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, ForwarderEnvironmentsAdditionalProperty] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -35,14 +37,14 @@ class ForwarderEnvironments:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.forwarder_environment import ForwarderEnvironment
+        from ..models.forwarder_environments_additional_property import ForwarderEnvironmentsAdditionalProperty
 
         d = dict(src_dict)
         forwarder_environments = cls()
 
         additional_properties = {}
         for prop_name, prop_dict in d.items():
-            additional_property = ForwarderEnvironment.from_dict(prop_dict)
+            additional_property = ForwarderEnvironmentsAdditionalProperty.from_dict(prop_dict)
 
             additional_properties[prop_name] = additional_property
 
@@ -53,10 +55,10 @@ class ForwarderEnvironments:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> ForwarderEnvironment:
+    def __getitem__(self, key: str) -> ForwarderEnvironmentsAdditionalProperty:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: ForwarderEnvironment) -> None:
+    def __setitem__(self, key: str, value: ForwarderEnvironmentsAdditionalProperty) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

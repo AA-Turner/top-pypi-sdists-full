@@ -7,7 +7,6 @@ Features:
 - user_id / session_id: User and session tracking
 - trace_id: Explicit trace ID control
 - client: Pass specific Aigie client instance
-- mask: Data masking function for PII protection
 - debug: Debug mode for troubleshooting
 - completion_start_time: TTFT tracking for streaming
 """
@@ -22,7 +21,7 @@ from datetime import datetime
 from typing import Any, TypeVar
 from uuid import uuid4
 
-from .context_manager import (
+from aigie.context_manager import (
     RunContext,
     get_current_span_context,
     get_current_trace_context,
@@ -37,19 +36,10 @@ from .context_manager import (
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-# Global masking function (can be set via client configuration)
-_global_mask_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
-
 # Debug mode flag
 _debug_mode: bool = os.getenv("AIGIE_DEBUG", "").lower() in ("true", "1", "yes")
 
 logger = logging.getLogger(__name__)
-
-
-def set_global_mask_fn(mask_fn: Callable[[dict[str, Any]], dict[str, Any]] | None) -> None:
-    """Set global masking function for PII protection."""
-    global _global_mask_fn
-    _global_mask_fn = mask_fn
 
 
 def set_debug_mode(enabled: bool) -> None:
@@ -66,7 +56,7 @@ def _auto_init_if_needed() -> bool:
 
     Returns True if a client is available (either existing or newly created).
     """
-    from .client import get_aigie, init
+    from aigie.client import get_aigie, init
 
     aigie = get_aigie()
     if aigie and aigie._initialized:
@@ -105,7 +95,7 @@ async def _queue_span_event(run_ctx: "RunContext", trace_id: str) -> None:
         trace_id: The trace ID this span belongs to
     """
     try:
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         # Try auto-init if no client
         if not get_aigie():
@@ -239,7 +229,7 @@ def _queue_span_event_sync(run_ctx: "RunContext", trace_id: str) -> None:
         run_ctx: The RunContext with span data
         trace_id: The trace ID this span belongs to
     """
-    from .utils.safe import schedule_async
+    from aigie.utils.safe import schedule_async
 
     schedule_async(_queue_span_event(run_ctx, trace_id))
 
@@ -249,7 +239,6 @@ def _extract_inputs(
     args: tuple,
     kwargs: dict,
     process_inputs: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
-    mask_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     Extract function inputs from args/kwargs based on signature.
@@ -259,7 +248,6 @@ def _extract_inputs(
         args: Positional arguments
         kwargs: Keyword arguments
         process_inputs: Optional custom serialization function
-        mask_fn: Optional masking function for PII protection
 
     Returns:
         Dictionary mapping parameter names to values
@@ -298,15 +286,6 @@ def _extract_inputs(
                 if _debug_mode:
                     logger.warning(f"process_inputs failed: {e}")
 
-        # Apply masking if provided (global or local)
-        effective_mask_fn = mask_fn or _global_mask_fn
-        if effective_mask_fn:
-            try:
-                inputs = effective_mask_fn(inputs)
-            except Exception as e:
-                if _debug_mode:
-                    logger.warning(f"mask_fn failed on inputs: {e}")
-
         return inputs
     except Exception as e:
         if _debug_mode:
@@ -318,7 +297,6 @@ def _extract_inputs(
 def _serialize_output(
     output: Any,
     process_outputs: Callable[..., dict[str, Any]] | None = None,
-    mask_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> Any:
     """
     Serialize function output for storage.
@@ -326,7 +304,6 @@ def _serialize_output(
     Args:
         output: Function return value
         process_outputs: Optional custom serialization function
-        mask_fn: Optional masking function for PII protection
 
     Returns:
         Serializable version of output
@@ -352,15 +329,6 @@ def _serialize_output(
             except Exception as e:
                 if _debug_mode:
                     logger.warning(f"process_outputs failed: {e}")
-
-        # Apply masking if provided
-        effective_mask_fn = mask_fn or _global_mask_fn
-        if effective_mask_fn and isinstance(serialized, dict):
-            try:
-                serialized = effective_mask_fn(serialized)
-            except Exception as e:
-                if _debug_mode:
-                    logger.warning(f"mask_fn failed on outputs: {e}")
 
         return serialized
     except Exception:
@@ -401,11 +369,6 @@ class traceable:
         async def my_function(password, query):
             return {"result": "...long result..."}
 
-        # With data masking
-        @traceable(mask=lambda x: mask_pii(x))
-        async def customer_support(customer_email, query):
-            return response
-
         # With user/session tracking
         @traceable(user_id="user_123", session_id="session_456")
         async def chat_turn(message):
@@ -441,8 +404,6 @@ class traceable:
         # Custom processing
         process_inputs: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
         process_outputs: Callable[..., dict[str, Any]] | None = None,
-        # NEW: Data masking
-        mask: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
         # NEW: User/session tracking
         user_id: str | None = None,
         session_id: str | None = None,
@@ -468,7 +429,6 @@ class traceable:
             capture_output: Whether to capture function outputs (default: True)
             process_inputs: Custom function to process/serialize inputs
             process_outputs: Custom function to process/serialize outputs
-            mask: Function to mask sensitive data (PII protection)
             user_id: User identifier for session tracking
             session_id: Session identifier for multi-turn conversations
             trace_id: Explicit trace ID (overrides auto-generated ID)
@@ -488,7 +448,6 @@ class traceable:
         self.capture_output = capture_output
         self.process_inputs = process_inputs
         self.process_outputs = process_outputs
-        self.mask = mask
         self.user_id = user_id
         self.session_id = session_id
         self.trace_id = trace_id
@@ -534,9 +493,7 @@ class traceable:
             # Extract inputs (respecting capture_input setting)
             inputs = {}
             if self.capture_input:
-                inputs = _extract_inputs(
-                    func, args, kwargs, process_inputs=self.process_inputs, mask_fn=self.mask
-                )
+                inputs = _extract_inputs(func, args, kwargs, process_inputs=self.process_inputs)
 
             # Merge tags and metadata with global context
             merged_tags = merge_tags(self.tags)
@@ -643,9 +600,7 @@ class traceable:
                 # Serialize output (respecting capture_output setting)
                 output = None
                 if self.capture_output:
-                    output = _serialize_output(
-                        result, process_outputs=self.process_outputs, mask_fn=self.mask
-                    )
+                    output = _serialize_output(result, process_outputs=self.process_outputs)
 
                 # Store in context metadata
                 # Track tool call in parent span for plan adherence
@@ -730,9 +685,7 @@ class traceable:
             # Extract inputs (respecting capture_input setting)
             inputs = {}
             if self.capture_input:
-                inputs = _extract_inputs(
-                    func, args, kwargs, process_inputs=self.process_inputs, mask_fn=self.mask
-                )
+                inputs = _extract_inputs(func, args, kwargs, process_inputs=self.process_inputs)
 
             merged_tags = merge_tags(self.tags)
             merged_metadata = merge_metadata(self.metadata)
@@ -826,9 +779,7 @@ class traceable:
 
                 output = None
                 if self.capture_output:
-                    output = _serialize_output(
-                        result, process_outputs=self.process_outputs, mask_fn=self.mask
-                    )
+                    output = _serialize_output(result, process_outputs=self.process_outputs)
 
                 # Track tool call in parent span for plan adherence
                 if self.run_type == "tool" and parent_ctx:
@@ -907,9 +858,7 @@ class traceable:
 
             inputs = {}
             if self.capture_input:
-                inputs = _extract_inputs(
-                    func, args, kwargs, process_inputs=self.process_inputs, mask_fn=self.mask
-                )
+                inputs = _extract_inputs(func, args, kwargs, process_inputs=self.process_inputs)
 
             merged_tags = merge_tags(self.tags)
             merged_metadata = merge_metadata(self.metadata)
@@ -998,7 +947,7 @@ class traceable:
                     run_ctx.metadata["input"] = inputs
                 if self.capture_output:
                     run_ctx.metadata["output"] = _serialize_output(
-                        final_output, process_outputs=self.process_outputs, mask_fn=self.mask
+                        final_output, process_outputs=self.process_outputs
                     )
                 run_ctx.metadata["status"] = "success"
                 run_ctx.metadata["stream_count"] = len(outputs)
@@ -1058,9 +1007,7 @@ class traceable:
 
             inputs = {}
             if self.capture_input:
-                inputs = _extract_inputs(
-                    func, args, kwargs, process_inputs=self.process_inputs, mask_fn=self.mask
-                )
+                inputs = _extract_inputs(func, args, kwargs, process_inputs=self.process_inputs)
 
             merged_tags = merge_tags(self.tags)
             merged_metadata = merge_metadata(self.metadata)
@@ -1139,7 +1086,7 @@ class traceable:
                     run_ctx.metadata["input"] = inputs
                 if self.capture_output:
                     run_ctx.metadata["output"] = _serialize_output(
-                        final_output, process_outputs=self.process_outputs, mask_fn=self.mask
+                        final_output, process_outputs=self.process_outputs
                     )
                 run_ctx.metadata["status"] = "success"
                 run_ctx.metadata["stream_count"] = len(outputs)

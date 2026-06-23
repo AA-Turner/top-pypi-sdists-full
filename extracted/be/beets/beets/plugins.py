@@ -24,7 +24,7 @@ from collections import defaultdict
 from functools import cached_property, wraps
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, overload
 
 import mediafile
 from typing_extensions import ParamSpec
@@ -96,6 +96,8 @@ EventType = Literal[
     "pluginload",
     "trackinfo_received",
     "write",
+    # convert plugin
+    "after_convert",
     # smartplaylist plugin
     "smartplaylist_update",
 ]
@@ -120,23 +122,6 @@ class PluginImportError(ImportError):
 
     def __init__(self, name: str):
         super().__init__(f"Could not import plugin {name}")
-
-
-class PluginLogFilter(logging.Filter):
-    """A logging filter that identifies the plugin that emitted a log
-    message.
-    """
-
-    def __init__(self, plugin):
-        self.prefix = f"{plugin.name}: "
-
-    def filter(self, record):
-        if hasattr(record.msg, "msg") and isinstance(record.msg.msg, str):
-            # A _LogMessage from our hacked-up Logging replacement.
-            record.msg.msg = f"{self.prefix}{record.msg.msg}"
-        elif isinstance(record.msg, str):
-            record.msg = f"{self.prefix}{record.msg}"
-        return True
 
 
 # Managing the plugins themselves.
@@ -238,8 +223,6 @@ class BeetsPlugin(metaclass=BeetsPluginMeta):
 
         self._log = log.getChild(self.name)
         self._log.setLevel(logging.NOTSET)  # Use `beets` logger level.
-        if not any(isinstance(f, PluginLogFilter) for f in self._log.filters):
-            self._log.addFilter(PluginLogFilter(self))
 
         # In order to verify the config we need to make sure the plugin is fully
         # configured (plugins usually add the default configuration *after*
@@ -282,8 +265,7 @@ class BeetsPlugin(metaclass=BeetsPluginMeta):
         return ()
 
     def _set_stage_log_level(
-        self,
-        stages: list[ImportStageFunc],
+        self, stages: list[ImportStageFunc]
     ) -> list[ImportStageFunc]:
         """Adjust all the stages in `stages` to WARNING logging level."""
         return [
@@ -312,9 +294,7 @@ class BeetsPlugin(metaclass=BeetsPluginMeta):
         return self._set_stage_log_level(self.import_stages)
 
     def _set_log_level_and_params(
-        self,
-        base_log_level: int,
-        func: Callable[P, Ret],
+        self, base_log_level: int, func: Callable[P, Ret]
     ) -> Callable[P, Ret]:
         """Wrap `func` to temporarily set this plugin's logger level to
         `base_log_level` + config options (and restore it to its previous
@@ -640,6 +620,14 @@ def album_field_getters() -> TFuncMap[Album]:
 # Event dispatch.
 
 
+@overload
+def send(
+    event: Literal["import_task_created"], **arguments: Any
+) -> list[list[ImportTask]]: ...
+
+
+@overload
+def send(event: EventType, **arguments: Any) -> list[Any]: ...
 def send(event: EventType, **arguments: Any) -> list[Any]:
     """Send an event to all assigned event listeners.
 
@@ -669,9 +657,10 @@ def feat_tokens(
         feat_words += custom_words
     if for_artist:
         feat_words += ["with", "vs", "and", "con", "&"]
-    return (
-        rf"(?<=[\s(\[])(?:{'|'.join(re.escape(x) for x in feat_words)})(?=\s)"
-    )
+    tokens = "|".join(re.escape(x) for x in feat_words)
+    bracketed = rf"(?:(?<=\s)|^)(?:\(|\[)(?:{tokens})(?=\s)"
+    plain = rf"(?<=[\s(\[])(?:{tokens})(?=\s)"
+    return rf"(?:{bracketed}|{plain})"
 
 
 def apply_item_changes(

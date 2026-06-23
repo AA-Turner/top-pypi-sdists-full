@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import abc
 import ast
+import base64
+import contextlib
+import enum
 import functools
+import hashlib
 from itertools import starmap
+import logging
 import math
 import operator
 import os
 import re
+import tempfile
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Callable
@@ -20,20 +26,30 @@ import torch
 from .. import exc
 from .ast_extension import expr_from_string
 from .cute.tcgen05_constants import TCGEN05_CUBIN_LINEINFO_CONFIG_KEY
+from .cute.tcgen05_constants import TCGEN05_TVM_FFI_LAUNCH_CONFIG_KEY
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from torch._inductor.ops_handler import OpsHandler
 
     from ..autotuner.config_fragment import ConfigSpecFragment
+    from ..autotuner.config_priors import ValuePrior
+    from ..autotuner.config_spec import ConfigSpec
     from ..runtime.config import Config
     from ..runtime.kernel import BoundKernel
+    from ..runtime.settings import DotPrecision
     from .device_function import Argument
     from .device_function import DeviceFunction
     from .device_ir import GraphInfo
+    from .host_function import HostFunction
+    from .pallas.compact_worklist import CompactWorklistPlan
     from .tile_dispatch import TileStrategyDispatch
     from .tile_strategy import TileStrategy
 
     InductorOpOverrides = OpsHandler[Any]
+
+log: logging.Logger = logging.getLogger(__name__)
 
 
 @functools.cache
@@ -99,6 +115,30 @@ class Backend(abc.ABC):
     def codegen_name(self) -> str:
         """Backend name used to look up registered codegen functions."""
         return self.name
+
+    def validate_environment(self) -> None:
+        """Raise a ``helion.exc.*`` error if this backend cannot run here.
+
+        Called once per :class:`CompileEnvironment` for the *selected* backend
+        (never at registration time), so a backend can hard-require libraries,
+        CUDA versions, or hardware and fail fast with an actionable message
+        instead of crashing deep in codegen. The default is a no-op.
+        """
+        return None
+
+    def config_value_priors(self, config_spec: ConfigSpec) -> dict[str, ValuePrior]:
+        """Per-config-key priors that bias the autotuner's random exploration.
+
+        Returns a mapping from config-key name (e.g. ``"num_warps"``,
+        ``"indexing"``, ``"tcgen05_cluster_m"``) to a
+        :data:`~helion.autotuner.config_priors.ValuePrior`. Half of the random
+        portion of the initial population is drawn using these priors (the other
+        half stays uniform), so the search starts denser in the region good
+        configs tend to occupy without losing coverage. Keys without a prior --
+        and every key when this returns an empty mapping -- are sampled
+        uniformly. The default is no bias.
+        """
+        return {}
 
     @abc.abstractmethod
     def dtype_str(self, dtype: torch.dtype) -> str:
@@ -200,6 +240,10 @@ class Backend(abc.ABC):
     def max_reduction_threads(self) -> int | None:
         """Maximum threads for a single warp-level reduction, or None if unlimited."""
         return None
+
+    def max_reduction_loop(self) -> int | None:
+        """Maximum user-visible loop chunk for a rolled reduction."""
+        return self.max_reduction_threads()
 
     def adjust_reduction_thread_count(
         self, requested: int, existing_strategies: list[TileStrategy]
@@ -304,6 +348,18 @@ class Backend(abc.ABC):
         """
         return None
 
+    def get_paired_device_micros_bench(
+        self,
+    ) -> Callable[..., list[tuple[float, float]]] | None:
+        """Paired device-µs bench for the autotune final-pick re-rank, or None.
+
+        Backends that can cheaply report per-call on-device µs override this to
+        return a callable ``fn(candidates, reference, *, desc) ->
+        list[(candidate_device_micros, paired_delta_micros)]``. The default returns None,
+        leaving final-pick on its wall-clock rebench.
+        """
+        return None
+
     def supports_precompile(self) -> bool:
         """Whether this backend supports subprocess precompilation.
 
@@ -311,6 +367,74 @@ class Backend(abc.ABC):
         Other backends (Pallas, CuTe) may not need or support this.
         """
         return True
+
+    def setup_compile_cache_dir(self, device_index: int) -> None:
+        """Point the backend's on-disk compile cache at Helion's cache root.
+
+        Called from :meth:`BoundKernel.compile_config` before compilation.
+        Backends that use a per-device on-disk cache of compiled artifacts
+        (Triton, CuTe) override this to set the relevant environment variable
+        (respecting any user override).  The default is a no-op.
+        """
+        return None
+
+    def make_ephemeral_cache(
+        self,
+    ) -> contextlib.AbstractContextManager[None] | None:
+        """Return a context manager that redirects the on-disk compile cache
+        to a throwaway directory during autotuning, or ``None`` when the
+        backend has no ephemeral-cache behavior.
+
+        Autotuning compiles many candidate configs; without this they would
+        pollute the persistent cache.  The winning config's artifact is
+        restored into the real cache afterward (see
+        :meth:`finalize_ephemeral_cache`).
+        """
+        return None
+
+    @staticmethod
+    def keep_compile_cache_requested() -> bool:
+        """Whether the user asked to keep every candidate's compile-cache
+        artifact during autotuning (i.e. disable the ephemeral cache).
+
+        ``HELION_KEEP_CACHE`` is the backend-agnostic control, matching the
+        rest of the ``HELION_*CACHE*`` env-var family.
+        """
+        return os.environ.get("HELION_KEEP_CACHE", "") == "1"
+
+    def finalize_ephemeral_cache(
+        self, bound_kernel: BoundKernel[Any], config: Config
+    ) -> None:
+        """Post-autotune cleanup after running inside an ephemeral cache.
+
+        Restores the winning config's artifact into the real (persistent)
+        cache: CuTe re-persists the in-memory compiled module directly;
+        Triton evicts the in-memory artifact so the next call recompiles
+        into the real cache.  No-op by default.
+        """
+        return None
+
+    def compiled_cache_key(
+        self, bound_kernel: BoundKernel[Any], compiled_fn: object
+    ) -> str | None:
+        """Return a stable backend cache key for an already-compiled callable.
+
+        ``compiled_fn`` is the value stored in ``bound_kernel._compile_cache``
+        for the requested config.  Returns ``None`` if the backend has no cache
+        key or the kernel has not been JIT-compiled yet.
+        """
+        return None
+
+    def annotate_compiled_module(
+        self, module: object, source: str, kernel_name: str
+    ) -> None:
+        """Record codegen metadata on a freshly-loaded generated module.
+
+        Called from :meth:`BoundKernel.compile_config` after the generated
+        source has been imported.  Backends that derive a cross-process compile
+        cache key from the generated source (CuTe) override this.  No-op default.
+        """
+        return None
 
     def classify_autotune_exception(self, err: BaseException) -> str | None:
         """Classify an exception that occurred during autotuning.
@@ -539,6 +663,15 @@ class Backend(abc.ABC):
     def launcher_keyword_args(self, config: Config, *, has_barrier: bool) -> list[str]:
         return []
 
+    def customize_ast(self, hf: HostFunction) -> None:
+        """Run backend-specific AST customizations.
+
+        Called after static loop unrolling but before type propagation
+        and tracing.  Backends can override this to rewrite the user's
+        AST for algorithmic transformations that change loop structure.
+        """
+        return None
+
     def pre_codegen(
         self,
         graphs: list[GraphInfo],
@@ -604,6 +737,101 @@ class Backend(abc.ABC):
             raise exc.BackendUnsupported(self.name, "RNG ops")
         return [*args, *self.launcher_keyword_args(config, has_barrier=has_barrier)]
 
+    def _cute_matmul_contraction_reduction_block_ids(self) -> set[int]:
+        """Reduction block ids that are also a matmul-contraction (K) axis.
+
+        These are the blocks that must keep real threads for the whole K extent
+        instead of being split into ``threads x synthetic-lane`` (see OPTION B in
+        ``CuteBackend.create_loop_strategy`` and
+        ``cute_matmul_contraction_block_ids``).
+        """
+        from .compile_environment import CompileEnvironment
+        from .cute.matmul_utils import cute_matmul_contraction_block_ids
+
+        env = CompileEnvironment.current()
+        canonical_block_id = getattr(
+            env, "canonical_block_id", lambda block_id: block_id
+        )
+        contraction = cute_matmul_contraction_block_ids()
+        if not contraction:
+            return set()
+        return {
+            info.block_id
+            for info in env.block_sizes
+            if info.reduction and canonical_block_id(info.block_id) in contraction
+        }
+
+    def _cute_matmul_contraction_thread_reserve(
+        self, fn: DeviceFunction, tile_block_ids: list[int]
+    ) -> int:
+        """Threads to reserve for matmul-contraction reduction axes.
+
+        Returns the product of the per-axis full thread extents (power-of-two,
+        capped at ``max_reduction_threads``) of every reduction block that is a
+        matmul-contraction axis and is *not* one of ``tile_block_ids`` (i.e. it
+        is handled by a separate reduction strategy, not this tile strategy).
+        """
+        from torch._inductor.runtime.runtime_utils import next_power_of_2
+
+        from .._compat import shape_env_size_hint
+        from .compile_environment import CompileEnvironment
+
+        env = CompileEnvironment.current()
+        max_reduction_threads = self.max_reduction_threads()
+        if max_reduction_threads is None:
+            return 1
+        tile_ids = set(tile_block_ids)
+        reserve = 1
+        for block_id in self._cute_matmul_contraction_reduction_block_ids():
+            if block_id in tile_ids:
+                continue
+            numel = env.block_sizes[block_id].numel
+            if isinstance(numel, (int, sympy.Integer)):
+                size_hint = int(numel)
+            elif isinstance(numel, sympy.Expr):
+                size_hint = shape_env_size_hint(env.shape_env, numel)
+            else:
+                size_hint = env.size_hint(numel)
+            if size_hint <= 1:
+                continue
+            reserve *= next_power_of_2(min(size_hint, max_reduction_threads))
+        return reserve
+
+    def _cute_free_auto_thread_axis_count(
+        self, fn: DeviceFunction, config: Config
+    ) -> int:
+        """Count the kernel's free (non-reduction) tile axes that auto-thread.
+
+        These are the axes that compete for the thread budget left over after a
+        matmul-contraction reduction has reserved its slice (see OPTION B in
+        ``create_loop_strategy``).  The reserve's ``thread_limit`` shrink is
+        applied per ``create_loop_strategy`` call, but a kernel may build the M
+        and N tile axes in *separate* calls (e.g. M is the grid, N is a device
+        loop).  Each call only sees its own axes, so dividing the per-call
+        ``thread_limit`` by the reserve once is not enough: the product of every
+        free axis' threads must stay within ``1024 // reserve``.  Counting all
+        the free auto-threaded axes lets each call take only its fair share.
+        """
+        from .compile_environment import CompileEnvironment
+
+        env = CompileEnvironment.current()
+        count = 0
+        for block_id in _active_loop_block_ids(fn):
+            info = env.block_sizes[block_id]
+            if info.reduction:
+                continue
+            block_size = info.from_config(config)
+            if not isinstance(block_size, int) or block_size <= 1:
+                continue
+            threads = int(
+                env.config_spec.num_threads.config_get(config.num_threads, block_id, 0)
+            )
+            # Only auto-threaded (``num_threads == 0``) axes participate in the
+            # budget split; explicitly-threaded axes keep their configured count.
+            if threads == 0:
+                count += 1
+        return max(count, 1)
+
     def create_loop_strategy(
         self, fn: DeviceFunction, block_ids: list[int], config: Config
     ) -> TileStrategy:
@@ -621,7 +849,7 @@ class Backend(abc.ABC):
         )
 
         if block_size_infos[0].is_flattened(config):
-            block_size = functools.reduce(
+            block_size = functools.reduce(  # pyrefly: ignore[incompatible-overload-residual]
                 operator.mul, [bs.from_config_assert(config) for bs in block_size_infos]
             )
             return FlattenedTileStrategy(
@@ -704,6 +932,22 @@ class Backend(abc.ABC):
             ).autotune(skip_cache=force)
         return config
 
+    @staticmethod
+    def map_dot_precision(precision: DotPrecision) -> str:
+        """Map Helion dot precision to backend-specific precision string.
+
+        Default implementation maps to Triton-compatible precision values.
+        """
+        triton_precision_by_dot_precision = {
+            "default": "tf32",
+            "high": "tf32x3",
+            "highest": "ieee",
+            "tf32": "tf32",
+            "tf32x3": "tf32x3",
+            "ieee": "ieee",
+        }
+        return triton_precision_by_dot_precision.get(precision, "")
+
 
 class TritonBackend(Backend):
     """Triton code generation backend."""
@@ -716,7 +960,25 @@ class TritonBackend(Backend):
     def experimental(self) -> bool:
         return False
 
+    def transform_host_arg(
+        self,
+        arg: Argument,
+        host_str: str,
+        tensor_host_args: list[str],
+    ) -> str:
+        from .device_function import TensorArg
+
+        # Bind fp4x2 storage as uint8; Triton has no pointer type for the shell dtype.
+        if (
+            isinstance(arg, TensorArg)
+            and arg.fake_value.dtype is torch.float4_e2m1fn_x2
+        ):
+            return f"{host_str}.view(torch.uint8)"
+        return host_str
+
     def supports_config_key(self, key: str) -> bool:
+        if key == "load_cache_modifiers":
+            return True
         if key == "waves_per_eu":
             from .._compat import is_hip
 
@@ -752,6 +1014,111 @@ class TritonBackend(Backend):
             fragments.update(get_mtia_tunable_fragments())
 
         return fragments
+
+    def setup_compile_cache_dir(self, device_index: int) -> None:
+        if "TRITON_CACHE_DIR" not in os.environ:
+            from ..autotuner.local_cache import helion_triton_cache_dir
+
+            triton_dir = helion_triton_cache_dir(device_index)
+            os.environ["TRITON_CACHE_DIR"] = triton_dir
+            log.debug("Set TRITON_CACHE_DIR=%s", triton_dir)
+
+    def make_ephemeral_cache(
+        self,
+    ) -> contextlib.AbstractContextManager[None] | None:
+        # HELION_KEEP_TRITON_CACHE is a deprecated alias kept for backward
+        # compatibility; HELION_KEEP_CACHE is the canonical control.
+        if (
+            self.keep_compile_cache_requested()
+            or os.environ.get("HELION_KEEP_TRITON_CACHE", "") == "1"
+        ):
+            return None
+        return self._ephemeral_triton_cache()
+
+    @contextlib.contextmanager
+    def _ephemeral_triton_cache(self) -> Generator[None, None, None]:
+        """Redirect Triton cache to a temporary dir during autotuning.
+
+        All candidate compilations write to an ephemeral directory that is
+        deleted on exit.  The winning config is recompiled afterward into the
+        real cache by the caller.
+        """
+        saved = os.environ.get("TRITON_CACHE_DIR")
+        with tempfile.TemporaryDirectory(prefix="helion_autotune_") as ephemeral:
+            os.environ["TRITON_CACHE_DIR"] = ephemeral
+            log.debug("Ephemeral Triton cache: %s", ephemeral)
+            try:
+                yield
+            finally:
+                if saved is not None:
+                    os.environ["TRITON_CACHE_DIR"] = saved
+                else:
+                    os.environ.pop("TRITON_CACHE_DIR", None)
+
+    def finalize_ephemeral_cache(
+        self, bound_kernel: BoundKernel[Any], config: Config
+    ) -> None:
+        from ..runtime.config import Config
+
+        self._clear_triton_jit_cache(bound_kernel, config)
+        evict = config
+        if bound_kernel._compile_cache.pop(evict, None) is None:
+            default = bound_kernel.config_spec.default_config()
+            # pyrefly: ignore [bad-argument-type]
+            evict = Config(**(default.config | config.config))
+            bound_kernel._compile_cache.pop(evict, None)
+        bound_kernel._cache_path_map.pop(evict, None)
+
+    def _clear_triton_jit_cache(
+        self, bound_kernel: BoundKernel[Any], config: Config
+    ) -> None:
+        """Clear Triton's in-memory JIT cache for the compiled kernel.
+
+        After autotuning in an ephemeral cache dir, device_caches on the
+        JITFunction still holds the compiled binary.  Clearing it forces
+        Triton to recompile (and write to TRITON_CACHE_DIR) on the next call.
+
+        If the config was minimized by the autotuner, the lookup is retried
+        with the full config (defaults merged back in).
+        """
+        from ..runtime.config import Config
+
+        compiled_fn = bound_kernel._compile_cache.get(config)
+        if compiled_fn is None:
+            default = bound_kernel.config_spec.default_config()
+            # pyrefly: ignore [bad-argument-type]
+            full_config = Config(**(default.config | config.config))
+            compiled_fn = bound_kernel._compile_cache.get(full_config)
+        if compiled_fn is None:
+            return
+        triton_jit_fn = compiled_fn.__globals__.get(
+            f"_helion_{bound_kernel.kernel.name}"
+        )
+        if triton_jit_fn is not None and hasattr(triton_jit_fn, "device_caches"):
+            triton_jit_fn.device_caches.clear()
+
+    def compiled_cache_key(
+        self, bound_kernel: BoundKernel[Any], compiled_fn: object
+    ) -> str | None:
+        # The jit_fn that - for helion - starts with _helion_
+        triton_jit_fn = compiled_fn.__globals__.get(  # type: ignore[attr-defined]
+            f"_helion_{bound_kernel.kernel.name}"
+        )
+        if triton_jit_fn is None:
+            return None
+        try:
+            for cache_tuple in triton_jit_fn.device_caches.values():
+                compiled_kernels = cache_tuple[0]
+                for compiled_kernel in compiled_kernels.values():
+                    h = getattr(compiled_kernel, "hash", None)
+                    if h is not None:
+                        return base64.b32encode(bytes.fromhex(h)).decode().rstrip("=")
+        except (AttributeError, IndexError, TypeError, ValueError):
+            # device_caches, cache-tuple layout, and CompiledKernel.hash are
+            # Triton-internal details that may change across Triton versions
+            # return None gracefully if this fails
+            return None
+        return None
 
     def dtype_str(self, dtype: torch.dtype) -> str:
         from torch._inductor.utils import triton_type
@@ -899,9 +1266,9 @@ class TritonBackend(Backend):
         return f"triton.cdiv({numel}, {block_size})"
 
     def inductor_op_overrides(self) -> InductorOpOverrides:
-        from torch._inductor.codegen.triton import TritonOverrides
+        from .triton.overrides import HelionTritonOverrides
 
-        return TritonOverrides()
+        return HelionTritonOverrides()
 
     def grid_index_expr(
         self, offset_var: str, block_size_var: str, dtype: str, *, axis: int
@@ -1093,12 +1460,66 @@ _TORCH_TO_JAX_DTYPE: dict[str, str] = {
 _PALLAS_UNSUPPORTED_DTYPES = frozenset({torch.int64, torch.uint64, torch.float64})
 
 
+class SliceAddressing(enum.Enum):
+    """How a dynamic-offset slice on a tensor dim must be emitted on TPU."""
+
+    DIRECT = enum.auto()  # offset used as-is -> plain pl.ds
+    ALIGNED = enum.auto()  # offset rounded to a sublane tile -> aligned-enclosing
+
+
+def _slice_addressing(
+    tensor: torch.Tensor, dim: int, lane_block: int | None = None
+) -> SliceAddressing:
+    """Whether a dynamic slice on ``dim`` can take any offset.
+
+    TPU only tiles the last two dims into (8, 128) blocks, so a slice on an
+    earlier row-major dim reads any offset (DIRECT).  A sublane-dim slice must
+    align to a tile boundary (ALIGNED), except f32 over a single lane tile
+    (``lane_block`` <= 128) stays contiguous and reads any offset too (DIRECT).
+    ``lane_block`` is the last-dim extent (block size, or full width if untiled);
+    None stays conservative (ALIGNED).
+    """
+    if dim < tensor.ndim - 2:
+        return SliceAddressing.DIRECT  # major dim: row-major, any offset
+    if dim == tensor.ndim - 2:  # 2nd-minor (sublane) dim
+        # f32 fills a lane, so a single lane tile is contiguous and reads any
+        # offset; bf16 packs two rows per sublane and always needs alignment.
+        if (
+            tensor.dtype == torch.float32
+            and isinstance(lane_block, int)
+            and lane_block <= 128
+        ):
+            return SliceAddressing.DIRECT
+        return SliceAddressing.ALIGNED
+    return SliceAddressing.ALIGNED  # TODO(tcombes): align lane dim to 128, not sublane
+
+
 class PallasBackend(Backend):
     """Pallas (JAX) code generation backend for TPU."""
 
     @property
     def name(self) -> str:
         return "pallas"
+
+    @staticmethod
+    # Overrides Backend.map_dot_precision.
+    def map_dot_precision(precision: DotPrecision) -> str:
+        """Map Helion dot precision to Pallas-specific precision string.
+
+        Pallas/TPU has limited support for different precisions, often
+        falling back to the highest available precision.
+        """
+        pallas_precision_by_dot_precision = {
+            "default": "default",
+            # "high" is mapped to "highest" because Pallas/Mosaic doesn't yet
+            # support it on TPU.
+            "high": "highest",
+            "highest": "highest",
+            "tf32": "highest",
+            "tf32x3": "highest",
+            "ieee": "highest",
+        }
+        return pallas_precision_by_dot_precision.get(precision, "default")
 
     @property
     def max_tensor_numel(self) -> int | None:
@@ -1152,6 +1573,7 @@ class PallasBackend(Backend):
             "_default_pallas_launcher": "from helion.runtime import default_pallas_launcher as _default_pallas_launcher",
             "_default_pallas_pipeline_launcher": "from helion.runtime import default_pallas_pipeline_launcher as _default_pallas_pipeline_launcher",
             "_default_pallas_fori_launcher": "from helion.runtime import default_pallas_fori_launcher as _default_pallas_fori_launcher",
+            "_default_pallas_compact_worklist_launcher": "from helion.runtime import default_pallas_compact_worklist_launcher as _default_pallas_compact_worklist_launcher",
         }
 
     # Config keys that Pallas actually uses.  Everything else
@@ -1399,6 +1821,18 @@ class PallasBackend(Backend):
             return 8
         return 1  # No requirements for other dimensions
 
+    def sublane_tiling(self, dtype: torch.dtype) -> int:
+        """Native sublane (2nd-minor) tile for ``dtype``: f32->8, bf16->16, i8->32.
+
+        The jagged carry slices its emit_pipeline VMEM refs at this
+        granularity, and such a ref must be accessed as a *whole* native tile:
+        a smaller slice (e.g. 8 rows of a bf16 ref, whose tile is 16) is
+        rejected by Mosaic ("E2003: unproven memory access alignment"),
+        independent of offset.
+        """
+        bitwidth = min(dtype.itemsize * 8, 32)
+        return 8 * (32 // bitwidth)
+
     fake_tensor_loads: list[tuple[torch.Tensor, list[object]]]
 
     def process_fake_tensor_load(
@@ -1437,9 +1871,9 @@ class PallasBackend(Backend):
         from .compile_environment import BlockSizeInfo
         from helion._compiler.compile_environment import _to_sympy
         from helion._compiler.host_function import HostFunction
-        from helion._compiler.type_propagation import SequenceType
-        from helion._compiler.type_propagation import TensorType
-        from helion._compiler.type_propagation import TileIndexType
+        from helion._compiler.type_info import SequenceType
+        from helion._compiler.type_info import TensorType
+        from helion._compiler.type_info import TileIndexType
 
         host_func = HostFunction.current()
 
@@ -1561,14 +1995,28 @@ class PallasBackend(Backend):
             if bid not in analyzer.required_alignments:
                 continue
             requirement_alignment = analyzer.required_alignments[bid]
-            # When the tensor dim is smaller than the alignment, any
-            # block_size >= tensor_dim will be capped to tensor_dim at
-            # runtime (full-dim access, always valid).  Use the
-            # tensor dim as the minimum so smaller but still-valid
-            # block sizes are not unnecessarily excluded.
             dim_size = next_power_of_2(max(spec.size_hint, 1))
-
+            # Cap the alignment requirement by the tensor lane dim: when
+            # the dim is smaller than the requirement, the full-dim access
+            # is always aligned at offset 0 so block_size = dim_size is
+            # safe.  When the dim is at least as big as the requirement,
+            # ``min`` returns ``requirement_alignment`` and the strict
+            # floor still applies (used by aot_example.sum_aot, n=256).
             spec.update_min(min(requirement_alignment, dim_size))
+
+        # Propagate alignment minimums from inner tiles to their bounding outer tiles.
+        block_specs_by_id = {
+            spec.block_ids[0]: spec
+            for spec in block_specs
+            if isinstance(spec, BlockSizeSpec)
+        }
+        for spec in block_specs_by_id.values():
+            bounded_by = spec.bounded_by_block_id
+            if bounded_by is None:
+                continue
+            outer_spec = block_specs_by_id.get(bounded_by)
+            if outer_spec is not None:
+                outer_spec.update_min(spec.min_size)
 
     def tunable_fragments(self) -> dict[str, ConfigSpecFragment]:
         return {}
@@ -1582,6 +2030,18 @@ class PallasBackend(Backend):
         from ..autotuner.benchmarking import interleaved_bench_generic
 
         return interleaved_bench_generic
+
+    def get_paired_device_micros_bench(
+        self,
+    ) -> Callable[..., list[tuple[float, float]]] | None:
+        """Pallas ``jax.profiler`` device-µs bench for the final-pick re-rank.
+
+        Returns None (keeping the wall-clock rebench) when the user opts out via
+        ``HELION_AUTOTUNE_PALLAS_RANK_BY=wall_time`` or ``jax`` is unavailable.
+        """
+        from ..autotuner.benchmarking import make_pallas_paired_device_micros_bench
+
+        return make_pallas_paired_device_micros_bench()
 
     def supports_precompile(self) -> bool:
         return False
@@ -1685,7 +2145,10 @@ class PallasBackend(Backend):
             if isinstance(arg, (SymbolArgument, TensorSizeArg, TensorStrideArg)):
                 result.append(None)  # scalars wrapped as 1-D tensors
                 continue
-            if not isinstance(arg, TensorArg) or arg.fake_value.ndim == 0:
+            if not isinstance(arg, TensorArg):
+                continue
+            if arg.fake_value.ndim == 0:
+                result.append(None)
                 continue
             tensor = arg.fake_value
             dim_tilings = device_fn.pallas_tensor_dim_tilings.get(id(tensor))
@@ -1769,6 +2232,140 @@ class PallasBackend(Backend):
 
         return result or None
 
+    def _detect_matmul_dot_general_lowering(
+        self,
+        *,
+        sorted_args: list[Argument] | None,
+        config: Config,
+        output_indices: list[int],
+        inplace_indices: list[int],
+        block_spec_info: object,
+    ) -> dict[str, object] | None:
+        """Detect a pure-matmul, no-tiling kernel the launcher can lower as
+        ``jax.jit(lax.dot_general(...))`` instead of ``pl.pallas_call(...)``.
+
+        Eligible when: 2 input tensors + 1 output-only tensor; all 2D with
+        matching M/K/N contiguous layout (BMM not covered yet); the device IR
+        has one ``aten.mm``/``addmm`` family op; and the picked block sizes
+        cover every dim (single launch, no inner K tile).  Returns the spec
+        dict consumed by ``_build_matmul_dot_general_jit_fn``, else ``None``.
+        """
+        from .compile_environment import CompileEnvironment
+        from .device_function import DeviceFunction
+        from .device_function import TensorArg
+        from .host_function import HostFunction
+
+        if sorted_args is None or not output_indices:
+            return None
+        # Pure-output kernels only (no in-place mutation, single output).
+        if inplace_indices or len(output_indices) != 1:
+            return None
+
+        # Exactly 2 inputs + 1 output, all tensors (a scalar arg means it isn't
+        # a pure ``out = matmul(x, y)``).
+        tensor_positions = [
+            i for i, arg in enumerate(sorted_args) if isinstance(arg, TensorArg)
+        ]
+        if len(sorted_args) != 3 or len(tensor_positions) != 3:
+            return None
+
+        out_pos = output_indices[0]
+        input_positions = [p for p in tensor_positions if p != out_pos]
+        if len(input_positions) != 2:
+            return None
+
+        lhs_arg = sorted_args[input_positions[0]]
+        rhs_arg = sorted_args[input_positions[1]]
+        out_arg = sorted_args[out_pos]
+        assert isinstance(lhs_arg, TensorArg)
+        assert isinstance(rhs_arg, TensorArg)
+        assert isinstance(out_arg, TensorArg)
+        lhs_t = lhs_arg.fake_value
+        rhs_t = rhs_arg.fake_value
+        out_t = out_arg.fake_value
+        # 2D matmul, matching contraction dim, statically-known shapes.
+        if lhs_t.ndim != 2 or rhs_t.ndim != 2 or out_t.ndim != 2:
+            return None
+        try:
+            m = int(lhs_t.shape[0])
+            k_lhs = int(lhs_t.shape[1])
+            k_rhs = int(rhs_t.shape[0])
+            n = int(rhs_t.shape[1])
+            out_m = int(out_t.shape[0])
+            out_n = int(out_t.shape[1])
+        except (TypeError, ValueError):
+            return None
+        if k_lhs != k_rhs or out_m != m or out_n != n:
+            return None
+
+        # The device IR must contain an aten.mm/addmm/bmm family op
+        # (via the shared ``_loop_contains_matmul`` predicate).
+        device_fn = DeviceFunction.current()
+        device_ir = HostFunction.current().device_ir
+        if not device_ir.grid_block_ids:
+            return None
+        # Any root-grid loop containing a matmul qualifies.
+        matmul_present = any(
+            _loop_contains_matmul(device_fn, list(grid_block_ids))
+            for grid_block_ids in device_ir.grid_block_ids
+        )
+        if not matmul_present:
+            return None
+
+        # Orient to lhs=(M, K), rhs=(K, N); the user may have written
+        # ``f(y, x) -> x @ y``. For all-equal dims either ordering is the same.
+        if lhs_t.shape == (m, k_lhs) and rhs_t.shape == (k_lhs, n):
+            lhs_arg_pos, rhs_arg_pos = input_positions
+            lhs_resolved, rhs_resolved = lhs_t, rhs_t
+        elif lhs_t.shape == (k_lhs, n) and rhs_t.shape == (m, k_lhs):
+            rhs_arg_pos, lhs_arg_pos = input_positions
+            lhs_resolved, rhs_resolved = rhs_t, lhs_t
+        else:
+            return None
+
+        # Every block size must be >= max(M, N, K): a smaller block means a
+        # multi-launch (tiled) kernel, not the no-tiling case.
+        env = CompileEnvironment.current()
+        max_dim = max(m, k_lhs, n)
+        for bsi in env.block_sizes:
+            if bsi is None:  # type: ignore[unreachable]
+                continue
+            try:
+                bs = bsi.from_config(config)
+            except Exception:
+                return None
+            if not isinstance(bs, int) or bs < max_dim:
+                return None
+
+        # Every tensor must be fully untiled (all grid_dims None); outer-grid
+        # BlockSpecs still need pl.pallas_call.
+        if block_spec_info is None or not isinstance(block_spec_info, list):
+            return None
+        for pos in (input_positions[0], input_positions[1], out_pos):
+            if pos >= len(block_spec_info):
+                return None
+            entry = block_spec_info[pos]
+            if entry is None:
+                return None
+            block_shape, grid_dims = entry
+            if any(gd is not None for gd in grid_dims):
+                return None
+
+        # All checks passed; build the launcher spec. bf16/fp16 output from an
+        # f32 accumulator needs preferred f32 + cast-back; f32 is already f32.
+        f32_acc = out_t.dtype in (torch.bfloat16, torch.float16)
+        # Map positions to the launcher's tensor-arg order (sorted non-output
+        # positions; see ``_pallas_prepare_args``).
+        non_output_positions = sorted(p for p in tensor_positions if p != out_pos)
+        return {
+            "lhs_tensor_arg_index": non_output_positions.index(lhs_arg_pos),
+            "rhs_tensor_arg_index": non_output_positions.index(rhs_arg_pos),
+            "lhs_dtype": self.dtype_str(lhs_resolved.dtype),
+            "rhs_dtype": self.dtype_str(rhs_resolved.dtype),
+            "out_dtype": self.dtype_str(out_t.dtype),
+            "f32_accumulator": bool(f32_acc),
+        }
+
     def build_launcher_args(
         self,
         args: list[str],
@@ -1830,13 +2427,17 @@ class PallasBackend(Backend):
             for i, arg in enumerate(sorted_args):
                 if not isinstance(arg, TensorArg):
                     continue
-                if id(arg.fake_value.untyped_storage()) not in input_storages:
+                arg_name = arg.host_str()
+                if (
+                    id(arg.fake_value.untyped_storage()) not in input_storages
+                    and arg_name in write_names
+                ):
                     # Tensor created inside the function body (output)
                     output_indices.append(i)
-                    if arg.host_str() in read_names or arg.host_str() not in empty_vars:
+                    if arg_name in read_names or arg_name not in empty_vars:
                         # Also read by the kernel (e.g. broadcast result)
                         inplace_indices.append(i)
-                elif arg.host_str() in mutated_params:
+                elif arg_name in mutated_params:
                     # Input tensor mutated in-place
                     output_indices.append(i)
                     inplace_indices.append(i)
@@ -1853,11 +2454,12 @@ class PallasBackend(Backend):
                     output_only_names.append(arg.host_str())
         self._output_only_names = output_only_names
 
-        launcher_args = [*args, f"_output_indices={output_indices}"]
-        launcher_args.append(f"_inplace_indices={inplace_indices}")
-
+        launcher_args = [*args]
         if has_rng_ops:
-            launcher_args.insert(-1, "_rng_seed_buffer")
+            launcher_args.append("_rng_seed_buffer")
+        launcher_args.extend(
+            [f"_output_indices={output_indices}", f"_inplace_indices={inplace_indices}"]
+        )
 
         block_spec_info = self._compute_block_spec_info(sorted_args, config)
         if block_spec_info is not None:
@@ -1884,7 +2486,7 @@ class PallasBackend(Backend):
 
         # Pass scratch shapes for pipeline/fori_loop launcher
         pallas_loop_type = config.get("pallas_loop_type", "unroll")
-        if pallas_loop_type in ("emit_pipeline", "fori_loop"):
+        if pallas_loop_type in ("emit_pipeline", "fori_loop", "compact_worklist"):
             scratch_shapes = [
                 (
                     s.shape,
@@ -1915,7 +2517,81 @@ class PallasBackend(Backend):
         if CompileEnvironment.current().settings.pallas_interpret:
             launcher_args.append("_pallas_interpret=True")
 
+        # No-tiling pure 2D matmul: emit ``_matmul_dot_general=...`` so the
+        # launcher uses ``jax.jit(lax.dot_general(...))`` instead of
+        # ``pl.pallas_call(...)``. XLA can then attach cross_program_prefetch,
+        # closing the ~12% gap to ``jnp.matmul`` that ``tpu_custom_call``
+        # opacity imposes. Falls back silently when ineligible.
+        matmul_spec = self._detect_matmul_dot_general_lowering(
+            sorted_args=sorted_args,
+            config=config,
+            output_indices=output_indices,
+            inplace_indices=inplace_indices,
+            block_spec_info=block_spec_info,
+        )
+        if matmul_spec is not None:
+            launcher_args.append(f"_matmul_dot_general={matmul_spec!r}")
+
+        if pallas_loop_type == "compact_worklist" and sorted_args is not None:
+            launcher_args.extend(self._compact_worklist_launcher_args(sorted_args))
+
         return launcher_args
+
+    def _compact_worklist_launcher_args(self, sorted_args: list[Argument]) -> list[str]:
+        """Emit the compact-worklist-specific launcher kwargs.
+
+        ``_build_worklist`` is the module-level jnp builder (emitted in
+        generate_ast); the offset arg indices map its params to host-call arg
+        positions; the metadata fields + owner-ref position drive scalar-prefetch
+        selection and the owner-indexed BlockSpec index_maps.
+        """
+        from .compile_environment import CompileEnvironment
+        from .device_function import TensorArg
+        from .pallas.compact_worklist import metadata_field_names
+
+        env = CompileEnvironment.current()
+        plan = env.compact_worklist_plan
+        assert plan is not None
+
+        name_to_index: dict[str, int] = {}
+        for i, arg in enumerate(sorted_args):
+            if isinstance(arg, TensorArg):
+                name_to_index[arg.host_str()] = i
+        offset_indices = [name_to_index[n] for n in env.compact_worklist_offset_params]
+        fields = metadata_field_names(plan)
+        # Compact-tile tensors (aligned load + exact store) both get a per-tile
+        # pl.Element BlockSpec sliced at tile_start, so Pallas double-buffers BOTH
+        # the load prefetch and the store write-back across work items.
+        #
+        # The store is a masked full-block write.  The two robust EXACT-store
+        # alternatives were both worse/unavailable here: (a) staging VMEM +
+        # make_async_copy over pl.ds(tile_start, tile_extent) serializes (~1.8x
+        # slower: 4.5ms vs 2.5ms) because a straight-line compact tile has no inner
+        # loop to overlap; (b) a pl.BoundedSlice store BlockSpec (exact + double-buffered)
+        # is rejected by this JAX's Mosaic lowering ("Unsupported block dimension
+        # type: BoundedSlice" -- it only works inside pltpu.emit_pipeline).  The
+        # full-block write's only hazard is a partial last tile overlapping the
+        # next sequence's leading rows; "arbitrary" dimension semantics serialize
+        # that grid-ordered overlap so the later, correct write wins (verified
+        # bitwise == fori_loop across uniform/partial/unaligned/jagged + 5 random
+        # seeds).  Robust+fast exact store == the deferred emit_pipeline +
+        # pl.BoundedSlice path.
+        aligned_indices = [
+            name_to_index[p.arg_name]
+            for p in plan.tensor_policies
+            if p.kind in ("compact_aligned_load", "compact_exact_store")
+            and p.arg_name in name_to_index
+        ]
+        return [
+            "_compact_build_worklist=_build_worklist",
+            f"_compact_offset_arg_indices={offset_indices!r}",
+            f"_compact_metadata_fields={fields!r}",
+            "_compact_owner_ref_pos=0",
+            f"_compact_num_scalar_prefetch={len(fields)}",
+            f"_compact_aligned_arg_indices={aligned_indices!r}",
+            f"_compact_tile_start_ref_pos={fields.index('tile_starts')}",
+            f"_compact_block={env.compact_worklist_block}",
+        ]
 
     def build_launcher_name(self, config: Config) -> str:
         """Return the launcher name to use based on ``pallas_loop_type``."""
@@ -1931,6 +2607,11 @@ class PallasBackend(Backend):
             return "_default_pallas_pipeline_launcher"
         if pallas_loop_type == "fori_loop":
             return "_default_pallas_fori_launcher"
+        if pallas_loop_type == "compact_worklist":
+            # Detection + plan stash happen in pre_codegen; route to the compact
+            # launcher (builds the worklist in-jit -> dynamic num_work grid with
+            # scalar-prefetch metadata).
+            return "_default_pallas_compact_worklist_launcher"
         return self.default_launcher_name
 
     def get_launcher_name(self) -> str:
@@ -1950,9 +2631,99 @@ class PallasBackend(Backend):
         config: Config,
         tile_strategy: TileStrategyDispatch,
     ) -> None:
+        from .compile_environment import CompileEnvironment
         from .pallas.plan_tiling import plan_tiling
 
         plan_tiling(graphs, config, tile_strategy)
+
+        # compact_worklist_* is per-CONFIG state, but one CompileEnvironment is
+        # reused across all configs of a BoundKernel (see CompileEnvironment's
+        # "no config-specific state" contract).  Reset before re-detecting so a
+        # later non-compact config never inherits a prior compact config's plan
+        # -- many lowering paths gate on ``env.compact_worklist_plan is not None``
+        # (PID strategy, loop-bound remap, fori handling, ds slicing), not on
+        # pallas_loop_type, so a stale plan would mis-lower a fori/emit config.
+        env = CompileEnvironment.current()
+        env.compact_worklist_plan = None
+        env.compact_worklist_upper = 1
+        env.compact_worklist_block = 1
+        env.compact_worklist_offset_params = []
+
+        if config.get("pallas_loop_type") == "compact_worklist":
+            self._setup_compact_worklist(config)
+
+    def _setup_compact_worklist(self, config: Config) -> None:
+        """Detect + stash the compact-worklist plan before device codegen.
+
+        Runs early (pre_codegen) so ``env.compact_worklist_plan`` is set when the
+        grid strategy selects ``WorklistProgramIDs`` and the inner loop remaps its
+        begin/end to metadata refs.  Registers the N metadata ref names as
+        ``wrapper_only_params`` (kernel-signature-only) and computes the static
+        megablocks ``UPPER``.  ``detect_*`` raises ``exc.InvalidConfig`` on a
+        non-matching kernel (autotuner-skippable).
+        """
+        from .compile_environment import CompileEnvironment
+        from .device_function import DeviceFunction
+        from .host_function import HostFunction
+        from .pallas.compact_worklist import detect_compact_worklist_plan
+        from .pallas.compact_worklist import metadata_arg_names
+
+        env = CompileEnvironment.current()
+        host_fn = HostFunction.current()
+        plan = detect_compact_worklist_plan(host_fn)
+        env.compact_worklist_plan = plan
+
+        device_fn = DeviceFunction.current()
+        for name in metadata_arg_names(plan):
+            ref = f"{name}_ref"
+            if ref not in device_fn.wrapper_only_params:
+                device_fn.wrapper_only_params.append(ref)
+
+        # Compact-axis tile block size (NOT max(block_sizes): for fully jagged
+        # with Q_BLOCK < KV_BLOCK that would undersize the worklist metadata).
+        compact_block = env.block_sizes[plan.compact_axis.block_id].from_config(config)
+        assert compact_block is not None, "compact tile has no block size"
+        env.compact_worklist_block = int(compact_block)
+        env.compact_worklist_upper = self._compact_worklist_upper(plan, config, host_fn)
+
+    def _compact_worklist_upper(
+        self, plan: CompactWorklistPlan, config: Config, host_fn: HostFunction
+    ) -> int:
+        """Static UPPER: the padded length of the worklist metadata arrays.
+
+        Must be >= the worst-case ``num_work = sum_owners cdiv(length, BLOCK)``,
+        else the dynamic Pallas grid indexes past the scalar-prefetch metadata
+        (``jnp.repeat(total_repeat_length=UPPER)`` would silently truncate the
+        worklist).  Detection only accepts the packed-offsets idiom (store
+        safety), so owner ranges are contiguous/non-overlapping
+        (``sum(length) == total``) and the tight megablocks bound
+        ``cdiv(total, BLOCK) + num_owners - 1`` provably holds.  All terms are
+        concrete ints under ``static_shapes=True``.
+        """
+        from ..runtime.compact_worklist import packed_upper_bound
+        from .compile_environment import CompileEnvironment
+
+        params = dict(host_fn.params.arguments)
+        # Owner count from the captured grid bound (e.g. q_offsets.shape[0] - 1).
+        # num_owners_expr is a codegen-derived host expression; if it references a
+        # name not in params (a source shape we failed to inline), surface it as
+        # an autotuner-skippable InvalidConfig rather than a bare exception that
+        # would abort the whole search.
+        try:
+            num_owners = int(eval(plan.num_owners_expr, {}, params))
+        except Exception as e:
+            raise exc.InvalidConfig(
+                f"compact_worklist: could not evaluate owner-count expression "
+                f"{plan.num_owners_expr!r}: {e}"
+            ) from e
+        # total_compact = leading dim of the compact_aligned_load tensor.
+        compact_arg = next(
+            p.arg_name for p in plan.tensor_policies if p.kind == "compact_aligned_load"
+        )
+        total = int(params[compact_arg].shape[0])
+        block = CompileEnvironment.current().compact_worklist_block
+        # Single source of the tight megablocks bound (also unit-tested).
+        return packed_upper_bound(total, num_owners, block)
 
 
 def _detect_mma_loop(
@@ -2026,6 +2797,13 @@ def _detect_mma_loop(
     return False
 
 
+def _largest_divisor_at_most(size: int, limit: int) -> int:
+    for divisor in range(limit, 0, -1):
+        if size % divisor == 0:
+            return divisor
+    return 1
+
+
 def _detect_specialized_mma_loop(
     fn: DeviceFunction,
     block_ids: list[int],
@@ -2068,13 +2846,6 @@ def _detect_specialized_mma_loop(
         root_thread_auto.append(threads == 0)
 
     if functools.reduce(operator.mul, root_thread_counts, 1) > 1024:
-
-        def _largest_divisor_at_most(size: int, limit: int) -> int:
-            for divisor in range(limit, 0, -1):
-                if size % divisor == 0:
-                    return divisor
-            return 1
-
         for idx in sorted(
             (i for i, is_auto in enumerate(root_thread_auto) if is_auto),
             reverse=True,
@@ -2586,12 +3357,95 @@ def _active_loop_block_ids(fn: DeviceFunction) -> set[int]:
     return active
 
 
+# Leave broad headroom below the G1 sweep's 3600s subprocess timeout: budget
+# checks happen between inline CuTe compile/benchmark units, then the selected
+# config still has to compile, pass correctness, and run the final benchmark.
+_CUTE_DEFAULT_AUTOTUNE_BUDGET_SECONDS = 600
+
+
 class CuteBackend(Backend):
     """CuTe DSL (CUTLASS Python DSL) code generation backend."""
 
     @property
     def name(self) -> str:
         return "cute"
+
+    def validate_environment(self) -> None:
+        from .cute.cutedsl_compat import check_cute_backend_requirements
+
+        check_cute_backend_requirements()
+
+    def config_value_priors(self, config_spec: ConfigSpec) -> dict[str, ValuePrior]:
+        """Bias the random half of the initial population toward the config
+        family that performs well on Blackwell tcgen05 kernels.
+
+        This encodes, as a distribution, what the backend's former hardcoded
+        per-shape seed configs all converged on: a 2-CTA, TMA-fed,
+        role-local-monolithic, static-persistent, tvm-ffi launch with deep AB
+        staging and a 4-warp epilogue. Keys a given kernel does not expose
+        (e.g. the ``tcgen05_*`` keys on a pointwise/reduction kernel) are
+        ignored, and values a fragment cannot represent are dropped, so the
+        priors are safe for any cute kernel -- a non-matmul kernel just picks up
+        the generic biases (TMA indexing, 8 warps) on whichever keys it has.
+        """
+        from ..autotuner.config_priors import weighted_choice
+        from .cute.strategies import TCGEN05_PERSISTENCE_MODEL_CONFIG_KEY
+        from .cute.strategies import TCGEN05_STRATEGY_CONFIG_KEY
+        from .cute.strategies import Tcgen05PersistenceModel
+        from .cute.strategies import Tcgen05Strategy
+        from .cute.tcgen05_constants import TCGEN05_TWO_CTA_SEED_PID_TYPE
+
+        return {
+            # Generic knobs shared by every cute kernel.
+            "num_warps": weighted_choice({8: 4.0, 4: 2.0, 16: 1.0}),
+            "num_stages": weighted_choice({4: 3.0, 3: 2.0, 2: 1.0}),
+            "indexing": weighted_choice(
+                {"tensor_descriptor": 4.0, "pointer": 1.0, "block_ptr": 1.0}
+            ),
+            "pid_type": weighted_choice(
+                {
+                    TCGEN05_TWO_CTA_SEED_PID_TYPE: 3.0,
+                    "flat": 1.0,
+                    "persistent_blocked": 1.0,
+                }
+            ),
+            # tcgen05 / 2-CTA matmul knobs (absent on non-matmul kernels).
+            "tcgen05_cluster_m": weighted_choice({2: 3.0, 1: 1.0}),
+            "tcgen05_ab_stages": weighted_choice(
+                {3: 3.0, 4: 2.0, 5: 1.0, 6: 1.0, 2: 1.0}
+            ),
+            "tcgen05_acc_stages": weighted_choice({2: 4.0, 1: 1.0}),
+            "tcgen05_c_stages": weighted_choice({2: 3.0, 4: 2.0, 1: 1.0}),
+            "tcgen05_num_epi_warps": weighted_choice({4: 3.0, 2: 1.0, 8: 1.0}),
+            TCGEN05_STRATEGY_CONFIG_KEY: weighted_choice(
+                {
+                    Tcgen05Strategy.ROLE_LOCAL_MONOLITHIC.value: 3.0,
+                    Tcgen05Strategy.ROLE_LOCAL_WITH_SCHEDULER.value: 1.0,
+                }
+            ),
+            TCGEN05_PERSISTENCE_MODEL_CONFIG_KEY: weighted_choice(
+                {
+                    Tcgen05PersistenceModel.STATIC_PERSISTENT.value: 3.0,
+                    Tcgen05PersistenceModel.CLC_PERSISTENT.value: 1.0,
+                }
+            ),
+            TCGEN05_TVM_FFI_LAUNCH_CONFIG_KEY: weighted_choice({True: 3.0, False: 1.0}),
+        }
+
+    def customize_ast(self, hf: HostFunction) -> None:
+        """CuTe-specific AST rewrites that rewrite high-level patterns into
+        equivalent forms that compile to materially faster code.
+
+        Currently:
+          * ``rewrite_online_to_3pass`` rewrites the online two-pass
+            softmax pattern into the 3-pass form (max-only, then
+            sum-only, then consume).  The 3-pass form's two reductions
+            are independent and compile to a more efficient layout on
+            the CuTe backend.
+        """
+        from .cute.online_to_3pass import rewrite_online_to_3pass
+
+        rewrite_online_to_3pass(hf)
 
     def pre_codegen(
         self,
@@ -2600,11 +3454,17 @@ class CuteBackend(Backend):
         tile_strategy: TileStrategyDispatch,
     ) -> None:
         from .cute.layout_propagation import plan_layouts
+        from .cute.view_subtile import annotate_view_subtiles
 
+        annotate_view_subtiles(graphs, config)
         plan_layouts(graphs, config, tile_strategy)
 
     def supports_config_key(self, key: str) -> bool:
-        if key == "num_threads" or key.startswith("tcgen05_"):
+        if (
+            key == "num_threads"
+            or key == "cute_vector_widths"
+            or key.startswith("tcgen05_")
+        ):
             return True
         return super().supports_config_key(key)
 
@@ -2636,6 +3496,110 @@ class CuteBackend(Backend):
         # The CuTe DSL does not expose a Triton-style precompile entry point;
         # the autotuner has to compile + benchmark each config inline.
         return False
+
+    def setup_compile_cache_dir(self, device_index: int) -> None:
+        if "CUTE_DSL_CACHE_DIR" not in os.environ:
+            from ..autotuner.local_cache import helion_cute_cache_dir
+
+            cute_dir = helion_cute_cache_dir(device_index)
+            os.environ["CUTE_DSL_CACHE_DIR"] = cute_dir
+            log.debug("Set CUTE_DSL_CACHE_DIR=%s", cute_dir)
+
+    def make_ephemeral_cache(
+        self,
+    ) -> contextlib.AbstractContextManager[None] | None:
+        if self.keep_compile_cache_requested():
+            return None
+        return self._ephemeral_cute_cache()
+
+    @contextlib.contextmanager
+    def _ephemeral_cute_cache(self) -> Generator[None, None, None]:
+        """Redirect the CuTe DSL on-disk cache to a temporary dir during
+        autotuning so candidate compilations don't pollute the real cache.
+
+        The winning config's artifact is re-persisted from memory into the
+        real cache afterward (see :meth:`finalize_ephemeral_cache`).
+        """
+        saved = os.environ.get("CUTE_DSL_CACHE_DIR")
+        with tempfile.TemporaryDirectory(prefix="helion_cute_autotune_") as ephemeral:
+            os.environ["CUTE_DSL_CACHE_DIR"] = ephemeral
+            log.debug("Ephemeral CuTe cache: %s", ephemeral)
+            try:
+                yield
+            finally:
+                if saved is not None:
+                    os.environ["CUTE_DSL_CACHE_DIR"] = saved
+                else:
+                    os.environ.pop("CUTE_DSL_CACHE_DIR", None)
+
+    def finalize_ephemeral_cache(
+        self, bound_kernel: BoundKernel[Any], config: Config
+    ) -> None:
+        """Persist the winning config's compiled artifact into the real cache.
+
+        Candidate artifacts died with the ephemeral dir, but the winner's
+        launcher still holds the compiled module in memory and the disk-cache
+        key excludes ``CUTE_DSL_CACHE_DIR``, so re-persisting from memory
+        writes the exact artifact a later process will look up.  Launchers and
+        compile-cache entries are kept so the winner launches without
+        recompiling.
+        """
+        from ..runtime.config import Config
+
+        compiled_fn = bound_kernel._compile_cache.get(config)
+        if compiled_fn is None:
+            # The autotuner may return a minimized config (default values
+            # stripped); the compiled entry is keyed by the full config.
+            default = bound_kernel.config_spec.default_config()
+            # pyrefly: ignore [bad-argument-type]
+            full_config = Config(**(default.config | config.config))
+            compiled_fn = bound_kernel._compile_cache.get(full_config)
+        if compiled_fn is None:
+            return
+        cute_kernel = compiled_fn.__globals__.get(  # type: ignore[attr-defined]
+            f"_helion_{bound_kernel.kernel.name}"
+        )
+        launchers = getattr(cute_kernel, "_helion_cute_compiled_launchers", None)
+        if not launchers:
+            return
+        device_index = (
+            bound_kernel.env.device.index
+            if bound_kernel.env.device.index is not None
+            else 0
+        )
+        # The ephemeral context restored CUTE_DSL_CACHE_DIR on exit; this sets
+        # the real per-device dir when the user did not provide one.
+        self.setup_compile_cache_dir(device_index)
+        for launcher in launchers.values():
+            launcher.persist_compiled()
+
+    def compiled_cache_key(
+        self, bound_kernel: BoundKernel[Any], compiled_fn: object
+    ) -> str | None:
+        cute_kernel = compiled_fn.__globals__.get(  # type: ignore[attr-defined]
+            f"_helion_{bound_kernel.kernel.name}"
+        )
+        if cute_kernel is None:
+            return None
+        launchers = getattr(cute_kernel, "_helion_cute_compiled_launchers", None)
+        if not launchers:
+            return None
+        for launcher in launchers.values():
+            key = getattr(launcher, "_cache_key", None)
+            if key is not None:
+                return key
+        return None
+
+    def annotate_compiled_module(
+        self, module: object, source: str, kernel_name: str
+    ) -> None:
+        cute_kernel = getattr(module, f"_helion_{kernel_name}", None)
+        if cute_kernel is None:
+            return
+        with contextlib.suppress(AttributeError, TypeError):
+            cute_kernel._helion_cute_source_hash = hashlib.sha256(
+                source.encode("utf-8")
+            ).hexdigest()
 
     def classify_autotune_exception(self, err: BaseException) -> str | None:
         # Exceptions raised from inside the cute/cutlass DSL during compile or
@@ -2678,7 +3642,15 @@ class CuteBackend(Backend):
         force: bool = True,
         **kwargs: object,
     ) -> Config:
-        return super().autotune(bound_kernel, args, force=force, **kwargs)
+        original_budget = bound_kernel.settings.autotune_budget_seconds
+        if bound_kernel.settings.autotune_budget_seconds is None:
+            bound_kernel.settings.autotune_budget_seconds = (
+                _CUTE_DEFAULT_AUTOTUNE_BUDGET_SECONDS
+            )
+        try:
+            return super().autotune(bound_kernel, args, force=force, **kwargs)
+        finally:
+            bound_kernel.settings.autotune_budget_seconds = original_budget
 
     @property
     def function_decorator(self) -> str:
@@ -2705,17 +3677,32 @@ class CuteBackend(Backend):
             "hl": "import helion.language as hl",
             "cutlass": "import cutlass",
             "cute": "import cutlass.cute as cute",
+            "ir": "from cutlass._mlir import ir",
+            "mlir_math": "from cutlass._mlir.dialects import math as mlir_math",
             "_default_cute_launcher": "from helion.runtime import default_cute_launcher as _default_cute_launcher",
             "_next_power_of_2": "from helion._utils import next_power_of_2 as _next_power_of_2",
             "_cute_argreduce_index": "from helion._compiler.cute.reduce_helpers import _cute_argreduce_index",
+            "_helion_tcgen05_pipeline": (
+                "from helion._compiler.cute import tcgen05_pipeline "
+                "as _helion_tcgen05_pipeline"
+            ),
+            "_cute_gelu_erf_exact_f32x2": (
+                "from helion._compiler.cute.epilogue_helpers import "
+                "gelu_erf_exact_f32x2 as _cute_gelu_erf_exact_f32x2"
+            ),
             "_cute_grouped_reduce_shared_tree": "from helion._compiler.cute.reduce_helpers import _cute_grouped_reduce_shared_tree",
             "_cute_grouped_reduce_shared_two_stage": "from helion._compiler.cute.reduce_helpers import _cute_grouped_reduce_shared_two_stage",
             "_cute_grouped_reduce_warp": "from helion._compiler.cute.reduce_helpers import _cute_grouped_reduce_warp",
+            "_cute_pre_vec_fold": "from helion._compiler.cute.reduce_helpers import _cute_pre_vec_fold",
             "_cute_store_shared_remote_x4": "from helion._compiler.cute.cluster_helpers import store_shared_remote_x4 as _cute_store_shared_remote_x4",
             "_cute_issue_clc_query_nomulticast": "from helion._compiler.cute.clc_helpers import issue_clc_query_nomulticast as _cute_issue_clc_query_nomulticast",
             "_cute_inline_asm_elementwise": "from helion._compiler.cute.inline_asm_helpers import inline_asm_elementwise as _cute_inline_asm_elementwise",
             "_cute_fp8e4m3fn_to_float32": "from helion._compiler.cute.quantized_helpers import fp8e4m3fn_to_float32 as _cute_fp8e4m3fn_to_float32",
+            "_cute_fp8e4m3fn_x2_to_float32": "from helion._compiler.cute.quantized_helpers import fp8e4m3fn_x2_to_float32 as _cute_fp8e4m3fn_x2_to_float32",
             "_cute_float4_e2m1fn_x2_to_float32": "from helion._compiler.cute.quantized_helpers import float4_e2m1fn_x2_to_float32 as _cute_float4_e2m1fn_x2_to_float32",
+            "_cute_grid_barrier": "from helion._compiler.cute.grid_barrier import grid_barrier as _cute_grid_barrier",
+            "_cute_atomic_max_float32": "from helion._compiler.cute.atomic_helpers import atomic_max_float32 as _cute_atomic_max_float32",
+            "_cute_atomic_min_float32": "from helion._compiler.cute.atomic_helpers import atomic_min_float32 as _cute_atomic_min_float32",
         }
 
     def program_id_expr(self, dim: int, *, index_dtype: str) -> str:
@@ -2758,13 +3745,17 @@ class CuteBackend(Backend):
             except NoCurrentFunction:
                 pass
             else:
-                if df.get_cute_tcgen05_store_value(x.id) is not None:
+                if (
+                    df.cute_state.get_tcgen05_store_value(df.variable_aliases(x.id))
+                    is not None
+                ):
                     return x
         return super().cast_ast(x, target_dtype)
 
     def grid_barrier_stmt(self, sem_arg: str) -> str | None:
-        del sem_arg
-        raise exc.BackendUnsupported(self.name, "hl.barrier()")
+        # ``sem_arg`` is a TensorArg that arrives as a ``cute.Tensor``; its
+        # ``.iterator`` is the underlying ``cute.Pointer`` to the semaphore.
+        return f"_cute_grid_barrier({sem_arg}.iterator)"
 
     def lane_index_expr(
         self, offset_var: str, elements_per_thread: int, *, axis: int
@@ -2833,7 +3824,15 @@ class CuteBackend(Backend):
         return f"({tensor_name})[{index_expr}]"
 
     def max_reduction_threads(self) -> int | None:
-        return 32
+        return 1024
+
+    def max_reduction_loop(self) -> int | None:
+        from .reduction_strategy import cute_looped_reduction_block_size
+
+        max_threads = self.max_reduction_threads()
+        if max_threads is None:
+            return None
+        return cute_looped_reduction_block_size(2**31 - 1, max_threads)
 
     def adjust_reduction_thread_count(
         self, requested: int, existing_strategies: list[TileStrategy]
@@ -2925,6 +3924,16 @@ class CuteBackend(Backend):
     ) -> str:
         # Use Python ternary instead of cute.where for max/min because
         # these operate on scalar registers, not tensors.
+        #
+        # Cast the incoming value to the accumulator dtype first.  The
+        # accumulator is promoted to the computation dtype (fp32 for
+        # half-precision inputs), but the per-iteration reduction input keeps
+        # the tensor's storage dtype (e.g. bf16 for a masked half load).  The
+        # CUTLASS DSL strictly type-checks the two branches of a Python ternary
+        # ("Then and else blocks of ifexp return different types"), so a bare
+        # ``acc if acc > val else val`` with mixed fp32/bf16 operands fails to
+        # compile.  The cast is a no-op when ``val`` already matches.
+        val = self.cast_expr(val, self.dtype_str(dtype))
         if reduction_type == "sum":
             return f"({acc} + {val})"
         if reduction_type == "max":
@@ -3118,8 +4127,34 @@ class CuteBackend(Backend):
 
         def launcher_args_with_compile_options(block_arg: str) -> list[str]:
             launcher_args = [block_arg]
+            compile_options: list[str] = []
             if config.get(TCGEN05_CUBIN_LINEINFO_CONFIG_KEY) is True:
-                launcher_args.append("cute_compile_options='--generate-line-info'")
+                compile_options.append("--generate-line-info")
+            # ``--enable-tvm-ffi`` is emitted in codegen only when the
+            # autotune flag is True so the generated code reflects which
+            # configs deliberately requested FFI. The runtime
+            # (``_get_compiled_cute_launcher``) unconditionally merges
+            # the flag in for the generic launcher, so configs with this
+            # flag False still execute with FFI enabled — that drift is
+            # intentional for now and noted here for future cleanups.
+            if config.get(TCGEN05_TVM_FFI_LAUNCH_CONFIG_KEY) is True:
+                if (
+                    _kernel_specialized_mma_impl(
+                        device_function,
+                        config=device_function.config,
+                    )
+                    != "tcgen05"
+                ):
+                    raise exc.BackendUnsupported(
+                        "cute",
+                        f"{TCGEN05_TVM_FFI_LAUNCH_CONFIG_KEY}=True requires "
+                        "tcgen05 CuTe lowering",
+                    )
+                compile_options.append("--enable-tvm-ffi")
+            if compile_options:
+                launcher_args.append(
+                    f"cute_compile_options={' '.join(compile_options)!r}"
+                )
             return launcher_args
 
         block_size_values = {
@@ -3296,7 +4331,7 @@ class CuteBackend(Backend):
             and root_static_threads <= MAX_THREADS_PER_BLOCK
         )
         tcgen05_compact_dims = (
-            device_function.cute_block_shape if specialized_root_tcgen05 else None
+            device_function.cute_state.block_shape if specialized_root_tcgen05 else None
         )
         if referenced_dims != (1, 1, 1):
             dims = referenced_dims
@@ -3360,9 +4395,21 @@ class CuteBackend(Backend):
             and static_dims != (1, 1, 1)
             and not has_nested_device_loops
             and static_threads < dynamic_threads
+            # Synthetic free-``hl.arange`` thread axes are real launch lanes that
+            # the strategy's ``static_dims`` does not know about, so do not fall
+            # back to ``static_dims`` (which would drop them) when they are live.
+            and not codegen.cute_synthetic_arange_axis_sizes
         ):
             dims = static_dims
-        if dim_exprs is not None and dim_exprs != ("1", "1", "1"):
+        if (
+            dim_exprs is not None
+            and dim_exprs != ("1", "1", "1")
+            # ``dim_exprs`` is the strategy's static per-axis launch shape; it
+            # has no entry for synthetic free-``hl.arange`` axes, so adopting it
+            # wholesale would shrink those axes back to 1. Skip it when they are
+            # live (the synthetic extents are already folded into ``dims``).
+            and not codegen.cute_synthetic_arange_axis_sizes
+        ):
             if all(expr.isdigit() for expr in dim_exprs):
                 expr_dims = tuple(int(expr) for expr in dim_exprs)
                 if functools.reduce(
@@ -3395,7 +4442,89 @@ class CuteBackend(Backend):
                 dims = dynamic_dims
             else:
                 dims = DeviceFunction.current().tile_strategy.thread_block_dims()
+        # Detect the silent-truncation case: codegen has already emitted
+        # thread_idx[axis] references that assume a certain per-axis
+        # extent (recorded in ``referenced_thread_block_dims``), but the
+        # chosen launch ``dims`` for that axis is smaller. This happens
+        # when the joint requested thread count exceeds 1024 and the
+        # earlier fallback paths in this function dropped axes to (1, 1, 1)
+        # to fit the budget. Under-dimensioning here would leave
+        # cross-thread reductions (group_span, warp_reduce) operating
+        # against nonexistent lanes, silently producing wrong results
+        # (e.g. softmax with M*N>1024 returning max_err on the order of
+        # tens). Surface this as ``BackendUnsupported`` so the autotuner
+        # skips the config and falls back to a viable one.
+        #
+        # Skip this check when the joint referenced thread count fits
+        # within ``MAX_THREADS_PER_BLOCK``: in that case any per-axis
+        # mismatch comes from a strategy that intentionally launches
+        # fewer threads than the codegen "references" (e.g. an outer-
+        # tile axis with a single logical lane that still appears in a
+        # warp-reduction call), and the CuTe runtime degenerates the
+        # reduction to the live lanes without losing data.
+        #
+        # Skip this check for tcgen05-specialized matmul kernels: those
+        # use a custom role-warp launch shape that intentionally differs
+        # from the SIMT thread-axis counts (the latter being how many
+        # threads the user-visible per-element loops would expect). The
+        # tcgen05 code paths know which lanes are alive on their own.
+        # Also skip when the kernel has any matmul / MMA call (addmm,
+        # baddbmm, mm, bmm, or hl.dot): those paths cooperate within a
+        # warp through CUTLASS MMA intrinsics that don't depend on the
+        # SIMT axis layout, so the strategy can intentionally launch
+        # fewer threads on a reduction axis (e.g. K) than the codegen
+        # "references" through the strategy's per-block thread count.
+        from ..language._decorators import is_api_func
         from .cute.thread_budget import check_thread_limit
+
+        _matmul_targets = {
+            torch.ops.aten.mm.default,
+            torch.ops.aten.addmm.default,
+            torch.ops.aten.bmm.default,
+            torch.ops.aten.baddbmm.default,
+        }
+
+        def _has_matmul_call() -> bool:
+            for graph_info in device_function.codegen.codegen_graphs:
+                graph = getattr(graph_info, "graph", None)
+                if not isinstance(graph, torch.fx.Graph):
+                    continue
+                for node in graph.nodes:
+                    if node.op != "call_function":
+                        continue
+                    if node.target in _matmul_targets:
+                        return True
+                    if is_api_func(node.target) and (
+                        getattr(node.target, "__name__", "") == "dot"
+                    ):
+                        return True
+            return False
+
+        kernel_has_mma = _has_matmul_call()
+        if (
+            tcgen05_compact_dims is None
+            and not specialized_root_tcgen05
+            and not kernel_has_mma
+        ):
+            referenced_threads = functools.reduce(
+                operator.mul, codegen.referenced_thread_block_dims, 1
+            )
+            if referenced_threads > MAX_THREADS_PER_BLOCK:
+                for axis, ref_size in enumerate(codegen.referenced_thread_block_dims):
+                    if ref_size > 1 and axis < len(dims) and dims[axis] < ref_size:
+                        raise exc.BackendUnsupported(
+                            self.name,
+                            (
+                                f"launch dims {tuple(dims)} under-dimension"
+                                f" referenced_thread_block_dims="
+                                f"{tuple(codegen.referenced_thread_block_dims)}"
+                                f" (axis {axis}: launched={dims[axis]} <"
+                                f" referenced={ref_size}). Codegen would access"
+                                f" nonexistent threads — joint requested"
+                                f" thread count {referenced_threads} >"
+                                f" {MAX_THREADS_PER_BLOCK}."
+                            ),
+                        )
 
         check_thread_limit(dims[0] * dims[1] * dims[2], context=str(tuple(dims)))
         return launcher_args_with_compile_options(
@@ -3456,12 +4585,6 @@ class CuteBackend(Backend):
         # When it would exceed 1024, default device-loop (non-grid)
         # dimensions to 1 thread to avoid budget overflow.
         from .cute.thread_budget import MAX_THREADS_PER_BLOCK
-
-        def _largest_divisor_at_most(size: int, limit: int) -> int:
-            for divisor in range(limit, 0, -1):
-                if size % divisor == 0:
-                    return divisor
-            return 1
 
         def _shrink_auto_thread_counts(
             nd_block_size: Sequence[object], thread_limit: int
@@ -3536,7 +4659,7 @@ class CuteBackend(Backend):
             ) -> bool:
                 if known_equal is not None:
                     return known_equal(lhs, rhs)
-                return lhs == rhs
+                return bool(lhs == rhs)
 
             nd_block_size = [bs.from_config_assert(config) for bs in block_size_infos]
             original_num_threads_config = list(num_threads_config)
@@ -3662,6 +4785,33 @@ class CuteBackend(Backend):
                     )
                     for block_id in block_ids
                 ]
+            # OPTION B (matmul-contraction synthetic-lane fix): when a reduction
+            # block is the *contraction* (K) axis of a matmul lowered through the
+            # scalar fallback, it must keep enough real hardware threads to cover
+            # its full extent so the cross-warp shared-memory reduction sums the
+            # whole K.  Otherwise the budget below would hand the free tile axes
+            # the threads and leave K split into ``threads x synthetic-lane`` -
+            # the reduction then sums only the thread lanes, never the synthetic
+            # lanes, so each contracted dot product covers only a fraction of K.
+            # Reserve the K block's full thread extent up front by shrinking the
+            # thread limit available to the free tile axes; the contraction axis
+            # then claims that budget when its reduction strategy is created and
+            # the synthetic lane is pushed onto the free tile axes instead.
+            reserved_contraction_threads = self._cute_matmul_contraction_thread_reserve(
+                fn, block_ids
+            )
+            if reserved_contraction_threads > 1:
+                # Budget left for the free tile axes after the contraction axis
+                # has claimed its full thread extent.
+                free_budget = max(1, thread_limit // reserved_contraction_threads)
+                # The free axes are built across separate ``create_loop_strategy``
+                # calls but their thread counts multiply, so split the budget so
+                # the product over every free axis stays within ``free_budget``.
+                free_axes = self._cute_free_auto_thread_axis_count(fn, config)
+                per_axis_limit = free_budget
+                while per_axis_limit > 1 and per_axis_limit**free_axes > free_budget:
+                    per_axis_limit //= 2
+                thread_limit = max(1, per_axis_limit)
             static_threads = _shrink_auto_thread_counts(nd_block_size, thread_limit)
             from .cute.thread_budget import check_thread_limit
 
@@ -3714,8 +4864,9 @@ class CuteBackend(Backend):
                 inactive_block_ids=inactive_block_ids,
             )
         nd_block_size = [bs.from_config_assert(config) for bs in block_size_infos]
-        block_size = functools.reduce(operator.mul, nd_block_size)
+        block_size = functools.reduce(operator.mul, nd_block_size)  # pyrefly: ignore[incompatible-overload-residual]
         # Resolve per-axis thread counts then flatten to a single total
+        all_auto = all(nt <= 0 for nt in num_threads_config)
         flat_num_threads = functools.reduce(
             operator.mul,
             (
@@ -3724,6 +4875,14 @@ class CuteBackend(Backend):
             ),
             1,
         )
+        if (
+            isinstance(block_size, int)
+            and flat_num_threads > MAX_THREADS_PER_BLOCK
+            and all_auto
+        ):
+            # Auto thread budget exceeds the 1024-per-CTA cap: fall back to a
+            # lane loop (each thread owns block_size // 1024 elements).
+            flat_num_threads = MAX_THREADS_PER_BLOCK
         if isinstance(block_size, int) and flat_num_threads > 0:
             from .cute.thread_budget import check_thread_limit
 
@@ -3761,6 +4920,7 @@ class MetalBackend(Backend):
     _SUPPORTED_CONFIG_KEYS: frozenset[str] = frozenset(
         {
             "block_sizes",
+            "num_threads",
             "num_warps",
         }
     )
@@ -3815,13 +4975,46 @@ class MetalBackend(Backend):
     def cast_expr(self, expr_str: str, dtype_str: str) -> str:
         return f"static_cast<{dtype_str}>({expr_str})"
 
+    def lane_index_expr(
+        self, offset_var: str, elements_per_thread: int, *, axis: int
+    ) -> str:
+        return f"{offset_var} + tid[{axis}] * {elements_per_thread}"
+
+    def lane_offset_expr(self, lane_var: str) -> str:
+        return lane_var
+
     def program_id_expr(self, dim: int, *, index_dtype: str) -> str:
         return f"tgid[{dim}]"
 
     def grid_index_expr(
         self, offset_var: str, block_size_var: str, dtype: str, *, axis: int
     ) -> str:
+        if block_size_var == "1":
+            return offset_var
         return f"{offset_var} + tid[{axis}]"
+
+    def loop_index_expr(
+        self, offset_var: str, block_size_var: str, dtype: str, *, axis: int
+    ) -> str:
+        if block_size_var == "1":
+            return offset_var
+        return f"{offset_var} + tid[{axis}]"
+
+    def arange_expr(
+        self,
+        offsets_var: str,
+        lid: str,
+        block_size_var: str,
+        dtype: str,
+        *,
+        axis: int = 0,
+    ) -> str:
+        return f"{offsets_var} = ({lid}) * ({block_size_var}) + tid[{axis}]"
+
+    def thread_in_tile_mask_expr(
+        self, block_size_var: str, *, axis: int = 0
+    ) -> str | None:
+        return f"tid[{axis}] < ({block_size_var})"
 
     def force_tile_mask(self) -> bool:
         return True
@@ -3894,3 +5087,128 @@ class MetalBackend(Backend):
 
         dims = tuple(DeviceFunction.current().codegen.max_thread_block_dims)
         return [f"_block_dims=({dims[0]}, {dims[1]}, {dims[2]})"]
+
+    def build_launcher_args(
+        self,
+        args: list[str],
+        *,
+        tensor_host_args: list[str],
+        has_rng_ops: bool,
+        config: Config,
+        has_barrier: bool,
+        sorted_args: list[Argument] | None = None,
+    ) -> list[str]:
+        if has_rng_ops:
+            raise exc.BackendUnsupported(self.name, "RNG ops")
+        return [*args, *self.launcher_keyword_args(config, has_barrier=has_barrier)]
+
+    def create_loop_strategy(
+        self, fn: DeviceFunction, block_ids: list[int], config: Config
+    ) -> TileStrategy:
+        """Metal loop strategy: delegate to CuTe.
+
+        Metal and CuTe share the same scalar-thread execution model
+        (one element per thread, cooperative hardware primitives for
+        matmul), so they use the same CuteND/CuteFlattenedTileStrategy
+        with the same thread budget management, inactive block ID
+        filtering, and auto-capping logic.
+
+        Note: CuTe's flattened path raises ``BackendUnsupported("thread
+        block too large")`` when ``block_size * num_threads > 1024``
+        (the ND path auto-caps via ``_shrink_auto_thread_counts`` —
+        this asymmetry is a CuTe bug to be fixed in a follow-up).
+        Metal inherits this behavior for now; users hitting the error
+        should pick a smaller ``block_sizes`` value.
+        """
+        config = self._config_with_mpp_thread_budget(fn, block_ids, config)
+        # pyrefly: ignore[bad-argument-type]
+        return CuteBackend.create_loop_strategy(self, fn, block_ids, config)
+
+    def _config_with_mpp_thread_budget(
+        self, fn: DeviceFunction, block_ids: list[int], config: Config
+    ) -> Config:
+        """Reserve root-grid thread budget for MPPGraph cooperative work.
+
+        MPP matmul and ordinary scalar Metal code run inside one Metal
+        threadgroup.  MPP needs ``num_warps * 32`` threads participating on
+        ``tid[0]`` for its cooperative operation, while scalar code in the
+        surrounding root graph may still use ``tid[0]``, ``tid[1]``, and
+        ``tid[2]`` for normal tile indexing.  This method keeps the root graph
+        scalar-lowered, but caps auto ``num_threads`` on later root-grid axes
+        so the combined threadgroup stays within Metal's 1024-thread limit.
+        """
+        if not any(
+            type(graph_info).__name__ == "MPPGraphInfo"
+            for graph_info in fn.codegen.codegen_graphs
+        ):
+            return config
+
+        from .host_function import HostFunction
+
+        device_ir = HostFunction.current().device_ir
+        # Only adjust the loop strategy for the root grid.  MPPGraphInfo emits
+        # the cooperative K-loop internally; nested/device loops should keep
+        # their normal Metal/CuTe strategy.
+        if not device_ir.grid_block_ids or block_ids != device_ir.grid_block_ids[0]:
+            return config
+        if len(block_ids) < 2:
+            return config
+
+        from ..runtime.config import Config
+        from .compile_environment import CompileEnvironment
+        from .cute.thread_budget import MAX_THREADS_PER_BLOCK
+
+        env = CompileEnvironment.current()
+        num_threads = list(config.num_threads)
+        if len(num_threads) < len(env.config_spec.num_threads):
+            num_threads.extend(
+                [0] * (len(env.config_spec.num_threads) - len(num_threads))
+            )
+
+        first_block_id = block_ids[0]
+        first_axis_size = env.block_sizes[first_block_id].from_config(config)
+        if not isinstance(first_axis_size, int):
+            return config
+        first_axis_configured = int(
+            env.config_spec.num_threads.config_get(
+                config.num_threads, first_block_id, 0
+            )
+        )
+        first_axis_threads = (
+            first_axis_configured if first_axis_configured > 0 else first_axis_size
+        )
+
+        # MPP's execution_simdgroups<N> uses N simdgroups, and each Metal
+        # simdgroup has 32 threads.  tid[0] must be large enough for both
+        # MPP's cooperative operation and any scalar indexing on the first
+        # root axis.
+        mpp_threads = config.num_warps * 32
+        used_threads = max(mpp_threads, first_axis_threads)
+        changed = False
+
+        # Walk the remaining axes in launch order.  Explicit num_threads
+        # consume budget as-is; auto axes are reduced to the largest divisor
+        # that keeps the total threadgroup size under Metal's limit.
+        for block_id in block_ids[1:]:
+            configured = int(
+                env.config_spec.num_threads.config_get(config.num_threads, block_id, 0)
+            )
+            if configured > 0:
+                used_threads *= configured
+                continue
+
+            axis_size = env.block_sizes[block_id].from_config(config)
+            if not isinstance(axis_size, int):
+                continue
+
+            budget = max(1, MAX_THREADS_PER_BLOCK // max(1, used_threads))
+            chosen = _largest_divisor_at_most(axis_size, budget)
+            config_index = env.config_spec.num_threads.block_id_to_index(block_id)
+            if num_threads[config_index] != chosen:
+                num_threads[config_index] = chosen
+                changed = True
+            used_threads *= chosen
+
+        if not changed:
+            return config
+        return Config.from_dict({**config.config, "num_threads": num_threads})

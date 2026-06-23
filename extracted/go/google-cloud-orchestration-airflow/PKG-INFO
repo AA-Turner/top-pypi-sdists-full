@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: google-cloud-orchestration-airflow
-Version: 1.21.0
+Version: 1.22.0
 Summary: Google Cloud Orchestration Airflow API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-orchestration-airflow
 Author: Google LLC
 Author-email: googleapis-packages@google.com
-License: Apache 2.0
+License: Apache-2.0
 Platform: Posix; MacOS X; Windows
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,11 +19,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
-Requires-Dist: google-api-core[grpc]<3.0.0,>=2.11.0
+Requires-Dist: google-api-core[grpc]<3.0.0,>=2.17.1
 Requires-Dist: google-auth!=2.24.0,!=2.25.0,<3.0.0,>=2.14.1
-Requires-Dist: grpcio<2.0.0,>=1.33.2
+Requires-Dist: grpcio<2.0.0,>=1.59.0
 Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14"
 Requires-Dist: proto-plus<2.0.0,>=1.22.3
 Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
@@ -104,14 +103,15 @@ Supported Python Versions
 Our client libraries are compatible with all current `active`_ and `maintenance`_ versions of
 Python.
 
-Python >= 3.9, including 3.14
+Python >= 3.10, including 3.14
 
 .. _active: https://devguide.python.org/devcycle/#in-development-main-branch
 .. _maintenance: https://devguide.python.org/devcycle/#maintenance-branches
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python <= 3.8
+Python <= 3.9
+
 
 If you are using an `end-of-life`_
 version of Python, we recommend that you update as soon as possible to an actively supported version.

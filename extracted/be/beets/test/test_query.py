@@ -44,7 +44,6 @@ from beets.dbcore.query import (
 )
 from beets.library import Item
 from beets.test import _common
-from beets.test.helper import TestHelper
 
 # Because the absolute path begins with something like C:, we
 # can't disambiguate it from an ordinary query.
@@ -54,13 +53,13 @@ _p = pytest.param
 
 
 @pytest.fixture(scope="class")
-def helper():
-    helper = TestHelper()
-    helper.setup_beets()
+def helper(class_helper):
+    """Use class scope because each query class owns a library shape.
 
-    yield helper
-
-    helper.teardown_beets()
+    Class fixtures add rows, albums, flex types, paths, or media files and then
+    query whole collections, so sibling class data would change expectations.
+    """
+    return class_helper
 
 
 class TestGet:
@@ -272,7 +271,13 @@ class TestGet:
 class TestMatch:
     @pytest.fixture(scope="class")
     def item(self):
-        return _common.item(album="the album", disc=6, year=1, bitrate=128000)
+        return _common.item(
+            album="the album",
+            disc=6,
+            year=1,
+            bitrate=128000,
+            genres=["Classical", "Baroque"],
+        )
 
     @pytest.mark.parametrize(
         "q, should_match",
@@ -286,6 +291,10 @@ class TestMatch:
             (StringQuery("album", "the album"), True),
             (StringQuery("album", "THE ALBUM"), True),
             (StringQuery("album", "album"), False),
+            (MatchQuery("genres", "Classical"), True),
+            (MatchQuery("genres", "Neoclassical"), False),
+            (StringQuery("genres", "classical"), True),
+            (StringQuery("genres", "neoclassical"), False),
             (NumericQuery("year", "1"), True),
             (NumericQuery("year", "10"), False),
             (NumericQuery("bitrate", "100000..200000"), True),

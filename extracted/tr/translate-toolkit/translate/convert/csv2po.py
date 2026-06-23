@@ -65,11 +65,18 @@ class csv2po:
     file.
     """
 
-    def __init__(self, templatepo=None, charset=None, duplicatestyle="keep") -> None:
+    def __init__(
+        self,
+        templatepo=None,
+        charset=None,
+        duplicatestyle="keep",
+        unescape_formulas=False,
+    ) -> None:
         """Construct the converter..."""
         self.pofile = templatepo
         self.charset = charset
         self.duplicatestyle = duplicatestyle
+        self.unescape_formulas = unescape_formulas
         self.commentindex = {}
         self.sourceindex = {}
         self.simpleindex = {}
@@ -130,16 +137,35 @@ class csv2po:
             variants.append(normalized)
         return variants
 
-    @staticmethod
-    def convertunit(csvunit):
+    def maybe_unescape_spreadsheet_formula(self, value):
+        """Remove spreadsheet formula escaping when explicitly requested."""
+        if self.unescape_formulas:
+            return self.remove_spreadsheet_escape(value)
+        return value
+
+    def convertunit(self, csvunit):
         """Converts csv unit to po unit."""
         pounit = po.pounit(encoding="UTF-8")
         if csvunit.location:
-            pounit.addlocation(csvunit.location)
-        pounit.source = csvunit.source
-        pounit.target = csvunit.target
-        pounit.setcontext(csvunit.getcontext())
+            pounit.addlocation(
+                self.maybe_unescape_spreadsheet_formula(csvunit.location)
+            )
+        pounit.source = self.maybe_unescape_spreadsheet_formula(csvunit.source)
+        pounit.target = self.maybe_unescape_spreadsheet_formula(csvunit.target)
+        pounit.setcontext(self.maybe_unescape_spreadsheet_formula(csvunit.getcontext()))
         return pounit
+
+    @staticmethod
+    def set_plural_target(pounit, plural_index, target) -> None:
+        """Set one plural target while preserving the remaining plural forms."""
+        plural_target = pounit.target
+        plural_strings = [
+            str(value) for value in getattr(plural_target, "strings", [plural_target])
+        ]
+        if len(plural_strings) <= plural_index:
+            plural_strings.extend([""] * (plural_index + 1 - len(plural_strings)))
+        plural_strings[plural_index] = target
+        pounit.target = plural_strings
 
     def _get_csv_location(self, csvunit) -> str:
         """Get a formatted string showing the CSV file location with line number."""
@@ -213,15 +239,16 @@ class csv2po:
             # we need to work out whether we matched the singular or the plural
             singularid = pounit.source.strings[0]
             pluralid = pounit.source.strings[1]
+            plural_index = None
             if csv_source == singularid:
-                pounit.msgstr[0] = csvunit.target
+                plural_index = 0
             elif csv_source == pluralid:
-                pounit.msgstr[1] = csvunit.target
+                plural_index = 1
             elif simplify(csv_source) == simplify(singularid):
-                pounit.msgstr[0] = csvunit.target
+                plural_index = 0
             elif simplify(csv_source) == simplify(pluralid):
-                pounit.msgstr[1] = csvunit.target
-            else:
+                plural_index = 1
+            if plural_index is None:
                 logger.warning(
                     "couldn't work out singular/plural: %r, %r, %r",
                     csv_source,
@@ -230,8 +257,13 @@ class csv2po:
                 )
                 self.unmatched += 1
                 return
+            self.set_plural_target(
+                pounit,
+                plural_index,
+                self.maybe_unescape_spreadsheet_formula(csvunit.target),
+            )
         else:
-            pounit.target = csvunit.target
+            pounit.target = self.maybe_unescape_spreadsheet_formula(csvunit.target)
 
     def convertstore(self, thecsvfile):
         """
@@ -284,6 +316,7 @@ def convertcsv(
     charset=None,
     columnorder=None,
     duplicatestyle="msgctxt",
+    unescape_formulas=False,
 ) -> int:
     """
     Reads in inputfile using csvl10n, converts using csv2po, writes to
@@ -291,11 +324,18 @@ def convertcsv(
     """
     inputstore = csvl10n.csvfile(inputfile, fieldnames=columnorder)
     if templatefile is None:
-        convertor = csv2po(charset=charset, duplicatestyle=duplicatestyle)
+        convertor = csv2po(
+            charset=charset,
+            duplicatestyle=duplicatestyle,
+            unescape_formulas=unescape_formulas,
+        )
     else:
         templatestore = po.pofile(templatefile)
         convertor = csv2po(
-            templatestore, charset=charset, duplicatestyle=duplicatestyle
+            templatestore,
+            charset=charset,
+            duplicatestyle=duplicatestyle,
+            unescape_formulas=unescape_formulas,
         )
     outputstore = convertor.convertstore(inputstore)
     if outputstore.isempty():
@@ -336,8 +376,17 @@ def main(argv=None) -> None:
         help="specify the order and position of columns (location,source,target,context)",
     )
     parser.add_duplicates_option()
+    parser.add_option(
+        "",
+        "--unescape-formulas",
+        dest="unescape_formulas",
+        action="store_true",
+        default=False,
+        help="remove spreadsheet formula escaping from CSV values",
+    )
     parser.passthrough.append("charset")
     parser.passthrough.append("columnorder")
+    parser.passthrough.append("unescape_formulas")
     parser.run(argv)
 
 

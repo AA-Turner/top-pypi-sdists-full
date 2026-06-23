@@ -900,6 +900,8 @@ class AsymmetricProperty       (Property): namespace = owl
 class ReflexiveProperty        (Property): namespace = owl
 class IrreflexiveProperty      (Property): namespace = owl
 
+class reifies                  (DataProperty): namespace = rdf
+
 _CLASS_PROPS = { DataProperty, ObjectProperty }
 _TYPE_PROPS  = { FunctionalProperty, InverseFunctionalProperty, TransitiveProperty, SymmetricProperty, AsymmetricProperty, ReflexiveProperty, IrreflexiveProperty }
 _NON_INHERITED.update((TransitiveProperty, ReflexiveProperty, SymmetricProperty))

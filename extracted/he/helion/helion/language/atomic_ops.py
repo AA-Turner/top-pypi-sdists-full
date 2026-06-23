@@ -75,8 +75,25 @@ def _codegen_common(
         raise exc.AtomicOnDeviceTensor(op)
 
     device_fn = state.device_function
-    indexing_idx = device_fn.atomic_op_index
-    device_fn.atomic_op_index += 1
+    fx_node = state.fx_node
+    epilogue_subtile_group_id = (
+        None if fx_node is None else fx_node.meta.get("epilogue_subtile_group_id")
+    )
+    if epilogue_subtile_group_id is None:
+        indexing_idx = device_fn.atomic_op_index
+        device_fn.atomic_op_index += 1
+    elif fx_node is not None and fx_node.meta.get(
+        "epilogue_subtile_primary_output", False
+    ):
+        indexing_idx = device_fn.atomic_op_index
+        device_fn.atomic_op_index += 1
+        device_fn.epilogue_subtile_atomic_indices[epilogue_subtile_group_id] = (
+            indexing_idx
+        )
+    else:
+        indexing_idx = device_fn.epilogue_subtile_atomic_indices[
+            epilogue_subtile_group_id
+        ]
     strategy = device_fn.get_atomic_indexing_strategy(indexing_idx)
     return strategy.codegen_atomic(op, state, target, index, value_exprs[0], sem)
 
@@ -137,6 +154,33 @@ def _resolve_cute_atomic_kwargs(cute_func: str, requested: list[str]) -> list[st
     return resolved
 
 
+_CUTE_FLOAT_ATOMIC_HELPERS: dict[str, str] = {
+    "atomic_max": "_cute_atomic_max_float32",
+    "atomic_min": "_cute_atomic_min_float32",
+}
+
+
+def _cute_atomic_callee(cute_func: str, target_dtype_torch: torch.dtype) -> str:
+    """Pick the callee for a CuTe atomic op.
+
+    NVVM/PTX has no native ``atom.max``/``atom.min`` for floating point, so
+    float ``atomic_max``/``atomic_min`` are routed through runtime helpers that
+    emulate them with integer atomics (registered in
+    ``CuteBackend.library_imports``). All other ops, and integer max/min, use
+    the native ``cute.arch.<func>`` directly.
+    """
+    helper = _CUTE_FLOAT_ATOMIC_HELPERS.get(cute_func)
+    if helper is None or not target_dtype_torch.is_floating_point:
+        return f"cute.arch.{cute_func}"
+    if target_dtype_torch is not torch.float32:
+        raise exc.BackendUnsupported(
+            "cute",
+            f"{cute_func} on floating-point dtype {target_dtype_torch} "
+            "(only float32 is supported)",
+        )
+    return helper
+
+
 def _codegen_common_cute(
     cute_func: str,
     state: CodegenState,
@@ -159,6 +203,7 @@ def _codegen_common_cute(
 
     backend = CompileEnvironment.current().backend
     target_dtype = backend.dtype_str(target.dtype)
+    callee = _cute_atomic_callee(cute_func, target.dtype)
     cast_value_exprs = [
         expr_from_string(
             backend.ast_to_dtype_expr("{value}", target_dtype),
@@ -174,6 +219,7 @@ def _codegen_common_cute(
         sem,
         cast_value_exprs,
         keyword_names,
+        callee,
     )
     if tensor_index_stmt is not None:
         return tensor_index_stmt
@@ -187,7 +233,7 @@ def _codegen_common_cute(
     )
     placeholders = dict(zip(keyword_names, cast_value_exprs, strict=True))
     atomic_expr = expr_from_string(
-        f"cute.arch.{cute_func}({{ptr}}, {values_section}, sem={{sem}})",
+        f"{callee}({{ptr}}, {values_section}, sem={{sem}})",
         ptr=expr_from_string(pointer),
         sem=sem,
         **placeholders,
@@ -376,6 +422,24 @@ def _cute_unindexed_axis_leader_predicate(
     indexed_block_ids: set[int] = set()
     has_block_size_index = False
     for idx in index:
+        if isinstance(idx, torch.Tensor):
+            # A gather/scatter index tensor (e.g. ``output[idxs, tile_f]``)
+            # covers the tile dimension it was loaded along: the per-thread
+            # ``idxs`` value differs across that axis, so it is *indexed* and
+            # must not be collapsed to a single leader thread.
+            tensor_block_id = (
+                env.resolve_block_id(idx.shape[0]) if idx.ndim >= 1 else None
+            )
+            if tensor_block_id is not None and state.fx_node is not None:
+                has_block_size_index = True
+                indexed_block_ids.add(
+                    env.resolve_codegen_block_id(
+                        tensor_block_id,
+                        state.codegen,
+                        state.fx_node.graph,
+                    )
+                )
+            continue
         if not isinstance(idx, torch.SymInt):
             continue
         expr = _symint_expr(idx)
@@ -516,6 +580,7 @@ def _codegen_tensor_index_common_cute(
     sem: ast.AST,
     value_exprs: list[ast.AST],
     keyword_names: list[str],
+    callee: str,
 ) -> ast.AST | None:
     from .._compiler.compile_environment import CompileEnvironment
     from .memory_ops import _cute_active_index_var
@@ -550,6 +615,7 @@ def _codegen_tensor_index_common_cute(
             sem,
             value_exprs,
             keyword_names,
+            callee,
         )
 
     env = CompileEnvironment.current()
@@ -564,6 +630,7 @@ def _codegen_tensor_index_common_cute(
             sem,
             value_exprs,
             keyword_names,
+            callee,
         )
     block_id = env.resolve_codegen_block_id(block_id, state.codegen, fx_node.graph)
     if (index_var := _cute_active_index_var(state, block_id)) is None:
@@ -576,6 +643,7 @@ def _codegen_tensor_index_common_cute(
             sem,
             value_exprs,
             keyword_names,
+            callee,
         )
 
     tensor_name = state.device_function.tensor_arg(target).name
@@ -586,8 +654,7 @@ def _codegen_tensor_index_common_cute(
     )
     placeholders = dict(zip(keyword_names, value_exprs, strict=True))
     atomic_expr = expr_from_string(
-        "cute.arch."
-        + cute_func
+        callee
         + "("
         + f"({tensor_name}.iterator + "
         + f"cute.crd2idx((cutlass.Int32({iota_start}) + {index_var},), {tensor_name}.layout)).llvm_ptr, "
@@ -620,6 +687,7 @@ def _codegen_tensor_index_loop_common_cute(
     sem: ast.AST,
     value_exprs: list[ast.AST],
     keyword_names: list[str],
+    callee: str,
 ) -> ast.AST | None:
     from .._compiler.ast_extension import statement_from_string
 
@@ -682,8 +750,7 @@ def _codegen_tensor_index_loop_common_cute(
     )
     placeholders = dict(zip(keyword_names, indexed_values, strict=True))
     atomic_expr = expr_from_string(
-        "cute.arch."
-        + cute_func
+        callee
         + "("
         + f"({tensor_name}.iterator + "
         + f"cute.crd2idx(({{index}},), {tensor_name}.layout)).llvm_ptr, "

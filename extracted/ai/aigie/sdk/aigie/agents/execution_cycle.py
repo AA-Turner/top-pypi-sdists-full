@@ -46,7 +46,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from ..signals import SignalReporter
+    from aigie.signals import SignalReporter
 
 
 class CyclePhase(str, Enum):

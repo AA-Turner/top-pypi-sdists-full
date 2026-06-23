@@ -3350,7 +3350,7 @@ class Run:
                     artifact,
                     aliases,
                     tags,
-                    self.step,
+                    self.step if not self._settings._shared else 0,
                     finalize=finalize,
                     is_user_created=is_user_created,
                     use_after_commit=use_after_commit,
@@ -3762,7 +3762,11 @@ class Run:
                 f"or set {self._printer.code('WANDB_MODE=online')} "
                 "to enable cloud syncing."
             )
-            self._printer.display([offline_warning, sync_location_msg])
+            leet_hint = (
+                "View this run in the terminal with "
+                f"{self._printer.code('`wandb leet`')}"
+            )
+            self._printer.display([offline_warning, sync_location_msg, leet_hint])
         else:
             messages = [sync_location_msg]
 

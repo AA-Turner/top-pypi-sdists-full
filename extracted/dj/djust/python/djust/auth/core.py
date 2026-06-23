@@ -109,7 +109,94 @@ def check_view_auth(view_instance, request) -> Optional[str]:
             )
             return login_url
 
+    # 4. Honor Django's standard auth mixins (the AccessMixin family).
+    #    These enforce via ``dispatch()`` on the HTTP path, but the WS/SSE
+    #    mount path authorizes through this function rather than dispatch().
+    #    Without this, LoginRequiredMixin / PermissionRequiredMixin /
+    #    UserPassesTestMixin were enforced on the initial HTTP GET but
+    #    silently bypassed over WebSocket (GHSA — finding #14).
+    mixin_redirect = _check_django_access_mixins(view_instance, request, login_url)
+    if mixin_redirect is not None:
+        return mixin_redirect
+
     return None  # Auth passed
+
+
+def _check_django_access_mixins(view_instance, request, login_url):
+    """Enforce ``django.contrib.auth.mixins`` (the AccessMixin family) on the
+    WS/SSE mount path, mirroring each mixin's ``handle_no_permission()``.
+
+    Returns a login-redirect URL on an *unauthenticated* denial, raises
+    :class:`PermissionDenied` on an *authenticated* (or ``raise_exception``)
+    denial — matching Django's HTTP-path semantics — or ``None`` when the view
+    is not an AccessMixin subclass or all mixin checks pass.
+    """
+    try:
+        from django.contrib.auth.mixins import (
+            AccessMixin,
+            LoginRequiredMixin,
+            PermissionRequiredMixin,
+            UserPassesTestMixin,
+        )
+    except Exception:  # noqa: BLE001 — django.contrib.auth not installed
+        return None
+
+    if not isinstance(view_instance, AccessMixin):
+        return None
+
+    # The mixin check methods (has_permission/test_func/get_login_url) read
+    # ``self.request``; the WS mount may not have stamped it on the instance
+    # yet (``LiveView.__init__`` sets ``self.request = None``). Set it when it
+    # is absent or None, and restore the original afterwards so this auth check
+    # stays side-effect-free.
+    _MISSING = object()
+    orig_request = view_instance.__dict__.get("request", _MISSING)
+    need_set = orig_request is _MISSING or orig_request is None
+    if need_set:
+        view_instance.request = request
+    try:
+        user = getattr(request, "user", None)
+        authed = bool(user is not None and getattr(user, "is_authenticated", False))
+
+        failed = False
+        if isinstance(view_instance, LoginRequiredMixin) and not authed:
+            failed = True
+        if not failed and isinstance(view_instance, PermissionRequiredMixin):
+            failed = not view_instance.has_permission()
+        if not failed and isinstance(view_instance, UserPassesTestMixin):
+            failed = not view_instance.get_test_func()()
+        if not failed:
+            return None
+
+        logger.info(
+            "Auth denied for %s: Django auth mixin check failed (WS path)",
+            view_instance.__class__.__name__,
+        )
+        # Mirror AccessMixin.handle_no_permission(): authenticated (or
+        # raise_exception) => 403; anonymous => redirect to login.
+        if bool(getattr(view_instance, "raise_exception", False)) or authed:
+            try:
+                msg = view_instance.get_permission_denied_message()
+            except Exception:  # noqa: BLE001
+                msg = ""
+            raise PermissionDenied(msg or "Permission denied")
+        try:
+            return view_instance.get_login_url() or login_url
+        except Exception:  # noqa: BLE001 — ImproperlyConfigured etc.
+            return login_url
+    finally:
+        if need_set:
+            try:
+                if orig_request is _MISSING:
+                    view_instance.__dict__.pop("request", None)
+                else:
+                    view_instance.request = orig_request
+            except Exception as exc:  # noqa: BLE001 — best-effort restore
+                logger.debug(
+                    "check_view_auth: could not restore .request on %s: %s",
+                    view_instance.__class__.__name__,
+                    exc,
+                )
 
 
 def _has_custom_check_permissions(view_instance) -> bool:
@@ -236,6 +323,55 @@ def check_object_permission(view_instance, request) -> None:
 
     # Permission granted — populate the cache only now.
     view_instance._object = obj
+
+
+def enforce_object_permission(view_instance, request) -> None:
+    """Run the ADR-017 post-mount object-permission check on ANY render path.
+
+    A shared chokepoint so object-level authorization is enforced uniformly,
+    not just on the WS mount + event paths. Before this, the initial HTTP GET
+    render (:meth:`RequestMixin.get`/``aget``), SPA ``url_change`` navigation
+    (:meth:`ViewRuntime.dispatch_url_change`), and ``{% live_render %}``
+    embedded children rendered an object-scoped view WITHOUT the object-level
+    check, leaking denied objects (findings #10 / #11 / #12).
+
+    Semantics:
+
+    * No-op when the view does not opt into the lifecycle (no custom
+      ``get_object`` override) — same as :func:`check_object_permission`.
+    * Raises :class:`~django.core.exceptions.PermissionDenied` on denial.
+    * **Fail-closed**: a ``None`` request (cannot authorize) or any
+      non-``PermissionDenied`` exception from the developer's ``get_object`` /
+      ``has_object_permission`` is treated as denial — mirroring the event-path
+      handling in ``websocket_utils._validate_event_security`` (#1380, #1638).
+
+    Callers translate the raised ``PermissionDenied`` into the transport's
+    natural denial shape (HTTP 403, a ``permission_denied`` error frame, or a
+    refused embed).
+    """
+    if not _has_custom_get_object(view_instance):
+        return
+
+    if request is None:
+        # Object-scoped view but no request to authorize against → fail closed
+        # (mirrors the #1380 sticky-child handling on the event path).
+        logger.warning(
+            "Object-permission check skipped (no request) for %s; failing closed",
+            view_instance.__class__.__name__,
+        )
+        raise PermissionDenied("Access denied for this object.")
+
+    try:
+        check_object_permission(view_instance, request)
+    except PermissionDenied:
+        raise
+    except Exception as exc:  # noqa: BLE001 — fail-closed by design
+        logger.exception(
+            "Object-permission check raised a non-PermissionDenied exception "
+            "for %s; failing closed (denying)",
+            view_instance.__class__.__name__,
+        )
+        raise PermissionDenied("Access denied for this object.") from exc
 
 
 def check_view_auth_lightweight(view_instance, request) -> bool:

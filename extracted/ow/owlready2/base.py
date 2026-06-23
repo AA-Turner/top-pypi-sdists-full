@@ -47,19 +47,22 @@ def to_literal(o):
   if datatype is None: raise ValueError("Cannot store literal '%s' of type '%s'!" % (o, type(o)))
   return unparser(o), datatype
   
-def from_literal(o, d):
+def from_literal(o, d, world = None):
   if isinstance(d, str):
     if d.startswith("@"): return locstr(o, lang = d[1:])
     return o
   if d == 0: return o
   datatype, parser = _universal_abbrev_2_datatype_parser.get(d) or (None, None)
-  if parser is None: raise ValueError("Cannot read literal of datatype %s!" % repr(d))
+  if parser is None:
+    if d == rdfs_proposition: return TripleTerm(int(o), world)
+    raise ValueError("Cannot read literal of datatype %s!" % repr(d))
   return parser(o)
 
 _universal_abbrev_2_iri = {}
 _universal_iri_2_abbrev = {}
 _next_abb = 1
 def _universal_abbrev(iri):
+  if iri in _universal_iri_2_abbrev: return _universal_iri_2_abbrev[iri]
   global _next_abb
   abb = _next_abb
   _next_abb += 1
@@ -326,6 +329,49 @@ _universal_abbrev_datatype(bytes,
                            _parse_base64,
                            _format_base64,
                            "http://www.w3.org/2001/XMLSchema#base64Binary")
+
+
+def _parse_json(s):
+  import json
+  return json.loads(s)
+def _format_json(x):
+  import json
+  return json.dumps(x)
+
+_universal_abbrev_datatype(list, _parse_json, _format_json, "http://www.w3.org/1999/02/22-rdf-syntax-ns#json")
+_universal_abbrev_datatype(dict, _parse_json, _format_json, "http://www.w3.org/1999/02/22-rdf-syntax-ns#json")
+
+
+rdfs_proposition = _universal_abbrev("http://www.w3.org/2000/01/rdf-schema#Proposition")
+
+class TripleTerm(object):
+  def __init__(self, triple, namespace = None):
+    self.world = namespace.world
+    if isinstance(triple, int):
+      self.rowid = triple
+      self._triple = None
+    else:
+      s, p, o = triple
+      self.rowid = namespace.ontology.graph._get_rowid(s.storid, p if type(p) is int else p.storid, *namespace.world._to_rdf(o))
+      self._triple = triple
+      
+  def get_triple(self):
+    if self._triple is None:
+      t = self.world.graph._get_triple_from_rowid(self.rowid)
+      if t: self._triple = (self.world._get_by_storid(t[0]), self.world._get_by_storid(t[1]) or t[1], self.world._to_python(t[2]))
+    return self._triple
+  triple = property(get_triple)
+  
+  def __repr__(self):
+    return "TripleTerm((%s), %s)" % (", ".join(repr(i) for i in self.get_triple()), self.world)
+  
+  
+def _format_triple_term(t): return t.rowid
+
+_universal_abbrev_datatype(TripleTerm, None, _format_triple_term, "http://www.w3.org/2000/01/rdf-schema#Proposition")
+_universal_abbrev_2_datatype_parser[rdfs_proposition] = (TripleTerm, None)
+
+rdf_reifies = _universal_abbrev("http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies")
 
 issubclass_python = issubclass
 

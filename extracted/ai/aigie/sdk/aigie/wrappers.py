@@ -25,7 +25,7 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import datetime, timezone
 from typing import Any
 
-from .context_manager import (
+from aigie.context_manager import (
     RunContext,
     get_current_span_context,
     get_current_trace_context,
@@ -33,7 +33,7 @@ from .context_manager import (
     is_tracing_enabled,
     set_current_span_context,
 )
-from .cost_tracking import extract_and_calculate_cost
+from aigie.cost_tracking import extract_and_calculate_cost
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ async def _queue_llm_span_event(run_ctx: RunContext, trace_id: str) -> None:
     data flows to the backend correctly.
     """
     try:
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         aigie = get_aigie()
         if not aigie or not aigie._buffer:
@@ -197,7 +197,7 @@ async def _queue_llm_span_event(run_ctx: RunContext, trace_id: str) -> None:
 
 def _queue_llm_span_event_sync(run_ctx: RunContext, trace_id: str) -> None:
     """Synchronously queue an LLM span event (schedules async operation)."""
-    from .utils.safe import schedule_async
+    from aigie.utils.safe import schedule_async
 
     schedule_async(_queue_llm_span_event(run_ctx, trace_id))
 
@@ -314,14 +314,14 @@ class OpenAIWrapper:
             return await func(*args, **kwargs)
 
         # Recursion guard: skip wrapper tracing if already inside an LLM instrumentation layer
-        from .auto_instrument.trace import is_in_llm_instrumentation
+        from aigie.auto_instrument.trace import is_in_llm_instrumentation
 
         if is_in_llm_instrumentation():
             return await func(*args, **kwargs)
 
         from uuid import uuid4
 
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         # Extract parameters
         model = kwargs.get("model", "unknown")
@@ -361,22 +361,6 @@ class OpenAIWrapper:
         trace_id = trace_ctx.id if trace_ctx else run_id
 
         try:
-            # ==================== FEED CONTEXT AGGREGATOR (Phase 1.2) ====================
-            if aigie and aigie._context_aggregator:
-                try:
-                    aigie._context_aggregator.add_span(
-                        trace_id=trace_id,
-                        span_id=run_id,
-                        span_type="llm",
-                        parent_span_id=run_ctx.parent_id,
-                        name=run_ctx.name,
-                        input_messages=messages,
-                        model=model,
-                        provider="openai",
-                    )
-                except Exception:
-                    pass  # Never block agent
-
             # ==================== PRE-CALL INTERCEPTION ====================
             if aigie and aigie._interceptor_chain:
                 try:
@@ -390,7 +374,7 @@ class OpenAIWrapper:
                     )
 
                     # Check if request was blocked
-                    from .interceptor.protocols import (
+                    from aigie.interceptor.protocols import (
                         InterceptionBlockedError,
                         InterceptionDecision,
                     )
@@ -415,7 +399,7 @@ class OpenAIWrapper:
                     # open — an SDK-internal interception bug must never
                     # prevent the customer's LLM call.
                     try:
-                        from .interceptor.protocols import InterceptionBlockedError
+                        from aigie.interceptor.protocols import InterceptionBlockedError
 
                         if isinstance(intercept_error, InterceptionBlockedError):
                             raise
@@ -492,7 +476,10 @@ class OpenAIWrapper:
                     )
 
                     # Handle retry request
-                    from .interceptor.protocols import InterceptionDecision, InterceptionRetryError
+                    from aigie.interceptor.protocols import (
+                        InterceptionDecision,
+                        InterceptionRetryError,
+                    )
 
                     if (
                         interception_ctx.decision == InterceptionDecision.MODIFY
@@ -524,7 +511,7 @@ class OpenAIWrapper:
                     # SDK-internal interception bug must never destroy the
                     # customer's successful LLM response.
                     try:
-                        from .interceptor.protocols import InterceptionRetryError
+                        from aigie.interceptor.protocols import InterceptionRetryError
 
                         if isinstance(intercept_error, InterceptionRetryError):
                             raise
@@ -540,7 +527,7 @@ class OpenAIWrapper:
         except Exception as e:
             # Check if it's an interception retry request
             try:
-                from .interceptor.protocols import InterceptionRetryError
+                from aigie.interceptor.protocols import InterceptionRetryError
 
                 if isinstance(e, InterceptionRetryError) and e.retry_kwargs:
                     logger.info(f"[wrapper] Retrying with modified parameters: {e.reason}")
@@ -565,7 +552,7 @@ class OpenAIWrapper:
                     )
 
                     # Check if auto-fix suggests retry
-                    from .interceptor.protocols import InterceptionDecision
+                    from aigie.interceptor.protocols import InterceptionDecision
 
                     if interception_ctx.should_retry and interception_ctx.retry_kwargs:
                         logger.info("[wrapper] Auto-fix retry after error")
@@ -594,14 +581,14 @@ class OpenAIWrapper:
             return func(*args, **kwargs)
 
         # Recursion guard: skip wrapper tracing if already inside an LLM instrumentation layer
-        from .auto_instrument.trace import is_in_llm_instrumentation
+        from aigie.auto_instrument.trace import is_in_llm_instrumentation
 
         if is_in_llm_instrumentation():
             return func(*args, **kwargs)
 
         from uuid import uuid4
 
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
@@ -641,7 +628,7 @@ class OpenAIWrapper:
             # For sync calls, we can only use the local rules engine (no async backend)
             if aigie and aigie._rules_engine:
                 try:
-                    from .interceptor.protocols import (
+                    from aigie.interceptor.protocols import (
                         InterceptionBlockedError,
                         InterceptionContext,
                         InterceptionDecision,
@@ -660,7 +647,7 @@ class OpenAIWrapper:
                     # Evaluate local rules synchronously (rules engine is sync)
                     # We can't call the full async chain, but we can check rules
                     try:
-                        from .utils.safe import schedule_async
+                        from aigie.utils.safe import schedule_async
 
                         result = schedule_async(aigie._rules_engine.evaluate(interception_ctx))
                         if result is not None and result.decision == InterceptionDecision.BLOCK:
@@ -805,7 +792,7 @@ class OpenAIWrapper:
             # Post-call interception for streaming
             if interception_ctx:
                 try:
-                    from .client import get_aigie
+                    from aigie.client import get_aigie
 
                     aigie = get_aigie()
                     if aigie and aigie._interceptor_chain:
@@ -1022,14 +1009,14 @@ class AnthropicWrapper:
     async def _handle_messages_create_async(self, func: Callable, *args, **kwargs) -> Any:
         """Handle async messages.create with tracing."""
         # Recursion guard: skip wrapper tracing if already inside an LLM instrumentation layer
-        from .auto_instrument.trace import is_in_llm_instrumentation
+        from aigie.auto_instrument.trace import is_in_llm_instrumentation
 
         if is_in_llm_instrumentation():
             return await func(*args, **kwargs)
 
         from uuid import uuid4
 
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
@@ -1069,27 +1056,14 @@ class AnthropicWrapper:
         prev_span_ctx = get_current_span_context()
         set_current_span_context(run_ctx)
 
-        # Interception context for autonomous retry routing.
+        # Autonomous retry routing was gated on the removed autonomous mode; ctx stays None.
         _aigie_for_retry = get_aigie()
         _intercept_ctx = None
-        if (
-            _aigie_for_retry
-            and getattr(_aigie_for_retry, "_initialized", False)
-            and getattr(getattr(_aigie_for_retry, "config", None), "autonomous", False)
-        ):
-            try:
-                _intercept_ctx = await _aigie_for_retry.intercept_pre_call(
-                    provider="anthropic",
-                    model=kwargs.get("model", "unknown"),
-                    messages=kwargs.get("messages", []),
-                )
-            except Exception:
-                _intercept_ctx = None
 
         async def _do_call():
             return await func(*args, **kwargs)
 
-        from .autonomous.inline_call import acall_with_autonomous
+        from aigie.autonomous.inline_call import acall_with_autonomous
 
         try:
             response = await acall_with_autonomous(_do_call, _intercept_ctx, _aigie_for_retry)
@@ -1151,14 +1125,14 @@ class AnthropicWrapper:
     def _handle_messages_create_sync(self, func: Callable, *args, **kwargs) -> Any:
         """Handle sync messages.create with tracing."""
         # Recursion guard: skip wrapper tracing if already inside an LLM instrumentation layer
-        from .auto_instrument.trace import is_in_llm_instrumentation
+        from aigie.auto_instrument.trace import is_in_llm_instrumentation
 
         if is_in_llm_instrumentation():
             return func(*args, **kwargs)
 
         from uuid import uuid4
 
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
@@ -1196,29 +1170,11 @@ class AnthropicWrapper:
         prev_span_ctx = get_current_span_context()
         set_current_span_context(run_ctx)
 
-        # Autonomous retry: build a minimal InterceptionContext so the chain
-        # hook receives enough context to decide on retry. Pre-call blocking is
-        # not available in the sync Anthropic path (by design — use async).
+        # Autonomous retry routing was gated on the removed autonomous mode; ctx stays None.
         _aigie_for_retry = get_aigie()
         _intercept_ctx = None
-        if (
-            _aigie_for_retry
-            and getattr(_aigie_for_retry, "_initialized", False)
-            and getattr(getattr(_aigie_for_retry, "config", None), "autonomous", False)
-            and getattr(_aigie_for_retry, "_interceptor_chain", None) is not None
-        ):
-            try:
-                from .interceptor.protocols import InterceptionContext as _IC
 
-                _intercept_ctx = _IC(
-                    provider="anthropic",
-                    model=kwargs.get("model", "unknown"),
-                    messages=list(kwargs.get("messages", [])),
-                )
-            except Exception:
-                _intercept_ctx = None
-
-        from .autonomous.inline_call import call_sync_with_autonomous
+        from aigie.autonomous.inline_call import call_sync_with_autonomous
 
         try:
             response = call_sync_with_autonomous(
@@ -1302,7 +1258,7 @@ class AnthropicWrapper:
         now produces.
         """
         try:
-            from .client import get_aigie
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if not aigie or not aigie._buffer:

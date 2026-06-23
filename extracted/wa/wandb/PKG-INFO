@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandb
-Version: 0.27.2
+Version: 0.28.0
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -63,6 +63,10 @@ Requires-Dist: botocore>=1.5.76; extra == 'aws'
 Provides-Extra: azure
 Requires-Dist: azure-identity; extra == 'azure'
 Requires-Dist: azure-storage-blob; extra == 'azure'
+Provides-Extra: eval-table
+Requires-Dist: weave>=0.52.41; extra == 'eval-table'
+Provides-Extra: eval-table-video-support
+Requires-Dist: weave[video-support]>=0.52.41; extra == 'eval-table-video-support'
 Provides-Extra: gcp
 Requires-Dist: google-cloud-storage; extra == 'gcp'
 Provides-Extra: kubeflow

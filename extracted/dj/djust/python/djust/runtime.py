@@ -58,6 +58,40 @@ from .websocket_utils import (
 logger = logging.getLogger(__name__)
 
 
+def _tenant_context(tenant):
+    """Bind *tenant* as the current tenant for a runtime dispatch (Finding #6).
+
+    The runtime drives the SSE mount/event/url-change path and the WS
+    url-change path. ``TenantMiddleware`` only binds the tenant on the HTTP
+    path, so without this the tenant-scoped managers see ``None`` here and
+    (fail-closed) return empty querysets. Lazily imports the canonical
+    ``tenant_context`` and falls back to a no-op when tenants is unavailable.
+    """
+    try:
+        from .tenants.middleware import tenant_context
+
+        return tenant_context(tenant)
+    except Exception:  # noqa: BLE001 — tenants is optional; never break the live path
+        from contextlib import nullcontext
+
+        return nullcontext()
+
+
+def _bind_tenant(tenant):
+    """Set the current tenant ContextVar for the runtime path (Finding #6).
+
+    Mirrors :func:`djust.websocket._bind_tenant` — used on the SSE mount path
+    after the view resolves its tenant, so ``mount()`` + initial render see the
+    correct tenant. No-op when tenants is unavailable.
+    """
+    try:
+        from .tenants.middleware import set_current_tenant
+
+        set_current_tenant(tenant)
+    except Exception:  # noqa: BLE001 — tenants is optional; never break the live path
+        pass
+
+
 # ------------------------------------------------------------------ #
 # Transport Protocol + adapters
 # ------------------------------------------------------------------ #
@@ -256,24 +290,32 @@ class ViewRuntime:
 
         view_path = data.get("view")
         params: Dict[str, Any] = data.get("params", {}) or {}
-        page_url = data.get("url", "/")
+        # F23 (#1819 traversal fix, parallel-path-drift #1646): the client URL is
+        # attacker-controlled and is fed to RequestFactory.get() / resolve() /
+        # logs / build_absolute_uri below. Validate it through the SAME shared
+        # validator the WebSocket path uses (websocket.handle_mount), so the SSE
+        # / runtime path neutralises "/%2e%2e/admin/" identically. _build_request
+        # validates again defensively.
+        from .security.mount import is_view_path_allowed, validate_mount_url
+
+        page_url = validate_mount_url(data.get("url", "/"))
         client_timezone = data.get("client_timezone")
 
         if not view_path:
             await self.transport.send_error("Missing view path in mount request")
             return
 
-        # ---- Security: module allowlist ----
-        from django.conf import settings
-
-        allowed_modules = getattr(settings, "LIVEVIEW_ALLOWED_MODULES", [])
-        if allowed_modules and not any(view_path.startswith(m) for m in allowed_modules):
+        # ---- Security (F22 — unsafe reflection / arbitrary module import) ----
+        # Shape + allowlist gate (no import) for a clean early reject frame even
+        # when a test overrides _instantiate_view. The full resolver
+        # (resolve_view_class) runs inside _instantiate_view as defense in depth.
+        if not is_view_path_allowed(view_path):
             logger.warning(
-                "Blocked attempt to mount view from unauthorized module: %s",
+                "Blocked attempt to mount disallowed/uninitialized view: %s",
                 sanitize_for_log(view_path),
             )
             await self.transport.send_error(
-                _safe_error(f"View {view_path} is not in allowed modules", "View not found")
+                _safe_error(f"View {view_path} is not allowed", "View not found")
             )
             return
 
@@ -339,6 +381,28 @@ class ViewRuntime:
             # _check_auth already pushed the appropriate frame.
             self.view_instance = None
             return
+
+        # ---- Resolve + bind tenant (Finding #6) ----
+        # TenantMixin views resolve the tenant via _ensure_tenant; the SSE/runtime
+        # mount path (unlike the HTTP path) has no TenantMiddleware to bind it, so
+        # do it here. Bind the resolved tenant into the ContextVar so mount() and
+        # the initial render see the correct tenant in the tenant-scoped managers
+        # (fail-closed / empty otherwise). Re-bound per event in dispatch_event.
+        if hasattr(view_instance, "_ensure_tenant"):
+            try:
+                await sync_to_async(view_instance._ensure_tenant)(request)
+            except Exception as exc:
+                response = handle_exception(
+                    exc,
+                    error_type="mount",
+                    view_class=view_path,
+                    logger=logger,
+                    log_message=f"Error resolving tenant for {sanitize_for_log(view_path)}",
+                )
+                await self.transport.send(response)
+                self.view_instance = None
+                return
+        _bind_tenant(getattr(view_instance, "_tenant", None))
 
         # ---- Mount kwargs ----
         mount_kwargs = dict(params)
@@ -439,7 +503,16 @@ class ViewRuntime:
         Returns ``noop`` on no-state-change, ``patch`` on diff-able render,
         ``html_update`` otherwise. Mirrors the simplified single-view path
         from the legacy ``_sse_handle_event``.
+
+        Wrapped in the tenant context (Finding #6) so the handler + render see
+        the correct tenant in the tenant-scoped managers, cleared on exit.
         """
+        tenant = getattr(self.view_instance, "_tenant", None) if self.view_instance else None
+        with _tenant_context(tenant):
+            await self._dispatch_event_inner(data)
+
+    async def _dispatch_event_inner(self, data: Dict[str, Any]) -> None:
+        """Event dispatch body (see :meth:`dispatch_event` for the tenant wrapper)."""
         if not self.view_instance:
             await self.transport.send_error("View not mounted. Please reload the page.")
             return
@@ -549,7 +622,16 @@ class ViewRuntime:
         Calls ``handle_params(params, uri)`` then re-renders + sends patches.
         Mirrors the legacy ``LiveViewConsumer.handle_url_change`` (now a
         thin shim over this method).
+
+        Wrapped in the tenant context (Finding #6) so handle_params + the
+        object-permission re-check + render see the correct tenant.
         """
+        tenant = getattr(self.view_instance, "_tenant", None) if self.view_instance else None
+        with _tenant_context(tenant):
+            await self._dispatch_url_change_inner(data)
+
+    async def _dispatch_url_change_inner(self, data: Dict[str, Any]) -> None:
+        """URL-change body (see :meth:`dispatch_url_change` for the tenant wrapper)."""
         if not self.view_instance:
             await self.transport.send_error("View not mounted")
             return
@@ -559,6 +641,24 @@ class ViewRuntime:
 
         try:
             await sync_to_async(self.view_instance.handle_params)(params, uri)
+
+            # Object-permission re-check (ADR-017) after the client-supplied URL
+            # params may have changed the access-determining state. Without this,
+            # url_change navigates to a denied object and re-renders it
+            # (finding #10). No-op for views that don't override get_object.
+            from django.core.exceptions import PermissionDenied
+
+            from .auth.core import enforce_object_permission
+
+            try:
+                await sync_to_async(enforce_object_permission)(
+                    self.view_instance, getattr(self.view_instance, "request", None)
+                )
+            except PermissionDenied:
+                await self.transport.send_error(
+                    "Access denied for this object.", code="permission_denied"
+                )
+                return
 
             if hasattr(self.view_instance, "_sync_state_to_rust"):
                 await sync_to_async(self.view_instance._sync_state_to_rust)()
@@ -617,32 +717,28 @@ class ViewRuntime:
         failure and returns ``None``. Override-friendly for tests.
         """
 
-        try:
-            module_path, class_name = view_path.rsplit(".", 1)
-            module = __import__(module_path, fromlist=[class_name])
-            view_class = getattr(module, class_name)
-        except (ValueError, ImportError, AttributeError) as exc:
-            error_msg = f"Failed to load view {view_path}: {exc}"
-            logger.error("Failed to load view %s: %s", sanitize_for_log(view_path), exc)
+        # Security (F22 — unsafe reflection / arbitrary module import): resolve
+        # through the single shared resolver (shape-check → allowlist-before-
+        # import → import_module + vars() PEP 562-safe lookup → LiveView subclass
+        # check). Fail-closed; defense in depth even if a caller forgot to gate.
+        # Shared with the WebSocket/SSE paths (#1646). See djust.security.mount.
+        from .security.mount import resolve_view_class
+
+        resolution = resolve_view_class(view_path)
+        if not resolution:
+            logger.error(
+                "Failed to load view %s: %s", sanitize_for_log(view_path), resolution.detail
+            )
             asyncio.ensure_future(
                 self.transport.send(
-                    {"type": "error", "error": _safe_error(error_msg, "View not found")}
+                    {
+                        "type": "error",
+                        "error": _safe_error(resolution.detail, resolution.generic),
+                    }
                 )
             )
             return None
-
-        # Must be a LiveView subclass.
-        from .live_view import LiveView
-
-        if not (isinstance(view_class, type) and issubclass(view_class, LiveView)):
-            error_msg = f"Security: {view_path} is not a LiveView subclass."
-            logger.error("Security: %s is not a LiveView subclass.", sanitize_for_log(view_path))
-            asyncio.ensure_future(
-                self.transport.send(
-                    {"type": "error", "error": _safe_error(error_msg, "Invalid view class")}
-                )
-            )
-            return None
+        view_class = resolution.view_class
 
         try:
             return view_class()
@@ -669,10 +765,36 @@ class ViewRuntime:
         from django.test import RequestFactory
         from urllib.parse import urlencode
 
+        from .security.mount import validate_mount_url
+
+        # F23 (#1819 / #1646): validate defensively here too, so the request is
+        # never built from a traversed URL even if a future caller reaches
+        # _build_request without going through dispatch_mount's validation.
+        page_url = validate_mount_url(page_url)
         factory = RequestFactory()
         query_string = urlencode(params) if params else ""
         path_with_query = f"{page_url}?{query_string}" if query_string else page_url
-        request = factory.get(path_with_query)
+
+        # Finding #26: propagate the validated client Host (and TLS scheme) into
+        # the reconstructed request so host/subdomain TenantResolvers resolve the
+        # SAME tenant the WS mount and the HTTP (SSR) path resolve. Without
+        # HTTP_HOST the request defaults to RequestFactory's "testserver",
+        # misresolving the tenant to None on runtime-rebuilt requests (url_change
+        # etc.). Sourced from ``self.scope`` (set for WS-backed runtimes), routed
+        # through the SAME shared helper the WS handle_mount path uses
+        # (``websocket.validated_host_from_scope``) so the two reconstructed-
+        # request paths cannot drift (#1646). SSE-backed runtimes have
+        # ``scope=None`` and use the real HTTP request, so they are unaffected.
+        from .websocket import validated_host_from_scope
+
+        host, is_secure = validated_host_from_scope(self.scope)
+        request_extra = {}
+        if host:
+            request_extra["HTTP_HOST"] = host
+        if is_secure:
+            request_extra["secure"] = True
+            request_extra["HTTP_X_FORWARDED_PROTO"] = "https"
+        request = factory.get(path_with_query, **request_extra)
 
         # Wire session if available from WS scope
         try:

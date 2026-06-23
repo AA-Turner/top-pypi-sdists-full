@@ -14,18 +14,15 @@ from typing import Any
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
 
-from ._legacy_stubs import ErrorDetector, get_error_detector  # legacy autonomous-mode shim
-from .client import Aigie
-from .tracing.trace_state import deregister_open_span, register_open_span
-from .trace import TraceContext
+from aigie._legacy_stubs import ErrorDetector, get_error_detector  # legacy autonomous-mode shim
+from aigie.client import Aigie
+from aigie.tracing.trace_state import deregister_open_span, register_open_span
+from aigie.trace import TraceContext
 
 # Optional error and drift detection imports
 try:
-    from .integrations.langchain.drift_detection import DriftDetector
-    from .integrations.langchain.error_detection import (
-        ErrorDetector,
-        get_error_detector,
-    )
+    from aigie.integrations.langchain.drift_detection import DriftDetector
+    from aigie.integrations.langchain.error_detection import ErrorDetector, get_error_detector
 
     HAS_DETECTION = True
 except ImportError:
@@ -398,14 +395,14 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
         # If no trace provided, try to get one from auto-instrumentation
         if not self.trace:
-            from .auto_instrument.trace import get_current_trace
+            from aigie.auto_instrument.trace import get_current_trace
 
             self.trace = get_current_trace()
 
             # If still no trace and we have aigie, try to create one synchronously
             if not self.trace and self.aigie and self.aigie._initialized:
                 try:
-                    from .auto_instrument.trace import get_or_create_trace_sync
+                    from aigie.auto_instrument.trace import get_or_create_trace_sync
 
                     chain_name = _get_chain_name(serialized)
                     # Try to create trace synchronously
@@ -429,7 +426,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
         # IMPORTANT: Set _current_trace so nested LLM calls inside workflow nodes
         # can find the parent trace via get_current_trace()
         # This is critical for proper trace nesting without requiring customer code changes
-        from .auto_instrument.trace import set_current_trace
+        from aigie.auto_instrument.trace import set_current_trace
 
         set_current_trace(self.trace)
 
@@ -535,7 +532,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
         # Set process-level span ID synchronously for OTel bridge.
         # span.id is pre-generated in __init__ — available immediately.
         try:
-            from .auto_instrument.span_enricher import set_active_span_id
+            from aigie.auto_instrument.span_enricher import set_active_span_id
 
             set_active_span_id(span.id)
         except Exception:
@@ -785,7 +782,9 @@ class AigieCallbackHandler(BaseCallbackHandler):
                         pass
 
             # Sync update — stamps end_time now, no async race.
-            self._send_span_update(span, run_id, outputs if isinstance(outputs, dict) else {}, detected_error)
+            self._send_span_update(
+                span, run_id, outputs if isinstance(outputs, dict) else {}, detected_error
+            )
 
             # If this is the root chain, complete the trace — UNLESS this handler
             # is bound to a LangGraph thread_id, in which case the auto-instrument
@@ -797,7 +796,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
             # Restore process-level span ID to parent for OTel bridge
             try:
-                from .auto_instrument.span_enricher import set_active_span_id
+                from aigie.auto_instrument.span_enricher import set_active_span_id
 
                 parent_run = self._span_contexts[run_id].get("parent_run_id")
                 parent_span = (
@@ -868,7 +867,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
         # Try to get trace from context if not set
         if not self.trace:
-            from .auto_instrument.trace import get_current_trace
+            from aigie.auto_instrument.trace import get_current_trace
 
             self.trace = get_current_trace()
             if os.environ.get("AIGIE_DEBUG"):
@@ -880,7 +879,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
             return
 
         # Ensure _current_trace is set so any nested calls can find parent trace
-        from .auto_instrument.trace import set_current_trace
+        from aigie.auto_instrument.trace import set_current_trace
 
         set_current_trace(self.trace)
 
@@ -1295,10 +1294,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
             if has_token_usage:
                 try:
-                    from .cost_tracking import (
-                        calculate_cost,
-                        get_model_pricing,
-                    )
+                    from aigie.cost_tracking import calculate_cost, get_model_pricing
 
                     # Extract token counts
                     input_tokens = token_usage_data.get("prompt_tokens") or token_usage_data.get(
@@ -1348,7 +1344,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
                             pricing_tier = f"{pricing_info.provider}:{model_name}"
 
                         # Calculate cost breakdown
-                        from .cost_tracking import UsageMetadata
+                        from aigie.cost_tracking import UsageMetadata
 
                         usage_metadata = UsageMetadata(
                             input_tokens=input_tokens,
@@ -1837,7 +1833,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
         # Try to get trace from context if not set
         if not self.trace:
-            from .auto_instrument.trace import get_current_trace
+            from aigie.auto_instrument.trace import get_current_trace
 
             self.trace = get_current_trace()
 
@@ -1845,7 +1841,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
             return
 
         # Ensure _current_trace is set so any nested calls can find parent trace
-        from .auto_instrument.trace import set_current_trace
+        from aigie.auto_instrument.trace import set_current_trace
 
         set_current_trace(self.trace)
 
@@ -1999,7 +1995,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
         # Set process-level span ID synchronously for OTel bridge
         try:
-            from .auto_instrument.span_enricher import set_active_span_id
+            from aigie.auto_instrument.span_enricher import set_active_span_id
 
             set_active_span_id(span.id)
         except Exception:
@@ -2050,7 +2046,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
                 span_metadata["framework"] = "langgraph"
             # Add tool_category hint for component registry classification
             try:
-                from .tool_category import infer_tool_category
+                from aigie.tool_category import infer_tool_category
 
                 category = infer_tool_category(tool_name, tool_description)
                 if category:
@@ -2168,7 +2164,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
             # Restore process-level span ID to parent for OTel bridge
             try:
-                from .auto_instrument.span_enricher import set_active_span_id
+                from aigie.auto_instrument.span_enricher import set_active_span_id
 
                 parent_run = span_context.get("parent_run_id")
                 parent_span = (
@@ -2914,14 +2910,16 @@ class AigieCallbackHandler(BaseCallbackHandler):
         try:
             aigie = self.aigie
             if not aigie:
-                from .client import get_aigie
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
 
             if aigie and aigie._buffer:
                 self._emit_span_create(aigie, span_data)
             else:
-                logger.warning("[AIGIE] _send_span_create: no buffer, span lost: %s", span_data.get("name"))
+                logger.warning(
+                    "[AIGIE] _send_span_create: no buffer, span lost: %s", span_data.get("name")
+                )
         except Exception as e:
             logger.debug(f"Failed to add span to buffer {run_id}: {e}")
 
@@ -2955,11 +2953,14 @@ class AigieCallbackHandler(BaseCallbackHandler):
                 if isinstance(start_dt, datetime):
                     start_time_iso = start_dt.isoformat()
             if start_time_iso is None:
-                logger.warning("[AIGIE] _send_span_update: missing start_time for span %s", span_id[:8])
+                logger.warning(
+                    "[AIGIE] _send_span_update: missing start_time for span %s", span_id[:8]
+                )
             elif start_time_iso:
                 with contextlib.suppress(Exception):
                     duration_ns = int(
-                        (end_time - datetime.fromisoformat(start_time_iso)).total_seconds() * 1_000_000_000
+                        (end_time - datetime.fromisoformat(start_time_iso)).total_seconds()
+                        * 1_000_000_000
                     )
 
         update_data = {
@@ -2971,10 +2972,14 @@ class AigieCallbackHandler(BaseCallbackHandler):
             "end_time": end_time.isoformat(),
             "input": span_data_ctx.get("input"),
             "output": outputs if outputs else (span._output if hasattr(span, "_output") else None),
-            "metadata": span._metadata if hasattr(span, "_metadata") else span_data_ctx.get("metadata"),
+            "metadata": span._metadata
+            if hasattr(span, "_metadata")
+            else span_data_ctx.get("metadata"),
             "status": "error" if error else "success",
             "duration_ns": duration_ns,
-            "parent_id": span.parent_id if hasattr(span, "parent_id") else span_data_ctx.get("parent_id"),
+            "parent_id": span.parent_id
+            if hasattr(span, "parent_id")
+            else span_data_ctx.get("parent_id"),
             "latency_seconds": duration_ns / 1_000_000_000 if duration_ns else None,
         }
 
@@ -2999,7 +3004,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
         try:
             aigie = self.aigie
             if not aigie:
-                from .client import get_aigie
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
 
@@ -3034,7 +3039,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
         try:
             aigie = self.aigie
             if not aigie:
-                from .client import get_aigie
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
             runtime = getattr(aigie, "_autonomous_runtime", None) if aigie else None
@@ -3059,9 +3064,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
                 if metadata.get("status_code"):
                     attrs["agent.status_code"] = metadata["status_code"]
 
-            runtime.on_span_complete(
-                SimpleNamespace(attributes=attrs, framework_handle=None)
-            )
+            runtime.on_span_complete(SimpleNamespace(attributes=attrs, framework_handle=None))
         except Exception:  # noqa: BLE001
             logger.exception("AutonomousRuntime.on_span_complete failed")
 
@@ -3072,7 +3075,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
         # Check config toggle
         try:
-            from .integrations.langgraph.config import LangGraphConfig
+            from aigie.integrations.langgraph.config import LangGraphConfig
 
             config = LangGraphConfig.from_env()
             if not config.capture_agent_plan:
@@ -3098,7 +3101,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
             aigie = self.aigie
             if not aigie:
-                from .client import get_aigie
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
 
@@ -3133,7 +3136,8 @@ class AigieCallbackHandler(BaseCallbackHandler):
         aigie = self.aigie
         if not aigie:
             try:
-                from .client import get_aigie
+                from aigie.client import get_aigie
+
                 aigie = get_aigie()
             except Exception:
                 aigie = None
@@ -3181,9 +3185,11 @@ class AigieCallbackHandler(BaseCallbackHandler):
         _bg = getattr(_aigie, "_bg_loop", None) if _aigie else None
         _buf = getattr(_aigie, "_buffer", None) if _aigie else None
         if _bg is not None and _bg.is_running() and _buf is not None:
+
             async def _yield_flush(b: Any) -> None:
                 await asyncio.sleep(0)
                 await b.flush()
+
             coro = _yield_flush(_buf)
             try:
                 asyncio.run_coroutine_threadsafe(coro, _bg).result(timeout=2.0)
@@ -3252,7 +3258,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
 
         self._send_trace_update(error)
 
-        from .auto_instrument.trace import clear_current_trace, pop_thread_trace
+        from aigie.auto_instrument.trace import clear_current_trace, pop_thread_trace
 
         clear_current_trace()
         # Only the handler that created the trace (not sub-invocation handlers
@@ -3314,7 +3320,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
         try:
             aigie = self.aigie
             if not aigie:
-                from .client import get_aigie
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
 
@@ -3368,7 +3374,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
         if not self.trace:
             return
 
-        from .utils.safe import schedule_async
+        from aigie.utils.safe import schedule_async
 
         schedule_async(self._complete_trace(error))
 

@@ -600,6 +600,7 @@ class Variable(object):
     self.bind           = None
     self.initial_query  = None
     self.nb_table       = 0
+    self.discriminated  = 0
     
   def __repr__(self): return """<Variable %s type %s, %s bindings>""" % (self.name, self.type, len(self.bindings))
   
@@ -622,6 +623,14 @@ class Variable(object):
     
 class Table(object):
   def __init__(self, query, name, type = "quads2", index = None, join = ",", join_conditions = None):
+    if   index == "SUBJECT":
+      if   type == "objs":  index = "index_objs_sp"
+      elif type == "datas": index = "index_datas_sp"
+      else:                 index =  None # quad => cannot use this optimization
+    elif index == "OBJECT":
+      if   type == "objs":  index = "index_objs_op"
+      elif type == "datas": index = "index_datas_op"
+      else:                 index =  None # quad => cannot use this optimization
     self.name            = name
     self.type            = type
     self.index           = index
@@ -759,7 +768,7 @@ class SQLQuery(FuncSupport):
       
     if self.preliminary:
       return """%s(%s) AS (%s)""" % (self.name, ", ".join(column.name for column in self.columns), sql)
-
+    
     return sql
     
   def parse_distinct(self, distinct):
@@ -972,6 +981,7 @@ class SQLQuery(FuncSupport):
           if o.name == "VAR":
             o = self.parse_var(o)
             o.bindings.insert(0, """%s.o""" % triple.local_table_type)
+            
           table = Table(self, triple.local_table_type, triple.local_table_type) 
           
     has_optional_triple = False
@@ -1062,7 +1072,32 @@ class SQLQuery(FuncSupport):
       
       if self.name == "main": select_name = ""
       else:                   select_name = "%s_" % (self.name or "")
-      table = Table(self, "%sq%s" % (select_name, self.translator.next_table_id), triple.local_table_type)
+      
+      index = triple.index
+      s_var = (s.name == "VAR") and self.parse_var(s)
+      o_var = (o.name == "VAR") and self.parse_var(o)
+      if not index:
+        if   (s.name == "IRI") or (s.name == "PARAM"):
+          index = "SUBJECT"
+          #print("=> INDEXED BY SUBJECT", triple.local_table_type, triple)
+        #elif (o.name == "VAR") and (not o.value.startswith("??")) and (not self.parse_var(o).bindings):
+        #  index = "SUBJECT"
+        #  print("=> INDEXED BY SUBJECT", triple.local_table_type, triple)
+        
+        elif triple.local_table_type.endswith("datas") and (s.name == "VAR"):
+          if (p.name == "IRI") and p.value.endswith(("label", "_id", "_code")) and (o.name == "STRING"):
+            index = "OBJECT"
+            #print("=> INDEXED BY OBJECT", triple.local_table_type, triple)
+          #elif s_var.bindings and (o.name != "VAR"):
+          
+          elif s_var.discriminated and (o.name != "VAR"):
+            index = "SUBJECT"
+            
+      if s_var and (not (p.name == "IRI" and ((p.storid == 6) or (p.storid == 9) or (p.value == "http://PYM/terminology"))) and (not o_var)): # e.g. ?x p o and not ?x a <class_iri>
+        s_var.discriminated += 1
+      if o_var:
+        o_var.discriminated += 1
+      table = Table(self, "%sq%s" % (select_name, self.translator.next_table_id), triple.local_table_type, index)
       
       if triple.optional:
         table.join = "LEFT JOIN"
@@ -1070,7 +1105,7 @@ class SQLQuery(FuncSupport):
       else:
         conditions = self.conditions
       self.translator.next_table_id += 1
-
+      
       if triple.consider_s: self.create_conditions(conditions, table, "s", s)
       if triple.consider_p: self.create_conditions(conditions, table, "p", p, triple.likelihood_p)
       if triple.consider_o: self.create_conditions(conditions, table, "o", o, triple.likelihood_o)
@@ -1511,36 +1546,41 @@ class SQLRecursivePreliminaryQuery(SQLQuery):
     
     p_direct_conditions   = []
     p_inversed_conditions = []
+    table = None
     if isinstance(p, UnionPropPath):
       direct_ps   = [i for i in p if not i.inversed]
       inversed_ps = [i for i in p if     i.inversed]
-      
+
       if direct_ps:
         if len(direct_ps) == 1:
-          self.create_conditions(p_direct_conditions, Table(None, "q", "quads2" if self.need_d else "objs"), "p", direct_ps[0])
+          table = Table(None, "q", "quads2" if self.need_d else "objs", triple.index)
+          self.create_conditions(p_direct_conditions, table, "p", direct_ps[0])
         else:
           p_direct_conditions  .append("q.p IN (%s)" % ",".join(str(self._to_sql(i)[0]) for i in direct_ps))
           
       if inversed_ps:
         if len(inversed_ps) == 1:
-          self.create_conditions(p_inversed_conditions, Table(None, "q", "quads2" if self.need_d else "objs"), "p", inversed_ps[0])
+          table = Table(None, "q", "quads2" if self.need_d else "objs", triple.index)
+          self.create_conditions(p_inversed_conditions, table, "p", inversed_ps[0])
         else:
           p_inversed_conditions.append("q.p IN (%s)" % ",".join(str(self._to_sql(i)[0]) for i in inversed_ps))
           
     else:
-      self.create_conditions(p_direct_conditions, Table(None, "q", "quads2" if self.need_d else "objs"), "p", p)
+      table = Table(None, "q", "quads2" if self.need_d else "objs", triple.index)
+      self.create_conditions(p_direct_conditions, table, "p", p)
       
     self.extra_sql = ""
     if p_direct_conditions:
       self.extra_sql += """
 UNION
-SELECT q.%s%s%s%s%s FROM %s q, %s rec WHERE %s %sAND q.%s=rec.%s""" % (
+SELECT q.%s%s%s%s%s FROM %s q %s, %s rec WHERE %s %sAND q.%s=rec.%s""" % (
   self.non_fixed,
   ", q.d"                 if self.need_d    else "",
   ", rec.%s" % self.fixed if self.need_orig else "",
   ", rec.nb+1"            if self.need_nb   else "",
   "".join(", rec.%s" % col.name for col in extra_cols),
   "quads2"                if self.need_d    else "objs",
+  "INDEXED BY %s" % table.index if table and table.index else "",
   self.name, " AND ".join(p_direct_conditions),
   "AND rec.nb=0 " if p.modifier == "?" else "",
   self.fixed, self.non_fixed)

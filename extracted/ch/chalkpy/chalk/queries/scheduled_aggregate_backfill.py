@@ -18,6 +18,28 @@ class AggregateBackfillTarget(str, Enum):
 
 
 class ScheduledAggregateBackfill:
+    """Schedules a recurring aggregate backfill job.
+
+    Args:
+        name: Unique name for this backfill job.
+        features: The aggregated features to backfill.
+        schedule: A cron expression or duration controlling how often the backfill runs.
+        target: Which store to backfill — ``AggregateBackfillTarget.ONLINE`` or
+            ``AggregateBackfillTarget.OFFLINE``. Mutually exclusive with ``targets``.
+        targets: Collection of stores to backfill. Mutually exclusive with ``target``.
+        query_tags: Tags to attach to the backfill query for observability.
+        resource_group: Resource group for the backfill job.
+        lower_bound: Start of the backfill window (UTC). Defaults to the feature's lookback.
+        upper_bound: End of the backfill window (UTC). Defaults to now.
+        allow_empty_tiles: If ``False``, tiles with no data raise an error.
+        environment: If set, this backfill is only scheduled when deploying to the named
+            environment. Deploying to any other environment silently skips it — the backfill
+            is not planned or persisted anywhere. Unlike ``ScheduledQuery``'s
+            ``environment_override`` (which relocates the query to run in another environment),
+            this is a deploy-time gate: the backfill simply does not exist outside of the
+            specified environment.
+    """
+
     def __init__(
         self,
         *,
@@ -31,6 +53,7 @@ class ScheduledAggregateBackfill:
         lower_bound: datetime | None = None,
         upper_bound: datetime | None = None,
         allow_empty_tiles: bool = True,
+        environment: str | None = None,
     ):
         super().__init__()
         self.errors = []
@@ -104,6 +127,7 @@ class ScheduledAggregateBackfill:
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
         self.allow_empty_tiles = allow_empty_tiles
+        self.environment = environment
         self.filename = caller_filename
 
         SCHEDULED_AGGREGATE_BACKFILL_REGISTRY[name] = self

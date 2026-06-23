@@ -49,7 +49,7 @@ def urljoin(base, name): # Reimplement because urllib.parse.urljoin remove trail
   if base.endswith("/"): return "%s%s" % (base, name)
   return "%s/%s" % (base, name)
 
-def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, default_base = ""):
+def parse(f, on_prepare_obj = None, on_prepare_data = None, on_prepare_triple_term = None, new_blank = None, default_base = ""):
   parser = xml.parsers.expat.ParserCreate(None, "")
   try:
     parser.buffer_text          = True
@@ -100,6 +100,39 @@ def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, de
       else:
         print('%s %s "%s" .' % (s,"<%s>" % p,o))
         
+    triple_term_datas = []
+    def on_prepare_triple_term(s,p,o,d = None, depth = 1):
+      nonlocal triple_term_datas, nb_triple
+      triple_term_datas.append((s,p,o,d))
+      if depth == 0:
+        line = ""
+        for s,p,o,d in triple_term_datas:
+          nb_triple += 1
+          if not is_bn(s): s = "<%s>" % s
+          
+          if   d == "http://www.w3.org/2000/01/rdf-schema#Proposition":
+            line = ("%s <%s> <<( %s )>>") % (s,p,line)
+            
+          elif d is None:
+            if not is_bn(o): o = "<%s>" % o
+            line += "%s %s %s" % (s,"<%s>" % p,o)
+            
+          else:
+            if isinstance(o, str): o = o.replace('"', '\\"').replace("\n", "\\n")
+            if d and d.startswith("@"):
+              line += '%s %s "%s"%s' % (s,"<%s>" % p,o,d)
+            elif d:
+              line += '%s %s "%s"^^<%s>' % (s,"<%s>" % p,o,d)
+            else:
+              line += '%s %s "%s"' % (s,"<%s>" % p,o)
+        line += " ."
+        print(line)
+              
+        triple_term_datas = []
+        
+  on_prepare_obj0  = on_prepare_obj
+  on_prepare_data0 = on_prepare_data
+      
   if not new_blank:
     def new_blank():
       nonlocal current_blank
@@ -113,6 +146,7 @@ def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, de
   
   node_2_blanks = defaultdict(new_blank)
   known_nodes   = set()
+  triple_term_depth = 0
   
   def new_list(l):
     bn = bn0 = new_blank()
@@ -160,13 +194,18 @@ def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, de
     prefixes = prefixess[-1]
     
   def startElement(tag, attrs):
-    nonlocal tag_is_predicate, current_content, current_attrs, dont_create_unnamed_bn, xml_base, xml_dir
+    nonlocal tag_is_predicate, current_content, current_attrs, dont_create_unnamed_bn, xml_base, xml_dir, triple_term_depth
+    nonlocal on_prepare_obj, on_prepare_data
     
     tag_is_predicate = not tag_is_predicate
     if tag_is_predicate:
-      
-      if   attrs.get("http://www.w3.org/1999/02/22-rdf-syntax-ns#parseType") == "Collection":
+
+      parse_type = attrs.get("http://www.w3.org/1999/02/22-rdf-syntax-ns#parseType")
+      if   parse_type == "Collection":
         stack.append(["Collection", []])
+        
+      elif parse_type == "Triple":
+        stack.append(["Triple", []])
         
       elif tag == "http://www.w3.org/1999/02/22-rdf-syntax-ns#RDF":
         stack.append(["RDF", ""])
@@ -230,22 +269,30 @@ def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, de
         if is_bn(iri):
           add_to_bn(iri, "REL", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", tag)
           
-      if stack[-1][0] == "Collection":
+      if   stack[-1][0] == "Collection":
         stack[-1][1].append(iri)
         
+      elif stack[-1][0] == "Triple":
+        stack[-1][1].append(iri)
+        triple_term_depth += 1
+        if triple_term_depth == 1:
+          on_prepare_obj  = on_prepare_triple_term
+          on_prepare_data = on_prepare_triple_term
+          
       else:
         if stack[-1][0] == "Literal": stack[-1][0] = "Resource"
         stack[-1][1] = iri
         
         
   def endElement(tag):
-    nonlocal tag_is_predicate, dont_create_unnamed_bn
+    nonlocal tag_is_predicate, dont_create_unnamed_bn, triple_term_depth
+    nonlocal on_prepare_obj, on_prepare_data
     
     if tag_is_predicate:
       parse_type, value = stack.pop()
       
-      if stack[-1][0] == "Collection": iri = stack[-1][1][-1]
-      else:                            iri = stack[-1][1]
+      if stack[-1][0] == "Collection" or stack[-1][0] == "Triple": iri = stack[-1][1][-1]
+      else:                                                        iri = stack[-1][1]
       
       if   tag == "http://www.w3.org/2002/07/owl#annotatedSource":
         dont_create_unnamed_bn = False
@@ -267,11 +314,15 @@ def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, de
           
           tag_is_predicate = not tag_is_predicate
           return
-        
       
       if   parse_type == "Resource":
         if not is_fake_bn(iri):
           on_prepare_obj(iri, tag, value)
+          
+        if stack[-1][0] == "Triple":
+          stack[-1][1].append(tag)
+          stack[-1][1].append(value)
+          stack[-1][1].append(None)
           
         if is_bn(iri):
           add_to_bn(iri, "REL", tag, value)
@@ -290,6 +341,11 @@ def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, de
         else:
           d = "@%s" % d
           
+        if stack[-1][0] == "Triple":
+          stack[-1][1].append(tag)
+          stack[-1][1].append(o)
+          stack[-1][1].append(d)
+          
         if not is_fake_bn(iri):
           on_prepare_data(iri, tag, o, d)
         if is_bn(iri):
@@ -301,7 +357,15 @@ def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, de
         if is_bn(iri):
           add_to_bn(iri, "COL", tag, value)
           
-          
+      elif parse_type == "Triple":
+        triple_term_depth -= 1
+        if triple_term_depth == 0:
+          on_prepare_obj  = on_prepare_obj0
+          on_prepare_data = on_prepare_data0
+        on_prepare_triple_term(iri, tag, None, "http://www.w3.org/2000/01/rdf-schema#Proposition", triple_term_depth)
+        
+        
+        
     tag_is_predicate = not tag_is_predicate
     
     

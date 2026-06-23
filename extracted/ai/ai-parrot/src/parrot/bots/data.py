@@ -2069,6 +2069,23 @@ class PandasAgent(IntentRouterMixin, BasicAgent):
                     )
                     return response   # skip formatter + structured reformat
 
+                # Interactive artifact: same early-return pattern, no data_variables.
+                interactive_envelope = self._extract_last_interactive_result(
+                    response.tool_calls
+                )
+                if interactive_envelope is not None:
+                    explanation = self._finalize_interactive_response(
+                        response, interactive_envelope,
+                    )
+                    self.logger.info(
+                        "InteractiveRenderResult detected — bypassing formatter: "
+                        "artifact_id=%s enhanced=%s explanation_chars=%d",
+                        interactive_envelope.artifact_id,
+                        interactive_envelope.enhanced,
+                        len(explanation or ""),
+                    )
+                    return response   # skip formatter + structured reformat
+
                 format_kwargs = format_kwargs or {}
                 if output_mode != OutputMode.DEFAULT:
                     if pandas_tool := self._get_python_pandas_tool():

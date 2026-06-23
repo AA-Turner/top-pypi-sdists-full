@@ -22,14 +22,13 @@ class ForwarderResponse:
         data (ForwarderResource): JSON:API resource envelope for a forwarder.
 
             The caller supplies `id` (the forwarder's key) on create. Example: {'attributes': {'configuration': {'headers':
-            [{'name': 'Content-Type', 'value': 'application/json'}, {'name': 'DD-API-KEY', 'value': 'dd-api-key-
-            plaintext'}], 'method': 'POST', 'success_status': '2xx', 'url': 'https://http-
-            intake.logs.datadoghq.com/api/v2/logs'}, 'created_at': '2026-05-07T12:00:00Z', 'description': 'Forwards user.*
-            events to the prod Datadog tenant.', 'enabled': False, 'environments': {'production': {'enabled': True}},
-            'filter': {'==': [{'var': 'event_type'}, 'user.created']}, 'forward_smplkit_events': False, 'forwarder_type':
-            'datadog', 'name': 'Datadog production', 'transform': '{ "message": event_type & \' on \' & resource_type }',
-            'transform_type': 'JSONATA', 'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id': 'datadog-prod', 'type':
-            'forwarder'}.
+            {'Content-Type': 'application/json', 'DD-API-KEY': 'dd-api-key-plaintext'}, 'method': 'POST', 'success_status':
+            '2xx', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'}, 'created_at': '2026-05-07T12:00:00Z',
+            'description': 'Forwards user.* events to the prod Datadog tenant.', 'environments': {'production': {'enabled':
+            True, 'headers.DD-API-KEY': 'dd-prod-api-key-plaintext'}}, 'filter': {'==': [{'var': 'event_type'},
+            'user.created']}, 'forward_smplkit_events': False, 'forwarder_type': 'datadog', 'name': 'Datadog production',
+            'transform': '{ "message": event_type & \' on \' & resource_type }', 'transform_type': 'JSONATA', 'updated_at':
+            '2026-05-07T12:00:00Z', 'version': 1}, 'id': 'datadog-prod', 'type': 'forwarder'}.
     """
 
     data: ForwarderResource

@@ -27,6 +27,9 @@ dependencies = [
     "click",
     "opentelemetry-sdk",
     "certifi>=2026.1.4",
+    # Streaming JSON parser used to read large element files in bounded memory
+    # (see UploadStager.process_whole / data_prep.json_stream).
+    "ijson>=3.2.0",
 ]
 
 [project.optional-dependencies]
@@ -148,6 +151,7 @@ test = [
     "beautifulsoup4",
     "pandas",
     # Connector specific deps
+    "slack_sdk",
     "cryptography",
     "fsspec",
     "vertexai",

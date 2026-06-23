@@ -12,8 +12,8 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
-from ..drift.monitor import DriftLevel, DriftMonitor
-from .protocols import (
+from aigie.drift.monitor import DriftLevel, DriftMonitor
+from aigie.interceptor.protocols import (
     FixAction,
     InterceptionContext,
     InterceptionDecision,
@@ -24,8 +24,8 @@ from .protocols import (
 )
 
 if TYPE_CHECKING:
-    from ..client import Aigie
-    from ..rules.engine import LocalRulesEngine
+    from aigie.client import Aigie
+    from aigie.rules.engine import LocalRulesEngine
 
 logger = logging.getLogger("aigie.interceptor")
 

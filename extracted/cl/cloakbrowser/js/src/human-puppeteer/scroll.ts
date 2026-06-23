@@ -93,8 +93,16 @@ export async function humanScrollIntoView(
   cursorY: number,
   cfg: HumanConfig,
 ): Promise<{ box: ElementBounds; cursorX: number; cursorY: number }> {
-  const viewport = page.viewport();
-  if (!viewport) throw new Error('Viewport size not available');
+  // Headed launches default to null defaultViewport so the page tracks the real
+  // OS window; page.viewport() is then null. Fall back to the live window
+  // dimensions so humanize works headed (the stealth-relevant mode).
+  let viewport = page.viewport();
+  if (!viewport) {
+    viewport = await page.evaluate(
+      () => ({ width: window.innerWidth, height: window.innerHeight }),
+    );
+  }
+  if (!viewport || !viewport.height) throw new Error('Viewport size not available');
 
   let box = await getBox();
   if (!box) throw new Error('Element not found while scrolling into view');

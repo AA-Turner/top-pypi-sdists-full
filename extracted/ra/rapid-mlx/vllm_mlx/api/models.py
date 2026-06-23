@@ -288,6 +288,58 @@ def _validate_nonnegative_int(
     return v
 
 
+def _validate_positive_int(
+    v,
+    *,
+    max_value: int | None = None,
+    field_name: str = "value",
+):
+    """Integer with a strict ``>= 1`` lower bound (R7-M3 systemic gate).
+
+    Used by the generation-budget fields — ``max_tokens`` (chat /
+    completions / messages) and ``max_output_tokens`` (responses) — so
+    every OpenAI-compat surface 4xx's negative / zero / bool / float
+    wire forms at the schema layer instead of letting them slip
+    through to the route. Pre-R7-M3 the validator coverage was
+    asymmetric: the chat route's hand-rolled
+    ``max_tokens must be at least 1`` check was the ONLY gate, so
+    legacy ``/v1/completions``, Anthropic ``/v1/messages``, and
+    OpenAI ``/v1/responses`` silently accepted ``max_tokens=-5`` (HTTP
+    200 with one token / ``status="incomplete"``) — a silent-correctness
+    hazard the same shape as ``seed=-1``.
+
+    The validator's contract mirrors ``_validate_nonnegative_int``
+    (same bool / float-integer-coercion / NaN-inf handling) but with
+    a strict ``>= 1`` floor so ``max_tokens=0`` is rejected too —
+    pointing at the right OpenAI escape hatch (``stream=true`` with
+    no limit + finish_reason=stop is how clients ask for "unlimited
+    tokens"; ``max_tokens=0`` has no spec meaning and was previously
+    a silent no-token request).
+    """
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        raise ValueError(f"{field_name} must be an integer when set (got bool)")
+    if isinstance(v, float):
+        if not math.isfinite(v):
+            raise ValueError(f"{field_name} must be a finite integer (not NaN or inf)")
+        if not v.is_integer():
+            raise ValueError(f"{field_name} must be an integer when set (got {v})")
+        v = int(v)
+    elif not isinstance(v, int):
+        raise ValueError(
+            f"{field_name} must be an integer when set (got {type(v).__name__})"
+        )
+    if v < 1:
+        raise ValueError(
+            f"{field_name} must be >= 1 when set (got {v}); omit the field to "
+            "use the server default."
+        )
+    if max_value is not None and v > max_value:
+        raise ValueError(f"{field_name} must be <= {max_value} (got {v})")
+    return v
+
+
 def _validate_logit_bias_finite(
     v: dict | None, *, field_name: str = "logit_bias"
 ) -> dict | None:
@@ -917,7 +969,13 @@ class ResponseFormatJsonSchema(BaseModel):
     name: str
     description: str | None = None
     schema_: dict = Field(alias="schema")  # JSON Schema specification
-    strict: bool | None = False
+    # R7-B codex MED follow-up: ``StrictBool`` so non-bool wire forms
+    # like ``"strict":"true"`` are rejected at parse time instead of
+    # being coerced or silently treated as falsey by downstream
+    # ``is_strict_json_schema``. Paired with the explicit dict-arm
+    # check in ``_validate_response_format_raw`` so the bare-dict
+    # union arm can't bypass either.
+    strict: StrictBool | None = False
 
     class Config:
         populate_by_name = True
@@ -987,6 +1045,21 @@ def _validate_response_format_raw(value):
         raise ValueError(
             "response_format.type must be 'text', 'json_object', or 'json_schema'"
         )
+    # R7-B codex MED follow-up: ``strict`` is a strict boolean on BOTH
+    # nesting positions. Pre-fix, ``{"type":"json_schema","strict":"true",
+    # "json_schema":{...}}`` and the nested form
+    # ``{"json_schema":{"strict":"true",...}}`` fell through the
+    # bare-dict union arm with no strict check — ``is_strict_json_schema``
+    # then treated the truthy string as falsey and the ``[guided]`` gate
+    # silently downgraded the request to unconstrained generation. The
+    # typed arm uses ``StrictBool`` so the same wire forms parse-fail
+    # there; mirror the same wire-form rejection on the dict arm so the
+    # ``ResponseFormat | dict`` union has no escape hatch.
+    if "strict" in value and not isinstance(value["strict"], bool):
+        raise ValueError(
+            "response_format.strict must be a boolean "
+            f"(got {type(value['strict']).__name__})"
+        )
     if rf_type == "json_schema":
         json_schema_field = value.get("json_schema")
         if not json_schema_field:
@@ -996,6 +1069,13 @@ def _validate_response_format_raw(value):
             )
         if not isinstance(json_schema_field, dict):
             raise ValueError("response_format.json_schema must be an object")
+        if "strict" in json_schema_field and not isinstance(
+            json_schema_field["strict"], bool
+        ):
+            raise ValueError(
+                "response_format.json_schema.strict must be a boolean "
+                f"(got {type(json_schema_field['strict']).__name__})"
+            )
         # Mirror the typed ``ResponseFormatJsonSchema.name: str``
         # required field on the dict arm — codex round-1 BLOCKING
         # follow-up. The bare-dict union arm would otherwise swallow
@@ -1052,6 +1132,28 @@ class ResponseFormat(BaseModel):
     # request model.
     type: Literal["text", "json_object", "json_schema"] = "text"
     json_schema: ResponseFormatJsonSchema | None = None
+    # R7-H5 (Vlad r7 — 0.8.8 sweep): the OpenAI Responses API uses a
+    # ``text.format = {"type":"json_schema","strict":true,"schema":{...},
+    # "name":"..."}`` shape where ``strict`` is a SIBLING of ``type``
+    # (not nested inside ``json_schema``). Clients writing against the
+    # Responses surface and then pointing at the legacy chat endpoint
+    # routinely keep the outer-level nesting — pre-R7 the unknown
+    # field was silently dropped by Pydantic, so the chat path saw
+    # a non-strict request, skipped the ``[guided]``-required gate,
+    # and HTTP-200'd with no constraint enforcement. Declaring the
+    # field here means BOTH nesting positions reach
+    # ``is_strict_json_schema`` and the centralized gate fires
+    # regardless of which nesting position the client used. The chat
+    # route's existing strict-mode handling sees the same boolean
+    # whichever wire form was sent. ``None`` is preserved as the
+    # absent default; the dict-arm validator mirrors this so an
+    # outer-level ``"strict":"true"`` (string) is rejected with a
+    # clean 422 too.
+    # R7-B codex MED follow-up: ``StrictBool`` rejects non-bool wire
+    # forms at parse time on the typed arm; the dict arm is closed by
+    # the explicit ``strict``-shape check in
+    # ``_validate_response_format_raw`` below.
+    strict: StrictBool | None = None
 
 
 # =============================================================================
@@ -1482,6 +1584,25 @@ class ChatCompletionRequest(BaseModel):
     def _validate_logit_bias(cls, v):
         return _validate_logit_bias_finite(v, field_name="logit_bias")
 
+    # R7-M3: shared ``>= 1`` gate on the generation-budget fields so the
+    # whole OpenAI-compat surface (chat / completions / messages /
+    # responses) rejects ``max_tokens <= 0`` at the schema layer instead
+    # of relying on the chat route's hand-rolled check. The chat route
+    # used to be the only path with a ``max_tokens < 1`` guard — Vlad's
+    # r7 sweep surfaced ``max_output_tokens=-5`` on /v1/responses,
+    # ``max_tokens=-5`` on /v1/completions and /v1/messages all
+    # returning 200. Schema-layer validator means the contract is
+    # uniform regardless of which route handler runs.
+    @field_validator("max_tokens", mode="before")
+    @classmethod
+    def _validate_max_tokens(cls, v) -> int | None:
+        return _validate_positive_int(v, field_name="max_tokens")
+
+    @field_validator("max_completion_tokens", mode="before")
+    @classmethod
+    def _validate_max_completion_tokens(cls, v) -> int | None:
+        return _validate_positive_int(v, field_name="max_completion_tokens")
+
     @model_validator(mode="after")
     def _normalize_max_completion_tokens(self) -> "ChatCompletionRequest":
         if self.max_completion_tokens is not None:
@@ -1819,6 +1940,16 @@ class CompletionRequest(BaseModel):
             v, max_value=_TOP_K_SENTINEL_CAP, field_name="top_k"
         )
 
+    # R7-M3: shared ``>= 1`` gate on ``max_tokens`` — mirror of the
+    # chat surface. Pre-R7-M3 the legacy completions surface silently
+    # accepted ``max_tokens=-5`` (HTTP 200 with a single token)
+    # because no route-level gate ran; the schema layer now closes
+    # the bypass for every OpenAI-compat surface.
+    @field_validator("max_tokens", mode="before")
+    @classmethod
+    def _validate_max_tokens(cls, v) -> int | None:
+        return _validate_positive_int(v, field_name="max_tokens")
+
     # F-155: enforce ``n == 1`` at parse time, mirroring the chat
     # surface. The route already 400's ``n > 1``; the schema layer
     # now also rejects ``n=0`` / ``n=-1`` (silent-200 pre-fix).
@@ -2093,14 +2224,117 @@ class AudioTranscriptionResponse(BaseModel):
     segments: list[dict] | None = None
 
 
+# R8-H5 (Bo 0.8.9 dogfood): the set of TTS ``response_format`` values
+# the route can actually produce. Centralised here so the Pydantic
+# validator AND the runtime encoder share one source of truth — any
+# format added to :data:`vllm_mlx.routes.audio._TTS_CONTENT_TYPES`
+# MUST be added here, otherwise the request would 400 before reaching
+# the encoder. Pre-fix the route accepted any string verbatim and
+# silently returned RIFF/WAV bytes labelled as the requested type;
+# rejecting unknown values up front means clients get an actionable
+# 400 with the supported set instead of a mislabeled body.
+_TTS_ALLOWED_RESPONSE_FORMATS: tuple[str, ...] = (
+    "wav",
+    "mp3",
+    "flac",
+    "ogg",
+    "opus",
+    "pcm",
+    # Note: ``aac`` is intentionally absent — libsndfile does not ship
+    # an AAC encoder in any wheel we depend on. The route's encoder
+    # also rejects ``aac`` (raises ``UnsupportedAudioFormatError``);
+    # listing it here too would let a request through that then 500s
+    # at the encoder boundary.
+)
+
+
 class AudioSpeechRequest(BaseModel):
-    """Request for text-to-speech."""
+    """Request for text-to-speech (OpenAI ``/v1/audio/speech`` compatible).
+
+    R7-M8 (Bo 0.8.8 dogfood): ``input`` must reject empty / whitespace-
+    only strings BEFORE we reach the synthesis engine. Pre-fix the
+    route declared ``input: str = ""`` as a bare query parameter, so
+    JSON bodies were silently dropped and an empty/missing ``input``
+    collapsed into the generic 500 ``No audio generated`` envelope
+    (the engine looped over an empty phoneme list and rapid-mlx's
+    chunk-collector raised). Both shapes are CLIENT errors and should
+    surface a 400 with ``param="input"`` so callers can fix their
+    request payload without an opaque 500 round-trip.
+
+    ``input`` carries an explicit ``min_length=1``; the bound model is
+    registered with the envelope handler so the Pydantic validation
+    error surfaces as ``{"error": {"type": "invalid_request_error",
+    "param": "input", ...}}`` instead of the FastAPI 422 default.
+
+    R8-M4 / R8-H5 (Bo 0.8.9 dogfood): ``voice`` and ``response_format``
+    are validated up front against the known set so an invalid value
+    surfaces as a 400 ``invalid_request_error`` with the relevant
+    ``param=`` BEFORE the engine loads weights. Pre-fix ``voice``
+    fell through to ``mlx_audio.load_safetensors`` which 500'd on the
+    missing voice file, and ``response_format`` was accepted as any
+    string then silently mislabeled WAV bytes.
+    """
 
     model: str = "kokoro"
-    input: str
+    # min_length=1 catches the ``input=""`` shape Bo reported. The
+    # ``model_validator`` below catches the whitespace-only shape that
+    # slips past Pydantic's length check (``" "`` is one char) — both
+    # produce empty phoneme lists downstream so both must 400.
+    input: str = Field(..., min_length=1)
     voice: str = "af_heart"
-    speed: float = 1.0
+    # OpenAI bounds: 0.25..4.0. Out-of-range values silently no-op
+    # inside mlx_audio in some lanes; reject up front so the envelope
+    # matches the documented contract.
+    speed: float = Field(default=1.0, ge=0.25, le=4.0)
     response_format: str = "wav"
+
+    @field_validator("input")
+    @classmethod
+    def _input_must_be_non_blank(cls, v: str) -> str:
+        # ``min_length=1`` only checks character count — ``"   "`` is
+        # length 3 and still passes, but it produces an empty phoneme
+        # list downstream and trips the same 500 ``No audio generated``
+        # the empty-string case did. Reject here too so the wire
+        # contract is "non-blank text" and the param= envelope stays
+        # consistent. We raise ``ValueError`` so Pydantic packages it as
+        # the same ``value_error`` shape the field handler emits.
+        if not v.strip():
+            raise ValueError("input must be a non-empty, non-blank string")
+        return v
+
+    @field_validator("voice")
+    @classmethod
+    def _voice_must_be_non_blank(cls, v: str) -> str:
+        # R8-M4 (Bo 0.8.9 dogfood): pre-fix ``voice=""`` fell through
+        # to ``mlx_audio.load_safetensors("voices/.safetensors")`` which
+        # 500'd with a stack trace. The model-aware list check happens
+        # in the route handler (we don't know which model family is in
+        # use here); the blank-string rejection is a cheap structural
+        # check that catches the most common client bug — sending an
+        # empty default — before we hit the model-aware validator.
+        if not v or not v.strip():
+            raise ValueError("voice must be a non-empty, non-blank string")
+        return v
+
+    @field_validator("response_format")
+    @classmethod
+    def _response_format_must_be_known(cls, v: str) -> str:
+        # R8-H5 (Bo 0.8.9 dogfood): pre-fix every string was accepted
+        # and ``Content-Type: audio/{format}`` echoed back, masking
+        # the fact that the encoder produced WAV bytes regardless.
+        # Reject unknown values here so a typo ("wave" → "wav") OR an
+        # unsupported codec ("aac") returns a clean 400 envelope
+        # before the engine loads weights. The allowed set mirrors the
+        # route's ``_TTS_CONTENT_TYPES`` table (one source of truth);
+        # adding a format requires editing both, which a unit test
+        # pins.
+        if v is None:
+            return "wav"
+        lower = v.lower()
+        if lower not in _TTS_ALLOWED_RESPONSE_FORMATS:
+            supported = ", ".join(_TTS_ALLOWED_RESPONSE_FORMATS)
+            raise ValueError(f"response_format must be one of: {supported}; got {v!r}")
+        return lower
 
 
 class AudioSeparationRequest(BaseModel):
@@ -2217,10 +2451,25 @@ class ChatCompletionChunkDelta(BaseModel):
         final one. Normal pure-content / pure-role / empty deltas keep
         their current minimal shape, so the per-token streaming budget
         is unchanged for non-reasoning paths.
+
+        r7-A R7-H2 — stream/non-stream reasoning field-name parity.
+        The non-stream ``AssistantMessage`` emits BOTH
+        ``reasoning_content`` (legacy) and ``reasoning`` (OpenAI spec
+        name) so SDKs reading either field work. Streaming previously
+        emitted only ``reasoning_content``, which forced clients to
+        special-case the stream vs. non-stream code paths. Mirror the
+        non-stream contract here: when ``reasoning_content`` is set,
+        also expose it under the spec name ``reasoning``. The
+        duplicate ``reasoning_content`` is kept for one release as a
+        deprecation window for any downstream that already special-
+        cased the legacy field name; it will be dropped in a
+        subsequent release.
         """
         d = handler(self)
         if "content" not in d and ("reasoning_content" in d or "tool_calls" in d):
             d["content"] = None
+        if "reasoning_content" in d:
+            d["reasoning"] = d["reasoning_content"]
         return d
 
 

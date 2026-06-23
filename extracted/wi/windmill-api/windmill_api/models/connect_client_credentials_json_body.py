@@ -20,12 +20,15 @@ class ConnectClientCredentialsJsonBody:
         cc_instance (Union[Unset, str]): Instance name for built-in providers whose client-credentials token URL is
             instance-templated; substituted into the fixed-host registry template server-side. The token URL is never
             caller-supplied.
+        cc_token_url (Union[Unset, str]): Bring-your-own token endpoint override. Only honored together with
+            cc_client_id/cc_client_secret and mutually exclusive with cc_instance; rejected on the shared-instance path.
     """
 
     scopes: Union[Unset, List[str]] = UNSET
     cc_client_id: Union[Unset, str] = UNSET
     cc_client_secret: Union[Unset, str] = UNSET
     cc_instance: Union[Unset, str] = UNSET
+    cc_token_url: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -36,6 +39,7 @@ class ConnectClientCredentialsJsonBody:
         cc_client_id = self.cc_client_id
         cc_client_secret = self.cc_client_secret
         cc_instance = self.cc_instance
+        cc_token_url = self.cc_token_url
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -48,6 +52,8 @@ class ConnectClientCredentialsJsonBody:
             field_dict["cc_client_secret"] = cc_client_secret
         if cc_instance is not UNSET:
             field_dict["cc_instance"] = cc_instance
+        if cc_token_url is not UNSET:
+            field_dict["cc_token_url"] = cc_token_url
 
         return field_dict
 
@@ -62,11 +68,14 @@ class ConnectClientCredentialsJsonBody:
 
         cc_instance = d.pop("cc_instance", UNSET)
 
+        cc_token_url = d.pop("cc_token_url", UNSET)
+
         connect_client_credentials_json_body = cls(
             scopes=scopes,
             cc_client_id=cc_client_id,
             cc_client_secret=cc_client_secret,
             cc_instance=cc_instance,
+            cc_token_url=cc_token_url,
         )
 
         connect_client_credentials_json_body.additional_properties = d

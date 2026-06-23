@@ -310,11 +310,11 @@ def solve_bisect(
     return t, math.isclose(x, 0, rel_tol=rtol, abs_tol=atol)  # pragma: no cover
 
 
-def _solve_quadratic(poly: Vector) -> Vector:
+def _solve_quadratic(poly: VectorLike) -> Vector:
     """
     Solve a quadratic equation.
 
-    a - c represent the coefficients of the polynomial and t equals the target value.
+    The vector represents the polynomial coefficients of an equation set to zero.
 
     All non-real roots are filtered out at the end.
     """
@@ -344,11 +344,11 @@ def _solve_quadratic(poly: Vector) -> Vector:
     return [m]
 
 
-def _solve_cubic(poly:Vector) -> Vector:
+def _solve_cubic(poly: VectorLike) -> Vector:
     """
     Solve a cubic equation using Cardano's Method.
 
-    a - d represent the coefficients of the polynomial and t equals the target value.
+    The vector represents the polynomial coefficients of an equation set to zero.
 
     All non-real roots are filtered out at the end.
 
@@ -417,17 +417,18 @@ def _solve_cubic(poly:Vector) -> Vector:
     ]
 
 
-def solve_poly(poly: Vector) -> Vector:
+def solve_poly(poly: VectorLike) -> Vector:
     """
     Solve the given polynomial.
 
     Currently, only up to 3rd degree polynomials are supported.
     """
 
-    # Remove leading zeros
+    # Remove leading zeros and/or demote polynomial if leading values
+    # are very small to avoid floating point numerical instability.
     count = 0
     for pi in poly:
-        if pi == 0:
+        if abs(pi) < 1e-12:
             count += 1
             continue
         break
@@ -437,7 +438,7 @@ def solve_poly(poly: Vector) -> Vector:
     # Select the appropriate solver
     l = len(poly)
     if l > 4:
-        raise ValueError('Polynomials of degrees great than 3 are not currently supported')
+        raise ValueError('Polynomials of degrees greater than 3 are not currently supported')
     elif l == 4:
         return _solve_cubic(poly)
     elif l == 3:
@@ -1183,7 +1184,7 @@ def interpolate(
 
     if points and isinstance(points[0], Sequence):
         return SPLINES[method](
-            cast('list[Vector]', points[:]),
+            points[:],
             domain=domain,
             extrapolate=extrapolate,
             **kwargs
@@ -3771,7 +3772,7 @@ def reshape(array: ArrayLike | float, new_shape: int | Shape) -> float | Array:
     m = []  # type: Array
     with ArrayBuilder(m, new_shape) as build:
         # Create an iterator to traverse the data
-        for data in flatiter(array) if len(current_shape) > 1 else iter(array):  # type: ignore[arg-type]
+        for data in flatiter(array) if len(current_shape) > 1 else iter(array):
             next(build).append(data)
 
     return m
@@ -5272,7 +5273,7 @@ def fnnls(
     A fast non-negativity-constrained least squares
     https://www.researchgate.net/publication/230554373_A_Fast_Non-negativity-constrained_Least_Squares_Algorithm
     Rasmus Bro and Sijmen De Jong
-    Journal of Chemometrics. 11, 393–401 (1997)
+    Journal of Chemometrics. 11, 393-401 (1997)
     """
 
     m, n = _quick_shape(A)

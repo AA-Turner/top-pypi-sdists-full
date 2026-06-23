@@ -8,7 +8,13 @@ from __future__ import annotations
 from typing import Any
 
 # Public API exports
-from ._config import DEFAULT_LOCAL_SCHEME, DEFAULT_VERSION_SCHEME, Configuration
+from ._config import (
+    DEFAULT_LOCAL_SCHEME,
+    DEFAULT_VERSION_SCHEME,
+    Configuration,
+    TagConfiguration,
+)
+from ._environment import VcsEnvironment
 from ._pyproject_reading import PyProjectData
 from ._scm_version import ScmVersion
 from ._version_cls import NonNormalizedVersion, Version
@@ -19,6 +25,7 @@ def build_configuration_from_pyproject(
     pyproject_data: PyProjectData,
     *,
     dist_name: str | None = None,
+    env: VcsEnvironment | None = None,
     **integrator_overrides: Any,
 ) -> Configuration:
     """Build Configuration from PyProjectData with full workflow.
@@ -30,7 +37,7 @@ def build_configuration_from_pyproject(
     2. Determine dist_name (argument > pyproject.project_name)
     3. Apply integrator overrides (override config file)
     4. Apply environment TOML overrides (highest priority)
-    5. Create and validate Configuration instance
+    5. Create and validate Configuration instance with VcsEnvironment attached
 
     Integrators create PyProjectData themselves:
 
@@ -67,6 +74,8 @@ def build_configuration_from_pyproject(
     Args:
         pyproject_data: Parsed pyproject data (integrator creates this)
         dist_name: Distribution name (overrides pyproject_data.project_name)
+        env: Optional VcsEnvironment. If None, resolves from the active
+             GlobalOverrides context or process environment.
         **integrator_overrides: Integrator-provided config overrides
                                (override config file, but overridden by env)
 
@@ -82,9 +91,12 @@ def build_configuration_from_pyproject(
     This allows integrators to provide their own transformations
     while still respecting user environment variable overrides.
     """
-    from ._integrator_helpers import build_configuration_from_pyproject_internal
+    from ._environment import resolve_runtime_env
 
-    return build_configuration_from_pyproject_internal(
+    if env is None:
+        env = resolve_runtime_env()
+
+    return env.build_config_from_pyproject(
         pyproject_data=pyproject_data,
         dist_name=dist_name,
         **integrator_overrides,
@@ -98,6 +110,8 @@ __all__ = [
     "NonNormalizedVersion",
     "PyProjectData",
     "ScmVersion",
+    "TagConfiguration",
+    "VcsEnvironment",
     "Version",
     "build_configuration_from_pyproject",
     "infer_version_string",

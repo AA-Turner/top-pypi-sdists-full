@@ -66,6 +66,10 @@ class SHCDevice:
         return self._raw_device["profile"] if "profile" in self._raw_device else None
 
     @property
+    def supported_profiles(self):
+        return self._raw_device.get("supportedProfiles", [])
+
+    @property
     def name(self):
         return self._raw_device["name"]
 
@@ -77,7 +81,7 @@ class SHCDevice:
     def deleted(self):
         return (
             True
-            if "deleted" in self._raw_device and self._raw_device["deleted"] == True
+            if "deleted" in self._raw_device and self._raw_device["deleted"] is True
             else False
         )
 
@@ -129,6 +133,16 @@ class SHCDevice:
     def update(self, fire_callbacks=False):
         for service in self.device_services:
             service.short_poll(fire_callbacks=fire_callbacks)
+
+    async def async_update(self, fire_callbacks=False):
+        """Async counterpart to update() for the SHCAPIAsync path.
+
+        HA should_poll entities (e.g. camera switches) call this for an
+        on-demand refresh; the sync update()/short_poll() path cannot run
+        against the async api (it would leave a coroutine in _raw_device_service).
+        """
+        for service in self.device_services:
+            await service.async_short_poll(fire_callbacks=fire_callbacks)
 
     def summary(self):
         print(f"Device: {self.id}")

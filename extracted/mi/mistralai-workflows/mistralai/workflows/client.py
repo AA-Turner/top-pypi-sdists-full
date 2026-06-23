@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from mistralai.workflows._version import USER_AGENT
 from mistralai.workflows.core.config.config import config
+from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.exceptions import WorkflowError
 from mistralai.workflows.hooks.executor_credentials_hook import (
     AsyncExecutorCredentialsHook,
@@ -117,6 +118,16 @@ def get_async_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
         stacklevel=2,
     )
     return _get_async_client(*args, **kwargs)
+
+
+def should_use_executor_credentials() -> bool:
+    """Return True when the current execution runs on behalf of a user (obo),
+    meaning downstream calls should use the executor's identity rather than the
+    worker's credentials. Returns False when there is no workflow context or the
+    worker is running in obo mode.
+    """
+    context = retrieve_context()
+    return bool(context and context.on_behalf_of)
 
 
 def get_mistral_client(

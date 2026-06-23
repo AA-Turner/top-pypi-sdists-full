@@ -46,7 +46,7 @@ Usage:
             observation.set_output(evaluation)
 """
 
-from .execution_cycle import (
+from aigie.agents.execution_cycle import (
     CycleMetrics,
     CyclePhase,
     ExecutionCycle,
@@ -54,7 +54,7 @@ from .execution_cycle import (
     PhaseContext,
     PhaseResult,
 )
-from .goal_tracking import (
+from aigie.agents.goal_tracking import (
     Deviation,
     DeviationType,
     Goal,
@@ -64,7 +64,7 @@ from .goal_tracking import (
     StepStatus,
     TracingGoalTracker,
 )
-from .loop_detection import (
+from aigie.agents.loop_detection import (
     LoopAction,
     LoopDetectionResult,
     LoopDetector,

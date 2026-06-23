@@ -16,15 +16,36 @@
 from collections.abc import Collection
 import functools
 import inspect
-from typing import Any, TypeVar
+from typing import Any, overload
 
 from flax import linen as nn
 from flax import nnx
 from qwix._src import interception
 from qwix._src import qconfig
 
+ModelType = nn.Module | nnx.Module
 
-ModelType = TypeVar("ModelType")
+
+@overload
+def quantize_model(
+    model: nn.Module,
+    provider: qconfig.QuantizationProvider,
+    *model_inputs: Any,
+    methods: Collection[str] = ("__call__",),
+    **model_inputs_kwargs: Any,
+) -> nn.Module:
+  ...
+
+
+@overload
+def quantize_model(
+    model: nnx.Module,
+    provider: qconfig.QuantizationProvider,
+    *model_inputs: Any,
+    methods: Collection[str] = ("__call__",),
+    **model_inputs_kwargs: Any,
+) -> nnx.Module:
+  ...
 
 
 def quantize_model(
@@ -76,8 +97,10 @@ def quantize_linen_model(
   """Quantize a linen model."""
 
   def _is_in_nn_module() -> bool:
-    nn_module: nn.Module = nn.module._context.module_stack[-1]  # pylint: disable=protected-access
-    return nn_module and nn_module.scope is not None
+    nn_module = nn.module._context.module_stack[-1]  # pylint: disable=protected-access
+    if nn_module is None:
+      return False
+    return nn_module.scope is not None
 
   # Make a copy of the model to avoid modifying the original model.
   model = model.copy()
@@ -185,12 +208,12 @@ def quantize_nnx_model(
   # Unlike linen module, nnx module does not have scope or path attribute, we
   # need to iterate over all modules and set the path for them.
   for path, module in model.iter_modules():
-    module.qwix_path = path
+    module.qwix_path = path  # pyrefly: ignore[missing-attribute]
     # Disable quant_stats update for the first call.
-    module.disable_quant_stats_update = True
+    module.disable_quant_stats_update = True  # pyrefly: ignore[missing-attribute]
     # Set the rngs, which is shared by all modules and useful for lora weights
     # initialization.
-    module.qwix_rngs = rngs
+    module.qwix_rngs = rngs  # pyrefly: ignore[missing-attribute]
 
   # Because nnx modules are stateful, we need to call them once to initialize
   # them (convert weights, create quant_stats) unless users explicitly opt out.

@@ -21,6 +21,7 @@ from mistralai.workflows.models import (
     PartialScheduleDefinition,
     ScheduleDefinition,
     ScheduleDefinitionOutput,
+    ScheduleOverlapPolicy,
     Workflow,
     WorkflowRegistration,
     WorkflowSpecWithTaskQueue,
@@ -315,6 +316,8 @@ class WorkflowExecutionStatus(StrEnum):
 
 class WorkflowExecutionWithoutResultResponse(BaseModel):
     workflow_name: str = Field(description="The name of the workflow")
+    workflow_id: uuid.UUID | None = Field(default=None, description="The ID of the workflow")
+    deployment_name: str | None = Field(default=None, description="The name of the deployment that ran this execution")
     execution_id: str = Field(description="The ID of the workflow execution")
     parent_execution_id: str | None = Field(None, description="The parent execution ID of the workflow execution")
     root_execution_id: str = Field(description="The root execution ID of the workflow execution")
@@ -329,6 +332,8 @@ WorkflowRunWithoutResultResponse = WorkflowExecutionWithoutResultResponse
 
 
 class RunSummary(BaseModel):
+    execution_id: str = Field(description="The ID of the workflow execution")
+    run_id: uuid.UUID = Field(description="The unique run identifier (database UUID)")
     status: WorkflowExecutionStatus = Field(description="Execution status")
     duration_ms: int | None = Field(description="Execution duration in milliseconds")
     start_time: datetime = Field(description="When the execution started")
@@ -727,3 +732,10 @@ class WorkflowSchedulePauseRequest(BaseModel):
 class NameListResponse(BaseModel):
     names: list[str] = Field(description="List of distinct names")
     next_cursor: CoercedStr | None = Field(default=None, description="Cursor for the next page of results")
+
+
+class WorkflowScheduleTriggerRequest(BaseModel):
+    overlap: ScheduleOverlapPolicy | None = Field(
+        default=None,
+        description="Optional overlap policy override to use for the immediate trigger.",
+    )

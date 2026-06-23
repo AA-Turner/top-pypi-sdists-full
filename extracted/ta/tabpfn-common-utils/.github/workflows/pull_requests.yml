@@ -11,9 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/ruff-action@v3
+      # Pinned to commit SHA (v3.6.1) since tags are mutable.
+      - uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6 # v3.6.1
         with:
           src: "."
+      # Mirror the release workflow's `ruff format --check`, which the default
+      # ruff-action command (`check`) does not run.
+      - uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6 # v3.6.1
+        with:
+          src: "."
+          args: "format --check"
 
   check_python_typing:
     name: Python type checking

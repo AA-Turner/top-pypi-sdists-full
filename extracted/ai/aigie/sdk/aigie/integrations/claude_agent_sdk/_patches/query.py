@@ -8,12 +8,12 @@ from typing import Any
 
 from aigie.tracing.monkey_patch_lifecycle import PatchTarget
 
-from ..session_context import (
+from aigie.integrations.claude_agent_sdk.session_context import (
     clear_session_context,
     get_or_create_session_context,
     get_session_context,
 )
-from ._shared import (
+from aigie.integrations.claude_agent_sdk._patches._shared import (
     _extract_agent_name,
     _wrap_tools_with_remediation,
 )
@@ -33,9 +33,9 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
         @functools.wraps(original_query)
         async def traced_query(*, prompt: str, **kwargs):  # noqa: C901, PLR0915, PLR0912
             """Traced version of claude_agent_sdk.query()."""
-            from ....client import get_aigie
-            from ..config import ClaudeAgentSDKConfig
-            from ..native_callback import ClaudeAgentSDKEvents
+            from aigie.client import get_aigie
+            from aigie.integrations.claude_agent_sdk.config import ClaudeAgentSDKConfig
+            from aigie.integrations.claude_agent_sdk.native_callback import ClaudeAgentSDKEvents
 
             aigie = get_aigie()
             config = ClaudeAgentSDKConfig.from_env()
@@ -56,9 +56,7 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                     or "claude-sonnet-4-20250514"
                 )
                 system_prompt = (
-                    kwargs.get("system_prompt")
-                    or getattr(_opts, "system_prompt", "")
-                    or ""
+                    kwargs.get("system_prompt") or getattr(_opts, "system_prompt", "") or ""
                 )
                 trace_name = _extract_agent_name(system_prompt, model, aigie)
 
@@ -90,7 +88,7 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                     api_url = getattr(aigie, "_api_url", None) or getattr(aigie, "api_url", None)
                     api_key = getattr(aigie, "_api_key", None) or getattr(aigie, "api_key", None)
                     if api_url:
-                        from ....realtime.remediation_engine import RemediationEngine
+                        from aigie.realtime.remediation_engine import RemediationEngine
 
                         rem_engine = RemediationEngine(
                             api_url=api_url,
@@ -164,10 +162,9 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                 if block_class == "ToolUseBlock":
                                     tool_name = getattr(block, "name", "unknown")
                                     tool_input = getattr(block, "input", {}) or {}
-                                    is_subagent_call = (
-                                        tool_name in ("Task", "Agent")
-                                        or (isinstance(tool_input, dict)
-                                            and "subagent_type" in tool_input)
+                                    is_subagent_call = tool_name in ("Task", "Agent") or (
+                                        isinstance(tool_input, dict)
+                                        and "subagent_type" in tool_input
                                     )
                                     if is_subagent_call:
                                         task_tools.append(block)
@@ -282,5 +279,3 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
         get_target=get_target,
         make_wrapper=make_wrapper,
     )
-
-

@@ -60,24 +60,36 @@ def _fill_error(error_pb: pb.KytteError, error: dict[str, Any]) -> None:
         error_pb.raw = raw if isinstance(raw, str) else json.dumps(raw, default=str)
 
 
-def _fill_llm_fields(span: pb.Span, metadata: dict[str, Any]) -> None:
-    """Promote LLM observability fields from metadata to typed proto fields.
+def _pick(metadata: dict[str, Any], payload: dict[str, Any], key: str) -> Any:
+    """Read an LLM field from metadata first, then the top-level payload.
 
-    Pops the promoted keys so they don't get re-serialized into metadata_json.
+    Always pops from metadata so the promoted key is not re-serialized into
+    metadata_json. Integrations historically disagreed on where the
+    prompt/completion split lives (metadata vs top level); the mapper checked
+    only one place and silently dropped the split for the other. Accepting both
+    makes placement irrelevant to correctness.
     """
-    if (m := metadata.pop("model", None)) is not None:
+    value = metadata.pop(key, None)
+    return value if value is not None else payload.get(key)
+
+
+def _fill_llm_fields(span: pb.Span, metadata: dict[str, Any], payload: dict[str, Any]) -> None:
+    """Promote LLM observability fields to typed proto fields (metadata or top level)."""
+    if (m := _pick(metadata, payload, "model")) is not None:
         span.model = str(m)
     if (mp := metadata.pop("model_parameters", None)) is not None:
         span.model_parameters_json = _json_or_empty(mp)
-    if (pt := metadata.pop("prompt_tokens", None)) is not None:
+    if (tt := _pick(metadata, payload, "total_tokens")) is not None:
+        span.total_tokens = int(tt)
+    if (pt := _pick(metadata, payload, "prompt_tokens")) is not None:
         span.prompt_tokens = int(pt)
-    if (ct := metadata.pop("completion_tokens", None)) is not None:
+    if (ct := _pick(metadata, payload, "completion_tokens")) is not None:
         span.completion_tokens = int(ct)
-    if (ic := metadata.pop("input_cost", None)) is not None:
+    if (ic := _pick(metadata, payload, "input_cost")) is not None:
         span.input_cost = float(ic)
-    if (oc := metadata.pop("output_cost", None)) is not None:
+    if (oc := _pick(metadata, payload, "output_cost")) is not None:
         span.output_cost = float(oc)
-    if (tc := metadata.pop("total_cost", None)) is not None:
+    if (tc := _pick(metadata, payload, "total_cost")) is not None:
         span.total_cost = float(tc)
 
 
@@ -108,8 +120,6 @@ def span_to_proto(payload: dict[str, Any]) -> pb.Span:  # noqa: C901, PLR0915
     _set_ts(span.end_time, payload.get("end_time"))
     if duration_ns := payload.get("duration_ns"):
         span.duration_ns = int(duration_ns)
-    if total_tokens := payload.get("total_tokens"):
-        span.total_tokens = int(total_tokens)
     if (input_v := payload.get("input")) is not None:
         span.input_json = _json_or_empty(input_v)
     if (output_v := payload.get("output")) is not None:
@@ -136,7 +146,7 @@ def span_to_proto(payload: dict[str, Any]) -> pb.Span:  # noqa: C901, PLR0915
         if (em := metadata.pop("error_message", None)) is not None and not envelope["message"]:
             envelope["message"] = str(em)
         _fill_error(span.error, envelope)
-    _fill_llm_fields(span, metadata)
+    _fill_llm_fields(span, metadata, payload)
     if metadata:
         span.metadata_json = _json_or_empty(metadata)
     return span

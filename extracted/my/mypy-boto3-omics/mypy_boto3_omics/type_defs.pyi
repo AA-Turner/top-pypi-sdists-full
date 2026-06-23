@@ -54,6 +54,7 @@ from .literals import (
     RunRetentionModeType,
     RunStatusType,
     SchemaValueTypeType,
+    ScratchStorageModeType,
     SequenceStoreStatusType,
     ShareResourceTypeType,
     ShareStatusType,
@@ -651,6 +652,7 @@ class DefaultRunSettingOutputTypeDef(TypedDict):
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
     engineSettings: NotRequired[dict[str, Any]]
+    scratchStorageMode: NotRequired[ScratchStorageModeType]
 
 class DefaultRunSettingTypeDef(TypedDict):
     workflowId: str
@@ -674,6 +676,7 @@ class DefaultRunSettingTypeDef(TypedDict):
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
     engineSettings: NotRequired[Mapping[str, Any]]
+    scratchStorageMode: NotRequired[ScratchStorageModeType]
 
 SourceReferenceTypeDef = TypedDict(
     "SourceReferenceTypeDef",
@@ -1350,6 +1353,7 @@ class StartRunRequestTypeDef(TypedDict):
     workflowOwnerId: NotRequired[str]
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
+    scratchStorageMode: NotRequired[ScratchStorageModeType]
     configurationName: NotRequired[str]
     engineSettings: NotRequired[Mapping[str, Any]]
 
@@ -2298,6 +2302,7 @@ GetRunResponseTypeDef = TypedDict(
         "workflowVersionName": str,
         "workflowUuid": str,
         "networkingMode": NetworkingModeType,
+        "scratchStorageMode": ScratchStorageModeType,
         "configuration": ConfigurationDetailsTypeDef,
         "vpcConfig": VpcConfigResponseTypeDef,
         "engineSettings": dict[str, Any],

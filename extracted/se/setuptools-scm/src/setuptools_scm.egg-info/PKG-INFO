@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools-scm
-Version: 10.0.5
+Version: 10.1.2
 Summary: the blessed package to manage your versions by scm tags
 Author-email: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>
 License-Expression: MIT
@@ -22,7 +22,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: vcs-versioning>=1.0.0.dev0
+Requires-Dist: vcs-versioning<3,>=2.0.0.dev0
 Requires-Dist: packaging>=20
 Requires-Dist: setuptools
 Requires-Dist: tomli>=1; python_version < "3.11"

@@ -3057,6 +3057,7 @@ class ChalkClient:
         resources: Optional["ScalingGroupResourceRequest"] = None,
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
+        skip_upload_to_volumes: bool = False,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
 
@@ -3076,6 +3077,9 @@ class ChalkClient:
             Dotted path to handler function (default: "model.handler").
         env_vars
             Extra environment variables to inject into the container.
+        skip_upload_to_volumes
+            When True, skip uploading model artifacts to a chalkfs volume.
+            Defaults to False.
 
         Examples
         --------

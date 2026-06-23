@@ -26,7 +26,6 @@ def avro_deserialize(body: Union[Underscore, bytes], schema: Union[dict, str], t
     >>> from chalk.features import _, features
     >>> from dataclasses import dataclass
     >>> from typing import Optional
-    >>>
     >>> USER_SCHEMA = {
     ...     "type": "record",
     ...     "name": "User",
@@ -36,13 +35,11 @@ def avro_deserialize(body: Union[Underscore, bytes], schema: Union[dict, str], t
     ...         {"name": "email", "type": ["null", "string"], "default": None},
     ...     ],
     ... }
-    >>>
     >>> @dataclass
     ... class UserStruct:
     ...     name: str
     ...     age: int
     ...     email: Optional[str]
-    >>>
     >>> @features
     ... class Transaction:
     ...     id: int

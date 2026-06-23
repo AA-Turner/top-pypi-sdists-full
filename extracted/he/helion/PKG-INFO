@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: helion
-Version: 1.1.0
+Version: 1.2.0
 Summary: A Python-embedded DSL that makes it easy to write ML kernels
 Project-URL: Homepage, https://github.com/pytorch/helion
 Project-URL: Issues, https://github.com/pytorch/helion/issues
@@ -41,10 +41,9 @@ Requires-Dist: psutil
 Requires-Dist: rich
 Requires-Dist: scikit-learn>=1.3.0
 Requires-Dist: typing-extensions>=4.0.0
-Provides-Extra: cute-cu12
-Requires-Dist: nvidia-cutlass-dsl==4.5.0; extra == 'cute-cu12'
-Provides-Extra: cute-cu13
-Requires-Dist: nvidia-cutlass-dsl[cu13]==4.5.0; extra == 'cute-cu13'
+Provides-Extra: cute
+Requires-Dist: apache-tvm-ffi; extra == 'cute'
+Requires-Dist: nvidia-cutlass-dsl[cu13]==4.5.2; extra == 'cute'
 Provides-Extra: dev
 Requires-Dist: expecttest; extra == 'dev'
 Requires-Dist: hypothesis; extra == 'dev'
@@ -381,6 +380,28 @@ export ENABLE_TILE=1
 ```
 
 For detailed documentation, see the [TileIR Backend Guide](docs/tileir_backend.md).
+
+## CuTe Backend (CUDA 13+)
+
+Helion has an experimental [CUTLASS CuTe DSL](https://github.com/NVIDIA/cutlass) backend that lowers kernels through CuTe instead of Triton.
+
+**Requirements:** PyTorch must be built against **CUDA 13 or later** (`torch.version.cuda >= "13"`). The backend will refuse to launch on older CUDA builds.
+
+To enable the CuTe backend:
+
+1. Install the pinned CuTe DSL release:
+
+   ```bash
+   pip install -e '.[cute]'
+   # or run the helper, which also handles the libs-cu13 reinstall ordering
+   ./scripts/install_cute.sh
+   ```
+
+2. Select the backend at runtime:
+
+   ```bash
+   export HELION_BACKEND=cute
+   ```
 
 ## Settings for Development and Debugging
 

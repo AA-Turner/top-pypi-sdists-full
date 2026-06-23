@@ -22,24 +22,30 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    BatchDeleteErrorCodeType,
     ChangeEventTypeType,
     ConnectionTypeType,
     DetailLevelType,
     DurationUnitType,
     EvaluationTypeType,
+    InstrumentationConfigurationStatusType,
+    InstrumentationErrorCauseType,
+    InstrumentationTypeType,
     MetricSourceTypeType,
+    ProgrammingLanguageType,
     SelectionTypeType,
     ServiceLevelIndicatorComparisonOperatorType,
     ServiceLevelIndicatorMetricTypeType,
     ServiceLevelObjectiveBudgetStatusType,
     SeverityType,
     StandardUnitType,
+    UnprocessedStatusEventFailureReasonType,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AttributeFilterOutputTypeDef",
@@ -49,6 +55,13 @@ __all__ = (
     "AuditTargetEntityTypeDef",
     "AuditTargetTypeDef",
     "AuditorResultTypeDef",
+    "BatchDeleteByResourceArnsTypeDef",
+    "BatchDeleteDeletionTargetTypeDef",
+    "BatchDeleteErrorTypeDef",
+    "BatchDeleteInstrumentationConfigurationsRequestTypeDef",
+    "BatchDeleteInstrumentationConfigurationsResponseTypeDef",
+    "BatchDeleteScopeTypeDef",
+    "BatchDeleteSuccessfulDeletionTypeDef",
     "BatchGetServiceLevelObjectiveBudgetReportInputTypeDef",
     "BatchGetServiceLevelObjectiveBudgetReportOutputTypeDef",
     "BatchUpdateExclusionWindowsErrorTypeDef",
@@ -58,13 +71,24 @@ __all__ = (
     "CalendarIntervalOutputTypeDef",
     "CalendarIntervalTypeDef",
     "CanaryEntityTypeDef",
+    "CaptureConfigurationOutputTypeDef",
+    "CaptureConfigurationTypeDef",
+    "CaptureConfigurationUnionTypeDef",
+    "CaptureLimitsConfigTypeDef",
     "ChangeEventTypeDef",
+    "CodeCaptureConfigurationOutputTypeDef",
+    "CodeCaptureConfigurationTypeDef",
+    "CodeLocationTypeDef",
     "CompositeSliComponentTypeDef",
     "CompositeSliConfigOutputTypeDef",
     "CompositeSliConfigTypeDef",
     "CompositeSliConfigUnionTypeDef",
+    "CreateInstrumentationConfigurationRequestTypeDef",
+    "CreateInstrumentationConfigurationResponseTypeDef",
     "CreateServiceLevelObjectiveInputTypeDef",
     "CreateServiceLevelObjectiveOutputTypeDef",
+    "DeleteInstrumentationConfigurationRequestTypeDef",
+    "DeleteInstrumentationConfigurationResponseTypeDef",
     "DeleteServiceLevelObjectiveInputTypeDef",
     "DependencyConfigOutputTypeDef",
     "DependencyConfigTypeDef",
@@ -75,6 +99,11 @@ __all__ = (
     "ExclusionWindowOutputTypeDef",
     "ExclusionWindowTypeDef",
     "ExclusionWindowUnionTypeDef",
+    "GetInstrumentationConfigurationRequestTypeDef",
+    "GetInstrumentationConfigurationResponseTypeDef",
+    "GetInstrumentationConfigurationStatusRequestPaginateTypeDef",
+    "GetInstrumentationConfigurationStatusRequestTypeDef",
+    "GetInstrumentationConfigurationStatusResponseTypeDef",
     "GetServiceInputTypeDef",
     "GetServiceLevelObjectiveInputTypeDef",
     "GetServiceLevelObjectiveOutputTypeDef",
@@ -86,6 +115,11 @@ __all__ = (
     "GroupingAttributeDefinitionTypeDef",
     "GroupingAttributeDefinitionUnionTypeDef",
     "GroupingConfigurationTypeDef",
+    "InstrumentationConfigurationStatusReportTypeDef",
+    "InstrumentationConfigurationTypeDef",
+    "InstrumentationConfigurationWithoutServiceEnvTypeDef",
+    "InstrumentationConfigurationsPageTypeDef",
+    "InstrumentationStatusEventTypeDef",
     "IntervalOutputTypeDef",
     "IntervalTypeDef",
     "ListAuditFindingsInputTypeDef",
@@ -95,6 +129,8 @@ __all__ = (
     "ListEntityEventsOutputTypeDef",
     "ListGroupingAttributeDefinitionsInputTypeDef",
     "ListGroupingAttributeDefinitionsOutputTypeDef",
+    "ListInstrumentationConfigurationsRequestPaginateTypeDef",
+    "ListInstrumentationConfigurationsRequestTypeDef",
     "ListServiceDependenciesInputPaginateTypeDef",
     "ListServiceDependenciesInputTypeDef",
     "ListServiceDependenciesOutputTypeDef",
@@ -118,6 +154,8 @@ __all__ = (
     "ListServicesOutputTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "LocationIdentifierTypeDef",
+    "LocationTypeDef",
     "MetricDataQueryOutputTypeDef",
     "MetricDataQueryTypeDef",
     "MetricDataQueryUnionTypeDef",
@@ -140,6 +178,8 @@ __all__ = (
     "PutGroupingConfigurationInputTypeDef",
     "PutGroupingConfigurationOutputTypeDef",
     "RecurrenceRuleTypeDef",
+    "ReportInstrumentationConfigurationStatusRequestTypeDef",
+    "ReportInstrumentationConfigurationStatusResponseTypeDef",
     "RequestBasedServiceLevelIndicatorConfigTypeDef",
     "RequestBasedServiceLevelIndicatorMetricConfigTypeDef",
     "RequestBasedServiceLevelIndicatorMetricTypeDef",
@@ -168,6 +208,7 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TimestampTypeDef",
+    "UnprocessedStatusEventTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateServiceLevelObjectiveInputTypeDef",
     "UpdateServiceLevelObjectiveOutputTypeDef",
@@ -205,7 +246,24 @@ class ServiceLevelObjectiveEntityTypeDef(TypedDict):
     SloName: NotRequired[str]
     SloArn: NotRequired[str]
 
-TimestampTypeDef = Union[datetime, str]
+class BatchDeleteByResourceArnsTypeDef(TypedDict):
+    ResourceArns: Sequence[str]
+    InstrumentationType: InstrumentationTypeType
+
+class BatchDeleteScopeTypeDef(TypedDict):
+    Service: str
+    Environment: str
+    InstrumentationType: InstrumentationTypeType
+
+class BatchDeleteErrorTypeDef(TypedDict):
+    ResourceArn: str
+    Code: BatchDeleteErrorCodeType
+    Message: str
+
+class BatchDeleteSuccessfulDeletionTypeDef(TypedDict):
+    ResourceArn: NotRequired[str]
+    SignalType: NotRequired[str]
+    LocationHash: NotRequired[str]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -213,6 +271,8 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+TimestampTypeDef = Union[datetime, str]
 
 class ServiceLevelObjectiveBudgetReportErrorTypeDef(TypedDict):
     Name: str
@@ -233,6 +293,16 @@ class CalendarIntervalOutputTypeDef(TypedDict):
     DurationUnit: DurationUnitType
     Duration: int
 
+class CaptureLimitsConfigTypeDef(TypedDict):
+    MaxHits: NotRequired[int]
+    MaxStringLength: NotRequired[int]
+    MaxCollectionWidth: NotRequired[int]
+    MaxCollectionDepth: NotRequired[int]
+    MaxStackFrames: NotRequired[int]
+    MaxStackTraceSize: NotRequired[int]
+    MaxObjectDepth: NotRequired[int]
+    MaxFieldsPerObject: NotRequired[int]
+
 class ChangeEventTypeDef(TypedDict):
     Timestamp: datetime
     AccountId: str
@@ -242,6 +312,14 @@ class ChangeEventTypeDef(TypedDict):
     EventId: str
     UserName: NotRequired[str]
     EventName: NotRequired[str]
+
+class CodeLocationTypeDef(TypedDict):
+    Language: ProgrammingLanguageType
+    FilePath: str
+    CodeUnit: NotRequired[str]
+    ClassName: NotRequired[str]
+    MethodName: NotRequired[str]
+    LineNumber: NotRequired[int]
 
 class CompositeSliComponentTypeDef(TypedDict):
     OperationName: NotRequired[str]
@@ -299,6 +377,15 @@ class WindowTypeDef(TypedDict):
     DurationUnit: DurationUnitType
     Duration: int
 
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class InstrumentationStatusEventTypeDef(TypedDict):
+    Time: datetime
+    ErrorCause: NotRequired[InstrumentationErrorCauseType]
+
 class GetServiceLevelObjectiveInputTypeDef(TypedDict):
     Id: str
 
@@ -315,11 +402,6 @@ class GroupingAttributeDefinitionTypeDef(TypedDict):
 class RollingIntervalTypeDef(TypedDict):
     DurationUnit: DurationUnitType
     Duration: int
-
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
 
 class ListGroupingAttributeDefinitionsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -342,6 +424,14 @@ class MetricSourceTypeDef(TypedDict):
     MetricSourceKeyAttributes: Mapping[str, str]
     MetricSourceAttributes: NotRequired[Mapping[str, str]]
 
+class UnprocessedStatusEventTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    SignalType: Literal["SNAPSHOT"]
+    LocationHash: str
+    Status: InstrumentationConfigurationStatusType
+    Time: datetime
+    FailedReason: UnprocessedStatusEventFailureReasonType
+
 class ServiceGroupTypeDef(TypedDict):
     GroupName: str
     GroupValue: str
@@ -359,6 +449,20 @@ class ServiceOperationEntityTypeDef(TypedDict):
     Operation: NotRequired[str]
     MetricType: NotRequired[str]
 
+class BatchDeleteDeletionTargetTypeDef(TypedDict):
+    Scope: NotRequired[BatchDeleteScopeTypeDef]
+    ResourceArns: NotRequired[BatchDeleteByResourceArnsTypeDef]
+
+class BatchDeleteInstrumentationConfigurationsResponseTypeDef(TypedDict):
+    DeletedCount: int
+    SuccessfulDeletions: list[BatchDeleteSuccessfulDeletionTypeDef]
+    Errors: list[BatchDeleteErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteInstrumentationConfigurationResponseTypeDef(TypedDict):
+    DeletionStatus: Literal["DELETED"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class BatchGetServiceLevelObjectiveBudgetReportInputTypeDef(TypedDict):
     Timestamp: TimestampTypeDef
     SloIds: Sequence[str]
@@ -373,10 +477,26 @@ class GetServiceInputTypeDef(TypedDict):
     EndTime: TimestampTypeDef
     KeyAttributes: Mapping[str, str]
 
+class InstrumentationConfigurationStatusReportTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    SignalType: Literal["SNAPSHOT"]
+    LocationHash: str
+    Status: InstrumentationConfigurationStatusType
+    Time: TimestampTypeDef
+    ErrorCause: NotRequired[InstrumentationErrorCauseType]
+
 class ListEntityEventsInputTypeDef(TypedDict):
     Entity: Mapping[str, str]
     StartTime: TimestampTypeDef
     EndTime: TimestampTypeDef
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListInstrumentationConfigurationsRequestTypeDef(TypedDict):
+    Service: str
+    Environment: str
+    InstrumentationType: InstrumentationTypeType
+    SyncedAt: NotRequired[TimestampTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -414,6 +534,20 @@ class BatchUpdateExclusionWindowsOutputTypeDef(TypedDict):
     Errors: list[BatchUpdateExclusionWindowsErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CodeCaptureConfigurationOutputTypeDef(TypedDict):
+    CaptureLimits: CaptureLimitsConfigTypeDef
+    CaptureArguments: NotRequired[list[str]]
+    CaptureReturn: NotRequired[bool]
+    CaptureStackTrace: NotRequired[bool]
+    CaptureLocals: NotRequired[list[str]]
+
+class CodeCaptureConfigurationTypeDef(TypedDict):
+    CaptureLimits: CaptureLimitsConfigTypeDef
+    CaptureArguments: NotRequired[Sequence[str]]
+    CaptureReturn: NotRequired[bool]
+    CaptureStackTrace: NotRequired[bool]
+    CaptureLocals: NotRequired[Sequence[str]]
+
 class ListEntityEventsOutputTypeDef(TypedDict):
     StartTime: datetime
     EndTime: datetime
@@ -425,6 +559,13 @@ class ServiceStateTypeDef(TypedDict):
     Service: dict[str, str]
     LatestChangeEvents: list[ChangeEventTypeDef]
     AttributeFilters: NotRequired[list[AttributeFilterOutputTypeDef]]
+
+class LocationIdentifierTypeDef(TypedDict):
+    CodeLocation: NotRequired[CodeLocationTypeDef]
+    LocationHash: NotRequired[str]
+
+class LocationTypeDef(TypedDict):
+    CodeLocation: NotRequired[CodeLocationTypeDef]
 
 class CompositeSliConfigOutputTypeDef(TypedDict):
     SelectionConfig: SelectionConfigTypeDef
@@ -477,28 +618,17 @@ class ExclusionWindowTypeDef(TypedDict):
     RecurrenceRule: NotRequired[RecurrenceRuleTypeDef]
     Reason: NotRequired[str]
 
-class GroupingConfigurationTypeDef(TypedDict):
-    GroupingAttributeDefinitions: list[GroupingAttributeDefinitionOutputTypeDef]
-    UpdatedAt: datetime
-
-class ListGroupingAttributeDefinitionsOutputTypeDef(TypedDict):
-    GroupingAttributeDefinitions: list[GroupingAttributeDefinitionOutputTypeDef]
-    UpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-GroupingAttributeDefinitionUnionTypeDef = Union[
-    GroupingAttributeDefinitionTypeDef, GroupingAttributeDefinitionOutputTypeDef
-]
-
-class IntervalOutputTypeDef(TypedDict):
-    RollingInterval: NotRequired[RollingIntervalTypeDef]
-    CalendarInterval: NotRequired[CalendarIntervalOutputTypeDef]
-
 class ListEntityEventsInputPaginateTypeDef(TypedDict):
     Entity: Mapping[str, str]
     StartTime: TimestampTypeDef
     EndTime: TimestampTypeDef
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListInstrumentationConfigurationsRequestPaginateTypeDef(TypedDict):
+    Service: str
+    Environment: str
+    InstrumentationType: InstrumentationTypeType
+    SyncedAt: NotRequired[TimestampTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListServiceDependenciesInputPaginateTypeDef(TypedDict):
@@ -530,7 +660,31 @@ class ListServicesInputPaginateTypeDef(TypedDict):
     AwsAccountId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class GroupingConfigurationTypeDef(TypedDict):
+    GroupingAttributeDefinitions: list[GroupingAttributeDefinitionOutputTypeDef]
+    UpdatedAt: datetime
+
+class ListGroupingAttributeDefinitionsOutputTypeDef(TypedDict):
+    GroupingAttributeDefinitions: list[GroupingAttributeDefinitionOutputTypeDef]
+    UpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+GroupingAttributeDefinitionUnionTypeDef = Union[
+    GroupingAttributeDefinitionTypeDef, GroupingAttributeDefinitionOutputTypeDef
+]
+
+class IntervalOutputTypeDef(TypedDict):
+    RollingInterval: NotRequired[RollingIntervalTypeDef]
+    CalendarInterval: NotRequired[CalendarIntervalOutputTypeDef]
+
 MetricSourceUnionTypeDef = Union[MetricSourceTypeDef, MetricSourceOutputTypeDef]
+
+class ReportInstrumentationConfigurationStatusResponseTypeDef(TypedDict):
+    Service: str
+    Environment: str
+    UnprocessedStatusEvents: list[UnprocessedStatusEventTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListServiceStatesInputPaginateTypeDef(TypedDict):
     StartTime: TimestampTypeDef
@@ -555,14 +709,75 @@ class AuditTargetEntityTypeDef(TypedDict):
     ServiceOperation: NotRequired[ServiceOperationEntityTypeDef]
     Canary: NotRequired[CanaryEntityTypeDef]
 
+class BatchDeleteInstrumentationConfigurationsRequestTypeDef(TypedDict):
+    DeletionTarget: BatchDeleteDeletionTargetTypeDef
+
 class IntervalTypeDef(TypedDict):
     RollingInterval: NotRequired[RollingIntervalTypeDef]
     CalendarInterval: NotRequired[CalendarIntervalTypeDef]
+
+class ReportInstrumentationConfigurationStatusRequestTypeDef(TypedDict):
+    Service: str
+    Environment: str
+    Configurations: Sequence[InstrumentationConfigurationStatusReportTypeDef]
+
+class CaptureConfigurationOutputTypeDef(TypedDict):
+    CodeCapture: NotRequired[CodeCaptureConfigurationOutputTypeDef]
+
+class CaptureConfigurationTypeDef(TypedDict):
+    CodeCapture: NotRequired[CodeCaptureConfigurationTypeDef]
 
 class ListServiceStatesOutputTypeDef(TypedDict):
     StartTime: datetime
     EndTime: datetime
     ServiceStates: list[ServiceStateTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DeleteInstrumentationConfigurationRequestTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    Service: str
+    Environment: str
+    SignalType: Literal["SNAPSHOT"]
+    LocationIdentifier: LocationIdentifierTypeDef
+
+class GetInstrumentationConfigurationRequestTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    Service: str
+    Environment: str
+    SignalType: Literal["SNAPSHOT"]
+    LocationIdentifier: LocationIdentifierTypeDef
+
+class GetInstrumentationConfigurationStatusRequestPaginateTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    Service: str
+    Environment: str
+    SignalType: Literal["SNAPSHOT"]
+    LocationIdentifier: LocationIdentifierTypeDef
+    Status: NotRequired[InstrumentationConfigurationStatusType]
+    StartTime: NotRequired[TimestampTypeDef]
+    EndTime: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetInstrumentationConfigurationStatusRequestTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    Service: str
+    Environment: str
+    SignalType: Literal["SNAPSHOT"]
+    LocationIdentifier: LocationIdentifierTypeDef
+    Status: NotRequired[InstrumentationConfigurationStatusType]
+    StartTime: NotRequired[TimestampTypeDef]
+    EndTime: NotRequired[TimestampTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class GetInstrumentationConfigurationStatusResponseTypeDef(TypedDict):
+    Service: str
+    Environment: str
+    SignalType: Literal["SNAPSHOT"]
+    Location: LocationTypeDef
+    Status: InstrumentationConfigurationStatusType
+    Events: list[InstrumentationStatusEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -670,6 +885,51 @@ class GoalTypeDef(TypedDict):
     AttainmentGoal: NotRequired[float]
     WarningThreshold: NotRequired[float]
 
+class CreateInstrumentationConfigurationResponseTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    Service: str
+    Environment: str
+    SignalType: Literal["SNAPSHOT"]
+    Location: LocationTypeDef
+    LocationHash: str
+    Description: str
+    ExpiresAt: datetime
+    AttributeFilters: list[dict[str, str]]
+    CaptureConfiguration: CaptureConfigurationOutputTypeDef
+    CreatedAt: datetime
+    ARN: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class InstrumentationConfigurationTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    Service: str
+    Environment: str
+    SignalType: Literal["SNAPSHOT"]
+    Location: LocationTypeDef
+    LocationHash: str
+    CaptureConfiguration: CaptureConfigurationOutputTypeDef
+    CreatedAt: datetime
+    ARN: str
+    Description: NotRequired[str]
+    ExpiresAt: NotRequired[datetime]
+    AttributeFilters: NotRequired[list[dict[str, str]]]
+
+class InstrumentationConfigurationWithoutServiceEnvTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    SignalType: Literal["SNAPSHOT"]
+    Location: LocationTypeDef
+    LocationHash: str
+    CaptureConfiguration: CaptureConfigurationOutputTypeDef
+    CreatedAt: datetime
+    ARN: str
+    Description: NotRequired[str]
+    ExpiresAt: NotRequired[datetime]
+    AttributeFilters: NotRequired[list[dict[str, str]]]
+
+CaptureConfigurationUnionTypeDef = Union[
+    CaptureConfigurationTypeDef, CaptureConfigurationOutputTypeDef
+]
+
 class ListServiceLevelObjectivesOutputTypeDef(TypedDict):
     SloSummaries: list[ServiceLevelObjectiveSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -740,6 +1000,32 @@ class ListAuditFindingsInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 GoalUnionTypeDef = Union[GoalTypeDef, GoalOutputTypeDef]
+
+class GetInstrumentationConfigurationResponseTypeDef(TypedDict):
+    Configuration: InstrumentationConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class InstrumentationConfigurationsPageTypeDef(TypedDict):
+    Service: str
+    Environment: str
+    Changed: bool
+    LatestConfigurations: list[InstrumentationConfigurationWithoutServiceEnvTypeDef]
+    SyncedAt: datetime
+    SyncInterval: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class CreateInstrumentationConfigurationRequestTypeDef(TypedDict):
+    InstrumentationType: InstrumentationTypeType
+    Service: str
+    Environment: str
+    SignalType: Literal["SNAPSHOT"]
+    Location: LocationTypeDef
+    CaptureConfiguration: CaptureConfigurationUnionTypeDef
+    Description: NotRequired[str]
+    ExpiresAt: NotRequired[TimestampTypeDef]
+    AttributeFilters: NotRequired[Sequence[Mapping[str, str]]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class MetricGraphTypeDef(TypedDict):
     MetricDataQueries: NotRequired[list[MetricDataQueryOutputTypeDef]]

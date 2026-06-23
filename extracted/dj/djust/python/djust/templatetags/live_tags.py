@@ -25,8 +25,9 @@ from typing import Any, Dict, Optional
 
 from django import template
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.template import Context, Node, Template, TemplateSyntaxError
-from django.utils.html import escape
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 
 from .._html import build_tag
@@ -35,6 +36,47 @@ from ..utils import get_csp_nonce
 
 register = template.Library()
 logger = logging.getLogger(__name__)
+
+
+def _record_child_dj_model_allowlist(child) -> None:
+    """Populate an embedded ``{% live_render %}`` child's dj-model allowlist
+    from the CHILD's own TEMPLATE SOURCE (CWE-915 mass-assignment guard).
+
+    Single shared helper for all three live_render render sites (eager,
+    lazy, sticky) so the same invariant can't drift across them
+    (parallel-path cure, #1646). The child renders through Django's template
+    engine (bypassing ``render_with_diff``), so its allowlist must be derived
+    here. Source is preferred via ``child.get_template()`` (fully resolves
+    ``{% extends %}``); falls back to the inline ``template`` / raw
+    ``template_name`` source. Derivation is from the Rust template AST
+    (Text-node literals only), immune to rendered-output poisoning.
+    """
+    if not hasattr(child, "_record_dj_model_fields_from_source"):
+        return
+    try:
+        from ..utils import get_template_dirs
+
+        source = None
+        get_tmpl = getattr(child, "get_template", None)
+        if callable(get_tmpl):
+            source = get_tmpl()
+        else:
+            inline = getattr(child, "template", None)
+            if inline:
+                source = inline
+            else:
+                template_name = getattr(child, "template_name", None)
+                if template_name:
+                    from django.template import loader as _loader
+
+                    source = _loader.get_template(template_name).template.source
+        child._record_dj_model_fields_from_source(source, get_template_dirs())
+    except Exception:  # noqa: BLE001 — never let allowlist collection break a render
+        # Fail closed: the child's _record_dj_model_fields_from_source already
+        # resets to an empty frozenset on its own error path; guard the
+        # source-resolution above too.
+        logger.warning("[dj-model] child auto-allowlist collection failed; failing closed")
+
 
 # Matches </script> with any letter casing. Used by the `{% colocated_hook %}`
 # body-escape defense to prevent a template-author typo from prematurely
@@ -690,10 +732,16 @@ def live_input(field_type: str = "text", **kwargs) -> Any:
         "checkbox",
         "radio",
     ):
-        return mark_safe(
-            f"<!-- ERROR: {{% live_input %}} unknown field_type "
-            f"{field_type!r} — supported: text, textarea, select, password, "
-            f"email, number, url, tel, search, hidden, checkbox, radio -->"
+        # Defense-in-depth (#1646 / finding #18): field_type is a template-author
+        # literal (not attacker input), but mark_safe(f"... {field_type!r} ...")
+        # interpolates a variable into an HTML comment without escaping ``-->``.
+        # format_html escapes the interpolated value, so the comment can't be
+        # broken out of regardless of source.
+        return format_html(
+            "<!-- ERROR: {{% live_input %}} unknown field_type "
+            "{} — supported: text, textarea, select, password, "
+            "email, number, url, tel, search, hidden, checkbox, radio -->",
+            repr(field_type),
         )
 
     if not handler and field_type != "hidden":
@@ -1354,6 +1402,11 @@ def _render_sticky_child_html(
             )
         rendered_inner = get_template(template_name).render(child_context, request)
 
+    # Record the child's dj-model auto-allowlist from its own TEMPLATE SOURCE
+    # so child update_model events (gated on the child's _dj_model_fields)
+    # accept its dj-model inputs — this render bypasses render_with_diff
+    # (#3 Stage-11 review, #1646 parallel-path).
+    _record_child_dj_model_allowlist(child)
     rendered_stamped = _stamp_view_id(rendered_inner, view_id)
     escaped_id = escape(view_id)
     escaped_sticky_id = escape(sticky_id_value)
@@ -1763,6 +1816,15 @@ def live_render(context, view_path: str, **kwargs) -> Any:
                 mount_fn = getattr(child, "mount", None)
                 if callable(mount_fn):
                     mount_fn(request, **captured_kwargs)
+                # Object-permission check (ADR-017) for the lazy embedded child
+                # — same as the eager path (finding #12). No-op unless the child
+                # overrides get_object; fail-closed otherwise.
+                from ..auth.core import enforce_object_permission
+
+                try:
+                    enforce_object_permission(child, request)
+                except PermissionDenied:
+                    raise PermissionError("child %r denied access (object permission)" % view_path)
                 # Don't re-register the child by view_id — _assign_view_id
                 # already incremented the counter; calling _register_child
                 # here is what locks the slot. The lazy-fill DOM ends up
@@ -1794,6 +1856,12 @@ def live_render(context, view_path: str, **kwargs) -> Any:
                             "``template_name`` set" % view_path
                         )
                     rendered_inner = get_template(template_name).render(child_context, request)
+                # Record the child's dj-model auto-allowlist from its own
+                # TEMPLATE SOURCE so child update_model events (gated on the
+                # child's _dj_model_fields) accept its dj-model inputs — this
+                # render bypasses render_with_diff (#3 Stage-11 review, #1646
+                # parallel-path).
+                _record_child_dj_model_allowlist(child)
                 rendered_stamped = _stamp_view_id(rendered_inner, view_id)
                 # Wrap in a [dj-view] container so events route via
                 # data-djust-embedded just like the eager path.
@@ -2025,6 +2093,21 @@ def live_render(context, view_path: str, **kwargs) -> Any:
         if callable(mount):
             mount(request, **kwargs)
 
+    # 4c. Object-permission check (ADR-017) for the embedded child. The child's
+    #     view-level auth ran above (check_view_auth); the object-level step
+    #     must run too, or an embedded object-scoped child renders a denied
+    #     object (finding #12). No-op for children that don't override
+    #     get_object. Fail-closed: deny the embed rather than leak.
+    from ..auth.core import enforce_object_permission
+
+    try:
+        enforce_object_permission(child, request)
+    except PermissionDenied:
+        raise TemplateSyntaxError(
+            "{%% live_render %%} target %r denied access: object-level permission "
+            "check failed for the requested object." % view_path
+        )
+
     # 5. Assign the view_id and register on the parent. _register_child
     #    wires parent/view_id back-references on the child.
     view_id = parent._assign_view_id(preferred_view_id)
@@ -2074,6 +2157,11 @@ def live_render(context, view_path: str, **kwargs) -> Any:
             )
         rendered_inner = get_template(template_name).render(child_context, request)
 
+    # Record the child's dj-model auto-allowlist from its own TEMPLATE SOURCE
+    # so child update_model events (gated on the child's _dj_model_fields)
+    # accept its dj-model inputs — this render bypasses render_with_diff
+    # (#3 Stage-11 review, #1646 parallel-path).
+    _record_child_dj_model_allowlist(child)
     rendered_stamped = _stamp_view_id(rendered_inner, view_id)
     escaped_id = escape(view_id)
     return mark_safe(

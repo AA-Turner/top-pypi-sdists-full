@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-informatica
-Version: 0.1.4
+Version: 0.2.0
 Summary: Provider package apache-airflow-providers-informatica for Apache Airflow
 Keywords: airflow-provider,informatica,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -26,15 +26,18 @@ License-File: NOTICE
 Requires-Dist: apache-airflow>=3.0.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: apache-airflow-providers-http>=4.13.2
+Requires-Dist: sqlglot>=30.0.0
 Requires-Dist: apache-airflow-providers-common-compat ; extra == "common-compat"
+Requires-Dist: apache-airflow-providers-common-sql ; extra == "common-sql"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-informatica/0.1.4/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-informatica/0.1.4
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-informatica/0.2.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-informatica/0.2.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 Provides-Extra: common-compat
+Provides-Extra: common-sql
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -61,7 +64,7 @@ Provides-Extra: common-compat
 
 Package ``apache-airflow-providers-informatica``
 
-Release: ``0.1.4``
+Release: ``0.2.0``
 
 
 `Informatica <https://www.informatica.com//>`__
@@ -74,7 +77,7 @@ This is a provider package for ``informatica`` provider. All classes for this pr
 are in ``airflow.providers.informatica`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-informatica/0.1.4/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-informatica/0.2.0/>`_.
 
 Installation
 ------------
@@ -94,6 +97,7 @@ PIP package                                 Version required
 ``apache-airflow``                          ``>=3.0.0``
 ``apache-airflow-providers-common-compat``  ``>=1.12.0``
 ``apache-airflow-providers-http``           ``>=4.13.2``
+``sqlglot``                                 ``>=30.0.0``
 ==========================================  ==================
 
 Cross provider package dependencies
@@ -113,6 +117,7 @@ You can install such cross-provider dependencies when installing from PyPI. For 
 Dependent package                                                                                                   Extra
 ==================================================================================================================  =================
 `apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
+`apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_        ``common.sql``
 `apache-airflow-providers-http <https://airflow.apache.org/docs/apache-airflow-providers-http>`_                    ``http``
 ==================================================================================================================  =================
 
@@ -123,8 +128,9 @@ Optional dependencies
 Extra              Dependencies
 =================  ==========================================
 ``common.compat``  ``apache-airflow-providers-common-compat``
+``common.sql``     ``apache-airflow-providers-common-sql``
 =================  ==========================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-informatica/0.1.4/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-informatica/0.2.0/changelog.html>`_.
 

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs-lite
-Version: 1.43.34
-Summary: Lite type annotations for boto3 1.43.34 generated with mypy-boto3-builder 8.12.0
+Version: 1.43.36
+Summary: Lite type annotations for boto3 1.43.36 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.44.0,>=1.43.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.43.34; extra == "boto3"
+Requires-Dist: boto3==1.43.36; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.44.0,>=1.43.0; extra == "all"
@@ -256,6 +256,8 @@ Requires-Dist: mypy-boto3-kinesisvideo<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-kms<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-lakeformation<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-lambda<1.44.0,>=1.43.0; extra == "all"
+Requires-Dist: mypy-boto3-lambda-core<1.44.0,>=1.43.0; extra == "all"
+Requires-Dist: mypy-boto3-lambda-microvms<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-launch-wizard<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-lex-models<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-lex-runtime<1.44.0,>=1.43.0; extra == "all"
@@ -909,6 +911,10 @@ Provides-Extra: lakeformation
 Requires-Dist: mypy-boto3-lakeformation<1.44.0,>=1.43.0; extra == "lakeformation"
 Provides-Extra: lambda
 Requires-Dist: mypy-boto3-lambda<1.44.0,>=1.43.0; extra == "lambda"
+Provides-Extra: lambda-core
+Requires-Dist: mypy-boto3-lambda-core<1.44.0,>=1.43.0; extra == "lambda-core"
+Provides-Extra: lambda-microvms
+Requires-Dist: mypy-boto3-lambda-microvms<1.44.0,>=1.43.0; extra == "lambda-microvms"
 Provides-Extra: launch-wizard
 Requires-Dist: mypy-boto3-launch-wizard<1.44.0,>=1.43.0; extra == "launch-wizard"
 Provides-Extra: lex-models
@@ -1332,7 +1338,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.43.34](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.43.36](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1392,7 +1398,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.34' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.36' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1725,9 +1731,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs-lite[full]` - Type annotations for all 425 services in one
+- `boto3-stubs-lite[full]` - Type annotations for all 427 services in one
   package (recommended).
-- `boto3-stubs-lite[all]` - Type annotations for all 425 services in separate
+- `boto3-stubs-lite[all]` - Type annotations for all 427 services in separate
   packages.
 - `boto3-stubs-lite[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2376,6 +2382,12 @@ repository.
   service.
 - `boto3-stubs-lite[lambda]` - Type annotations for
   [Lambda](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/)
+  service.
+- `boto3-stubs-lite[lambda-core]` - Type annotations for
+  [LambdaCore](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda_core/)
+  service.
+- `boto3-stubs-lite[lambda-microvms]` - Type annotations for
+  [LambdaMicroVMs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda_microvms/)
   service.
 - `boto3-stubs-lite[launch-wizard]` - Type annotations for
   [LaunchWizard](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_launch_wizard/)

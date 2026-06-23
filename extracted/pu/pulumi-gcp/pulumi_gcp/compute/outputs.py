@@ -661,6 +661,7 @@ __all__ = [
     'RegionUrlMapPathMatcherRouteRuleUrlRedirect',
     'RegionUrlMapTest',
     'ReservationDeleteAfterDuration',
+    'ReservationParams',
     'ReservationReservationSharingPolicy',
     'ReservationResourceStatus',
     'ReservationResourceStatusHealthInfo',
@@ -1208,6 +1209,7 @@ __all__ = [
     'GetReservationBlockPhysicalTopologyResult',
     'GetReservationBlockReservationMaintenanceResult',
     'GetReservationDeleteAfterDurationResult',
+    'GetReservationParamResult',
     'GetReservationReservationSharingPolicyResult',
     'GetReservationResourceStatusResult',
     'GetReservationResourceStatusHealthInfoResult',
@@ -49825,6 +49827,46 @@ class ReservationDeleteAfterDuration(dict):
 
 
 @pulumi.output_type
+class ReservationParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReservationParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReservationParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReservationParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the reservation. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the reservation. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+
+@pulumi.output_type
 class ReservationReservationSharingPolicy(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -86049,6 +86091,28 @@ class GetReservationDeleteAfterDurationResult(dict):
         Number of seconds for the auto-delete duration.
         """
         return pulumi.get(self, "seconds")
+
+
+@pulumi.output_type
+class GetReservationParamResult(dict):
+    def __init__(__self__, *,
+                 resource_manager_tags: Mapping[str, _builtins.str]):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the reservation. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Resource manager tags to be bound to the reservation. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
 
 
 @pulumi.output_type

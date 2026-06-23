@@ -1,12 +1,15 @@
+import base64
 import inspect
 import json
-from unittest.mock import patch
+import time
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 
 from mistralai.workflows._version import __version__
-from mistralai.workflows.client import _get_async_client, _get_sync_client
+from mistralai.workflows.client import _get_async_client, _get_sync_client, should_use_executor_credentials
+from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import WorkflowError
 from mistralai.workflows.hooks.executor_credentials_hook import (
@@ -18,6 +21,8 @@ from mistralai.workflows.hooks.metadata_hook import (
     inject_metadata_async,
 )
 from mistralai.workflows.models.payload import WorkflowContext
+from mistralai.workflows.worker_client.models import ExecutorIdentityTokenResponse
+from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 _CLIENT_FACTORIES = [
     pytest.param(_get_async_client, AsyncExecutorCredentialsHook, id="async"),
@@ -126,6 +131,30 @@ class TestSdkClientUserAgent:
         assert ua.endswith(mistral_part), f"Mistral UA should be last in: {ua!r}"
 
 
+_PATCH_RESOLVE_CONTEXT = "mistralai.workflows.client.retrieve_context"
+
+
+class TestShouldUseExecutorCredentials:
+    def test_true_when_on_behalf_of(self):
+        ctx = WorkflowContext(namespace="ns", execution_id="exec-1", on_behalf_of=True)
+        with patch(_PATCH_RESOLVE_CONTEXT, return_value=ctx):
+            assert should_use_executor_credentials() is True
+
+    def test_false_when_not_on_behalf_of(self):
+        ctx = WorkflowContext(namespace="ns", execution_id="exec-1", on_behalf_of=False)
+        with patch(_PATCH_RESOLVE_CONTEXT, return_value=ctx):
+            assert should_use_executor_credentials() is False
+
+    def test_false_when_on_behalf_of_none(self):
+        ctx = WorkflowContext(namespace="ns", execution_id="exec-1", on_behalf_of=None)
+        with patch(_PATCH_RESOLVE_CONTEXT, return_value=ctx):
+            assert should_use_executor_credentials() is False
+
+    def test_false_when_no_context(self):
+        with patch(_PATCH_RESOLVE_CONTEXT, return_value=None):
+            assert should_use_executor_credentials() is False
+
+
 _METADATA_HOOK_FACTORIES = [
     pytest.param(_get_async_client, inject_metadata_async, id="async"),
     pytest.param(_get_sync_client, inject_metadata, id="sync"),
@@ -175,3 +204,72 @@ class TestMetadataHeader:
         metadata = json.loads(request.headers["x-metadata"])
         assert metadata["execution_id"] == "exec-abc-123"
         assert metadata["call_type"] == "workflows"
+
+
+_WORKER_KEY = "worker-api-key"
+
+
+def _make_jwt(exp: float) -> str:
+    header = base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode()).rstrip(b"=").decode()
+    payload = base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).rstrip(b"=").decode()
+    return f"{header}.{payload}.signature"
+
+
+def _patch_executor_token(jwt: str, hook_cls: type):
+    response = ExecutorIdentityTokenResponse(token=jwt)
+    if hook_cls is AsyncExecutorCredentialsHook:
+        return patch.object(
+            PrivateWorkerClient, "executor_identity_token_async", new_callable=AsyncMock, return_value=response
+        )
+    return patch.object(PrivateWorkerClient, "executor_identity_token", return_value=response)
+
+
+@pytest.mark.parametrize("get_client,expected_hook_cls", _CLIENT_FACTORIES)
+class TestOboVsNonOboCredentials:
+    """A connector call made from an OBO workflow is authenticated as the executor
+    (a per-execution JWT), while the same call from a non-OBO workflow is
+    authenticated as the worker (its static API key).
+    """
+
+    @staticmethod
+    async def _run_request_hooks(client, request: httpx.Request) -> None:
+        for hook in client.event_hooks.get("request", []):
+            await _maybe_await(hook(request))
+
+    @staticmethod
+    def _request() -> httpx.Request:
+        return httpx.Request(
+            "GET", "http://localhost/v1/connectors", headers={"Authorization": f"Bearer {_WORKER_KEY}"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_obo_request_uses_executor_jwt(self, get_client, expected_hook_cls):
+        jwt = _make_jwt(time.time() + 120)
+        obo_ctx = WorkflowContext(namespace="ns", execution_id="exec-1", execution_token="tok", on_behalf_of=True)
+        request = self._request()
+        with define_context(obo_ctx):
+            client = get_client(
+                api_key=_WORKER_KEY,
+                server_url="http://localhost",
+                use_executor_credentials=should_use_executor_credentials(),
+            )
+            assert any(isinstance(h, expected_hook_cls) for h in client.event_hooks["request"])
+            with _patch_executor_token(jwt, expected_hook_cls):
+                await self._run_request_hooks(client, request)
+
+        assert request.headers["Authorization"] == f"Bearer {jwt}"
+
+    @pytest.mark.asyncio
+    async def test_non_obo_request_uses_worker_key(self, get_client, expected_hook_cls):
+        non_obo_ctx = WorkflowContext(namespace="ns", execution_id="exec-1", on_behalf_of=False)
+        request = self._request()
+        with define_context(non_obo_ctx):
+            client = get_client(
+                api_key=_WORKER_KEY,
+                server_url="http://localhost",
+                use_executor_credentials=should_use_executor_credentials(),
+            )
+            assert not any(isinstance(h, expected_hook_cls) for h in client.event_hooks["request"])
+            await self._run_request_hooks(client, request)
+
+        assert request.headers["Authorization"] == f"Bearer {_WORKER_KEY}"

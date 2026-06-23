@@ -26,6 +26,7 @@ class GetLogCleanupStatusResponse200:
         orphans_deleted (int):
         errors (int):
         finished_at (Union[Unset, None, datetime.datetime]):
+        s3_not_found (Union[Unset, int]):
         last_error (Union[Unset, None, str]):
     """
 
@@ -41,6 +42,7 @@ class GetLogCleanupStatusResponse200:
     orphans_deleted: int
     errors: int
     finished_at: Union[Unset, None, datetime.datetime] = UNSET
+    s3_not_found: Union[Unset, int] = UNSET
     last_error: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -61,6 +63,7 @@ class GetLogCleanupStatusResponse200:
         if not isinstance(self.finished_at, Unset):
             finished_at = self.finished_at.isoformat() if self.finished_at else None
 
+        s3_not_found = self.s3_not_found
         last_error = self.last_error
 
         field_dict: Dict[str, Any] = {}
@@ -82,6 +85,8 @@ class GetLogCleanupStatusResponse200:
         )
         if finished_at is not UNSET:
             field_dict["finished_at"] = finished_at
+        if s3_not_found is not UNSET:
+            field_dict["s3_not_found"] = s3_not_found
         if last_error is not UNSET:
             field_dict["last_error"] = last_error
 
@@ -121,6 +126,8 @@ class GetLogCleanupStatusResponse200:
         else:
             finished_at = isoparse(_finished_at)
 
+        s3_not_found = d.pop("s3_not_found", UNSET)
+
         last_error = d.pop("last_error", UNSET)
 
         get_log_cleanup_status_response_200 = cls(
@@ -136,6 +143,7 @@ class GetLogCleanupStatusResponse200:
             orphans_deleted=orphans_deleted,
             errors=errors,
             finished_at=finished_at,
+            s3_not_found=s3_not_found,
             last_error=last_error,
         )
 

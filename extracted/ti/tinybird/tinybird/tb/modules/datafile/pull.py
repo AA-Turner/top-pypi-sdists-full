@@ -8,6 +8,8 @@ from tinybird.tb.modules.datafile.format_datasource import format_datasource
 from tinybird.tb.modules.datafile.format_pipe import format_pipe
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 
+PULL_EXISTING_FILE_MAX_DEPTH = 5
+
 
 def folder_pull(
     client: TinyB,
@@ -18,7 +20,7 @@ def folder_pull(
     progress_bar: bool = False,
     fmt: bool = False,
 ) -> list[str]:
-    def get_file_folder(extension: str, resource_type: Optional[str]):
+    def get_file_folder(extension: str, resource_type: Optional[str]) -> Optional[str]:
         if extension == "datasource":
             return "datasources"
         if extension == "connection":
@@ -34,6 +36,24 @@ def folder_pull(
         if extension == "pipe":
             return "pipes"
         return None
+
+    def find_existing_resource_file(dest_folder: Path, name: str) -> Optional[Path]:
+        if not dest_folder.exists():
+            return None
+
+        candidates = []
+        for candidate in dest_folder.rglob(name):
+            if not candidate.is_file():
+                continue
+
+            relative_parent = candidate.parent.relative_to(dest_folder)
+            if len(relative_parent.parts) <= PULL_EXISTING_FILE_MAX_DEPTH:
+                candidates.append(candidate)
+
+        if not candidates:
+            return None
+
+        return sorted(candidates, key=lambda path: (len(path.parent.relative_to(dest_folder).parts), str(path)))[0]
 
     def write_files(
         resources: list[dict[str, Any]],
@@ -62,14 +82,17 @@ def folder_pull(
                 file_folder = get_file_folder(extension, k.get("type"))
                 f = Path(dest_folder) / file_folder if file_folder is not None else Path(dest_folder)
 
-                if not f.exists():
-                    f.mkdir(parents=True)
-
-                f = f / name
+                existing_file = find_existing_resource_file(Path(dest_folder), name)
+                if existing_file is not None:
+                    f = existing_file
+                else:
+                    if not f.exists():
+                        f.mkdir(parents=True)
+                    f = f / name
 
                 if verbose:
                     click.echo(FeedbackManager.info_writing_resource(resource=f))
-                if not f.exists() or force:
+                if not f.exists() or force or existing_file is not None:
                     with open(f, "w") as fd:
                         if resource_to_write:
                             fd.write(resource_to_write)

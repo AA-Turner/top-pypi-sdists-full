@@ -44,37 +44,31 @@ class BilibiliArticleExtractor(BilibiliExtractor):
         article = self.api.article(article_id)
 
         # Flatten modules list
+        pics = []
         modules = {}
         for module in article["detail"]["modules"]:
-            if module["module_type"] == "MODULE_TYPE_BLOCKED":
+            if m := module.get("module_author"):
+                article["username"] = m.get("name")
+                article["user_id"] = m.get("mid")
+            if m := module.get("module_blocked"):
                 self.log.warning("%s: Blocked Article\n%s", article_id,
-                                 module["module_blocked"].get("hint_message"))
-            del module["module_type"]
-            modules.update(module)
-        article["detail"]["modules"] = modules
-
-        user = modules["module_author"]
-        article["username"] = user.get("name")
-        article["user_id"] = user.get("mid")
-
-        pics = []
-
-        if "module_top" in modules:
-            try:
-                pics.extend(modules["module_top"]["display"]["album"]["pics"])
-            except Exception:
-                pass
-
-        if "module_content" in modules:
-            for paragraph in modules["module_content"]["paragraphs"]:
-                if "pic" not in paragraph:
-                    continue
-
+                                 m.get("hint_message"))
+            if m := module.get("module_top"):
                 try:
-                    pics.extend(paragraph["pic"]["pics"])
+                    pics.extend(m["display"]["album"]["pics"])
                 except Exception:
                     pass
+            if m := module.get("module_content"):
+                for paragraph in m["paragraphs"]:
+                    if "pic" in paragraph:
+                        try:
+                            pics.extend(paragraph["pic"]["pics"])
+                        except Exception:
+                            pass
+            del module["module_type"]
+            modules.update(module)
 
+        article["detail"]["modules"] = modules
         article["count"] = len(pics)
         yield Message.Directory, "", article
 

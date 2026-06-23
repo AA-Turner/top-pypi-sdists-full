@@ -34,10 +34,11 @@ from parrot.flows.dev_loop.models import (
     BugBrief,
     ClaudeCodeDispatchProfile,
     LogSource,
+    RepoSpec,
     ResearchOutput,
     WorkBrief,
 )
-from parrot.flows.dev_loop.nodes.base import DevLoopNode
+from parrot.flows.dev_loop.nodes.base import DevLoopNode, register_dev_loop_node
 
 
 # Atlassian caps the description field at 32 767 chars; leave a 2K
@@ -85,6 +86,7 @@ def _plan_llm_default() -> str:
     return _summarizer_llm_default()
 
 
+@register_dev_loop_node("dev_loop.research")
 class ResearchNode(DevLoopNode):
     """Second node — Jira + log fetch + sdd-research dispatch.
 
@@ -107,11 +109,17 @@ class ResearchNode(DevLoopNode):
         log_toolkits: Optional[Dict[str, Any]] = None,
         summarizer_llm: Optional[str] = None,
         plan_llm: Optional[str] = None,
+        git_toolkit: Optional[Any] = None,
+        repos: Optional[List[RepoSpec]] = None,
         name: str = "research",
     ) -> None:
         super().__init__(node_id=name)
         object.__setattr__(self, "_dispatcher", dispatcher)
         object.__setattr__(self, "_jira", jira_toolkit)
+        # FEAT-250: optional repo provisioning before Development. When
+        # ``repos`` is empty the node behaves exactly as before (no clone).
+        object.__setattr__(self, "_git_toolkit", git_toolkit)
+        object.__setattr__(self, "_repos", list(repos or []))
         object.__setattr__(self, "_log_toolkits", log_toolkits or {})
         object.__setattr__(self, "_summarizer_llm", summarizer_llm or _summarizer_llm_default())
         object.__setattr__(self, "_summarizer_client", None)
@@ -223,8 +231,57 @@ class ResearchNode(DevLoopNode):
         # mismatched branch).
         await self._ensure_worktree_safe(research_out.branch_name)
 
+        # 6. FEAT-250: provision the configured repositories before Development
+        # so DevelopmentNode can run with ``cwd=research_out.repo_path``. No-op
+        # when no repos are configured (preserves the legacy worktree path).
+        primary_repo_path = await self._provision_repos(shared.get("run_id", ""))
+        if primary_repo_path:
+            research_out = research_out.model_copy(
+                update={"repo_path": primary_repo_path}
+            )
+
         shared["research_output"] = research_out
         return research_out
+
+    # ------------------------------------------------------------------
+    # Internal — repo provisioning (FEAT-250)
+    # ------------------------------------------------------------------
+
+    async def _provision_repos(self, run_id: str) -> str:
+        """Clone/pull each configured ``RepoSpec``; return the primary path.
+
+        Each repo is cloned into
+        ``<DEV_LOOP_REPO_BASE_PATH>/<run_id>/<alias>`` (kept under
+        ``WORKTREE_BASE_PATH`` so the dispatcher's cwd-safety guard passes).
+        The **primary** repo is the first ``RepoSpec`` (v1 single-primary).
+        Returns ``""`` when no repos are configured (back-compat). Never logs
+        tokens — :class:`GitToolkit` handles scrubbing internally.
+        """
+        if not self._repos or self._git_toolkit is None:
+            return ""
+
+        base = os.path.join(
+            os.path.abspath(conf.DEV_LOOP_REPO_BASE_PATH), run_id or "run"
+        )
+        os.makedirs(base, exist_ok=True)
+
+        primary_path = ""
+        for idx, repo in enumerate(self._repos):
+            dest = os.path.join(base, repo.alias)
+            self.logger.info(
+                "Provisioning repo %r → %s (branch=%s, private=%s)",
+                repo.alias, dest, repo.branch, repo.private,
+            )
+            result = await self._git_toolkit.clone_repo(
+                repo.url,
+                dest,
+                branch=repo.branch,
+                private=repo.private,
+            )
+            path = result.get("path", dest) if isinstance(result, dict) else dest
+            if idx == 0:
+                primary_path = path
+        return primary_path
 
     # ------------------------------------------------------------------
     # Internal
@@ -648,19 +705,68 @@ class ResearchNode(DevLoopNode):
     ) -> Optional[Dict[str, Any]]:
         """Build the ``fields={"reporter": {...}}`` blob for create_issue.
 
-        Accepts either an email or an accountId. Emails are resolved via
-        the toolkit's user lookup so callers can keep BugBrief.reporter
-        in human-readable form (e.g. ``jane@example.com``) rather than
-        the Jira-internal ``557058:abc`` accountId.
+        Accepts either an email or an accountId. Emails are resolved to an
+        accountId via the toolkit's public ``jira_find_user`` lookup so
+        callers can keep ``BugBrief.reporter`` in human-readable form
+        (e.g. ``jane@example.com``) rather than the Jira-internal
+        ``557058:abc`` accountId.
+
+        The reporter slot on Jira Cloud only accepts an ``accountId`` — an
+        email there is rejected with ``400 Specify a valid value for
+        reporter``. If the value is an email and resolution fails (user not
+        found or the lookup errors), we omit the reporter field entirely so
+        the create still succeeds with the authenticated service account as
+        reporter, rather than failing the whole ticket creation.
+
+        Args:
+            reporter: An accountId (used verbatim) or an email to resolve.
+
+        Returns:
+            A ``{"reporter": {"accountId": ...}}`` blob, or ``None`` to omit
+            the reporter field.
         """
         if not reporter:
             return None
-        # Pass the reporter email verbatim — Jira resolves it server-side
-        # via the standard accountId / email lookup. We avoid calling the
-        # private _resolve_account_id method on the toolkit because private
-        # API is not part of the toolkit's contract and may change without notice.
-        account_id = reporter
+        account_id = await self._resolve_reporter_account_id(reporter)
+        if not account_id:
+            return None
         return {"reporter": {"accountId": account_id}}
+
+    async def _resolve_reporter_account_id(self, reporter: str) -> str:
+        """Resolve an email to a Jira accountId; pass accountIds through.
+
+        We use the toolkit's *public* ``jira_find_user`` rather than the
+        private ``_resolve_account_id`` because private API is not part of
+        the toolkit's contract and may change without notice.
+
+        Args:
+            reporter: An accountId (returned as-is) or an email to resolve.
+
+        Returns:
+            The resolved accountId, or ``""`` when the email cannot be
+            resolved (caller then omits the reporter field).
+        """
+        if "@" not in reporter:
+            return reporter  # already an accountId
+        try:
+            result = await self._jira.jira_find_user(reporter)
+        except Exception as exc:  # noqa: BLE001 — never fail ticket creation
+            self.logger.warning(
+                "Could not resolve reporter %r to an accountId: %s; "
+                "omitting reporter field", reporter, exc,
+            )
+            return ""
+        matches = (result or {}).get("matches") or []
+        if not (result or {}).get("found") or not matches:
+            self.logger.warning(
+                "No Jira user found for reporter %r; omitting reporter field",
+                reporter,
+            )
+            return ""
+        for match in matches:
+            if (match.get("emailAddress") or "").lower() == reporter.lower():
+                return match["accountId"]
+        return matches[0]["accountId"]
 
     @staticmethod
     def _extract_issue_key(resp: Any) -> str:

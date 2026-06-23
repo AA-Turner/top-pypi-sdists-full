@@ -87,6 +87,7 @@ __all__ = (
     "SuppressionStateType",
     "SuppressionTypeType",
     "SuppressionUnitType",
+    "SyslogSourceTypeType",
     "TypeType",
 )
 
@@ -206,6 +207,7 @@ StateType = Literal["Active", "Baseline", "Suppressed"]
 SuppressionStateType = Literal["SUPPRESSED", "UNSUPPRESSED"]
 SuppressionTypeType = Literal["INFINITE", "LIMITED"]
 SuppressionUnitType = Literal["HOURS", "MINUTES", "SECONDS"]
+SyslogSourceTypeType = Literal["VPCE"]
 TypeType = Literal["boolean", "double", "integer", "string"]
 CloudWatchLogsServiceName = Literal["logs"]
 ServiceName = Literal[
@@ -429,6 +431,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

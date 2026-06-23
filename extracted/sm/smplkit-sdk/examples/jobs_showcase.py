@@ -65,60 +65,44 @@ async def main() -> None:
                 configuration=HttpConfig(
                     method="POST",
                     url="https://httpbin.org/post",
-                    headers=[("Authorization", "Bearer s3cr3t")],
+                    headers={"Authorization": "Bearer s3cr3t"},
                     body='{"scope": "all"}',
                     timeout=30,
                 ),
             )
-            job.set_enabled(True, environment="development")
-            job.set_enabled(True, environment="production")
-            job.set_schedule(
-                "0 */6 * * *",
-                timezone="America/New_York",
-                environment="development",
-            )
-            job.set_configuration(
-                HttpConfig(
-                    method="POST",
-                    url="https://development.example.com/cache/warm",
-                    headers=[("Authorization", "Bearer development-s3cr3t")],
-                    body='{"scope": "all"}',
-                ),
-                environment="development",
-            )
+
+            # enable the job to run in various environments
+            job.environment("development").enabled = True
+            job.environment("production").enabled = True
+
+            # change how the job runs in production
+            prod = job.environment("production")
+            prod.schedule = "0 */6 * * *"
+            prod.timezone = "America/New_York"
+            prod.url = "https://production.example.com/cache/warm"
+            prod.set_header("Authorization", "Bearer production-s3cr3t")
             await job.save()
             assert job.is_recurring() is True
-            assert job.is_enabled(environment="development") is True
-            assert job.is_enabled(environment="production") is True
+            assert job.environment("production").schedule == "0 */6 * * *"
             assert (
-                job.environments["development"].timezone == "America/New_York"
-            )
-            assert (
-                job.get_configuration(environment="development").url
-                == "https://development.example.com/cache/warm"
+                job.environment("production").url
+                == "https://production.example.com/cache/warm"
             )
             print(f"Created recurring job {job.id!r} (v{job.version})")
 
             # get a job
             fetched = await jobs.get(RECURRING_JOB_ID)
-            assert (
-                fetched.environments["development"].schedule == "0 */6 * * *"
-            )
+            assert fetched.environments["production"].schedule == "0 */6 * * *"
             print(f"Fetched job {RECURRING_JOB_ID!r}")
 
-            # list jobs, filtered to recurring jobs
+            # list recurring jobs
             listing = await jobs.list(kind=JobKind.RECURRING)
             assert RECURRING_JOB_ID in {j.id for j in listing}
             print(f"Found job {RECURRING_JOB_ID!r} in the listing")
 
             # update a job
             job.name = "Nightly cache warm (v2)"
-            job.set_retry_policy(retry_policy, environment="production")
-            job.set_schedule(
-                "30 2 * * *",
-                timezone="America/Los_Angeles",
-                environment="production",
-            )
+            job.environment("production").retry_policy = retry_policy
             await job.save()
             assert job.version == 2
             print(f"Updated job to v{job.version}")
@@ -146,7 +130,7 @@ async def main() -> None:
             assert run.environment == "production"
             print(f"Fetched run {run.id} (env={run.environment})")
 
-            # re-run a prior run (inherits its environment)
+            # re-run a prior run
             rerun = await run.rerun()
             assert (
                 rerun.trigger == "RERUN"
@@ -154,7 +138,7 @@ async def main() -> None:
             )
             print(f"Re-ran {run.id} -> {rerun.id} (env={rerun.environment})")
 
-            # cancel a run (best-effort: a finished run can no longer be canceled)
+            # cancel a run
             try:
                 canceled = await rerun.cancel()
                 print(f"Canceled run {canceled.id} -> {canceled.status}")
@@ -163,7 +147,7 @@ async def main() -> None:
                     f"Run {rerun.id} already finished before it could be canceled"
                 )
 
-            # create a manual job (no schedule, runs only when triggered)
+            # create a manual job
             manual = jobs.new_manual_job(
                 MANUAL_JOB_ID,
                 name="On-demand reindex",
@@ -171,7 +155,7 @@ async def main() -> None:
                     method="POST", url="https://httpbin.org/post"
                 ),
             )
-            manual.set_enabled(True, environment="production")
+            manual.environment("production").enabled = True
             await manual.save()
             assert manual.is_manual() is True
             manual_run = await manual.trigger(environment="production")
@@ -193,7 +177,7 @@ async def main() -> None:
             )
             await oneoff.save()
             assert oneoff.is_one_off() is True
-            assert oneoff.is_enabled(environment="development") is True
+            assert oneoff.environment("development").enabled is True
             assert oneoff.environments["development"].next_run_at is not None
             print(f"Created one-off job {oneoff.id!r} to run in development")
 

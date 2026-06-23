@@ -12,7 +12,9 @@ Usage::
     from types_boto3_application_signals import (
         Client,
         CloudWatchApplicationSignalsClient,
+        GetInstrumentationConfigurationStatusPaginator,
         ListEntityEventsPaginator,
+        ListInstrumentationConfigurationsPaginator,
         ListServiceDependenciesPaginator,
         ListServiceDependentsPaginator,
         ListServiceLevelObjectiveExclusionWindowsPaginator,
@@ -25,7 +27,9 @@ Usage::
     session = Session()
     client: CloudWatchApplicationSignalsClient = session.client("application-signals")
 
+    get_instrumentation_configuration_status_paginator: GetInstrumentationConfigurationStatusPaginator = client.get_paginator("get_instrumentation_configuration_status")
     list_entity_events_paginator: ListEntityEventsPaginator = client.get_paginator("list_entity_events")
+    list_instrumentation_configurations_paginator: ListInstrumentationConfigurationsPaginator = client.get_paginator("list_instrumentation_configurations")
     list_service_dependencies_paginator: ListServiceDependenciesPaginator = client.get_paginator("list_service_dependencies")
     list_service_dependents_paginator: ListServiceDependentsPaginator = client.get_paginator("list_service_dependents")
     list_service_level_objective_exclusion_windows_paginator: ListServiceLevelObjectiveExclusionWindowsPaginator = client.get_paginator("list_service_level_objective_exclusion_windows")
@@ -38,7 +42,9 @@ Usage::
 
 from .client import CloudWatchApplicationSignalsClient
 from .paginator import (
+    GetInstrumentationConfigurationStatusPaginator,
     ListEntityEventsPaginator,
+    ListInstrumentationConfigurationsPaginator,
     ListServiceDependenciesPaginator,
     ListServiceDependentsPaginator,
     ListServiceLevelObjectiveExclusionWindowsPaginator,
@@ -54,7 +60,9 @@ Client = CloudWatchApplicationSignalsClient
 __all__ = (
     "Client",
     "CloudWatchApplicationSignalsClient",
+    "GetInstrumentationConfigurationStatusPaginator",
     "ListEntityEventsPaginator",
+    "ListInstrumentationConfigurationsPaginator",
     "ListServiceDependenciesPaginator",
     "ListServiceDependentsPaginator",
     "ListServiceLevelObjectiveExclusionWindowsPaginator",

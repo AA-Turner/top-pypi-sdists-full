@@ -32,14 +32,6 @@ from .documents import (
     DocumentsResourceWithStreamingResponse,
     AsyncDocumentsResourceWithStreamingResponse,
 )
-from .connections import (
-    ConnectionsResource,
-    AsyncConnectionsResource,
-    ConnectionsResourceWithRawResponse,
-    AsyncConnectionsResourceWithRawResponse,
-    ConnectionsResourceWithStreamingResponse,
-    AsyncConnectionsResourceWithStreamingResponse,
-)
 
 __all__ = [
     "MemoriesResource",
@@ -66,10 +58,4 @@ __all__ = [
     "AsyncSettingsResourceWithRawResponse",
     "SettingsResourceWithStreamingResponse",
     "AsyncSettingsResourceWithStreamingResponse",
-    "ConnectionsResource",
-    "AsyncConnectionsResource",
-    "ConnectionsResourceWithRawResponse",
-    "AsyncConnectionsResourceWithRawResponse",
-    "ConnectionsResourceWithStreamingResponse",
-    "AsyncConnectionsResourceWithStreamingResponse",
 ]

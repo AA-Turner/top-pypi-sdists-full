@@ -137,6 +137,8 @@ class PackageConfig(google.protobuf.message.Message):
     TITLE_FIELD_NUMBER: builtins.int
     SUPPORTED_MONTH_INTERVALS_FIELD_NUMBER: builtins.int
     ADMIN_TITLE_FIELD_NUMBER: builtins.int
+    IS_ENTERPRISE_FIELD_NUMBER: builtins.int
+    USER_SELECTABLE_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
@@ -145,6 +147,12 @@ class PackageConfig(google.protobuf.message.Message):
     title: builtins.str
     admin_title: builtins.str
     """Title shown in admin interfaces, not customer-facing."""
+    is_enterprise: builtins.bool
+    """Whether the package is treated as enterprise in the UI (display name,
+    upsell suppression).
+    """
+    user_selectable: builtins.bool
+    """Whether the package can be chosen in the self-serve checkout flow."""
     @property
     def line_item_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemConfig]: ...
     @property
@@ -169,8 +177,10 @@ class PackageConfig(google.protobuf.message.Message):
         title: builtins.str = ...,
         supported_month_intervals: collections.abc.Iterable[builtins.int] | None = ...,
         admin_title: builtins.str = ...,
+        is_enterprise: builtins.bool = ...,
+        user_selectable: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable"]) -> None: ...
 
 global___PackageConfig = PackageConfig

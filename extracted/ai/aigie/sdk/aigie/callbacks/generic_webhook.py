@@ -37,8 +37,8 @@ from typing import Any
 
 import httpx
 
-from ..exceptions import WebhookError
-from .base import BaseCallback, CallbackEvent, CallbackEventType
+from aigie.exceptions import WebhookError
+from aigie.callbacks.base import BaseCallback, CallbackEvent, CallbackEventType
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +264,7 @@ class GenericWebhookCallback(BaseCallback):
         # Build request payload
         import uuid
 
-        from .. import __version__
+        from aigie import __version__
 
         payload = {
             "events": [e.to_dict() for e in events],

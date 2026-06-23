@@ -18,8 +18,8 @@ from typing import Any
 
 import pytest
 
-from .evaluation import EvaluationResult
-from .evaluation.scorers import BaseScorer as Evaluator
+from aigie.evaluation import EvaluationResult
+from aigie.evaluation.scorers import BaseScorer as Evaluator
 
 
 @dataclass

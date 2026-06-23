@@ -185,6 +185,7 @@ filterwarnings = [
   'ignore:pkg_resources is deprecated as an API:DeprecationWarning',
   'ignore:onerror argument is deprecated, use onexc instead:DeprecationWarning',  # Caused by wheel and Python 3.12
   'ignore:(ast.Str|Attribute s|ast.NameConstant|ast.Num) is deprecated:DeprecationWarning:_pytest',
+  "ignore:No GlobalOverrides context is active:UserWarning",  # Caused by setuptoools-scm 9+ being installed
 ]
 log_level = "INFO"
 markers = [
@@ -198,6 +199,7 @@ markers = [
 [tool.ruff]
 line-length = 120
 exclude = []
+show-fixes = true
 
 [tool.ruff.format]
 exclude = ["docs/conf.py"]
@@ -234,10 +236,6 @@ isort.required-imports = ["from __future__ import annotations"]
 "tests/**" = ["T20", "PLC0415"]
 "noxfile.py" = ["T20", "PLC0415"]
 "*.pyx" = ["I"]
-
-
-[tool.check-sdist]
-sdist-only = ["skbuild/_version.py"]
 
 
 [tool.coverage.run]

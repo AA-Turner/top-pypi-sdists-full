@@ -86,6 +86,7 @@ class EnqueueOptions(_EnqueueOptionsRequired, total=False):
     serialization_type: WorkflowSerializationFormat
     class_name: str
     instance_name: str
+    attributes: Dict[str, Any]
 
 
 def validate_enqueue_options(options: EnqueueOptions) -> None:
@@ -268,6 +269,8 @@ class DBOSClient:
             "started_at_epoch_ms": None,
             "owner_xid": None,
             "delay_until_epoch_ms": delay_until_epoch_ms,
+            "attributes": options.get("attributes"),
+            "schedule_name": None,
         }
         return workflow_id, status
 
@@ -573,6 +576,37 @@ class DBOSClient:
             send_to_forks=send_to_forks,
         )
 
+    def send_in_transaction(
+        self,
+        conn_or_session: Union[sa.Connection, Session],
+        destination_id: str,
+        message: Any,
+        topic: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+        *,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
+        send_to_forks: bool = False,
+    ) -> None:
+        """
+        Send a message to a workflow within a caller-owned synchronous SQLAlchemy transaction.
+
+        The caller must commit or roll back the transaction. The message is not
+        visible to the destination workflow until the transaction commits.
+        ``conn_or_session`` must target the DBOS system database.
+
+        From an async context, bridge to this synchronous method with
+        ``await async_conn.run_sync(lambda sync_conn: client.send_in_transaction(sync_conn, destination_id, message))``.
+        """
+        self._sys_db.send_bulk_with_connection(
+            [SendMessage(destination_id, message, topic, idempotency_key)],
+            conn_or_session,
+            serialization_type=serialization_type,
+            function_name="DBOS.send",
+            send_to_forks=send_to_forks,
+        )
+
     def send_bulk(
         self,
         messages: List[SendMessage],
@@ -617,6 +651,34 @@ class DBOSClient:
             send_to_forks=send_to_forks,
         )
 
+    def send_bulk_in_transaction(
+        self,
+        conn_or_session: Union[sa.Connection, Session],
+        messages: List[SendMessage],
+        *,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
+        send_to_forks: bool = False,
+    ) -> None:
+        """
+        Send many messages to workflow executions within a caller-owned synchronous SQLAlchemy transaction.
+
+        The caller must commit or roll back the transaction. The messages are
+        not visible to their destination workflows until the transaction
+        commits. ``conn_or_session`` must target the DBOS system database.
+
+        If `send_to_forks` is set, every message is also delivered to all
+        workflows recursively forked from its destination.
+        """
+        self._sys_db.send_bulk_with_connection(
+            messages,
+            conn_or_session,
+            serialization_type=serialization_type,
+            function_name="DBOS.send_bulk",
+            send_to_forks=send_to_forks,
+        )
+
     def get_event(self, workflow_id: str, key: str, timeout_seconds: float = 60) -> Any:
         return self._sys_db.get_event(workflow_id, key, timeout_seconds)
 
@@ -649,6 +711,20 @@ class DBOSClient:
     ) -> None:
         await asyncio.to_thread(
             self.cancel_workflows, workflow_ids, cancel_children=cancel_children
+        )
+
+    def update_workflow_attributes(
+        self, workflow_id: str, attributes: Optional[Dict[str, Any]]
+    ) -> None:
+        """Replace the custom attributes attached to a workflow by ID. Pass None to clear all attributes."""
+        self._sys_db.update_workflow_attributes(workflow_id, attributes)
+
+    async def update_workflow_attributes_async(
+        self, workflow_id: str, attributes: Optional[Dict[str, Any]]
+    ) -> None:
+        """Replace the custom attributes attached to a workflow by ID. Pass None to clear all attributes."""
+        await asyncio.to_thread(
+            self.update_workflow_attributes, workflow_id, attributes
         )
 
     def delete_workflow(
@@ -789,6 +865,8 @@ class DBOSClient:
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        schedule_name: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         return self._sys_db.list_workflows(
             workflow_ids=workflow_ids,
@@ -815,6 +893,8 @@ class DBOSClient:
             queues_only=queues_only,
             was_forked_from=was_forked_from,
             has_parent=has_parent,
+            attributes=attributes,
+            schedule_name=schedule_name,
         )
 
     async def list_workflows_async(
@@ -844,6 +924,8 @@ class DBOSClient:
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        schedule_name: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         return await asyncio.to_thread(
             self.list_workflows,
@@ -871,6 +953,8 @@ class DBOSClient:
             queues_only=queues_only,
             was_forked_from=was_forked_from,
             has_parent=has_parent,
+            attributes=attributes,
+            schedule_name=schedule_name,
         )
 
     def list_queued_workflows(
@@ -898,6 +982,7 @@ class DBOSClient:
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> List[WorkflowStatus]:
         return self._sys_db.list_workflows(
             workflow_ids=workflow_ids,
@@ -923,6 +1008,7 @@ class DBOSClient:
             executor_id=executor_id,
             queues_only=True,
             has_parent=has_parent,
+            attributes=attributes,
         )
 
     async def list_queued_workflows_async(
@@ -950,6 +1036,7 @@ class DBOSClient:
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> List[WorkflowStatus]:
         return await asyncio.to_thread(
             self.list_queued_workflows,
@@ -975,6 +1062,7 @@ class DBOSClient:
             load_output=load_output,
             executor_id=executor_id,
             has_parent=has_parent,
+            attributes=attributes,
         )
 
     def list_workflow_steps(

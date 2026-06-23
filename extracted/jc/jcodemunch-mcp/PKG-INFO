@@ -1,12 +1,77 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.108.69
+Version: 1.108.76
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Bug Tracker, https://github.com/jgravelle/jcodemunch-mcp/issues
 Author-email: "J. Gravelle" <j@gravelle.us>
+License: jCodeMunch-MCP — Dual-Use License
+        
+        Copyright (c) 2024-2026 J. Gravelle (https://github.com/jgravelle)
+        All rights reserved.
+        
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        NON-COMMERCIAL USE — FREE
+        
+        Permission is hereby granted, free of charge, to any individual or
+        organization using this software solely for personal, academic,
+        research, or other non-commercial purposes, to use, copy, modify,
+        and distribute this software, subject to the following conditions:
+        
+        1. The above copyright notice and this permission notice shall be
+           included in all copies or substantial portions of the software.
+        
+        2. The software may not be used, directly or indirectly, in any
+           product, service, or workflow that generates revenue, is offered
+           commercially, or is used within a for-profit organization to
+           support revenue-generating activities.
+        
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        COMMERCIAL USE — PAID LICENSE REQUIRED
+        
+        Use of this software for any commercial purpose requires a paid
+        license. Commercial purposes include, but are not limited to:
+        
+        - Use within a for-profit company or organization
+        - Integration into a product or service offered for a fee
+        - Internal tooling that supports revenue-generating operations
+        - SaaS, consulting, or agency deployments
+        
+        Commercial licenses are available at:
+        https://j.gravelle.us/jCodeMunch/descriptions.php
+        
+          Builder   — $79    (1 developer)
+          Studio    — $349   (up to 5 developers)
+          Platform  — $1,999 (org-wide internal deployment)
+        
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        DISCLAIMER
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+        NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+        CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN
+        CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
 License-File: LICENSE
+Keywords: agent,ast,claude,code-intelligence,code-search,llm,mcp,model-context-protocol,token-efficiency,tree-sitter
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: mcp<2.0.0,>=1.10.0
@@ -183,9 +248,9 @@ is a byte the agent doesn't pay to read.
 <!-- WHATSNEW:START -->
 #### What's new
 
-- **[v1.108.61](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.61)** (2026-06-18) — Every config key is now documented (no more "Other")
-- **[v1.108.60](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.60)** (2026-06-18) — `config --check` distinguishes sandbox-limited storage probes
-- **[v1.108.59](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.59)** (2026-06-17) — Decision-context surfacing in impact analysis
+- **[v1.108.76](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.76)** (2026-06-22) — Quality gates: CI lint (ruff) + coverage floor
+- **[v1.108.75](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.75)** (2026-06-22) — Quality gates: live core_compact ceiling + schema/dispatch param parity
+- **[v1.108.74](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.74)** (2026-06-22) — Harden: tool errors carry isError (MCP protocol conformance)
 <!-- WHATSNEW:END -->
 
 ![License](https://img.shields.io/badge/license-dual--use-blue)
@@ -402,7 +467,7 @@ Everything jCodeMunch does beyond answering a tool call is listed here. All of i
 
 - **File watching.** The `watch` / `watch-all` / `watch-claude` commands (and `watch: true` in config) re-index files when they change. Watching runs **inside a process you started** and stops when that process exits. Nothing monitors your filesystem unless a jCodeMunch process you launched is running.
 - **Login service — explicit opt-in only.** `jcodemunch-mcp watch-install` registers `watch-all` as a login service (Windows Task Scheduler / macOS launchd / Linux systemd) so indexes stay fresh across reboots. This happens **only** when you run `watch-install` yourself; `init`, `install`, and normal server use never register a service. Inspect it with `watch-status`; remove it with `watch-uninstall`.
-- **Anonymous savings telemetry.** The server periodically sends a random anonymous ID plus aggregate token-savings counters to the project's public community meter. No code, no file paths, no repo names, no PII — counters only. Opt out with `share_savings: false` in `config.jsonc` or `JCODEMUNCH_SHARE_SAVINGS=0`.
+- **Anonymous savings telemetry.** The server periodically sends a random anonymous ID plus aggregate token-savings counters to the project's public community meter. No code, no file paths, no repo names, no PII — counters only. The sender is a single background daemon thread that starts lazily on the first share (never at import, and never if you have opted out), so a plain import has no background side effect. Opt out with `share_savings: false` in `config.jsonc` or `JCODEMUNCH_SHARE_SAVINGS=0`; redirect the endpoint with `JCODEMUNCH_TELEMETRY_URL`.
 - **Agent hooks.** `init` / `install` can write hook entries (auto-reindex on edit, read-interception nudges) into your MCP client's settings. They're offered during the interactive flow, shown before writing, and fully removed by `uninstall`.
 - **Local index storage.** Indexes live at `~/.code-index/` (override with `CODE_INDEX_PATH`). Delete the directory and every trace of indexing is gone.
 - **Live session journal.** While the server runs, it periodically writes a small `_session_live.json` in `~/.code-index/` recording the files and searches the agent touched this session (paths and query strings only, no file contents). It exists so the out-of-process PreCompact hook can restore session orientation after context compaction. Throttled, atomically written, overwritten in place; disable with `JCODEMUNCH_LIVE_JOURNAL=0`.
@@ -832,6 +897,7 @@ The following env vars still work but are deprecated. Config file values take pr
 | `JCODEMUNCH_REDACT_SOURCE_ROOT` | `redact_source_root` | `false` |
 | `JCODEMUNCH_STATS_FILE_INTERVAL` | `stats_file_interval` | `3` |
 | `JCODEMUNCH_SHARE_SAVINGS` | `share_savings` | `true` |
+| `JCODEMUNCH_TELEMETRY_URL` | (none) | community meter URL |
 | `JCODEMUNCH_SUMMARIZER_CONCURRENCY` | `summarizer_concurrency` | `4` |
 | `JCODEMUNCH_ALLOW_REMOTE_SUMMARIZER` | `allow_remote_summarizer` | `false` |
 | `JCODEMUNCH_RATE_LIMIT` | `rate_limit` | `0` |

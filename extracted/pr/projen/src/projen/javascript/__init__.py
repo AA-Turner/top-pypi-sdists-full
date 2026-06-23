@@ -1773,6 +1773,7 @@ class Eslint(
         file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         prettier: typing.Optional[builtins.bool] = None,
+        project_service: typing.Optional[builtins.bool] = None,
         sort_extends: typing.Optional["_projen_04054675.ICompareString"] = None,
         ts_always_try_types: typing.Optional[builtins.bool] = None,
         tsconfig_path: typing.Optional[builtins.str] = None,
@@ -1788,6 +1789,7 @@ class Eslint(
         :param file_extensions: (experimental) File types that should be linted (e.g. [ ".js", ".ts" ]). Default: [".ts"]
         :param ignore_patterns: (experimental) List of file patterns that should not be linted, using the same syntax as .gitignore patterns. Default: [ '*.js', '*.d.ts', 'node_modules/', '*.generated.ts', 'coverage' ]
         :param prettier: (experimental) Enable prettier for code formatting. Default: false
+        :param project_service: (experimental) Use the typescript-eslint "project service" for typed linting instead of a single ``parserOptions.project``. When enabled, typescript-eslint resolves the nearest ``tsconfig.json`` for each linted file (the same resolution model used by the TypeScript language service / ``tsserver``). This allows files in different directories (e.g. ``src`` and ``test``) to be linted against the ``tsconfig.json`` that actually includes them, without maintaining a single config that lists every file. Requires ``@typescript-eslint/*`` v8 or newer. Default: false
         :param sort_extends: (experimental) The extends array in eslint is order dependent. This option allows to sort the extends array in any way seen fit. Default: - Use known ESLint best practices to place "prettier" plugins at the end of the array
         :param ts_always_try_types: (experimental) Always try to resolve types under ``<root>@types`` directory even it doesn't contain any source code. This prevents ``import/no-unresolved`` eslint errors when importing a ``@types/*`` module that would otherwise remain unresolved. Default: true
         :param tsconfig_path: (experimental) Path to ``tsconfig.json`` which should be used by eslint. Default: "./tsconfig.json"
@@ -1807,6 +1809,7 @@ class Eslint(
             file_extensions=file_extensions,
             ignore_patterns=ignore_patterns,
             prettier=prettier,
+            project_service=project_service,
             sort_extends=sort_extends,
             ts_always_try_types=ts_always_try_types,
             tsconfig_path=tsconfig_path,
@@ -1926,6 +1929,24 @@ class Eslint(
             type_hints = typing.get_type_hints(_typecheckingstub__68ea4c9051e61eb8d25919e5b5cb6ba7ef44e9a5d642dec514714c13c4b9141c)
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
         return typing.cast(None, jsii.invoke(self, "addRules", [rules]))
+
+    @jsii.member(jsii_name="allowDefaultProjectFiles")
+    def allow_default_project_files(self, *patterns: builtins.str) -> None:
+        '''(experimental) Allow files matching these patterns to be linted with the typescript-eslint "default project" when they are not included by any ``tsconfig.json``.
+
+        Only has an effect when the project service is enabled (see
+        ``EslintOptions.projectService``). This is typically used for loose files
+        that live outside ``src``/``test`` (e.g. ``.projenrc.ts``).
+
+        :param patterns: glob patterns, relative to the project root.
+
+        :see: https://typescript-eslint.io/packages/parser/#allowdefaultproject
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12a501e560c7dafdeed400a9193c041d7b2008764dd002a627e92ea09ca5ec92)
+            check_type(argname="argument patterns", value=patterns, expected_type=typing.Tuple[type_hints["patterns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "allowDefaultProjectFiles", [*patterns]))
 
     @jsii.member(jsii_name="allowDevDeps")
     def allow_dev_deps(self, pattern: builtins.str) -> None:
@@ -2076,6 +2097,7 @@ class EslintCommandOptions:
         "file_extensions": "fileExtensions",
         "ignore_patterns": "ignorePatterns",
         "prettier": "prettier",
+        "project_service": "projectService",
         "sort_extends": "sortExtends",
         "ts_always_try_types": "tsAlwaysTryTypes",
         "tsconfig_path": "tsconfigPath",
@@ -2094,6 +2116,7 @@ class EslintOptions:
         file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         prettier: typing.Optional[builtins.bool] = None,
+        project_service: typing.Optional[builtins.bool] = None,
         sort_extends: typing.Optional["_projen_04054675.ICompareString"] = None,
         ts_always_try_types: typing.Optional[builtins.bool] = None,
         tsconfig_path: typing.Optional[builtins.str] = None,
@@ -2108,6 +2131,7 @@ class EslintOptions:
         :param file_extensions: (experimental) File types that should be linted (e.g. [ ".js", ".ts" ]). Default: [".ts"]
         :param ignore_patterns: (experimental) List of file patterns that should not be linted, using the same syntax as .gitignore patterns. Default: [ '*.js', '*.d.ts', 'node_modules/', '*.generated.ts', 'coverage' ]
         :param prettier: (experimental) Enable prettier for code formatting. Default: false
+        :param project_service: (experimental) Use the typescript-eslint "project service" for typed linting instead of a single ``parserOptions.project``. When enabled, typescript-eslint resolves the nearest ``tsconfig.json`` for each linted file (the same resolution model used by the TypeScript language service / ``tsserver``). This allows files in different directories (e.g. ``src`` and ``test``) to be linted against the ``tsconfig.json`` that actually includes them, without maintaining a single config that lists every file. Requires ``@typescript-eslint/*`` v8 or newer. Default: false
         :param sort_extends: (experimental) The extends array in eslint is order dependent. This option allows to sort the extends array in any way seen fit. Default: - Use known ESLint best practices to place "prettier" plugins at the end of the array
         :param ts_always_try_types: (experimental) Always try to resolve types under ``<root>@types`` directory even it doesn't contain any source code. This prevents ``import/no-unresolved`` eslint errors when importing a ``@types/*`` module that would otherwise remain unresolved. Default: true
         :param tsconfig_path: (experimental) Path to ``tsconfig.json`` which should be used by eslint. Default: "./tsconfig.json"
@@ -2127,6 +2151,7 @@ class EslintOptions:
             check_type(argname="argument file_extensions", value=file_extensions, expected_type=type_hints["file_extensions"])
             check_type(argname="argument ignore_patterns", value=ignore_patterns, expected_type=type_hints["ignore_patterns"])
             check_type(argname="argument prettier", value=prettier, expected_type=type_hints["prettier"])
+            check_type(argname="argument project_service", value=project_service, expected_type=type_hints["project_service"])
             check_type(argname="argument sort_extends", value=sort_extends, expected_type=type_hints["sort_extends"])
             check_type(argname="argument ts_always_try_types", value=ts_always_try_types, expected_type=type_hints["ts_always_try_types"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
@@ -2148,6 +2173,8 @@ class EslintOptions:
             self._values["ignore_patterns"] = ignore_patterns
         if prettier is not None:
             self._values["prettier"] = prettier
+        if project_service is not None:
+            self._values["project_service"] = project_service
         if sort_extends is not None:
             self._values["sort_extends"] = sort_extends
         if ts_always_try_types is not None:
@@ -2242,6 +2269,26 @@ class EslintOptions:
         :stability: experimental
         '''
         result = self._values.get("prettier")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def project_service(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use the typescript-eslint "project service" for typed linting instead of a single ``parserOptions.project``.
+
+        When enabled, typescript-eslint resolves the nearest ``tsconfig.json`` for
+        each linted file (the same resolution model used by the TypeScript language
+        service / ``tsserver``). This allows files in different directories (e.g.
+        ``src`` and ``test``) to be linted against the ``tsconfig.json`` that actually
+        includes them, without maintaining a single config that lists every file.
+
+        Requires ``@typescript-eslint/*`` v8 or newer.
+
+        :default: false
+
+        :see: https://typescript-eslint.io/blog/project-service/
+        :stability: experimental
+        '''
+        result = self._values.get("project_service")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -16684,6 +16731,7 @@ def _typecheckingstub__41d20792db723180b2558eb351d1b15e6cc51985fdc95dd8481c5fae7
     file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     prettier: typing.Optional[builtins.bool] = None,
+    project_service: typing.Optional[builtins.bool] = None,
     sort_extends: typing.Optional[_projen_04054675.ICompareString] = None,
     ts_always_try_types: typing.Optional[builtins.bool] = None,
     tsconfig_path: typing.Optional[builtins.str] = None,
@@ -16728,6 +16776,12 @@ def _typecheckingstub__68ea4c9051e61eb8d25919e5b5cb6ba7ef44e9a5d642dec514714c13c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__12a501e560c7dafdeed400a9193c041d7b2008764dd002a627e92ea09ca5ec92(
+    *patterns: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__45c512f160dd2d4145e1c0d43de9571ffe4d89e10b34c7d9a7b9fbba3f85ca56(
     pattern: builtins.str,
 ) -> None:
@@ -16752,6 +16806,7 @@ def _typecheckingstub__26892c968b7bf4d64dd2597bbdabf1f1e9ced92002225a4eedfae6cbe
     file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     prettier: typing.Optional[builtins.bool] = None,
+    project_service: typing.Optional[builtins.bool] = None,
     sort_extends: typing.Optional[_projen_04054675.ICompareString] = None,
     ts_always_try_types: typing.Optional[builtins.bool] = None,
     tsconfig_path: typing.Optional[builtins.str] = None,

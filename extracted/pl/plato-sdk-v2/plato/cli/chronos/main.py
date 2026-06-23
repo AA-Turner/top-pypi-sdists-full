@@ -22,7 +22,11 @@ from plato.chronos.errors import NotFoundError
 from plato.chronos.models import UpdateSettingRequest
 from plato.chronos.sdk import Chronos
 from plato.cli.chronos.settings import get_settings
-from plato.cli.chronos.workspace_upload import download_session_workspace_archive, workspace_app
+from plato.cli.chronos.workspace_upload import (
+    download_git_workspace_via_archive,
+    download_session_workspace_archive,
+    workspace_app,
+)
 from plato.cli.utils import console, safe_print
 
 chronos_app = typer.Typer(help="Chronos job management commands.")
@@ -897,6 +901,22 @@ def download(
     workspace_name: Annotated[
         str, typer.Option("--name", help="Session workspace object name for --session-workspace")
     ] = "workspace",
+    extract: Annotated[
+        bool,
+        typer.Option(
+            "--extract",
+            help="Download and extract the git workspace via DVC archive restore "
+            "(fetches workspace ref, downloads tar.gz from S3, re-clones repo/ from .git-bare)",
+        ),
+    ] = False,
+    dir_name: Annotated[
+        str | None,
+        typer.Option(
+            "--dir-name",
+            help="For --extract: which dvc archive dir to restore when the ref has several "
+            "(default: the only/first format:archive entry)",
+        ),
+    ] = None,
     chronos_url: str = _chronos_url_option,
     api_key: str = _api_key_option,
 ):
@@ -905,6 +925,22 @@ def download(
     api_key = _require_api_key(api_key)
 
     try:
+        if extract:
+            dest_dir = output or Path.cwd() / f"{session_id[:12]}-{repo_name.replace('/', '-')}-workspace"
+            dest_dir.parent.mkdir(parents=True, exist_ok=True)
+            repo_dir = download_git_workspace_via_archive(
+                dest_dir,
+                session_id=session_id,
+                repo_name=repo_name,
+                step_name=step_name,
+                dir_name=dir_name,
+                chronos_url=chronos_url,
+                api_key=api_key,
+            )
+            console.print(f"[green]Extracted git workspace to {dest_dir}[/green]")
+            console.print(f"[dim]Repo: {repo_dir}[/dim]")
+            return
+
         if session_workspace:
             out_path = output or Path(tempfile.gettempdir()) / f"{session_id[:12]}-{workspace_name}.tar"
             size = download_session_workspace_archive(

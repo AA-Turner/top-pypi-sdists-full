@@ -53,7 +53,7 @@ def enable_langchain() -> None:
         return
 
     try:
-        from .langchain import patch_langchain
+        from aigie.auto_instrument.langchain import patch_langchain
 
         patch_langchain()
         _instrumentation_state["langchain"] = True
@@ -67,7 +67,7 @@ def enable_llm() -> None:
         return
 
     try:
-        from .llm import patch_all_llms
+        from aigie.auto_instrument.llm import patch_all_llms
 
         patch_all_llms()
         _instrumentation_state["llm"] = True
@@ -81,7 +81,7 @@ def enable_tools() -> None:
         return
 
     try:
-        from .tools import patch_tools
+        from aigie.auto_instrument.tools import patch_tools
 
         patch_tools()
         _instrumentation_state["tools"] = True
@@ -95,7 +95,7 @@ def enable_haystack() -> None:
         return
 
     try:
-        from .haystack import patch_haystack
+        from aigie.auto_instrument.haystack import patch_haystack
 
         patch_haystack()
         _instrumentation_state["haystack"] = True

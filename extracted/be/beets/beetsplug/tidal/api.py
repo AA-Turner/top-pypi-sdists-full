@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import urllib.parse
 import webbrowser
+from contextlib import suppress
 from functools import cached_property
 from itertools import islice, zip_longest
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -86,10 +87,7 @@ class TidalAPI(RequestHandler):
 
         # Tidal allows at max 20 filters per request. This needs a bit of extra
         # logic sadly.
-        doc: TrackDocument = {
-            "data": [],
-            "included": [],
-        }
+        doc: TrackDocument = {"data": [], "included": []}
         for id_batch, isrc_batch in zip_longest(
             _batched(ids, MAX_FILTER_SIZE),
             _batched(isrcs, MAX_FILTER_SIZE),
@@ -126,10 +124,7 @@ class TidalAPI(RequestHandler):
 
         # Tidal allows at max 20 filters per request. This needs a bit of extra
         # logic sadly.
-        doc: AlbumDocument = {
-            "data": [],
-            "included": [],
-        }
+        doc: AlbumDocument = {"data": [], "included": []}
         for id_batch, barcode_batch in zip_longest(
             _batched(ids, MAX_FILTER_SIZE),
             _batched(barcode_ids, MAX_FILTER_SIZE),
@@ -160,10 +155,9 @@ class TidalAPI(RequestHandler):
         auth_url, _ = self.session.authorization_url(
             "https://login.tidal.com/authorize"
         )
-        try:
+        ui.print_(f"Visit: {auth_url}")
+        with suppress(webbrowser.Error):
             webbrowser.open(auth_url)
-        except webbrowser.Error:
-            ui.print_(f"Visit: {auth_url}")
         redirect_url = ui.input_("Paste redirected URL: ")
         self.session.fetch_token(
             "https://auth.tidal.com/v1/oauth2/token",
@@ -175,8 +169,7 @@ class TidalAPI(RequestHandler):
 
     @staticmethod
     def merge_multiresource_pagination(
-        a: Document[list[T]],
-        b: Document[list[T]],
+        a: Document[list[T]], b: Document[list[T]]
     ) -> Document[list[T]]:
         """
         Merge of b into a, following JSON:API spec rules.
@@ -221,11 +214,9 @@ class TidalAPI(RequestHandler):
             "links": {"next": url},
         }
 
-        while next := doc.get("links", {}).get("next"):
+        while next_ := doc.get("links", {}).get("next"):
             page_doc = self.get_json(
-                url=next,
-                params={**params, "include": include},
-                **kwargs,
+                url=next_, params={**params, "include": include}, **kwargs
             )
             doc = self.merge_multiresource_pagination(doc, page_doc)
 

@@ -105,20 +105,16 @@ class FuraffinityExtractor(Extractor):
             data["comments"] = pi(rh(extr('title="Comments">', '</div>')))
             data["favorites"] = pi(rh(extr('title="Favorites">', '</div>')))
             data["rating"] = extr('inline c-contentRating--', '"')
-            contentstats = text.split_html(extr(
-                '<span class="highlight">', '</div>'))
-            try:
-                width, _, height = contentstats[8].partition("x")
-                data["fa_category"] = contentstats[5]
-                data["fa_subcategory"] = contentstats[6]
-                data["species"] = contentstats[7]
-                data["width"] = pi(width)
-                data["height"] = pi(height)
-            except Exception:
-                data["fa_category"] = contentstats[4]
-                data["fa_subcategory"] = contentstats[5]
-                data["species"] = contentstats[6]
-                data["width"] = data["height"] = 0
+            info = text.split_html(extr('<span class="highlight">', '</div>'))
+            size = len(info) >> 1
+            info = {info[i].lower(): info[i + size] for i in range(size)}
+            width, _, height = info.get("resolution", "").partition("x")
+            data["fa_category"] = info.get("category", "")
+            data["fa_subcategory"] = info.get("theme", "")
+            data["species"] = info.get("species", "")
+            data["width"] = pi(width)
+            data["height"] = pi(height)
+            data["size"] = text.parse_bytes(info.get("file size", "")[:-1])
             data["tags"] = text.split_html(extr('>Keywords</div>', '</div>'))
             data["folders"] = [
                 name

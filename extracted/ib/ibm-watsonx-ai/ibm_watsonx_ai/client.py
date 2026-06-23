@@ -28,7 +28,7 @@ from warnings import warn
 import httpx
 
 import ibm_watsonx_ai.utils
-from ibm_watsonx_ai._wrappers import httpx_wrapper
+from ibm_watsonx_ai._wrappers.httpx import GlobalHttpxSettings
 from ibm_watsonx_ai._wrappers.httpx_wrapper import (
     _get_async_httpx_client,
     _get_httpx_client,
@@ -304,9 +304,9 @@ to `APIClient.service_instance.get_details` method.
                 _ = credentials.proxies.get(
                     "http"
                 )  # This will raise AttributeError for non-dict types
-            httpx_wrapper.additional_settings["proxies"] = credentials.proxies
-        elif httpx_wrapper.additional_settings.get("proxies") is not None:
-            del httpx_wrapper.additional_settings["proxies"]
+            GlobalHttpxSettings.proxies = credentials.proxies
+        elif GlobalHttpxSettings.proxies is not None:
+            GlobalHttpxSettings.proxies = None
 
         self.credentials = copy.deepcopy(credentials)
         self._default_space_id: str | None = None

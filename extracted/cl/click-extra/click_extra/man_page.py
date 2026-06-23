@@ -58,6 +58,7 @@ from cloup import OptionGroupMixin
 from .config import ConfigOption
 from .envvar import param_envvar_ids
 from .parameters import ExtraOption, search_params
+from .version import resolve_author, resolve_distribution
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -265,14 +266,8 @@ class ManOptionItem:
     metavar: str | None
     """The rendered metavar, or ``None`` for boolean flags (which take no value)."""
 
-    is_choice: bool
-    """Whether the option's type is a :class:`click.Choice`."""
-
     help: str | None
     """The option's help text, possibly carrying a ``\\b`` no-rewrap marker."""
-
-    envvars: tuple[str, ...]
-    """Environment variables read by the option, auto-generated one included."""
 
     required: bool
     """Whether the option is mandatory."""
@@ -332,7 +327,7 @@ class ManPage:
     """
 
     name: str
-    """Full command path, space-joined (e.g. ``weather forecast``)."""
+    """Full command path, space-joined (like ``weather forecast``)."""
 
     short_help: str = ""
     """One-line description for the NAME section."""
@@ -496,7 +491,7 @@ def _generator_tag() -> str:
 
     This is Click Extra's *own* version (the generator), not the documented
     CLI's version, which is carried by the ``.TH`` header instead. Falls back to
-    the bare name when the distribution metadata is unavailable (e.g. running
+    the bare name when the distribution metadata is unavailable (such as running
     from an uninstalled source tree).
     """
     try:
@@ -508,31 +503,25 @@ def _generator_tag() -> str:
 def _resolve_version(ctx: Context) -> str | None:
     """Best-effort version lookup via :mod:`importlib.metadata`.
 
-    Pass ``version=`` to :func:`render_manpage` to override this.
+    Resolves the distribution from the program name (see
+    :func:`_distribution_names`) and reads its version. Pass ``version=`` to
+    :func:`render_manpage` to override this.
     """
-    for name in _distribution_names(ctx):
-        if not name:
-            continue
-        try:
-            return metadata.version(name)
-        except metadata.PackageNotFoundError:
-            continue
-    return None
+    name = resolve_distribution(_distribution_names(ctx))
+    return metadata.version(name) if name else None
 
 
 def _resolve_authors(ctx: Context) -> str | None:
-    """Best-effort AUTHORS lookup from distribution metadata."""
-    for name in _distribution_names(ctx):
-        if not name:
-            continue
-        try:
-            meta = metadata.metadata(name)
-        except metadata.PackageNotFoundError:
-            continue
-        author = meta["Author"] or meta["Author-email"]
-        if author:
-            return author
-    return None
+    """Best-effort AUTHORS lookup from distribution metadata.
+
+    Resolves the distribution from the program name (see
+    :func:`_distribution_names`) and reads its author(s) through the shared
+    :func:`click_extra.version.resolve_author`, so ``--man`` and ``--version``
+    report the same author string (``Author`` / ``Maintainer`` / email display
+    name, in that order).
+    """
+    name = resolve_distribution(_distribution_names(ctx))
+    return resolve_author(metadata.metadata(name)) if name else None
 
 
 def _config_default(config_option: ConfigOption, ctx: Context) -> str | None:
@@ -571,9 +560,7 @@ def _option_item(param: Parameter, ctx: Context) -> ManOptionItem:
     return ManOptionItem(
         names=tuple(param.opts) + tuple(param.secondary_opts),
         metavar=None if is_flag else param.make_metavar(ctx=ctx),
-        is_choice=isinstance(param.type, click.Choice),
         help=getattr(param, "help", None),
-        envvars=param_envvar_ids(param, ctx),
         required=param.required,
     )
 
@@ -638,7 +625,7 @@ def extract_manpage(
 ) -> ManPage:
     """Build a :class:`ManPage` from a Click command and its context.
 
-    The context must have been created for ``command`` (e.g. via
+    The context must have been created for ``command`` (for example via
     :meth:`click.Command.make_context` with ``resilient_parsing=True``), so
     that auto-generated environment-variable prefixes resolve correctly.
     """
@@ -727,7 +714,7 @@ def render_manpage(
 ) -> str:
     """Render a single command's man page as a roff string.
 
-    Reuses ``ctx`` when given (e.g. the live invocation context), otherwise
+    Reuses ``ctx`` when given (like the live invocation context), otherwise
     builds a throwaway one with ``resilient_parsing=True``. Keyword overrides
     (``version``, ``date``, ``manual``, ``authors``, ``copyright``) are passed
     through to :func:`~click_extra.man_page.extract_manpage`.
@@ -747,7 +734,7 @@ def render_manpages(
     """Render the whole command tree, one man page per (sub)command.
 
     Returns an ordered mapping of ``{filename: roff}`` where each filename is
-    the command path joined by hyphens plus the section suffix (e.g.
+    the command path joined by hyphens plus the section suffix (like
     ``weather-forecast.1``).
     """
     pages: dict[str, str] = {}
@@ -783,8 +770,8 @@ class ManOption(ExtraOption):
 
     Eager and value-less, like :class:`~click_extra.parameters.ShowParamsOption`.
     Part of the default option set injected by
-    :func:`~click_extra.commands.default_extra_params`, so every ``@extra_command``
-    and ``@extra_group`` exposes it. Use
+    :func:`~click_extra.commands.default_params`, so every ``@command``
+    and ``@group`` exposes it. Use
     :func:`@man_option <click_extra.decorators.man_option>` to add it to a plain
     Click CLI.
 

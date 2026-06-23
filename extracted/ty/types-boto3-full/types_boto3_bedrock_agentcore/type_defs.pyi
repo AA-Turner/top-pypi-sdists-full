@@ -2585,6 +2585,7 @@ class CreateEventInputTypeDef(TypedDict):
     branch: NotRequired[BranchTypeDef]
     clientToken: NotRequired[str]
     metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
+    extractionMode: NotRequired[Literal["SKIP"]]
 
 ListEventsInputPaginateTypeDef = TypedDict(
     "ListEventsInputPaginateTypeDef",

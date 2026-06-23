@@ -28,7 +28,7 @@ import grpc
 from opentelemetry import propagate as _propagate
 
 import aigie.telemetry as _telemetry
-from aigie._grpc import derive_grpc_target
+from aigie._grpc import control_plane_grpc_target
 from aigie.autonomous.control_plane.reconnect import BackoffPolicy
 from aigie.autonomous.directives import Directive
 from aigie.autonomous.metrics import kytte_platform_unreachable_seconds
@@ -204,7 +204,7 @@ class ControlStreamClient:
         rule_cache_version_provider: Callable[[], str] = lambda: "",
     ) -> None:
         self._endpoint = endpoint
-        self._grpc_target = derive_grpc_target(endpoint, honor_url_port=True, honor_env_port=True)
+        self._grpc_target = control_plane_grpc_target(endpoint)
         self._api_key = api_key
         self._on_directive = on_directive
         self._codec = codec

@@ -18,14 +18,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import sys, os, types, zipfile, gzip, io
+import sys, os, os.path, types, zipfile, gzip, io
 from collections import defaultdict, Counter
 from owlready2 import *
 
 iso_3_letter_2_2_letter_lang = {'ABK': 'ab', 'AAR': 'aa', 'AFR': 'af', 'ALB': 'sq', 'SQI': 'sq', 'AMH': 'am', 'ARA': 'ar', 'ARG': 'an', 'ARM': 'hy', 'HYE': 'hy', 'ASM': 'as', 'AVE': 'ae', 'AYM': 'ay', 'AZE': 'az', 'BAK': 'ba', 'BAQ': 'eu', 'EUS': 'eu', 'BEL': 'be', 'BEN': 'bn', 'BIH': 'bh', 'BIS': 'bi', 'BOS': 'bs', 'BRE': 'br', 'BUL': 'bg', 'BUR': 'my', 'MYA': 'my', 'CAT': 'ca', 'CHA': 'ch', 'CHE': 'ce', 'CHI': 'zh', 'ZHO': 'zh', 'CHU': 'cu', 'CHV': 'cv', 'COR': 'kw', 'COS': 'co', 'SCR': 'hr', 'HRV': 'hr', 'CZE': 'cs', 'CES': 'cs', 'DAN': 'da', 'DIV': 'dv', 'DUT': 'nl', 'NLD': 'nl', 'DZO': 'dz', 'ENG': 'en', 'EPO': 'eo', 'EST': 'et', 'FAO': 'fo', 'FIJ': 'fj', 'FIN': 'fi', 'FRE': 'fr', 'FRA': 'fr', 'GLA': 'gd', 'GLG': 'gl', 'GEO': 'ka', 'KAT': 'ka', 'GER': 'de', 'DEU': 'de', 'GRE': 'el', 'ELL': 'el', 'GRN': 'gn', 'GUJ': 'gu', 'HAT': 'ht', 'HAU': 'ha', 'HEB': 'he', 'HER': 'hz', 'HIN': 'hi', 'HMO': 'ho', 'HUN': 'hu', 'ICE': 'is', 'ISL': 'is', 'IDO': 'io', 'IND': 'id', 'INA': 'ia', 'ILE': 'ie', 'IKU': 'iu', 'IPK': 'ik', 'GLE': 'ga', 'ITA': 'it', 'JPN': 'ja', 'JAV': 'jv', 'KAL': 'kl', 'KAN': 'kn', 'KAS': 'ks', 'KAZ': 'kk', 'KHM': 'km', 'KIK': 'ki', 'KIN': 'rw', 'KIR': 'ky', 'KOM': 'kv', 'KOR': 'ko', 'KUA': 'kj', 'KUR': 'ku', 'LAO': 'lo', 'LAT': 'la', 'LAV': 'lv', 'LIM': 'li', 'LIN': 'ln', 'LIT': 'lt', 'LTZ': 'lb', 'MAC': 'mk', 'MKD': 'mk', 'MLG': 'mg', 'MAY': 'ms', 'MSA': 'ms', 'MAL': 'ml', 'MLT': 'mt', 'GLV': 'gv', 'MAO': 'mi', 'MRI': 'mi', 'MAR': 'mr', 'MAH': 'mh', 'MOL': 'mo', 'MON': 'mn', 'NAU': 'na', 'NAV': 'nv', 'NDE': 'nd', 'NBL': 'nr', 'NDO': 'ng', 'NEP': 'ne', 'SME': 'se', 'NOR': 'no', 'NOB': 'nb', 'NNO': 'nn', 'NYA': 'ny', 'OCI': 'oc', 'ORI': 'or', 'ORM': 'om', 'OSS': 'os', 'PLI': 'pi', 'PAN': 'pa', 'PER': 'fa', 'FAS': 'fa', 'POL': 'pl', 'POR': 'pt', 'PUS': 'ps', 'QUE': 'qu', 'ROH': 'rm', 'RUM': 'ro', 'RON': 'ro', 'RUN': 'rn', 'RUS': 'ru', 'SMO': 'sm', 'SAG': 'sg', 'SAN': 'sa', 'SRD': 'sc', 'SCC': 'sr', 'SRP': 'sr', 'SNA': 'sn', 'III': 'ii', 'SND': 'sd', 'SIN': 'si', 'SLO': 'sk', 'SLK': 'sk', 'SLV': 'sl', 'SOM': 'so', 'SOT': 'st', 'SPA': 'es', 'SUN': 'su', 'SWA': 'sw', 'SSW': 'ss', 'SWE': 'sv', 'TGL': 'tl', 'TAH': 'ty', 'TGK': 'tg', 'TAM': 'ta', 'TAT': 'tt', 'TEL': 'te', 'THA': 'th', 'TIB': 'bo', 'BOD': 'bo', 'TIR': 'ti', 'TON': 'to', 'TSO': 'ts', 'TSN': 'tn', 'TUR': 'tr', 'TUK': 'tk', 'TWI': 'tw', 'UIG': 'ug', 'UKR': 'uk', 'URD': 'ur', 'UZB': 'uz', 'VIE': 'vi', 'VOL': 'vo', 'WLN': 'wa', 'WEL': 'cy', 'CYM': 'cy', 'FRY': 'fy', 'WOL': 'wo', 'XHO': 'xh', 'YID': 'yi', 'YOR': 'yo', 'ZHA': 'za', 'ZUL': 'zu'}
-
-#ordered_srcs = ['SRC', 'SNOMEDCT_US', 'ICD10', 'ICPC', 'MDR', 'LNC', 'MSH', 'AIR', 'ALT', 'AOD', 'AOT', 'ATC', 'BI', 'CCC', 'CCPSS', 'CCS', 'CCS_10', 'CDT', 'CHV', 'COSTAR', 'CPM', 'CPT', 'CSP', 'CST', 'CVX', 'DDB', 'DRUGBANK', 'DSM-5', 'DXP', 'FMA', 'GO', 'GS', 'HCDT', 'HCPCS', 'HCPT', 'HGNC', 'HL7V2.5', 'HL7V3.0', 'HPO', 'ICD10AE', 'ICD10AM', 'ICD10AMAE', 'ICD10CM', 'ICD10PCS', 'ICD9CM', 'ICF', 'ICF-CY', 'ICNP', 'ICPC2EENG', 'ICPC2ICD10ENG', 'ICPC2P', 'JABL', 'LCH', 'LCH_NW', 'MCM', 'MED-RT', 'MEDCIN', 'MEDLINEPLUS', 'MMSL', 'MMX', 'MTH', 'MTHCMSFRF', 'MTHHH', 'MTHICD9', 'MTHICPC2EAE', 'MTHICPC2ICD10AE', 'MTHMST', 'MTHSPL', 'MVX', 'NANDA-I', 'NCBI', 'NCI', 'NCI_BRIDG', 'NCI_BioC', 'NCI_CDC', 'NCI_CDISC', 'NCI_CDISC-GLOSS', 'NCI_CRCH', 'NCI_CTCAE', 'NCI_CTCAE_3', 'NCI_CTCAE_5', 'NCI_CTEP-SDC', 'NCI_CTRP', 'NCI_CareLex', 'NCI_DCP', 'NCI_DICOM', 'NCI_DTP', 'NCI_FDA', 'NCI_GAIA', 'NCI_GENC', 'NCI_ICH', 'NCI_JAX', 'NCI_KEGG', 'NCI_NCI-GLOSS', 'NCI_NCI-HGNC', 'NCI_NCI-HL7', 'NCI_NCPDP', 'NCI_NICHD', 'NCI_PI-RADS', 'NCI_PID', 'NCI_RENI', 'NCI_UCUM', 'NCI_ZFin', 'NDDF', 'NDFRT', 'NDFRT_FDASPL', 'NDFRT_FMTSME', 'NEU', 'NIC', 'NOC', 'NUCCPT', 'OMIM', 'OMS', 'PCDS', 'PDQ', 'PNDS', 'PPAC', 'PSY', 'QMR', 'RAM', 'RCD', 'RCDAE', 'RCDSA', 'RCDSY', 'RXNORM', 'SNM', 'SNMI', 'SNOMEDCT_VET', 'SOP', 'SPN', 'ULT', 'UMD', 'USP', 'USPMG', 'UWDA', 'VANDF', 'WHO']
-#terminology_2_priority = { terminology : i * 2 for i, terminology in enumerate(ordered_srcs) }
 
 
 def create_model():
@@ -151,26 +148,6 @@ def parse_mrconso(PYM, terminologies, langs, importer, f, remnant = ""):
     importer.check_insert()
 
   
-# def parse_mrhier(PYM, terminologies, langs, importer, f, remnant = ""):
-#   for line in f:
-#     if remnant: line = "%s%s" % (remnant, line); remnant = ""
-#     try:
-#       cui1, aui1, cxn, parent_aui, terminology, rela, hier, hcd, cvf, _dropit = line.split("|")
-#     except: return line
-    
-#     parent_aui = hier.rsplit(".", 1)[-1]
-    
-#     child_orig  = importer.aui_2_orig.get(aui1)
-#     if not child_orig: continue
-#     parent_orig = importer.aui_2_orig.get(parent_aui)
-#     if not parent_orig: continue
-    
-#     if (child_orig != parent_orig) and (child_orig in importer.orig_2_terminology):
-#       importer.terminology_2_parents[importer.orig_2_terminology[child_orig]] [child_orig].add(parent_orig)
-      
-#     importer.check_insert()
-    
-
 def parse_mrrel(PYM, terminologies, langs, importer, f, remnant_previous = ""):
   if remnant_previous == "":
     remnant = ""
@@ -391,27 +368,6 @@ def break_cycles(parents, terminology = ""):
 
 
 def finalize(PYM, importer):
-  # print("Breaking CUI cycles...")
-  # #open("/tmp/parents.txt", "w").write("parents = %s" % importer.cui_parents)
-  # parents, equivalences = break_cycles(importer.cui_parents)
-  # print("   ", len(equivalences), "cycles found")
-  
-  # for cui in importer.cui_parents:
-  #   cui_parents = parents.get(cui)
-  #   if cui_parents:
-  #     for parent in cui_parents:
-  #       importer.objs.append((cui, rdfs_subclassof, parent))
-  #   else:
-  #     importer.objs.append((cui, rdfs_subclassof, PYM.UnifiedConcept.storid))
-  # importer.check_insert()
-  
-  # for cycle in equivalences:
-  #   cycle = list(cycle)
-  #   for other in cycle[1:]:
-  #     importer.objs.append((cycle[0], owl_equivalentclass, other))
-  # importer.check_insert()
-  
-  
   print("Breaking ORIG cycles...")
   terminology_2_origs = { terminology : [] for terminology in importer.terminology_2_parents }
   for orig, terminology in importer.orig_2_terminology.items():
@@ -633,7 +589,12 @@ def import_umls(umls_zip_filename, terminologies = None, langs = None, fts_index
   PYM = create_model()
   default_world.save()
   
-  #default_world.graph.set_indexed(False)
+  parts = os.path.basename(umls_zip_filename).split("-")
+  if len(parts) >= 1:
+    umls_version = parts[1]
+  else:
+    umls_version = os.path.basename(umls_zip_filename).split(".")[0]
+  PYM.metadata.versionInfo.append(umls_version)
   
   importer = _Importer(PYM, terminologies, langs, extract_groups, extract_attributes, extract_relations, extract_definitions, remove_suppressed)
   
@@ -695,13 +656,6 @@ def import_umls(umls_zip_filename, terminologies = None, langs = None, fts_index
     with zipfile.ZipFile(umls_zip_filename, "r") as umls_zip:
       filenames = sorted(umls_zip.namelist())
       
-      #for filename in filenames:
-      #  if filename.endwiths("/META/") or filename.endwiths("/META"):
-      #    full_umls = False
-      #    break
-      #else: full_umls = True
-
-      #if full_umls:
       parse_umls_zip(umls_zip)
       for filename in filenames:
         if filename.endswith("-meta.nlm"):
@@ -712,41 +666,11 @@ def import_umls(umls_zip_filename, terminologies = None, langs = None, fts_index
           with zipfile.ZipFile(fp, "r") as umls_inner_zip:
             parse_umls_zip(umls_inner_zip)
             
-      #else:
-      #  parse_inner_zip(umls_zip)
-        
-      #for filename in filenames:
-      #  if filename.endswith("-meta.nlm"):
-      #    print("Importing UMLS from Zip file %s with Python version %s..." % (filename, sys.version))
-      #    
-      #    fp = umls_zip.open(filename)
-      #    if not fp.seekable():
-      #      raise Exception("PyMedTermino2 import require Python version >= 3.7 (but after import, the quadstore can be used by Python 3.6)")
-      #    with zipfile.ZipFile(fp, "r") as umls_inner_zip:
-      #      parse_inner_zip(umls_inner_zip)
-            #inner_filenames = sorted(umls_inner_zip.namelist())
-            #for table_name, parser in parsers:
-            #  for inner_filename in inner_filenames:
-            #    if ("/%s.RRF" % table_name) in inner_filename:
-            #      if previous_parser != table_name: importer.after(previous_parser)
-            #      print("  Parsing %s as %s" % (inner_filename, table_name), end = "")
-            #      f = gzip.open(umls_inner_zip.open(inner_filename), "rt", encoding = "UTF-8")
-            #      print(" with encoding %s" % f.encoding)
-            #      remnants[table_name] = parser(PYM, terminologies, langs, importer,
-            #                                    f,
-            #                                    remnants[table_name])
-            #      importer.force_insert()
-            #      default_world.save()
-            #      previous_parser = table_name
-                  
   finalize(PYM, importer)
   importer.force_insert()
   importer.on_finish()
   importer = None # Free memory
-  #default_world.save()
   
-  #print("Indexing...")
-  #default_world.graph.set_indexed(True)
   PYM = get_ontology("http://PYM/").load()
   
   if fts_index:
@@ -760,19 +684,6 @@ def import_umls(umls_zip_filename, terminologies = None, langs = None, fts_index
 
 def prune(PYM, termino, restrict_to_descendants, call_vacuum = True):
   if isinstance(termino, str): termino = PYM[termino]
-  
-#   sparql = """
-# SELECT (STORID(?t) AS ?storid) {
-#   ?t PYM:terminology <%s> .""" % termino.iri
-  
-#   for name in restrict_to_descendants:
-#     sparql += """  FILTER NOT EXISTS { ?t rdfs:subClassOf* <http://PYM/%s/%s> . }\n""" % (termino.name, name)
-#     sparql += """  FILTER NOT EXISTS { <http://PYM/%s/%s> rdfs:subClassOf* ?t . }\n""" % (termino.name, name)
-    
-#   sparql += """\n}"""
-  
-#   storids = list(PYM.world.sparql(sparql))
-  
   
   sparql = """
 DELETE {
@@ -790,8 +701,6 @@ WHERE {
 
   PYM.world.sparql(sparql)
   
-  
-  #PYM.world.graph.db.executemany("DELETE FROM resources WHERE storid=?", storids)
   
   if call_vacuum:
     PYM.world.save()

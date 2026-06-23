@@ -414,6 +414,9 @@ def export_from_registries(
                     else backfill.upper_bound
                 ),
                 allow_empty_tiles=backfill.allow_empty_tiles,
+                # environment is passed only when set; the proto field is added in
+                # artifacts.v1.CronAggregateBackfill (Layer 2) and None would raise on older stubs.
+                **({"environment": backfill.environment} if backfill.environment is not None else {}),
             )
         )
 

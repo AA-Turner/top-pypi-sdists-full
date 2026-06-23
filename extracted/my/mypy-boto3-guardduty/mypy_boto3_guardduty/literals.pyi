@@ -24,7 +24,9 @@ else:
 __all__ = (
     "AdminStatusType",
     "AutoEnableMembersType",
+    "CloudProviderType",
     "ClusterStatusType",
+    "ConfidenceType",
     "CoverageFilterCriterionKeyType",
     "CoverageSortKeyType",
     "CoverageStatisticsTypeType",
@@ -52,6 +54,8 @@ __all__ = (
     "GroupByTypeType",
     "GuardDutyServiceName",
     "IndicatorTypeType",
+    "InvestigationSortFieldType",
+    "InvestigationStatusType",
     "IpSetFormatType",
     "IpSetStatusType",
     "KubernetesResourcesTypesType",
@@ -60,6 +64,7 @@ __all__ = (
     "ListFiltersPaginatorName",
     "ListFindingsPaginatorName",
     "ListIPSetsPaginatorName",
+    "ListInvestigationsPaginatorName",
     "ListInvitationsPaginatorName",
     "ListMalwareScansCriterionKeyType",
     "ListMalwareScansPaginatorName",
@@ -90,6 +95,7 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ResourceTypeType",
+    "RiskLevelType",
     "ScanCategoryType",
     "ScanCriterionKeyType",
     "ScanResultStatusType",
@@ -112,7 +118,9 @@ __all__ = (
 
 AdminStatusType = Literal["DISABLE_IN_PROGRESS", "ENABLED"]
 AutoEnableMembersType = Literal["ALL", "NEW", "NONE"]
+CloudProviderType = Literal["AWS"]
 ClusterStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING", "UPDATING"]
+ConfidenceType = Literal["High", "Low", "Medium", "Unknown"]
 CoverageFilterCriterionKeyType = Literal[
     "ACCOUNT_ID",
     "ADDON_VERSION",
@@ -244,6 +252,8 @@ IndicatorTypeType = Literal[
     "UNUSUAL_ASN_FOR_USER",
     "VULNERABILITY",
 ]
+InvestigationSortFieldType = Literal["CONFIDENCE", "END_TIME", "RISK_LEVEL", "START_TIME", "STATUS"]
+InvestigationStatusType = Literal["COMPLETED", "FAILED", "RUNNING"]
 IpSetFormatType = Literal["ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"]
 IpSetStatusType = Literal[
     "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
@@ -263,6 +273,7 @@ ListDetectorsPaginatorName = Literal["list_detectors"]
 ListFiltersPaginatorName = Literal["list_filters"]
 ListFindingsPaginatorName = Literal["list_findings"]
 ListIPSetsPaginatorName = Literal["list_ip_sets"]
+ListInvestigationsPaginatorName = Literal["list_investigations"]
 ListInvitationsPaginatorName = Literal["list_invitations"]
 ListMalwareScansCriterionKeyType = Literal[
     "ACCOUNT_ID",
@@ -323,6 +334,7 @@ PublishingStatusType = Literal[
     "PENDING_VERIFICATION", "PUBLISHING", "STOPPED", "UNABLE_TO_PUBLISH_FIX_DESTINATION_PROPERTY"
 ]
 ResourceTypeType = Literal["EC2", "ECS", "EKS"]
+RiskLevelType = Literal["Critical", "High", "Info", "Low", "Medium"]
 ScanCategoryType = Literal["FULL_SCAN", "INCREMENTAL_SCAN"]
 ScanCriterionKeyType = Literal["EC2_INSTANCE_TAG"]
 ScanResultStatusType = Literal["NO_THREATS_FOUND", "THREATS_FOUND"]
@@ -621,6 +633,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -836,6 +850,7 @@ PaginatorName = Literal[
     "list_detectors",
     "list_filters",
     "list_findings",
+    "list_investigations",
     "list_invitations",
     "list_ip_sets",
     "list_malware_scans",

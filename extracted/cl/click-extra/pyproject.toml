@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "7.20.1"
+version = "8.0.1"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -85,19 +85,17 @@ classifiers = [
 dependencies = [
   # boltons 20.0.0 added shrinkuser(); our config.py uses it for path display.
   "boltons>=20",
-  # Click 8.4.0 ships the deprecated-label spacing change: https://github.com/pallets/click/pull/3423.
-  # Click 8.4.1 fixes the eager-callback parameter-source regression that 8.4.0
-  # introduced: https://github.com/pallets/click/pull/3484
-  "click>=8.4.1",
+  # click-extra targets Click >= 8.3.1, carrying small compatibility shims for the
+  # APIs that landed in Click 8.4.0 (see ExtraOption.handle_parse_result, the
+  # conditional NoSuchCommand/get_pager_file imports, NoConfigOption's explicit
+  # UNPROCESSED type, and HelpExtraFormatter.write_usage).
+  "click>=8.3.1",
   # Cloup 3.0.7 fix issues with metavars: https://github.com/kdeldycke/click-extra/pull/1281
   "cloup>=3.0.7",
   # always_merger (recursive dict merge) available since deepmerge 1.0.1.
   "deepmerge>=1.0.1",
   # _recursive_update and _remove_blanks moved to extra_platforms._utils in 8.0.0.
   "extra-platforms>=8",
-  # requests 2.34 ships inline types, removing the need for the types-requests
-  # stub package.
-  "requests>=2.34",
   # tabulate 0.9 is widely packaged; the `colon_grid` format added in 0.10 is
   # backported in table.py by aliasing it to `grid` when missing.
   "tabulate[widechars]>=0.9",
@@ -105,6 +103,9 @@ dependencies = [
   "tomli>=2; python_version<'3.11'",
   # wcmatch 10.0 fix some inconsistencies in globbing and symlinks.
   "wcmatch>=10",
+  # wcwidth (already pulled in by tabulate[widechars]) is used directly to size
+  # the spinner-catalog preview by terminal cell width.
+  "wcwidth>=0.2",
 ]
 
 [project.entry-points]
@@ -192,7 +193,7 @@ click-extra = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.20.1"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v8.0.1"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -225,6 +226,10 @@ test = [
   "pytest-httpserver>=1.1",
   # pytest-randomly 3.x introduced the current seed-management plugin interface.
   "pytest-randomly>=3",
+  # requests is used only by the test suite to fetch fixtures and PyPI metadata
+  # (test_pygments, test_pyproject); the runtime config-URL loader uses urllib.
+  # 2.34 ships inline types, removing the need for the types-requests stub.
+  "requests>=2.34",
   # Sphinx 8.0.0 is the first version to drop Python 3.9, like us.
   "sphinx>=8",
   # tomli 2.0 aligned API with stdlib tomllib; only installed on Python 3.10.
@@ -284,6 +289,7 @@ dependency-groups.docs = { requires-python = ">= 3.14" }
 exclude-newer = "1 week"
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
+required-version = ">=0.11.23,<0.12"
 
 [tool.nuitka]
 # Bundle the package's data files (themes.toml) into the standalone binary.
@@ -324,7 +330,11 @@ lint.future-annotations = true
 [tool.typos]
 default.extend-identifiers = { Github = "GitHub", IOS = "iOS", Javascript = "JavaScript", MacOS = "macOS", PyPi = "PyPI", Typescript = "TypeScript" }
 # Skip content between <!-- typos:off --> and <!-- typos:on --> markers.
-default.extend-ignore-re = [ "(?s)<!-- typos:off -->.*?<!-- typos:on -->" ]
+# chalk.ist is a legitimate domain name; `ist` is its TLD, not a typo.
+default.extend-ignore-re = [
+  "(?s)<!-- typos:off -->.*?<!-- typos:on -->",
+  "chalk\\.ist",
+]
 default.extend-ignore-identifiers-re = [
   # error: `valu` should be `value`
   #     ╭▸ ./tests/test_types.py:127:11
@@ -395,20 +405,20 @@ run.source = [ "click_extra" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "7.20.1"
-allow_dirty = true
-ignore_missing_files = true
+current_version = "8.0.1"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [
   "{major}.{minor}.{patch}.dev{dev}",
   "{major}.{minor}.{patch}",
 ]
+ignore_missing_files = true
+allow_dirty = true
+parts.dev.optional_value = "release"
 # When dev is "release" (its optional value), the .devN suffix is omitted.
 # Bumping patch/minor/major resets dev to "0", producing X.Y.Z.dev0.
 # Bumping dev goes from "0" to "release", stripping the suffix for release.
 parts.dev.values = [ "0", "release" ]
-parts.dev.optional_value = "release"
 
 [[tool.bumpversion.files]]
 # Update Python package version in any __init__.py file.
@@ -522,6 +532,11 @@ exclude = [
   "^https://star-history.com/#.*$",
   # crates.io blocks automated link checkers.
   "^https://crates.io/crates/.*$",
+  # asciinema.org and no-color.org are valid but intermittently fail DNS
+  # resolution or time out from CI runners. Also excluded from the Sphinx
+  # linkcheck run (see linkcheck_ignore in docs/conf.py).
+  "^https://asciinema.org.*$",
+  "^https://no-color.org.*$",
   # The theme palette anchors (#dark, #light, …) sit under the "Palettes"
   # section of docs/theme.md, where a {python:render} loop over BUILTIN_THEMES
   # emits one heading per theme at Sphinx build time. Lychee only scans the raw
@@ -540,29 +555,66 @@ exclude = [ "skills", "workflows/debug.yaml" ]
 # tarball and the HTML docs site stay in lockstep. Requires repomatic
 # >= 6.25.0 in the release engine.
 manpages.script = "click_extra.cli:demo"
-# Custom axes for upstream dependency testing (full matrix only).
-test-matrix.variations.click-version = [ "released", "stable", "main" ]
-test-matrix.variations.cloup-version = [ "released", "master" ]
-# Set defaults for PR matrix (which has no custom axes).
+# Full test matrix (27 jobs; runs on push-to-main and the monthly schedule,
+# never on PRs). It composes from two parts: a shipped cross-product for
+# cross-platform coverage, and explicit `full-include` rows for forward-looking
+# dependency coverage. Everything forward-looking runs on the single fastest
+# runner (ubuntu-24.04-arm, measured in CI). The slices:
+#   - released click × released cloup: {3.10, 3.14, 3.14t} on the 4 retained
+#     OSes (ubuntu-24.04-arm, ubuntu-slim, macos-26, windows-2025), plus the
+#     ubuntu-24.04-arm × 3.15 early-warning probe. 13 jobs, from the base
+#     cross-product (`remove.os` + `include` + the 3.15 `exclude` rows below).
+#   - {8.3.1, 8.3.2, 8.3.3, 8.4.0} click × released cloup: ubuntu-24.04-arm ×
+#     3.10 (the floor corner). Every Click release from the floor through the
+#     8.4.0 param-source regression, verifying the whole >=8.3.1 range. 4 jobs.
+#   - {stable, main} click × released cloup: ubuntu-24.04-arm × {3.14, 3.14t}.
+#     4 jobs.
+#   - {released, stable, main} click × master cloup: ubuntu-24.04-arm ×
+#     {3.14, 3.14t}. 6 jobs.
+# The last three slices (14 jobs) are the `full-include` rows below.
+# Runner selection favors measured speed over architecture: ubuntu-24.04-arm
+# (ARM) beats ubuntu-slim (x86) by ~2x on Linux. Per OS the fastest are
+# ubuntu-24.04-arm, macos-26 (ARM), and windows-2025 (x86, faster than
+# windows-11-arm on recent Pythons); the slower-arch twins (macos-26-intel,
+# windows-11-arm) are dropped entirely.
+test-matrix.remove.os = [ "macos-26-intel", "windows-11-arm" ]
+# Defaults applied to every job. The PR matrix runs only these (released Click
+# on released Cloup); the forward-looking rows below are full-matrix only.
 test-matrix.include = [
   { "click-version" = "released" },
   { "cloup-version" = "released" },
 ]
-# Only test non-released Click/Cloup on ARM64 runners with latest stable Python.
+# Keep the prerelease Python 3.15 probe to a single early-warning cell
+# (ubuntu-24.04-arm, released Click/Cloup); hold it off every other runner. This
+# carves the 3.15 row out of the base cross-product. Applies to both matrices,
+# but the PR matrix has no 3.15 cell, so it is a no-op there.
 test-matrix.exclude = [
-  { "os" = "ubuntu-slim", "click-version" = "stable" },
-  { "os" = "ubuntu-slim", "click-version" = "main" },
-  { "os" = "ubuntu-slim", "cloup-version" = "master" },
-  { "os" = "macos-26-intel", "click-version" = "stable" },
-  { "os" = "macos-26-intel", "click-version" = "main" },
-  { "os" = "macos-26-intel", "cloup-version" = "master" },
-  { "os" = "windows-2025", "click-version" = "stable" },
-  { "os" = "windows-2025", "click-version" = "main" },
-  { "os" = "windows-2025", "cloup-version" = "master" },
-  { "python-version" = "3.10", "click-version" = "stable" },
-  { "python-version" = "3.10", "click-version" = "main" },
-  { "python-version" = "3.10", "cloup-version" = "master" },
-  { "python-version" = "3.15", "click-version" = "stable" },
-  { "python-version" = "3.15", "click-version" = "main" },
-  { "python-version" = "3.15", "cloup-version" = "master" },
+  { "os" = "ubuntu-slim", "python-version" = "3.15" },
+  { "os" = "macos-26", "python-version" = "3.15" },
+  { "os" = "windows-2025", "python-version" = "3.15" },
+]
+# Forward-looking dependency coverage, appended to the full matrix only (the PR
+# matrix stays a fast released-on-released set). Each row is a standalone job;
+# unspecified keys inherit the `include` defaults (released Click, released
+# Cloup) and stable state. All pinned to ubuntu-24.04-arm, the fastest runner,
+# since they probe dependency behavior rather than cross-platform support.
+test-matrix.full-include = [
+  # Every Click release from the >=8.3.1 floor through the 8.4.0 param-source
+  # regression (8.4.1 ships as `released`), each on the floor Python 3.10.
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.3.1", "cloup-version" = "released" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.3.2", "cloup-version" = "released" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.3.3", "cloup-version" = "released" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.4.0", "cloup-version" = "released" },
+  # Click's stable and main dev branches on released Cloup, latest Pythons.
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14", "click-version" = "stable", "cloup-version" = "released" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14t", "click-version" = "stable", "cloup-version" = "released" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14", "click-version" = "main", "cloup-version" = "released" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14t", "click-version" = "main", "cloup-version" = "released" },
+  # Cloup's master branch on released, stable, and main Click, latest Pythons.
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14", "click-version" = "released", "cloup-version" = "master" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14t", "click-version" = "released", "cloup-version" = "master" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14", "click-version" = "stable", "cloup-version" = "master" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14t", "click-version" = "stable", "cloup-version" = "master" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14", "click-version" = "main", "cloup-version" = "master" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.14t", "click-version" = "main", "cloup-version" = "master" },
 ]

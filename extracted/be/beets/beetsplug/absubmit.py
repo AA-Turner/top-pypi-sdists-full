@@ -25,6 +25,7 @@ import tempfile
 import requests
 
 from beets import plugins, ui, util
+from beets.exceptions import UserError
 
 # We use this field to check whether AcousticBrainz info is present.
 PROBE_FIELD = "mood_acoustic"
@@ -60,7 +61,7 @@ class AcousticBrainzSubmitPlugin(plugins.BeetsPlugin):
             self.extractor = util.normpath(self.extractor)
             # Explicit path to extractor
             if not os.path.isfile(self.extractor):
-                raise ui.UserError(
+                raise UserError(
                     f"Extractor command does not exist: {self.extractor}."
                 )
         else:
@@ -69,7 +70,7 @@ class AcousticBrainzSubmitPlugin(plugins.BeetsPlugin):
             try:
                 call([self.extractor])
             except OSError:
-                raise ui.UserError(
+                raise UserError(
                     "No extractor command found: please install the extractor"
                     " binary from https://essentia.upf.edu/"
                 )
@@ -92,11 +93,11 @@ class AcousticBrainzSubmitPlugin(plugins.BeetsPlugin):
         base_url = self.config["base_url"].as_str()
         if base_url:
             if not base_url.startswith("http"):
-                raise ui.UserError(
+                raise UserError(
                     "AcousticBrainz server base URL must start "
                     "with an HTTP scheme"
                 )
-            elif base_url[-1] != "/":
+            if base_url[-1] != "/":
                 base_url = f"{base_url}/"
             self.url = f"{base_url}{{mbid}}/low-level"
 
@@ -128,16 +129,15 @@ class AcousticBrainzSubmitPlugin(plugins.BeetsPlugin):
 
     def command(self, lib, opts, args):
         if not self.url:
-            raise ui.UserError(
+            raise UserError(
                 "This plugin is deprecated since AcousticBrainz no longer "
                 "accepts new submissions. See the base_url configuration "
                 "option."
             )
-        else:
-            # Get items from arguments
-            items = lib.items(args)
-            self.opts = opts
-            util.par_map(self.analyze_submit, items)
+        # Get items from arguments
+        items = lib.items(args)
+        self.opts = opts
+        util.par_map(self.analyze_submit, items)
 
     def analyze_submit(self, item):
         analysis = self._get_analysis(item)
@@ -199,10 +199,7 @@ class AcousticBrainzSubmitPlugin(plugins.BeetsPlugin):
         mbid = item["mb_trackid"]
         headers = {"Content-Type": "application/json"}
         response = requests.post(
-            self.url.format(mbid=mbid),
-            json=data,
-            headers=headers,
-            timeout=10,
+            self.url.format(mbid=mbid), json=data, headers=headers, timeout=10
         )
         # Test that request was successful and raise an error on failure.
         if response.status_code != 200:
@@ -218,6 +215,5 @@ class AcousticBrainzSubmitPlugin(plugins.BeetsPlugin):
             )
         else:
             self._log.debug(
-                "Successfully submitted AcousticBrainz analysis for {}.",
-                item,
+                "Successfully submitted AcousticBrainz analysis for {}.", item
             )

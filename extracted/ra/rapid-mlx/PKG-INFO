@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rapid-mlx
-Version: 0.8.8
+Version: 0.8.10
 Summary: Rapid-MLX — AI inference for Apple Silicon. Drop-in OpenAI API, 2-4x faster than Ollama.
 Author: Rapid-MLX contributors
 License: Apache-2.0
@@ -75,7 +75,7 @@ Requires-Dist: vllm>=0.4.0; extra == "vllm"
 Provides-Extra: guided
 Requires-Dist: outlines[mlxlm]>=1.0.0; extra == "guided"
 Provides-Extra: audio
-Requires-Dist: mlx-audio>=0.2.9; extra == "audio"
+Requires-Dist: mlx-audio<0.4.4,>=0.2.9; extra == "audio"
 Requires-Dist: sounddevice>=0.4.0; extra == "audio"
 Requires-Dist: soundfile>=0.12.0; extra == "audio"
 Requires-Dist: scipy>=1.10.0; extra == "audio"

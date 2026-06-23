@@ -44,7 +44,6 @@ from dazzle.http.runtime.event_bus import EntityEvent, EntityEventType
 from dazzle.http.runtime.retry_accumulator import (
     RetryAccumulator,
     RetryEvent,
-    get_default_accumulator,
 )
 
 logger = logging.getLogger(__name__)
@@ -133,12 +132,14 @@ class MappingExecutor:
         self._results: list[MappingResult] = []
         self._cache = cache
         self._pack_ttl_cache: dict[str, int | None] = {}  # integration:entity_ref → TTL
-        # #1194: in-process retry-event accumulator. Defaults to the
-        # process-wide singleton so the /_dazzle/integrations/{name}/retries
-        # surface (which also resolves the singleton) reads the same
-        # state this executor writes. Volatile; resets on restart.
+        # #1194/#1445: in-process retry-event accumulator. The subsystem setup
+        # injects the per-app shared instance (`app_retry_accumulator(app)`) so the
+        # /_dazzle/integrations/{name}/retries surface reads the same state this
+        # executor writes. When constructed without injection (standalone/tests),
+        # it falls back to its own private instance — no module-level global.
+        # Volatile; resets on restart.
         self._retry_accumulator: RetryAccumulator = (
-            retry_accumulator if retry_accumulator is not None else get_default_accumulator()
+            retry_accumulator if retry_accumulator is not None else RetryAccumulator()
         )
 
     @property
@@ -382,7 +383,9 @@ class MappingExecutor:
                         )
                     )
 
-                async with httpx.AsyncClient(timeout=30.0) as client:  # noqa: DZ-HTTP-NORETRY  retry via async_retrying_request below
+                async with httpx.AsyncClient(
+                    timeout=30.0
+                ) as client:  # DZ-HTTP-NORETRY  retry via async_retrying_request below
                     resp = await async_retrying_request(
                         client,
                         method,

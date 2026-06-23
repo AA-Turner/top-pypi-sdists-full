@@ -40,18 +40,20 @@ FLOAT_DATATYPES = { "http://www.w3.org/2001/XMLSchema#decimal", "http://www.w3.o
 
 
 class _FakeQueue(object):
-  def __init__(self, insert_objs, insert_datas, finish):
-    self.insert_objs  = insert_objs
-    self.insert_datas = insert_datas
-    self.finish       = finish
+  def __init__(self, insert_objs, insert_datas, insert_tripleterm, finish):
+    self.insert_objs       = insert_objs
+    self.insert_datas      = insert_datas
+    self.insert_tripleterm = insert_tripleterm
+    self.finish            = finish
     
   def put(self, args):
     command, triples = args
-    if   command == "objs":   self.insert_objs(triples)
-    elif command == "datas":  self.insert_datas(triples)
-    elif command == "finish": return self.finish()
-    elif command == "error":  raise OwlReadyOntologyParsingError(*args)
-    
+    if   command == "objs":       self.insert_objs(triples)
+    elif command == "datas":      self.insert_datas(triples)
+    elif command == "tripleterm": self.insert_tripleterm(triples)
+    elif command == "finish":     return self.finish()
+    elif command == "error":      raise OwlReadyOntologyParsingError(*args)
+    else: raise ValueError(args)
     
 class BaseGraph(object):
   _SUPPORT_CLONING = False
@@ -159,9 +161,17 @@ class BaseSubGraph(BaseGraph):
           splitter = re.compile("\\s")
           objs  = []
           datas = []
+          
           line  = f.readline().decode("utf8")
-          while line:
+          if line.lstrip().startswith("VERSION"):
+            version = line.split()[1].strip('"\'')
+            if not version in { "1.0", "1.1", "1.2", "1.2-basic" }:
+              print("* Owlready2 * Warning, unsupported RDF %s!" % line.strip())
             current_line += 1
+            line = f.readline().decode("utf8")
+            
+          def parse_line(line, depth = 0):
+            nonlocal objs, datas
             if (not line.startswith("#")) and (not line.startswith("\n")):
               if not line.endswith("\n"): s,p,o = splitter.split(line[:-2], 2)
               else:                       s,p,o = splitter.split(line[:-3], 2)
@@ -170,14 +180,25 @@ class BaseSubGraph(BaseGraph):
               
               p = p[1:-1]
               
-              if   o.startswith("<"):
+              if   o.startswith("<<("):
+                if not depth:
+                  saved = objs, datas
+                  objs  = datas = [] # Same list
+                parse_line("%s ." % o[3:-3].strip(), depth + 1)
+                datas.append((s, p, None, "http://www.w3.org/2000/01/rdf-schema#Proposition"))
+                
+                if not depth:
+                  queue.put(("tripleterm", datas))
+                  objs, datas = saved
+                  
+              elif o.startswith("<"):
                 objs.append((s, p, o[1:-1]))
                 if len(objs) > 800000:
                   queue.put(("objs", objs))
                   objs = []
                   
               elif o.startswith("_"): objs.append((s, p, o))
-                
+              
               else: #if o.startswith('"'):
                 o, d = o.rsplit('"', 1)
                 if d.startswith("^"):
@@ -191,7 +212,10 @@ class BaseSubGraph(BaseGraph):
                 if len(datas) > 800000:
                   queue.put(("datas", datas))
                   datas = []
-                  
+            
+          while line:
+            current_line += 1
+            parse_line(line)
             line = f.readline().decode("utf8")
             
           if objs:  queue.put(("objs", objs))
@@ -219,6 +243,7 @@ class BaseSubGraph(BaseGraph):
           else:
             objs  = []
             datas = []
+            triple_term_datas = []
             def on_prepare_obj(*triple):
               nonlocal objs
               objs.append(triple)
@@ -227,9 +252,17 @@ class BaseSubGraph(BaseGraph):
               nonlocal datas
               datas.append(triple)
               if len(datas) > 30000: queue.put(("datas", datas)); datas = []
+            def on_prepare_triple_term(s,p,o,d = None,depth = 1):
+              nonlocal triple_term_datas
+              if d is None: triple_term_datas.append((s,p,o))
+              else:         triple_term_datas.append((s,p,o,d))
+              if depth == 0:
+                queue.put(("tripleterm", triple_term_datas))
+                triple_term_datas = []
+                
             if format == "rdfxml":
               import owlready2.rdfxml_2_ntriples
-              owlready2.rdfxml_2_ntriples.parse(f, on_prepare_obj, on_prepare_data, None, default_base)
+              owlready2.rdfxml_2_ntriples.parse(f, on_prepare_obj, on_prepare_data, on_prepare_triple_term, None, default_base)
             else:
               import owlready2.owlxml_2_ntriples
               owlready2.owlxml_2_ntriples.parse(f, on_prepare_obj, on_prepare_data, None, default_base)
@@ -303,9 +336,17 @@ _XMLNS = {
 def _save(f, format, graph, filter = None):
   if   format == "ntriples":
     _unabbreviate = lru_cache(None)(graph._unabbreviate)
-    
-    for s,p,o,d in graph._iter_triples():
-      if filter and callable(filter) and not filter(graph, s, p, o, d): continue
+
+    reifications = graph._get_data_triples_d_o(rdfs_proposition)
+    if reifications:
+      f.write('VERSION "1.2"\n'.encode("utf8"))
+      reifications = { graph._get_triple_from_rowid(o) for o in reifications }
+      old_filter = filter
+      def filter(graph, *triple):
+        if triple in reifications: return False
+        return old_filter and old_filter(graph, *triple) or True
+      
+    def format_triple(s,p,o,d):
       if   s < 0: s = "_:%s" % (-s)
       else:       s = "<%s>" % _unabbreviate(s)
       p = "<%s>" % _unabbreviate(p)
@@ -316,17 +357,29 @@ def _save(f, format, graph, filter = None):
         if isinstance(o, str):  o = o.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
         if   isinstance(d, str) and d.startswith("@"): o = '"%s"%s' % (o, d)
         elif d == 0:                                   o = '"%s"' % o
+        elif d == rdfs_proposition:                    o = '<<( %s )>>' % format_triple(*graph._get_triple_from_rowid(o))
         else:                                          o = '"%s"^^<%s>' % (o, _unabbreviate(d)) # Unabbreviate datatype's iri
-        
-      f.write(("%s %s %s .\n" % (s, p, o)).encode("utf8"))
+      return "%s %s %s" % (s, p, o)
+    
+    for s,p,o,d in graph._iter_triples():
+      if filter and callable(filter) and not filter(graph, s, p, o, d): continue
+      f.write(("%s .\n" % format_triple(s,p,o,d)).encode("utf8"))
       
   elif format == "nquads":
     _unabbreviate = lru_cache(None)(graph._unabbreviate)
     
     c_2_iri = { c : iri for c, iri in graph._iter_ontology_iri() }
     
-    for c,s,p,o,d in graph._iter_triples(True):
-      if filter and callable(filter) and not filter(graph, s, p, o, d, c): continue
+    reifications = graph._get_data_triples_d_o(rdfs_proposition)
+    if reifications:
+      f.write('VERSION "1.2"\n'.encode("utf8"))
+      reifications = { graph._get_triple_from_rowid(o) for o in reifications }
+      old_filter = filter
+      def filter(graph, *triple):
+        if triple[:-1] in reifications: return False
+        return old_filter and old_filter(graph, *triple) or True
+      
+    def format_quad(c,s,p,o,d):
       if   s < 0: s = "_:%s" % (-s)
       else:       s = "<%s>" % _unabbreviate(s)
       p = "<%s>" % _unabbreviate(p)
@@ -337,9 +390,13 @@ def _save(f, format, graph, filter = None):
         if isinstance(o, str):  o = o.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
         if   isinstance(d, str) and d.startswith("@"): o = '"%s"%s' % (o, d)
         elif d == 0:                                   o = '"%s"' % o
+        elif d == rdfs_proposition:                    o = '<<( %s )>>' % format_quad(c, *graph._get_triple_from_rowid(o)).rsplit(None, 1)[0]
         else:                                          o = '"%s"^^<%s>' % (o, _unabbreviate(d)) # Unabbreviate datatype's iri
-        
-      f.write(("<%s> %s %s %s .\n" % (c_2_iri[c], s, p, o)).encode("utf8"))
+      return "%s %s %s <%s>" % (s, p, o, c_2_iri[c])
+    
+    for c,s,p,o,d in graph._iter_triples(True):
+      if filter and callable(filter) and not filter(graph, s, p, o, d, c): continue
+      f.write(("%s .\n" % format_quad(c,s,p,o,d)).encode("utf8"))
       
   elif format == "rdfxml":
     @lru_cache(None)
@@ -350,6 +407,14 @@ def _save(f, format, graph, filter = None):
         else:                      return r[len(base_iri) - 1 :]
       return r
     
+    reifications = graph._get_data_triples_d_o(rdfs_proposition)
+    if reifications:
+      reifications = { graph._get_triple_from_rowid(o) for o in reifications }
+      old_filter = filter
+      def filter(graph, *triple):
+        if triple in reifications: return False
+        return old_filter and old_filter(graph, *triple) or True
+      
     base_iri = graph._iter_ontology_iri(graph.c)
 
     xmlns = _XMLNS.copy()
@@ -484,20 +549,15 @@ def _save(f, format, graph, filter = None):
     type      = "rdf:Description"
     s_lines   = []
     current_s = ""
-    for s,p,o,d in graph._iter_triples(False, True):
-      if filter and callable(filter) and not filter(graph, s, p, o, d): continue
-      if s != current_s:
-        if current_s: purge()
-        current_s = s
-        type = "rdf:Description"
-        
+    def do_triple(s,p,o,d):
+      nonlocal type, s_lines, current_s
       if (p == rdf_type) and (type == "rdf:Description") and (not o < 0):
         t = abbrev(o)
         if not t in bad_types:
           if t.startswith("#"): t = t[1:]
           if t[0] in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
             type = t
-            continue
+            return
           else:
             pass
           
@@ -507,6 +567,11 @@ def _save(f, format, graph, filter = None):
       if  not d is None:
         if isinstance(o, str):  o = o.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         if   isinstance(d, str) and d.startswith("@"): s_lines.append("""  <%s xml:lang="%s">%s</%s>""" % (p, d[1:], o, p))
+        elif d == rdfs_proposition:
+          s2,p2,o2,d2 = graph._get_triple_from_rowid(o)
+          s_lines.append("""  <%s rdf:parseType="Triple"><rdf:Description rdf:about="%s">""" % (p, _unabbreviate(s)))
+          do_triple(s2,p2,o2,d2)
+          s_lines.append("""  </rdf:Description></%s>""" % p)
         elif d:                                        s_lines.append("""  <%s rdf:datatype="%s">%s</%s>""" % (p, _unabbreviate(d), o, p))
         else:                                          s_lines.append("""  <%s>%s</%s>""" % (p, o, p))
         
@@ -556,6 +621,14 @@ def _save(f, format, graph, filter = None):
         o = _unabbreviate(o)
         s_lines.append("""  <%s rdf:resource="%s"/>""" % (p, o))
         
+    for s,p,o,d in graph._iter_triples(False, True):
+      if filter and callable(filter) and not filter(graph, s, p, o, d): continue
+      if s != current_s:
+        if current_s: purge()
+        current_s = s
+        type = "rdf:Description"
+      do_triple(s,p,o,d)
+      
     purge()
 
     if len(bn_2_inner_list) != len(inner_lists_used):
@@ -595,6 +668,7 @@ def _save(f, format, graph, filter = None):
         else:
           yield "%s%s" % ("    " * (deep - 1), v)
           
+    if reifications: decls.append('''rdf:version="1.2"''')
     f.write(b"""<?xml version="1.0"?>\n""")
     f.write(("""<rdf:RDF %s>\n\n""" % "\n         ".join(decls)).encode("utf8"))
     f.write( """\n""".join(flatten(sum(lines, []))).encode("utf8"))

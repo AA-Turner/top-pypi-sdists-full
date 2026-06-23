@@ -13,6 +13,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.connection import HTTPConnection
 from urllib3.util.retry import Retry
 
+from posthog._logging import _configure_posthog_logging
 from posthog.utils import remove_trailing_slash
 from posthog.version import VERSION
 
@@ -196,6 +197,9 @@ DEFAULT_HOST = US_INGESTION_ENDPOINT
 USER_AGENT = "posthog-python/" + VERSION
 
 
+_configure_posthog_logging()
+
+
 def normalize_host(host: Optional[str]) -> str:
     """Normalize a configured host, defaulting blank values to DEFAULT_HOST."""
     normalized_host = (host or "").strip()
@@ -228,7 +232,7 @@ def post(
     """Post the `kwargs` to the API"""
     log = logging.getLogger("posthog")
     body = kwargs
-    body["sentAt"] = datetime.now(tz=timezone.utc).isoformat()
+    body["sent_at"] = datetime.now(tz=timezone.utc).isoformat()
     trimmed_host = remove_trailing_slash(normalize_host(host))
     url = trimmed_host + cast(str, path)
     body["api_key"] = api_key

@@ -572,13 +572,25 @@ struct mjtSleepState {
     std::make_pair("mjS_AWAKE", ::mjtSleepState::mjS_AWAKE)};
 };
 
-struct mjtTaskStatus {
-  static constexpr char name[] = "mjtTaskStatus";
-  using type = ::mjtTaskStatus;
+struct mjtLogLevel {
+  static constexpr char name[] = "mjtLogLevel";
+  using type = ::mjtLogLevel;
   static constexpr auto values = std::array{
-    std::make_pair("mjTASK_NEW", ::mjtTaskStatus::mjTASK_NEW),
-    std::make_pair("mjTASK_QUEUED", ::mjtTaskStatus::mjTASK_QUEUED),
-    std::make_pair("mjTASK_COMPLETED", ::mjtTaskStatus::mjTASK_COMPLETED)};
+    std::make_pair("mjLOG_DEBUG", ::mjtLogLevel::mjLOG_DEBUG),
+    std::make_pair("mjLOG_INFO", ::mjtLogLevel::mjLOG_INFO),
+    std::make_pair("mjLOG_WARNING", ::mjtLogLevel::mjLOG_WARNING),
+    std::make_pair("mjLOG_ERROR", ::mjtLogLevel::mjLOG_ERROR)};
+};
+
+struct mjtLogTopic {
+  static constexpr char name[] = "mjtLogTopic";
+  using type = ::mjtLogTopic;
+  static constexpr auto values = std::array{
+    std::make_pair("mjTOPIC_NONE", ::mjtLogTopic::mjTOPIC_NONE),
+    std::make_pair("mjTOPIC_TIME_STP", ::mjtLogTopic::mjTOPIC_TIME_STP),
+    std::make_pair("mjTOPIC_TIME_CMP", ::mjtLogTopic::mjTOPIC_TIME_CMP),
+    std::make_pair("mjTOPIC_SLEEP", ::mjtLogTopic::mjTOPIC_SLEEP),
+    std::make_pair("mjNTOPIC", ::mjtLogTopic::mjNTOPIC)};
 };
 
 struct mjtGeomInertia {
@@ -669,6 +681,15 @@ struct mjtOrientation {
     std::make_pair("mjORIENTATION_XYAXES", ::mjtOrientation::mjORIENTATION_XYAXES),
     std::make_pair("mjORIENTATION_ZAXIS", ::mjtOrientation::mjORIENTATION_ZAXIS),
     std::make_pair("mjORIENTATION_EULER", ::mjtOrientation::mjORIENTATION_EULER)};
+};
+
+struct mjtConflict {
+  static constexpr char name[] = "mjtConflict";
+  using type = ::mjtConflict;
+  static constexpr auto values = std::array{
+    std::make_pair("mjCONFLICT_WARNING", ::mjtConflict::mjCONFLICT_WARNING),
+    std::make_pair("mjCONFLICT_MERGE", ::mjtConflict::mjCONFLICT_MERGE),
+    std::make_pair("mjCONFLICT_ERROR", ::mjtConflict::mjCONFLICT_ERROR)};
 };
 
 struct mjtCTimer {
@@ -894,6 +915,56 @@ struct mjtFont {
     std::make_pair("mjFONT_BIG", ::mjtFont::mjFONT_BIG)};
 };
 
+struct mjrPixelFormat {
+  static constexpr char name[] = "mjrPixelFormat";
+  using type = ::mjrPixelFormat;
+  static constexpr auto values = std::array{
+    std::make_pair("mjPIXEL_FORMAT_UNKNOWN", ::mjrPixelFormat::mjPIXEL_FORMAT_UNKNOWN),
+    std::make_pair("mjPIXEL_FORMAT_R8", ::mjrPixelFormat::mjPIXEL_FORMAT_R8),
+    std::make_pair("mjPIXEL_FORMAT_RGB8", ::mjrPixelFormat::mjPIXEL_FORMAT_RGB8),
+    std::make_pair("mjPIXEL_FORMAT_RGBA8", ::mjrPixelFormat::mjPIXEL_FORMAT_RGBA8),
+    std::make_pair("mjPIXEL_FORMAT_R32F", ::mjrPixelFormat::mjPIXEL_FORMAT_R32F),
+    std::make_pair("mjPIXEL_FORMAT_DEPTH32F", ::mjrPixelFormat::mjPIXEL_FORMAT_DEPTH32F),
+    std::make_pair("mjPIXEL_FORMAT_KTX", ::mjrPixelFormat::mjPIXEL_FORMAT_KTX)};
+};
+
+struct mjrVertexAttributeUsage {
+  static constexpr char name[] = "mjrVertexAttributeUsage";
+  using type = ::mjrVertexAttributeUsage;
+  static constexpr auto values = std::array{
+    std::make_pair("mjVERTEX_ATTRIBUTE_USAGE_POSITION", ::mjrVertexAttributeUsage::mjVERTEX_ATTRIBUTE_USAGE_POSITION),
+    std::make_pair("mjVERTEX_ATTRIBUTE_USAGE_NORMAL", ::mjrVertexAttributeUsage::mjVERTEX_ATTRIBUTE_USAGE_NORMAL),
+    std::make_pair("mjVERTEX_ATTRIBUTE_USAGE_TANGENTS", ::mjrVertexAttributeUsage::mjVERTEX_ATTRIBUTE_USAGE_TANGENTS),
+    std::make_pair("mjVERTEX_ATTRIBUTE_USAGE_UV", ::mjrVertexAttributeUsage::mjVERTEX_ATTRIBUTE_USAGE_UV),
+    std::make_pair("mjVERTEX_ATTRIBUTE_USAGE_COLOR", ::mjrVertexAttributeUsage::mjVERTEX_ATTRIBUTE_USAGE_COLOR)};
+};
+
+struct mjrVertexAttributeType {
+  static constexpr char name[] = "mjrVertexAttributeType";
+  using type = ::mjrVertexAttributeType;
+  static constexpr auto values = std::array{
+    std::make_pair("mjVERTEX_ATTRIBUTE_TYPE_FLOAT2", ::mjrVertexAttributeType::mjVERTEX_ATTRIBUTE_TYPE_FLOAT2),
+    std::make_pair("mjVERTEX_ATTRIBUTE_TYPE_FLOAT3", ::mjrVertexAttributeType::mjVERTEX_ATTRIBUTE_TYPE_FLOAT3),
+    std::make_pair("mjVERTEX_ATTRIBUTE_TYPE_FLOAT4", ::mjrVertexAttributeType::mjVERTEX_ATTRIBUTE_TYPE_FLOAT4),
+    std::make_pair("mjVERTEX_ATTRIBUTE_TYPE_UBYTE4", ::mjrVertexAttributeType::mjVERTEX_ATTRIBUTE_TYPE_UBYTE4)};
+};
+
+struct mjrIndexType {
+  static constexpr char name[] = "mjrIndexType";
+  using type = ::mjrIndexType;
+  static constexpr auto values = std::array{
+    std::make_pair("mjINDEX_TYPE_U16", ::mjrIndexType::mjINDEX_TYPE_U16),
+    std::make_pair("mjINDEX_TYPE_U32", ::mjrIndexType::mjINDEX_TYPE_U32)};
+};
+
+struct mjrMeshPrimitiveType {
+  static constexpr char name[] = "mjrMeshPrimitiveType";
+  using type = ::mjrMeshPrimitiveType;
+  static constexpr auto values = std::array{
+    std::make_pair("mjMESH_PRIMITIVE_TYPE_TRIANGLES", ::mjrMeshPrimitiveType::mjMESH_PRIMITIVE_TYPE_TRIANGLES),
+    std::make_pair("mjMESH_PRIMITIVE_TYPE_LINES", ::mjrMeshPrimitiveType::mjMESH_PRIMITIVE_TYPE_LINES)};
+};
+
 struct mjtButton {
   static constexpr char name[] = "mjtButton";
   using type = ::mjtButton;
@@ -990,7 +1061,8 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtWarning{},
     mjtTimer{},
     mjtSleepState{},
-    mjtTaskStatus{},
+    mjtLogLevel{},
+    mjtLogTopic{},
     mjtGeomInertia{},
     mjtMeshInertia{},
     mjtMeshBuiltin{},
@@ -1000,6 +1072,7 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtAlignFree{},
     mjtInertiaFromGeom{},
     mjtOrientation{},
+    mjtConflict{},
     mjtCTimer{},
     mjtCatBit{},
     mjtMouse{},
@@ -1016,6 +1089,11 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtDepthMap{},
     mjtFontScale{},
     mjtFont{},
+    mjrPixelFormat{},
+    mjrVertexAttributeUsage{},
+    mjrVertexAttributeType{},
+    mjrIndexType{},
+    mjrMeshPrimitiveType{},
     mjtButton{},
     mjtEvent{},
     mjtItem{},

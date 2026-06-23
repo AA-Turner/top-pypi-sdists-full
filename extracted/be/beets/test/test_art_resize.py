@@ -40,30 +40,18 @@ class DummyIMBackend(IMBackend):
         self.compare_cmd = ["magick", "compare"]
 
 
-class DummyPILBackend(PILBackend):
-    """An `PILBackend` which pretends that PIL is available."""
-
-    def __init__(self):
-        """Init a dummy backend class for mocked PIL tests."""
-        pass
-
-
 class ArtResizerFileSizeTest(CleanupModulesMixin, BeetsTestCase):
     """Unittest test case for Art Resizer to a specific filesize."""
 
     modules = (IMBackend.__module__,)
 
     IMG_225x225 = os.path.join(_common.RSRC, b"abbey.jpg")
-    IMG_225x225_SIZE = os.stat(syspath(IMG_225x225)).st_size
 
     def _test_img_resize(self, backend):
         """Test resizing based on file size, given a resize_func."""
         # Check quality setting unaffected by new parameter
         im_95_qual = backend.resize(
-            225,
-            self.IMG_225x225,
-            quality=95,
-            max_filesize=0,
+            225, self.IMG_225x225, quality=95, max_filesize=0
         )
         # check valid path returned - max_filesize hasn't broken resize command
         assert Path(os.fsdecode(im_95_qual)).exists()
@@ -84,10 +72,7 @@ class ArtResizerFileSizeTest(CleanupModulesMixin, BeetsTestCase):
 
         # Attempt with lower initial quality
         im_75_qual = backend.resize(
-            225,
-            self.IMG_225x225,
-            quality=75,
-            max_filesize=0,
+            225, self.IMG_225x225, quality=75, max_filesize=0
         )
         assert Path(os.fsdecode(im_75_qual)).exists()
 

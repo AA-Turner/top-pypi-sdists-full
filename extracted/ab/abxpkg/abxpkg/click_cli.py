@@ -1089,43 +1089,50 @@ def shared_options(command):
     return command
 
 
-def binary_override_options(command):
-    for decorator in (
-        click.option(
-            "--packages",
-            "packages_override",
-            metavar="JSON_OR_STR",
-            default=None,
-            callback=_click_parse(_parse_handler_override),
-            help="Default packages override applied to all selected providers unless --overrides specifies a provider-specific value.",
-        ),
-        click.option(
-            "--install-args",
-            "install_args_override",
-            metavar="JSON_OR_STR",
-            default=None,
-            callback=_click_parse(_parse_handler_override),
-            help="Default install_args override applied to all selected providers unless --overrides specifies a provider-specific value.",
-        ),
-        click.option(
-            "--version",
-            "version_override",
-            metavar="JSON_OR_STR",
-            default=None,
-            callback=_click_parse(_parse_handler_override),
-            help="Default version override applied to all selected providers unless --overrides specifies a provider-specific value.",
-        ),
-        click.option(
-            "--abspath",
-            "abspath_override",
-            metavar="JSON_OR_STR",
-            default=None,
-            callback=_click_parse(_parse_handler_override),
-            help="Default abspath override applied to all selected providers unless --overrides specifies a provider-specific value.",
-        ),
-    ):
-        command = decorator(command)
-    return command
+def binary_override_options(command=None, *, include_version: bool = True):
+    def apply(target):
+        decorators = [
+            click.option(
+                "--packages",
+                "packages_override",
+                metavar="JSON_OR_STR",
+                default=None,
+                callback=_click_parse(_parse_handler_override),
+                help="Default packages override applied to all selected providers unless --overrides specifies a provider-specific value.",
+            ),
+            click.option(
+                "--install-args",
+                "install_args_override",
+                metavar="JSON_OR_STR",
+                default=None,
+                callback=_click_parse(_parse_handler_override),
+                help="Default install_args override applied to all selected providers unless --overrides specifies a provider-specific value.",
+            ),
+            click.option(
+                "--abspath",
+                "abspath_override",
+                metavar="JSON_OR_STR",
+                default=None,
+                callback=_click_parse(_parse_handler_override),
+                help="Default abspath override applied to all selected providers unless --overrides specifies a provider-specific value.",
+            ),
+        ]
+        if include_version:
+            decorators.append(
+                click.option(
+                    "--version",
+                    "version_override",
+                    metavar="JSON_OR_STR",
+                    default=None,
+                    callback=_click_parse(_parse_handler_override),
+                    help="Default version override applied to all selected providers unless --overrides specifies a provider-specific value.",
+                ),
+            )
+        for decorator in decorators:
+            target = decorator(target)
+        return target
+
+    return apply(command) if command is not None else apply
 
 
 # Single canonical list of kwargs carried by every CLI callback that
@@ -1199,9 +1206,12 @@ def apply_script_dependency_options(
         overrides=dep_overrides,
         handler_overrides=dep_handler_overrides or None,
     )
+    # Dependency metadata is the closest statement of intent for that binary.
+    # Merge caller-wide overrides first so per-dependency install/version/path
+    # values always win and both CLI aliases and JSON overrides hit one cache key.
     replacement_kwargs["overrides"] = merge_binary_overrides(
-        dep_binary_overrides,
         options.overrides,
+        dep_binary_overrides,
     )
 
     return replace(options, **replacement_kwargs) if replacement_kwargs else options
@@ -1395,7 +1405,15 @@ def resolve_runtime_binary(
     except ABXPkgError as err:
         raise click.ClickException(format_error(err)) from err
 
-    return binary, []
+    return binary, build_providers(
+        options.provider_names,
+        dry_run=options.dry_run,
+        install_root=options.install_root,
+        bin_dir=options.bin_dir,
+        euid=options.euid,
+        install_timeout=options.install_timeout,
+        version_timeout=options.version_timeout,
+    )
 
 
 def get_runtime_exec_providers(
@@ -1431,13 +1449,16 @@ def build_runtime_exec_env(
         binary,
         runtime_binproviders,
     )
-    if other_runtime_binproviders:
-        env = build_provider_exec_env(
-            providers=other_runtime_binproviders,
-            base_env=env,
-        )
     return build_provider_exec_env(
-        providers=[binary.loaded_binprovider],
+        # The loaded provider owns the binary being executed, so its runtime
+        # env must have first precedence. Other providers still contribute
+        # PATH/NODE_PATH/PYTHONPATH entries for sibling deps, but they cannot
+        # replace single-value aliases like NODE_MODULES_DIR with generic roots.
+        providers=[
+            binary.loaded_binprovider,
+            *binary.loaded_binprovider.exec_env_providers(),
+            *other_runtime_binproviders,
+        ],
         base_env=env,
     )
 
@@ -1659,6 +1680,7 @@ def clear_lib_dir(lib_dir: Path) -> None:
     invoke_without_command=True,
 )
 @click.pass_context
+@binary_override_options(include_version=False)
 @shared_options
 @click.option(
     "--install",
@@ -2058,7 +2080,7 @@ def _run_command_impl(
     if not script_mode:
         runtime_binproviders = resolved_runtime_binproviders
     else:
-        runtime_binproviders = [*runtime_binproviders, *resolved_runtime_binproviders]
+        runtime_binproviders = [*runtime_binproviders]
 
     if run_options.dry_run:
         # Provider exec honors dry_run and returns a no-op CompletedProcess;
@@ -2231,7 +2253,7 @@ def env_command(
     deps_from = tuple(shared_kwargs.pop("deps_from") or ())
     explicit_provider_selection = shared_kwargs.get(
         "binproviders",
-    ) is not None or os.environ.get("ABXPKG_BINPROVIDERS") not in (None, "")
+    ) is not None or _INITIAL_ENV.get("ABXPKG_BINPROVIDERS") not in (None, "")
     options = get_command_options(ctx, **shared_kwargs)
     install_before_run = bool(ctx.obj.get("install_before_run", False)) or bool(
         command_install_before_run,
@@ -2364,7 +2386,11 @@ _BARE_TRUE_BOOL_FLAGS = frozenset(
 _RUN_LIKE_COMMANDS = frozenset({"run", "exec"})
 
 _BINARY_OVERRIDE_FLAGS = frozenset(
-    {"--abspath", "--version", "--install-args", "--packages"},
+    # The group accepts the non-conflicting binary override flags directly so
+    # before-subcommand placement preserves the same precedence as JSON
+    # --overrides. Only binary --version still needs hoisting because group
+    # --version is reserved for the abxpkg version report.
+    {"--version"},
 )
 _BINARY_OVERRIDE_COMMANDS = frozenset(
     {"install", "update", "upgrade", "uninstall", "load", *tuple(_RUN_LIKE_COMMANDS)},

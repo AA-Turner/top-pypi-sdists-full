@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-sftp
-Version: 5.8.1
+Version: 5.8.2
 Summary: Provider package apache-airflow-providers-sftp for Apache Airflow
 Keywords: airflow-provider,sftp,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -33,8 +33,8 @@ Requires-Dist: asyncssh>=2.22.0; python_version >= '3.14'
 Requires-Dist: apache-airflow-providers-openlineage ; extra == "openlineage"
 Requires-Dist: sshfs>=2023.1.0 ; extra == "sshfs"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-sftp/5.8.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-sftp/5.8.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-sftp/5.8.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-sftp/5.8.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -67,7 +67,7 @@ Provides-Extra: sshfs
 
 Package ``apache-airflow-providers-sftp``
 
-Release: ``5.8.1``
+Release: ``5.8.2``
 
 
 `SSH File Transfer Protocol (SFTP) <https://tools.ietf.org/wg/secsh/draft-ietf-secsh-filexfer/>`__
@@ -80,7 +80,7 @@ This is a provider package for ``sftp`` provider. All classes for this provider 
 are in ``airflow.providers.sftp`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-sftp/5.8.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-sftp/5.8.2/>`_.
 
 Installation
 ------------
@@ -138,5 +138,5 @@ Extra            Dependencies
 ===============  ========================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-sftp/5.8.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-sftp/5.8.2/changelog.html>`_.
 

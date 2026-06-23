@@ -36,13 +36,14 @@ from smplkit.jobs import (
 
 BASE = "https://jobs.example.com"
 RUN_ID = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d"
-_CFG = HttpConfig(url="https://api.example.com/hook", method="POST", headers=[("X-Api-Key", "secret")], body="{}")
+_CFG = HttpConfig(url="https://api.example.com/hook", method="POST", headers={"X-Api-Key": "secret"}, body="{}")
 
-# Default environments map: ``production`` enabled with no override (inherits
-# base config) but reporting a read-only per-env ``next_run_at``, ``staging``
-# disabled with both a per-env ``schedule`` override and a configuration
-# override. Exercises both JobEnvironment._from_dict branches (config absent /
-# present) plus the per-env schedule and next_run_at fields.
+# Default environments map (flat sparse overlays, ADR-056): ``production``
+# enabled with no overrides (inherits the base) but reporting a read-only per-env
+# ``next_run_at``; ``staging`` disabled with per-env ``schedule`` / ``timezone`` /
+# ``retry_policy`` plus a ``url`` leaf and a ``headers.<name>`` leaf override.
+# Exercises the flat-overlay parse (scalar leaves + a header leaf) and the
+# read-only ``next_run_at``.
 _DEFAULT_ENVIRONMENTS = {
     "production": {"enabled": True, "next_run_at": "2026-06-05T00:00:00Z"},
     "staging": {
@@ -50,16 +51,8 @@ _DEFAULT_ENVIRONMENTS = {
         "schedule": "0 3 * * *",
         "timezone": "Europe/London",
         "retry_policy": "retry-on-5xx",
-        "configuration": {
-            "method": "POST",
-            "url": "https://staging.example.com/hook",
-            "headers": [],
-            "body": "{}",
-            "success_status": "2xx",
-            "timeout": 30,
-            "tls_verify": True,
-            "ca_cert": None,
-        },
+        "url": "https://staging.example.com/hook",
+        "headers.X-Env": "staging",
         "next_run_at": None,
     },
 }
@@ -79,7 +72,7 @@ def _job_resource(job_id="my-job", *, created=True, version=1, environments="def
         "configuration": {
             "method": "POST",
             "url": "https://api.example.com/hook",
-            "headers": [{"name": "X-Api-Key", "value": "secret"}],
+            "headers": {"X-Api-Key": "secret"},
             "body": "{}",
             "success_status": "2xx",
             "timeout": 30,
@@ -244,9 +237,14 @@ def _async(handler=_handler) -> AsyncJobsClient:
 class TestModels:
     def test_http_config_round_trip_and_defaults(self):
         d = _CFG.to_dict()
-        assert d["headers"] == [{"name": "X-Api-Key", "value": "secret"}]
-        assert HttpConfig.from_dict(d).headers == [("X-Api-Key", "secret")]
+        assert d["headers"] == {"X-Api-Key": "secret"}
+        assert HttpConfig.from_dict(d).headers == {"X-Api-Key": "secret"}
         assert HttpConfig.from_dict({"url": "https://e.com"}).timeout == 30
+        # set_header / get_header helpers
+        cfg = HttpConfig(url="https://e.com")
+        cfg.set_header("Authorization", "Bearer x")
+        assert cfg.get_header("Authorization") == "Bearer x"
+        assert cfg.get_header("Missing") is None
         assert "HttpConfig" in repr(_CFG)
 
     def test_run_and_usage_parse(self):
@@ -348,7 +346,7 @@ class TestSyncSurface:
         c = _sync(h)
         job = c.new_manual_job("manual-job", name="Manual", configuration=_CFG)
         assert job.schedule is None  # no schedule supplied
-        job.set_enabled(True, environment="production")
+        job.environment("production").enabled = True
         job.save()
         assert job.is_manual() and job.kind is JobKind.MANUAL and job.schedule is None
         post = next(x for x in caps if x["method"] == "POST")
@@ -503,25 +501,29 @@ def _recording(captures: list[dict]):
 class TestEnvironmentModelsAndHelpers:
     def test_job_environment_from_dict_branches(self):
         bare = JobEnvironment._from_dict({"enabled": True})
-        assert bare.enabled is True and bare.configuration is None
+        assert bare.enabled is True and bare.url is None  # no overrides
         assert bare.schedule is None and bare.next_run_at is None  # both absent
-        assert bare.timezone is None  # absent per-env timezone
-        with_cfg = JobEnvironment._from_dict(
+        assert bare.timezone is None and bare.headers == {}  # absent leaves
+        full = JobEnvironment._from_dict(
             {
                 "enabled": False,
                 "schedule": "0 6 * * *",
                 "timezone": "America/New_York",
-                "configuration": {"url": "https://e.com"},
+                "url": "https://e.com",
+                "timeout": 9,
+                "headers.Authorization": "Bearer x",
+                "headers.X-Foo.Bar": "v",  # dotted header name
                 "next_run_at": "2026-06-05T00:00:00Z",
             }
         )
-        assert with_cfg.enabled is False
-        assert with_cfg.schedule == "0 6 * * *"  # per-env schedule read back
-        assert with_cfg.timezone == "America/New_York"  # per-env timezone read back
-        assert isinstance(with_cfg.configuration, HttpConfig)
-        assert with_cfg.configuration.url == "https://e.com"
+        assert full.enabled is False
+        assert full.schedule == "0 6 * * *"  # per-env schedule read back
+        assert full.timezone == "America/New_York"  # per-env timezone read back
+        assert full.url == "https://e.com" and full.timeout == 9  # request leaves
+        assert full.get_header("Authorization") == "Bearer x"
+        assert full.get_header("X-Foo.Bar") == "v"  # first-dot parse preserved the name
         # read-only next_run_at parsed back to a datetime
-        assert with_cfg.next_run_at is not None and with_cfg.next_run_at.year == 2026
+        assert full.next_run_at is not None and full.next_run_at.year == 2026
 
     def test_job_environment_to_payload_omits_next_run_at(self):
         # next_run_at is read-only: it must never be written back on save, but a
@@ -550,28 +552,25 @@ class TestEnvironmentModelsAndHelpers:
 
         assert _normalize_environments(None) == {}
         assert _normalize_environments({}) == {}
+        passthrough = JobEnvironment(enabled=True)
         out = _normalize_environments(
             {
-                "production": JobEnvironment(enabled=True),  # passthrough instance
-                "staging": {"enabled": True, "configuration": _CFG},  # dict w/ HttpConfig instance
-                "dev": {"enabled": False, "configuration": {"url": "https://dev.example.com"}},  # dict w/ dict cfg
-                # dict w/ per-env schedule + timezone, no configuration
+                "production": passthrough,  # JobEnvironment instance used as-is
+                # dict-form = JobEnvironment constructor kwargs (nested headers)
+                "staging": {"enabled": True, "url": "https://staging.example.com", "headers": {"X-Env": "staging"}},
                 "qa": {"enabled": True, "schedule": "0 8 * * *", "timezone": "Asia/Tokyo"},
             }
         )
-        assert out["production"].enabled is True
-        assert out["staging"].configuration is _CFG  # instance passed through unchanged
-        # a dict-form configuration is coerced to HttpConfig so it serializes on save
-        assert isinstance(out["dev"].configuration, HttpConfig)
-        assert out["dev"].configuration.url == "https://dev.example.com"
-        assert out["qa"].configuration is None
+        assert out["production"] is passthrough  # instance passed through unchanged
+        assert out["staging"].url == "https://staging.example.com"  # dict-form leaf carried through
+        assert out["staging"].get_header("X-Env") == "staging"  # dict-form nested headers carried through
+        assert out["qa"].url is None  # no request override
         assert out["qa"].schedule == "0 8 * * *"  # dict-form per-env schedule carried through
         assert out["qa"].timezone == "Asia/Tokyo"  # dict-form per-env timezone carried through
-        assert out["staging"].timezone is None  # absent dict-form timezone stays None
 
-    def test_create_sends_dict_form_environment_configuration(self):
-        # The documented plain-dict form (incl. a dict configuration override)
-        # must round-trip through new().save() without crashing.
+    def test_create_sends_dict_form_environment_overrides(self):
+        # The documented plain-dict form (flat leaves incl. nested headers) must
+        # round-trip through new().save(), emitting the flat headers.<name> shape.
         caps: list[dict] = []
         c = _sync(_recording(caps))
         job = c.new_recurring_job(
@@ -579,34 +578,54 @@ class TestEnvironmentModelsAndHelpers:
             name="My Job",
             schedule="0 * * * *",
             configuration=_CFG,
-            environments={"staging": {"enabled": True, "configuration": {"url": "https://staging.example.com/x"}}},
+            environments={
+                "staging": {
+                    "enabled": True,
+                    "url": "https://staging.example.com/x",
+                    "headers": {"Authorization": "Bearer s"},
+                }
+            },
         )
         job.save()
         post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
         staging = post["body"]["data"]["attributes"]["environments"]["staging"]
         assert staging["enabled"] is True
-        assert staging["configuration"]["url"] == "https://staging.example.com/x"
+        assert staging["url"] == "https://staging.example.com/x"
+        assert staging["headers.Authorization"] == "Bearer s"  # flat header leaf on the wire
+        assert "headers" not in staging  # not a nested object
 
-    def test_set_enabled_and_set_configuration(self):
+    def test_environment_handle_overrides(self):
         job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)
-        # create-new-entry branch
-        job.set_enabled(True, environment="production")
+        # create-new-entry branch (lazy)
+        job.environment("production").enabled = True
         assert job.environments["production"].enabled is True
-        # existing-entry branch
-        job.set_enabled(False, environment="production")
+        # the handle returns the SAME stored object
+        assert job.environment("production") is job.environments["production"]
+        job.environment("production").enabled = False
         assert job.environments["production"].enabled is False
-        # per-env configuration override
-        job.set_configuration(_CFG, environment="staging")
-        assert job.environments["staging"].configuration is _CFG
-        # base configuration (environment=None)
+        # per-env request-leaf overrides emit the flat sparse shape
+        stg = job.environment("staging")
+        stg.url = "https://staging.example.com/x"
+        stg.timeout = 5
+        stg.set_header("Authorization", "Bearer s")
+        assert job.environments["staging"]._to_payload() == {
+            "enabled": False,
+            "url": "https://staging.example.com/x",
+            "timeout": 5,
+            "headers.Authorization": "Bearer s",
+        }
+        # repr lists the overridden leaves (scalars + headers.<name>)
+        r = repr(job.environments["staging"])
+        assert "enabled=False" in r and "'url'" in r and "'timeout'" in r and "'headers.Authorization'" in r
+        # base configuration is edited directly via the attribute
         new_cfg = HttpConfig(url="https://base.example.com")
-        job.set_configuration(new_cfg)
+        job.configuration = new_cfg
         assert job.configuration is new_cfg
 
     def test_repr_lists_enabled_environments(self):
         job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)
-        job.set_enabled(True, environment="production")
-        job.set_enabled(False, environment="staging")
+        job.environment("production").enabled = True
+        job.environment("staging").enabled = False
         assert "enabled_in=['production']" in repr(job)
 
     def test_from_resource_parses_environments(self):
@@ -615,20 +634,20 @@ class TestEnvironmentModelsAndHelpers:
         assert job.enabled is True  # derived roll-up (production enabled)
         assert job.kind is JobKind.RECURRING and job.is_recurring()
         assert job.timezone == "America/New_York"  # base timezone decoded off the wire
-        assert job.environments["production"].enabled is True
-        assert job.environments["production"].configuration is None  # inherits base
-        assert job.environments["production"].schedule is None  # inherits base schedule
-        assert job.environments["production"].timezone is None  # inherits base timezone
+        prod = job.environments["production"]
+        assert prod.enabled is True
+        assert prod.url is None  # inherits base (no override)
+        assert prod.schedule is None and prod.timezone is None  # inherits base
         # read-only per-env next_run_at parsed back off the wire
-        assert job.environments["production"].next_run_at is not None
-        assert job.environments["production"].next_run_at.year == 2026
-        assert job.environments["staging"].configuration.url == "https://staging.example.com/hook"
-        # per-env schedule override parsed back off the wire
-        assert job.environments["staging"].schedule == "0 3 * * *"
-        # per-env timezone override parsed back off the wire
-        assert job.environments["staging"].timezone == "Europe/London"
+        assert prod.next_run_at is not None and prod.next_run_at.year == 2026
+        stg = job.environments["staging"]
+        assert stg.url == "https://staging.example.com/hook"  # url leaf parsed off the wire
+        assert stg.get_header("X-Env") == "staging"  # header leaf parsed off the wire
+        assert stg.schedule == "0 3 * * *"  # per-env schedule override
+        assert stg.timezone == "Europe/London"  # per-env timezone override
+        assert stg.retry_policy == "retry-on-5xx"  # per-env retry policy override
         # next_run_at is null for the disabled environment
-        assert job.environments["staging"].next_run_at is None
+        assert stg.next_run_at is None
 
     def test_enabled_rollup_false_when_all_disabled(self):
         # The derived roll-up is False when no environment is enabled.
@@ -640,7 +659,6 @@ class TestEnvironmentModelsAndHelpers:
 
         job = _sync(h).get("my-job")
         assert job.enabled is False
-        assert job.is_enabled() is False
 
     def test_from_resource_without_environments(self):
         def h(req):
@@ -663,15 +681,15 @@ class TestEnvironmentsSync:
             configuration=_CFG,
             environments={
                 "production": JobEnvironment(enabled=True),
-                "staging": JobEnvironment(enabled=True, configuration=_CFG),
+                "staging": JobEnvironment(enabled=True, url="https://staging.example.com/hook"),
             },
         )
         job.save()
         body = next(c for c in caps if c["method"] == "POST" and c["path"] == "/api/v1/jobs")
         envs = body["body"]["data"]["attributes"]["environments"]
-        assert envs["production"] == {"enabled": True}  # _to_payload config-absent branch
+        assert envs["production"] == {"enabled": True}  # no overrides -> just enabled
         assert envs["staging"]["enabled"] is True
-        assert envs["staging"]["configuration"]["url"] == "https://api.example.com/hook"  # config-present branch
+        assert envs["staging"]["url"] == "https://staging.example.com/hook"  # flat leaf override
         # base 'enabled' is never written
         assert "enabled" not in body["body"]["data"]["attributes"]
 
@@ -707,7 +725,7 @@ class TestEnvironmentsSync:
         caps: list[dict] = []
         c = _sync(_recording(caps))
         job = c.new_recurring_job("my-job", name="My Job", schedule="0 * * * *", configuration=_CFG)
-        job.set_timezone("America/New_York")
+        job.timezone = "America/New_York"
         assert job.timezone == "America/New_York"
         job.save()
         attrs = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")["body"]["data"][
@@ -807,75 +825,50 @@ class TestEnvironmentsAsync:
 
 
 class TestConvenienceGettersSetters:
-    def test_is_enabled(self):
+    def test_enabled_rollup_and_per_environment(self):
         job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)
-        assert job.is_enabled() is False  # derived roll-up default (no envs)
-        assert job.enabled is False
-        job.set_enabled(True, environment="production")
-        assert job.is_enabled(environment="production") is True  # per-env present
-        assert job.is_enabled(environment="staging") is False  # env absent from map
+        assert job.enabled is False  # derived roll-up default (no envs)
+        job.environment("production").enabled = True
+        assert job.environment("production").enabled is True  # per-env read
+        assert job.environment("staging").enabled is False  # env absent -> created, default off
         # the roll-up is derived: enabling any environment flips it True
-        assert job.is_enabled() is True
         assert job.enabled is True
         # disabling the only enabled environment flips it back
-        job.set_enabled(False, environment="production")
-        assert job.is_enabled() is False
+        job.environment("production").enabled = False
         assert job.enabled is False
 
-    def test_get_configuration(self):
+    def test_environment_config_leaf_overrides(self):
+        # Per-env request leaves are pure overrides: a leaf the environment does
+        # not override reads as None (the SDK does not merge in the base).
         base = HttpConfig(url="https://base.example.com")
         job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=base)
-        assert job.get_configuration() is base  # base
-        assert job.get_configuration(environment="production") is base  # no override -> base
-        override = HttpConfig(url="https://prod.example.com")
-        job.set_configuration(override, environment="production")
-        assert job.get_configuration(environment="production") is override  # override wins
-        # an env entry with no configuration still falls back to base
-        job.set_enabled(True, environment="staging")
-        assert job.get_configuration(environment="staging") is base
+        assert job.configuration is base  # base edited directly via the attribute
+        prod = job.environment("production")
+        assert prod.url is None  # no override yet -> None, not the base url
+        prod.url = "https://prod.example.com"
+        assert job.environment("production").url == "https://prod.example.com"  # override recorded
+        assert job.configuration is base  # base untouched by the per-env override
 
-    def test_set_schedule(self):
+    def test_base_schedule_and_timezone_via_attributes(self):
+        # Base definition is edited directly through attributes (one way).
         job = Job(None, id="x", name="X", schedule="now", configuration=_CFG)
-        # base schedule (environment=None)
-        job.set_schedule("0 2 * * *")
-        assert job.schedule == "0 2 * * *"
-        # per-environment schedule override — create-new-entry branch
-        job.set_schedule("0 4 * * *", environment="staging")
-        assert job.environments["staging"].schedule == "0 4 * * *"
-        # existing-entry branch (the env already has an override)
-        job.set_schedule("15 5 * * *", environment="staging")
-        assert job.environments["staging"].schedule == "15 5 * * *"
-        # the base schedule is untouched by per-env overrides
-        assert job.schedule == "0 2 * * *"
-
-    def test_set_schedule_with_timezone(self):
-        # The optional timezone is set at the same scope as the schedule.
-        job = Job(None, id="x", name="X", schedule="now", configuration=_CFG)
-        # base scope: sets both schedule and timezone
-        job.set_schedule("0 2 * * *", timezone="America/New_York")
+        job.schedule = "0 2 * * *"
+        job.timezone = "America/New_York"
         assert job.schedule == "0 2 * * *" and job.timezone == "America/New_York"
-        # per-env scope: sets the env's schedule and timezone together
-        job.set_schedule("30 2 * * *", timezone="America/Los_Angeles", environment="production")
-        prod = job.environments["production"]
-        assert prod.schedule == "30 2 * * *" and prod.timezone == "America/Los_Angeles"
-        # omitting timezone leaves the existing zone untouched
-        job.set_schedule("0 6 * * *", environment="production")
-        assert job.environments["production"].timezone == "America/Los_Angeles"
 
-    def test_set_timezone(self):
+    def test_per_environment_schedule_and_timezone_via_handle(self):
         job = Job(None, id="x", name="X", schedule="0 2 * * *", configuration=_CFG)
-        assert job.timezone is None  # defaults to None (UTC)
-        # base timezone (environment=None)
-        job.set_timezone("America/New_York")
-        assert job.timezone == "America/New_York"
-        # per-environment timezone override — create-new-entry branch
-        job.set_timezone("Europe/London", environment="staging")
+        # create-new-entry branch
+        stg = job.environment("staging")
+        stg.schedule = "0 4 * * *"
+        stg.timezone = "Europe/London"
+        assert job.environments["staging"].schedule == "0 4 * * *"
         assert job.environments["staging"].timezone == "Europe/London"
-        # existing-entry branch (the env already has an override)
-        job.set_timezone("Asia/Tokyo", environment="staging")
-        assert job.environments["staging"].timezone == "Asia/Tokyo"
-        # the base timezone is untouched by per-env overrides
-        assert job.timezone == "America/New_York"
+        # existing-entry branch (the handle returns the same stored object)
+        job.environment("staging").schedule = "15 5 * * *"
+        assert job.environments["staging"].schedule == "15 5 * * *"
+        # the base is untouched by per-env overrides
+        assert job.schedule == "0 2 * * *" and job.timezone is None
 
 
 class TestActiveRecordSync:
@@ -975,7 +968,7 @@ class TestJobRetryPolicy:
         assert job.environments["staging"].retry_policy == "retry-on-5xx"  # per-env parsed
         assert job.environments["production"].retry_policy is None  # inherits base
         # set base + serialize on save
-        job.set_retry_policy("retry-aggressive")
+        job.retry_policy = "retry-aggressive"
         job.save()
         attrs = next(x for x in caps if x["method"] == "PUT")["body"]["data"]["attributes"]
         assert attrs["retry_policy"] == "retry-aggressive"
@@ -1017,30 +1010,30 @@ class TestJobRetryPolicy:
         off = next(x for x in caps if x["method"] == "POST" and x["body"]["data"]["id"] == "o")
         assert off["body"]["data"]["attributes"]["retry_policy"] == "retry-on-5xx"
 
-    def test_set_retry_policy_base_and_per_environment(self):
+    def test_retry_policy_base_and_per_environment(self):
         job = Job(None, id="x", name="X", schedule="0 2 * * *", configuration=_CFG)
         assert job.retry_policy is None
-        job.set_retry_policy("base-policy")
+        job.retry_policy = "base-policy"
         assert job.retry_policy == "base-policy"
-        # per-env create-new-entry branch
-        job.set_retry_policy("staging-policy", environment="staging")
+        # per-env via the handle — create-new-entry branch
+        job.environment("staging").retry_policy = "staging-policy"
         assert job.environments["staging"].retry_policy == "staging-policy"
-        # existing-entry branch
-        job.set_retry_policy("staging-policy-2", environment="staging")
+        # existing-entry branch (same stored object)
+        job.environment("staging").retry_policy = "staging-policy-2"
         assert job.environments["staging"].retry_policy == "staging-policy-2"
         assert job.retry_policy == "base-policy"  # base untouched
 
-    def test_set_retry_policy_accepts_object_or_id(self):
-        # A RetryPolicy / AsyncRetryPolicy instance contributes its id; a bare
-        # string id is used as-is.
+    def test_retry_policy_accepts_object_or_id(self):
+        # Assigning a RetryPolicy / AsyncRetryPolicy uses its id; a bare string
+        # id is used as-is. The coercion lives on the attribute (base + handle).
         job = Job(None, id="x", name="X", schedule="0 2 * * *", configuration=_CFG)
         policy = RetryPolicy(None, id="retry-on-5xx", name="P", max_retries=1, backoff=Backoff.FIXED, delay_seconds=1)
-        job.set_retry_policy(policy)  # base, from object
+        job.retry_policy = policy  # base, from object
         assert job.retry_policy == "retry-on-5xx"
         apolicy = AsyncRetryPolicy(
             None, id="retry-async", name="P", max_retries=1, backoff=Backoff.FIXED, delay_seconds=1
         )
-        job.set_retry_policy(apolicy, environment="staging")  # per-env, from object
+        job.environment("staging").retry_policy = apolicy  # per-env, from object
         assert job.environments["staging"].retry_policy == "retry-async"
 
     def test_env_to_payload_includes_retry_policy(self):

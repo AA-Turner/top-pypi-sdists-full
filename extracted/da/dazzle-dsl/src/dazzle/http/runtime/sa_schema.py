@@ -13,10 +13,11 @@ The module deliberately uses **SQLAlchemy Core only** — no ORM, no Session.
 
 from __future__ import annotations
 
+import functools
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
-from dazzle.db.virtual import VIRTUAL_ENTITY_NAMES as _VIRTUAL_ENTITY_NAMES
+from dazzle.db.virtual import is_virtual_entity
 from dazzle.http.specs.entity import EntitySpec, FieldSpec, FieldType, ScalarType
 
 if TYPE_CHECKING:
@@ -30,25 +31,22 @@ logger = logging.getLogger(__name__)
 # Lazy imports — sqlalchemy is an optional dependency (postgres extra)
 # ---------------------------------------------------------------------------
 
-_sa_imported = False
-_sa: Any = None  # sqlalchemy module
 
-
+@functools.cache
 def _ensure_sa() -> Any:
-    """Import sqlalchemy on first use and return the module."""
-    global _sa_imported, _sa  # noqa: PLW0603  # lazy import for optional sqlalchemy
-    if not _sa_imported:
-        try:
-            import sqlalchemy
+    """Import sqlalchemy on first use and return the module.
 
-            _sa = sqlalchemy
-        except ImportError as exc:
-            raise RuntimeError(
-                "sqlalchemy is required for the SA schema bridge.  "
-                "Install it with:  pip install dazzle"
-            ) from exc
-        _sa_imported = True
-    return _sa
+    `functools.cache` memoises the successful import (one-time, thread-safe) with no
+    module-level `global` — a raised RuntimeError is *not* cached, so a later call
+    retries the import once the optional `postgres` extra is installed.
+    """
+    try:
+        import sqlalchemy
+    except ImportError as exc:
+        raise RuntimeError(
+            "sqlalchemy is required for the SA schema bridge.  Install it with:  pip install dazzle"
+        ) from exc
+    return sqlalchemy
 
 
 # ---------------------------------------------------------------------------
@@ -478,7 +476,8 @@ def build_metadata(
     metadata: sqlalchemy.MetaData = cast("sqlalchemy.MetaData", sa.MetaData())
 
     # Filter out virtual entities — no PostgreSQL table for these.
-    db_entities = [e for e in entities if e.name not in _VIRTUAL_ENTITY_NAMES]
+    # Entity-aware (#1454): the governed ProcessRun (has started_by) IS real.
+    db_entities = [e for e in entities if not is_virtual_entity(e)]
 
     entity_names = {e.name for e in db_entities}
     circular_edges = _find_circular_refs(db_entities)

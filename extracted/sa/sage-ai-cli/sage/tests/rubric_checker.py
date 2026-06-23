@@ -558,7 +558,7 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
     api_base = get_api_base()
     if token:
         try:
-            httpx.post(f"{api_base}/sms/contacts", json={"email": bridge_email, "label": "E2E Test"}, headers={"Authorization": f"Bearer {token}"}, timeout=10.0)
+            httpx.post(f"{api_base}/account/sync-contacts", json={"providers": [{"email": bridge_email, "provider_id": "google.com"}]}, headers={"Authorization": f"Bearer {token}"}, timeout=10.0)
         except Exception as e:
             print(f"Warning: Failed to register contact: {e}")
 
@@ -718,7 +718,8 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
 
 
 
-def verify_website_with_rubric(prompt: str) -> None:
+from pathlib import Path
+def verify_website_with_rubric(prompt: str, tmp_path: Path = None) -> None:
     """Run SAGE Website endpoint functionally using real HTTP requests."""
     import httpx
     import time

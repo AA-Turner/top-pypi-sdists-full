@@ -208,7 +208,7 @@ class StructuredWave(AcousticField):
 
             # Calculate delays based on physical positions
             for i in range(total_grid_points):
-                delays[i] = (element_positions[i] * np.tan(np.deg2rad(abs(self.angle)))) / c0  # Delay in seconds
+                delays[i] = (element_positions[i] * np.sin(np.deg2rad(abs(self.angle)))) / c0  # Delay in seconds
 
             delay_samples = np.round(delays / actual_dt).astype(int)
             max_delay = np.max(np.abs(delay_samples))

@@ -1077,6 +1077,116 @@ class AsyncTwoCaptcha():
 
         return await result
 
+    async def hunt(self, pageurl, api_get_lib, **kwargs):
+        '''Wrapper for solving Hunt captcha.
+
+        Parameters
+        __________
+        pageurl : str
+            Full URL of the page with the captcha.
+        api_get_lib : str
+            Full link to the api.js file that loads the captcha on the page.
+        data : str, optional
+            Value of `meta.token` that the site returned after a request with X-HD.
+            Use only for the captcha solving mode (second step).
+        useragent : str, optional
+            Browser User-Agent used to open the page.
+        proxy : dict, optional
+            {'type': 'HTTPS', 'uri': 'login:password@IP_address:PORT'}.
+        '''
+        result = self.solve(
+            method="hunt",
+            pageurl=pageurl,
+            api_get_lib=api_get_lib,
+            **kwargs)
+
+        return await result
+
+    async def alibaba(self, pageurl, scene_id, prefix, **kwargs):
+        '''Wrapper for solving Alibaba captcha.
+
+        Parameters
+        __________
+        pageurl : str
+            Full URL of the page with the captcha.
+        scene_id : str
+            Captcha scenario identifier.
+        prefix : str
+            Prefix from the captcha loading request subdomain.
+        user_id : str, optional
+            User or session identifier on the website.
+        user_user_id : str, optional
+            Additional user identifier.
+        verify_type : str, optional
+            Verification mechanism version or type.
+        region : str, optional
+            Captcha processing region.
+        user_certify_id : str, optional
+            Verification ID for the current captcha session.
+        api_get_lib : str, optional
+            URL of the Alibaba Captcha JS library.
+        useragent : str, optional
+            Browser User-Agent used to open the page.
+        proxy : dict, optional
+            {'type': 'HTTPS', 'uri': 'login:password@IP_address:PORT'}.
+        '''
+        result = self.solve(
+            method="alibaba",
+            pageurl=pageurl,
+            scene_id=scene_id,
+            prefix=prefix,
+            **kwargs)
+
+        return await result
+
+    async def tspd(self, pageurl, tspd_cookie, html_page_base64, proxy, **kwargs):
+        '''Wrapper for solving TSPD captcha.
+
+        Parameters
+        __________
+        pageurl : str
+            Full URL of the page with the captcha.
+        tspd_cookie : str
+            Cookies received on the TSPD challenge page.
+        html_page_base64 : str
+            Full HTML of the challenge page, Base64 encoded.
+        proxy : dict
+            {'type': 'HTTPS', 'uri': 'login:password@IP_address:PORT'}.
+        useragent : str, optional
+            Browser User-Agent. We recommend sending a valid Windows browser string.
+        '''
+        result = self.solve(
+            method="tspd",
+            pageurl=pageurl,
+            tspd_cookie=tspd_cookie,
+            html_page_base64=html_page_base64,
+            proxy=proxy,
+            **kwargs)
+
+        return await result
+
+    async def basilisk(self, pageurl, sitekey, **kwargs):
+        '''Wrapper for solving Basilisk captcha.
+
+        Parameters
+        __________
+        pageurl : str
+            Full URL of the page with the captcha.
+        sitekey : str
+            The value of the data-site-key parameter found on the page.
+        useragent : str, optional
+            Browser User-Agent used to open the page.
+        proxy : dict, optional
+            {'type': 'HTTPS', 'uri': 'login:password@IP_address:PORT'}.
+        '''
+        result = self.solve(
+            method="basilisk",
+            pageurl=pageurl,
+            sitekey=sitekey,
+            **kwargs)
+
+        return await result
+
     async def solve(self, timeout=0, polling_interval=0, **kwargs):
         '''Sends captcha, receives result.
 

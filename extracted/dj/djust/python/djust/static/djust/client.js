@@ -535,6 +535,117 @@ async function handleServerResponse(data, eventName, triggerElement) {
 }
 
 // ============================================================================
+// Safe navigation target validation (security finding #16)
+// ============================================================================
+//
+// Single shared scheme/origin guard applied at EVERY client-side navigation
+// sink that assigns a server- or data-derived target to `window.location.href`
+// (WS `navigate`, SSE `navigate`, and the live_patch/live_redirect cross-origin
+// fallbacks). Both transports route through THIS function so the guard cannot
+// drift apart again (#1646 — structural cure over N inline copies).
+//
+// Threat model: an attacker who influences a navigation target (a wire-protocol
+// breach, a server bug, or a developer foot-gun such as
+// `self.live_redirect(request.GET.get("next"))`) must not be able to pivot to
+// open-redirect (CWE-601) or `javascript:` / `data:` DOM-XSS (CWE-79).
+// Closes CodeQL js/client-side-unvalidated-url-redirection at every sink.
+//
+// Contract — `safeNavigationTarget(value)` returns a string SAFE to assign to
+// `window.location.href`, or `null` if the target must be rejected:
+//
+//   - SAME-ORIGIN absolute path ("/foo", "/foo?x=1#h") → re-resolved against
+//     window.location.origin and returned as pathname+search+hash. Accepted
+//     ONLY if it genuinely resolves same-origin. Protocol-relative
+//     ("//evil.com/x") and backslash/control-char tricks the WHATWG URL
+//     parser normalizes off-origin ("/\evil.com", "/\t/evil",
+//     "/\n//evil") are REJECTED.
+//   - Absolute http:/https: URL ("https://sister.example/x") → returned
+//     normalized via new URL(). This is the legitimate #1599 cross-origin
+//     sister-site case.
+//   - Everything else → null: javascript:/data:/vbscript:/blob:/file: schemes,
+//     any opaque-origin result, unparseable / empty / non-string input.
+//
+// CSP-strict: pure function, no inline scripts, no DOM writes. Published via a
+// `window.djust.*` member assignment so cross-module callers reach it by member
+// access (minification- and cross-IIFE-lint safe).
+
+(function () {
+    window.djust = window.djust || {};
+
+    function safeNavigationTarget(value) {
+        // Reject empty / non-string up front.
+        if (typeof value !== 'string' || value.length === 0) {
+            if (globalThis.djustDebug) {
+                console.warn('[djust] navigation target rejected (not a non-empty string): %o', value);
+            }
+            return null;
+        }
+
+        // Same-origin absolute path: must START with '/' (intent preserved
+        // from the original — bare relatives like "dashboard" stay rejected).
+        // A raw prefix check is NOT enough: the WHATWG URL parser normalizes
+        // '\' → '/' and strips ASCII tab/newline, so "/\evil.com",
+        // "/\/evil.com", "/\t/evil", "/\n//evil" all resolve CROSS-ORIGIN even
+        // though charAt(1) !== '/'. Canonicalize the way the sink does
+        // (#1825 — validate AFTER normalize): resolve against our own origin
+        // and accept ONLY if the result is genuinely same-origin.
+        if (value.charAt(0) === '/') {
+            let resolved;
+            try {
+                resolved = new URL(value, window.location.origin);
+            } catch (_e) {
+                if (globalThis.djustDebug) {
+                    console.warn('[djust] navigation target rejected (unparseable path): %s', value);
+                }
+                return null;
+            }
+            if (resolved.origin === window.location.origin) {
+                return resolved.pathname + resolved.search + resolved.hash;
+            }
+            // Resolved off-origin (e.g. "/\evil.com" → evil.com) → reject.
+            if (globalThis.djustDebug) {
+                console.warn('[djust] navigation target rejected (resolves cross-origin %s): %s', resolved.origin, value);
+            }
+            return null;
+        }
+
+        // Absolute URL: parse and allow only http:/https:. new URL() throws on
+        // unparseable input; javascript:/data:/blob:/file:/vbscript: parse but
+        // yield a disallowed protocol and/or an opaque ('null') origin.
+        let url;
+        try {
+            url = new URL(value);
+        } catch (_e) {
+            if (globalThis.djustDebug) {
+                console.warn('[djust] navigation target rejected (unparseable): %s', value);
+            }
+            return null;
+        }
+
+        // Opaque-origin schemes (javascript:, data:, blob:, file: in many
+        // engines) resolve to origin === 'null'. Reject defensively even if a
+        // future engine widens the http/https allow-list above.
+        if (url.origin === 'null') {
+            if (globalThis.djustDebug) {
+                console.warn('[djust] navigation target rejected (opaque origin): %s', value);
+            }
+            return null;
+        }
+
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+            return url.toString();
+        }
+
+        if (globalThis.djustDebug) {
+            console.warn('[djust] navigation target rejected (scheme %s): %s', url.protocol, value);
+        }
+        return null;
+    }
+
+    window.djust.safeNavigationTarget = safeNavigationTarget;
+})();
+
+// ============================================================================
 // WebSocket LiveView Client
 // ============================================================================
 
@@ -895,15 +1006,19 @@ class LiveViewWebSocket {
                 this.viewMounted = true;
                 if (globalThis.djustDebug) console.log('[LiveView] View mounted: %s', String(data.view));
 
-                // Fix #1 — stash server-emitted public view state so the
-                // state-snapshot capture on next before-navigate has
-                // something to serialize. The server includes
-                // ``public_state`` only when ``enable_state_snapshot``
-                // is True on the view class; non-opt-in views never
-                // have state cached by the SW.
-                if (data.public_state && typeof data.public_state === 'object' && data.view) {
+                // Fix #1 / Finding #4 — stash the server-emitted SIGNED
+                // state-snapshot blob so the state-snapshot capture on the
+                // next before-navigate can echo it back verbatim. The server
+                // includes ``state_snapshot_signed`` (an opaque
+                // TimestampSigner blob) only when ``enable_state_snapshot``
+                // is True on the view class; non-opt-in views never have
+                // state cached. The blob is OPAQUE — we store it as-is and
+                // never re-serialize it, so the server signature stays valid
+                // on the round-trip. Re-serializing would strip the signature
+                // and the server would (correctly) reject the snapshot.
+                if (typeof data.state_snapshot_signed === 'string' && data.state_snapshot_signed && data.view) {
                     if (!window.djust._clientState) window.djust._clientState = {};
-                    window.djust._clientState[data.view] = data.public_state; // codeql[js/remote-property-injection] -- data.view is a server-sent view name, not arbitrary user input
+                    window.djust._clientState[data.view] = data.state_snapshot_signed; // codeql[js/remote-property-injection] -- data.view is a server-sent view name, not arbitrary user input
                 }
 
                 // Remove dj-cloak from all elements (FOUC prevention)
@@ -1141,27 +1256,24 @@ class LiveViewWebSocket {
                     } else if (typeof window !== 'undefined' && window.location) {
                         // Fallback — hard navigation if the dispatcher
                         // isn't wired (non-LiveView pages).
-                        // Same-origin guard: server-controlled `nav.to`
-                        // is generally trusted but defense-in-depth
-                        // prevents an attacker who breaches the wire
-                        // protocol from pivoting to open-redirect /
-                        // javascript: scheme XSS. Only allow same-origin
-                        // absolute paths; reject protocol-relative
-                        // (`//evil.com`), absolute URLs to other origins,
-                        // and `javascript:` / `data:` schemes.
+                        // Scheme/origin guard via the SHARED helper so the WS
+                        // and SSE `navigate` paths route through one
+                        // implementation and can't drift (#1646, finding #16).
+                        // server-controlled `nav.to` is generally trusted but
+                        // defense-in-depth prevents an attacker who breaches the
+                        // wire protocol from pivoting to open-redirect /
+                        // javascript: scheme XSS. Allows same-origin absolute
+                        // paths and absolute http(s) URLs (#1599); rejects
+                        // protocol-relative (`//evil.com`) and `javascript:` /
+                        // `data:` schemes.
                         // Closes CodeQL js/client-side-unvalidated-url-redirection.
-                        const target = nav.to;
-                        const isSameOriginPath = (
-                            target.length > 0 &&
-                            target.charAt(0) === '/' &&
-                            target.charAt(1) !== '/'  // reject protocol-relative
-                        );
-                        if (isSameOriginPath) {
-                            window.location.href = target; // codeql[js/xss] -- target validated to same-origin path (charAt(0)==='/' && charAt(1)!=='/')
+                        const navTarget = window.djust.safeNavigationTarget(nav.to);
+                        if (navTarget) {
+                            window.location.href = navTarget; // codeql[js/xss] -- validated via safeNavigationTarget
                         } else if (globalThis.djustDebug) {
                             console.warn(
-                                '[djust] live_redirect rejected non-same-origin target:',
-                                target,
+                                '[djust] live_redirect rejected unsafe target:',
+                                nav.to,
                             );
                         }
                     }
@@ -2130,10 +2242,19 @@ class LiveViewSSE {
                 }
                 break;
 
-            case 'navigate':
-                // Auth redirect (sent by server when auth check fails)
-                window.location.href = data.to;
+            case 'navigate': {
+                // Auth redirect (sent by server when auth check fails).
+                // Validate scheme/origin via the shared guard so the SSE
+                // transport can't pivot to open-redirect / javascript: DOM-XSS
+                // and can't drift from the WS `navigate` path (#1646, finding #16).
+                const sseTarget = window.djust.safeNavigationTarget(data.to);
+                if (sseTarget) {
+                    window.location.href = sseTarget; // codeql[js/xss] -- validated via safeNavigationTarget
+                } else if (globalThis.djustDebug) {
+                    console.warn('[SSE] navigate target rejected: %s', String(data.to));
+                }
                 break;
+            }
 
             case 'stream':
                 if (window.djust.handleStreamMessage) {
@@ -9531,13 +9652,24 @@ window.djust.getActiveStreams = getActiveStreams;
         // differs from the current page, fall back to a full-page
         // navigation — that's the caller's intent. (#1599)
         if (newUrl.origin !== window.location.origin) {
+            // Validate scheme/origin before the hard navigation. A
+            // `javascript:`/`data:` data.path parses to an opaque origin that
+            // is `!== location.origin`, so it lands here — reject it (finding
+            // #16, #1646). Legit absolute http(s) sister-site URLs pass.
+            const safe = window.djust.safeNavigationTarget(newUrl.toString());
+            if (!safe) {
+                if (globalThis.djustDebug) {
+                    console.warn('[LiveView] live_patch rejected unsafe target: %s', newUrl.toString());
+                }
+                return;
+            }
             if (globalThis.djustDebug) {
                 console.log(
                     '[LiveView] live_patch cross-origin → full-page nav: %s',
-                    newUrl.toString(),
+                    safe,
                 );
             }
-            window.location.href = newUrl.toString();
+            window.location.href = safe; // codeql[js/xss] -- validated via safeNavigationTarget
             return;
         }
 
@@ -9573,10 +9705,25 @@ window.djust.getActiveStreams = getActiveStreams;
         // differs from the current page (e.g. a dj-navigate link pointing
         // at a sister site), fall back to a full-page navigation. (#1599)
         if (newUrl.origin !== window.location.origin) {
+            // Validate scheme/origin before the hard navigation. A
+            // `javascript:`/`data:` data.path parses to an opaque origin that
+            // is `!== location.origin`, so it lands here — reject it (finding
+            // #16, #1646). Legit absolute http(s) sister-site URLs pass.
+            const safe = window.djust.safeNavigationTarget(newUrl.toString());
+            if (!safe) {
+                if (globalThis.djustDebug) {
+                    console.warn('[LiveView] live_redirect rejected unsafe target: %s', newUrl.toString());
+                }
+                // Stop the page-loading bar we started above.
+                if (window.djust.pageLoading && window.djust.pageLoading.enabled) {
+                    window.djust.pageLoading.stop?.();
+                }
+                return;
+            }
             if (globalThis.djustDebug) {
                 console.log(
                     '[LiveView] live_redirect cross-origin → full-page nav: %s',
-                    newUrl.toString(),
+                    safe,
                 );
             }
             // Stop the page-loading bar we started above; the full nav
@@ -9584,7 +9731,7 @@ window.djust.getActiveStreams = getActiveStreams;
             if (window.djust.pageLoading && window.djust.pageLoading.enabled) {
                 window.djust.pageLoading.stop?.();
             }
-            window.location.href = newUrl.toString();
+            window.location.href = safe; // codeql[js/xss] -- validated via safeNavigationTarget
             return;
         }
 
@@ -9658,9 +9805,17 @@ window.djust.getActiveStreams = getActiveStreams;
                 }
                 liveViewWS.sendMessage(outgoing);
             } else {
-                // Fallback: full page navigation if we can't resolve the view
+                // Fallback: full page navigation if we can't resolve the view.
+                // newUrl is same-origin here (cross-origin returned above), but
+                // it's still data.path-derived — validate via the shared guard
+                // for consistency (finding #16).
                 console.warn('[LiveView] Cannot resolve view for', newUrl.pathname, '— doing full navigation');
-                window.location.href = newUrl.toString();
+                const safe = window.djust.safeNavigationTarget(newUrl.toString());
+                if (safe) {
+                    window.location.href = safe; // codeql[js/xss] -- validated via safeNavigationTarget
+                } else if (globalThis.djustDebug) {
+                    console.warn('[LiveView] live_redirect fallback rejected unsafe target: %s', newUrl.toString());
+                }
             }
         }
     }
@@ -9841,7 +9996,15 @@ window.djust.getActiveStreams = getActiveStreams;
 
         // dj-patch-reload attribute forces full page navigation (opt-in escape hatch).
         if (el.hasAttribute('dj-patch-reload')) {
-            window.location.href = newUrl.toString();
+            // newUrl is derived from the dj-patch attribute value — validate via
+            // the shared guard so an attacker-influenced dj-patch can't pivot to
+            // javascript:/data: DOM-XSS or open-redirect (finding #16).
+            const safe = window.djust.safeNavigationTarget(newUrl.toString());
+            if (safe) {
+                window.location.href = safe; // codeql[js/xss] -- validated via safeNavigationTarget
+            } else if (globalThis.djustDebug) {
+                console.warn('[LiveView] dj-patch-reload rejected unsafe target: %s', newUrl.toString());
+            }
             return;
         }
 
@@ -10015,7 +10178,15 @@ window.djust.getActiveStreams = getActiveStreams;
             // <a href> is the complete intended target). Falls back to a normal
             // load if the view isn't mounted yet.
             if (!liveViewWS.viewMounted) {
-                window.location.href = url.toString();
+                // url is already same-origin http(s) (validated at the top of
+                // this handler), but route through the shared guard for
+                // consistency across all location.href sinks (finding #16).
+                const safe = window.djust.safeNavigationTarget(url.toString());
+                if (safe) {
+                    window.location.href = safe; // codeql[js/xss] -- validated via safeNavigationTarget
+                } else if (globalThis.djustDebug) {
+                    console.warn('[LiveView] auto-navigate rejected unsafe target: %s', url.toString());
+                }
                 return;
             }
             window.history.pushState({ djust: true }, '', url.pathname + url.search);
@@ -15369,26 +15540,21 @@ globalThis.djust.djTransitionGroup = {
     }
 
     function _serializeCurrentState(slug) {
-        // The server-side view state is mirrored client-side through the
-        // state bus (`05-state-bus.js`) for hydration hints — but the
-        // canonical record lives on `window.djust._clientState`, a
-        // per-view-slug snapshot dict populated by the mount handler
-        // when the server includes ``public_state`` in the mount frame
-        // (emitted only when ``enable_state_snapshot = True`` on the
-        // view class — see Fix #1).
+        // Finding #4 (CWE-345 → CWE-915): the canonical record on
+        // `window.djust._clientState[slug]` is now the OPAQUE
+        // server-signed snapshot blob (`state_snapshot_signed`), populated
+        // by the mount handler in 03-websocket.js when the server emits it
+        // (only for views with ``enable_state_snapshot = True``). We echo
+        // that blob back VERBATIM — never JSON.stringify it. Re-serializing
+        // would discard the server's HMAC signature, and the restore path
+        // would (correctly) reject the unsigned payload. The blob is a
+        // string by construction; anything else is treated as "no snapshot".
         if (!slug) return null;
         const bag = (globalThis.djust && globalThis.djust._clientState) || {};
         // eslint-disable-next-line security/detect-object-injection
-        const state = bag[slug];
-        if (!state) return null;
-        try {
-            return JSON.stringify(state);
-        } catch (e) {
-            if (globalThis.djustDebug) {
-                console.warn('[state-snapshot] JSON.stringify failed', e);
-            }
-            return null;
-        }
+        const signed = bag[slug];
+        if (typeof signed !== 'string' || !signed) return null;
+        return signed;
     }
 
     function _captureBeforeNavigate(event) {

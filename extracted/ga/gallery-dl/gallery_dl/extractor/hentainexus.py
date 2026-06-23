@@ -10,7 +10,6 @@
 
 from .common import GalleryExtractor, Extractor, Message
 from .. import text, util
-import binascii
 
 
 class HentainexusGalleryExtractor(GalleryExtractor):
@@ -82,7 +81,7 @@ class HentainexusGalleryExtractor(GalleryExtractor):
         # https://hentainexus.com/static/js/reader.min.js?r=22
         hostname = "hentainexus.com"
         primes = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53)
-        blob = list(binascii.a2b_base64(data))
+        blob = list(util.b64rdecode(data))
         for i in range(0, len(hostname)):
             blob[i] = blob[i] ^ ord(hostname[i])
 

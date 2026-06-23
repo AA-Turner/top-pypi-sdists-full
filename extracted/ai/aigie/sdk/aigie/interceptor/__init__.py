@@ -9,9 +9,9 @@ and after execution, enabling:
 - Automatic fix application
 """
 
-from .chain import InterceptorChain
-from .context_tracker import ContextTracker
-from .protocols import (
+from aigie.interceptor.chain import InterceptorChain
+from aigie.interceptor.context_tracker import ContextTracker
+from aigie.interceptor.protocols import (
     FixAction,
     FixActionType,
     InterceptionBlockedError,

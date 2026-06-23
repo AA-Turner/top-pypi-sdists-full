@@ -16,7 +16,7 @@ _patched_classes: set[Any] = set()
 _LANGGRAPH_CLASS_NAMES = frozenset(("CompiledStateGraph", "CompiledGraph", "Pregel"))
 
 
-from ...auto_instrument._callback_utils import _safe_add_callback  # noqa: F401
+from aigie.auto_instrument._callback_utils import _safe_add_callback  # noqa: F401
 
 
 def patch_langchain() -> bool:
@@ -63,9 +63,9 @@ def _patch_agent_executor() -> bool:
             if config is not None:
                 kwargs["config"] = config
             try:
-                from ...auto_instrument.trace import clear_current_trace, get_or_create_trace
-                from ...callback import AigieCallbackHandler
-                from ...client import get_aigie
+                from aigie.auto_instrument.trace import clear_current_trace, get_or_create_trace
+                from aigie.callback import AigieCallbackHandler
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
                 if aigie and aigie._initialized:
@@ -185,9 +185,12 @@ def _patch_agent_executor() -> bool:
             if config is not None:
                 kwargs["config"] = config
             try:
-                from ...auto_instrument.trace import clear_current_trace, get_or_create_trace_sync
-                from ...callback import AigieCallbackHandler
-                from ...client import get_aigie
+                from aigie.auto_instrument.trace import (
+                    clear_current_trace,
+                    get_or_create_trace_sync,
+                )
+                from aigie.callback import AigieCallbackHandler
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
                 if aigie and aigie._initialized:
@@ -344,9 +347,9 @@ def _patch_create_agent() -> bool:
                 original_ainvoke = agent.ainvoke
 
                 async def traced_ainvoke(inputs: dict[str, Any], **kwargs):
-                    from ...auto_instrument.trace import get_or_create_trace
-                    from ...callback import AigieCallbackHandler
-                    from ...client import get_aigie
+                    from aigie.auto_instrument.trace import get_or_create_trace
+                    from aigie.callback import AigieCallbackHandler
+                    from aigie.client import get_aigie
 
                     aigie = get_aigie()
                     if aigie and aigie._initialized:
@@ -399,9 +402,9 @@ def _patch_chain_base() -> bool:
             """Traced version of Chain.ainvoke."""
             if config is not None:
                 kwargs["config"] = config
-            from ...auto_instrument.trace import clear_current_trace, get_or_create_trace
-            from ...callback import AigieCallbackHandler
-            from ...client import get_aigie
+            from aigie.auto_instrument.trace import clear_current_trace, get_or_create_trace
+            from aigie.callback import AigieCallbackHandler
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if aigie and aigie._initialized:
@@ -435,9 +438,9 @@ def _patch_chain_base() -> bool:
             """Traced version of Chain.invoke."""
             if config is not None:
                 kwargs["config"] = config
-            from ...auto_instrument.trace import clear_current_trace, get_or_create_trace_sync
-            from ...callback import AigieCallbackHandler
-            from ...client import get_aigie
+            from aigie.auto_instrument.trace import clear_current_trace, get_or_create_trace_sync
+            from aigie.callback import AigieCallbackHandler
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if aigie and aigie._initialized:
@@ -505,9 +508,9 @@ def _patch_runnable() -> bool:
             if type(self).__name__ in _LANGGRAPH_CLASS_NAMES:
                 return await original_ainvoke(self, inputs, **kwargs)
 
-            from ...auto_instrument.trace import get_or_create_trace
-            from ...callback import AigieCallbackHandler
-            from ...client import get_aigie
+            from aigie.auto_instrument.trace import get_or_create_trace
+            from aigie.callback import AigieCallbackHandler
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if aigie and aigie._initialized:
@@ -534,9 +537,9 @@ def _patch_runnable() -> bool:
             if type(self).__name__ in _LANGGRAPH_CLASS_NAMES:
                 return original_invoke(self, inputs, **kwargs)
 
-            from ...auto_instrument.trace import get_or_create_trace_sync
-            from ...callback import AigieCallbackHandler
-            from ...client import get_aigie
+            from aigie.auto_instrument.trace import get_or_create_trace_sync
+            from aigie.callback import AigieCallbackHandler
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             if aigie and aigie._initialized:
@@ -599,8 +602,8 @@ def _patch_tool_run() -> bool:
         """Lazily create remediation engine on first use."""
         if "engine" in _engine_holder:
             return _engine_holder["engine"], _engine_holder.get("config")
-        from ...client import get_aigie
-        from ...integrations.langchain.config import LangChainConfig
+        from aigie.client import get_aigie
+        from aigie.integrations.langchain.config import LangChainConfig
 
         config = LangChainConfig.from_env()
         if not (config.enable_realtime_remediation and config.remediation_mode == "autonomous"):
@@ -615,7 +618,7 @@ def _patch_tool_run() -> bool:
             _engine_holder["engine"] = None
             _engine_holder["config"] = config
             return None, config
-        from ...realtime.remediation_engine import RemediationEngine
+        from aigie.realtime.remediation_engine import RemediationEngine
 
         api_key = getattr(aigie, "_api_key", None) or getattr(aigie, "api_key", None)
         engine = RemediationEngine(
@@ -640,12 +643,12 @@ def _patch_tool_run() -> bool:
 
         # Gateway intervention check
         if dispatcher:
-            from ...client import get_aigie
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
             trace_id = ""
             if aigie:
-                from ...auto_instrument.trace import get_current_trace
+                from aigie.auto_instrument.trace import get_current_trace
 
                 t = get_current_trace()
                 if t:
@@ -679,8 +682,8 @@ def _patch_tool_run() -> bool:
                         try:
                             fix_action = engine.to_fix_action(rem)
                             if fix_action:
-                                from ...interceptor.protocols import InterceptionContext
-                                from ...realtime.auto_fix import AutoFixApplicator
+                                from aigie.interceptor.protocols import InterceptionContext
+                                from aigie.realtime.auto_fix import AutoFixApplicator
 
                                 applicator = AutoFixApplicator()
 

@@ -47,7 +47,7 @@ dependencies = [
     "snapshot-selenium==0.0.2",
     "httpx[socks,http2]>=0.26.0",
     "urllib3[socks]>=2.3.0",
-    "requests==2.32.4",
+    "requests>=2.33.0",
     "h2>=4.2.0",
     "blinker>=1.9.0",
     "webdriver-manager==4.0.2",
@@ -59,7 +59,7 @@ dependencies = [
     "nltk>=3.9.3",
     "jdcal==1.4.1",
     "html5lib==1.1",
-    "shapely==2.0.6",
+    "shapely>=2.1.2",
     "tzwhere==3.0.3",
     "tabulate==0.9.0",
     "python-magic==0.4.27",
@@ -149,7 +149,7 @@ git = [
 ]
 
 ai = [
-    "ai-parrot[llms,agents,scheduler,embeddings,images,integrations]>=0.20.4",
+    "ai-parrot[llms,agents,scheduler,images,integrations]>=0.20.4",
     "ai-parrot-loaders[youtube,audio,pdf,web,ebook,video,document,scraping,ml]>=0.1.0",
     "ai-parrot-tools[jira,pdf,slack,aws,docker,git,analysis,excel,sandbox,codeinterpreter,pulumi,sitesearch,scraping,finance,db,flowtask,google,arxiv,wikipedia,weather,messaging]>=0.1.0",
     "ai-parrot-pipelines>=0.1.0",

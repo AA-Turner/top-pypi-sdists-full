@@ -22,10 +22,10 @@ class ForwarderDeliveryResponse:
         data (ForwarderDeliveryResource): JSON:API resource envelope for a forwarder delivery log entry. Example:
             {'attributes': {'attempt_number': 1, 'created_at': '2026-05-07T12:00:01.234Z', 'environment': 'production',
             'event': '33333333-4444-5555-6666-777777777777', 'forwarder': '11111111-2222-3333-4444-555555555555',
-            'latency_ms': 187, 'request': {'body': '{"event_type":"user.created","resource_id":"u-1"}', 'headers': [{'name':
-            'DD-API-KEY', 'value': '<redacted>'}], 'method': 'POST', 'url': 'https://http-
-            intake.logs.datadoghq.com/api/v2/logs'}, 'response_body': '', 'response_status': 202, 'status': 'SUCCEEDED'},
-            'id': '22222222-3333-4444-5555-666666666666', 'type': 'forwarder_delivery'}.
+            'latency_ms': 187, 'request': {'body': '{"event_type":"user.created","resource_id":"u-1"}', 'headers': {'DD-API-
+            KEY': '<redacted>'}, 'method': 'POST', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'},
+            'response_body': '', 'response_status': 202, 'status': 'SUCCEEDED'}, 'id':
+            '22222222-3333-4444-5555-666666666666', 'type': 'forwarder_delivery'}.
     """
 
     data: ForwarderDeliveryResource

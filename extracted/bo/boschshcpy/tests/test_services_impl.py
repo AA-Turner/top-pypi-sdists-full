@@ -271,14 +271,40 @@ def test_rcc_cooling_mode_setter_false():
     )
 
 
-def test_rcc_supports_cooling_true():
+def test_rcc_supports_cooling_true_when_cooling():
+    # roomControlMode present with value COOLING → cooling capable.
+    svc = _make_svc(RoomClimateControlService, {"operationMode": "MANUAL", "roomControlMode": "COOLING"})
+    assert svc.supports_cooling is True
+
+
+def test_rcc_supports_cooling_true_when_heating():
+    # Regression for #67: roomControlMode present with value HEATING must still
+    # report supports_cooling=True so HA keeps HVACMode.COOL available and the
+    # user can re-enable cooling from HA after turning it off.
     svc = _make_svc(RoomClimateControlService, {"operationMode": "MANUAL", "roomControlMode": "HEATING"})
     assert svc.supports_cooling is True
 
 
-def test_rcc_supports_cooling_false():
+def test_rcc_supports_cooling_true_when_off():
+    # roomControlMode present with value OFF → field is present → cooling capable.
+    svc = _make_svc(RoomClimateControlService, {"operationMode": "MANUAL", "roomControlMode": "OFF"})
+    assert svc.supports_cooling is True
+
+
+def test_rcc_supports_cooling_false_when_absent():
+    # roomControlMode absent → heating-only room (classic TRV/radiator thermostat).
     svc = _make_svc(RoomClimateControlService, {"operationMode": "MANUAL"})
     assert svc.supports_cooling is False
+
+
+def test_rcc_supports_low_present():
+    svc = _make_svc(RoomClimateControlService, {"operationMode": "MANUAL", "low": False})
+    assert svc.supports_low is True
+
+
+def test_rcc_supports_low_absent():
+    svc = _make_svc(RoomClimateControlService, {"operationMode": "MANUAL"})
+    assert svc.supports_low is False
 
 
 def test_rcc_supports_boost_mode():
@@ -731,6 +757,23 @@ def test_power_consumption():
 def test_energy_consumption():
     svc = _make_svc(PowerMeterService, {"powerConsumption": 0.0, "energyConsumption": 456.78})
     assert svc.energyconsumption == pytest.approx(456.78)
+
+
+def test_energy_yield_present():
+    # #331: Smart Plug [+M] Mini-PV mode reports energyYield (Wh).
+    svc = _make_svc(
+        PowerMeterService,
+        {"powerConsumption": -800.0, "energyConsumption": 123.0, "energyYield": 234.0},
+    )
+    assert svc.energyyield == pytest.approx(234.0)
+
+
+def test_energy_yield_absent_returns_none():
+    # Older Zigbee plugs / firmware omit the field → None (not KeyError).
+    svc = _make_svc(
+        PowerMeterService, {"powerConsumption": 1.0, "energyConsumption": 123.0}
+    )
+    assert svc.energyyield is None
 
 
 # ===========================================================================
@@ -1880,7 +1923,9 @@ def test_smart_sensitivity_control_summary(capsys):
     svc = _make_svc(SmartSensitivityControlService, {})
     svc.summary()
     out = capsys.readouterr().out
-    assert "not yet implemented" in out
+    # SmartSensitivityControl is now fully implemented; summary shows enabled + sensitivities
+    assert "enabled" in out
+    assert "sensitivities" in out
 
 
 def test_smoke_detection_control_summary(capsys):

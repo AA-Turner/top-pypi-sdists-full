@@ -155,7 +155,6 @@ class WebtoonsEpisodeExtractor(WebtoonsBase, GalleryExtractor):
         return assets
 
     def _asset_bgm(self, assets, bgm_list):
-        import binascii
         params = {
             #  "quality"     : "MIDDLE",
             "quality"     : "HIGH",  # no difference to 'MIDDLE'
@@ -179,7 +178,7 @@ class WebtoonsEpisodeExtractor(WebtoonsBase, GalleryExtractor):
             data = self.request_json(
                 url, params=params, headers=headers, interval=False)
             token = data["result"]["playToken"]
-            data = util.json_loads(binascii.a2b_base64(token).decode())
+            data = util.json_loads(util.b64decode(token))
             audio = data["audioInfo"]
             play = bgm.get("playImageUrl", "")
             stop = bgm.get("stopImageUrl", "")

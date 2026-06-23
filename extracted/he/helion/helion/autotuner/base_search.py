@@ -9,7 +9,6 @@ import logging
 import math
 from math import inf
 import os
-import pprint
 import random
 import re
 import sys
@@ -29,14 +28,17 @@ from torch.utils._pytree import tree_map_only
 from .. import exc
 from .._compat import extract_device
 from .._compat import get_device_name
+from ..runtime.settings import _env_get_int
 from .benchmark_provider import BenchmarkProvider
 from .benchmark_provider import BenchmarkResult
 from .benchmark_provider import LocalBenchmarkProvider
 from .benchmark_provider import _clone_args
 from .benchmark_provider import _unset_fn
+from .benchmarking import clear_jit_fast_path_caches
 from .benchmarking import interleaved_bench
 from .logger import AutotuningLogger
 from .metrics import AutotuneMetrics
+from .metrics import KernelMetadata
 from .metrics import _run_post_autotune_hooks
 from .precompile_future import PrecompileFuture as PrecompileFuture
 from helion._dist_utils import all_gather_object
@@ -54,6 +56,18 @@ if TYPE_CHECKING:
     from .config_generation import FlatConfig
     from .local_cache import SavedBestConfig
     from helion.autotuner.effort_profile import AutotuneEffortProfile
+
+
+@functools.cache
+def _warn_dataset_without_log(log: AutotuningLogger) -> None:
+    """Warn (once) that ``autotune_log_details`` needs ``autotune_log`` (the base path
+    the ``.meta.jsonl`` sits next to) or nothing is collected. Cached so the
+    warning fires once per logger instead of once per config."""
+    log.warning(
+        "HELION_AUTOTUNE_LOG_DETAILS is set but HELION_AUTOTUNE_LOG is not; no "
+        "autotune dataset will be collected. Set HELION_AUTOTUNE_LOG to a base "
+        "path to enable collection."
+    )
 
 
 # Use the standard do_bench effort for confirmation instead of the adaptive
@@ -250,14 +264,36 @@ class BaseSearch(BaseAutotuner):
         budget = self.settings.autotune_budget_seconds
         if budget is not None:
             self.log(f"Autotune budget: {budget}s")
+        kernel_obj = getattr(self.kernel, "kernel", None)
+        kernel_source = ""
+        if kernel_obj is not None:
+            try:
+                kernel_source = kernel_obj.kernel_source()
+            except OSError:
+                self.log.debug("Failed to read Helion kernel source", exc_info=True)
+        kernel_name = getattr(kernel_obj, "name", "")
+        tensors = [arg for arg in self.args if isinstance(arg, torch.Tensor)]
+        input_shapes = str([tuple(t.shape) for t in tensors])
+        dtypes = str([str(t.dtype) for t in tensors])
+        hardware = get_device_name(extract_device(self.args)) or ""
         self._autotune_metrics: AutotuneMetrics = AutotuneMetrics(
-            kernel_name=getattr(getattr(self.kernel, "kernel", None), "name", ""),
-            input_shapes=str(
-                [tuple(arg.shape) for arg in self.args if isinstance(arg, torch.Tensor)]
-            ),
-            hardware=get_device_name(extract_device(self.args)) or "",
+            kernel_name=kernel_name,
+            kernel_source=kernel_source,
+            input_shapes=input_shapes,
+            hardware=hardware,
             random_seed=self.settings.autotune_random_seed,
             search_algorithm=type(self).__name__,
+        )
+        # Per-run identity for the <autotune_log>.meta.jsonl record (written when
+        # dataset collection is on); CSV rows join to it on run_id. The sink adds
+        # the configs tested.
+        self._kernel_metadata: KernelMetadata = KernelMetadata(
+            kernel_name=kernel_name,
+            kernel_source=kernel_source,
+            input_shapes=input_shapes,
+            dtypes=dtypes,
+            hardware=hardware,
+            settings=self.settings.to_dict(),
         )
         self.benchmark_provider = self._benchmark_provider_cls(
             kernel=self.kernel,
@@ -268,6 +304,20 @@ class BaseSearch(BaseAutotuner):
             autotune_metrics=self._autotune_metrics,
         )
         self.benchmark_provider.set_budget_exceeded_fn(self._autotune_budget_exceeded)
+
+    def _is_restricted_search(self) -> bool:
+        """Whether the search space is the user's pinned configs.
+
+        A kernel decorated with ``configs=[...]`` (and not ``force_autotune``)
+        tunes only between those user-chosen configs, so its telemetry is a
+        biased, non-representative slice; such runs are excluded from data
+        collection. ``force_autotune`` searches the full space and is collected.
+        Best-effort: a missing kernel object / ``configs`` attribute reads as
+        "not restricted" so a genuine search is never dropped by accident.
+        """
+        kernel_obj = getattr(self.kernel, "kernel", None)
+        configs = getattr(kernel_obj, "configs", None)
+        return bool(configs) and not self.settings.force_autotune
 
     def _autotune_budget_exceeded(self) -> bool:
         budget = self.settings.autotune_budget_seconds
@@ -449,7 +499,20 @@ class BaseSearch(BaseAutotuner):
         exit_stack = contextlib.ExitStack()
         with exit_stack:
             if self.settings.autotune_log:
-                exit_stack.enter_context(self.log.autotune_logging())
+                # .csv/.log follow the log path; the dataset (.meta.jsonl) also
+                # needs opt-in and a representative (non-restricted) search.
+                collect_dataset = (
+                    self.settings.autotune_log_details
+                    and not self._is_restricted_search()
+                )
+                exit_stack.enter_context(
+                    self.log.autotune_logging(
+                        metadata=self._kernel_metadata,
+                        collect_dataset=collect_dataset,
+                    )
+                )
+            elif self.settings.autotune_log_details:
+                _warn_dataset_without_log(self.log)
             self.log.reset()
             # Autotuner triggers bugs in remote triton compile service.
             # Skip storing Triton intermediate IRs (.ttir, .ttgir, .llir, etc.)
@@ -706,6 +769,12 @@ class PopulationBasedSearch(BaseSearch):
         super().__init__(kernel, args)
         self.finishing_rounds = finishing_rounds
         self.population: list[PopulationMember] = []
+        # Population members corresponding to compiler-seeded configs from
+        # ``ConfigSpec.compiler_seed_configs``.  Tracked separately so the
+        # final-pick verification phase can re-include them as candidates
+        # even when the surrogate-driven search has pruned them away from
+        # ``self.population``.
+        self._compiler_seed_members: list[PopulationMember] = []
         self._best_available_seed_configs: list[Config] = []
         self.config_gen: ConfigGeneration = self.config_spec.create_config_generation(
             overrides=self.settings.autotune_config_overrides or None,
@@ -746,6 +815,29 @@ class PopulationBasedSearch(BaseSearch):
         """Replace the current best member in the population."""
         idx = min(range(len(self.population)), key=lambda i: self.population[i].perf)
         self.population[idx] = value
+
+    def capture_compiler_seed_members(
+        self, members: Sequence[PopulationMember]
+    ) -> None:
+        """Record which ``members`` came from compiler-seeded configs (TPU only).
+
+        Only the TPU/Pallas final-pick consumes this, so it's a no-op elsewhere.
+        Matches members against ``config_gen.seed_flat_config_pairs()`` so the
+        final-pick phase can re-include a seed even if the search later prunes it.
+        """
+        self._compiler_seed_members = []
+        if not self._final_pick_supported():
+            return
+        try:
+            seed_pairs = self.config_gen.seed_flat_config_pairs()
+        except Exception:
+            return
+        if not seed_pairs:
+            return
+        seed_flats: list[FlatConfig] = [flat for flat, _config in seed_pairs]
+        for member in members:
+            if member.flat_values in seed_flats:
+                self._compiler_seed_members.append(member)
 
     def benchmark_flat(self, flat_values: FlatConfig) -> PopulationMember:
         """
@@ -822,7 +914,7 @@ class PopulationBasedSearch(BaseSearch):
         Generate initial population using default config, explicit seed configs,
         and cached configs.
 
-        Always starts with the default configuration, then adds up to
+        Starts with the default configuration, then adds up to
         MAX_BEST_AVAILABLE_CONFIGS matching cached configs from previous runs.
         Explicit seed configs provided by the caller are added ahead of cached
         configs and are not suppressed by cache-skip settings. No random configs
@@ -830,14 +922,15 @@ class PopulationBasedSearch(BaseSearch):
 
         Returns:
             A list of unique FlatConfig values for the initial population.
-            Minimum size is 1 (just default), plus any valid unique explicit
-            seed configs and up to autotune_best_available_max_configs cached
-            configs.
+            Minimum size is 1 (default), plus any valid unique explicit seed configs
+            and up to autotune_best_available_max_configs cached configs.
         """
-        # Always start with the default config
+        max_configs = self.settings.autotune_best_available_max_configs
+
+        seen: set[Config] = set()
         default_flat = self.config_gen.default_flat()
         default_config = self.config_gen.unflatten(default_flat)
-        seen: set[Config] = {default_config}
+        seen.add(default_config)
         result: list[FlatConfig] = [default_flat]
         self.log("Starting with default config")
 
@@ -869,7 +962,6 @@ class PopulationBasedSearch(BaseSearch):
             except (ValueError, TypeError, KeyError, AssertionError) as e:
                 self.log(f"Failed to transfer explicit seed config: {e}")
 
-        max_configs = self.settings.autotune_best_available_max_configs
         cached_entries = self._find_similar_cached_configs(max_configs)
 
         if cached_entries:
@@ -996,7 +1088,19 @@ class PopulationBasedSearch(BaseSearch):
             )
         else:
             benchmark_args = self.args
-        iterator = [functools.partial(m.fn, *benchmark_args) for m in members]
+
+        def make_rebenchmark_callable(member: PopulationMember) -> Callable[[], object]:
+            run_member = functools.partial(member.fn, *benchmark_args)
+
+            def wrapped() -> object:
+                try:
+                    return run_member()
+                finally:
+                    clear_jit_fast_path_caches(member.fn, self.log)
+
+            return wrapped
+
+        iterator = [make_rebenchmark_callable(m) for m in members]
         _backend = getattr(getattr(self, "config_spec", None), "backend", None)
         interleaved_benchmark = (
             _backend.get_interleaved_bench() if _backend is not None else None
@@ -1004,10 +1108,14 @@ class PopulationBasedSearch(BaseSearch):
         benchmark_function: Callable[..., list[float]] = (
             self.settings.autotune_benchmark_fn or interleaved_benchmark
         )
-        if self.settings.autotune_progress_bar:
-            new_timings = benchmark_function(iterator, repeat=repeat, desc=desc)
-        else:
-            new_timings = benchmark_function(iterator, repeat=repeat)
+        try:
+            if self.settings.autotune_progress_bar:
+                new_timings = benchmark_function(iterator, repeat=repeat, desc=desc)
+            else:
+                new_timings = benchmark_function(iterator, repeat=repeat)
+        finally:
+            for m in members:
+                clear_jit_fast_path_caches(m.fn, self.log)
         new_timings = self._confirm_suspicious_rebenchmark_timings(
             members,
             new_timings,
@@ -1204,6 +1312,166 @@ class PopulationBasedSearch(BaseSearch):
         self.log(f"Finishing phase complete: final config={current.config}")
         return current
 
+    def _final_pick_supported(self) -> bool:
+        """True only on Pallas/TPU; final-pick is untested on other backends."""
+        return self.config_spec.backend_name == "pallas"
+
+    def run_final_pick_verification(
+        self,
+        best: PopulationMember,
+        top_k: int | None = None,
+    ) -> PopulationMember:
+        """Re-benchmark the top-``top_k`` candidates once and re-pick the fastest.
+
+        Beats the noisy single search-time median.  Compiler seeds are merged in.
+        Knob: ``HELION_AUTOTUNE_FINAL_PICK_TOP_K`` (10).
+        """
+        if top_k is None:
+            top_k = max(0, _env_get_int("HELION_AUTOTUNE_FINAL_PICK_TOP_K", 10))
+        if top_k <= 1:
+            return best
+
+        # Candidates: ``best`` first, then the finite population + compiler seeds
+        # (so a search-pruned seed still competes), ranked by perf and deduped by
+        # identity, capped at top_k.  getattr covers ``__new__`` test scaffolds.
+        seed_members = getattr(self, "_compiler_seed_members", []) or []
+        ranked = sorted(
+            (m for m in (*self.population, *seed_members) if math.isfinite(m.perf)),
+            key=performance,
+        )
+        candidates: list[PopulationMember] = []
+        seen: set[int] = set()
+        for member in (best, *ranked):
+            if id(member) in seen:
+                continue
+            seen.add(id(member))
+            candidates.append(member)
+            if len(candidates) >= top_k:
+                break
+        if len(candidates) < 2:
+            return best
+
+        # TPU/Pallas: re-rank by per-call on-device µs when available; else fall
+        # back to the absolute-median rebench.
+        device_micros_bench = self._resolve_device_micros_paired_bench()
+        if device_micros_bench is not None:
+            return self._run_final_pick_verification_device_micros(
+                best, candidates, device_micros_bench=device_micros_bench
+            )
+        return self._rebench_and_pick(best, candidates)
+
+    def _rebench_and_pick(
+        self, best: PopulationMember, candidates: list[PopulationMember]
+    ) -> PopulationMember:
+        """Re-benchmark ``candidates`` by absolute median and return the fastest."""
+        self.rebenchmark(candidates, desc="Final-pick verification")
+        best_member = min(candidates, key=performance)
+        if not math.isfinite(best_member.perf):
+            return best
+        if best_member is not best:
+            self.log(
+                f"Final-pick re-picked {best_member.config} "
+                f"({best_member.perf:.4f}ms) over {best.config}"
+            )
+        self.best_perf_so_far = min(self.best_perf_so_far, best_member.perf)
+        return best_member
+
+    def _finalize(self) -> Config:
+        """Finishing phase + final-pick re-rank; return the chosen config.
+
+        Shared tail of the search ``_autotune`` methods; the final-pick re-rank
+        runs only on TPU/Pallas (see ``_final_pick_supported``).
+        """
+        best = self.run_finishing_phase(self.best, self.finishing_rounds)
+        if self._final_pick_supported():
+            best = self.run_final_pick_verification(best)
+        return best.config
+
+    def _resolve_device_micros_paired_bench(
+        self,
+    ) -> Callable[..., list[tuple[float, float]]] | None:
+        """Paired device-µs bench from the backend, or None.
+
+        Pallas/TPU returns a ``jax.profiler`` closure (per-call on-chip µs) when
+        ``static_shapes`` is on and ``HELION_AUTOTUNE_PALLAS_RANK_BY=device_time`` (the
+        default); other backends and the ``wall_time`` opt-out return None.
+        """
+        # settings/config_spec are unset on the minimal final-pick test scaffolds;
+        # real searches always have them.
+        settings = getattr(self, "settings", None)
+        config_spec = getattr(self, "config_spec", None)
+        if settings is None or config_spec is None or not settings.static_shapes:
+            return None
+        return config_spec.backend.get_paired_device_micros_bench()
+
+    def _run_final_pick_verification_device_micros(
+        self,
+        best: PopulationMember,
+        candidates: list[PopulationMember],
+        *,
+        device_micros_bench: Callable[..., list[tuple[float, float]]],
+    ) -> PopulationMember:
+        """Re-rank the cohort by per-call on-chip µs instead of wall-clock.
+
+        ``device_micros_bench`` returns ``(device_micros, delta-vs-best)`` per candidate;
+        per-call device µs isn't masked by the ~125µs dispatch overhead. Picks the
+        smallest delta (tie-broken by absolute device µs). Device µs is not folded
+        into ``perfs`` (those are wall-clock ms). Falls back to the absolute-median
+        rebench on any error.
+        """
+        if len(self.benchmark_provider.mutated_arg_indices) > 0:
+            benchmark_args = _clone_args(
+                self.args,
+                self.kernel.env.process_group_name,
+                idx_to_clone=self.benchmark_provider.mutated_arg_indices,
+            )
+        else:
+            benchmark_args = self.args
+        candidate_fns: list[Callable[..., object]] = [
+            functools.partial(member.fn, *benchmark_args) for member in candidates
+        ]
+        reference_fn: Callable[..., object] = functools.partial(
+            best.fn, *benchmark_args
+        )
+        desc = (
+            "Final-pick verification device_micros"
+            if self.settings.autotune_progress_bar
+            else None
+        )
+        try:
+            results = device_micros_bench(candidate_fns, reference_fn, desc=desc)
+        except Exception as err:
+            self.log(f"Device-µs re-rank failed ({err!r}); falling back to rebench.")
+            return self._rebench_and_pick(best, candidates)
+
+        # results[i] == (absolute device µs, paired delta vs best).
+        device_micros_by_slot = [device_micros for device_micros, _ in results]
+        delta_by_slot = [delta for _, delta in results]
+        if not any(math.isfinite(u) and math.isfinite(d) for u, d in results):
+            self.log(
+                "Device-µs re-rank got no finite readings; falling back to rebench."
+            )
+            return self._rebench_and_pick(best, candidates)
+
+        def _device_key(slot: int) -> tuple[float, float]:
+            delta, device_micros = delta_by_slot[slot], device_micros_by_slot[slot]
+            if not math.isfinite(delta) or not math.isfinite(device_micros):
+                return (inf, inf)
+            return (delta, device_micros)
+
+        best_slot = min(range(len(candidates)), key=_device_key)
+        if not math.isfinite(delta_by_slot[best_slot]):
+            return best
+        best_member = candidates[best_slot]
+
+        if best_member is not best:
+            self.log(
+                f"Final-pick re-picked {best_member.config} (delta "
+                f"{delta_by_slot[best_slot]:+.3f}µs, absolute "
+                f"{device_micros_by_slot[best_slot]:.3f}µs) over {best.config}"
+            )
+        return best_member
+
 
 def population_statistics(population: list[PopulationMember]) -> str:
     """
@@ -1235,18 +1503,18 @@ def population_statistics(population: list[PopulationMember]) -> str:
             status_counts["ok"] += 1
     if len(working) == 0:
         raise exc.NoConfigFound
-    parts: list[str] = []
-    for label in ("error", "timeout", "ok"):
-        count = status_counts.get(label, 0)
-        if count:
-            parts.append(f"{label}={count}")
-
-    parts.extend(
-        (
-            f"min={working[0].perf:.4f}",
-            f"mid={working[len(working) // 2].perf:.4f}",
-            f"max={working[-1].perf:.4f}",
-            f"best={pprint.pformat(dict(population[0].config), width=100, compact=True)}",
-        )
+    count_parts = [
+        f"{label}={status_counts[label]}"
+        for label in ("error", "timeout", "ok")
+        if status_counts[label]
+    ]
+    perf_parts = (
+        f"min={working[0].perf:.4f}",
+        f"mid={working[len(working) // 2].perf:.4f}",
+        f"max={working[-1].perf:.4f}",
     )
-    return "\n" + "\n".join(parts)
+    lines = [f"{' '.join(count_parts)} | {' '.join(perf_parts)}", "best:"]
+    best_config = dict(population[0].config)
+    key_width = max((len(k) for k in best_config), default=0)
+    lines.extend(f"  {k:<{key_width}} = {v!r}" for k, v in best_config.items())
+    return "\n" + "\n".join(lines)

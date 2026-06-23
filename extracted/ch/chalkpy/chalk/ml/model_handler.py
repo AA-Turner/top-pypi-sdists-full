@@ -116,7 +116,6 @@ def model_handler(cls: _T) -> _T:
     -------
     >>> import pandas as pd
     >>> from chalk.ml import model_handler
-    >>>
     >>> @model_handler
     ... class RFModel:
     ...     def predict(self, df):

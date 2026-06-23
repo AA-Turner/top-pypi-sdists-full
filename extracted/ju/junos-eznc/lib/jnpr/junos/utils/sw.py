@@ -151,6 +151,144 @@ class SW(Util):
 
         return alive_satellites
 
+    def _install_on_satellites(
+        self, remote_package, alive_satellites, vmhost, timeout, validate, **kwargs
+    ):
+        """Install software on satellite devices using their facts to determine
+        the correct RE/VC/vmhost strategy per satellite.
+
+        For each alive satellite, inspects the satellite's facts from
+        ``dev.facts['satellites_info']`` to decide:
+          - If satellite is a VC member: install per VC member
+          - If satellite is dual-RE: install on re0 and re1
+          - Otherwise: simple single-RE install
+
+        :param str remote_package:
+          Remote path to the package on the device.
+        :param list alive_satellites:
+          List of satellite names that are alive.
+        :param bool vmhost:
+          Whether vmhost install is requested.
+        :param int timeout:
+          RPC timeout for the install operation.
+        :param bool validate:
+          Whether to validate before install.
+        :param dict kwargs:
+          Additional kwargs passed through to pkgadd.
+
+        :returns: tuple(bool, str) — overall success status and messages.
+        """
+        overall_ok = True
+        overall_msg = ""
+        satellites_info = self._dev.facts.get("satellites_info", {})
+
+        for sat_name in alive_satellites:
+            sat_facts = satellites_info.get(sat_name, {})
+            sat_kwargs = dict(kwargs)
+            sat_kwargs["device_list"] = [sat_name]
+
+            # Determine satellite vmhost status from its facts
+            sat_vmhost = vmhost
+
+            # --- Validate on satellite if requested ---
+            if validate is True:
+                self.log(
+                    "validating software on satellite %s ... "
+                    "please be patient ..." % sat_name
+                )
+                try:
+                    v_ok = self.validate(
+                        remote_package,
+                        satellite_name=sat_name,
+                        dev_timeout=timeout,
+                    )
+                except RpcError as e:
+                    if "syntax error" in (getattr(e, "message", "") or ""):
+                        v_ok = True
+                    else:
+                        overall_ok = False
+                        overall_msg += "\nSatellite %s: validation raised error: %s" % (
+                            sat_name,
+                            str(e),
+                        )
+                        continue
+                if v_ok is not True:
+                    overall_ok = False
+                    overall_msg += (
+                        "\nSatellite %s: package validation failed" % sat_name
+                    )
+                    continue
+
+            # --- Determine install strategy based on satellite RE/VC facts ---
+            sat_vc_capable = sat_facts.get("vc_capable", False)
+            sat_vc_mode = sat_facts.get("vc_mode")
+            sat_dual_re = sat_facts.get("2RE", False)
+            sat_vc_master = sat_facts.get("vc_master")
+
+            if sat_vc_capable and sat_vc_mode not in (None, "Disabled"):
+                # Satellite is a VC member — install per member
+                self.log(
+                    "installing software on satellite %s (VC mode) ... "
+                    "please be patient ..." % sat_name
+                )
+                if sat_vc_master is not None:
+                    sat_kwargs["member"] = sat_vc_master
+                bool_ret, msg = self.pkgadd(
+                    remote_package,
+                    vmhost=sat_vmhost,
+                    dev_timeout=timeout,
+                    **sat_kwargs,
+                )
+                overall_ok = overall_ok and bool_ret
+                overall_msg += "\nSatellite %s (VC): %s" % (sat_name, msg)
+            elif sat_dual_re:
+                # Satellite has dual RE — install on both re0 and re1
+                self.log(
+                    "installing software on satellite %s RE0 ... "
+                    "please be patient ..." % sat_name
+                )
+                sat_kwargs_re0 = dict(sat_kwargs)
+                sat_kwargs_re0["re0"] = True
+                bool_ret, msg = self.pkgadd(
+                    remote_package,
+                    vmhost=sat_vmhost,
+                    dev_timeout=timeout,
+                    **sat_kwargs_re0,
+                )
+                overall_ok = overall_ok and bool_ret
+                overall_msg += "\nSatellite %s RE0: %s" % (sat_name, msg)
+
+                self.log(
+                    "installing software on satellite %s RE1 ... "
+                    "please be patient ..." % sat_name
+                )
+                sat_kwargs_re1 = dict(sat_kwargs)
+                sat_kwargs_re1["re1"] = True
+                bool_ret, msg = self.pkgadd(
+                    remote_package,
+                    vmhost=sat_vmhost,
+                    dev_timeout=timeout,
+                    **sat_kwargs_re1,
+                )
+                overall_ok = overall_ok and bool_ret
+                overall_msg += "\nSatellite %s RE1: %s" % (sat_name, msg)
+            else:
+                # Single RE satellite — simple install
+                self.log(
+                    "installing software on satellite %s ... "
+                    "please be patient ..." % sat_name
+                )
+                bool_ret, msg = self.pkgadd(
+                    remote_package,
+                    vmhost=sat_vmhost,
+                    dev_timeout=timeout,
+                    **sat_kwargs,
+                )
+                overall_ok = overall_ok and bool_ret
+                overall_msg += "\nSatellite %s: %s" % (sat_name, msg)
+
+        return overall_ok, overall_msg.strip()
+
     # -----------------------------------------------------------------------
     # CLASS METHODS
     # -----------------------------------------------------------------------
@@ -351,9 +489,9 @@ class SW(Util):
     def _parse_pkgadd_response(self, rsp):
         got = rsp.getparent()
         output_msg = "\n".join(
-            [i.text for i in got.findall("output") if i.text is not None]
+            [i.text for i in got.findall(".//output") if i.text is not None]
         )
-        package_result = got.findtext("package-result")
+        package_result = got.findtext(".//package-result")
         if package_result is None:
             # <package-result> is not present
             if "ERROR:" in output_msg and (
@@ -978,8 +1116,6 @@ class SW(Util):
                     error_msg = "ERROR: No alive satellites available for installation"
                     _progress(error_msg)
                     return False, error_msg
-                if "device_list" not in kwargs:
-                    kwargs["device_list"] = alive_satellites
             except RpcError as err:
                 error_msg = "Problem checking satellite device status: %s" % (str(err))
                 _progress(error_msg)
@@ -1055,6 +1191,20 @@ class SW(Util):
 
         if len(remote_pkg_set) == 1:
             remote_package = remote_pkg_set[0]
+
+            # -----------------------------------------------------------------
+            # Satellite install path: use satellite facts for RE/VC handling
+            # -----------------------------------------------------------------
+            if satellite_name is not None:
+                return self._install_on_satellites(
+                    remote_package,
+                    alive_satellites,
+                    vmhost=vmhost,
+                    timeout=timeout,
+                    validate=validate,
+                    **kwargs,
+                )
+
             # validate can't be used in the case of a Mixed VC
             # With vmhost=True, validate is handled in the package add.
             if validate is True:

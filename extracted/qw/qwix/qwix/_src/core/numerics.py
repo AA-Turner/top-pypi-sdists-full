@@ -13,7 +13,7 @@
 # limitations under the License.
 """Numerics for quantization."""
 
-from typing import Callable, Sequence
+from typing import Callable
 import jax
 from jax import numpy as jnp
 
@@ -22,7 +22,7 @@ from jax import numpy as jnp
 #   shape: The requested shape of the noise to generate.
 # returns: Noise as a jax.Array whose shape is broadcastable to the requested
 #   shape, and whose dtype can be promoted to fp32 implicitly.
-NoiseFn = Callable[[Sequence[int]], jax.Array]
+NoiseFn = Callable[[tuple[int, ...]], jax.Array]
 _QUANTIZE_DTYPES = (jnp.bfloat16, jnp.float16, jnp.float32, jnp.float64)
 
 
@@ -113,7 +113,7 @@ def get_symmetric_bound(qtype: jax.typing.DTypeLike) -> float:
       return 2 ** (int(qtype[3:]) - 1) - 0.5
     case 'mxfp8':
       qtype = jnp.float8_e4m3fn
-    case 'mxfp4':
+    case 'mxfp4' | 'nvfp4':
       qtype = jnp.float4_e2m1fn
 
   # Prevent common misconfigurations, e.g., use bf16 as qtype.
@@ -167,7 +167,7 @@ def convert_to(
       return jnp.round(x).clip(qmin, qmax).astype(qtype)
     case 'mxfp8':
       qtype = jnp.float8_e4m3fn
-    case 'mxfp4':
+    case 'mxfp4' | 'nvfp4':
       qtype = jnp.float4_e2m1fn
 
   # Handles builtin qtypes.

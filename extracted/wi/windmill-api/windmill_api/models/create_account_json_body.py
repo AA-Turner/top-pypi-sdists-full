@@ -23,6 +23,9 @@ class CreateAccountJsonBody:
         cc_instance (Union[Unset, str]): Instance name for built-in providers whose client-credentials token URL is
             instance-templated; substituted into the fixed-host registry template server-side (client_credentials flow
             only). The token URL is never caller-supplied.
+        cc_token_url (Union[Unset, str]): Bring-your-own token endpoint override (client_credentials flow only). Only
+            honored together with cc_client_id/cc_client_secret and mutually exclusive with cc_instance; ignored/rejected on
+            the shared-instance path.
         mcp_server_url (Union[Unset, str]): MCP server URL for MCP OAuth token refresh
         scopes (Union[Unset, List[str]]): OAuth scopes to use for token refresh. Overrides instance-level scopes.
     """
@@ -34,6 +37,7 @@ class CreateAccountJsonBody:
     cc_client_id: Union[Unset, str] = UNSET
     cc_client_secret: Union[Unset, str] = UNSET
     cc_instance: Union[Unset, str] = UNSET
+    cc_token_url: Union[Unset, str] = UNSET
     mcp_server_url: Union[Unset, str] = UNSET
     scopes: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -46,6 +50,7 @@ class CreateAccountJsonBody:
         cc_client_id = self.cc_client_id
         cc_client_secret = self.cc_client_secret
         cc_instance = self.cc_instance
+        cc_token_url = self.cc_token_url
         mcp_server_url = self.mcp_server_url
         scopes: Union[Unset, List[str]] = UNSET
         if not isinstance(self.scopes, Unset):
@@ -68,6 +73,8 @@ class CreateAccountJsonBody:
             field_dict["cc_client_secret"] = cc_client_secret
         if cc_instance is not UNSET:
             field_dict["cc_instance"] = cc_instance
+        if cc_token_url is not UNSET:
+            field_dict["cc_token_url"] = cc_token_url
         if mcp_server_url is not UNSET:
             field_dict["mcp_server_url"] = mcp_server_url
         if scopes is not UNSET:
@@ -92,6 +99,8 @@ class CreateAccountJsonBody:
 
         cc_instance = d.pop("cc_instance", UNSET)
 
+        cc_token_url = d.pop("cc_token_url", UNSET)
+
         mcp_server_url = d.pop("mcp_server_url", UNSET)
 
         scopes = cast(List[str], d.pop("scopes", UNSET))
@@ -104,6 +113,7 @@ class CreateAccountJsonBody:
             cc_client_id=cc_client_id,
             cc_client_secret=cc_client_secret,
             cc_instance=cc_instance,
+            cc_token_url=cc_token_url,
             mcp_server_url=mcp_server_url,
             scopes=scopes,
         )

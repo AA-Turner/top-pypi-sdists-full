@@ -91,7 +91,8 @@ def check_api_surface(c: Runner, base_ref: str = "origin/main") -> None:
         f"uv --project workflow_sdk run python workflow_sdk/scripts/check_public_api.py --base-ref {base_ref}"
     )
     griffe_check = (
-        f"uv --project workflow_sdk run griffe check mistralai.workflows -b HEAD -a {base_ref} -s workflow_sdk"
+        f"uv --project workflow_sdk run griffe check mistralai.workflows -b HEAD -a {base_ref} "
+        "-s workflow_sdk -s workflow_sdk/worker_client/src"
     )
     exit_codes: list[int | None] = []
     exit_codes.append(exec_command(c, f"cd .. && {public_api_check}"))

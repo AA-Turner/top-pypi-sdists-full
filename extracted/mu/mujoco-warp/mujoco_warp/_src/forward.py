@@ -25,6 +25,7 @@ from mujoco_warp._src import island
 from mujoco_warp._src import math
 from mujoco_warp._src import passive
 from mujoco_warp._src import sensor
+from mujoco_warp._src import sleep
 from mujoco_warp._src import smooth
 from mujoco_warp._src import solver
 from mujoco_warp._src import types
@@ -41,7 +42,6 @@ from mujoco_warp._src.types import GainType
 from mujoco_warp._src.types import IntegratorType
 from mujoco_warp._src.types import JointType
 from mujoco_warp._src.types import Model
-from mujoco_warp._src.types import TileSet
 from mujoco_warp._src.types import TrnType
 from mujoco_warp._src.types import vec10f
 from mujoco_warp._src.warp_util import cache_kernel
@@ -329,6 +329,11 @@ def _advance(m: Model, d: Data, qacc: wp.array, qvel: Optional[wp.array] = None)
 
   wp.copy(d.qacc_warmstart, d.qacc)
 
+  if not (m.opt.disableflags & DisableBit.ISLAND) and (m.opt.enableflags & EnableBit.SLEEP):
+    sleep.sleep(m, d)
+    fwd_velocity(m, d)
+    sleep.update_sleep(m, d)
+
 
 @wp.kernel
 def _compute_damping_deriv(
@@ -348,7 +353,7 @@ def _compute_damping_deriv(
 
 
 @wp.kernel
-def _euler_damp_qfrc_sparse(
+def _euler_damp_qfrc(
   # Model:
   opt_timestep: wp.array[float],
   M_rownnz: wp.array[int],
@@ -356,46 +361,13 @@ def _euler_damp_qfrc_sparse(
   # In:
   damp_deriv: wp.array2d[float],
   # Out:
-  M_integration_out: wp.array3d[float],
+  M_integration_out: wp.array2d[float],
 ):
   worldid, tid = wp.tid()
   timestep = opt_timestep[worldid % opt_timestep.shape[0]]
 
   adr = M_rowadr[tid] + M_rownnz[tid] - 1
-  M_integration_out[worldid, 0, adr] += timestep * damp_deriv[worldid, tid]
-
-
-@cache_kernel
-def _tile_euler_dense(tile: TileSet):
-  @wp.kernel(module="unique", enable_backward=False)
-  def euler_dense(
-    # Model:
-    opt_timestep: wp.array[float],
-    # Data in:
-    M_in: wp.array3d[float],
-    efc_Ma_in: wp.array2d[float],
-    # In:
-    damp_deriv: wp.array2d[float],
-    adr_in: wp.array[int],
-    # Data out:
-    qacc_out: wp.array2d[float],
-  ):
-    worldid, nodeid = wp.tid()
-    timestep = opt_timestep[worldid % opt_timestep.shape[0]]
-    TILE_SIZE = wp.static(tile.size)
-
-    dofid = adr_in[nodeid]
-    M_tile = wp.tile_load(M_in[worldid], shape=(TILE_SIZE, TILE_SIZE), offset=(dofid, dofid))
-    damping_tile = wp.tile_load(damp_deriv[worldid], shape=(TILE_SIZE,), offset=(dofid,))
-    damping_scaled = damping_tile * timestep
-    qm_integration_tile = wp.tile_diag_add(M_tile, damping_scaled)
-
-    Ma_tile = wp.tile_load(efc_Ma_in[worldid], shape=(TILE_SIZE,), offset=(dofid,))
-    L_tile = wp.tile_cholesky(qm_integration_tile, fill_mode="upper")
-    qacc_tile = wp.tile_cholesky_solve(L_tile, Ma_tile, fill_mode="upper")
-    wp.tile_store(qacc_out[worldid], qacc_tile, offset=(dofid))
-
-  return euler_dense
+  M_integration_out[worldid, adr] += timestep * damp_deriv[worldid, tid]
 
 
 @event_scope
@@ -414,26 +386,18 @@ def euler(m: Model, d: Data):
       outputs=[damp_deriv],
     )
 
-    if m.is_sparse:
-      M = wp.clone(d.M)
-      qLD = wp.empty((d.nworld, 1, m.nC), dtype=float)
-      qLDiagInv = wp.empty((d.nworld, m.nv), dtype=float)
-      wp.launch(
-        _euler_damp_qfrc_sparse,
-        dim=(d.nworld, m.nv),
-        inputs=[m.opt.timestep, m.M_rownnz, m.M_rowadr, damp_deriv],
-        outputs=[M],
-      )
-      smooth.factor_solve_i(m, d, M, qLD, qLDiagInv, qacc, d.efc.Ma)
-    else:
-      for tile in m.M_tiles:
-        wp.launch_tiled(
-          _tile_euler_dense(tile),
-          dim=(d.nworld, tile.adr.size),
-          inputs=[m.opt.timestep, d.M, d.efc.Ma, damp_deriv, tile.adr],
-          outputs=[qacc],
-          block_dim=m.block_dim.euler_dense,
-        )
+    # Clone M, add the damping to the diagonal, and factor-solve. factor_solve_i factors each block
+    # per-block (packed dense and/or sparse LDL); the scratch qLD matches d.qLD.
+    M = wp.clone(d.M)
+    qLD = wp.empty_like(d.qLD)
+    qLDiagInv = wp.empty((d.nworld, m.nv), dtype=float)
+    wp.launch(
+      _euler_damp_qfrc,
+      dim=(d.nworld, m.nv),
+      inputs=[m.opt.timestep, m.M_rownnz, m.M_rowadr, damp_deriv],
+      outputs=[M],
+    )
+    smooth.factor_solve_i(m, d, M, qLD, qLDiagInv, qacc, d.efc.Ma)
     _advance(m, d, qacc)
   else:
     _advance(m, d, d.qacc)
@@ -583,25 +547,18 @@ def rungekutta4(m: Model, d: Data):
 def _map_m2d(
   # Model:
   mapM2D: wp.array[int],
-  is_sparse: bool,
   # In:
-  qDi: wp.array[int],
-  qDj: wp.array[int],
-  qH_M: wp.array3d[float],
+  qH_M: wp.array2d[float],
   # Data out:
-  qLU_out: wp.array3d[float],
+  qLU_out: wp.array2d[float],
 ):
+  # Scatter qH_M (M-structure) into the D-structure qLU via mapM2D.
   worldid, elemid = wp.tid()
-  if is_sparse:
-    m_idx = mapM2D[elemid]
-    if m_idx >= 0:
-      qLU_out[worldid, 0, elemid] = qH_M[worldid, 0, m_idx]
-    else:
-      qLU_out[worldid, 0, elemid] = 0.0
+  m_idx = mapM2D[elemid]
+  if m_idx >= 0:
+    qLU_out[worldid, elemid] = qH_M[worldid, m_idx]
   else:
-    i = qDi[elemid]
-    j = qDj[elemid]
-    qLU_out[worldid, 0, elemid] = qH_M[worldid, i, j]
+    qLU_out[worldid, elemid] = 0.0
 
 
 @event_scope
@@ -617,7 +574,7 @@ def implicit(m: Model, d: Data):
     wp.launch(
       _map_m2d,
       dim=(d.nworld, m.nD),
-      inputs=[m.mapM2D, m.is_sparse, m.qD_fullm_i, m.qD_fullm_j, qH_M],
+      inputs=[m.mapM2D, qH_M],
       outputs=[d.qLU],
     )
 
@@ -629,12 +586,9 @@ def implicit(m: Model, d: Data):
     smooth.factor_solve_lu(m, d, d.qLU, qacc, d.efc.Ma)
     _advance(m, d, qacc)
   elif ~(m.opt.disableflags | ~(DisableBit.ACTUATION | DisableBit.SPRING | DisableBit.DAMPER)):
-    if m.is_sparse:
-      qDeriv = wp.empty((d.nworld, 1, m.nC), dtype=float)
-      qLD = wp.empty((d.nworld, 1, m.nC), dtype=float)
-    else:
-      qDeriv = wp.empty(d.M.shape, dtype=float)
-      qLD = wp.empty(d.M.shape, dtype=float)
+    # qDeriv is in M-structure; the scratch qLD matches d.qLD (per-block).
+    qDeriv = wp.empty((d.nworld, m.nC), dtype=float)
+    qLD = wp.empty_like(d.qLD)
     qLDiagInv = wp.empty((d.nworld, m.nv), dtype=float)
     derivative.deriv_smooth_vel(m, d, qDeriv)
     qacc = wp.empty((d.nworld, m.nv), dtype=float)
@@ -658,13 +612,37 @@ def fwd_position(m: Model, d: Data, factorize: bool = True):
   smooth.camlight(m, d)
   smooth.flex(m, d)
   smooth.tendon(m, d)
+
+  sleep_enabled = not (m.opt.disableflags & DisableBit.ISLAND) and (m.opt.enableflags & EnableBit.SLEEP)
+
+  if sleep_enabled and m.ntendon > 0:
+    sleep.wake_tendon(m, d)
+    sleep.update_sleep_trees(m, d)
+
   smooth.crb(m, d)
   smooth.tendon_armature(m, d)
   if factorize:
     smooth.factor_m(m, d)
   if m.opt.run_collision_detection:
-    collision_driver.collision(m, d)
+    if sleep_enabled:
+      # pass 1
+      collision_driver.collision(m, d)
+      # check for newly awake
+      skip = wp.zeros(1, dtype=int)
+      sleep.wake_collision(m, d, skip)
+      sleep.update_sleep(m, d)
+      # pass 2: broadphase kernels early-return if skip[0] is 0
+      collision_driver.collision(m, d, skip)
+    else:
+      collision_driver.collision(m, d)
+
   constraint.make_constraint(m, d)
+
+  if sleep_enabled:
+    if m.neq > 0:
+      sleep.wake_equality(m, d)
+    sleep.update_sleep(m, d)
+
   if m.ntree > 1 and not (m.opt.disableflags & types.DisableBit.ISLAND):
     island.island(m, d)
   smooth.transmission(m, d)
@@ -1242,23 +1220,39 @@ def fwd_actuation(m: Model, d: Data):
   )
 
 
-@wp.kernel
-def _qfrc_smooth(
-  # Data in:
-  qfrc_applied_in: wp.array2d[float],
-  qfrc_bias_in: wp.array2d[float],
-  qfrc_passive_in: wp.array2d[float],
-  qfrc_actuator_in: wp.array2d[float],
-  # Data out:
-  qfrc_smooth_out: wp.array2d[float],
-):
-  worldid, dofid = wp.tid()
-  qfrc_smooth_out[worldid, dofid] = (
-    qfrc_passive_in[worldid, dofid]
-    - qfrc_bias_in[worldid, dofid]
-    + qfrc_actuator_in[worldid, dofid]
-    + qfrc_applied_in[worldid, dofid]
-  )
+@cache_kernel
+def _qfrc_smooth(enable_sleep: bool):
+  @wp.kernel(module="unique", enable_backward=False)
+  def kernel(
+    # Model:
+    body_treeid: wp.array[int],
+    dof_bodyid: wp.array[int],
+    # Data in:
+    qfrc_applied_in: wp.array2d[float],
+    tree_awake_in: wp.array2d[int],
+    qfrc_bias_in: wp.array2d[float],
+    qfrc_passive_in: wp.array2d[float],
+    qfrc_actuator_in: wp.array2d[float],
+    # Data out:
+    qfrc_smooth_out: wp.array2d[float],
+  ):
+    worldid, dofid = wp.tid()
+
+    if wp.static(enable_sleep):
+      bodyid = dof_bodyid[dofid]
+      tree = body_treeid[bodyid]
+      if tree >= 0 and tree_awake_in[worldid, tree] == 0:
+        qfrc_smooth_out[worldid, dofid] = 0.0
+        return
+
+    qfrc_smooth_out[worldid, dofid] = (
+      qfrc_passive_in[worldid, dofid]
+      - qfrc_bias_in[worldid, dofid]
+      + qfrc_actuator_in[worldid, dofid]
+      + qfrc_applied_in[worldid, dofid]
+    )
+
+  return kernel
 
 
 @event_scope
@@ -1270,10 +1264,19 @@ def fwd_acceleration(m: Model, d: Data, factorize: bool = False):
     d: The data object containing the current state and output arrays.
     factorize: Flag to factorize inertia matrix.
   """
+  enable_sleep = bool(m.opt.enableflags & EnableBit.SLEEP)
   wp.launch(
-    _qfrc_smooth,
+    _qfrc_smooth(enable_sleep),
     dim=(d.nworld, m.nv),
-    inputs=[d.qfrc_applied, d.qfrc_bias, d.qfrc_passive, d.qfrc_actuator],
+    inputs=[
+      m.body_treeid,
+      m.dof_bodyid,
+      d.qfrc_applied,
+      d.tree_awake,
+      d.qfrc_bias,
+      d.qfrc_passive,
+      d.qfrc_actuator,
+    ],
     outputs=[d.qfrc_smooth],
   )
   xfrc_accumulate(m, d, d.qfrc_smooth)
@@ -1287,6 +1290,10 @@ def fwd_acceleration(m: Model, d: Data, factorize: bool = False):
 @event_scope
 def forward(m: Model, d: Data):
   """Forward dynamics."""
+  if not (m.opt.disableflags & DisableBit.ISLAND) and (m.opt.enableflags & EnableBit.SLEEP):
+    sleep.wake(m, d)
+    sleep.update_sleep(m, d)
+
   energy = m.opt.enableflags & EnableBit.ENERGY
 
   fwd_position(m, d, factorize=False)

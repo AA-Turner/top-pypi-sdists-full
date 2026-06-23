@@ -6232,6 +6232,19 @@ class RelationshipType(sgqlc.types.Enum):
     __choices__ = ("EXPERT", "OWNER")
 
 
+class ReportInterval(sgqlc.types.Enum):
+    """Recurrence interval; pairs with `day_of_period`.
+
+    Enumeration Choices:
+
+    * `MONTH`None
+    * `WEEK`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MONTH", "WEEK")
+
+
 class ReportStatusEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -6243,6 +6256,18 @@ class ReportStatusEnum(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("COMPLETED", "FAILED", "QUEUED", "RUNNING")
+
+
+class ReportType(sgqlc.types.Enum):
+    """The kinds of scheduled reports that can be configured.
+
+    Enumeration Choices:
+
+    * `EXPENSIVE_QUERIES`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("EXPENSIVE_QUERIES",)
 
 
 class ReportTypeEnum(sgqlc.types.Enum):
@@ -23682,7 +23707,6 @@ class Connection(sgqlc.types.relay.Connection):
         "integration_gateway_credentials_key",
         "data",
         "identifiers",
-        "connection_attributes",
         "created_on",
         "updated_on",
         "is_active",
@@ -23753,8 +23777,6 @@ class Connection(sgqlc.types.relay.Connection):
     data = sgqlc.types.Field(JSONString, graphql_name="data")
 
     identifiers = sgqlc.types.Field(JSONString, graphql_name="identifiers")
-
-    connection_attributes = sgqlc.types.Field(JSONString, graphql_name="connectionAttributes")
 
     created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
 
@@ -25694,6 +25716,13 @@ class CreatePiiMonitor(sgqlc.types.Type):
         graphql_name="warnings",
     )
     """Advisory messages about the monitor configuration"""
+
+
+class CreateScheduledReportMutation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("report",)
+    report = sgqlc.types.Field("ScheduledReportType", graphql_name="report")
+    """The created scheduled report."""
 
 
 class CreateServiceNowIncidentForAlert(sgqlc.types.Type):
@@ -29225,6 +29254,13 @@ class DeleteSamlIdentityProvider(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("account",)
     account = sgqlc.types.Field(Account, graphql_name="account")
+
+
+class DeleteScheduledReportMutation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """True if the report was deleted."""
 
 
 class DeleteServiceNowIntegration(sgqlc.types.Type):
@@ -38021,6 +38057,9 @@ class Mutation(sgqlc.types.Type):
         "bulk_add_monitor_data_quality_dimension",
         "create_or_update_tag",
         "create_or_update_tag_assignments",
+        "create_scheduled_report",
+        "update_scheduled_report",
+        "delete_scheduled_report",
         "create_dashboard_schedule",
         "update_dashboard_schedule",
         "delete_dashboard_schedule",
@@ -40545,6 +40584,135 @@ class Mutation(sgqlc.types.Type):
     * `object_type` (`TagAssignmentObjectType`): Object type.
     * `tag_type` (`TagType!`): Tag Type.
     * `tag_uuids` (`[UUID]!`): UUIDs of tags to assign to the objects.
+    """
+
+    create_scheduled_report = sgqlc.types.Field(
+        CreateScheduledReportMutation,
+        graphql_name="createScheduledReport",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "audience_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="audienceUuids",
+                        default=None,
+                    ),
+                ),
+                (
+                    "config",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JSONString), graphql_name="config", default=None
+                    ),
+                ),
+                ("enabled", sgqlc.types.Arg(Boolean, graphql_name="enabled", default=None)),
+                (
+                    "interval_position",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Int), graphql_name="intervalPosition", default=None
+                    ),
+                ),
+                (
+                    "report_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ReportType), graphql_name="reportType", default=None
+                    ),
+                ),
+                (
+                    "time_interval",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ReportInterval),
+                        graphql_name="timeInterval",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a recurring scheduled report.
+
+    Arguments:
+
+    * `audience_uuids` (`[UUID!]!`): Audience (monitor label) UUIDs to
+      deliver the report to.
+    * `config` (`JSONString!`): Report scope configuration; shape
+      depends on the report type.
+    * `enabled` (`Boolean`): Whether the report starts enabled.
+      Defaults to true.
+    * `interval_position` (`Int!`): Position within the interval:
+      weekday (1=Mon..7=Sun) for WEEK, day of month (1-31, clamped to
+      month end) for MONTH.
+    * `report_type` (`ReportType!`): Kind of report to schedule.
+    * `time_interval` (`ReportInterval!`): Recurrence interval.
+    """
+
+    update_scheduled_report = sgqlc.types.Field(
+        "UpdateScheduledReportMutation",
+        graphql_name="updateScheduledReport",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "audience_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceUuids",
+                        default=None,
+                    ),
+                ),
+                ("config", sgqlc.types.Arg(JSONString, graphql_name="config", default=None)),
+                ("enabled", sgqlc.types.Arg(Boolean, graphql_name="enabled", default=None)),
+                (
+                    "interval_position",
+                    sgqlc.types.Arg(Int, graphql_name="intervalPosition", default=None),
+                ),
+                (
+                    "report_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="reportUuid", default=None
+                    ),
+                ),
+                (
+                    "time_interval",
+                    sgqlc.types.Arg(ReportInterval, graphql_name="timeInterval", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update a recurring scheduled report.
+
+    Arguments:
+
+    * `audience_uuids` (`[UUID!]`): Replacement audience (monitor
+      label) UUIDs.
+    * `config` (`JSONString`): Report scope configuration; shape
+      depends on the report type.
+    * `enabled` (`Boolean`): Whether the report is actively scheduled.
+    * `interval_position` (`Int`): Position within the interval:
+      weekday (1=Mon..7=Sun) for WEEK, day of month (1-31, clamped to
+      month end) for MONTH.
+    * `report_uuid` (`UUID!`): UUID of the report to update.
+    * `time_interval` (`ReportInterval`): Recurrence interval.
+    """
+
+    delete_scheduled_report = sgqlc.types.Field(
+        DeleteScheduledReportMutation,
+        graphql_name="deleteScheduledReport",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "report_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="reportUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a recurring scheduled report.
+
+    Arguments:
+
+    * `report_uuid` (`UUID!`): UUID of the report to delete.
     """
 
     create_dashboard_schedule = sgqlc.types.Field(
@@ -63038,6 +63206,8 @@ class Query(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "get_storage_optimization_candidates",
+        "get_scheduled_reports",
+        "get_scheduled_report",
         "get_my_dashboard_schedules",
         "get_customer_mcp_servers",
         "discover_customer_mcp_server_auth",
@@ -63546,6 +63716,7 @@ class Query(sgqlc.types.Type):
         "get_use_case_table_summary",
         "get_use_case_tables",
         "get_table_use_cases",
+        "get_table_descriptions",
         "get_use_case_table_details",
         "get_shared_query",
         "favorite_assets",
@@ -63694,6 +63865,33 @@ class Query(sgqlc.types.Type):
       fetch the next page
     * `filter` (`StorageOptimizationCandidatesFilter`): Optional
       filters applied to the candidate results
+    """
+
+    get_scheduled_reports = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ScheduledReportType"))),
+        graphql_name="getScheduledReports",
+    )
+    """(experimental) List all scheduled reports for the calling account."""
+
+    get_scheduled_report = sgqlc.types.Field(
+        sgqlc.types.non_null("ScheduledReportType"),
+        graphql_name="getScheduledReport",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "report_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="reportUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch a single scheduled report by UUID.
+
+    Arguments:
+
+    * `report_uuid` (`UUID!`): UUID of the report to fetch.
     """
 
     get_my_dashboard_schedules = sgqlc.types.Field(
@@ -82130,6 +82328,33 @@ class Query(sgqlc.types.Type):
       list. (default: `false`)
     """
 
+    get_table_descriptions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TableDescription")),
+        graphql_name="getTableDescriptions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the use-case table description for a list of
+    tables by MCON, in one call. Returns one entry per requested MCON
+    that has a stored description; MCONs without a UseCaseTable row or
+    description are omitted. MCONs are globally unique, so no
+    warehouse is needed.
+
+    Arguments:
+
+    * `mcons` (`[String!]!`): List of table MCONs to look up
+    """
+
     get_use_case_table_details = sgqlc.types.Field(
         "UseCaseTableDetailConnection",
         graphql_name="getUseCaseTableDetails",
@@ -87377,6 +87602,54 @@ class ScheduleConfigOutput(sgqlc.types.Type):
     """Mcons of tables to trigger schedule on update"""
 
 
+class ScheduledReportType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "report_type",
+        "time_interval",
+        "interval_position",
+        "next_execution_time",
+        "config",
+        "audience_uuids",
+        "enabled",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """UUID of the scheduled report."""
+
+    report_type = sgqlc.types.Field(sgqlc.types.non_null(ReportType), graphql_name="reportType")
+    """Kind of report being scheduled."""
+
+    time_interval = sgqlc.types.Field(
+        sgqlc.types.non_null(ReportInterval), graphql_name="timeInterval"
+    )
+    """Recurrence interval."""
+
+    interval_position = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="intervalPosition"
+    )
+    """Position within the interval: weekday (1=Mon..7=Sun) for WEEK, day
+    of month (1-31, clamped to month end) for MONTH.
+    """
+
+    next_execution_time = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="nextExecutionTime"
+    )
+    """UTC time of next scheduled delivery."""
+
+    config = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="config")
+    """Report scope configuration; shape depends on the report type."""
+
+    audience_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="audienceUuids",
+    )
+    """Audience (monitor label) UUIDs the report is delivered to."""
+
+    enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
+    """Whether the report is actively scheduled."""
+
+
 class SchemaChange(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("mcon", "start_time", "fields_added", "fields_removed", "field_type_changes")
@@ -90093,6 +90366,20 @@ class TableColumnsLineageResult(sgqlc.types.Type):
 
     display_name = sgqlc.types.Field(String, graphql_name="displayName")
     """Display name for BI tables"""
+
+
+class TableDescription(sgqlc.types.Type):
+    """A table's LLM-generated use-case description, keyed by MCON."""
+
+    __schema__ = schema
+    __field_names__ = ("mcon", "table_description")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """Unique table identifier (MCON)"""
+
+    table_description = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="tableDescription"
+    )
+    """LLM-generated description of the table"""
 
 
 class TableFieldConnection(sgqlc.types.relay.Connection):
@@ -94098,6 +94385,13 @@ class UpdateRedshiftCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateScheduledReportMutation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("report",)
+    report = sgqlc.types.Field(ScheduledReportType, graphql_name="report")
+    """The updated scheduled report."""
 
 
 class UpdateSelfHostedCredentialsV2Mutation(sgqlc.types.Type):
@@ -98991,7 +99285,6 @@ class ConnectionRestriction(sgqlc.types.Type, Node):
         "integration_gateway_credentials_key",
         "data",
         "identifiers",
-        "connection_attributes",
         "created_on",
         "updated_on",
         "is_active",
@@ -99045,8 +99338,6 @@ class ConnectionRestriction(sgqlc.types.Type, Node):
     data = sgqlc.types.Field(JSONString, graphql_name="data")
 
     identifiers = sgqlc.types.Field(JSONString, graphql_name="identifiers")
-
-    connection_attributes = sgqlc.types.Field(JSONString, graphql_name="connectionAttributes")
 
     created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
 
@@ -99285,6 +99576,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "variables",
         "variable_definitions",
         "is_tracking_only",
+        "supports_monitors_as_code",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -99670,6 +99962,13 @@ class CustomRule(sgqlc.types.Type, Node):
         sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
     )
     """DEPRECATED"""
+
+    supports_monitors_as_code = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsMonitorsAsCode"
+    )
+    """Whether this monitor type can be exported to and managed as code
+    (Monitors-as-Code).
+    """
 
 
 class CustomRuleQuery(sgqlc.types.Type, Node):
@@ -103464,6 +103763,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "is_agent_trace_aggregation",
         "time_bucketed",
         "is_tracking_only",
+        "supports_monitors_as_code",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -103743,6 +104043,13 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     )
     """DEPRECATED"""
 
+    supports_monitors_as_code = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsMonitorsAsCode"
+    )
+    """Whether this monitor type can be exported to and managed as code
+    (Monitors-as-Code).
+    """
+
 
 class Monitor(
     sgqlc.types.Type,
@@ -103755,6 +104062,7 @@ class Monitor(
     __schema__ = schema
     __field_names__ = (
         "supports_sensitivity_update",
+        "supports_monitors_as_code",
         "is_tunable",
         "tuning_unavailable_reason",
         "finding",
@@ -103764,6 +104072,13 @@ class Monitor(
         Boolean, graphql_name="supportsSensitivityUpdate"
     )
     """Whether this monitor supports sensitivity tuning"""
+
+    supports_monitors_as_code = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsMonitorsAsCode"
+    )
+    """Whether this monitor type can be exported to and managed as code
+    (Monitors-as-Code).
+    """
 
     is_tunable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isTunable")
     """Whether the in-product monitor tuning agent supports tuning this
@@ -106546,6 +106861,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "domain_restrictions",
         "monitor_sql_blocks",
         "sampling_config",
+        "alert_grouping",
         "agent_names",
         "entity_mcons",
         "agent_span_filters",
@@ -106742,6 +107058,9 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
 
     sampling_config = sgqlc.types.Field(MonitorSamplingConfig, graphql_name="samplingConfig")
     """Sampling configuration"""
+
+    alert_grouping = sgqlc.types.Field(JSONString, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration from monitors"""
 
     agent_names = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="agentNames"

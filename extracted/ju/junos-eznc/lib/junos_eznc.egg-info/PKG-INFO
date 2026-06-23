@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: junos-eznc
-Version: 2.8.1
+Version: 2.8.2
 Summary: Junos 'EZ' automation for non-programmers
 Home-page: http://www.github.com/Juniper/py-junos-eznc
 Author: Jeremy Schulman, Nitin Kumar, Rick Sherman, Stacy Smith

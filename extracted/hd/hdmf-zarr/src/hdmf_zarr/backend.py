@@ -24,7 +24,7 @@ from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 from hdmf.backends.io import HDMFIO
 from hdmf.backends.errors import UnsupportedOperation
 from hdmf.backends.utils import NamespaceToBuilderHelper, WriteStatusTracker
-from hdmf.utils import docval, getargs, popargs, get_docval, get_data_shape
+from hdmf.utils import docval, getargs, popargs, get_docval, get_data_shape, generate_array_html_repr
 from hdmf.build import Builder, GroupBuilder, DatasetBuilder, LinkBuilder, BuildManager, ReferenceBuilder, TypeMap
 from hdmf.data_utils import AbstractDataChunkIterator
 from hdmf.spec import RefSpec, DtypeSpec, NamespaceCatalog
@@ -66,6 +66,31 @@ class ZarrIO(HDMFIO):
             return True
         except Exception:
             return False
+
+    @staticmethod
+    def generate_dataset_html(dataset):
+        """
+        Generates an HTML representation for a dataset for the ZarrIO class.
+
+        This method extracts metadata from a Zarr array using its info_items() method
+        and formats it as an HTML table for display in Jupyter notebooks and other
+        HTML-based interfaces.
+
+        Parameters
+        ----------
+        dataset : zarr.core.Array
+            The Zarr array for which to generate an HTML representation
+
+        Returns
+        -------
+        str
+            HTML representation of the dataset
+        """
+        # get info from zarr array and generate html repr
+        zarr_info_dict = {k: v for k, v in dataset.info_items()}
+        repr_html = generate_array_html_repr(zarr_info_dict, dataset, "Zarr Array")
+
+        return repr_html
 
     @docval(
         {
@@ -240,10 +265,10 @@ class ZarrIO(HDMFIO):
         """Return True if the file is remote, False otherwise"""
         from zarr.storage import FSStore
 
-        if isinstance(self.__file.store, FSStore):
-            return True
-        else:
-            return False
+        store = self.__file.store
+        if isinstance(store, ConsolidatedMetadataStore):
+            store = store.store
+        return isinstance(store, FSStore)
 
     @classmethod
     @docval(
@@ -385,14 +410,14 @@ class ZarrIO(HDMFIO):
     )
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification and parallelization."""
-        cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context, consolidate_metadata = popargs(
+        cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
             "cache_spec",
             "number_of_jobs",
             "max_threads_per_process",
             "multiprocessing_context",
-            "consolidate_metadata",
             kwargs,
         )
+        consolidate_metadata = kwargs["consolidate_metadata"]
 
         self.__dci_queue = ZarrIODataChunkIteratorQueue(
             number_of_jobs=number_of_jobs,
@@ -400,7 +425,7 @@ class ZarrIO(HDMFIO):
             multiprocessing_context=multiprocessing_context,
         )
 
-        super(ZarrIO, self).write(**kwargs)
+        super().write(**kwargs)
         if cache_spec:
             self.__cache_spec()
 
@@ -457,6 +482,12 @@ class ZarrIO(HDMFIO):
             ),
             "default": None,
         },
+        {
+            "name": "consolidate_metadata",
+            "type": bool,
+            "doc": ("Consolidate metadata into a single .zmetadata file in the root group to accelerate read."),
+            "default": True,
+        },
     )
     def export(self, **kwargs):
         """Export data read from a file from any backend to Zarr.
@@ -472,6 +503,7 @@ class ZarrIO(HDMFIO):
         number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
             "number_of_jobs", "max_threads_per_process", "multiprocessing_context", kwargs
         )
+        consolidate_metadata = popargs("consolidate_metadata", kwargs)
 
         self.__dci_queue = ZarrIODataChunkIteratorQueue(
             number_of_jobs=number_of_jobs,
@@ -487,6 +519,7 @@ class ZarrIO(HDMFIO):
             )
 
         write_args["export_source"] = src_io.source  # pass export_source=src_io.source to write_builder
+        write_args["consolidate_metadata"] = consolidate_metadata
         ckwargs = kwargs.copy()
         ckwargs["write_args"] = write_args
         if not write_args.get("link_data", True):
@@ -500,6 +533,10 @@ class ZarrIO(HDMFIO):
                         name=namespace, namespace=src_io.manager.namespace_catalog.get_namespace(namespace)
                     )
             self.__cache_spec()
+
+        # Reconsolidate metadata after the spec has been cached
+        if consolidate_metadata:
+            zarr.consolidate_metadata(store=self.path)
 
     def get_written(self, builder, check_on_disk=False):
         """
@@ -834,6 +871,21 @@ class ZarrIO(HDMFIO):
         :return: 1) name of the target object
                  2) the target zarr object within the target file
         """
+        # Self-reference (`source == "."`): the target lives in this same store. Reuse
+        # the already-open file directly. Without this guard, the remote branch below
+        # would re-open the same URL via __open_file_consolidated, which fails over
+        # fsspec stores with PathNotFoundError on empty path keys.
+        if zarr_ref.get("source", None) == ".":
+            object_path = zarr_ref.get("path", None)
+            target_name = os.path.basename(object_path) if object_path else ROOT_NAME
+            target_zarr_obj = self.__file
+            if object_path is not None:
+                try:
+                    target_zarr_obj = target_zarr_obj[object_path]
+                except Exception:
+                    raise ValueError("Found bad link to object %s in file %s" % (object_path, self.source))
+            return target_name, target_zarr_obj
+
         # Extract the path as defined in the zarr_ref object
         if zarr_ref.get("source", None) is None:
             source_file = str(zarr_ref["path"])
@@ -1389,7 +1441,7 @@ class ZarrIO(HDMFIO):
                 raise ValueError("cannot determine type for empty data")
             return cls.get_type(data[0])
 
-    __reserve_attribute = ("zarr_dtype", "zarr_link")
+    __reserve_attribute = ("zarr_dtype", "zarr_link", SPEC_LOC_ATTR)
 
     def __list_fill__(self, parent, name, data, options=None):  # noqa: C901
         dtype = None
@@ -1509,7 +1561,12 @@ class ZarrIO(HDMFIO):
 
     @docval(returns="a GroupBuilder representing the NWB Dataset", rtype="GroupBuilder")
     def read_builder(self):
-        f_builder = self.__read_group(self.__file, ROOT_NAME)
+        # ignore cached specs when reading builder
+        ignore_groups = set()
+        specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
+        if specloc is not None:
+            ignore_groups.add(self.__file[specloc].name)
+        f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
         return f_builder
 
     def __set_built(self, zarr_obj, builder):
@@ -1565,7 +1622,9 @@ class ZarrIO(HDMFIO):
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
 
-    def __read_group(self, zarr_obj, name=None):
+    def __read_group(self, zarr_obj, name=None, ignore_groups=set()):
+        # NOTE: ignore_groups is a set of group names to skip when reading and only
+        # used when reading the root group to skip the specification group
         ret = self.__get_built(zarr_obj)
         if ret is not None:
             return ret
@@ -1587,6 +1646,8 @@ class ZarrIO(HDMFIO):
 
         # read sub groups
         for sub_name, sub_group in zarr_obj.groups():
+            if sub_group.name in ignore_groups:
+                continue
             sub_builder = self.__read_group(sub_group, sub_name)
             ret.set_group(sub_builder)
 

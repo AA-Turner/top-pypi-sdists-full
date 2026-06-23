@@ -9,8 +9,7 @@
 """Extractors for https://readcomiconline.li/"""
 
 from .common import Extractor, ChapterExtractor, MangaExtractor, Message
-from .. import text
-import binascii
+from .. import text, util
 
 BASE_PATTERN = r"(?i)(?:https?://)?(?:www\.)?readcomiconline\.(?:li|to)"
 
@@ -174,7 +173,7 @@ def baeu(url, root="", root_blogspot="https://2.bp.blogspot.com"):
     path = path[:-3 if contains_s0 else -6]
     path = path[15:33] + path[50:]  # step1()
     path = path[0:-11] + path[-2:]  # step2()
-    path = binascii.a2b_base64(path).decode()  # atob()
+    path = util.b64decode(path)  # atob()
     path = path[0:13] + path[17:]
     path = path[0:-2] + ("=s0" if contains_s0 else "=s1600")
     return root + "/" + path + sep + query

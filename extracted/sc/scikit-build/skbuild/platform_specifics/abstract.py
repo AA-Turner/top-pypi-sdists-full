@@ -46,9 +46,8 @@ class CMakePlatform:
     def write_test_cmakelist(languages: Iterable[str]) -> None:
         """Write a minimal ``CMakeLists.txt`` useful to check if the
         requested ``languages`` are supported."""
-        if not os.path.exists(test_folder):
-            os.makedirs(test_folder)
-        with open(f"{test_folder}/CMakeLists.txt", "w", encoding="utf-8") as f:
+        os.makedirs(test_folder, exist_ok=True)
+        with open(os.path.join(test_folder, "CMakeLists.txt"), "w", encoding="utf-8") as f:
             f.write("cmake_minimum_required(VERSION 3.5...3.26)\n")
             f.write("PROJECT(compiler_test NONE)\n")
             for language in languages:
@@ -64,7 +63,7 @@ class CMakePlatform:
                 "  if(NOT MSVC)\n"
                 '    message(FATAL_ERROR "MSVC is required to pass this check.")\n'
                 "  elseif(MSVC_VERSION LESS FORCE_MIN OR MSVC_VERSION GREATER FORCE_MAX)\n"
-                '    message(FATAL_ERROR "MSVC ${MSVC_VERSION} does pass this check.")\n'
+                '    message(FATAL_ERROR "MSVC ${MSVC_VERSION} does not pass this check.")\n'
                 "  endif()\n"
                 "endif()\n"
             )
@@ -279,7 +278,7 @@ class CMakeGenerator:
         """
         self._generator_name = name
         self.args = list(args or [])
-        self.env = dict(list(os.environ.items()) + list(env.items() if env else []))
+        self._env: Mapping[str, str] = env or {}
         self._generator_toolset = toolset
         self._generator_architecture = arch
         description_arch = name if arch is None else f"{name} {arch}"
@@ -287,6 +286,15 @@ class CMakeGenerator:
             self._description = description_arch
         else:
             self._description = f"{description_arch} {toolset}"
+
+    @property
+    def env(self) -> dict[str, str]:
+        """Environment associated with the generator, layered on top of ``os.environ``.
+
+        Resolved lazily so that constructing a generator that is never selected
+        does not pay the cost of probing the environment.
+        """
+        return {**os.environ, **self._env}
 
     @property
     def name(self) -> str:

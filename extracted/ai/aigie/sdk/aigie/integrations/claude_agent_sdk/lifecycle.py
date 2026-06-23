@@ -12,7 +12,7 @@ from typing import Any
 
 from aigie.tracing.monkey_patch_lifecycle import MonkeyPatchLifecycle, PatchTarget
 
-from ._patches import (
+from aigie.integrations.claude_agent_sdk._patches import (
     client_aexit_patch_target,
     client_connect_patch_target,
     client_query_patch_target,

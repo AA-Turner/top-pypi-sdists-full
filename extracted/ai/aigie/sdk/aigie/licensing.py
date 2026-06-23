@@ -16,7 +16,7 @@ from typing import Any
 
 import httpx
 
-from .diagnostics import A004, R005, format_diagnostic
+from aigie.diagnostics import A004, R005, format_diagnostic
 
 logger = logging.getLogger(__name__)
 
@@ -622,7 +622,7 @@ class LicenseValidator:
     def _get_sdk_version(self) -> str:
         """Get the SDK version."""
         try:
-            from . import __version__
+            from aigie import __version__
 
             return __version__
         except Exception:

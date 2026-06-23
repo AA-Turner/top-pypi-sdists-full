@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest_otel
-Version: 2.2.2
+Version: 2.3.0
 Summary: OpenTelemetry plugin for Pytest
 Author: Ivan Fernandez Calvo (kuisathaverat)
 License:                                  Apache License
@@ -226,7 +226,7 @@ License-File: LICENSE
 Requires-Dist: opentelemetry-api==1.42.1
 Requires-Dist: opentelemetry-exporter-otlp==1.42.1
 Requires-Dist: opentelemetry-sdk==1.42.1
-Requires-Dist: pytest==9.1.0
+Requires-Dist: pytest==9.1.1
 Provides-Extra: dotenv
 Requires-Dist: python-dotenv>=1.0.0; extra == "dotenv"
 Provides-Extra: test

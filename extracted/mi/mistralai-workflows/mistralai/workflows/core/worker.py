@@ -88,18 +88,7 @@ class WorkerConfig(BaseModel):
 
 
 @tenacity.retry(
-    # Retry on transient errors (502, 503, 504)
-    retry=tenacity.retry_if_exception(
-        lambda exc: (
-            isinstance(exc, WorkflowsException)
-            and exc.status
-            in [
-                HTTPStatus.BAD_GATEWAY,
-                HTTPStatus.GATEWAY_TIMEOUT,
-                HTTPStatus.SERVICE_UNAVAILABLE,
-            ]
-        )
-    ),
+    retry=tenacity.retry_if_exception(lambda exc: isinstance(exc, WorkflowsException) and exc.is_transient()),
     before_sleep=lambda retry_state: logger.warning(
         "Retrying register workflow specs",
         attempt=retry_state.attempt_number,
@@ -131,8 +120,8 @@ async def _register_workflow_specs(
                 body = json.loads(exc.body)
                 if admin_url := body.get("admin_panel_url"):
                     logger.error(
-                        "OBO workflow registration failed: deployment is not hardened. "
-                        "Add authorized credentials at the link below",
+                        "Workflow registration failed: credential is not authorized for this deployment. "
+                        "Add an authorized credential at the link below",
                         admin_panel_url=admin_url,
                     )
             except (json.JSONDecodeError, ValueError, AttributeError, TypeError):
@@ -292,11 +281,14 @@ def _create_temporal_workers(
     workflows: List[ClassType],
     config: AppConfig,
     task_queue: str,
-) -> List[Worker]:
+) -> tuple[List[Worker], List[Type]]:
+    """Create Temporal workers and return (workers, plugin_workflows)."""
     all_workflows: List[Type] = [*workflows, ParallelExecutionWorkflow]
+    pre_plugin_len = len(all_workflows)
 
     # Collect worker interceptors from plugins
     plugin_interceptors = collect_plugin_interceptors(all_workflows)
+    plugin_workflows = all_workflows[pre_plugin_len:]
 
     # Get all activities (based on the imports made before running the workers)
     all_activities = get_all_temporal_activities()
@@ -407,7 +399,7 @@ def _create_temporal_workers(
         except RuntimeError as e:
             log_if_sandbox_restriction_error(e, context="validation")
             raise
-    return workers
+    return workers, plugin_workflows
 
 
 _GRAPH_PAYLOAD_VERSION = 3
@@ -420,7 +412,8 @@ async def _upload_workflow_graphs(
 ) -> None:
     # Deferred import: _graph pulls in ast/inspect/textwrap at module level, adding startup
     # cost to every worker process even when graph upload is disabled. Keep it lazy here.
-    from mistralai.workflows.core._graph import build_graph
+    from mistralai.workflows.core._graph import build_graph_dynamically
+    from mistralai.workflows.core.graph_summaries import SummariseError, summarise_workflow
 
     base_url = client.sdk_configuration.server_url.rstrip("/")
     http_client = client.sdk_configuration.async_client
@@ -432,17 +425,33 @@ async def _upload_workflow_graphs(
         graph_data = None
         error: str | None = None
         try:
-            graph_data = await asyncio.to_thread(build_graph, cls)
+            graph_data = await asyncio.to_thread(build_graph_dynamically, cls)
         except Exception as exc:
             error = str(exc) or type(exc).__name__
             logger.warning(
                 "Failed to build workflow graph", workflow=cls.__name__, **extract_error_context(exc), exc_info=exc
             )
 
+        if graph_data is not None:
+            try:
+                result = await summarise_workflow(graph_data)
+                if result.summaries:
+                    graph_data.node_summaries = {
+                        nid: {"short": s.short, "long": s.long} for nid, s in result.summaries.items()
+                    }
+            except SummariseError as exc:
+                error = str(exc) or type(exc).__name__
+                logger.warning(
+                    "Failed to generate node summaries",
+                    workflow=cls.__name__,
+                    **extract_error_context(exc),
+                    exc_info=exc,
+                )
+
         payload = {
             "workflow_registration_id": str(ref.workflow_registration_id),
             "version": _GRAPH_PAYLOAD_VERSION,
-            "graph_data": graph_data,
+            "graph_data": graph_data.to_dict() if graph_data is not None else None,
             "error": error,
         }
 
@@ -482,7 +491,9 @@ async def _run_worker(workflows: List[ClassType]) -> None:
         )
 
         # Initialize OpenTelemetry tracing for the worker component
-        meter_provider, tracer_provider = init_tracing("worker")
+        meter_provider, tracer_provider, logger_provider = init_tracing(
+            "worker", deployment_name=deployment_name, worker_name=worker_name
+        )
         if meter_provider and tracer_provider:
             logger.info("OpenTelemetry tracing initialized for worker")
 
@@ -541,17 +552,19 @@ async def _run_worker(workflows: List[ClassType]) -> None:
         # Initialize dependency injector
         dependency_injector = DependencyInjector.get_singleton_instance()
 
-        # Get workflow definitions for custom workflows + internal workflows
-        workflow_definitions = _get_workflow_definitions(workflows, task_queue)
-        workflow_definitions += _get_workflow_definitions([ParallelExecutionWorkflow], task_queue)
-
-        # Create Temporal workers
-        workers = _create_temporal_workers(
+        # Create Temporal workers (also discovers plugin-contributed workflows)
+        workers, plugin_workflows = _create_temporal_workers(
             temporal_client=temporal_client,
             workflows=workflows,
             config=config,
             task_queue=task_queue,
         )
+
+        # Get workflow definitions for custom workflows + internal workflows
+        workflow_definitions = _get_workflow_definitions(workflows, task_queue)
+        workflow_definitions += _get_workflow_definitions([ParallelExecutionWorkflow], task_queue)
+        if plugin_workflows:
+            workflow_definitions += _get_workflow_definitions(plugin_workflows, task_queue)
 
         # Build deployment location from config
         location_proto = DeploymentLocation(
@@ -573,9 +586,10 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 "Some workflows are already registered by another worker. "
                 "Please use a custom task queue or set `ALLOW_MULTIPLE_WORKERS` to True"
             )
-        if config.worker.upload_graph:
-            # Refs are returned in submission order; ParallelExecutionWorkflow
-            # is always appended last, so [:len(workflows)] excludes it.
+        if config.worker.graph.upload_graph:
+            # Refs are returned in submission order; internal workflows
+            # (ParallelExecutionWorkflow, plugin workflows) are appended after
+            # user workflows, so [:len(workflows)] excludes them.
             refs = response.workflow_registration_refs
             if len(refs) >= len(workflows):
                 await _upload_workflow_graphs(
@@ -660,7 +674,27 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 await asyncio.gather(*[worker.shutdown() for worker in workers])
                 if health_server is not None:
                     await asyncio.get_running_loop().run_in_executor(None, health_server.shutdown)
+                # Flush and shutdown OTLP log exporter
+                if logger_provider is not None:
+                    logger_provider.shutdown()
                 logger.info("Worker shutdown complete")
+
+    except WorkflowsException as exc:
+        if exc.status == HTTPStatus.UNAUTHORIZED:
+            api_key = config.common.mistral_api_key.get_secret_value() if config.common.mistral_api_key else None
+            key_hint = f"...{api_key[-4:]}" if api_key and len(api_key) >= 4 else "<not set>"
+            logger.error(
+                "Authentication failed. Check your MISTRAL_API_KEY.",
+                api_key_hint=key_hint,
+                http_status=exc.status.value,
+            )
+            raise SystemExit(1) from None
+        label = exc.terminal_label()
+        if label:
+            ctx = extract_error_context(exc)
+            logger.error(label, api_error_code=ctx.get("api_error_code"), http_status=ctx.get("http_status"))
+            raise SystemExit(1) from None
+        raise
 
     except Exception as exc:
         logger.error("Worker stopped due to unhandled exception", **extract_error_context(exc), exc_info=exc)
@@ -686,7 +720,7 @@ async def run_worker(
     original_config = config.model_copy(deep=True)
 
     def _revert_config() -> None:
-        config.__dict__.update(original_config.__dict__)
+        config.__dict__.update(original_config.__dict__)  # pyright: ignore[reportAttributeAccessIssue]
 
     enable_config_discovery = (
         enable_config_discovery if enable_config_discovery is not None else config.worker.enable_config_discovery

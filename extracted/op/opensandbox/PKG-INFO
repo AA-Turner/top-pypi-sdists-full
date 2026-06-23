@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opensandbox
-Version: 0.1.11
+Version: 0.1.12
 Summary: OpenSandbox Python SDK - Secure, isolated execution environments
 Project-URL: Homepage, https://open-sandbox.ai
 Project-URL: Repository, https://github.com/alibaba/OpenSandbox
@@ -233,7 +233,6 @@ Description-Content-Type: text/markdown
 
 # OpenSandbox SDK for Python
 
-English | [中文](README_zh.md)
 
 A Python SDK for low-level interaction with OpenSandbox. It provides capabilities to create, manage, and interact with secure sandbox environments, including executing shell commands, managing files, and monitoring resources.
 
@@ -771,5 +770,5 @@ await sandbox.credential_vault.create(
 )
 ```
 
-See [Credential Vault](../../../docs/credential-vault.md) for auth types,
+See [Credential Vault](../../../docs/guides/credential-vault.md) for auth types,
 binding guidance, and Git/curl examples.

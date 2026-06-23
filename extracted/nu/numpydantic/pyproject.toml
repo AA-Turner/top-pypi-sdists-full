@@ -39,7 +39,7 @@ classifiers = [
     "Topic :: File Formats :: JSON :: JSON Schema",
     "Topic :: Utilities",
 ]
-version = "1.9.1"
+version = "1.10.0"
 
 [project.license]
 text = "MIT"
@@ -76,7 +76,7 @@ tests = [
     "pytest-depends<2.0.0,>=1.0.1",
     "coverage>=6.1.1",
     "pytest-cov>=4.1.0",
-    "coveralls<4.0.0,>=3.3.1",
+    "coveralls>=3.3.1",
     "pyright>=1.1.408",
     "pytest-xdist>=3.8.0",
 ]
@@ -105,6 +105,9 @@ distribution = true
 
 [tool.pdm.build]
 includes = []
+
+[tool.pdm.resolution]
+exclude-newer = "7d"
 
 [tool.pdm.scripts]
 test = "pytest"
@@ -232,8 +235,8 @@ fixable = [
 
 [tool.mypy]
 plugins = [
-    "pydantic.mypy",
     "numpydantic.mypy",
+    "pydantic.mypy",
 ]
 
 [[tool.mypy.overrides]]

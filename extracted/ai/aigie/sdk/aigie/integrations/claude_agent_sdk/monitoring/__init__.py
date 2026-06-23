@@ -2,7 +2,7 @@
 the `monitoring.{error_detection, drift_detection}` sub-object on
 trace_update payloads."""
 
-from .drift import (
+from aigie.integrations.claude_agent_sdk.monitoring.drift import (
     AgentPlan,
     DetectedDrift,
     DriftDetector,
@@ -12,7 +12,7 @@ from .drift import (
     get_drift_detector,
     reset_drift_detector,
 )
-from .error import (
+from aigie.integrations.claude_agent_sdk.monitoring.error import (
     DetectedError,
     ErrorDetector,
     ErrorSeverity,

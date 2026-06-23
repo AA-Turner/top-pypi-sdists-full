@@ -1305,6 +1305,8 @@ __all__ = [
     'RegionUrlMapTestArgsDict',
     'ReservationDeleteAfterDurationArgs',
     'ReservationDeleteAfterDurationArgsDict',
+    'ReservationParamsArgs',
+    'ReservationParamsArgsDict',
     'ReservationReservationSharingPolicyArgs',
     'ReservationReservationSharingPolicyArgsDict',
     'ReservationResourceStatusArgs',
@@ -64299,6 +64301,41 @@ class ReservationDeleteAfterDurationArgs:
     @seconds.setter
     def seconds(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "seconds", value)
+
+
+class ReservationParamsArgsDict(TypedDict):
+    resource_manager_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    """
+    Resource manager tags to be bound to the reservation. Tag keys and values have the
+    same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+    and values are in the format tagValues/456.
+    """
+
+@pulumi.input_type
+class ReservationParamsArgs:
+    def __init__(__self__, *,
+                 resource_manager_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] resource_manager_tags: Resource manager tags to be bound to the reservation. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        Resource manager tags to be bound to the reservation. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+    @resource_manager_tags.setter
+    def resource_manager_tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "resource_manager_tags", value)
 
 
 class ReservationReservationSharingPolicyArgsDict(TypedDict):

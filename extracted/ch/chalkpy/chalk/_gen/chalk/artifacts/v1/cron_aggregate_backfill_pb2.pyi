@@ -37,6 +37,7 @@ class CronAggregateBackfill(_message.Message):
         "upper_bound",
         "allow_empty_tiles",
         "targets",
+        "environment",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
@@ -50,6 +51,7 @@ class CronAggregateBackfill(_message.Message):
     UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
     ALLOW_EMPTY_TILES_FIELD_NUMBER: _ClassVar[int]
     TARGETS_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     name: str
     schedule: str
     file_name: str
@@ -62,6 +64,7 @@ class CronAggregateBackfill(_message.Message):
     upper_bound: _timestamp_pb2.Timestamp
     allow_empty_tiles: bool
     targets: _containers.RepeatedScalarFieldContainer[CronAggregateBackfillTarget]
+    environment: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -76,4 +79,5 @@ class CronAggregateBackfill(_message.Message):
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         allow_empty_tiles: bool = ...,
         targets: _Optional[_Iterable[_Union[CronAggregateBackfillTarget, str]]] = ...,
+        environment: _Optional[str] = ...,
     ) -> None: ...

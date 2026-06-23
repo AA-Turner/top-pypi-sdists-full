@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: AMQPStorm
-Version: 3.1.1
+Version: 3.1.2
 Summary: Thread-safe Python3 RabbitMQ Client & Management library.
 Author-email: Erik Olof Gunnar Andersson <amqpstorm@eandersson.net>
 License: MIT License

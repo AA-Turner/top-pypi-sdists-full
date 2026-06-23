@@ -738,6 +738,8 @@ class QueryRun(_message.Message):
         "duration",
         "trace_id",
         "resource_group",
+        "num_input_rows",
+        "multi_query_id",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -753,6 +755,8 @@ class QueryRun(_message.Message):
     DURATION_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    NUM_INPUT_ROWS_FIELD_NUMBER: _ClassVar[int]
+    MULTI_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     meta_query_id: str
     external_id: str
@@ -767,6 +771,8 @@ class QueryRun(_message.Message):
     duration: float
     trace_id: str
     resource_group: str
+    num_input_rows: int
+    multi_query_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -783,6 +789,8 @@ class QueryRun(_message.Message):
         duration: _Optional[float] = ...,
         trace_id: _Optional[str] = ...,
         resource_group: _Optional[str] = ...,
+        num_input_rows: _Optional[int] = ...,
+        multi_query_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetQueryRunRequest(_message.Message):

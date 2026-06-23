@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 from lxml import etree
 
 from contentstack_utils.automate import Automate
+from contentstack_utils.endpoint import Endpoint
 from contentstack_utils.entry_editable import addEditableTags as _addEditableTags
 from contentstack_utils.entry_editable import addTags as _addTags
 from contentstack_utils.entry_editable import getTag as _getTag
@@ -218,6 +219,34 @@ class Utils(Automate):
             style = convert_style(style)
             metadata = Metadata(element.text, typeof, uid, content_type, style, outer_html, attributes)
             return metadata
+
+    # ------------------------------------------------------------------
+    # Endpoint resolution — thin proxy to Endpoint class
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_contentstack_endpoint(
+        region: str = "us",
+        service: str = "",
+        omit_https: bool = False,
+    ):
+        """
+        Resolve a Contentstack service URL for the given region.
+
+        Delegates entirely to :class:`~contentstack_utils.endpoint.Endpoint`.
+        Both ``Utils.get_contentstack_endpoint(...)`` and
+        ``Endpoint.get_contentstack_endpoint(...)`` produce identical results —
+        choose whichever import path suits your codebase.
+
+        :param region: Region ID or alias (e.g. ``'na'``, ``'eu'``, ``'azure-na'``).
+        :param service: Optional service key (e.g. ``'contentDelivery'``).
+        :param omit_https: Strip ``https://`` from the returned URL(s).
+        :returns: URL string when *service* is given, dict of all URLs otherwise.
+        """
+        return Endpoint.get_contentstack_endpoint(region, service, omit_https)
+
+    # camelCase alias for cross-SDK parity
+    getContentstackEndpoint = get_contentstack_endpoint
 
     ####################################################
     #                   SUPERCHARGED                   #

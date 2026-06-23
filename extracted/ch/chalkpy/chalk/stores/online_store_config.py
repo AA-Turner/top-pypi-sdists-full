@@ -29,7 +29,6 @@ class OnlineStoreConfig:
     --------
     >>> from chalk.features import features, feature
     >>> from chalk.stores import LRUCache, OnlineStoreConfig
-    >>>
     >>> lru_cache_config = OnlineStoreConfig(
     ...     lru_cache=LRUCache(
     ...         max_size=10000,
@@ -37,7 +36,6 @@ class OnlineStoreConfig:
     ...         store_cache_misses=True,
     ...     )
     ... )
-    >>>
     >>> @features(online_store_config=lru_cache_config)
     ... class User:
     ...     id: int

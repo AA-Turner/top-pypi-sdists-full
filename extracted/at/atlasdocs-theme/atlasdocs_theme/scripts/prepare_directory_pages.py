@@ -100,11 +100,10 @@ Open the GitLab repository you want the directory page to pull history from.
 
 **Step 3 — Understand CI runners**
 
-Every time GitLab builds your site it does so on a *runner* — an isolated machine with its own permissions. Runners do not inherit your personal access, so you need to give the token to the runner explicitly via a CI variable.
+Every time GitLab builds your site it does so on a *runner* — an isolated machine with its own permissions. Runners need your properly configured token to access the repository. They do not inherit your personal permissions. To give them access, you need to add the token as a variable in your repository settings.
 
 **Step 4 — Add the variable**
-
-Go to **Settings › CI/CD › Variables** and add a new variable:
+On GitLab, go to **Settings › CI/CD › Variables** and add a new variable:
 
 | Field | Value |
 |---|---|
@@ -115,7 +114,9 @@ Go to **Settings › CI/CD › Variables** and add a new variable:
 
 **Step 5 — Rebuild**
 
-Trigger a new pipeline. Once the build completes, this page will show commit history, recency, and contributor data for every page in the directory.
+Trigger a new pipeline. Once the build completes, this page will show commit history, recency, and contributor data for every page in the directory. You can trigger a pipeline with a commit, an edit, or by going to **CI/CD › Pipelines** and clicking the "Run pipeline" button.
+
+**Once complete: It will look something like this:**
 
 ---
 """

@@ -7,10 +7,10 @@ Provides synchronous versions of all Aigie methods for use in non-async codebase
 import asyncio
 from typing import Any
 
-from .client import Aigie
-from .config import Config
-from .span import SpanContext
-from .trace import TraceContext
+from aigie.client import Aigie
+from aigie.config import Config
+from aigie.span import SpanContext
+from aigie.trace import TraceContext
 
 
 class AigieSync:

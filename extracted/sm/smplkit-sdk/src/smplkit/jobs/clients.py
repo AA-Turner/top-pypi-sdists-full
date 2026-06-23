@@ -76,8 +76,6 @@ __all__ = [
     "AsyncJobsClient",
 ]
 
-HttpHeader = tuple[str, str]
-
 
 class JobKind(str, Enum):
     """How a job runs, derived from its schedule (read-only).
@@ -136,6 +134,20 @@ def _parse_dt(value: Any) -> Optional[datetime.datetime]:
     return datetime.datetime.fromisoformat(text)
 
 
+def _coerce_policy_id(value: "RetryPolicy | AsyncRetryPolicy | str | None") -> Optional[str]:
+    """Coerce a retry-policy reference to its id.
+
+    Accepts a policy id string, a :class:`RetryPolicy` / :class:`AsyncRetryPolicy`
+    instance (its ``id`` is used), or ``None`` (no override / inherit). This is
+    the one coercion behind the ``retry_policy`` attribute on both :class:`Job`
+    and :class:`JobEnvironment`, so ``x.retry_policy = some_policy`` and
+    ``x.retry_policy = "retry-on-5xx"`` both work.
+    """
+    if value is None:
+        return None
+    return value.id if isinstance(value, _RetryPolicyBase) else value
+
+
 def _check(resp: Any) -> None:
     _raise_for_status(int(resp.status_code), resp.content)
 
@@ -183,7 +195,7 @@ class HttpConfig:
         *,
         url: str,
         method: str = "POST",
-        headers: Optional[list[HttpHeader]] = None,
+        headers: Optional[dict[str, str]] = None,
         body: Optional[str] = None,
         success_status: str = "2xx",
         timeout: int = 30,
@@ -195,8 +207,9 @@ class HttpConfig:
         Args:
             url: Destination URL the job sends its request to.
             method: HTTP verb used for the request. Defaults to ``"POST"``.
-            headers: Headers attached to the request, as ``(name, value)``
-                tuples. Defaults to no extra headers.
+            headers: Headers attached to the request, as a name→value object
+                (e.g. ``{"Authorization": "Bearer s3cr3t"}``). Defaults to no
+                extra headers.
             body: Request body sent with the call, or ``None`` for no body.
             success_status: Status the destination must return for the run to
                 count as a success — an exact code (``"200"``) or a class
@@ -211,18 +224,26 @@ class HttpConfig:
         """
         self.url = url
         self.method = method
-        self.headers: list[HttpHeader] = list(headers or [])
+        self.headers: dict[str, str] = dict(headers or {})
         self.body = body
         self.success_status = success_status
         self.timeout = timeout
         self.tls_verify = tls_verify
         self.ca_cert = ca_cert
 
+    def set_header(self, name: str, value: str) -> None:
+        """Set (or replace) a single request header by name."""
+        self.headers[name] = value
+
+    def get_header(self, name: str) -> Optional[str]:
+        """The value of header ``name``, or ``None`` if it is not set."""
+        return self.headers.get(name)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "url": self.url,
-            "headers": [{"name": n, "value": v} for n, v in self.headers],
+            "headers": dict(self.headers),
             "body": self.body,
             "success_status": self.success_status,
             "timeout": self.timeout,
@@ -236,8 +257,8 @@ class HttpConfig:
 
         Args:
             d: HTTP configuration as a mapping, with at least a ``"url"`` key
-                and optional ``method``, ``headers``, ``body``,
-                ``success_status``, ``timeout``, ``tls_verify``, and
+                and optional ``method``, ``headers`` (a name→value object),
+                ``body``, ``success_status``, ``timeout``, ``tls_verify``, and
                 ``ca_cert`` entries. Omitted keys fall back to their defaults.
 
         Returns:
@@ -246,7 +267,7 @@ class HttpConfig:
         return cls(
             url=d["url"],
             method=d.get("method", "POST"),
-            headers=[(h["name"], h["value"]) for h in (d.get("headers") or [])],
+            headers=dict(d.get("headers") or {}),
             body=d.get("body"),
             success_status=d.get("success_status", "2xx"),
             timeout=d.get("timeout", 30),
@@ -258,97 +279,170 @@ class HttpConfig:
         return f"HttpConfig(method={self.method!r}, url={self.url!r})"
 
 
-@dataclass(slots=True)
-class JobEnvironment:
-    """Per-environment enablement, schedule, and configuration override for a job.
+# The request-config leaves an environment may override (everything except
+# headers, which are addressed individually as ``headers.<name>``). These map
+# 1:1 onto :class:`HttpConfig` fields and onto top-level overlay leaf paths.
+_REQUEST_LEAVES = ("url", "method", "timeout", "body", "success_status", "tls_verify", "ca_cert")
+# The scalar (non-header) overlay leaves, in payload order.
+_SCALAR_LEAVES = ("schedule", "timezone", "retry_policy", *_REQUEST_LEAVES)
 
-    A job runs in a given environment only when that environment has an entry in
-    :attr:`Job.environments` with ``enabled=True`` (scheduled there for a
-    recurring job, triggerable there for a manual one); an environment with no
-    entry (or ``enabled=False``) is disabled there.
+
+class JobEnvironment:
+    """One environment's **sparse override** for a job (ADR-056).
+
+    A job's :attr:`Job.environments` map holds one of these per environment. Only
+    the leaves you set are sent on save; everything you leave unset is inherited
+    from the job's base definition, and the server resolves base ⊕ overrides when
+    the job fires. The base definition is disabled everywhere, so a job runs in an
+    environment only when that environment's override sets ``enabled=True``.
+
+    Set overrides through :meth:`Job.environment`, e.g.
+    ``job.environment("production").url = "https://prod.example.com/warm"``.
+
+    **Reading a leaf returns this environment's override, or ``None`` when it does
+    not override that leaf** — the SDK does not merge in the base value (jobs
+    resolve server-side). To see a base value, read the job's base definition
+    (``job.configuration``, ``job.schedule``, …).
 
     Attributes:
-        enabled: Whether the job is enabled in this environment. Defaults to
-            ``False``.
-        schedule: Optional per-environment cron override that varies the cadence
-            for this environment. ``None`` (the default) inherits the job's base
-            :attr:`Job.schedule`.
-        timezone: Optional per-environment IANA timezone override (e.g.
-            ``"America/New_York"``) for evaluating this environment's cron
-            schedule (recurring jobs only). ``None`` (the default) inherits the
-            job's base :attr:`Job.timezone`, else UTC. It may be set on an
-            environment that inherits the base schedule — it need not also
-            override :attr:`schedule`. Sent on writes only when not ``None``.
-        retry_policy: Optional per-environment retry-policy override — the id of
-            a :class:`RetryPolicy` (or ``"Default"``). ``None`` (the default)
-            inherits the job's base :attr:`Job.retry_policy`. Sent on writes
-            only when not ``None``.
-        configuration: Optional per-environment request configuration that
-            fully replaces the job's base :attr:`Job.configuration` for this
-            environment. ``None`` (the default) inherits the base
-            configuration.
-        next_run_at: Read-only next scheduled fire time in this environment, as
-            reported by the server, always a UTC instant. ``None`` when the
-            environment is not enabled or once a one-off run has fired. Never
-            sent on save.
+        enabled: Whether the job runs in this environment. Defaults to ``False``.
+        schedule: Per-environment cron override (recurring jobs only). ``None``
+            inherits the base :attr:`Job.schedule`.
+        timezone: Per-environment IANA timezone override (recurring jobs only).
+            ``None`` inherits the base :attr:`Job.timezone`, else UTC.
+        retry_policy: Per-environment retry-policy override — a policy id, a
+            :class:`RetryPolicy` (coerced to its id), or ``"Default"``. ``None``
+            inherits the base :attr:`Job.retry_policy`.
+        url, method, timeout, body, success_status, tls_verify, ca_cert:
+            Per-environment overrides of the corresponding request field.
+            ``None`` inherits the base :attr:`Job.configuration` value.
+        headers: Per-environment header overrides, as a name→value object. Each
+            entry overrides (or adds) that one header by name on top of the base
+            headers, leaving the rest inherited. Use :meth:`set_header` /
+            :meth:`get_header`.
+        next_run_at: Read-only next scheduled fire time in this environment (UTC),
+            or ``None`` when not enabled / once a one-off has fired. Never sent on
+            save.
     """
 
-    enabled: bool = False
-    schedule: Optional[str] = None
-    timezone: Optional[str] = None
-    retry_policy: Optional[str] = None
-    configuration: Optional[HttpConfig] = None
-    next_run_at: Optional[datetime.datetime] = None
+    def __init__(
+        self,
+        *,
+        enabled: bool = False,
+        schedule: Optional[str] = None,
+        timezone: Optional[str] = None,
+        retry_policy: "RetryPolicy | AsyncRetryPolicy | str | None" = None,
+        url: Optional[str] = None,
+        method: Optional[str] = None,
+        timeout: Optional[int] = None,
+        body: Optional[str] = None,
+        success_status: Optional[str] = None,
+        tls_verify: Optional[bool] = None,
+        ca_cert: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+        next_run_at: Optional[datetime.datetime] = None,
+    ) -> None:
+        self.enabled = enabled
+        self.schedule = schedule
+        self.timezone = timezone
+        self.retry_policy = retry_policy  # coercing property
+        self.url = url
+        self.method = method
+        self.timeout = timeout
+        self.body = body
+        self.success_status = success_status
+        self.tls_verify = tls_verify
+        self.ca_cert = ca_cert
+        self.headers: dict[str, str] = dict(headers or {})
+        self.next_run_at = next_run_at
+
+    @property
+    def retry_policy(self) -> Optional[str]:
+        return self._retry_policy
+
+    @retry_policy.setter
+    def retry_policy(self, value: "RetryPolicy | AsyncRetryPolicy | str | None") -> None:
+        self._retry_policy = _coerce_policy_id(value)
+
+    def set_header(self, name: str, value: str) -> None:
+        """Override (or add) a single header by name in this environment."""
+        self.headers[name] = value
+
+    def get_header(self, name: str) -> Optional[str]:
+        """This environment's override for header ``name``, or ``None`` when it
+        does not override that header."""
+        return self.headers.get(name)
 
     @classmethod
     def _from_dict(cls, raw: dict[str, Any]) -> "JobEnvironment":
-        cfg = raw.get("configuration")
+        """Parse the flat leaf-path overlay the server returns (ADR-056).
+
+        Header leaves arrive as ``headers.<name>`` (parsed on the first dot, so a
+        dotted header name like ``X-Foo.Bar`` is preserved); every other leaf is
+        a single top-level key. Unknown leaves are ignored for forward
+        compatibility.
+        """
+        headers: dict[str, str] = {}
+        scalars: dict[str, Any] = {}
+        for key, value in (raw or {}).items():
+            if key == "next_run_at":
+                continue
+            group, _, name = key.partition(".")
+            if group == "headers" and name:
+                headers[name] = value
+            elif key in _SCALAR_LEAVES or key == "enabled":
+                scalars[key] = value
         return cls(
-            enabled=bool(raw.get("enabled", False)),
-            schedule=raw.get("schedule"),
-            timezone=raw.get("timezone"),
-            retry_policy=raw.get("retry_policy"),
-            configuration=HttpConfig.from_dict(cfg) if cfg else None,
+            enabled=bool(scalars.get("enabled", False)),
+            schedule=scalars.get("schedule"),
+            timezone=scalars.get("timezone"),
+            retry_policy=scalars.get("retry_policy"),
+            url=scalars.get("url"),
+            method=scalars.get("method"),
+            timeout=scalars.get("timeout"),
+            body=scalars.get("body"),
+            success_status=scalars.get("success_status"),
+            tls_verify=scalars.get("tls_verify"),
+            ca_cert=scalars.get("ca_cert"),
+            headers=headers,
             next_run_at=_parse_dt(raw.get("next_run_at")),
         )
 
     def _to_payload(self) -> dict[str, Any]:
+        """Emit the flat sparse leaf-path overlay (ADR-056) — ``enabled`` plus
+        only the leaves this environment overrides, with each header as a
+        ``headers.<name>`` leaf."""
         payload: dict[str, Any] = {"enabled": self.enabled}
-        if self.schedule is not None:
-            payload["schedule"] = self.schedule
-        if self.timezone is not None:
-            payload["timezone"] = self.timezone
-        if self.retry_policy is not None:
-            payload["retry_policy"] = self.retry_policy
-        if self.configuration is not None:
-            payload["configuration"] = self.configuration.to_dict()
+        for leaf in _SCALAR_LEAVES:
+            value = getattr(self, leaf)
+            if value is not None:
+                payload[leaf] = value
+        for name, value in self.headers.items():
+            payload[f"headers.{name}"] = value
         return payload
+
+    def __repr__(self) -> str:
+        overridden = sorted(
+            [leaf for leaf in _SCALAR_LEAVES if getattr(self, leaf) is not None]
+            + [f"headers.{n}" for n in self.headers]
+        )
+        return f"JobEnvironment(enabled={self.enabled!r}, overrides={overridden!r})"
 
 
 def _normalize_environments(
     environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
 ) -> dict[str, JobEnvironment]:
-    """Coerce a loose ``environments`` mapping into ``{key: JobEnvironment}``."""
+    """Coerce a loose ``environments`` mapping into ``{key: JobEnvironment}``.
+
+    A value may be a :class:`JobEnvironment` (used as-is) or a plain dict of
+    constructor kwargs (``{"enabled": True, "url": ..., "headers": {...}}``),
+    which is splatted into :class:`JobEnvironment`.
+    """
     if not environments:
         return {}
     out: dict[str, JobEnvironment] = {}
     for env_key, value in environments.items():
-        if isinstance(value, JobEnvironment):
-            out[env_key] = value
-        else:
-            # A dict-form override may carry its configuration as an HttpConfig
-            # or a plain dict — coerce a dict so it serializes on save (matches
-            # the server-parse path in JobEnvironment._from_dict).
-            cfg = value.get("configuration")
-            if cfg is not None and not isinstance(cfg, HttpConfig):
-                cfg = HttpConfig.from_dict(cfg)
-            out[env_key] = JobEnvironment(
-                enabled=bool(value.get("enabled", False)),
-                schedule=value.get("schedule"),
-                timezone=value.get("timezone"),
-                retry_policy=value.get("retry_policy"),
-                configuration=cfg,
-            )
+        out[env_key] = value if isinstance(value, JobEnvironment) else JobEnvironment(**value)
     return out
 
 
@@ -402,10 +496,10 @@ class _JobBase:
         self.id = id
         self.name = name
         self.description = description
-        # Per-environment overrides ``{env_key: JobEnvironment}``. The writable
-        # surface for enablement: set an entry's ``enabled`` (and optional
-        # schedule / configuration) to make the job fire in that environment.
-        # Each entry also reports its read-only ``next_run_at``.
+        # Per-environment sparse overrides ``{env_key: JobEnvironment}`` (ADR-056).
+        # Reach one via :meth:`environment` and set its ``enabled`` / leaf
+        # overrides to make the job run (and vary its request) in that
+        # environment. Each entry also reports its read-only ``next_run_at``.
         self.environments: dict[str, JobEnvironment] = environments if environments is not None else {}
         # Read-only server-derived kind (see :class:`JobKind`).
         self.kind = kind
@@ -437,10 +531,22 @@ class _JobBase:
         """Read-only roll-up: ``True`` when enabled in at least one environment.
 
         Derived from the :attr:`environments` map — the job has no server-side
-        top-level ``enabled`` field. Set enablement per environment via
-        :meth:`set_enabled` (or the ``environments`` map).
+        top-level ``enabled`` field. Enable per environment via
+        ``job.environment(env).enabled = True``.
         """
         return any(env.enabled for env in self.environments.values())
+
+    @property
+    def retry_policy(self) -> Optional[str]:
+        """The base retry-policy id, or ``None`` for the built-in ``Default``.
+
+        Assigning accepts a policy id string or a :class:`RetryPolicy` /
+        :class:`AsyncRetryPolicy` instance (coerced to its id)."""
+        return self._retry_policy
+
+    @retry_policy.setter
+    def retry_policy(self, value: "RetryPolicy | AsyncRetryPolicy | str | None") -> None:
+        self._retry_policy = _coerce_policy_id(value)
 
     def is_recurring(self) -> bool:
         """Whether this is a recurring (cron-scheduled) job."""
@@ -457,113 +563,26 @@ class _JobBase:
     def _apply(self, other: "_JobBase") -> None:
         self.__dict__.update({k: v for k, v in other.__dict__.items() if not k.startswith("_client")})
 
-    def _environment_override(self, environment: str) -> JobEnvironment:
+    def environment(self, environment: str) -> JobEnvironment:
+        """The per-environment override for ``environment`` — the single place to
+        read or set what this job overrides there (ADR-056).
+
+        Returns the :class:`JobEnvironment` for ``environment``, creating an empty
+        one (and inserting it into :attr:`environments`) on first access, so you
+        can set overrides directly::
+
+            job.environment("production").enabled = True
+            job.environment("production").url = "https://prod.example.com/warm"
+            job.environment("production").set_header("Authorization", "Bearer prod")
+
+        Only the leaves you set are sent on save; everything else inherits the
+        base definition (the server resolves base ⊕ overrides when the job fires).
+        """
         env = self.environments.get(environment)
         if env is None:
             env = JobEnvironment()
             self.environments[environment] = env
         return env
-
-    def set_enabled(self, enabled: bool, environment: str) -> None:
-        """Enable or disable the job in a single environment."""
-        self._environment_override(environment).enabled = enabled
-
-    def is_enabled(self, environment: Optional[str] = None) -> bool:
-        """Whether the job is enabled.
-
-        With ``environment=None`` (the default), returns the derived roll-up —
-        ``True`` when the job is enabled in at least one environment. With an
-        ``environment``, returns whether the job is enabled in that specific
-        environment.
-        """
-        if environment is None:
-            return self.enabled
-        override = self.environments.get(environment)
-        return bool(override and override.enabled)
-
-    def set_configuration(self, configuration: HttpConfig, environment: Optional[str] = None) -> None:
-        """Set the job's configuration — base (``environment=None``) or per-environment."""
-        if environment is None:
-            self.configuration = configuration
-        else:
-            self._environment_override(environment).configuration = configuration
-
-    def get_configuration(self, environment: Optional[str] = None) -> HttpConfig:
-        """The job's effective configuration.
-
-        With ``environment=None`` (the default), returns the base
-        configuration. With an ``environment``, returns that environment's
-        configuration override when it has one, else the base configuration —
-        the request the job actually sends when it fires in that environment.
-        """
-        if environment is not None:
-            override = self.environments.get(environment)
-            if override is not None and override.configuration is not None:
-                return override.configuration
-        return self.configuration
-
-    def set_schedule(self, schedule: str, timezone: Optional[str] = None, environment: Optional[str] = None) -> None:
-        """Set the job's schedule — base (``environment=None``) or per-environment.
-
-        With ``environment=None`` (the default) this sets the job's base
-        :attr:`schedule`, the cadence every environment inherits unless it
-        overrides it. With an ``environment``, this sets a per-environment cron
-        override that varies the cadence for just that environment (recurring
-        jobs only); pass the environment's base cadence back, or clear the
-        override, to fall back to the base schedule.
-
-        Because the timezone is an integral part of a cron cadence, a
-        ``timezone`` may be supplied alongside the schedule; when given it sets
-        the same scope's timezone too (equivalent to a follow-up
-        :meth:`set_timezone`). Omit it to leave the timezone untouched. For a
-        timezone-only change, use :meth:`set_timezone`.
-        """
-        if environment is None:
-            self.schedule = schedule
-        else:
-            self._environment_override(environment).schedule = schedule
-        if timezone is not None:
-            self.set_timezone(timezone, environment)
-
-    def set_timezone(self, timezone: str, environment: Optional[str] = None) -> None:
-        """Set the IANA timezone the cron schedule runs in — base or per-environment.
-
-        With ``environment=None`` (the default) this sets the job's base
-        :attr:`timezone`, the zone every environment inherits unless it
-        overrides it; ``None``/unset means UTC. With an ``environment``, this
-        sets a per-environment timezone override for just that environment,
-        creating the override entry if it doesn't exist yet (preserving any
-        already-set ``enabled`` / ``schedule`` / ``configuration`` on it). A
-        timezone is only meaningful on a recurring (cron) job, and an
-        environment may set one even while inheriting the base schedule.
-        :attr:`next_run_at` is still reported as a UTC instant.
-        """
-        if environment is None:
-            self.timezone = timezone
-        else:
-            self._environment_override(environment).timezone = timezone
-
-    def set_retry_policy(
-        self, retry_policy: "RetryPolicy | AsyncRetryPolicy | str", environment: Optional[str] = None
-    ) -> None:
-        """Set the retry policy for failed runs — base or per-environment.
-
-        With ``environment=None`` (the default) this sets the job's base
-        :attr:`retry_policy`, the policy every environment inherits unless it
-        overrides it. With an ``environment``, this sets a per-environment
-        override for just that environment, creating the override entry if it
-        doesn't exist yet (preserving any already-set ``enabled`` / ``schedule``
-        / ``timezone`` / ``configuration`` on it).
-
-        Accepts either a :class:`RetryPolicy` / :class:`AsyncRetryPolicy`
-        instance (its id is used) or a policy id string — pass ``"Default"`` for
-        the built-in never-retry policy.
-        """
-        policy_id = retry_policy.id if isinstance(retry_policy, _RetryPolicyBase) else retry_policy
-        if environment is None:
-            self.retry_policy = policy_id
-        else:
-            self._environment_override(environment).retry_policy = policy_id
 
     def _attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -1318,8 +1337,8 @@ class RetryPoliciesClient:
 
     Reached as ``client.jobs.retry_policies``. A :class:`RetryPolicy` is an
     active record: build one with :meth:`new`, set fields, and call ``save()``;
-    then reference it from a job's ``retry_policy`` (see
-    :meth:`JobsClient.new_recurring_job` and :meth:`Job.set_retry_policy`).
+    then reference it from a job's ``retry_policy`` (base: ``job.retry_policy =
+    policy``; per-environment: ``job.environment(env).retry_policy = policy``).
     Retry policies are account-global — never environment-scoped.
     """
 

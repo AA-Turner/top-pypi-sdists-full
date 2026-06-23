@@ -620,7 +620,8 @@ impl Interpreter {
 
     /// Check if dotglob shopt is enabled
     pub(crate) fn is_dotglob(&self) -> bool {
-        self.variables
+        self.scoped
+            .variables
             .get("SHOPT_dotglob")
             .map(|v| v == "1")
             .unwrap_or(false)
@@ -628,7 +629,8 @@ impl Interpreter {
 
     /// Check if nocaseglob shopt is enabled
     pub(crate) fn is_nocaseglob(&self) -> bool {
-        self.variables
+        self.scoped
+            .variables
             .get("SHOPT_nocaseglob")
             .map(|v| v == "1")
             .unwrap_or(false)
@@ -636,7 +638,8 @@ impl Interpreter {
 
     /// Check if noglob (set -f) is enabled
     pub(crate) fn is_noglob(&self) -> bool {
-        self.variables
+        self.scoped
+            .variables
             .get("SHOPT_f")
             .map(|v| v == "1")
             .unwrap_or(false)
@@ -644,7 +647,8 @@ impl Interpreter {
 
     /// Check if failglob shopt is enabled
     pub(crate) fn is_failglob(&self) -> bool {
-        self.variables
+        self.scoped
+            .variables
             .get("SHOPT_failglob")
             .map(|v| v == "1")
             .unwrap_or(false)
@@ -652,7 +656,8 @@ impl Interpreter {
 
     /// Check if globstar shopt is enabled
     pub(crate) fn is_globstar(&self) -> bool {
-        self.variables
+        self.scoped
+            .variables
             .get("SHOPT_globstar")
             .map(|v| v == "1")
             .unwrap_or(false)
@@ -660,7 +665,8 @@ impl Interpreter {
 
     /// Check if extglob shopt is enabled
     pub(crate) fn is_extglob(&self) -> bool {
-        self.variables
+        self.scoped
+            .variables
             .get("SHOPT_extglob")
             .map(|v| v == "1")
             .unwrap_or(false)
@@ -683,6 +689,7 @@ impl Interpreter {
                 return Err(item.to_string());
             }
             let nullglob = self
+                .scoped
                 .variables
                 .get("SHOPT_nullglob")
                 .map(|v| v == "1")
@@ -697,25 +704,34 @@ impl Interpreter {
         }
     }
 
-    /// Strip backslash escapes (`\X` → `X`) from a path string.
+    /// Strip only parser-inserted glob metacharacter escapes from a path string.
     ///
-    /// `escape_glob_metas_in_quoted_ranges` inserts `\` before metacharacters in
-    /// quoted segments to prevent brace-expansion.  Before using a path component
-    /// for filesystem lookup those escapes must be removed, because VFS paths are
-    /// stored without them.  The glob-pattern component (file_name) is left intact
-    /// because `glob_match_impl` and `contains_glob_chars` already understand `\`.
+    /// `quote_expansion_for_quoted_glob` inserts `\` before metacharacters in
+    /// quoted segments to keep them literal while an adjacent unquoted glob suffix
+    /// remains active.  Directory lookup must remove those synthetic escapes, but
+    /// must not remove arbitrary `\X` pairs from expanded data: parameter and
+    /// command substitution can produce literal backslashes after parsing, and
+    /// turning `.\.` into `..` would change the lookup directory.
+    ///
+    /// The metacharacter set below must stay in sync with the escape set in
+    /// `Interpreter::quote_expansion_for_quoted_glob` (interpreter/mod.rs); if
+    /// one side adds or drops a character, lookups break or escapes leak.
     fn glob_path_unescape(s: &str) -> String {
         let mut result = String::with_capacity(s.len());
-        let mut escaped = false;
-        for ch in s.chars() {
-            if escaped {
-                result.push(ch);
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else {
-                result.push(ch);
+        let mut chars = s.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\\'
+                && let Some(&next) = chars.peek()
+                && matches!(
+                    next,
+                    '\\' | '*' | '?' | '[' | ']' | '{' | '}' | '@' | '!' | '+' | '(' | ')' | '|'
+                )
+            {
+                result.push(next);
+                chars.next();
+                continue;
             }
+            result.push(ch);
         }
         result
     }

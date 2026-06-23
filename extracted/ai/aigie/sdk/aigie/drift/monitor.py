@@ -19,7 +19,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..interceptor.protocols import InterceptionContext
+    from aigie.interceptor.protocols import InterceptionContext
 
 logger = logging.getLogger("aigie.drift")
 

@@ -82,7 +82,7 @@ class LangChainFixAdapter:
 
 
 try:
-    from ...realtime.fix_applicator import register_fix_adapter
+    from aigie.realtime.fix_applicator import register_fix_adapter
 
     register_fix_adapter("langchain", LangChainFixAdapter())
 except ImportError:

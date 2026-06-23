@@ -12,13 +12,10 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from ....context_manager import merge_metadata
-from ..cost_tracking import calculate_claude_cost
-from ..monitoring import DriftDetector
-from ..native_callback import (
-    _pick_error_message,
-    _utc_now,
-)
+from aigie.context_manager import merge_metadata
+from aigie.integrations.claude_agent_sdk.cost_tracking import calculate_claude_cost
+from aigie.integrations.claude_agent_sdk.monitoring import DriftDetector
+from aigie.integrations.claude_agent_sdk.native_callback import _pick_error_message, _utc_now
 
 if TYPE_CHECKING:
     pass
@@ -165,7 +162,7 @@ class QueryEvents:
 
         if should_create_trace:
             try:
-                from ....auto_instrument.span_enricher import set_active_trace_id
+                from aigie.auto_instrument.span_enricher import set_active_trace_id
 
                 set_active_trace_id(self.trace_id)
             except Exception as exc:  # noqa: BLE001

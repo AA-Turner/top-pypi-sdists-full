@@ -776,17 +776,32 @@ class DBOS:
                 else:
                     break
         if self._timeout_tasks:
+            target_loop = self._background_event_loop.target_loop()
+            try:
+                current_loop: Optional[asyncio.AbstractEventLoop] = (
+                    asyncio.get_running_loop()
+                )
+            except RuntimeError:
+                current_loop = None
 
-            async def cancel_timeout_tasks() -> None:
+            if current_loop is not None and current_loop is target_loop:
+                # destroy() is running on the loop that owns the timeout
+                # tasks, so cancel them directly.
                 for task in self._timeout_tasks:
                     task.cancel()
-                await asyncio.gather(*self._timeout_tasks, return_exceptions=True)
                 self._timeout_tasks.clear()
+            else:
 
-            try:
-                self._background_event_loop.submit_coroutine(cancel_timeout_tasks())
-            except RuntimeError as e:
-                dbos_logger.warning(f"Exception cancelling timeout tasks: {e}")
+                async def cancel_timeout_tasks() -> None:
+                    for task in self._timeout_tasks:
+                        task.cancel()
+                    await asyncio.gather(*self._timeout_tasks, return_exceptions=True)
+                    self._timeout_tasks.clear()
+
+                try:
+                    self._background_event_loop.submit_coroutine(cancel_timeout_tasks())
+                except RuntimeError as e:
+                    dbos_logger.warning(f"Exception cancelling timeout tasks: {e}")
         self._background_event_loop.stop()
         if self._admin_server_field is not None:
             self._admin_server_field.stop()
@@ -1939,6 +1954,54 @@ class DBOS:
         )
 
     @classmethod
+    def update_workflow_attributes(
+        cls, workflow_id: str, attributes: Optional[Dict[str, Any]]
+    ) -> None:
+        """Replace the custom attributes attached to a workflow by ID. Pass None to clear all attributes.
+
+        Safe to call from within a workflow: the update is recorded as a step so
+        it runs exactly once even if the workflow is recovered.
+        """
+        check_async("update_workflow_attributes")
+
+        def fn() -> None:
+            dbos_logger.info(f"Updating attributes of workflow: {workflow_id}")
+            _get_dbos_instance()._sys_db.update_workflow_attributes(
+                workflow_id, attributes
+            )
+
+        return _get_dbos_instance()._sys_db.call_function_as_step(
+            fn,
+            "DBOS.updateWorkflowAttributes",
+            snapshot_step_context(reserve_sleep_id=False),
+        )
+
+    @classmethod
+    async def update_workflow_attributes_async(
+        cls, workflow_id: str, attributes: Optional[Dict[str, Any]]
+    ) -> None:
+        """Replace the custom attributes attached to a workflow by ID. Pass None to clear all attributes.
+
+        Safe to call from within a workflow: the update is recorded as a step so
+        it runs exactly once even if the workflow is recovered.
+        """
+        step_ctx = snapshot_step_context(reserve_sleep_id=False)
+        await cls._configure_asyncio_thread_pool()
+
+        def fn() -> None:
+            dbos_logger.info(f"Updating attributes of workflow: {workflow_id}")
+            _get_dbos_instance()._sys_db.update_workflow_attributes(
+                workflow_id, attributes
+            )
+
+        return await asyncio.to_thread(
+            _get_dbos_instance()._sys_db.call_function_as_step,
+            fn,
+            "DBOS.updateWorkflowAttributes",
+            step_ctx,
+        )
+
+    @classmethod
     def delete_workflow(
         cls, workflow_id: str, *, delete_children: bool = False
     ) -> None:
@@ -2273,6 +2336,8 @@ class DBOS:
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        schedule_name: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         check_async("list_workflows")
 
@@ -2302,6 +2367,8 @@ class DBOS:
                 queues_only=queues_only,
                 was_forked_from=was_forked_from,
                 has_parent=has_parent,
+                attributes=attributes,
+                schedule_name=schedule_name,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -2336,6 +2403,8 @@ class DBOS:
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        schedule_name: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
@@ -2366,6 +2435,8 @@ class DBOS:
                 queues_only=queues_only,
                 was_forked_from=was_forked_from,
                 has_parent=has_parent,
+                attributes=attributes,
+                schedule_name=schedule_name,
             )
 
         return await asyncio.to_thread(
@@ -2401,6 +2472,7 @@ class DBOS:
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> List[WorkflowStatus]:
         check_async("list_queued_workflows")
 
@@ -2429,6 +2501,7 @@ class DBOS:
                 executor_id=executor_id,
                 queues_only=True,
                 has_parent=has_parent,
+                attributes=attributes,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -2463,6 +2536,7 @@ class DBOS:
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> List[WorkflowStatus]:
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
@@ -2492,6 +2566,7 @@ class DBOS:
                 executor_id=executor_id,
                 queues_only=True,
                 has_parent=has_parent,
+                attributes=attributes,
             )
 
         return await asyncio.to_thread(

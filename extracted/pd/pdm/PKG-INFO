@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdm
-Version: 2.27.0
+Version: 2.28.0
 Summary: A modern Python package and dependency manager supporting the latest PEP standards
 Keywords: packaging,dependency,workflow
 Author-Email: Frost Ming <mianghong@gmail.com>
@@ -115,6 +115,8 @@ Description-Content-Type: text/markdown
 <div align="center">
 
 # PDM
+
+[![Support Frost's Python packaging ecosystem](https://img.shields.io/badge/Sponsor-Python%20packaging%20ecosystem-ea4aaa?logo=githubsponsors&logoColor=white&style=for-the-badge)](https://github.com/sponsors/frostming)
 
 A modern Python package and dependency manager supporting the latest PEP standards.
 [中文版本说明](README_zh.md)

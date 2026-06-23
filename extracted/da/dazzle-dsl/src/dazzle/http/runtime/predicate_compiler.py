@@ -27,6 +27,7 @@ from dazzle.core.ir.predicates import (
     Contradiction,
     ExistsCheck,
     PathCheck,
+    PolyPathCheck,
     ScopePredicate,
     Tautology,
     UserAttrCheck,
@@ -634,6 +635,55 @@ def _path_check_subquery(
     return root_fk_field, from_table, where_body, params
 
 
+def _compile_poly_path_check(
+    predicate: PolyPathCheck,
+    entity_name: str,
+    fk_graph: FKGraph,
+    *,
+    schema: str | None = None,
+    policy: _PolicyCtx | None = None,
+) -> tuple[str, list[Any]]:
+    """Compile a PolyPathCheck (#1448): type-guard AND uuid ``IN (SELECT …)``.
+
+    Param mode::
+
+        "target_type" = %s AND "target_id" IN (SELECT "id" FROM <target> WHERE <sub>)
+
+    Policy mode inlines the discriminator literal and emits the sub in policy
+    form. If the sub isn't policy-expressible the recursive call raises
+    ``ValueError`` → the verb degrades to the app layer via the #1447 path
+    (``build_rls_scope_policy_ddl``). ``target_id`` is a real ``uuid`` column,
+    so there is no cast anywhere.
+    """
+    target_table = _qualify_table(predicate.target_entity, schema)
+    # #1449/#1448: in PARAM mode (app-layer list/read) TABLE-qualify the poly
+    # columns so a same-named column on an FK-display LEFT JOIN target can't make
+    # the reference ambiguous (target_type/target_id are common poly column names).
+    # Policy mode (RLS USING/WITH CHECK) has no joins → bare, byte-for-byte as before.
+    if predicate.field and policy is None and entity_name:
+        prefix = f"{_qualify_table(entity_name, None)}."
+        type_col = f"{prefix}{quote_identifier(predicate.type_field)}"
+        id_col = f"{prefix}{quote_identifier(predicate.id_field)}"
+    else:
+        type_col = quote_identifier(predicate.type_field)
+        id_col = quote_identifier(predicate.id_field)
+
+    sub_sql, sub_params = _compile_predicate_impl(
+        predicate.sub, predicate.target_entity, fk_graph, schema=schema, policy=policy
+    )
+    sub_where = sub_sql if sub_sql else "true"
+
+    if policy is not None:
+        type_guard = f"{type_col} = {_inline_sql_literal(predicate.type_value)}"
+        sql = f'{type_guard} AND {id_col} IN (SELECT "id" FROM {target_table} WHERE {sub_where})'
+        return sql, []
+
+    type_guard = f"{type_col} = %s"
+    sql = f'{type_guard} AND {id_col} IN (SELECT "id" FROM {target_table} WHERE {sub_where})'
+    params: list[Any] = [predicate.type_value, *sub_params]
+    return sql, params
+
+
 def _compile_path_check(
     predicate: PathCheck,
     entity_name: str,
@@ -706,6 +756,37 @@ def compile_path_check_probe(
     )
     sql = f'EXISTS (SELECT 1 FROM {root_target_table} WHERE "id" = %s AND ({where_body}))'
     return sql, [PayloadFieldRef(root_fk_field), *params]
+
+
+def compile_poly_path_check_probe(
+    predicate: PolyPathCheck,
+    entity_name: str,
+    fk_graph: FKGraph,
+    *,
+    schema: str | None = None,
+) -> tuple[str, list[Any]]:
+    """Compile a PolyPathCheck into a create-scope probe expression (#1455).
+
+    At create time the poly row doesn't exist yet — its discriminator + id come
+    from the payload. The discriminator (``{field}_type``) is checked in pure
+    Python by the walker; this probe handles the **sub**: does the target row the
+    payload's ``{field}_id`` points at satisfy the sub-predicate? It matches the
+    payload id against the target's ``id`` (the type-coercion-safe shape, like
+    :func:`compile_path_check_probe`)::
+
+        EXISTS (SELECT 1 FROM "Cohort" WHERE "id" = %s AND ("uploaded_by" = %s))
+
+    ``params[0]`` is a :class:`PayloadFieldRef` for ``{field}_id``; the rest are
+    the sub-predicate's value markers (``CurrentUserRef`` / ``UserAttrRef`` /
+    literals), in order.
+    """
+    target_table = _qualify_table(predicate.target_entity, schema)
+    sub_sql, sub_params = _compile_predicate_impl(
+        predicate.sub, predicate.target_entity, fk_graph, schema=schema
+    )
+    sub_where = sub_sql if sub_sql else "true"
+    sql = f'EXISTS (SELECT 1 FROM {target_table} WHERE "id" = %s AND ({sub_where}))'
+    return sql, [PayloadFieldRef(predicate.id_field), *sub_params]
 
 
 def _compile_dotted_junction_predicate(
@@ -1054,6 +1135,11 @@ def _compile_predicate_impl(
                 predicate, entity_name, fk_graph, schema=schema, policy=policy
             )
 
+        case PolyPathCheck():
+            return _compile_poly_path_check(
+                predicate, entity_name, fk_graph, schema=schema, policy=policy
+            )
+
         case BoolComposite():
             return _compile_bool_composite(
                 predicate, entity_name, fk_graph, schema=schema, policy=policy
@@ -1168,6 +1254,10 @@ def _collect_user_attr_refs(predicate: ScopePredicate, refs: set[str]) -> None:
                     refs.add("id")
                 elif target.startswith("current_user."):
                     refs.add(target[len("current_user.") :])
+        case PolyPathCheck():
+            # #1448: the user-attr refs live in the sub-predicate (rooted on the
+            # poly target). Recurse so shared-schema RLS registers the GUCs.
+            _collect_user_attr_refs(predicate.sub, refs)
         case BoolComposite():
             for child in predicate.children:
                 _collect_user_attr_refs(child, refs)

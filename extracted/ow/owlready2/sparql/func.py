@@ -93,6 +93,7 @@ _FUNC_2_DATATYPE = {
   "DATETIME_DIFF": _universal_datatype_2_abbrev[datetime.timedelta], # ok
   "DATETIME_ADD": _universal_datatype_2_abbrev[datetime.datetime], # ok
   "DATETIME_SUB": _universal_datatype_2_abbrev[datetime.datetime], # ok
+  "JSON_EXTRACT": 0,
 
   "HTTP://WWW.W3.ORG/2001/XMLSCHEMA#INTEGER" : _universal_datatype_2_abbrev[int], # ok
   "HTTP://WWW.W3.ORG/2001/XMLSCHEMA#DOUBLE" : _universal_datatype_2_abbrev[float], # ok
@@ -420,6 +421,10 @@ SELECT DISTINCT ?x {
             return "(CAST(%s AS INTEGER)+IIF(%s<0.0,IIF(CAST(%s AS INTEGER)=%s,0.0,-1.0),0.0))" % (eo, eo, eo, eo)
           elif func == "RAND":
             return "((RANDOM() + 9223372036854775808) / 18446744073709551615)"
+          elif func == "JSON_EXTRACT":
+            eo1 = self.parse_expression(expression[2][0])
+            eo2 = self.parse_expression(expression[2][2])
+            return "JSON_EXTRACT(%s, %s)" % (eo1, eo2)
           elif func == "LANGMATCHES":
             eo1 = self.parse_expression(expression[2][0]).strip()
             eo2 = self.parse_expression(expression[2][2]).strip()

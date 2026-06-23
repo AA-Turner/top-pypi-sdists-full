@@ -93,7 +93,7 @@ class WeiboExtractor(Extractor):
                 # videos of the original post are in status
                 # images of the original post are in status["retweeted_status"]
                 files = []
-                self._extract_status(status, files)
+                self._extract_retweet(status, files)
                 self._extract_status(status["retweeted_status"], files)
 
                 if original_retweets:
@@ -182,6 +182,14 @@ class WeiboExtractor(Extractor):
                     files.append(self._extract_video(info["media_info"]))
                 else:
                     self.log.debug("%s: Ignoring 'movie' video", status["id"])
+
+    def _extract_retweet(self, status, files):
+        self._extract_status(status, files)
+        if "url_struct" in status:
+            for item in status["url_struct"]:
+                if pics := item.get("pic_infos"):
+                    for pic in pics.values():
+                        files.append(pic.get("largest") or pic["large"])
 
     def _extract_video(self, info):
         if info.get("live_status") == 1:

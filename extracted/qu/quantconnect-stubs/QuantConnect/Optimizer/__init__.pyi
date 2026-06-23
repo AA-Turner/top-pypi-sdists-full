@@ -18,6 +18,168 @@ QuantConnect_Optimizer__EventContainer_Callable = typing.TypeVar("QuantConnect_O
 QuantConnect_Optimizer__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Optimizer__EventContainer_ReturnType")
 
 
+class OptimizationNodePacket(QuantConnect.Packets.Packet):
+    """Provide a packet type containing information on the optimization compute job."""
+
+    @property
+    def name(self) -> str:
+        """The optimization name"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def created(self) -> datetime.datetime:
+        """The creation time"""
+        ...
+
+    @created.setter
+    def created(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def user_id(self) -> int:
+        """User Id placing request"""
+        ...
+
+    @user_id.setter
+    def user_id(self, value: int) -> None:
+        ...
+
+    @property
+    def user_token(self) -> str:
+        ...
+
+    @user_token.setter
+    def user_token(self, value: str) -> None:
+        ...
+
+    @property
+    def project_id(self) -> int:
+        """Project Id of the request"""
+        ...
+
+    @project_id.setter
+    def project_id(self, value: int) -> None:
+        ...
+
+    @property
+    def compile_id(self) -> str:
+        """Unique compile id of this optimization"""
+        ...
+
+    @compile_id.setter
+    def compile_id(self, value: str) -> None:
+        ...
+
+    @property
+    def optimization_id(self) -> str:
+        """The unique optimization Id of the request"""
+        ...
+
+    @optimization_id.setter
+    def optimization_id(self, value: str) -> None:
+        ...
+
+    @property
+    def organization_id(self) -> str:
+        """Organization Id of the request"""
+        ...
+
+    @organization_id.setter
+    def organization_id(self, value: str) -> None:
+        ...
+
+    @property
+    def maximum_concurrent_backtests(self) -> int:
+        """Limit for the amount of concurrent backtests being run"""
+        ...
+
+    @maximum_concurrent_backtests.setter
+    def maximum_concurrent_backtests(self, value: int) -> None:
+        ...
+
+    @property
+    def optimization_strategy(self) -> str:
+        """Optimization strategy name"""
+        ...
+
+    @optimization_strategy.setter
+    def optimization_strategy(self, value: str) -> None:
+        ...
+
+    @property
+    def criterion(self) -> QuantConnect.Optimizer.Objectives.Target:
+        """Objective settings"""
+        ...
+
+    @criterion.setter
+    def criterion(self, value: QuantConnect.Optimizer.Objectives.Target) -> None:
+        ...
+
+    @property
+    def constraints(self) -> typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint]:
+        """Optimization constraints"""
+        ...
+
+    @constraints.setter
+    def constraints(self, value: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint]) -> None:
+        ...
+
+    @property
+    def optimization_parameters(self) -> System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter]:
+        """The user optimization parameters"""
+        ...
+
+    @optimization_parameters.setter
+    def optimization_parameters(self, value: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter]) -> None:
+        ...
+
+    @property
+    def optimization_strategy_settings(self) -> QuantConnect.Optimizer.Strategies.OptimizationStrategySettings:
+        """The user optimization parameters"""
+        ...
+
+    @optimization_strategy_settings.setter
+    def optimization_strategy_settings(self, value: QuantConnect.Optimizer.Strategies.OptimizationStrategySettings) -> None:
+        ...
+
+    @property
+    def out_of_sample_max_end_date(self) -> typing.Optional[datetime.datetime]:
+        """Backtest out of sample maximum end date"""
+        ...
+
+    @out_of_sample_max_end_date.setter
+    def out_of_sample_max_end_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def out_of_sample_days(self) -> int:
+        """The backtest out of sample day count"""
+        ...
+
+    @out_of_sample_days.setter
+    def out_of_sample_days(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance"""
+        ...
+
+    @overload
+    def __init__(self, packet_type: QuantConnect.Packets.PacketType) -> None:
+        """
+        Creates a new instance
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
 class SharpeSummary(System.Object):
     """Sharpe ratio statistics across all used backtests in an optimization."""
 
@@ -519,168 +681,6 @@ class OptimizationStatus(IntEnum):
 
     COMPLETED = 3
     """Optimization job has completed (3)"""
-
-
-class OptimizationNodePacket(QuantConnect.Packets.Packet):
-    """Provide a packet type containing information on the optimization compute job."""
-
-    @property
-    def name(self) -> str:
-        """The optimization name"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def created(self) -> datetime.datetime:
-        """The creation time"""
-        ...
-
-    @created.setter
-    def created(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def user_id(self) -> int:
-        """User Id placing request"""
-        ...
-
-    @user_id.setter
-    def user_id(self, value: int) -> None:
-        ...
-
-    @property
-    def user_token(self) -> str:
-        ...
-
-    @user_token.setter
-    def user_token(self, value: str) -> None:
-        ...
-
-    @property
-    def project_id(self) -> int:
-        """Project Id of the request"""
-        ...
-
-    @project_id.setter
-    def project_id(self, value: int) -> None:
-        ...
-
-    @property
-    def compile_id(self) -> str:
-        """Unique compile id of this optimization"""
-        ...
-
-    @compile_id.setter
-    def compile_id(self, value: str) -> None:
-        ...
-
-    @property
-    def optimization_id(self) -> str:
-        """The unique optimization Id of the request"""
-        ...
-
-    @optimization_id.setter
-    def optimization_id(self, value: str) -> None:
-        ...
-
-    @property
-    def organization_id(self) -> str:
-        """Organization Id of the request"""
-        ...
-
-    @organization_id.setter
-    def organization_id(self, value: str) -> None:
-        ...
-
-    @property
-    def maximum_concurrent_backtests(self) -> int:
-        """Limit for the amount of concurrent backtests being run"""
-        ...
-
-    @maximum_concurrent_backtests.setter
-    def maximum_concurrent_backtests(self, value: int) -> None:
-        ...
-
-    @property
-    def optimization_strategy(self) -> str:
-        """Optimization strategy name"""
-        ...
-
-    @optimization_strategy.setter
-    def optimization_strategy(self, value: str) -> None:
-        ...
-
-    @property
-    def criterion(self) -> QuantConnect.Optimizer.Objectives.Target:
-        """Objective settings"""
-        ...
-
-    @criterion.setter
-    def criterion(self, value: QuantConnect.Optimizer.Objectives.Target) -> None:
-        ...
-
-    @property
-    def constraints(self) -> typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint]:
-        """Optimization constraints"""
-        ...
-
-    @constraints.setter
-    def constraints(self, value: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint]) -> None:
-        ...
-
-    @property
-    def optimization_parameters(self) -> System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter]:
-        """The user optimization parameters"""
-        ...
-
-    @optimization_parameters.setter
-    def optimization_parameters(self, value: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter]) -> None:
-        ...
-
-    @property
-    def optimization_strategy_settings(self) -> QuantConnect.Optimizer.Strategies.OptimizationStrategySettings:
-        """The user optimization parameters"""
-        ...
-
-    @optimization_strategy_settings.setter
-    def optimization_strategy_settings(self, value: QuantConnect.Optimizer.Strategies.OptimizationStrategySettings) -> None:
-        ...
-
-    @property
-    def out_of_sample_max_end_date(self) -> typing.Optional[datetime.datetime]:
-        """Backtest out of sample maximum end date"""
-        ...
-
-    @out_of_sample_max_end_date.setter
-    def out_of_sample_max_end_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def out_of_sample_days(self) -> int:
-        """The backtest out of sample day count"""
-        ...
-
-    @out_of_sample_days.setter
-    def out_of_sample_days(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance"""
-        ...
-
-    @overload
-    def __init__(self, packet_type: QuantConnect.Packets.PacketType) -> None:
-        """
-        Creates a new instance
-        
-        
-        This Class is protected.
-        """
-        ...
 
 
 class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):

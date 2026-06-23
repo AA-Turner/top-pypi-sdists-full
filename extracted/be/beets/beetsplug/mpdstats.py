@@ -22,6 +22,7 @@ import mpd
 from beets import config, plugins, ui
 from beets.dbcore import types
 from beets.dbcore.query import PathQuery
+from beets.exceptions import UserError
 from beets.util import displayable_path
 
 # If we lose the connection, how many times do we want to retry and how
@@ -69,14 +70,14 @@ class MPDClientWrapper:
         try:
             self.client.connect(host, port)
         except OSError as e:
-            raise ui.UserError(f"could not connect to MPD: {e}")
+            raise UserError(f"could not connect to MPD: {e}")
 
         password = mpd_config["password"].as_str()
         if password:
             try:
                 self.client.password(password)
             except mpd.CommandError as e:
-                raise ui.UserError(f"could not authenticate to MPD: {e}")
+                raise UserError(f"could not authenticate to MPD: {e}")
 
     def disconnect(self):
         """Disconnect from the MPD."""
@@ -94,7 +95,7 @@ class MPDClientWrapper:
 
         if retries <= 0:
             # if we exited without breaking, we couldn't reconnect in time :(
-            raise ui.UserError("communication with MPD server failed")
+            raise UserError("communication with MPD server failed")
 
         time.sleep(RETRY_INTERVAL)
 
@@ -169,8 +170,8 @@ class MPDStats:
         item = self.lib.items(query).get()
         if item:
             return item
-        else:
-            self._log.info("item not found: {}", displayable_path(path))
+        self._log.info("item not found: {}", displayable_path(path))
+        return None
 
     def update_item(self, item, attribute, value=None, increment=None):
         """Update the beets item. Set attribute to value or increment the value
@@ -367,14 +368,6 @@ class MPDStatsPlugin(plugins.BeetsPlugin):
 
         def func(lib, opts, args):
             mpd_config.set_args(opts)
-
-            # Overrides for MPD settings.
-            if opts.host:
-                mpd_config["host"] = opts.host.decode("utf-8")
-            if opts.port:
-                mpd_config["host"] = int(opts.port)
-            if opts.password:
-                mpd_config["password"] = opts.password.decode("utf-8")
 
             try:
                 MPDStats(lib, self._log).run()

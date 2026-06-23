@@ -201,7 +201,7 @@ class AryionExtractor(Extractor):
             "id"    : text.parse_int(post_id),
             "url"   : url,
             "user"  : self.user or artist,
-            "title" : title,
+            "title" : text.unescape(title),
             "artist": artist,
             "description": text.unescape(extr(
                 'property="og:description" content="', '"')),
@@ -212,8 +212,8 @@ class AryionExtractor(Extractor):
             "views" : text.parse_int(extr("Views</b>:", "<").replace(",", "")),
             "width" : text.parse_int(extr("Resolution</b>:", "x")),
             "height": text.parse_int(extr("", "<")),
-            "comments" : text.parse_int(extr("Comments</b>:", "<")),
             "favorites": text.parse_int(extr("Favorites</b>:", "<")),
+            "comments" : text.parse_int(extr("Comments</b>:", "<")),
             "tags"     : text.split_html(extr("class='taglist'>", "</span>")),
             "filename" : fname,
             "extension": ext,

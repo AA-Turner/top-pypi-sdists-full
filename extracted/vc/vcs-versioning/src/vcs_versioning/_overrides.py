@@ -142,6 +142,8 @@ def _find_close_env_var_matches(
 
 def _read_pretended_metadata_for(
     config: _config.Configuration,
+    *,
+    env: Mapping[str, str] | None = None,
 ) -> PretendMetadataDict | None:
     """read overridden metadata from the environment
 
@@ -151,18 +153,20 @@ def _read_pretended_metadata_for(
     Returns a dictionary with metadata field overrides like:
     {"node": "g1337beef", "distance": 4}
     """
-    from .overrides import EnvReader
-
     log.debug("dist name: %s", config.dist_name)
 
-    reader = EnvReader(
-        tools_names=("SETUPTOOLS_SCM", "VCS_VERSIONING"),
-        env=os.environ,
-        dist_name=config.dist_name,
-    )
+    if env is None:
+        reader = config.env.make_reader(config.dist_name)
+    else:
+        from .overrides import EnvReader
+
+        reader = EnvReader(
+            tools_names=config.env.tool_names,
+            env=env,
+            dist_name=config.dist_name,
+        )
 
     try:
-        # Use schema validation during TOML parsing
         metadata_overrides = reader.read_toml(
             "PRETEND_METADATA", schema=PretendMetadataDict
         )
@@ -247,21 +251,26 @@ def _apply_metadata_overrides(
 
 def _read_pretended_version_for(
     config: _config.Configuration,
+    *,
+    env: Mapping[str, str] | None = None,
 ) -> ScmVersion | None:
     """read a a overridden version from the environment
 
     tries ``SETUPTOOLS_SCM_PRETEND_VERSION``
     and ``SETUPTOOLS_SCM_PRETEND_VERSION_FOR_$UPPERCASE_DIST_NAME``
     """
-    from .overrides import EnvReader
-
     log.debug("dist name: %s", config.dist_name)
 
-    reader = EnvReader(
-        tools_names=("SETUPTOOLS_SCM", "VCS_VERSIONING"),
-        env=os.environ,
-        dist_name=config.dist_name,
-    )
+    if env is None:
+        reader = config.env.make_reader(config.dist_name)
+    else:
+        from .overrides import EnvReader
+
+        reader = EnvReader(
+            tools_names=config.env.tool_names,
+            env=env,
+            dist_name=config.dist_name,
+        )
     pretended = reader.read("PRETEND_VERSION")
 
     if pretended:
@@ -270,16 +279,24 @@ def _read_pretended_version_for(
         return None
 
 
-def read_toml_overrides(dist_name: str | None) -> ConfigOverridesDict:
+def read_toml_overrides(
+    dist_name: str | None,
+    *,
+    env: Mapping[str, str] | None = None,
+    tool_names: tuple[str, ...] | None = None,
+) -> ConfigOverridesDict:
     """Read TOML overrides from environment.
 
     Validates that only known Configuration fields are provided.
     """
     from .overrides import EnvReader
 
+    if env is None:
+        env = os.environ
+
     reader = EnvReader(
-        tools_names=("SETUPTOOLS_SCM", "VCS_VERSIONING"),
-        env=os.environ,
+        tools_names=tool_names or ("SETUPTOOLS_SCM", "VCS_VERSIONING"),
+        env=env,
         dist_name=dist_name,
     )
     return reader.read_toml("OVERRIDES", schema=ConfigOverridesDict)

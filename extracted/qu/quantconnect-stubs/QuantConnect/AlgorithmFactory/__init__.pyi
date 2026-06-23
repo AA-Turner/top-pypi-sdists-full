@@ -11,6 +11,57 @@ import System
 import System.Reflection
 
 
+class DebuggerHelper(System.Object):
+    """Helper class used to start a new debugging session"""
+
+    class DebuggingMethod(IntEnum):
+        """The different implemented debugging methods"""
+
+        LOCAL_CMDLINE = 0
+        """
+        Local debugging through cmdline.
+        Language.PYTHON will use built in 'pdb'
+        """
+
+        VISUAL_STUDIO = 1
+        """
+        Visual studio local debugging.
+        Language.PYTHON will use 'Python Tools for Visual Studio',
+        attach manually selecting `Python` code type.
+        """
+
+        PTVSD = 2
+        """
+        Python Tool for Visual Studio Debugger for remote python debugging.
+        Language.PYTHON. Deprecated, routes to DebugPy which
+        is it's replacement. Used in the same way.
+        """
+
+        DEBUG_PY = 3
+        """
+        DebugPy - a debugger for Python.
+        Language.PYTHON can use  `Python Extension` in VS Code
+        or attach to Python in Visual Studio
+        """
+
+        PY_CHARM = 4
+        """
+        PyCharm PyDev Debugger for remote python debugging.
+        Language.PYTHON will use 'Python Debug Server' in PyCharm
+        """
+
+    @staticmethod
+    def initialize(language: QuantConnect.Language, workers_initialization_callback: typing.Optional[typing.Callable[[], typing.Any]]) -> typing.Tuple[None, typing.Callable[[], typing.Any]]:
+        """
+        Will start a new debugging session
+        
+        :param language: The algorithms programming language
+        :param workers_initialization_callback: Optionally, the debugging method will set an action which the data stack workers should execute
+        so we can debug code executed by them, this is specially important for python.
+        """
+        ...
+
+
 class Loader(System.MarshalByRefObject):
     """Loader creates and manages the memory and exception space of the algorithm, ensuring if it explodes the Lean Engine is intact."""
 
@@ -79,57 +130,6 @@ class Loader(System.MarshalByRefObject):
         ...
 
     def unload(self) -> None:
-        ...
-
-
-class DebuggerHelper(System.Object):
-    """Helper class used to start a new debugging session"""
-
-    class DebuggingMethod(IntEnum):
-        """The different implemented debugging methods"""
-
-        LOCAL_CMDLINE = 0
-        """
-        Local debugging through cmdline.
-        Language.PYTHON will use built in 'pdb'
-        """
-
-        VISUAL_STUDIO = 1
-        """
-        Visual studio local debugging.
-        Language.PYTHON will use 'Python Tools for Visual Studio',
-        attach manually selecting `Python` code type.
-        """
-
-        PTVSD = 2
-        """
-        Python Tool for Visual Studio Debugger for remote python debugging.
-        Language.PYTHON. Deprecated, routes to DebugPy which
-        is it's replacement. Used in the same way.
-        """
-
-        DEBUG_PY = 3
-        """
-        DebugPy - a debugger for Python.
-        Language.PYTHON can use  `Python Extension` in VS Code
-        or attach to Python in Visual Studio
-        """
-
-        PY_CHARM = 4
-        """
-        PyCharm PyDev Debugger for remote python debugging.
-        Language.PYTHON will use 'Python Debug Server' in PyCharm
-        """
-
-    @staticmethod
-    def initialize(language: QuantConnect.Language, workers_initialization_callback: typing.Optional[typing.Callable[[], typing.Any]]) -> typing.Tuple[None, typing.Callable[[], typing.Any]]:
-        """
-        Will start a new debugging session
-        
-        :param language: The algorithms programming language
-        :param workers_initialization_callback: Optionally, the debugging method will set an action which the data stack workers should execute
-        so we can debug code executed by them, this is specially important for python.
-        """
         ...
 
 

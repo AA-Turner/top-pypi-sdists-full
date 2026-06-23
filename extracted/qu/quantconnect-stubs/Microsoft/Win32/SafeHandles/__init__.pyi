@@ -57,18 +57,22 @@ class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
         ...
 
 
-class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
+class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
     """This class has no documentation."""
 
-    @property
-    def is_invalid(self) -> bool:
-        ...
-
+    @overload
     def __init__(self) -> None:
         ...
 
+    @overload
+    def __init__(self, existing_handle: System.IntPtr, owns_handle: bool) -> None:
+        ...
 
-class CriticalHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
+    def release_handle(self) -> bool:
+        ...
+
+
+class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
@@ -90,18 +94,14 @@ class SafeHandleMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, met
         ...
 
 
-class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
+class CriticalHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @overload
+    @property
+    def is_invalid(self) -> bool:
+        ...
+
     def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, existing_handle: System.IntPtr, owns_handle: bool) -> None:
-        ...
-
-    def release_handle(self) -> bool:
         ...
 
 

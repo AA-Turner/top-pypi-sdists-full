@@ -19,8 +19,8 @@ CRUD:
 * ``audit.forwarders.new/get/list/save/delete`` — manage SIEM forwarders.
 
 The shared dataclasses (``Event``, ``Forwarder``, ``AsyncForwarder``,
-``HttpConfiguration``, ``HttpHeader``, ``ResourceType``, ``EventType``,
-``Category``) plus the ``ForwarderType``, ``HttpMethod``, and
+``ForwarderEnvironment``, ``HttpConfiguration``, ``ResourceType``,
+``EventType``, ``Category``) plus the ``ForwarderType``, ``HttpMethod``, and
 ``TransformType`` enums live in :mod:`smplkit.audit.models` and are
 re-exported here for convenience.
 """
@@ -53,7 +53,6 @@ from smplkit.audit.models import (
     ForwarderEnvironment,
     ForwarderType,
     HttpConfiguration,
-    HttpHeader,
     HttpMethod,
     ResourceType,
     TransformType,
@@ -81,7 +80,6 @@ __all__ = [
     "ForwarderType",
     "ForwardersClient",
     "HttpConfiguration",
-    "HttpHeader",
     "HttpMethod",
     "ResourceType",
     "ResourceTypeListPage",

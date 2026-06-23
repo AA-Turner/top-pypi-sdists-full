@@ -29,6 +29,46 @@ class TokenType(IntEnum):
     """A Session token, typically used for username/password authorization headers."""
 
 
+class LeanTokenCredentials(QuantConnect.Api.RestResponse):
+    """
+    Represents credentials required for token-based authentication,
+    including the access token and its type (e.g., Bearer).
+    """
+
+    @property
+    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
+        """Gets the type of the token (e.g., Bearer)."""
+        ...
+
+    @token_type.setter
+    def token_type(self, value: QuantConnect.Brokerages.Authentication.TokenType) -> None:
+        ...
+
+    @property
+    def access_token(self) -> str:
+        """Gets the token string used for authentication."""
+        ...
+
+    @access_token.setter
+    def access_token(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, token_type: QuantConnect.Brokerages.Authentication.TokenType, access_token: str) -> None:
+        """
+        Initializes a new instance of the LeanTokenCredentials class.
+        
+        :param token_type: The type of the token.
+        :param access_token: The token string.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the LeanTokenCredentials class."""
+        ...
+
+
 class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_LeanTokenHandler_T], metaclass=abc.ABCMeta):
     """
     Provides base functionality for token-based HTTP request handling.
@@ -109,46 +149,6 @@ class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_Lea
         :param cancellation_token: A cancellation token to cancel the operation.
         :returns: A task representing the asynchronous operation, containing the HTTP response message.
         """
-        ...
-
-
-class LeanTokenCredentials(QuantConnect.Api.RestResponse):
-    """
-    Represents credentials required for token-based authentication,
-    including the access token and its type (e.g., Bearer).
-    """
-
-    @property
-    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
-        """Gets the type of the token (e.g., Bearer)."""
-        ...
-
-    @token_type.setter
-    def token_type(self, value: QuantConnect.Brokerages.Authentication.TokenType) -> None:
-        ...
-
-    @property
-    def access_token(self) -> str:
-        """Gets the token string used for authentication."""
-        ...
-
-    @access_token.setter
-    def access_token(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, token_type: QuantConnect.Brokerages.Authentication.TokenType, access_token: str) -> None:
-        """
-        Initializes a new instance of the LeanTokenCredentials class.
-        
-        :param token_type: The type of the token.
-        :param access_token: The token string.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the LeanTokenCredentials class."""
         ...
 
 

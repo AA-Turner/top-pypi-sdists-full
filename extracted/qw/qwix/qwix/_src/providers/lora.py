@@ -23,12 +23,12 @@ from flax import nnx
 from flax import typing
 import jax
 from jax.nn import initializers
-from qwix._src import flax_util
 from qwix._src import model as qwix_model
 from qwix._src import qconfig
 from qwix._src.core import einsum_info
 from qwix._src.core import qarray
 from qwix._src.providers import ptq
+from qwix._src.utils import flax_util
 
 
 def apply_lora_to_model(
@@ -323,7 +323,7 @@ class LoraProvider(ptq.PtqProvider):
       **kwargs,
   ) -> jax.Array:
     """LoRA einsum."""
-    res = super().einsum(einsum_str, *operands, **kwargs)
+    res = super().einsum(einsum_str, *operands, **kwargs)  # pyrefly: ignore[bad-argument-type]
 
     rule, _ = self._get_current_rule_and_op_id('einsum', repeated_call=True)
     if not isinstance(rule, LoraRule):

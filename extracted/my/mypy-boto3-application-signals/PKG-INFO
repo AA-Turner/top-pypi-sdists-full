@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-application-signals
-Version: 1.43.0
-Summary: Type annotations for boto3 CloudWatchApplicationSignals 1.43.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.35
+Summary: Type annotations for boto3 CloudWatchApplicationSignals 1.43.35 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 CloudWatchApplicationSignals 1.43.0](https://pypi.org/project/boto3/)
+[boto3 CloudWatchApplicationSignals 1.43.35](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.35' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `CloudWatchApplicationSignals` service.
 4. Use provided commands to install generated packages.
@@ -341,7 +341,9 @@ from boto3.session import Session
 
 from mypy_boto3_application_signals import CloudWatchApplicationSignalsClient
 from mypy_boto3_application_signals.paginator import (
+    GetInstrumentationConfigurationStatusPaginator,
     ListEntityEventsPaginator,
+    ListInstrumentationConfigurationsPaginator,
     ListServiceDependenciesPaginator,
     ListServiceDependentsPaginator,
     ListServiceLevelObjectiveExclusionWindowsPaginator,
@@ -355,7 +357,13 @@ client: CloudWatchApplicationSignalsClient = Session().client("application-signa
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+get_instrumentation_configuration_status_paginator: GetInstrumentationConfigurationStatusPaginator = client.get_paginator(
+    "get_instrumentation_configuration_status"
+)
 list_entity_events_paginator: ListEntityEventsPaginator = client.get_paginator("list_entity_events")
+list_instrumentation_configurations_paginator: ListInstrumentationConfigurationsPaginator = (
+    client.get_paginator("list_instrumentation_configurations")
+)
 list_service_dependencies_paginator: ListServiceDependenciesPaginator = client.get_paginator(
     "list_service_dependencies"
 )
@@ -388,10 +396,10 @@ Full list of `CloudWatchApplicationSignals` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_signals/literals/).
 
 ```python
-from mypy_boto3_application_signals.literals import ChangeEventTypeType
+from mypy_boto3_application_signals.literals import BatchDeleteErrorCodeType
 
 
-def check_value(value: ChangeEventTypeType) -> bool: ...
+def check_value(value: BatchDeleteErrorCodeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

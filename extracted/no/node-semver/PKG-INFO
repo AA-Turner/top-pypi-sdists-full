@@ -1,19 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: node-semver
-Version: 0.9.0
+Version: 0.9.1
 Summary: port of node-semver
 Home-page: https://github.com/podhmo/python-node-semver
 Author: podhmo
 Author-email: ababjam61+github@gmail.com
 License: mit
 Keywords: version semver node-semver
-Platform: UNKNOWN
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Provides-Extra: docs
-Provides-Extra: testing
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Provides-Extra: docs
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
 
 node-semver
 =================
@@ -21,7 +31,7 @@ node-semver
 .. image:: https://github.com/podhmo/python-node-semver/actions/workflows/python-package.yml/badge.svg
     :target: https://github.com/podhmo/python-node-semver/actions/workflows/python-package.yml
 
-python version of [node-semver](https://github.com/isaacs/node-semver)
+python version of `node-semver <https://github.com/isaacs/node-semver>`_
 
 install
 ----------------------------------------
@@ -35,7 +45,7 @@ examples
 
 .. code-block:: python
 
-   from semver import max_satisfying
+   from nodesemver import max_satisfying
 
    versions = ['1.2.3', '1.2.4', '1.2.5', '1.2.6', '2.0.1']
    range_ = '~1.2.3'
@@ -56,6 +66,9 @@ examples
    assert max_satisfying(versions, range_, loose=False, include_prerelease=True) == '1.2.6-pre.1'
    assert max_satisfying(versions, range_, loose=False, include_prerelease=False) == '1.2.5'
 
+0.9.1
+
+- Handle invalid versions in valid() (#54)
 
 0.9.0
 
@@ -98,5 +111,3 @@ examples
 
 - drop python2.x support
 - bug fix, Add sort key function #14
-
-

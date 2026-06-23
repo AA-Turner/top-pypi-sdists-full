@@ -291,7 +291,7 @@ class DatasetsClient:
         Returns:
             DatasetRunSummary with results
         """
-        from .client import Aigie
+        from aigie.client import Aigie
 
         # Get Aigie client for tracing
         try:
@@ -450,7 +450,9 @@ class DatasetsClient:
 
         return runs, total
 
-    async def _save_run(self, summary: DatasetRunSummary, results: builtins.list[DatasetRunResult]) -> None:
+    async def _save_run(
+        self, summary: DatasetRunSummary, results: builtins.list[DatasetRunResult]
+    ) -> None:
         """Save run results to API"""
         data = {
             "summary": {

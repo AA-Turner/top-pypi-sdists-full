@@ -39,7 +39,7 @@ from dbos._utils import (
     retriable_sqlite_exception,
 )
 
-from ._context import DBOSContext, get_local_dbos_context
+from ._context import DBOSContext, get_local_dbos_context, validate_workflow_attributes
 from ._error import (
     DBOSAwaitedWorkflowCancelledError,
     DBOSAwaitedWorkflowMaxRecoveryAttemptsExceeded,
@@ -54,6 +54,7 @@ from ._error import (
 )
 from ._logger import dbos_logger
 from ._outcome import NoResult
+from ._schemas import SCHEMA_PLACEHOLDER
 from ._schemas.system_database import SystemSchema
 from ._serialization import (
     DBOSPortableJSON,
@@ -185,6 +186,11 @@ class WorkflowStatus:
     # The UNIX epoch timestamp at which the workflow completed (SUCCESS, ERROR,
     # or CANCELLED). None if the workflow has not completed.
     completed_at: Optional[int]
+    # Custom key-value attributes attached to the workflow at creation and
+    # optionally updated afterward via update_workflow_attributes
+    attributes: Optional[Dict[str, Any]]
+    # If this workflow was enqueued by a named schedule, that schedule's name
+    schedule_name: Optional[str]
 
     # INTERNAL FIELDS
 
@@ -224,6 +230,8 @@ class WorkflowStatusInternal(TypedDict):
     serialization: Optional[str]
     owner_xid: Optional[str]
     delay_until_epoch_ms: Optional[int]
+    attributes: Optional[Dict[str, Any]]
+    schedule_name: Optional[str]
 
 
 class MetricData(TypedDict):
@@ -563,14 +571,17 @@ class SystemDatabase(ABC):
             self.schema = None
         else:
             self.schema = schema if schema else "dbos"
-        SystemSchema.set_schema(self.schema)
 
         if engine:
-            self.engine = engine
+            base_engine = engine
             self.created_engine = False
         else:
-            self.engine = self._create_engine(system_database_url, engine_kwargs)
+            base_engine = self._create_engine(system_database_url, engine_kwargs)
             self.created_engine = True
+        # Translate the placeholder schema to this instance's schema per-engine (None for SQLite = unqualified).
+        self.engine = base_engine.execution_options(
+            schema_translate_map={SCHEMA_PLACEHOLDER: self.schema}
+        )
         self._engine_kwargs = engine_kwargs
 
         self.notifications_map = ThreadSafeEventDict()
@@ -603,7 +614,8 @@ class SystemDatabase(ABC):
     def destroy(self) -> None:
         self._run_background_processes = False
         self._cleanup_connections()
-        self.engine.dispose()
+        if self.created_engine:
+            self.engine.dispose()
 
     @abstractmethod
     def _cleanup_connections(self) -> None:
@@ -682,6 +694,8 @@ class SystemDatabase(ABC):
                 parent_workflow_id=status["parent_workflow_id"],
                 owner_xid=owner_xid,
                 delay_until_epoch_ms=status["delay_until_epoch_ms"],
+                attributes=status["attributes"],
+                schedule_name=status["schedule_name"],
             )
             .on_conflict_do_update(
                 index_elements=["workflow_uuid"],
@@ -944,6 +958,21 @@ class SystemDatabase(ABC):
                 )
             )
 
+    def update_workflow_attributes(
+        self, workflow_id: str, attributes: Optional[Dict[str, Any]]
+    ) -> None:
+        """Replace the custom attributes attached to a workflow. Pass None to clear all attributes."""
+        validate_workflow_attributes(attributes)
+        with self.engine.begin() as c:
+            c.execute(
+                sa.update(SystemSchema.workflow_status)
+                .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
+                .values(
+                    attributes=attributes,
+                    updated_at=self._now_ms_sql(),
+                )
+            )
+
     def delete_workflows(self, workflow_ids: list[str]) -> None:
         """Delete workflows and all associated data from the system database."""
         with self.engine.begin() as c:
@@ -987,6 +1016,7 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.assumed_role,
                     SystemSchema.workflow_status.c.inputs,
                     SystemSchema.workflow_status.c.serialization,
+                    SystemSchema.workflow_status.c.attributes,
                 ).where(
                     SystemSchema.workflow_status.c.workflow_uuid.in_(
                         original_workflow_ids
@@ -1023,6 +1053,7 @@ class SystemDatabase(ABC):
                             inputs=status[8],
                             assumed_role=status[7],
                             forked_from=original_workflow_id,
+                            attributes=status[10],
                         )
                         for original_workflow_id, forked_workflow_id, status in zip(
                             original_workflow_ids, forked_workflow_ids, statuses
@@ -1336,6 +1367,8 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.started_at_epoch_ms,
                     SystemSchema.workflow_status.c.serialization,
                     SystemSchema.workflow_status.c.delay_until_epoch_ms,
+                    SystemSchema.workflow_status.c.attributes,
+                    SystemSchema.workflow_status.c.schedule_name,
                 ).where(SystemSchema.workflow_status.c.workflow_uuid == workflow_uuid)
             ).fetchone()
             if row is None:
@@ -1370,6 +1403,8 @@ class SystemDatabase(ABC):
                 "serialization": row[23],
                 "owner_xid": None,
                 "delay_until_epoch_ms": row[24],
+                "attributes": row[25],
+                "schedule_name": row[26],
             }
             return status
 
@@ -1530,6 +1565,8 @@ class SystemDatabase(ABC):
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
         has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        schedule_name: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         """
         Retrieve a list of workflows based on the search criteria.
@@ -1551,6 +1588,7 @@ class SystemDatabase(ABC):
         queue_name_list = _to_list(queue_name)
         executor_id_list = _to_list(executor_id)
         prefix_list = _to_list(workflow_id_prefix)
+        schedule_name_list = _to_list(schedule_name)
 
         load_columns = [
             SystemSchema.workflow_status.c.workflow_uuid,
@@ -1579,6 +1617,8 @@ class SystemDatabase(ABC):
             SystemSchema.workflow_status.c.delay_until_epoch_ms,
             SystemSchema.workflow_status.c.was_forked_from,
             SystemSchema.workflow_status.c.completed_at,
+            SystemSchema.workflow_status.c.attributes,
+            SystemSchema.workflow_status.c.schedule_name,
         ]
         if load_input:
             load_columns.append(SystemSchema.workflow_status.c.inputs)
@@ -1606,10 +1646,16 @@ class SystemDatabase(ABC):
             query = query.order_by(SystemSchema.workflow_status.c.created_at.asc())
         if name_list:
             query = query.where(SystemSchema.workflow_status.c.name.in_(name_list))
+        if schedule_name_list:
+            query = query.where(
+                SystemSchema.workflow_status.c.schedule_name.in_(schedule_name_list)
+            )
         if user_list:
             query = query.where(
                 SystemSchema.workflow_status.c.authenticated_user.in_(user_list)
             )
+        if attributes:
+            query = query.where(self._attributes_contains_clause(attributes))
         if start_time:
             query = query.where(
                 SystemSchema.workflow_status.c.created_at
@@ -1733,8 +1779,10 @@ class SystemDatabase(ABC):
             info.delay_until_epoch_ms = row[23]
             info.was_forked_from = row[24]
             info.completed_at = row[25]
+            info.attributes = row[26]
+            info.schedule_name = row[27]
 
-            idx = 26
+            idx = 28
             raw_input = row[idx] if load_input else None
             if load_input:
                 idx += 1
@@ -2195,7 +2243,7 @@ class SystemDatabase(ABC):
         self,
         result: OperationResultInternal,
         completed_at_epoch_ms: int,
-        conn: sa.Connection,
+        conn: Union[sa.Connection, Session],
     ) -> None:
         error = result["error"]
         output = result["output"]
@@ -2333,6 +2381,13 @@ class SystemDatabase(ABC):
         pass
 
     @abstractmethod
+    def _attributes_contains_clause(
+        self, attributes: Dict[str, Any]
+    ) -> sa.ColumnElement[bool]:
+        """Build a clause matching workflows whose attributes contain all the given key-value pairs."""
+        pass
+
+    @abstractmethod
     def _is_foreign_key_violation(self, dbapi_error: DBAPIError) -> bool:
         """Check if the error is a foreign key violation."""
         pass
@@ -2342,7 +2397,7 @@ class SystemDatabase(ABC):
         workflow_id: str,
         function_id: int,
         function_name: str,
-        conn: sa.Connection,
+        conn: Union[sa.Connection, Session],
     ) -> Optional[RecordedResult]:
         # First query: Retrieve the workflow status
         workflow_status_sql = sa.select(
@@ -2419,7 +2474,7 @@ class SystemDatabase(ABC):
             )
 
     def _find_fork_descendants_txn(
-        self, workflow_ids: List[str], conn: sa.Connection
+        self, workflow_ids: List[str], conn: Union[sa.Connection, Session]
     ) -> Dict[str, Set[str]]:
         """Return every workflow recursively forked from each of `workflow_ids`.
 
@@ -2490,6 +2545,56 @@ class SystemDatabase(ABC):
         `destination_id` but also to every workflow recursively forked from it
         (forks, forks of forks, ...) that exists at send time.
         """
+        with self.engine.begin() as c:
+            self._send_bulk_txn(
+                messages,
+                c,
+                serialization_type=serialization_type,
+                workflow_id=workflow_id,
+                function_id=function_id,
+                function_name=function_name,
+                send_to_forks=send_to_forks,
+            )
+
+    def send_bulk_with_connection(
+        self,
+        messages: List[SendMessage],
+        conn: Union[sa.Connection, Session],
+        *,
+        serialization_type: Optional["WorkflowSerializationFormat"],
+        function_name: str,
+        send_to_forks: bool,
+    ) -> None:
+        """Send one or more messages using a caller-owned SQLAlchemy
+        Connection or ORM Session.
+
+        Does not begin, commit, rollback, or retry. The caller owns the
+        transaction; the messages are not visible to their destinations until
+        it commits. The connection or session must target the DBOS system
+        database.
+        """
+        self._apply_caller_schema(conn)
+        self._send_bulk_txn(
+            messages,
+            conn,
+            serialization_type=serialization_type,
+            workflow_id=None,
+            function_id=None,
+            function_name=function_name,
+            send_to_forks=send_to_forks,
+        )
+
+    def _send_bulk_txn(
+        self,
+        messages: List[SendMessage],
+        conn: Union[sa.Connection, Session],
+        *,
+        serialization_type: Optional["WorkflowSerializationFormat"],
+        workflow_id: Optional[str],
+        function_id: Optional[int],
+        function_name: str,
+        send_to_forks: bool,
+    ) -> None:
         start_time = int(time.time() * 1000)
 
         # Reject duplicate idempotency keys
@@ -2509,95 +2614,92 @@ class SystemDatabase(ABC):
             for m in messages
         ]
 
-        with self.engine.begin() as c:
-            if workflow_id is not None:
-                assert function_id is not None
-                recorded_output = self._check_operation_execution_txn(
-                    workflow_id, function_id, function_name, conn=c
+        if workflow_id is not None:
+            assert function_id is not None
+            recorded_output = self._check_operation_execution_txn(
+                workflow_id, function_id, function_name, conn=conn
+            )
+            if recorded_output is not None:
+                dbos_logger.debug(
+                    f"Replaying {function_name}, id: {function_id}, messages: {len(messages)}"
                 )
-                if recorded_output is not None:
-                    dbos_logger.debug(
-                        f"Replaying {function_name}, id: {function_id}, messages: {len(messages)}"
-                    )
-                    return  # Already sent before
-                else:
-                    dbos_logger.debug(
-                        f"Running {function_name}, id: {function_id}, messages: {len(messages)}"
-                    )
+                return  # Already sent before
+            else:
+                dbos_logger.debug(
+                    f"Running {function_name}, id: {function_id}, messages: {len(messages)}"
+                )
 
-            # Expand each message to its destination set (the workflow itself plus,
-            # if requested, every workflow recursively forked from it). Forks for
-            # all destinations are resolved in a single bulk walk, inside the
-            # transaction so the recipient set is consistent with the insert.
-            fork_descendants: Dict[str, Set[str]] = {}
+        # Expand each message to its destination set (the workflow itself plus,
+        # if requested, every workflow recursively forked from it). Forks for
+        # all destinations are resolved in a single bulk walk, inside the
+        # transaction so the recipient set is consistent with the insert.
+        fork_descendants: Dict[str, Set[str]] = {}
+        if send_to_forks:
+            fork_descendants = self._find_fork_descendants_txn(
+                [m.destination_id for m, _, _ in prepared], conn
+            )
+
+        rows = []
+        for m, serval, serialization in prepared:
+            destinations = [m.destination_id]
             if send_to_forks:
-                fork_descendants = self._find_fork_descendants_txn(
-                    [m.destination_id for m, _, _ in prepared], c
+                destinations.extend(
+                    sorted(fork_descendants.get(m.destination_id, set()))
+                )
+            for dest in destinations:
+                if m.idempotency_key is None:
+                    message_uuid = str(generate_uuid())
+                else:
+                    # An idempotency key is scoped per destination: suffix it
+                    # with the recipient's workflow ID. This gives each recipient
+                    # a distinct, deterministic message_uuid (so a single key can
+                    # fan out across forks) while replays stay idempotent, and
+                    # makes the message_uuid independent of whether the send fanned
+                    # out to forks.
+                    message_uuid = f"{m.idempotency_key}::{dest}"
+                rows.append(
+                    {
+                        "destination_uuid": dest,
+                        "topic": (m.topic if m.topic is not None else _dbos_null_topic),
+                        "message": serval,
+                        "message_uuid": message_uuid,
+                        "serialization": serialization,
+                    }
                 )
 
-            rows = []
-            for m, serval, serialization in prepared:
-                destinations = [m.destination_id]
-                if send_to_forks:
-                    destinations.extend(
-                        sorted(fork_descendants.get(m.destination_id, set()))
+        try:
+            if rows:
+                conn.execute(
+                    self.dialect.insert(SystemSchema.notifications)
+                    .values(rows)
+                    .on_conflict_do_nothing(
+                        index_elements=[
+                            SystemSchema.notifications.c.message_uuid,
+                        ]
                     )
-                for dest in destinations:
-                    if m.idempotency_key is None:
-                        message_uuid = str(generate_uuid())
-                    else:
-                        # An idempotency key is scoped per destination: suffix it
-                        # with the recipient's workflow ID. This gives each recipient
-                        # a distinct, deterministic message_uuid (so a single key can
-                        # fan out across forks) while replays stay idempotent, and
-                        # makes the message_uuid independent of whether the send fanned
-                        # out to forks.
-                        message_uuid = f"{m.idempotency_key}::{dest}"
-                    rows.append(
-                        {
-                            "destination_uuid": dest,
-                            "topic": (
-                                m.topic if m.topic is not None else _dbos_null_topic
-                            ),
-                            "message": serval,
-                            "message_uuid": message_uuid,
-                            "serialization": serialization,
-                        }
-                    )
-
-            try:
-                if rows:
-                    c.execute(
-                        self.dialect.insert(SystemSchema.notifications)
-                        .values(rows)
-                        .on_conflict_do_nothing(
-                            index_elements=[
-                                SystemSchema.notifications.c.message_uuid,
-                            ]
-                        )
-                    )
-            except DBAPIError as dbapi_error:
-                if self._is_foreign_key_violation(dbapi_error):
-                    raise DBOSNonExistentWorkflowError(
-                        "`send` destination",
-                        ", ".join(sorted({m.destination_id for m in messages})),
-                    )
-                raise
-
-            if workflow_id is not None:
-                assert function_id is not None
-                output: OperationResultInternal = {
-                    "workflow_uuid": workflow_id,
-                    "function_id": function_id,
-                    "function_name": function_name,
-                    "started_at_epoch_ms": start_time,
-                    "output": None,
-                    "error": None,
-                    "serialization": None,
-                }
-                self._record_operation_result_txn(
-                    output, int(time.time() * 1000), conn=c
                 )
+        except DBAPIError as dbapi_error:
+            if self._is_foreign_key_violation(dbapi_error):
+                raise DBOSNonExistentWorkflowError(
+                    "`send` destination",
+                    ", ".join(sorted({m.destination_id for m in messages})),
+                )
+            raise
+
+        if workflow_id is not None:
+            assert function_id is not None
+            output: OperationResultInternal = {
+                "workflow_uuid": workflow_id,
+                "function_id": function_id,
+                "function_name": function_name,
+                "started_at_epoch_ms": start_time,
+                "output": None,
+                "error": None,
+                "serialization": None,
+            }
+            self._record_operation_result_txn(
+                output, int(time.time() * 1000), conn=conn
+            )
 
     @db_retry()
     def recv_setup(
@@ -3804,6 +3906,18 @@ class SystemDatabase(ABC):
         DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_INITWF_COMMIT)
         return wf_status, workflow_deadline_epoch_ms, should_execute
 
+    def _apply_caller_schema(self, conn: Union[sa.Connection, Session]) -> None:
+        """Translate the placeholder schema on a caller-owned Connection/Session (the caller's own statements are unaffected)."""
+        # Set the option in place on the underlying Connection. Session.connection(execution_options=...)
+        # is silently ignored once the caller has already procured the connection (run any statement) in
+        # this transaction, which is the normal case for a caller-owned transaction.
+        if isinstance(conn, Session):
+            conn = conn.connection()
+        existing = conn.get_execution_options().get("schema_translate_map") or {}
+        conn.execution_options(
+            schema_translate_map={**existing, SCHEMA_PLACEHOLDER: self.schema}
+        )
+
     def init_workflow_with_connection(
         self,
         status: WorkflowStatusInternal,
@@ -3820,6 +3934,7 @@ class SystemDatabase(ABC):
         transaction. The connection or session must target the DBOS system
         database; it cannot atomically span a separate application database.
         """
+        self._apply_caller_schema(conn)
         return self._insert_workflow_status(
             status,
             conn,
@@ -4299,6 +4414,15 @@ class SystemDatabase(ABC):
                         SystemSchema.workflow_status.c.parent_workflow_id,
                         SystemSchema.workflow_status.c.serialization,
                         SystemSchema.workflow_status.c.delay_until_epoch_ms,
+                        SystemSchema.workflow_status.c.was_forked_from,
+                        SystemSchema.workflow_status.c.rate_limited,
+                        SystemSchema.workflow_status.c.completed_at,
+                        SystemSchema.workflow_status.c.attributes,
+                        SystemSchema.workflow_status.c.schedule_name,
+                        # owner_xid is intentionally omitted: it is a transient
+                        # transaction-ownership token, not logical workflow state
+                        # (get_workflow_status also returns None for it), and a
+                        # source database's xid is meaningless in the target.
                     ).where(SystemSchema.workflow_status.c.workflow_uuid == wf_id)
                 ).fetchone()
 
@@ -4334,6 +4458,11 @@ class SystemDatabase(ABC):
                     "parent_workflow_id": status_row[25],
                     "serialization": status_row[26],
                     "delay_until_epoch_ms": status_row[27],
+                    "was_forked_from": status_row[28],
+                    "rate_limited": status_row[29],
+                    "completed_at": status_row[30],
+                    "attributes": status_row[31],
+                    "schedule_name": status_row[32],
                 }
 
                 # Export operation_outputs
@@ -4488,6 +4617,13 @@ class SystemDatabase(ABC):
                         parent_workflow_id=status.get("parent_workflow_id"),
                         serialization=status.get("serialization"),
                         delay_until_epoch_ms=status.get("delay_until_epoch_ms"),
+                        # NOT NULL columns: fall back to False for payloads
+                        # exported before these fields were included.
+                        was_forked_from=status.get("was_forked_from", False),
+                        rate_limited=status.get("rate_limited", False),
+                        completed_at=status.get("completed_at"),
+                        attributes=status.get("attributes"),
+                        schedule_name=status.get("schedule_name"),
                     )
                 )
 

@@ -156,6 +156,7 @@ __all__ = (
     "KafkaClusterClientVpcConfigUnionTypeDef",
     "KafkaClusterDescriptionTypeDef",
     "KafkaClusterEncryptionInTransitTypeDef",
+    "KafkaClusterMTLSAuthenticationTypeDef",
     "KafkaClusterSaslScramAuthenticationTypeDef",
     "KafkaClusterSummaryTypeDef",
     "KafkaClusterTypeDef",
@@ -548,6 +549,9 @@ class JmxExporterInfoTypeDef(TypedDict):
 
 class JmxExporterTypeDef(TypedDict):
     EnabledInBroker: bool
+
+class KafkaClusterMTLSAuthenticationTypeDef(TypedDict):
+    SecretArn: str
 
 class KafkaClusterSaslScramAuthenticationTypeDef(TypedDict):
     Mechanism: KafkaClusterSaslScramMechanismType
@@ -1167,7 +1171,8 @@ class ServerlessSaslTypeDef(TypedDict):
     Iam: NotRequired[IamTypeDef]
 
 class KafkaClusterClientAuthenticationTypeDef(TypedDict):
-    SaslScram: KafkaClusterSaslScramAuthenticationTypeDef
+    SaslScram: NotRequired[KafkaClusterSaslScramAuthenticationTypeDef]
+    MTLS: NotRequired[KafkaClusterMTLSAuthenticationTypeDef]
 
 KafkaClusterClientVpcConfigUnionTypeDef = Union[
     KafkaClusterClientVpcConfigTypeDef, KafkaClusterClientVpcConfigOutputTypeDef

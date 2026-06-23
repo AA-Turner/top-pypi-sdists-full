@@ -50,8 +50,23 @@ def b36encode(num):
     return bencode(num, "0123456789abcdefghijklmnopqrstuvwxyz")
 
 
-def b36decode(data):
-    return int(data, 36) if data else 0
+def b36decode(data_base36):
+    return int(data_base36, 36) if data_base36 else 0
+
+
+def b64encode(s):
+    return binascii.b2a_base64(s).rstrip(b"\n=").decode()
+
+
+def b64rencode(s):
+    return binascii.b2a_base64(s, newline=False)
+
+
+def b64decode(data_base64):
+    return binascii.a2b_base64(data_base64).decode()
+
+
+b64rdecode = binascii.a2b_base64
 
 
 def decrypt_xor(encrypted, key, base64=True, fromhex=False):

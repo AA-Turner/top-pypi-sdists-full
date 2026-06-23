@@ -21,6 +21,7 @@ def _is_aigie_callback(cb: Any) -> bool:
     """
     return any(c.__name__ == "AigieCallbackHandler" for c in type(cb).__mro__)
 
+
 _patched_modules = set()
 
 
@@ -67,8 +68,8 @@ def _patch_openai_client(client_class: Any, is_async: bool = False) -> None:
         """Init that creates wrapper and stores it."""
         original_init(self, *args, **kwargs)
 
-        from ..client import get_aigie
-        from ..wrappers import wrap_openai
+        from aigie.client import get_aigie
+        from aigie.wrappers import wrap_openai
 
         aigie = get_aigie()
         if aigie and aigie._initialized:
@@ -86,7 +87,7 @@ def _patch_openai_client(client_class: Any, is_async: bool = False) -> None:
             # Skip wrapper when inside a callback-traced context (LangChain/LangGraph
             # callbacks are already handling tracing — wrapping here causes double-entry)
             try:
-                from ..auto_instrument.trace import (
+                from aigie.auto_instrument.trace import (
                     is_in_callback_context,
                     is_in_llm_instrumentation,
                 )
@@ -157,8 +158,8 @@ def _patch_anthropic_client(client_class: Any, is_async: bool = False) -> None:
         """Init that creates wrapper and stores it."""
         original_init(self, *args, **kwargs)
 
-        from ..client import get_aigie
-        from ..wrappers import wrap_anthropic
+        from aigie.client import get_aigie
+        from aigie.wrappers import wrap_anthropic
 
         aigie = get_aigie()
         if aigie and aigie._initialized:
@@ -178,7 +179,7 @@ def _patch_anthropic_client(client_class: Any, is_async: bool = False) -> None:
         # Skip wrapper when inside a callback-traced context or LLM instrumentation
         if name == "messages":
             try:
-                from ..auto_instrument.trace import (
+                from aigie.auto_instrument.trace import (
                     is_in_callback_context,
                     is_in_llm_instrumentation,
                 )
@@ -230,12 +231,12 @@ def _patch_gemini() -> None:
             @functools.wraps(original_generate_content)
             def traced_generate_content(self, *args, **kwargs):
                 """Traced version of generate_content."""
-                from ..auto_instrument.trace import (
+                from aigie.auto_instrument.trace import (
                     get_or_create_trace,
                     is_in_callback_context,
                     is_in_llm_instrumentation,
                 )
-                from ..client import get_aigie
+                from aigie.client import get_aigie
 
                 aigie = get_aigie()
                 if (
@@ -319,7 +320,7 @@ def _run_async_safely(coro):
 
     Uses safe_context_run to preserve contextvars across thread boundaries.
     """
-    from ..utils.safe import safe_context_run
+    from aigie.utils.safe import safe_context_run
 
     return safe_context_run(coro)
 
@@ -340,8 +341,8 @@ def _trace_llm_call(provider: str, original_func: Any, *args, **kwargs) -> Any:
 
     # Skip LLM auto-instrumentation if we're in a callback context
     # (LangChain/LangGraph callbacks are already handling LLM tracing)
-    from ..auto_instrument.trace import get_or_create_trace, is_in_callback_context
-    from ..client import get_aigie
+    from aigie.auto_instrument.trace import get_or_create_trace, is_in_callback_context
+    from aigie.client import get_aigie
 
     in_callback = is_in_callback_context()
     logger.debug("is_in_callback_context=%s, provider=%s", in_callback, provider)
@@ -468,7 +469,7 @@ async def _execute_llm_call(
             usage = response["usage"]
 
         if usage:
-            from ..cost_tracking import extract_and_calculate_cost
+            from aigie.cost_tracking import extract_and_calculate_cost
 
             cost_data = extract_and_calculate_cost(model=model, usage=usage)
 
@@ -605,7 +606,7 @@ def _execute_llm_call_sync(
     span_ctx: Any, original_func: Any, provider: str, model: str, *args, **kwargs
 ) -> Any:
     """Execute LLM call synchronously with tracing."""
-    from ..cost_tracking import extract_and_calculate_cost
+    from aigie.cost_tracking import extract_and_calculate_cost
 
     # Extract LLM parameters (same as async version)
     llm_params = {
@@ -910,12 +911,15 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
             Automatically runs pre/post-call interception hooks.
             Tracing is handled by LangChain's callback mechanism.
             """
-            from ..client import get_aigie
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
 
             # Recursion guard: skip instrumentation if already inside an LLM wrapper
-            from ..auto_instrument.trace import is_in_llm_instrumentation, set_llm_instrumentation
+            from aigie.auto_instrument.trace import (
+                is_in_llm_instrumentation,
+                set_llm_instrumentation,
+            )
 
             if is_in_llm_instrumentation():
                 return await original_ainvoke(self, messages, config=config, **kwargs)
@@ -927,51 +931,8 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                 # Convert messages for interception
                 messages_dict = _convert_messages_to_dict(messages)
 
-                # Pre-call interception (if enabled).
-                # A minimal fallback ctx is always created when autonomous is on so
-                # the error-path retry gate has a valid ctx even when pre-call fails.
+                # Pre-call interception was gated on the removed autonomous mode; ctx stays None.
                 interception_ctx = None
-                if aigie and aigie._initialized and aigie.config.autonomous:
-                    try:
-                        from ..interceptor import InterceptionDecision
-                        from ..interceptor.protocols import InterceptionContext as _IC
-
-                        # Ensure a ctx exists for the error retry path even if pre-call errors.
-                        # Include framework so _span_view_from_interception_ctx can route to
-                        # the correct adapter (e.g. "langgraph" → LangGraphAdapter).
-                        _fw = getattr(aigie, "_framework", None) or provider
-                        interception_ctx = _IC(
-                            provider=provider,
-                            model=model_name,
-                            messages=messages_dict,
-                            metadata={"framework": _fw} if _fw else {},
-                        )
-
-                        pre_ctx = await aigie.intercept_pre_call(
-                            provider=provider,
-                            model=model_name,
-                            messages=messages_dict,
-                        )
-                        # Preserve framework in metadata so _span_view_from_interception_ctx
-                        # can route errors to the correct adapter (e.g. "langgraph").
-                        if isinstance(getattr(pre_ctx, "metadata", None), dict):
-                            pre_ctx.metadata.setdefault("framework", _fw)
-                        interception_ctx = pre_ctx
-
-                        # Check if blocked
-                        if interception_ctx.decision == InterceptionDecision.BLOCK:
-                            block_reason = getattr(
-                                interception_ctx, "block_reason", "Blocked by interception policy"
-                            )
-                            logger.warning(f"LLM call blocked: {block_reason}")
-                            raise Exception(f"Request blocked: {block_reason}")
-                    except ImportError:
-                        interception_ctx = None  # Interception not available
-                    except Exception as e:
-                        if "blocked" in str(e).lower():
-                            raise
-                        # Log but continue if interception fails; keep minimal ctx for retry gate
-                        logger.debug(f"Pre-call interception error (continuing): {e}")
 
                 # Tracing: check if AigieCallbackHandler is present in config.
                 # If callbacks handle tracing, we skip span creation here to avoid duplicates.
@@ -993,7 +954,7 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                                 break
                 # Also skip fallback span when callback context is active (LangGraph/LangChain
                 # callbacks handle tracing even if not visible in this config dict)
-                from ..auto_instrument.trace import is_in_callback_context
+                from aigie.auto_instrument.trace import is_in_callback_context
 
                 if (
                     not _has_aigie_callback
@@ -1002,7 +963,7 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                     and aigie._initialized
                 ):
                     try:
-                        from ..auto_instrument.trace import get_or_create_trace
+                        from aigie.auto_instrument.trace import get_or_create_trace
 
                         trace = await get_or_create_trace(
                             name=f"LLM Call: {provider}",
@@ -1023,108 +984,16 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                     except Exception as e:
                         logger.debug(f"Fallback span creation error (continuing): {e}")
 
-                # Make the actual LLM call with potential auto-retry
-                max_retries = getattr(aigie.config, "auto_fix_max_retries", 2) if aigie else 2
-                retry_count = 0
-                last_response = None
-                last_interception_ctx = interception_ctx
+                # Make the actual LLM call. Errors route through the autonomous
+                # chain (a no-op passthrough unless a chain hook is wired); the
+                # post-call quality-retry loop was gated on the removed autonomous mode.
+                from aigie.autonomous.inline_call import acall_with_autonomous
 
-                from ..autonomous.inline_call import acall_with_autonomous
-
-                while retry_count <= max_retries:
-                    # Route exceptions through the autonomous chain so hooks like
-                    # RetryIntervention can decide to retry (e.g. on 429).
-                    try:
-                        response = await acall_with_autonomous(
-                            lambda: original_ainvoke(self, messages, config=config, **kwargs),
-                            last_interception_ctx,
-                            aigie,
-                        )
-                    except Exception:
-                        raise
-                    last_response = response
-
-                    # Post-call interception (if enabled)
-                    if (
-                        last_interception_ctx
-                        and aigie
-                        and aigie._initialized
-                        and aigie.config.autonomous
-                    ):
-                        try:
-                            response_content = (
-                                response.content if hasattr(response, "content") else str(response)
-                            )
-                            last_interception_ctx.response_content = response_content
-                            last_interception_ctx = await aigie.intercept_post_call(
-                                last_interception_ctx, response=None
-                            )
-
-                            from ..interceptor import InterceptionDecision
-
-                            # Check if auto-fix/retry is needed
-                            if (
-                                last_interception_ctx.decision == InterceptionDecision.RETRY
-                                and retry_count < max_retries
-                            ):
-                                retry_count += 1
-                                fixes = getattr(last_interception_ctx, "fixes_applied", [])
-
-                                logger.info(
-                                    f"Quality issue detected - auto-retrying (attempt {retry_count}/{max_retries})"
-                                )
-
-                                # Apply fixes to messages
-                                for fix_action in fixes:
-                                    if hasattr(fix_action, "parameters") and fix_action.parameters:
-                                        params = fix_action.parameters
-
-                                        # Inject corrective instruction
-                                        if "instruction" in params:
-                                            instruction = params["instruction"]
-                                            # Add instruction to system message or create one
-                                            from langchain_core.messages import SystemMessage
-
-                                            if (
-                                                messages
-                                                and hasattr(messages[0], "type")
-                                                and messages[0].type == "system"
-                                            ):
-                                                messages[
-                                                    0
-                                                ].content += f"\n\nIMPORTANT: {instruction}"
-                                            else:
-                                                messages = [
-                                                    SystemMessage(
-                                                        content=f"IMPORTANT: {instruction}"
-                                                    )
-                                                ] + list(messages)
-                                            logger.info(
-                                                f"Injected corrective instruction: {instruction[:80]}..."
-                                            )
-
-                                        # Modify messages if provided
-                                        if "messages" in params:
-                                            messages = params["messages"]
-
-                                # Re-create interception context for retry
-                                last_interception_ctx = await aigie.intercept_pre_call(
-                                    provider=provider,
-                                    model=model_name,
-                                    messages=_convert_messages_to_dict(messages),
-                                )
-                                continue  # Retry the loop
-
-                            if last_interception_ctx.decision == InterceptionDecision.MODIFY:
-                                logger.info(
-                                    "Quality issues detected in LLM response - recommendation generated"
-                                )
-
-                        except Exception as e:
-                            logger.debug(f"Post-call interception error (continuing): {e}")
-
-                    # No retry needed or max retries reached
-                    break
+                last_response = await acall_with_autonomous(
+                    lambda: original_ainvoke(self, messages, config=config, **kwargs),
+                    interception_ctx,
+                    aigie,
+                )
 
                 # Close fallback span on success
                 if _fallback_span:
@@ -1176,11 +1045,14 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
             Automatically runs pre/post-call interception hooks.
             Tracing is handled by LangChain's callback mechanism.
             """
-            from ..client import get_aigie
+            from aigie.client import get_aigie
 
             aigie = get_aigie()
 
-            from ..auto_instrument.trace import is_in_llm_instrumentation, set_llm_instrumentation
+            from aigie.auto_instrument.trace import (
+                is_in_llm_instrumentation,
+                set_llm_instrumentation,
+            )
 
             if is_in_llm_instrumentation():
                 return original_invoke(self, messages, config=config, **kwargs)
@@ -1192,53 +1064,8 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                 # Convert messages for interception
                 messages_dict = _convert_messages_to_dict(messages)
 
-                # Pre-call interception (if enabled) - need to run async in sync context
+                # Pre-call interception was gated on the removed autonomous mode; ctx stays None.
                 interception_ctx = None
-                if aigie and aigie._initialized and aigie.config.autonomous:
-                    try:
-                        import asyncio
-
-                        from ..interceptor import InterceptionDecision
-
-                        # Run async interception in sync context
-                        try:
-                            loop = asyncio.get_event_loop()
-                            if loop.is_running():
-                                # Can't run sync in async context, skip interception
-                                pass
-                            else:
-                                interception_ctx = loop.run_until_complete(
-                                    aigie.intercept_pre_call(
-                                        provider=provider,
-                                        model=model_name,
-                                        messages=messages_dict,
-                                    )
-                                )
-                        except RuntimeError:
-                            interception_ctx = asyncio.run(
-                                aigie.intercept_pre_call(
-                                    provider=provider,
-                                    model=model_name,
-                                    messages=messages_dict,
-                                )
-                            )
-
-                        # Check if blocked
-                        if (
-                            interception_ctx
-                            and interception_ctx.decision == InterceptionDecision.BLOCK
-                        ):
-                            block_reason = getattr(
-                                interception_ctx, "block_reason", "Blocked by interception policy"
-                            )
-                            logger.warning(f"LLM call blocked: {block_reason}")
-                            raise Exception(f"Request blocked: {block_reason}")
-                    except ImportError:
-                        pass  # Interception not available
-                    except Exception as e:
-                        if "blocked" in str(e).lower():
-                            raise
-                        logger.debug(f"Pre-call interception error (continuing): {e}")
 
                 # Tracing: check if AigieCallbackHandler is present in config.
                 _has_aigie_callback = False
@@ -1258,7 +1085,7 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                                 break
                 # Also skip fallback span when callback context is active (LangGraph/LangChain
                 # callbacks handle tracing even if not visible in this config dict)
-                from ..auto_instrument.trace import is_in_callback_context
+                from aigie.auto_instrument.trace import is_in_callback_context
 
                 if (
                     not _has_aigie_callback
@@ -1267,7 +1094,7 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                     and aigie._initialized
                 ):
                     try:
-                        from ..auto_instrument.trace import get_or_create_trace_sync
+                        from aigie.auto_instrument.trace import get_or_create_trace_sync
 
                         trace = get_or_create_trace_sync(
                             name=f"LLM Call: {provider}",
@@ -1289,51 +1116,13 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
 
                 # Make the actual LLM call, routing errors through the autonomous
                 # chain so hooks like RetryIntervention can fire on e.g. 429.
-                from ..autonomous.inline_call import call_sync_with_autonomous
+                from aigie.autonomous.inline_call import call_sync_with_autonomous
 
                 response = call_sync_with_autonomous(
                     lambda: original_invoke(self, messages, config=config, **kwargs),
                     interception_ctx,
                     aigie,
                 )
-
-                # Post-call interception (if enabled)
-                if (
-                    interception_ctx
-                    and aigie
-                    and aigie._initialized
-                    and aigie.config.autonomous
-                ):
-                    try:
-                        import asyncio
-
-                        response_content = (
-                            response.content if hasattr(response, "content") else str(response)
-                        )
-                        interception_ctx.response_content = response_content
-
-                        try:
-                            loop = asyncio.get_event_loop()
-                            if not loop.is_running():
-                                interception_ctx = loop.run_until_complete(
-                                    aigie.intercept_post_call(interception_ctx, response=None)
-                                )
-                        except RuntimeError:
-                            interception_ctx = asyncio.run(
-                                aigie.intercept_post_call(interception_ctx, response=None)
-                            )
-
-                        from ..interceptor import InterceptionDecision
-
-                        if (
-                            interception_ctx
-                            and interception_ctx.decision == InterceptionDecision.MODIFY
-                        ):
-                            logger.info(
-                                "Quality issues detected in LLM response - recommendation generated"
-                            )
-                    except Exception as e:
-                        logger.debug(f"Post-call interception error (continuing): {e}")
 
                 # Close fallback span on success
                 if _fallback_span:

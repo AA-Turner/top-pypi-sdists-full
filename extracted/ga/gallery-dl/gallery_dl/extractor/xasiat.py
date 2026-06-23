@@ -81,7 +81,8 @@ class XasiatAlbumExtractor(XasiatExtractor):
 
         yield Message.Directory, "", data
         for data["num"], url in enumerate(urls, 1):
-            yield Message.Url, url, text.nameext_from_url(url[:-1], data)
+            text.nameext_from_name(url.rsplit("/", 2)[1], data)
+            yield Message.Url, url, data
 
 
 class XasiatTagExtractor(XasiatExtractor):

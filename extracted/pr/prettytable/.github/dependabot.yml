@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: monthly
       time: "03:00"
+    groups:
+      actions:
+        patterns:
+          - "*"
     open-pull-requests-limit: 10
     labels:
       - "changelog: skip"
@@ -14,12 +18,21 @@ updates:
         update-types:
           - "version-update:semver-minor"
           - "version-update:semver-patch"
+    cooldown:
+      default-days: 7
+
   - package-ecosystem: pip
     directory: "/"
     schedule:
       interval: monthly
       time: "03:00"
+    groups:
+      pip:
+        patterns:
+          - "*"
     open-pull-requests-limit: 10
     labels:
       - "changelog: skip"
       - "dependencies"
+    cooldown:
+      default-days: 7

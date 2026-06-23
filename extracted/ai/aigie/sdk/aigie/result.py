@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Generic, TypeVar
 
-from .run_context import Message
+from aigie.run_context import Message
 
 # Type variable for result data
 T = TypeVar("T")

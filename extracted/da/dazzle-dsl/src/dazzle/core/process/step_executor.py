@@ -1,7 +1,7 @@
 """Standalone process step executor.
 
-Extracted from celery_tasks.py to decouple step execution logic from
-any specific task queue backend. Both CeleryProcessAdapter and
+Backend-agnostic step execution logic, shared by the process adapters.
+(EventBus, Temporal).
 EventBusProcessAdapter use this module for actual step execution.
 
 The executor is synchronous (uses psycopg sync connections) because
@@ -27,7 +27,7 @@ from dazzle.core.process.adapter import (
 )
 
 if TYPE_CHECKING:
-    from dazzle.core.process.celery_state import ProcessStateStore
+    from dazzle.core.process.process_state import ProcessStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,6 @@ MAX_STEP_BACKOFF_SECONDS: float = 300.0
 
 # Callback type for scheduling delayed work (timeout checks, process resumption).
 # Adapters provide their own implementation:
-#   - Celery: check_human_task_timeout.apply_async(args=[task_id], countdown=seconds)
 #   - EventBus: publish delayed event to process.task_timeout topic
 DelayedCallback = Any  # Callable[[str, float], None] — (task_id, delay_seconds)
 
@@ -88,6 +87,16 @@ def execute_process_steps(
     try:
         for step in steps:
             step_name = step.get("name", "unknown")
+
+            # Checkpoint-skip: output already produced on a previous attempt
+            # (at-least-once re-delivery after worker crash + lease reclaim).
+            # A sentinel {} is written on no-output completion so this check
+            # also covers output-less steps (send, etc.).
+            if step_name in run.context:
+                logger.debug("Skipping completed step %s in run %s (replay)", step_name, run.run_id)
+                completed_steps.append(step_name)
+                continue
+
             run.current_step = step_name
             run.updated_at = datetime.now(UTC)
             store.save_run(run)
@@ -96,6 +105,8 @@ def execute_process_steps(
             step_result = execute_step(store, run, spec, step, on_task_created=on_task_created)
 
             if step_result.get("wait"):
+                # Step paused — NOT complete; do not write to context so that
+                # on resume the step re-enters and receives the task outcome.
                 run.status = ProcessStatus.WAITING
                 run.updated_at = datetime.now(UTC)
                 store.save_run(run)
@@ -105,8 +116,8 @@ def execute_process_steps(
                     "task_id": step_result.get("task_id"),
                 }
 
-            if step_result.get("output"):
-                run.context[step_name] = step_result["output"]
+            # Record output (or sentinel for no-output steps) so replay skips it.
+            run.context[step_name] = step_result.get("output") or {}
 
             completed_steps.append(step_name)
 
@@ -305,7 +316,7 @@ def _execute_builtin_entity_op(
     run: ProcessRun,
 ) -> dict[str, Any]:
     """Execute a built-in entity CRUD operation."""
-    from dazzle.core.process.celery_state import ProcessStateStore
+    from dazzle.core.process.process_state import ProcessStateStore
 
     store = ProcessStateStore()
     meta = store.get_entity_meta(entity_name)

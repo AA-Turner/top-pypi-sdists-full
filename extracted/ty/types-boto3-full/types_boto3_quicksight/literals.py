@@ -1165,7 +1165,7 @@ SnapshotJobStatusType = Literal["COMPLETED", "FAILED", "QUEUED", "RUNNING"]
 SortDirectionType = Literal["ASC", "DESC"]
 SortOrderType = Literal["ASC", "DESC"]
 SpaceQuickSightResourceTypeType = Literal[
-    "ACTION_CONNECTOR", "ARTIFACT", "DASHBOARD", "DATA_SET", "KNOWLEDGE_BASE", "SPACE", "TOPIC"
+    "ACTION_CONNECTOR", "DASHBOARD", "DATA_SET", "KNOWLEDGE_BASE", "TOPIC"
 ]
 SpaceQuickSightSearchFilterNameType = Literal[
     "CONSUMED_SOURCE_SIZE",
@@ -1517,6 +1517,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

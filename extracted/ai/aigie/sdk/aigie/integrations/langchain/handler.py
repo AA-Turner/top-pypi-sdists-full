@@ -41,21 +41,21 @@ For implementation details, see the core callback module at aigie/callback.py.
 """
 
 # Re-export the main callback handler from core module
-from .error_detection import (
+from aigie.integrations.langchain.error_detection import (
     DetectedError,
     ErrorDetector,
     ErrorSeverity,
     ErrorType,
     get_error_detector,
 )
-from ...callback import AigieCallbackHandler
+from aigie.callback import AigieCallbackHandler
 
 # Import config for easy access
-from .config import LangChainConfig
+from aigie.integrations.langchain.config import LangChainConfig
 
 # Import error detection components
 # Import session management
-from .session import (
+from aigie.integrations.langchain.session import (
     LangChainSessionContext,
     get_session_context,
     langchain_session,

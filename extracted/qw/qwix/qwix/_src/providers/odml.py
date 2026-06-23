@@ -25,11 +25,11 @@ from jax import numpy as jnp
 import numpy as np
 from qwix._src import aux_data
 from qwix._src import averaging
-from qwix._src import flax_util
 from qwix._src import interception
 from qwix._src import qconfig
 from qwix._src.core import qarray
 from qwix._src.providers import odml_ops
+from qwix._src.utils import flax_util
 
 
 class OdmlQatProvider(qconfig.QuantizationProvider):
@@ -41,6 +41,30 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
   * Quantizes output activations via a delayed fake_quant.
   * Supports limited per-channel quantization for weights.
   * Doesn't support subchannel quantization.
+
+  ## Tensor-Centric Rules vs. Operation-Centric Rules
+  In other Qwix providers (like PTQ), a rule's `act_qtype` defines how the
+  inputs to the matched operation are quantized. In the ODML provider, the
+  meaning is flipped to align with LiteRT's (TFLite) tensor-centric data model:
+  *   **`weight_qtype`**: Applies immediately to the weights of the matched
+      operation.
+  *   **`act_qtype`**: Defines the quantization type for the **OUTPUT** of the
+      operation matching the rule.
+
+  In LiteRT, quantization parameters belong to Tensors (edges), not Operations
+  (nodes). Tying quantization to the tensor provides two key benefits:
+  *   **Hardware Execution Efficiency**: Edge hardware accelerators (NPUs/DSPs)
+      operate directly on memory buffers. They expect self-contained tensor
+      descriptors that include quantization parameters, allowing them to load
+      and interpret the data statically without needing to inspect operation
+      metadata.
+  *   **Simpler Graph Optimizations**: It makes transformations like operator
+      fusion much easier to implement. Operations can be fused without losing or
+      complicating the quantization state of the remaining tensors. In Qwix
+      ODML, we leverage this by attaching rules to tensors but delaying their
+      application, keeping paths between fusible ops (like Conv and ReLU) clear
+      of `FakeQuant` nodes.
+  *   Please refer to tensorflow/compiler/mlir/lite/schema/schema.fbs for more.
   """
 
   def __init__(
@@ -77,6 +101,9 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
     self._strict = strict
     self._ops = odml_ops.get_all_ops()
 
+    # Only these contraction ops support toggling channelwise weight
+    # quantization (standard for ODML). For other ops, per-channel weight
+    # quantization is either not applicable or not supported.
     for name in [
         'jax.lax.conv_general_dilated',
         'jax.lax.dot_general',
@@ -115,7 +142,9 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
     # Clear the previous aux_data such as fq_array.
     aux_data.clear(ret if unbox else ret.unbox())
     # weight_name is used to distinguish weights from activations.
-    aux_data.set(ret if unbox else ret.unbox(), 'weight_name', name)
+    aux_data.set(
+        ret if unbox else ret.unbox(), odml_ops.AuxDataKey.WEIGHT_NAME, name
+    )
     return ret
 
   def get_interceptors(
@@ -145,7 +174,14 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
     ]
 
   def get_intercept_map(self):
-    """Used for interception."""
+    """Returns a map of function names to their intercepted implementations.
+
+    This method instantiates operator classes from `odml_ops` as functors that
+    bind to this provider's specific context (e.g., `_fake_quant`). JAX uses
+    these instances' `__call__` methods to replace the original operations,
+    allowing them to maintain operator-specific logic while accessing
+    provider-level state.
+    """
     intercept_map = super().get_intercept_map()
     intercept_map['flax.linen.Module.param'] = self.nn_param
     # Add all the ops to the intercept map.
@@ -153,7 +189,7 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
       op: Type[odml_ops.QuantizedOp]
       intercept_map[name] = op(
           op_full_name=name,
-          get_rule_and_op_id_fn=self._get_current_rule_and_op_id,
+          get_rule_and_op_id_fn=self._get_current_rule_and_op_id,  # pyrefly: ignore[bad-argument-type]
           fake_quant_fn=self._fake_quant,
       )
     return intercept_map
@@ -161,8 +197,21 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
   def process_model_inputs(
       self, model: Any, model_args: Any, model_kwargs: Any
   ) -> tuple[Any, Any, Any]:
-    """Quantize the input of the model."""
-    # Set weight_name for nnx models. Linen models are handled in nn_param.
+    """Prepares model activations for quantization metadata propagation.
+
+    This method also handles weight tagging for NNX models as a special case.
+
+    Args:
+      model: The model to process.
+      model_args: Positional arguments to the model.
+      model_kwargs: Keyword arguments to the model.
+
+    Returns:
+      The processed model and arguments with appropriate auxiliary data.
+    """
+    # Weight Handling (NNX only): Eagerly iterate over the graph to clear stale
+    # metadata and tag parameters with _WEIGHT_NAME. For Flax Linen models,
+    # weights are handled lazily via `nn_param` interception.
     if isinstance(model, nnx.Module):
       for path, node in nnx.iter_graph(model):
         if isinstance(node, nnx.Module):
@@ -171,9 +220,16 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
           # Clear the previous aux_data such as fq_array.
           aux_data.clear(node.value)
           # weight_name is used to distinguish weights from activations.
-          aux_data.set(node.value, 'weight_name', path[-1])
+          aux_data.set(node.value, odml_ops.AuxDataKey.WEIGHT_NAME, path[-1])
 
-    # Quantize the model inputs if needed.
+    # Activation Handling: Apply the `ModelInput` operator to all leaves of
+    # `model_args` and `model_kwargs` (the actual arguments passed to the
+    # model).
+    # ModelInput behavior:
+    # - For non-jax.Array objects (e.g., bool, int), it's a no-op.
+    # - For jax.Array objects, it clears stale metadata, marks them as
+    #   activations (_IS_ACTIVATION = True), and attaches fixed ranges if set.
+    # This prepares the inputs as origin points for metadata tracking.
     op = odml_ops.ModelInput(
         fixed_range_for_output=self._fixed_range_for_inputs,
         get_rule_and_op_id_fn=self._get_current_rule_and_op_id,
@@ -202,23 +258,30 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
       how: qarray.HowToQuantize,
       quant_stat_name: str | None = None,
   ) -> jax.Array:
-    """Apply fake quantization to array.
+    """Numerical operation used by intercepted model ops to fake-quantize tensors.
 
-    This function can be used on both activations and weights. Gradient will be
-    passed through.
+    This method is the core implementation passed as a callback to intercepted
+    operators (e.g., in `odml_ops.py`). It is invoked by those operators to
+    perform the actual numerical quantization tasks for both activations and
+    weights during the model execution.
+
+    It handles:
+    1. Calibration (including fixed-range overrides from `aux_data`).
+    2. Quantization statistics collection and moving-average updates.
+    3. Scale and zero-point computation.
+    4. Gradient pass-through via a straight-through estimator (STE).
 
     Args:
       array: The array to quantize.
-      how: How to quantize the array.
-      quant_stat_name: The name for the quantization statistics. If set, the
-        quantization statistics will be collected and the scale will be computed
-        from the statistics.
+      how: Parameters defining how to quantize the array (e.g., qtype).
+      quant_stat_name: Unique name for collecting and averaging quantization
+        statistics. If None, statistics are not collected.
 
     Returns:
       The fake quantized array.
     """
     # Check and apply the fixed-range calibration asscociated with the array.
-    fixed_range = aux_data.get(array, 'fixed_range', None)
+    fixed_range = aux_data.get(array, odml_ops.AuxDataKey.FIXED_RANGE, None)
     if fixed_range is not None:
       calibration_method = f'fixed,{fixed_range[0]},{fixed_range[1]}'
       how = dataclasses.replace(how, calibration_method=calibration_method)
@@ -226,7 +289,7 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
     calibration = qarray.calibrate(array, how)
     if quant_stat_name is not None:
       is_fixed_range = how.calibration_method.startswith('fixed')
-      calibration = self._collect_quant_stat(
+      calibration = self._update_and_get_quant_stat(
           quant_stat_name, calibration, is_fixed_range
       )
     scale, zero_point = qarray.compute_scale_zero_point(calibration, how.qtype)
@@ -238,13 +301,13 @@ class OdmlQatProvider(qconfig.QuantizationProvider):
     ste_array = qarray.clip_to_calibration(array, calibration, how.tiled_axes)
     return ste_array + jax.lax.stop_gradient(dq_array - ste_array)
 
-  def _collect_quant_stat(
+  def _update_and_get_quant_stat(
       self,
       name: str,
       calibration: averaging.Calibration,
       calibration_is_fixed_range: bool,
   ) -> averaging.Calibration:
-    """Collects the quantization statistics."""
+    """Updates the running quantization statistics and returns the average."""
     # For SRQ, only per-tensor scale is supported, so we don't need to check the
     # act_batch_axes at all.
     calibration = jax.tree.map(lambda x: x.mean(keepdims=True), calibration)
@@ -324,7 +387,7 @@ class OdmlConversionProvider(OdmlQatProvider):
     # This special handling is needed because tflite doesn't support multiple
     # quantization_dimensions.
     if (
-        aux_data.get(args[1], 'weight_name', None) is not None
+        aux_data.get(args[1], odml_ops.AuxDataKey.WEIGHT_NAME, None) is not None
         and args[1].ndim > 2
         and tuple(args[2][0][1]) == (0,)
     ):
@@ -346,7 +409,7 @@ class OdmlConversionProvider(OdmlQatProvider):
     # Make the scale and zero point statically computed.
     with jax.ensure_compile_time_eval():
       # Check if the array is a weight or an activation.
-      weight_name = aux_data.get(array, 'weight_name', None)
+      weight_name = aux_data.get(array, odml_ops.AuxDataKey.WEIGHT_NAME, None)
       if weight_name is not None:  # Weights.
         assert quant_stat_name is None
         mdl_path = flax_util.get_current_module_path()
@@ -401,17 +464,17 @@ class OdmlConversionProvider(OdmlQatProvider):
     """Return the attributes for the fake_quant composite."""
     # For dynamic-range quantization, the scale is an empty array.
     if scale is None:
-      scale = np.array([], np.float32)
-    if jnp.isnan(scale).any() or jnp.isinf(scale).any() or (scale == 0).any():
+      scale = np.array([], np.float32)  # pyrefly: ignore[bad-assignment]
+    if jnp.isnan(scale).any() or jnp.isinf(scale).any() or (scale == 0).any():  # pyrefly: ignore[bad-argument-type, missing-attribute]
       raise ValueError(f'Invalid scale: {scale}')
     # Flatten the scale because ODML wants a 1D array.
     quantization_dim = None
-    for dim, length in enumerate(scale.shape):
+    for dim, length in enumerate(scale.shape):  # pyrefly: ignore[missing-attribute]
       if length > 1:
         if quantization_dim is None:
           quantization_dim = dim
         else:
-          raise ValueError(f'Cannot flatten scale with shape {scale.shape}.')
+          raise ValueError(f'Cannot flatten scale with shape {scale.shape}.')  # pyrefly: ignore[missing-attribute]
     match jnp.dtype(dtype):
       case jnp.int8:
         dtype = 'i8'
@@ -432,7 +495,7 @@ class OdmlConversionProvider(OdmlQatProvider):
     }
     if zp is not None:
       # zero_point has to be int64 for ODML.
-      attributes['zero_point'] = np.asarray(zp, np.int64).flatten()
+      attributes['zero_point'] = np.asarray(zp, np.int64).flatten()  # pyrefly: ignore[bad-typed-dict-key]
     if quantization_dim is not None:
-      attributes['quantization_dimension'] = quantization_dim
+      attributes['quantization_dimension'] = quantization_dim  # pyrefly: ignore[bad-typed-dict-key]
     return attributes

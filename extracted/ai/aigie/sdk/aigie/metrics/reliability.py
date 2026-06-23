@@ -9,12 +9,12 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from ..evaluation import EvaluationResult, ScoreType
-from .base import BaseMetric
-from .checkpoint import CheckpointValidityMetric
-from .drift import DriftDetectionMetric
-from .nested import NestedAgentHealthMetric
-from .recovery import RecoverySuccessMetric
+from aigie.evaluation import EvaluationResult, ScoreType
+from aigie.metrics.base import BaseMetric
+from aigie.metrics.checkpoint import CheckpointValidityMetric
+from aigie.metrics.drift import DriftDetectionMetric
+from aigie.metrics.nested import NestedAgentHealthMetric
+from aigie.metrics.recovery import RecoverySuccessMetric
 
 logger = logging.getLogger(__name__)
 

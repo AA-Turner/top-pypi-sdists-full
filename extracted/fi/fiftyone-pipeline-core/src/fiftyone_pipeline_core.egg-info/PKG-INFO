@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: fiftyone_pipeline_core
-Version: 4.5.3
+Version: 4.5.4
 Summary: This package defines the essential components of the 51Degrees Pipeline API such as flow elements, flow data and evidence. It also packages together JavaScript served by a pipeline and allows for client side requests for additional data populated by evidence from the client side.
-Home-page: https://51degrees.com/
+Home-page: https://51degrees.com/?utm_source=pypi&utm_medium=package&utm_campaign=pipeline-python&utm_content=fiftyone_pipeline_core-setup.py&utm_term=url
 Author: 51Degrees Engineering
 Author-email: engineering@51degrees.com
 License: EUPL-1.2
@@ -28,9 +28,9 @@ Dynamic: summary
 
 # Pipeline Core
 
-![51Degrees](https://51degrees.com/DesktopModules/FiftyOne/Distributor/Logo.ashx?utm_source=github&utm_medium=repository&utm_content=readme_main&utm_campaign=python-open-source "Data rewards the curious") **Python Pipeline Core**
+![51Degrees](https://51degrees.com/img/logo.png?utm_source=github&utm_medium=readme&utm_campaign=pipeline-python&utm_content=fiftyone_pipeline_core-readme.md&utm_term=pipeline-core "Data rewards the curious") **Python Pipeline Core**
 
-[Developer Documentation](https://51degrees.com/pipeline-python/index.html?utm_source=github&utm_medium=repository&utm_content=readme_main&utm_campaign=python-open-source "Developer Documentation")
+[Developer Documentation](https://51degrees.com/pipeline-python/index.html?utm_source=github&utm_medium=readme&utm_campaign=pipeline-python&utm_content=fiftyone_pipeline_core-readme.md&utm_term=pipeline-core "Developer Documentation")
 
 ## Introduction
 

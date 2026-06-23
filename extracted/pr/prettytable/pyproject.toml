@@ -23,6 +23,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: 3.16",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Text Processing",
@@ -30,10 +31,10 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
-  "wcwidth",
+  "wcwidth>=0.3.5",
 ]
 optional-dependencies.tests = [
-  "pytest",
+  "pytest>=9",
   "pytest-cov",
   "pytest-lazy-fixtures",
 ]
@@ -44,25 +45,19 @@ urls.Source = "https://github.com/prettytable/prettytable"
 
 [tool.hatch]
 version.source = "vcs"
-
-[tool.hatch.build.hooks.vcs]
-version-file = "src/prettytable/_version.py"
-
-[tool.hatch.version.raw-options]
-local_scheme = "no-local-version"
+version.raw-options.local_scheme = "no-local-version"
+build.hooks.vcs.version-file = "src/prettytable/_version.py"
 
 [tool.ruff]
 fix = true
-
-lint.select = [
+lint.extend-select = [
   "C4",     # flake8-comprehensions
-  "E",      # pycodestyle errors
   "EM",     # flake8-errmsg
-  "F",      # pyflakes
   "I",      # isort
   "ICN",    # flake8-import-conventions
   "ISC",    # flake8-implicit-str-concat
   "LOG",    # flake8-logging
+  "PERF",   # Perflint
   "PGH",    # pygrep-hooks
   "PIE",    # flake8-pie
   "PYI",    # flake8-pyi
@@ -73,12 +68,7 @@ lint.select = [
   "YTT",    # flake8-2020
 ]
 lint.ignore = [
-  "E203",   # Whitespace before ':'
-  "E221",   # Multiple spaces before operator
-  "E226",   # Missing whitespace around arithmetic operator
-  "E241",   # Multiple spaces after ','
   "PIE790", # flake8-pie: unnecessary-placeholder
-  "UP038",  # Makes code slower and more verbose
 ]
 lint.flake8-import-conventions.aliases.datetime = "dt"
 lint.flake8-import-conventions.banned-from = [ "datetime" ]
@@ -86,18 +76,7 @@ lint.isort.known-first-party = [ "prettytable" ]
 lint.isort.required-imports = [ "from __future__ import annotations" ]
 
 [tool.pyproject-fmt]
-max_supported_python = "3.15"
-
-[tool.pytest.ini_options]
-filterwarnings = [
-  "error",
-]
-testpaths = [ "tests" ]
-
-[tool.coverage.run]
-omit = [
-  "**/__main__.py",
-]
+max_supported_python = "3.16"
 
 [tool.mypy]
 python_version = "3.10"
@@ -108,3 +87,15 @@ extra_checks = true
 follow_imports = "silent"
 warn_redundant_casts = true
 warn_unused_ignores = true
+
+[tool.pytest]
+minversion = "9.0"
+testpaths = [ "tests" ]
+filterwarnings = [
+  "error",
+]
+
+[tool.coverage]
+run.omit = [
+  "**/__main__.py",
+]

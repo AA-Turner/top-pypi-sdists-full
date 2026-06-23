@@ -96,6 +96,7 @@ __all__ = (
     "RunRunningWaiterName",
     "RunStatusType",
     "SchemaValueTypeType",
+    "ScratchStorageModeType",
     "SequenceStoreStatusType",
     "ServiceName",
     "ShareResourceTypeType",
@@ -259,6 +260,7 @@ RunStatusType = Literal[
     "CANCELLED", "COMPLETED", "DELETED", "FAILED", "PENDING", "RUNNING", "STARTING", "STOPPING"
 ]
 SchemaValueTypeType = Literal["BOOLEAN", "DOUBLE", "FLOAT", "INT", "LONG", "STRING"]
+ScratchStorageModeType = Literal["LOCAL", "SHARED"]
 SequenceStoreStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 ShareResourceTypeType = Literal["ANNOTATION_STORE", "VARIANT_STORE", "WORKFLOW"]
 ShareStatusType = Literal["ACTIVATING", "ACTIVE", "DELETED", "DELETING", "FAILED", "PENDING"]
@@ -507,6 +509,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

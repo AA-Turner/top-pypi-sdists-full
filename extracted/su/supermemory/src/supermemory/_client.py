@@ -52,12 +52,11 @@ from .types.add_response import AddResponse
 from .types.profile_response import ProfileResponse
 
 if TYPE_CHECKING:
-    from .resources import search, memories, settings, documents, connections
+    from .resources import search, memories, settings, documents
     from .resources.search import SearchResource, AsyncSearchResource
     from .resources.memories import MemoriesResource, AsyncMemoriesResource
     from .resources.settings import SettingsResource, AsyncSettingsResource
     from .resources.documents import DocumentsResource, AsyncDocumentsResource
-    from .resources.connections import ConnectionsResource, AsyncConnectionsResource
 
 __all__ = [
     "Timeout",
@@ -160,13 +159,6 @@ class Supermemory(SyncAPIClient):
         from .resources.settings import SettingsResource
 
         return SettingsResource(self)
-
-    @cached_property
-    def connections(self) -> ConnectionsResource:
-        """External service integrations"""
-        from .resources.connections import ConnectionsResource
-
-        return ConnectionsResource(self)
 
     @cached_property
     def with_raw_response(self) -> SupermemoryWithRawResponse:
@@ -519,13 +511,6 @@ class AsyncSupermemory(AsyncAPIClient):
         return AsyncSettingsResource(self)
 
     @cached_property
-    def connections(self) -> AsyncConnectionsResource:
-        """External service integrations"""
-        from .resources.connections import AsyncConnectionsResource
-
-        return AsyncConnectionsResource(self)
-
-    @cached_property
     def with_raw_response(self) -> AsyncSupermemoryWithRawResponse:
         return AsyncSupermemoryWithRawResponse(self)
 
@@ -824,13 +809,6 @@ class SupermemoryWithRawResponse:
 
         return SettingsResourceWithRawResponse(self._client.settings)
 
-    @cached_property
-    def connections(self) -> connections.ConnectionsResourceWithRawResponse:
-        """External service integrations"""
-        from .resources.connections import ConnectionsResourceWithRawResponse
-
-        return ConnectionsResourceWithRawResponse(self._client.connections)
-
 
 class AsyncSupermemoryWithRawResponse:
     _client: AsyncSupermemory
@@ -870,13 +848,6 @@ class AsyncSupermemoryWithRawResponse:
         from .resources.settings import AsyncSettingsResourceWithRawResponse
 
         return AsyncSettingsResourceWithRawResponse(self._client.settings)
-
-    @cached_property
-    def connections(self) -> connections.AsyncConnectionsResourceWithRawResponse:
-        """External service integrations"""
-        from .resources.connections import AsyncConnectionsResourceWithRawResponse
-
-        return AsyncConnectionsResourceWithRawResponse(self._client.connections)
 
 
 class SupermemoryWithStreamedResponse:
@@ -918,13 +889,6 @@ class SupermemoryWithStreamedResponse:
 
         return SettingsResourceWithStreamingResponse(self._client.settings)
 
-    @cached_property
-    def connections(self) -> connections.ConnectionsResourceWithStreamingResponse:
-        """External service integrations"""
-        from .resources.connections import ConnectionsResourceWithStreamingResponse
-
-        return ConnectionsResourceWithStreamingResponse(self._client.connections)
-
 
 class AsyncSupermemoryWithStreamedResponse:
     _client: AsyncSupermemory
@@ -964,13 +928,6 @@ class AsyncSupermemoryWithStreamedResponse:
         from .resources.settings import AsyncSettingsResourceWithStreamingResponse
 
         return AsyncSettingsResourceWithStreamingResponse(self._client.settings)
-
-    @cached_property
-    def connections(self) -> connections.AsyncConnectionsResourceWithStreamingResponse:
-        """External service integrations"""
-        from .resources.connections import AsyncConnectionsResourceWithStreamingResponse
-
-        return AsyncConnectionsResourceWithStreamingResponse(self._client.connections)
 
 
 Client = Supermemory

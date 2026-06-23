@@ -16,7 +16,12 @@ from numpy.dtypes import UInt32DType
 from megatron.core.enums import ModelType
 from megatron.core.optimizer import OptimizerConfig
 from megatron.core.rerun_state_machine import RerunDiagnostic, RerunMode, RerunState
-from megatron.core.transformer.enums import AttnBackend, CudaGraphScope
+from megatron.core.transformer.enums import (
+    AttnBackend,
+    CudaGraphModule,
+    CudaGraphScope,
+    InferenceCudaGraphScope,
+)
 
 SAFE_GLOBALS = [
     SimpleNamespace,
@@ -27,7 +32,9 @@ SAFE_GLOBALS = [
     UInt32DType,
     Namespace,
     AttnBackend,
+    CudaGraphModule,
     CudaGraphScope,
+    InferenceCudaGraphScope,
     ModelType,
     OptimizerConfig,
     RerunDiagnostic,
@@ -35,6 +42,7 @@ SAFE_GLOBALS = [
     RerunState,
     BytesIO,
     Signals,
+    torch._C.Generator,  # Needed for torch ckpt format loading after weights_only default change
 ]
 
 

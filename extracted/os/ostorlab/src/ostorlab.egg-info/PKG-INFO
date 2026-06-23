@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ostorlab
-Version: 2.7.8
+Version: 2.8.2
 Summary: OXO Scanner Orchestrator for the Modern Age.
 Home-page: https://github.com/Ostorlab/ostorlab
 Author: Ostorlab
@@ -14,7 +14,7 @@ Project-URL: Twitter, https://twitter.com/OstorlabSec
 Platform: any
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
-Requires-Python: >=3.9
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click

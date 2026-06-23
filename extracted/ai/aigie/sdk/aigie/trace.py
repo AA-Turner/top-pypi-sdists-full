@@ -9,10 +9,10 @@ from uuid import uuid4
 
 import httpx
 
-from .buffer import EventBuffer
-from .sampling import should_send_event
-from .span import SpanContext
-from .tracing.trace_state import deregister_open_span, register_open_span
+from aigie.buffer import EventBuffer
+from aigie.sampling import should_send_event
+from aigie.span import SpanContext
+from aigie.tracing.trace_state import deregister_open_span, register_open_span
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +66,14 @@ class TraceContext:
         """Create the trace when entering context."""
         # Track feature usage
         try:
-            from .licensing import track_feature
+            from aigie.licensing import track_feature
 
             track_feature("tracing")
         except Exception:
             pass  # Don't fail if tracking fails
 
         # Set this trace as the current trace for auto-instrumentation
-        from .auto_instrument.trace import set_current_trace
+        from aigie.auto_instrument.trace import set_current_trace
 
         set_current_trace(self)
 
@@ -242,7 +242,7 @@ class TraceContext:
         from datetime import datetime, timezone
 
         # Clear current trace from context for auto-instrumentation
-        from .auto_instrument.trace import clear_current_trace
+        from aigie.auto_instrument.trace import clear_current_trace
 
         clear_current_trace()
 
@@ -619,7 +619,7 @@ class TraceContext:
 
         # Return streaming span if requested
         if stream:
-            from .streaming import StreamingSpan
+            from aigie.streaming import StreamingSpan
 
             return StreamingSpan(span_ctx, stream=True)
 
@@ -747,7 +747,7 @@ def get_current_trace() -> TraceContext | None:
         if trace:
             trace.update(metadata={"request_id": req_id, "action_id": action_id})
     """
-    from .auto_instrument.trace import get_current_trace as _get
+    from aigie.auto_instrument.trace import get_current_trace as _get
 
     return _get()
 

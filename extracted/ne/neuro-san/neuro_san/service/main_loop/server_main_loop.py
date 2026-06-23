@@ -35,6 +35,7 @@ from neuro_san.service.http.config.http_server_config import DEFAULT_HTTP_CONNEC
 from neuro_san.service.http.config.http_server_config import DEFAULT_HTTP_IDLE_CONNECTIONS_TIMEOUT_SECONDS
 from neuro_san.service.http.config.http_server_config import DEFAULT_HTTP_SERVER_INSTANCES
 from neuro_san.service.http.config.http_server_config import DEFAULT_HTTP_SERVER_MONITOR_INTERVAL_SECONDS
+from neuro_san.service.http.config.http_server_config import DEFAULT_KEEP_ALIVE_INTERVAL_SECONDS
 from neuro_san.service.http.config.http_server_config import HttpServerConfig
 from neuro_san.service.http.logging.logging_config_restorer import LoggingConfigRestorer
 from neuro_san.service.http.server.http_server import DEFAULT_SERVER_NAME
@@ -71,7 +72,6 @@ class ServerMainLoop:
         self.max_concurrent_requests: int = DEFAULT_MAX_CONCURRENT_REQUESTS
         self.request_limit: int = DEFAULT_REQUEST_LIMIT
         self.forwarded_request_metadata: str = AgentServer.DEFAULT_FORWARDED_REQUEST_METADATA
-        self.usage_logger_metadata: str = ""
         self.service_openapi_spec_file: str = self._get_default_openapi_spec_path()
         self.http_server: HttpServer = None
         self.server_context = ServerContext()
@@ -112,10 +112,6 @@ class ServerMainLoop:
                                                        self.forwarded_request_metadata),
                                 help="Space-delimited list of http request metadata keys to forward "
                                      "to logs/other requests")
-        arg_parser.add_argument("--usage_logger_metadata", type=str,
-                                default=os.environ.get("AGENT_USAGE_LOGGER_METADATA", ""),
-                                help="Space-delimited list of http request metadata keys to forward "
-                                     "to models usage statistics logger")
         arg_parser.add_argument("--openapi_service_spec_path", type=str,
                                 default=os.environ.get("AGENT_OPENAPI_SPEC",
                                                        self.service_openapi_spec_file),
@@ -143,6 +139,11 @@ class ServerMainLoop:
                                                            DEFAULT_HTTP_SERVER_MONITOR_INTERVAL_SECONDS)),
                                 help="Http server resources monitoring/logging interval in seconds "
                                      "0 means no logging")
+        arg_parser.add_argument("--stream_keep_alive_with_progress_interval_seconds", type=int,
+                                default=int(os.environ.get("AGENT_STREAM_KEEP_ALIVE_WITH_PROGRESS_INTERVAL_SECONDS",
+                                                           DEFAULT_KEEP_ALIVE_INTERVAL_SECONDS)),
+                                help="Http server heartbeat interval in seconds "
+                                     "0 means no heartbeat")
         arg_parser.add_argument("--max_temp_networks", type=int,
                                 default=int(os.environ.get("AGENT_MAX_TEMP_NETWORKS", "0")),
                                 help="Maximum number of temporary agent networks to keep in memory. "
@@ -183,9 +184,6 @@ class ServerMainLoop:
         self.forwarded_request_metadata = args.forwarded_request_metadata
         if not self.forwarded_request_metadata:
             self.forwarded_request_metadata = ""
-        self.usage_logger_metadata = args.usage_logger_metadata
-        if not self.usage_logger_metadata:
-            self.usage_logger_metadata = self.forwarded_request_metadata
         self.service_openapi_spec_file = args.openapi_service_spec_path
 
         if args.manifest_update_period_seconds <= 0:
@@ -204,6 +202,8 @@ class ServerMainLoop:
         self.http_server_config.http_server_instances = args.http_server_instances
         self.http_server_config.http_server_monitor_interval_seconds = args.http_resources_monitor_interval_seconds
         self.http_server_config.http_port = args.http_port
+        self.http_server_config.stream_keep_alive_with_progress_interval_seconds =\
+            args.stream_keep_alive_with_progress_interval_seconds
 
         self.server_context.set_temp_storage_max_items(args.max_temp_networks)
 
@@ -235,10 +235,8 @@ class ServerMainLoop:
         logging_config_restorer = LoggingConfigRestorer()
         self.logging_config = logging_config_restorer.restore()
 
-        # Construct forwarded metadata list as a union of
-        # self.forwarded_request_metadata and self.usage_logger_metadata
+        # Construct forwarded metadata list as self.forwarded_request_metadata
         metadata_set = set(self.forwarded_request_metadata.split())
-        metadata_set = metadata_set | set(self.usage_logger_metadata.split())
         metadata_str: str = " ".join(sorted(metadata_set))
 
         server_status: ServerStatus = self.server_context.get_server_status()

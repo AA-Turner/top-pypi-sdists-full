@@ -18,7 +18,7 @@ async def _register_execution(
     temporal_root_workflow_id: str | None,
     execution_token_hash: str,
 ) -> bool:
-    """Register an execution. Returns True on success, False if the endpoint is not available (404)."""
+    """Register an execution. Returns True on success, False if the endpoint is not available (404/405)."""
     api_key = config.common.mistral_api_key.get_secret_value() if config.common.mistral_api_key else None
     client = get_worker_client(api_key=api_key, headers=config.worker.mistral_api_headers)
     try:
@@ -34,7 +34,9 @@ async def _register_execution(
     except SDKError as exc:
         # Retrocompatibility: 404 means the API version doesn't expose
         # the /register endpoint yet.
-        if exc.status_code == 404:
+        # 405 means the endpoint exists but only accepts GET (old backends
+        # that route GET /executions/{execution_id} to this path).
+        if exc.status_code in (404, 405):
             return False
         raise
     return True

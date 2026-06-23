@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.address_pb2
+import sentry_protos.billing.v1.services.contract.v1.billing_config_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2
 import typing
@@ -25,12 +26,22 @@ class CreateContractRequest(google.protobuf.message.Message):
     LINE_ITEMS_FIELD_NUMBER: builtins.int
     ADDRESS_FIELD_NUMBER: builtins.int
     MONTH_INTERVAL_FIELD_NUMBER: builtins.int
+    BILLING_TYPE_FIELD_NUMBER: builtins.int
+    HAS_SOFT_CAP_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     package_uid: builtins.str
     month_interval: builtins.int
     """The customer's chosen cadence. Must be one of the package's
     supported_month_intervals. If unset, defaults to the package's first
     supported interval.
+    """
+    billing_type: sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.BillingType.ValueType
+    """How the contract is billed. If unset (BILLING_TYPE_UNSPECIFIED), the
+    contract defaults to credit-card.
+    """
+    has_soft_cap: builtins.bool
+    """Whether usage past reserved volume is allowed (and billed) instead of
+    hard-stopping ingestion.
     """
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig]: ...
@@ -47,9 +58,11 @@ class CreateContractRequest(google.protobuf.message.Message):
         line_items: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.invoice_pb2.InvoiceLineItem] | None = ...,
         address: sentry_protos.billing.v1.common.v1.address_pb2.Address | None = ...,
         month_interval: builtins.int = ...,
+        billing_type: sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.BillingType.ValueType = ...,
+        has_soft_cap: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["address", b"address"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["address", b"address", "line_items", b"line_items", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "user_configs", b"user_configs"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["address", b"address", "billing_type", b"billing_type", "has_soft_cap", b"has_soft_cap", "line_items", b"line_items", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "user_configs", b"user_configs"]) -> None: ...
 
 global___CreateContractRequest = CreateContractRequest
 

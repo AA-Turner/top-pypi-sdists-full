@@ -11,6 +11,42 @@ import QuantConnect.Securities.Option
 import System
 
 
+class FuturesOptionsExpiryFunctions(System.Object):
+    """Futures options expiry lookup utility class"""
+
+    @staticmethod
+    def first_friday_of_contract_month(underlying_future: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], expiry_month: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """First friday of the contract month"""
+        ...
+
+    @staticmethod
+    def futures_option_expiry(canonical_future_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], future_contract_month: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """
+        Gets the Futures Options' expiry for the given contract month.
+        
+        :param canonical_future_option_symbol: Canonical Futures Options Symbol. Will be made canonical if not provided a canonical
+        :param future_contract_month: Contract month of the underlying Future
+        :returns: Expiry date/time.
+        """
+        ...
+
+    @staticmethod
+    def get_future_option_expiry_from_future_expiry(future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], canonical_future_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> datetime.datetime:
+        """
+        Gets the Future Option's expiry from the Future Symbol provided
+        
+        :param future_symbol: Future (non-canonical) Symbol
+        :param canonical_future_option: The canonical Future Option Symbol
+        :returns: Future Option Expiry for the Future with the same contract month.
+        """
+        ...
+
+    @staticmethod
+    def tenth_business_day_of_contract_month(underlying_future: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], expiry_month: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """Tenth business day of the month"""
+        ...
+
+
 class FutureOption(QuantConnect.Securities.Option.Option):
     """Futures Options security"""
 
@@ -57,42 +93,6 @@ class FuturesOptionsUnderlyingMapper(System.Object):
         :param date: Date to search the future chain provider with. Optional, but required for CBOT based contracts
         :returns: Symbol if there is an underlying for the FOP, null if there's no underlying found for the Future Option.
         """
-        ...
-
-
-class FuturesOptionsExpiryFunctions(System.Object):
-    """Futures options expiry lookup utility class"""
-
-    @staticmethod
-    def first_friday_of_contract_month(underlying_future: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], expiry_month: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """First friday of the contract month"""
-        ...
-
-    @staticmethod
-    def futures_option_expiry(canonical_future_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], future_contract_month: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """
-        Gets the Futures Options' expiry for the given contract month.
-        
-        :param canonical_future_option_symbol: Canonical Futures Options Symbol. Will be made canonical if not provided a canonical
-        :param future_contract_month: Contract month of the underlying Future
-        :returns: Expiry date/time.
-        """
-        ...
-
-    @staticmethod
-    def get_future_option_expiry_from_future_expiry(future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], canonical_future_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> datetime.datetime:
-        """
-        Gets the Future Option's expiry from the Future Symbol provided
-        
-        :param future_symbol: Future (non-canonical) Symbol
-        :param canonical_future_option: The canonical Future Option Symbol
-        :returns: Future Option Expiry for the Future with the same contract month.
-        """
-        ...
-
-    @staticmethod
-    def tenth_business_day_of_contract_month(underlying_future: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], expiry_month: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """Tenth business day of the month"""
         ...
 
 

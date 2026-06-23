@@ -54,10 +54,14 @@ class FanboxExtractor(Extractor):
             FanboxExtractor._warning = False
 
     def items(self):
+        fee_min = self.config("fee-min")
         fee_max = self.config("fee-max")
 
         for item in self.posts():
-            if fee_max is not None and fee_max < item["feeRequired"]:
+            if fee_min is not None and fee_min > item["feeRequired"]:
+                self.log.warning("Skipping post %s (feeRequired of %s < %s)",
+                                 item["id"], item["feeRequired"], fee_min)
+            elif fee_max is not None and fee_max < item["feeRequired"]:
                 self.log.warning("Skipping post %s (feeRequired of %s > %s)",
                                  item["id"], item["feeRequired"], fee_max)
             else:

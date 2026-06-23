@@ -65,7 +65,7 @@ class FacebookExtractor(Extractor):
             ),
             "user_pfbid": "",
             "title": self.decode_all(text.extr(
-                set_page, '"title":{"text":"', '"'
+                set_page, '"title":{"text":"', '"}'
             )),
             "first_photo_id": text.extr(
                 set_page,

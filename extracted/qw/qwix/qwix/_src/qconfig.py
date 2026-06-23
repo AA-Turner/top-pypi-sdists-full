@@ -24,8 +24,8 @@ from flax import nnx
 import jax
 from jax.experimental import pallas as pl
 from qwix._src import aux_data
-from qwix._src import flax_util
 from qwix._src import interception
+from qwix._src.utils import flax_util
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -53,7 +53,8 @@ class QuantizationRule:
   # If set, quantize the activations to the given type.
   act_qtype: jax.typing.DTypeLike | None = None
 
-  # If set, enable subchannel for the contraction axis with the given tile size.
+  # If set, enable subchannel for the innermost (last) contraction axis with the
+  # given tile size.
   # If it's a float, it must be "1 / tile_count" and the actual tile size will
   # be round(axis_size * tile_size).
   tile_size: int | float | None = None
@@ -122,7 +123,11 @@ class QuantizationProvider:
   def _init_rule(self, rule: QuantizationRule) -> QuantizationRule:
     """Validate and set default values for the rule."""
     if rule.act_qtype is None and rule.act_static_scale is not None:
-      raise ValueError(f'Invalid rule: {rule}.')
+      raise ValueError(
+          f'Invalid rule: act_static_scale is set to {rule.act_static_scale} '
+          'but act_qtype is None. Please either unset act_static_scale, '
+          f'or set act_qtype to enable activation quantization. (Rule: {rule})'
+      )
     if rule.act_static_scale is None:
       rule = dataclasses.replace(rule, act_static_scale=False)
     if rule.act_calibration_method is None:

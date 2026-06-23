@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3"
-version = "1.43.34"
+version = "1.43.36"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.43.34 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.43.36 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "types-boto3-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.34",
+    "boto3==1.43.36",
 ]
 all = [
     "types-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -292,6 +292,8 @@ all = [
     "types-boto3-kms>=1.43.0, <1.44.0",
     "types-boto3-lakeformation>=1.43.0, <1.44.0",
     "types-boto3-lambda>=1.43.0, <1.44.0",
+    "types-boto3-lambda-core>=1.43.0, <1.44.0",
+    "types-boto3-lambda-microvms>=1.43.0, <1.44.0",
     "types-boto3-launch-wizard>=1.43.0, <1.44.0",
     "types-boto3-lex-models>=1.43.0, <1.44.0",
     "types-boto3-lex-runtime>=1.43.0, <1.44.0",
@@ -1166,6 +1168,12 @@ lakeformation = [
 ]
 lambda = [
     "types-boto3-lambda>=1.43.0, <1.44.0",
+]
+lambda-core = [
+    "types-boto3-lambda-core>=1.43.0, <1.44.0",
+]
+lambda-microvms = [
+    "types-boto3-lambda-microvms>=1.43.0, <1.44.0",
 ]
 launch-wizard = [
     "types-boto3-launch-wizard>=1.43.0, <1.44.0",

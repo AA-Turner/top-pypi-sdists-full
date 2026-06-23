@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "hatchling>=0.21.1",
+    "hatchling>=1.26",
 ]
 build-backend = "hatchling.build"
 
@@ -9,7 +9,7 @@ name = "pymdown-extensions"
 description = "Extension pack for Python Markdown."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Isaac Muse", email = "Isaac.Muse@gmail.com" },
 ]
@@ -65,8 +65,8 @@ include = [
     "/tools/pymdownx_md_render.py",
     "/.pyspelling.yml",
     "/.coveragerc",
-    "/mkdocs.yml",
-    "/run_tests.py",
+    "/zensical.yml",
+    "/run_tests.py"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -139,7 +139,7 @@ legacy_tox_ini = """
     [tox]
     isolated_build = true
     envlist =
-        {py39,py310,py311,py312,py313,py314}, lint, documents
+        {py310,py311,py312,py313,py314}, lint, documents
 
     [testenv]
     passenv = LANG

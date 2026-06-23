@@ -70,7 +70,7 @@ from pygments.lexers.sql import PostgresConsoleLexer, SqliteConsoleLexer
 from pygments.style import StyleMeta
 from pygments.token import Generic, Text, Token, string_to_tokentype
 
-from .colorize import _CUBE_VALUES, _nearest_256
+from .styling import _CUBE_VALUES, _nearest_256
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -567,6 +567,9 @@ class _AnsiSessionMeta(LexerMeta):
 
 
 class _AnsiFilterMixin(Lexer):
+    """Mixin appending ``TokenMergeFilter`` and ``AnsiFilter`` to a session
+    lexer's filter chain so its terminal output renders ANSI colors."""
+
     def __init__(self, *args, **kwargs) -> None:
         """Add ``TokenMergeFilter`` and ``AnsiFilter`` to the filter chain.
 
@@ -826,20 +829,16 @@ class AnsiHtmlFormatter(HtmlFormatter):
             else:
                 yield ttype, value
 
-    def get_token_style_defs(self, arg=None):
-        """Extend Pygments' token CSS with rules for SGR attributes it cannot express.
+    def _extra_ansi_css_lines(self, arg=None) -> list[str]:
+        """CSS for the SGR attributes Pygments cannot express, the blink keyframe
+        and the OSC 8 hyperlink rule.
 
-        Pygments' style strings support ``bold``, ``italic``, and ``underline``, but
-        have no keywords for faint, blink, reverse, strikethrough, or overline. This
-        override appends dedicated CSS rules from ``EXTRA_ANSI_CSS`` after the standard
-        Pygments token CSS output.
-
-        Overriding ``get_token_style_defs`` (rather than ``get_style_defs``) ensures
-        that Furo's dark-mode CSS generator, which calls this method directly, also
-        picks up the extra rules.
+        Pygments' style strings support ``bold``, ``italic`` and ``underline`` but
+        have no keywords for faint, blink, reverse, strikethrough or overline, so
+        those are emitted as dedicated declarations from ``EXTRA_ANSI_CSS``.
         """
-        lines = super().get_token_style_defs(arg)
         prefix = self.get_css_prefix(arg)
+        lines: list[str] = []
         for attr, declaration in EXTRA_ANSI_CSS.items():
             cls = self._get_css_class(  # type: ignore[attr-defined]
                 getattr(Ansi, attr),
@@ -850,6 +849,31 @@ class AnsiHtmlFormatter(HtmlFormatter):
         container = f".{self.cssclass} " if self.cssclass else ""
         lines.append(f"{container}a {{ color: inherit; text-decoration: underline }}")
         return lines
+
+    def get_token_style_defs(self, arg=None):
+        """Extend Pygments' token CSS with rules for SGR attributes it cannot express.
+
+        Overriding ``get_token_style_defs`` (rather than ``get_style_defs``) ensures
+        that Furo's dark-mode CSS generator, which calls this method directly, also
+        picks up the extra rules built by ``_extra_ansi_css_lines``.
+        """
+        return super().get_token_style_defs(arg) + self._extra_ansi_css_lines(arg)
+
+    def get_ansi_style_defs(self, arg=None) -> str:
+        """Return only this formatter's ANSI CSS, dropping Pygments' base
+        syntax-token rules.
+
+        The MkDocs plugin layers these over a theme's own syntax highlighting, so
+        it must not pull in the standard token rules (those would override the
+        theme). Keeps the ``-Ansi-*`` token rules plus everything
+        ``_extra_ansi_css_lines`` adds. Owning this selection here, next to
+        the rules it returns, keeps the MkDocs plugin from hard-coding this
+        formatter's class names and CSS internals.
+        """
+        ansi_token_rules = [
+            line for line in super().get_token_style_defs(arg) if "-Ansi" in line
+        ]
+        return "\n".join(ansi_token_rules + self._extra_ansi_css_lines(arg))
 
     def _get_css_classes(self, ttype: _TokenType) -> str:
         """Map a token to its CSS classes, decomposing compound ``Token.Ansi.*`` tokens.

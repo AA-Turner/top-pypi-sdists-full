@@ -15,6 +15,7 @@ from typing import Any
 
 import typer
 
+from dazzle.core.manifest import load_manifest
 from dazzle.qa.signing_seed import (
     SeededDoc,
     SigningSeedContext,
@@ -1089,7 +1090,6 @@ def qa_trial(
 
     # Resolve the LLM driver before any server/db work so a missing
     # key or CLI fails fast with onboarding guidance, not mid-trial.
-    from dazzle.core.manifest import load_manifest
     from dazzle.llm.driver import LLMDriverError, resolve_llm_driver
 
     manifest_driver: str | None = None
@@ -1276,7 +1276,7 @@ def qa_trial(
                     # protocol _authenticate_persona_on_context uses,
                     # but awaitable).
                     headers = {"X-Test-Secret": test_secret_val} if test_secret_val else {}
-                    async with httpx.AsyncClient() as http:  # noqa: DZ-HTTP-NORETRY  one-shot CLI
+                    async with httpx.AsyncClient() as http:  # DZ-HTTP-NORETRY  one-shot CLI
                         resp = await http.post(
                             f"{site_url}/__test__/authenticate",
                             json={"role": login_persona, "username": login_persona},

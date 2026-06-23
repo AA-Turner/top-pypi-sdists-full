@@ -141,6 +141,8 @@ class BillingConfig(google.protobuf.message.Message):
     CONTRACT_END_DATE_FIELD_NUMBER: builtins.int
     MONTH_INTERVAL_FIELD_NUMBER: builtins.int
     SUPPORTS_PAYG_FIELD_NUMBER: builtins.int
+    IS_MANAGED_FIELD_NUMBER: builtins.int
+    HAS_SOFT_CAP_FIELD_NUMBER: builtins.int
     billing_type: global___BillingType.ValueType
     channel: global___BillingChannel.ValueType
     """Remaining fields are deprecated"""
@@ -153,6 +155,14 @@ class BillingConfig(google.protobuf.message.Message):
     """Whether the org is allowed to incur pay-as-you-go usage.
     Credit-card orgs always support payg; invoiced orgs that should
     support it are an explicit override.
+    """
+    is_managed: builtins.bool
+    """Whether this is a managed (sales-assisted) subscription rather than
+    self-serve.
+    """
+    has_soft_cap: builtins.bool
+    """Whether the org has a soft cap: usage past reserved volume is allowed
+    (and billed) instead of hard-stopping ingestion.
     """
     @property
     def address(self) -> global___Address: ...
@@ -173,8 +183,10 @@ class BillingConfig(google.protobuf.message.Message):
         contract_end_date: global___Date | None = ...,
         month_interval: builtins.int = ...,
         supports_payg: builtins.bool = ...,
+        is_managed: builtins.bool = ...,
+        has_soft_cap: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["address", b"address", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["address", b"address", "billing_type", b"billing_type", "channel", b"channel", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "external_billing_provider", b"external_billing_provider", "month_interval", b"month_interval", "supports_payg", b"supports_payg"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["address", b"address", "billing_type", b"billing_type", "channel", b"channel", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "external_billing_provider", b"external_billing_provider", "has_soft_cap", b"has_soft_cap", "is_managed", b"is_managed", "month_interval", b"month_interval", "supports_payg", b"supports_payg"]) -> None: ...
 
 global___BillingConfig = BillingConfig

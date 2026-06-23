@@ -6,9 +6,12 @@ Phase 1 ships two enforcement commands described in #1168:
   root, layout mode, State Store path) and a status line.
 - ``atdd state layout --check`` — validate the filesystem layout is legal and
   exit non-zero on a violation (e.g. a per-worktree State Store).
+- ``atdd state init`` — create (if needed) and migrate the State Store SQLite
+  database at the resolved Control Root (#1181).
+- ``atdd state import-manifest`` — import ``.atdd/manifest.yaml`` operational
+  state into the State Store and write a backup (#1183).
 
-``atdd state init`` / ``migrate-layout`` / the SQLite migrations are #1168
-Phases 2+ and are intentionally not implemented here.
+``atdd state migrate-layout`` and later-phase commands are #1168 Phases 5+.
 """
 from __future__ import annotations
 
@@ -17,6 +20,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
+from atdd.state.db import current_version, init_state_store
 from atdd.state.paths import (
     AmbiguousControlRootError,
     ControlRootNotFoundError,
@@ -42,6 +46,24 @@ def _build_parser() -> argparse.ArgumentParser:
     layout = sub.add_parser("layout", help="Layout guards.")
     layout.add_argument("--check", action="store_true", help="Validate the layout; non-zero on violation.")
     layout.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+
+    init = sub.add_parser("init", help="Create (if needed) and migrate the State Store SQLite database.")
+    init.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+
+    imp = sub.add_parser("import-manifest",
+                         help="Import .atdd/manifest.yaml operational state into the State Store (#1183).")
+    imp.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+
+    trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
+    trace_sub = trace.add_subparsers(dest="trace_op")
+    t_list = trace_sub.add_parser("list", help="List Hub sessions.")
+    t_list.add_argument("--root", default=None)
+    t_export = trace_sub.add_parser("export", help="Export a session's trace as JSON.")
+    t_export.add_argument("--session", required=True)
+    t_export.add_argument("--root", default=None)
+    t_promote = trace_sub.add_parser("promote", help="Promote a session's trace to the outbox.")
+    t_promote.add_argument("--session", required=True)
+    t_promote.add_argument("--root", default=None)
 
     return parser
 
@@ -95,8 +117,8 @@ def _cmd_doctor(root: Optional[str]) -> int:
         print("Status:             INVALID")
         return 1
     if not resolution.state_store_exists:
-        # Phase 1 does not create the store; this is informational, not a failure.
-        print("Status:             OK (State Store not yet created — `atdd state init` lands in #1168 Phase 2)")
+        # Not created yet — informational, not a failure. Initialize with `atdd state init`.
+        print("Status:             OK (State Store not yet created — run `atdd state init`)")
         return 0
     print("Status:             OK")
     return 0
@@ -117,6 +139,113 @@ def _cmd_layout_check(root: Optional[str]) -> int:
     return 0
 
 
+def _cmd_init(root: Optional[str]) -> int:
+    start = _start_dir(root)
+    resolution, rc = _resolve_or_report(start)
+    if resolution is None:
+        return rc
+
+    existed = resolution.state_store_exists
+    db_path = init_state_store(db_path=resolution.state_store_path)
+    from atdd.state.db import connect  # local import: keep module import surface small
+
+    conn = connect(db_path)
+    try:
+        version = current_version(conn)
+    finally:
+        conn.close()
+    verb = "already initialized" if existed else "initialized"
+    print(f"ATDD State Store {verb}: {db_path}")
+    print(f"Control Root: {resolution.control_root}  ({resolution.layout_mode.value})")
+    print(f"Schema version: {version}")
+    return 0
+
+
+def _cmd_import_manifest(root: Optional[str]) -> int:
+    start = _start_dir(root)
+    resolution, rc = _resolve_or_report(start)
+    if resolution is None:
+        return rc
+
+    from atdd.state.manifest_import import import_manifest  # local: keeps yaml off the hot path
+
+    try:
+        result = import_manifest(control_root=resolution.control_root)
+    except FileNotFoundError as exc:
+        _log.warning("manifest import found no manifest", extra={"error": str(exc)})
+        print(f"ERROR: {exc}")
+        return 1
+    print(f"Imported {result.imported} work item(s) ({result.external_refs} external ref(s)) "
+          f"into {result.db_path}")
+    print(f"Backup written: {result.backup_path}")
+    if result.skipped:
+        print(f"Skipped {result.skipped}: {'; '.join(result.skipped_reasons)}")
+    if result.collisions:
+        print(f"Duplicate issue numbers ({len(result.collisions)}; first-in-manifest wins the ref):")
+        for c in result.collisions:
+            print(f"  - {c}")
+    return 0
+
+
+def _open_store(root: Optional[str]):
+    """Resolve, init, and open the State Store; return (resolution, conn) or (None, rc)."""
+    start = _start_dir(root)
+    resolution, rc = _resolve_or_report(start)
+    if resolution is None:
+        return None, rc
+    from atdd.state.db import connect, init_state_store
+    db = init_state_store(start=resolution.control_root)
+    return resolution, connect(db)
+
+
+def _cmd_trace(args) -> int:
+    import json as _json
+
+    from atdd.state import hub
+    from atdd.state.store import StateStore
+
+    if args.trace_op is None:
+        print("usage: atdd state trace <list|export|promote>")
+        return 2
+
+    resolution, conn_or_rc = _open_store(args.root)
+    if resolution is None:
+        return conn_or_rc
+    conn = conn_or_rc
+    try:
+        store = StateStore(conn)
+        if args.trace_op == "list":
+            rows = hub.hub_session_projection(store)
+            if not rows:
+                print("(no Hub sessions)")
+            for r in rows:
+                print(f"{r.uid}  state={r.state}  adapters={len(r.adapters)}  events={r.event_count}")
+            return 0
+        if args.trace_op == "export":
+            try:
+                print(_json.dumps(hub.export_trace(store, args.session), indent=2, sort_keys=True))
+            except KeyError as exc:
+                _log.warning("trace export: session not found",
+                             extra={"session": args.session, "error": str(exc)})
+                print(f"ERROR: {exc}")
+                return 1
+            return 0
+        if args.trace_op == "promote":
+            try:
+                outbox_id = hub.promote_trace(store, args.session)
+            except KeyError as exc:
+                _log.warning("trace promote: session not found",
+                             extra={"session": args.session, "error": str(exc)})
+                print(f"ERROR: {exc}")
+                return 1
+            print(f"Promoted trace for {args.session} → outbox#{outbox_id}")
+            return 0
+        print(f"unknown trace op: {args.trace_op}")
+        return 2
+    finally:
+        conn.close()
+
+
 def run(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -128,6 +257,12 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
             parser.parse_args(["layout", "--help"])
             return 2
         return _cmd_layout_check(args.root)
+    if args.op == "init":
+        return _cmd_init(args.root)
+    if args.op == "import-manifest":
+        return _cmd_import_manifest(args.root)
+    if args.op == "trace":
+        return _cmd_trace(args)
 
     parser.print_help()
     return 2

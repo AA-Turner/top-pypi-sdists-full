@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2026.6.8
+Version: 2026.6.9
 Summary: 2-5X faster training, reinforcement learning & finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -18,7 +18,7 @@ Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: unsloth_zoo>=2026.6.6
+Requires-Dist: unsloth_zoo>=2026.6.7
 Requires-Dist: wheel>=0.42.0
 Requires-Dist: packaging
 Requires-Dist: torch<2.11.0,>=2.4.0
@@ -49,7 +49,7 @@ Provides-Extra: triton
 Requires-Dist: triton>=3.0.0; "linux" in sys_platform and extra == "triton"
 Requires-Dist: triton-windows; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "triton"
 Provides-Extra: huggingface
-Requires-Dist: unsloth_zoo>=2026.6.6; extra == "huggingface"
+Requires-Dist: unsloth_zoo>=2026.6.7; extra == "huggingface"
 Requires-Dist: wheel>=0.42.0; extra == "huggingface"
 Requires-Dist: packaging; extra == "huggingface"
 Requires-Dist: torchvision; extra == "huggingface"
@@ -353,7 +353,7 @@ Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "colab-ampere-to
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2026.6.6; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2026.6.7; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
 Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "colab-new"
@@ -660,6 +660,8 @@ unsloth studio -p 8888
 ```
 For cloud or global access, add `-H 0.0.0.0`. By default, Unsloth is accessible only locally.
 
+For a secure HTTPS link instead of a raw network port, use `unsloth studio --secure`. Studio stays bound to localhost and is served only through a free Cloudflare HTTPS tunnel (it fails closed if the tunnel can't start, so the raw port is never exposed).
+
 #### Docker
 Use our [Docker image](https://hub.docker.com/r/unsloth/unsloth) ```unsloth/unsloth``` container. Run:
 ```bash
@@ -736,12 +738,18 @@ Read our [guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide). Ad
 
 ## 📥 Advanced Installation
 The below advanced instructions are for Unsloth Studio. For Unsloth Core advanced installation, [view our docs](https://unsloth.ai/docs/get-started/install/pip-install#advanced-pip-installation).
-#### Developer installs: macOS, Linux, WSL:
+#### Developer / Nightly / Experimental installs: macOS, Linux, WSL:
+The developer install builds from the `main` branch, which is the latest (nightly) source.
 ```bash
 git clone https://github.com/unslothai/unsloth
 cd unsloth
 ./install.sh --local
 unsloth studio -p 8888
+```
+To install into an isolated location (its own virtual env, `auth/`, `studio.db`, cache and llama.cpp build), set `UNSLOTH_STUDIO_HOME` and pass it again at launch:
+```bash
+UNSLOTH_STUDIO_HOME="$PWD/.studio" ./install.sh --local
+UNSLOTH_STUDIO_HOME="$PWD/.studio" unsloth studio -p 8888
 ```
 Then to update :
 ```bash
@@ -750,48 +758,40 @@ cd unsloth && git pull
 unsloth studio -p 8888
 ```
 
-#### Developer installs: Windows PowerShell:
+#### Developer / Nightly / Experimental installs: Windows PowerShell:
+The developer install builds from the `main` branch, which is the latest (nightly) source.
 ```powershell
 git clone https://github.com/unslothai/unsloth.git
 cd unsloth
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\install.ps1 --local
 unsloth studio -p 8888
+```
+To install into an isolated location (its own virtual env, `auth/`, `studio.db`, cache and llama.cpp build), set `UNSLOTH_STUDIO_HOME` and pass it again at launch:
+```powershell
+$env:UNSLOTH_STUDIO_HOME="$PWD\.studio"; .\install.ps1 --local
+$env:UNSLOTH_STUDIO_HOME="$PWD\.studio"; unsloth studio -p 8888
 ```
 Then to update :
-```bash
-cd unsloth && git pull
-./install.sh --local
-unsloth studio -p 8888
-```
-
-#### Nightly: MacOS, Linux, WSL:
-```bash
-git clone https://github.com/unslothai/unsloth
-cd unsloth
-git checkout nightly
-./install.sh --local
-unsloth studio -p 8888
-```
-Then to launch every time:
-```bash
-unsloth studio -p 8888
-```
-
-#### Nightly: Windows:
-Run in Windows Powershell:
 ```powershell
-git clone https://github.com/unslothai/unsloth.git
-cd unsloth
-git checkout nightly
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+cd unsloth; git pull
 .\install.ps1 --local
 unsloth studio -p 8888
 ```
-Then to launch every time:
+
+#### Remote access: `--secure` (HTTPS tunnel) vs raw port
+By default `unsloth studio` binds to `127.0.0.1` (this machine only). To reach it from another device, pick one of:
+
+- `--secure` (recommended): serve **only** through a free Cloudflare HTTPS link. Studio stays bound to localhost and the tunnel provides the public URL; it fails closed (does not start) if the tunnel can't come up, so the raw port is never exposed.
 ```bash
-unsloth studio -p 8888
+unsloth studio --secure -p 8888
 ```
+- `-H 0.0.0.0`: bind the raw port on all network interfaces, reachable from anywhere on the network. Only use this on a trusted network.
+```bash
+unsloth studio -H 0.0.0.0 -p 8888
+```
+
+Server-side tools (web search, Python and terminal code execution) run as your user and are on by default. Anyone who can reach the server with the API key can run code on this machine, so keep your API key private and pass `--disable-tools` when exposing Studio.
 
 #### Advanced launch options
 Installer options can be passed as environment variables. On macOS, Linux and WSL place the variable after the pipe so the shell passes it to `sh`; on Windows set it with `$env:` before piping to `iex`.

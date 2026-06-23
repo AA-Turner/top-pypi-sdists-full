@@ -23,8 +23,11 @@ from .._compiler.cute.matmul_utils import cute_outer_accumulator_out_dtype
 from .._compiler.cute.matmul_utils import cute_resolve_active_block_id
 from .._compiler.cute.matmul_utils import cute_resolve_active_matmul_k_block_id
 from .._compiler.cute.matmul_utils import cute_static_k_invariant_extent
+from .._compiler.cute.strategies import is_pure_matmul_role_lifecycle_config
+from .._compiler.cute.tcgen05_constants import TCGEN05_FLAT_ROLE_COORDINATES_CONFIG_KEY
 from .._compiler.cute.tcgen05_constants import TCGEN05_TWO_CTA_BLOCK_M
 from .._compiler.cute.tcgen05_constants import TCGEN05_TWO_CTA_BLOCK_N
+from .._compiler.cute.tcgen05_constants import TCGEN05_TWO_CTA_EDGE_K_TAIL_MIN_DIM
 from .._compiler.cute.tcgen05_constants import TCGEN05_TWO_CTA_MAX_K_TILES
 from .._compiler.matmul_utils import _compute_out_dtype
 from .._compiler.matmul_utils import _emit_pallas_matmul
@@ -58,6 +61,18 @@ def _cute_dot_outer_accumulates_result(fx_node: object, *, is_acc_none: bool) ->
     if not isinstance(fx_node, torch.fx.Node):
         fx_node = None
     return cute_outer_accumulates_result(fx_node, is_acc_none=is_acc_none)
+
+
+def _requested_pure_matmul_role_lifecycle(state: CodegenState) -> bool:
+    return is_pure_matmul_role_lifecycle_config(state.device_function.config)
+
+
+def _requested_tcgen05_flat_role_coordinates(state: CodegenState) -> bool:
+    return bool(
+        state.device_function.config.get(
+            TCGEN05_FLAT_ROLE_COORDINATES_CONFIG_KEY, False
+        )
+    )
 
 
 def _cuda_num_sms_or_zero(device: torch.device) -> int:
@@ -303,50 +318,63 @@ def enforce_dot_requirements(lhs: torch.Tensor, rhs: torch.Tensor) -> None:
             rhs_dtype=rhs.dtype,
         )
     )
+    # tcgen05 MMA-K is 16 elements for BF16/FP16 but 32 for FP8 (e4m3); the
+    # block_k search granularity and minimum must follow the active dtype.
+    is_fp8 = lhs.dtype == torch.float8_e4m3fn
+    mma_k = 32 if is_fp8 else 16
     if (
         env.backend_name == "cute"
         and lhs.ndim == 2
         and rhs.ndim == 2
-        and lhs.dtype in (torch.float16, torch.bfloat16)
+        and lhs.dtype in (torch.float16, torch.bfloat16, torch.float8_e4m3fn)
         and rhs.dtype == lhs.dtype
         and static_m is not None
         and static_n is not None
         and static_k is not None
         and static_m >= 64
         and static_n >= 8
-        and static_k >= 16
-        # The tcgen05 direct-store epilogue's predicated SIMT path
-        # CUDA-launch-fails for partial M tiles on B200. Gate the tcgen05
-        # specialization on M being a clean multiple of the minimum tcgen05
-        # M tile (64) so generated tiles are always full and the predicated
-        # branch is never taken.
-        and static_m % 64 == 0
+        and static_k >= mma_k
     ):
         from .._compiler.cute.mma_support import get_cute_mma_support
 
-        if get_cute_mma_support().tcgen05_f16bf16:
+        support = get_cute_mma_support()
+        tcgen05_supported = support.tcgen05_f8 if is_fp8 else support.tcgen05_f16bf16
+        if tcgen05_supported:
 
             def pow2_floor_at_least(value: int, minimum: int) -> int:
                 return 1 << (max(minimum, value).bit_length() - 1)
 
-            spec = env.config_spec
-            spec.cute_tcgen05_search_enabled = True
             max_tcgen05_n = min(256, pow2_floor_at_least(static_n, 8))
             max_tcgen05_m = 256 if max_tcgen05_n >= 128 and static_m >= 256 else 128
             # Larger tile_k packs more cute.gemm instructions per K loop
             # iteration on tcgen05 (mma instruction K is fixed at 16 for
-            # BF16/FP16). Cap at 128 to keep AB SMEM staging budget sane.
-            max_tcgen05_k = min(128, pow2_floor_at_least(static_k, 16))
+            # BF16/FP16, 32 for FP8). Cap at 128 to keep AB SMEM staging
+            # budget sane.
+            max_tcgen05_k = min(128, pow2_floor_at_least(static_k, mma_k))
             max_search_m = min(max_tcgen05_m, pow2_floor_at_least(static_m, 64))
             max_search_n = max_tcgen05_n
             max_search_k = max_tcgen05_k
+            min_search_m = 128 if max_tcgen05_m >= 256 else 64
+            two_cta_m_edge = static_m % TCGEN05_TWO_CTA_BLOCK_M != 0
+            two_cta_n_edge = static_n % TCGEN05_TWO_CTA_BLOCK_N != 0
+            two_cta_k_tail = static_k % max_search_k != 0
+            if static_m % max_search_m != 0 and static_n % max_search_n != 0:
+                # Flat tcgen05 cluster_m=1 kernels now handle partial M and
+                # partial N output tiles in the SIMT edge epilogue. Keep N
+                # wide so edge-heavy shapes such as 5000x5000 do not collapse
+                # to block_n=8. M still caps at 128 because block_m=256 is
+                # validated through the cluster_m=2 CtaGroup.TWO path, which
+                # remains gated to static-full persistent kernels below.
+                max_search_m = min(max_search_m, 128)
+            spec = env.config_spec
+            spec.cute_tcgen05_search_enabled = True
             # Persistent pid types may re-enter autotune only if every
             # power-of-two block-size candidate in the tcgen05 search space
             # is a static full tile. Since each candidate divides the maximum
             # power-of-two candidate, checking the maximum per axis is enough.
             # Multi-root kernels are rejected later once device IR root count
             # is known.
-            allow_persistent_pid_types = (
+            allow_full_tile_persistent_pid_types = (
                 static_m % max_search_m == 0
                 and static_n % max_search_n == 0
                 and static_k % max_search_k == 0
@@ -355,34 +383,65 @@ def enforce_dot_requirements(lhs: torch.Tensor, rhs: torch.Tensor) -> None:
             # 2 when at least the largest searched bk fits the cap; smaller
             # invalid bk samples fall back to cluster_m=1 during normalization.
             max_cluster_m2_search_k = TCGEN05_TWO_CTA_MAX_K_TILES * max_search_k
-            allow_cluster_m2_search = (
-                allow_persistent_pid_types
+            allow_full_tile_cluster_m2_search = (
+                allow_full_tile_persistent_pid_types
                 and max_search_m >= TCGEN05_TWO_CTA_BLOCK_M
                 and max_search_n >= TCGEN05_TWO_CTA_BLOCK_N
                 and static_k <= max_cluster_m2_search_k
             )
-            # Small-shape wave-quantization gate. Suppress cluster_m=2
-            # search when the cluster_m=2 work-cluster count cannot fill
-            # one wave of cluster slots (``num_sms // 2``); the persistent
-            # warp-spec prologue dominates and cluster_m=1 wins. ``num_sms
-            # == 0`` (non-CUDA / mocked) keeps search live. See
-            # cute_plan.md §7.6.3.2 for the NCU rationale and B200 numbers.
+            # Admit only the validated large double-output-edge + K-tail
+            # CtaGroup.TWO family: 256x256x128, persistent_interleaved.
+            # Smaller edge-heavy shapes continue using the established flat
+            # SIMT-edge fallback.
+            allow_edge_cluster_m2_search = (
+                not allow_full_tile_persistent_pid_types
+                and max_tcgen05_m >= TCGEN05_TWO_CTA_BLOCK_M
+                and max_tcgen05_n >= TCGEN05_TWO_CTA_BLOCK_N
+                and static_m >= TCGEN05_TWO_CTA_EDGE_K_TAIL_MIN_DIM
+                and static_n >= TCGEN05_TWO_CTA_EDGE_K_TAIL_MIN_DIM
+                and static_k >= TCGEN05_TWO_CTA_EDGE_K_TAIL_MIN_DIM
+                and static_k <= max_cluster_m2_search_k
+                and two_cta_m_edge
+                and two_cta_n_edge
+                and two_cta_k_tail
+            )
+            allow_cluster_m2_search = (
+                allow_full_tile_cluster_m2_search or allow_edge_cluster_m2_search
+            )
+            # Small-shape wave-quantization gate. Suppress cluster_m=2 search
+            # only for genuinely tiny problems that cannot fill a meaningful
+            # fraction of the device; below that the persistent warp-spec
+            # prologue dominates and cluster_m=1 wins. The original gate used
+            # ``num_sms // 2`` (one full wave of 2-SM cluster slots), but that
+            # was calibrated for the DEFAULT-layout cluster_m=2 path. The
+            # generalized TVM-FFI direct entry (see
+            # ``CuteTcgen05ClusterM2FfiHeuristic``) has a much lower launch +
+            # epilogue overhead, which shifts the cluster_m=1/2 crossover well
+            # below one wave: full-autotune A/B on B200 shows cluster_m=2 + FFI
+            # winning at 64 work clusters (1024x4096x1024 and 2048^3, ~64
+            # clusters on the 148-SM B200 = 0.86 of a wave) by 7-21% over
+            # cluster_m=1. Use ``num_sms // 4`` so those validated shapes are
+            # admitted on current and larger Blackwell SKUs while still
+            # suppressing the truly tiny shapes (fewer than a quarter-wave of
+            # cluster slots) that have no FFI coverage. ``num_sms == 0`` (non-CUDA / mocked) keeps search
+            # live. See cute_plan.md §7.6.3.2 for the original NCU rationale.
             if allow_cluster_m2_search:
                 num_sms_for_cm2_threshold = _cuda_num_sms_or_zero(lhs.device)
                 if num_sms_for_cm2_threshold > 0:
                     cm2_work_clusters = (static_m // TCGEN05_TWO_CTA_BLOCK_M) * (
                         static_n // TCGEN05_TWO_CTA_BLOCK_N
                     )
-                    cm2_one_wave_slots = num_sms_for_cm2_threshold // 2
-                    if cm2_work_clusters < cm2_one_wave_slots:
+                    cm2_min_clusters = num_sms_for_cm2_threshold // 4
+                    if cm2_work_clusters < cm2_min_clusters:
                         allow_cluster_m2_search = False
             # Narrow the autotune search to tcgen05 configs that have been
             # validated to compile and run correctly on B200. Static full-tile
             # single-root role-local persistent kernels have coverage, so the
             # helper keeps persistent pid types when all search block sizes
-            # are full tiles. ``cluster_m=2`` re-enters search only for
-            # static-full CtaGroup.TWO problems whose search space can form
-            # validated 256x256 tiles within the K-tile cap. Search-time
+            # are full tiles. ``cluster_m=2`` re-enters search for static-full
+            # CtaGroup.TWO problems and for the large validated double-edge +
+            # K-tail family whose search space can form 256x256 tiles within
+            # the K-tile cap. Search-time
             # normalization projects cluster_m=2 products onto that validated
             # tile/pid shape and caps cluster_m=1 persistent products at
             # tcgen05-supported M tiles so search does not fall through the
@@ -407,9 +466,10 @@ def enforce_dot_requirements(lhs: torch.Tensor, rhs: torch.Tensor) -> None:
             # canonical 4096^3 acceptance criterion.
             ab_dtype_bytes = lhs.dtype.itemsize
             spec.narrow_tcgen05_autotune_to_validated_configs(
-                allow_persistent_pid_types=allow_persistent_pid_types,
+                allow_persistent_pid_types=allow_full_tile_persistent_pid_types,
                 allow_cluster_m2_search=allow_cluster_m2_search,
                 cluster_m2_static_k=static_k if allow_cluster_m2_search else None,
+                allow_cluster_m2_edge_k_tail_family=allow_edge_cluster_m2_search,
                 ab_stages_three_dtype_bytes=ab_dtype_bytes,
                 ab_stages_three_device=lhs.device,
             )
@@ -422,9 +482,9 @@ def enforce_dot_requirements(lhs: torch.Tensor, rhs: torch.Tensor) -> None:
                 if block_idx is None:
                     continue
                 if axis_name == "k":
-                    min_size = 16
+                    min_size = mma_k
                 elif axis_name == "m":
-                    min_size = 128 if max_tcgen05_m >= 256 else 64
+                    min_size = min_search_m
                 else:
                     min_size = 8
                 env.block_sizes[block_idx].update_min_block(
@@ -617,6 +677,33 @@ def _(state: CodegenState) -> object:
             "cute",
             "CuTe scalar matmul fallback requires an active K tile or a K-invariant static shortcut",
         )
+    if _requested_pure_matmul_role_lifecycle(state):
+        raise exc.BackendUnsupported(
+            "cute",
+            "tcgen05_strategy='pure_matmul_role_lifecycle' requires hl.dot "
+            "to lower through the tcgen05 K-loop path",
+        )
+    if _requested_tcgen05_flat_role_coordinates(state):
+        raise exc.BackendUnsupported(
+            "cute",
+            f"{TCGEN05_FLAT_ROLE_COORDINATES_CONFIG_KEY}=True requires "
+            "hl.dot to lower through the tcgen05 K-loop path",
+        )
+    dot_lhs_node = (
+        state.fx_node.args[0]
+        if state.fx_node is not None and len(state.fx_node.args) > 0
+        else None
+    )
+    dot_rhs_node = (
+        state.fx_node.args[1]
+        if state.fx_node is not None and len(state.fx_node.args) > 1
+        else None
+    )
+    dot_acc_node = (
+        state.fx_node.args[2]
+        if state.fx_node is not None and len(state.fx_node.args) > 2
+        else None
+    )
     return _emit_cute_matmul(
         state.codegen,
         lhs_ast,
@@ -632,6 +719,9 @@ def _(state: CodegenState) -> object:
         acc_dtype=acc_dtype,
         lhs_dtype=lhs_proxy.dtype,
         rhs_dtype=rhs_proxy.dtype,
+        lhs_node=dot_lhs_node,
+        rhs_node=dot_rhs_node,
+        acc_node=None if is_acc_none else dot_acc_node,
     )
 
 

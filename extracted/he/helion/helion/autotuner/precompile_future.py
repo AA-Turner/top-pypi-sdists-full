@@ -22,12 +22,11 @@ from typing import NoReturn
 from typing import cast
 import uuid
 
-import torch
-
 from .. import exc
 from ..runtime.precompile_shim import already_compiled
 from ..runtime.precompile_shim import make_precompiler
 from .benchmarking import synchronize_device
+from .kernel_args import load_trusted_kernel_args
 from .logger import SUPPRESSED_TRITON_CODE_MSG
 from .logger import capture_output
 from .logger import classify_triton_exception
@@ -172,7 +171,7 @@ def _run_kernel_in_subprocess_spawn(
     _cap: list[str] = [""]
     try:
         fn = _load_compiled_fn(fn_spec)
-        args = torch.load(args_path)
+        args = load_trusted_kernel_args(args_path)
         assert isinstance(args, (tuple, list))
         synchronize_device(None)
         with capture_output() as _cap:
@@ -720,12 +719,7 @@ class PrecompileFuture:
             formatted = (
                 f"{formatted}\nRemote traceback (spawned process):\n{error.traceback}"
             )
-        if classification == "warn":
-            self.ctx.log.warning(formatted)
-            self.ctx.kernel.maybe_log_repro(
-                self.ctx.log.warning, self.ctx.args, self.config
-            )
-        elif not ignore_errors:
+        if not ignore_errors:
             self.ctx.log.debug(formatted)
             self.ctx.kernel.maybe_log_repro(
                 self.ctx.log.debug, self.ctx.args, self.config

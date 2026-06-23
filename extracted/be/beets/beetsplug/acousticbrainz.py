@@ -21,6 +21,7 @@ import requests
 
 from beets import plugins, ui
 from beets.dbcore import types
+from beets.exceptions import UserError
 
 LEVELS = ["/low-level", "/high-level"]
 ABSCHEME = {
@@ -93,11 +94,11 @@ class AcousticPlugin(plugins.BeetsPlugin):
         self.base_url = self.config["base_url"].as_str()
         if self.base_url:
             if not self.base_url.startswith("http"):
-                raise ui.UserError(
+                raise UserError(
                     "AcousticBrainz server base URL must start "
                     "with an HTTP scheme"
                 )
-            elif self.base_url[-1] != "/":
+            if self.base_url[-1] != "/":
                 self.base_url = f"{self.base_url}/"
 
         if self.config["auto"]:
@@ -133,7 +134,7 @@ class AcousticPlugin(plugins.BeetsPlugin):
 
     def _get_data(self, mbid):
         if not self.base_url:
-            raise ui.UserError(
+            raise UserError(
                 "This plugin is deprecated since AcousticBrainz has shut "
                 "down. See the base_url configuration option."
             )

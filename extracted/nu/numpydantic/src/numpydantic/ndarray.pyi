@@ -1,19 +1,11 @@
-from dask.array.core import Array as DaskArrayCoreArray
-from numpydantic.interface.hdf5 import H5ArrayPath
-from numpydantic.interface.hdf5 import H5Proxy
-from pathlib._local import Path as Pathlib_localPath
-from cv2 import VideoCapture as Cv2VideoCapture
-from numpydantic.interface.video import VideoProxy
-from zarr.core import Array as ZarrCoreArray
-from numpydantic.interface.zarr import ZarrArrayPath
-from numpy import ndarray as Numpyndarray
-import typing
-import pathlib
+from typing import Any, TypeVar
 
-# Add mypy-style generic params to a static type
-# https://mypy.readthedocs.io/en/stable/generics.html#generic-type-aliases
-TShape = typing.TypeVar('TShape')
-TDtype = typing.TypeVar('TDtype')
+import numpy as np
 
+from numpydantic.types import DtypeType
+from numpydantic.validation.shape import Shape
 
-NDArray = TShape | TDtype | DaskArrayCoreArray | H5ArrayPath | H5Proxy | Pathlib_localPath | Cv2VideoCapture | VideoProxy | ZarrCoreArray | ZarrArrayPath | Numpyndarray
+_T_Shape = TypeVar("_T_Shape", bound=Shape | tuple, default=Any)
+_T_Dtype = TypeVar("_T_Dtype", bound=DtypeType, default=Any)
+
+NDArray = np.ndarray[_T_Shape | tuple, np.dtype[_T_Dtype]]

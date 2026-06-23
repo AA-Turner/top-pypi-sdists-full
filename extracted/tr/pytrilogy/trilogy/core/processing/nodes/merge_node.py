@@ -313,6 +313,7 @@ class MergeNode(StrategyNode):
                 set([c.address for c in final.output_concepts])
                 == set([c.address for c in self.output_concepts])
                 and not self.conditions
+                and not self.force_group
                 and isinstance(final, QueryDatasource)
             ):
                 logger.info(
@@ -340,6 +341,7 @@ class MergeNode(StrategyNode):
             if (
                 all([c.address in output_set for c in self.all_concepts])
                 and not self.conditions
+                and not self.force_group
                 and isinstance(dataset, QueryDatasource)
             ):
                 logger.info(
@@ -486,9 +488,11 @@ class MergeNode(StrategyNode):
             final_datasets,
             key=lambda ds: (null_status.get(ds.identifier, 0), ds.identifier),
         )
+        final_output_concepts = self.output_concepts
+
         source_map = resolve_concept_map(
             ordered_datasets,
-            targets=self.output_concepts,
+            targets=final_output_concepts,
             inherited_inputs=self.input_concepts + self.existence_concepts,
             full_joins=full_join_concepts,
         )
@@ -520,7 +524,7 @@ class MergeNode(StrategyNode):
                 for source in final_datasets
                 if isinstance(source, QueryDatasource)
                 for c in source.rollup_concepts
-                if c.address in {out.address for out in self.output_concepts}
+                if c.address in {out.address for out in final_output_concepts}
             ],
             "address",
         )
@@ -534,7 +538,7 @@ class MergeNode(StrategyNode):
             )
         qds = QueryDatasource(
             input_concepts=unique(self.input_concepts, "address"),
-            output_concepts=unique(self.output_concepts, "address"),
+            output_concepts=final_output_concepts,
             datasources=final_datasets,
             source_type=self.source_type,
             source_map=source_map,
@@ -544,7 +548,7 @@ class MergeNode(StrategyNode):
             joins=qd_joins,
             grain=grain,
             nullable_concepts=[
-                x for x in self.output_concepts if x.address in nullable_concepts
+                x for x in final_output_concepts if x.address in nullable_concepts
             ],
             partial_concepts=self.partial_concepts,
             rollup_concepts=rollup_concepts,

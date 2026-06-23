@@ -5,11 +5,12 @@ import logging
 import os
 import sys
 import threading
+import time
 import warnings
 import weakref
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Union
-from uuid import uuid4
+from typing import Any, Dict, List, Mapping, Optional, Union
+from uuid import UUID, uuid4
 
 from typing_extensions import Unpack
 
@@ -21,15 +22,24 @@ from posthoganalytics.contexts import (
     get_capture_exception_code_variables_context,
     get_code_variables_ignore_patterns_context,
     get_code_variables_mask_patterns_context,
+    get_code_variables_mask_url_credentials_context,
     get_context_device_id,
     get_context_distinct_id,
     get_context_session_id,
+    get_tags as _context_get_tags,
+    identify_context as _context_identify_context,
+    _scoped as _context_scoped,
     new_context,
+    set_context_device_id as _context_set_context_device_id,
+    set_context_session as _context_set_context_session,
+    tag as _context_tag,
 )
 from posthoganalytics.exception_capture import ExceptionCapture
+from posthoganalytics._logging import _configure_posthog_logging
 from posthoganalytics.exception_utils import (
     DEFAULT_CODE_VARIABLES_IGNORE_PATTERNS,
     DEFAULT_CODE_VARIABLES_MASK_PATTERNS,
+    DEFAULT_CODE_VARIABLES_MASK_URL_CREDENTIALS,
     exc_info_from_error,
     exception_is_already_captured,
     exceptions_from_error_tuple,
@@ -97,6 +107,8 @@ from posthoganalytics.version import VERSION
 from queue import Queue, Full
 
 
+_configure_posthog_logging()
+
 MAX_DICT_SIZE = 50_000
 
 
@@ -111,6 +123,26 @@ def get_identity_state(passed) -> tuple[str, bool]:
         return (context_id, False)
 
     return (str(uuid4()), True)
+
+
+def _stringify_event_uuid(value) -> str:
+    if isinstance(value, UUID):
+        return str(value)
+
+    stringified = stringify_id(value)
+    if not stringified:
+        raise ValueError(
+            f"Invalid event uuid {value!r}. Expected a valid UUID string or uuid.UUID instance."
+        )
+
+    try:
+        UUID(stringified)
+    except ValueError:
+        raise ValueError(
+            f"Invalid event uuid {value!r}. Expected a valid UUID string or uuid.UUID instance."
+        ) from None
+
+    return stringified
 
 
 def add_context_tags(properties):
@@ -164,6 +196,11 @@ class Client(object):
     You can also follow [Flask](/docs/libraries/flask) and [Django](/docs/libraries/django)
     guides to integrate PostHog into your project.
 
+    For long-running applications, create one client during application startup
+    and reuse it for the lifetime of the process. This keeps background queues
+    predictable and makes shutdown flushing straightforward. Multiple clients are
+    still supported for intentional multi-project or multi-host setups.
+
     Examples:
         ```python
         from posthoganalytics import Posthog
@@ -175,6 +212,9 @@ class Client(object):
     """
 
     log = logging.getLogger("posthog")
+    _client_registry_lock = threading.Lock()
+    _client_registry: dict[tuple[str, str], weakref.WeakSet] = {}
+    _duplicate_client_warnings: set[tuple[str, str]] = set()
 
     def __init__(
         self,
@@ -210,6 +250,7 @@ class Client(object):
         capture_exception_code_variables=False,
         code_variables_mask_patterns=None,
         code_variables_ignore_patterns=None,
+        code_variables_mask_url_credentials=None,
         in_app_modules: list[str] | None = None,
         enable_exception_autocapture_rate_limiting=False,
         exception_autocapture_bucket_size=ExceptionCapture.DEFAULT_BUCKET_SIZE,
@@ -275,6 +316,9 @@ class Client(object):
                 capturing code variables.
             code_variables_ignore_patterns: Variable-name patterns to omit when
                 capturing code variables.
+            code_variables_mask_url_credentials: Scrub credentials embedded in
+                URLs/DSNs (e.g. ``user:pass@host``) from captured code variables,
+                regardless of the surrounding variable name. Defaults to True.
             in_app_modules: Module/package prefixes treated as in-app frames in
                 captured exceptions.
             enable_exception_autocapture_rate_limiting: Rate limit
@@ -311,6 +355,7 @@ class Client(object):
         # Used for session replay URL generation - we don't want the server host here.
         self.raw_host = normalize_host(host)
         self.host = determine_server_host(host)
+        self._duplicate_client_registry_key: Optional[tuple[str, str]] = None
         self.gzip = gzip
         self.timeout = timeout
         self._feature_flags: Optional[list[Any]] = (
@@ -366,6 +411,11 @@ class Client(object):
             code_variables_ignore_patterns
             if code_variables_ignore_patterns is not None
             else DEFAULT_CODE_VARIABLES_IGNORE_PATTERNS
+        )
+        self.code_variables_mask_url_credentials = (
+            code_variables_mask_url_credentials
+            if code_variables_mask_url_credentials is not None
+            else DEFAULT_CODE_VARIABLES_MASK_URL_CREDENTIALS
         )
         self.in_app_modules = in_app_modules
 
@@ -446,6 +496,54 @@ class Client(object):
                 after_in_child=lambda: Client._reinit_after_fork_weak(weak_self)
             )
 
+        self._warn_if_duplicate_async_client()
+
+    def _warn_if_duplicate_async_client(self):
+        if self.disabled or not self.send or self.sync_mode or not self.api_key:
+            return
+
+        registry_key = (self.api_key, self.host)
+        should_warn = False
+
+        with Client._client_registry_lock:
+            clients = Client._client_registry.setdefault(
+                registry_key, weakref.WeakSet()
+            )
+            has_existing_client = len(clients) > 0
+            clients.add(self)
+            self._duplicate_client_registry_key = registry_key
+
+            if (
+                has_existing_client
+                and registry_key not in Client._duplicate_client_warnings
+            ):
+                Client._duplicate_client_warnings.add(registry_key)
+                should_warn = True
+
+        if should_warn:
+            self.log.warning(
+                "Multiple active PostHog clients detected for the same project "
+                "API key and host. Reuse one Posthog instance per app or "
+                "process when possible to avoid competing background queues "
+                "and missed shutdown flushes. Multiple clients are supported "
+                "when intentional."
+            )
+
+    def _unregister_duplicate_client(self):
+        registry_key = self._duplicate_client_registry_key
+        if registry_key is None:
+            return
+
+        with Client._client_registry_lock:
+            clients = Client._client_registry.get(registry_key)
+            if clients is not None:
+                clients.discard(self)
+                if not clients:
+                    del Client._client_registry[registry_key]
+                    Client._duplicate_client_warnings.discard(registry_key)
+
+            self._duplicate_client_registry_key = None
+
     def _set_before_send(self, before_send):
         if before_send is not None:
             if callable(before_send):
@@ -456,19 +554,19 @@ class Client(object):
         else:
             self.before_send = None
 
-    def new_context(self, fresh=False, capture_exceptions=True):
+    def new_context(self, fresh=False, capture_exceptions: Optional[bool] = None):
         """
         Create a new context for managing shared state. Learn more about [contexts](/docs/libraries/python#contexts).
 
         Args:
             fresh: Whether to create a fresh context that doesn't inherit from parent.
-            capture_exceptions: Whether to automatically capture exceptions in this context.
+            capture_exceptions: Whether to automatically capture exceptions in this context. If omitted, defaults to this client's exception autocapture setting.
 
         Examples:
             ```python
-            with posthog.new_context():
-                identify_context('<distinct_id>')
-                posthog.capture('event_name')
+            with client.new_context():
+                client.identify_context('<distinct_id>')
+                client.capture('event_name')
             ```
 
         Category:
@@ -477,6 +575,83 @@ class Client(object):
         return new_context(
             fresh=fresh, capture_exceptions=capture_exceptions, client=self
         )
+
+    def scoped(self, fresh=False, capture_exceptions: Optional[bool] = None):
+        """
+        Decorator that creates a new context for the wrapped function using this client.
+
+        Args:
+            fresh: Whether to create a fresh context that doesn't inherit from parent.
+            capture_exceptions: Whether to automatically capture exceptions in this context. If omitted, defaults to this client's exception autocapture setting.
+
+        Category:
+            Contexts
+        """
+
+        return _context_scoped(
+            fresh=fresh, capture_exceptions=capture_exceptions, client=self
+        )
+
+    def tag(self, name: str, value: Any) -> None:
+        """
+        Add a tag to the current context.
+
+        Args:
+            name: The tag key.
+            value: The tag value.
+
+        Category:
+            Contexts
+        """
+        _context_tag(name, value)
+
+    def get_tags(self) -> Dict[str, Any]:
+        """
+        Get all tags from the current context.
+
+        Returns:
+            Dict of all tags in the current context.
+
+        Category:
+            Contexts
+        """
+        return _context_get_tags()
+
+    def identify_context(self, distinct_id: str) -> None:
+        """
+        Identify the current context with a distinct ID.
+
+        Args:
+            distinct_id: The distinct ID to associate with the current context and its children.
+
+        Category:
+            Contexts
+        """
+        _context_identify_context(distinct_id)
+
+    def set_context_session(self, session_id: str) -> None:
+        """
+        Set the session ID for the current context.
+
+        Args:
+            session_id: The session ID to associate with the current context and its children.
+
+        Category:
+            Contexts
+        """
+        _context_set_context_session(session_id)
+
+    def set_context_device_id(self, device_id: str) -> None:
+        """
+        Set the device ID for the current context.
+
+        Args:
+            device_id: The device ID to associate with the current context and its children.
+
+        Category:
+            Contexts
+        """
+        _context_set_context_device_id(device_id)
 
     @property
     def feature_flags(self):
@@ -502,11 +677,11 @@ class Client(object):
 
     def get_feature_variants(
         self,
-        distinct_id,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        disable_geoip=None,
+        distinct_id: ID_TYPES,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        disable_geoip: Optional[bool] = None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
         device_id: Optional[str] = None,
     ) -> dict[str, Union[bool, str]]:
@@ -539,11 +714,11 @@ class Client(object):
 
     def get_feature_payloads(
         self,
-        distinct_id,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        disable_geoip=None,
+        distinct_id: ID_TYPES,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        disable_geoip: Optional[bool] = None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
         device_id: Optional[str] = None,
     ) -> dict[str, str]:
@@ -581,11 +756,11 @@ class Client(object):
 
     def get_feature_flags_and_payloads(
         self,
-        distinct_id,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        disable_geoip=None,
+        distinct_id: ID_TYPES,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        disable_geoip: Optional[bool] = None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
         device_id: Optional[str] = None,
     ) -> FlagsAndPayloads:
@@ -624,10 +799,10 @@ class Client(object):
     def get_flags_decision(
         self,
         distinct_id: Optional[ID_TYPES] = None,
-        groups: Optional[dict] = None,
-        person_properties=None,
-        group_properties=None,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        disable_geoip: Optional[bool] = None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
         device_id: Optional[str] = None,
     ) -> FlagsResponse:
@@ -669,10 +844,10 @@ class Client(object):
     def _get_flags_decision(
         self,
         distinct_id: Optional[ID_TYPES] = None,
-        groups: Optional[dict] = None,
-        person_properties=None,
-        group_properties=None,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        disable_geoip: Optional[bool] = None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
         device_id: Optional[str] = None,
     ) -> FlagsResponse:
@@ -695,7 +870,7 @@ class Client(object):
         if not groups:
             groups = {}
 
-        request_data = {
+        request_data: Dict[str, Any] = {
             "distinct_id": distinct_id,
             "groups": groups,
             "person_properties": person_properties,
@@ -728,7 +903,9 @@ class Client(object):
             distinct_id: The distinct ID of the user.
             properties: A dictionary of properties to include with the event.
             timestamp: The timestamp of the event.
-            uuid: A unique identifier for the event.
+            uuid: A unique identifier for the event. If provided, it must be a
+                valid UUID string or uuid.UUID instance; invalid values are
+                ignored and replaced with a newly generated UUID.
             groups: A dictionary of group information.
             flags: A FeatureFlagEvaluations snapshot from evaluate_flags(). The
                 exact values from the snapshot are attached with no extra /flags
@@ -941,7 +1118,9 @@ class Client(object):
             distinct_id: The distinct ID of the user.
             properties: A dictionary of properties to set.
             timestamp: The timestamp of the event.
-            uuid: A unique identifier for the event.
+            uuid: A unique identifier for the event. If provided, it must be a
+                valid UUID string or uuid.UUID instance; invalid values are
+                ignored and replaced with a newly generated UUID.
             disable_geoip: Whether to disable GeoIP for this event.
 
         Examples:
@@ -989,7 +1168,9 @@ class Client(object):
             distinct_id: The distinct ID of the user.
             properties: A dictionary of properties to set once.
             timestamp: The timestamp of the event.
-            uuid: A unique identifier for the event.
+            uuid: A unique identifier for the event. If provided, it must be a
+                valid UUID string or uuid.UUID instance; invalid values are
+                ignored and replaced with a newly generated UUID.
             disable_geoip: Whether to disable GeoIP for this event.
 
         Examples:
@@ -1033,7 +1214,7 @@ class Client(object):
         group_key: str,
         properties: Optional[Dict[str, Any]] = None,
         timestamp: Optional[Union[datetime, str]] = None,
-        uuid: Optional[str] = None,
+        uuid: Optional[Union[str, UUID]] = None,
         disable_geoip: Optional[bool] = None,
         distinct_id: Optional[ID_TYPES] = None,
     ) -> Optional[str]:
@@ -1045,7 +1226,9 @@ class Client(object):
             group_key: The unique identifier for the group.
             properties: A dictionary of properties to set on the group.
             timestamp: The timestamp of the event.
-            uuid: A unique identifier for the event.
+            uuid: A unique identifier for the event. If provided, it must be a
+                valid UUID string or uuid.UUID instance; invalid values are
+                ignored and replaced with a newly generated UUID.
             disable_geoip: Whether to disable GeoIP for this event.
             distinct_id: The distinct ID of the user performing the action.
 
@@ -1090,10 +1273,10 @@ class Client(object):
         self,
         previous_id: str,
         distinct_id: Optional[str],
-        timestamp=None,
-        uuid=None,
-        disable_geoip=None,
-    ):
+        timestamp: Optional[Union[datetime, str]] = None,
+        uuid: Optional[str] = None,
+        disable_geoip: Optional[bool] = None,
+    ) -> Optional[str]:
         """
         Create an alias between two distinct IDs.
 
@@ -1101,7 +1284,9 @@ class Client(object):
             previous_id: The previous distinct ID.
             distinct_id: The new distinct ID to alias to.
             timestamp: The timestamp of the event.
-            uuid: A unique identifier for the event.
+            uuid: A unique identifier for the event. If provided, it must be a
+                valid UUID string or uuid.UUID instance; invalid values are
+                ignored and replaced with a newly generated UUID.
             disable_geoip: Whether to disable GeoIP for this event.
 
         Examples:
@@ -1119,7 +1304,7 @@ class Client(object):
         if personless:
             return None  # Personless alias() does nothing - should this throw?
 
-        msg = {
+        msg: Dict[str, Any] = {
             "properties": {
                 "distinct_id": previous_id,
                 "alias": distinct_id,
@@ -1211,6 +1396,9 @@ class Client(object):
             context_enabled = get_capture_exception_code_variables_context()
             context_mask = get_code_variables_mask_patterns_context()
             context_ignore = get_code_variables_ignore_patterns_context()
+            context_mask_url_credentials = (
+                get_code_variables_mask_url_credentials_context()
+            )
 
             enabled = (
                 context_enabled
@@ -1227,6 +1415,11 @@ class Client(object):
                 if context_ignore is not None
                 else self.code_variables_ignore_patterns
             )
+            mask_url_credentials = (
+                context_mask_url_credentials
+                if context_mask_url_credentials is not None
+                else self.code_variables_mask_url_credentials
+            )
 
             if enabled:
                 try_attach_code_variables_to_frames(
@@ -1234,6 +1427,7 @@ class Client(object):
                     exc_info,
                     mask_patterns=mask_patterns,
                     ignore_patterns=ignore_patterns,
+                    mask_url_credentials=mask_url_credentials,
                 )
 
             if self.log_captured_exceptions:
@@ -1348,8 +1542,11 @@ class Client(object):
 
         if "uuid" in msg:
             uuid = msg.pop("uuid")
-            if uuid:
-                msg["uuid"] = stringify_id(uuid)
+            if uuid is not None:
+                try:
+                    msg["uuid"] = _stringify_event_uuid(uuid)
+                except ValueError as e:
+                    self.log.error("%s Falling back to a generated UUID.", e)
 
         if "uuid" not in msg:
             # Always send a uuid, so we can always return one
@@ -1424,9 +1621,13 @@ class Client(object):
             self.log.warning("analytics-python queue is full")
             return None
 
-    def flush(self) -> None:
+    def flush(self, timeout_seconds: Optional[float] = 10) -> None:
         """
         Force a flush from the internal queue to the server. Do not use directly, call `shutdown()` instead.
+
+        Args:
+            timeout_seconds: Maximum seconds to wait for the queue to flush.
+                Defaults to 10 seconds. Pass ``None`` to wait indefinitely.
 
         Examples:
             ```python
@@ -1436,7 +1637,26 @@ class Client(object):
         """
         queue = self.queue
         size = queue.qsize()
-        queue.join()
+        try:
+            if timeout_seconds is None:
+                queue.join()
+            else:
+                deadline = time.monotonic() + timeout_seconds
+                with queue.all_tasks_done:
+                    while queue.unfinished_tasks:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            self.log.warning(
+                                "flush timed out after %s seconds with %s items pending.",
+                                timeout_seconds,
+                                queue.unfinished_tasks,
+                            )
+                            return
+                        queue.all_tasks_done.wait(remaining)
+        except Exception as e:
+            self.log.exception("error flushing queue: %s", e)
+            return
+
         # Note that this message may not be precise, because of threading.
         self.log.debug("successfully flushed about %s items.", size)
 
@@ -1463,6 +1683,7 @@ class Client(object):
 
         # Shutdown the cache provider (release locks, cleanup)
         self._shutdown_flag_definition_cache_provider()
+        self._unregister_duplicate_client()
 
     def shutdown(self) -> None:
         """
@@ -1473,7 +1694,7 @@ class Client(object):
             posthog.shutdown()
             ```
         """
-        self.flush()
+        self.flush(timeout_seconds=None)
         self.join()
 
         if self.exception_capture:
@@ -1796,17 +2017,17 @@ class Client(object):
 
     def feature_enabled(
         self,
-        key,
-        distinct_id,
+        key: str,
+        distinct_id: ID_TYPES,
         *,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        only_evaluate_locally=False,
-        send_feature_flag_events=True,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        only_evaluate_locally: bool = False,
+        send_feature_flag_events: bool = True,
+        disable_geoip: Optional[bool] = None,
         device_id: Optional[str] = None,
-    ):
+    ) -> Optional[bool]:
         """
         Check if a feature flag is enabled for a user.
 
@@ -1879,12 +2100,12 @@ class Client(object):
         distinct_id: ID_TYPES,
         *,
         override_match_value: Optional[FlagValue] = None,
-        groups: Optional[Dict[str, str]] = None,
-        person_properties=None,
-        group_properties=None,
-        only_evaluate_locally=False,
-        send_feature_flag_events=True,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        only_evaluate_locally: bool = False,
+        send_feature_flag_events: bool = True,
+        disable_geoip: Optional[bool] = None,
         device_id: Optional[str] = None,
     ) -> Optional[FeatureFlagResult]:
         if self.disabled:
@@ -2014,15 +2235,15 @@ class Client(object):
 
     def get_feature_flag_result(
         self,
-        key,
-        distinct_id,
+        key: str,
+        distinct_id: ID_TYPES,
         *,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        only_evaluate_locally=False,
-        send_feature_flag_events=True,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        only_evaluate_locally: bool = False,
+        send_feature_flag_events: bool = True,
+        disable_geoip: Optional[bool] = None,
         device_id: Optional[str] = None,
     ) -> Optional[FeatureFlagResult]:
         """
@@ -2067,15 +2288,15 @@ class Client(object):
 
     def get_feature_flag(
         self,
-        key,
-        distinct_id,
+        key: str,
+        distinct_id: ID_TYPES,
         *,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        only_evaluate_locally=False,
-        send_feature_flag_events=True,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        only_evaluate_locally: bool = False,
+        send_feature_flag_events: bool = True,
+        disable_geoip: Optional[bool] = None,
         device_id: Optional[str] = None,
     ) -> Optional[FlagValue]:
         """
@@ -2131,9 +2352,9 @@ class Client(object):
         self,
         key: str,
         distinct_id: ID_TYPES,
-        groups: dict[str, str],
+        groups: Mapping[str, Union[str, int]],
         person_properties: dict[str, str],
-        group_properties: dict[str, str],
+        group_properties: dict[str, dict[str, Any]],
         device_id: Optional[str] = None,
     ) -> Optional[FlagValue]:
         if self.feature_flags is None and self.personal_api_key:
@@ -2169,18 +2390,18 @@ class Client(object):
 
     def get_feature_flag_payload(
         self,
-        key,
-        distinct_id,
+        key: str,
+        distinct_id: ID_TYPES,
         *,
         match_value: Optional[FlagValue] = None,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        only_evaluate_locally=False,
-        send_feature_flag_events=False,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        only_evaluate_locally: bool = False,
+        send_feature_flag_events: bool = False,
+        disable_geoip: Optional[bool] = None,
         device_id: Optional[str] = None,
-    ):
+    ) -> Optional[object]:
         """
         Get the payload for a feature flag.
 
@@ -2195,6 +2416,11 @@ class Client(object):
             send_feature_flag_events: Deprecated. Use get_feature_flag() instead if you need events.
             disable_geoip: Whether to disable GeoIP for this request.
             device_id: The device ID for this request.
+
+        Returns:
+            The payload associated with the matched feature flag value, or None.
+            This method returns the payload only, not the FeatureFlagResult wrapper
+            used internally to compute it.
 
         Examples:
             ```python
@@ -2243,9 +2469,9 @@ class Client(object):
         self,
         key: str,
         distinct_id: ID_TYPES,
-        groups: dict[str, str],
+        groups: Mapping[str, Union[str, int]],
         person_properties: dict[str, str],
-        group_properties: dict[str, str],
+        group_properties: dict[str, dict[str, Any]],
         disable_geoip: Optional[bool],
         device_id: Optional[str] = None,
     ) -> tuple[Optional[FeatureFlag], Optional[str], Optional[int], bool]:
@@ -2276,7 +2502,7 @@ class Client(object):
         response: Optional[FlagValue],
         payload: Optional[str],
         flag_was_locally_evaluated: bool,
-        groups: Dict[str, str],
+        groups: Mapping[str, Union[str, int]],
         disable_geoip: Optional[bool],
         request_id: Optional[str],
         evaluated_at: Optional[int],
@@ -2325,7 +2551,7 @@ class Client(object):
         key: str,
         response: Optional[FlagValue],
         properties: dict[str, Any],
-        groups: Optional[Dict[str, str]] = None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
         disable_geoip: Optional[bool] = None,
     ) -> None:
         """Fire a ``$feature_flag_called`` event if the (distinct_id, flag, response,
@@ -2422,13 +2648,13 @@ class Client(object):
 
     def get_all_flags(
         self,
-        distinct_id,
+        distinct_id: ID_TYPES,
         *,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        only_evaluate_locally=False,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        only_evaluate_locally: bool = False,
+        disable_geoip: Optional[bool] = None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
         device_id: Optional[str] = None,
     ) -> Optional[dict[str, Union[bool, str]]]:
@@ -2469,13 +2695,13 @@ class Client(object):
 
     def get_all_flags_and_payloads(
         self,
-        distinct_id,
+        distinct_id: ID_TYPES,
         *,
-        groups=None,
-        person_properties=None,
-        group_properties=None,
-        only_evaluate_locally=False,
-        disable_geoip=None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
+        person_properties: Optional[Dict[str, Any]] = None,
+        group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
+        only_evaluate_locally: bool = False,
+        disable_geoip: Optional[bool] = None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
         device_id: Optional[str] = None,
     ) -> FlagsAndPayloads:
@@ -2514,6 +2740,8 @@ class Client(object):
         if device_id is None:
             device_id = get_context_device_id()
 
+        groups = groups or {}
+
         response, fallback_to_flags = self._get_all_flags_and_payloads_locally(
             distinct_id,
             groups=groups,
@@ -2546,7 +2774,7 @@ class Client(object):
         self,
         distinct_id: Optional[ID_TYPES] = None,
         *,
-        groups: Optional[Dict[str, str]] = None,
+        groups: Optional[Mapping[str, Union[str, int]]] = None,
         person_properties: Optional[Dict[str, Any]] = None,
         group_properties: Optional[Dict[str, Dict[str, Any]]] = None,
         only_evaluate_locally: bool = False,
@@ -2755,7 +2983,7 @@ class Client(object):
         self,
         distinct_id: ID_TYPES,
         *,
-        groups: Dict[str, Union[str, int]],
+        groups: Mapping[str, Union[str, int]],
         person_properties=None,
         group_properties=None,
         warn_on_unknown_groups=False,

@@ -43,6 +43,10 @@ class WorkflowCodeDefinition(BaseModel):
     enforce_determinism: bool = Field(
         default=False, description="Whether the workflow enforces deterministic execution"
     )
+    on_behalf_of: bool = Field(
+        default=False,
+        description="Whether the workflow must run associated to a user's identity",
+    )
     execution_timeout: timedelta = Field(
         default=timedelta(hours=1),
         description="Maximum total execution time including retries and continue-as-new",
@@ -64,10 +68,6 @@ class WorkflowSpec(WorkflowCodeDefinition):
     display_name: str | None = Field(default=None, description="Display name of the workflow")
     description: str | None = Field(default=None, description="Description of the workflow")
     is_technical: bool = Field(default=False, description="Whether the workflow is technical (e.g. SDK-managed)")
-    on_behalf_of: bool = Field(
-        default=False,
-        description="Whether the workflow must run associated to a user's identity",
-    )
     schedules: List[ScheduleDefinition] = Field(default_factory=list, description="Schedules defined by the workflow")
 
     @field_validator("name")
@@ -108,25 +108,26 @@ class Workflow(BaseModel):
         default=False, description="Whether the workflow is available in chat assistant"
     )
     is_technical: bool = Field(default=False, description="Whether the workflow is technical (e.g. SDK-managed)")
-    on_behalf_of: bool = Field(
-        default=False,
-        description="Whether the workflow must run associated to a user's identity",
-    )
     archived: bool = Field(default=False, description="Whether the workflow is archived")
     tags: List[str] = Field(default_factory=list, description="Tags for filtering and discovery")
 
 
 class WorkflowRegistration(BaseModel):
     id: uuid.UUID = Field(description="Unique identifier of the workflow registration")
-    deployment_id: uuid.UUID | None = Field(default=None, description="Deployment ID this registration belongs to")
+    deployment_id: uuid.UUID | None = Field(
+        default=None,
+        deprecated=True,
+        description="Deprecated. Use deployment_name instead. Will be removed in a future release.",
+    )
     task_queue: str | None = Field(
         default=None,
         deprecated=True,
-        description="Deprecated. Use deployment_id instead. Will be removed in a future release.",
+        description="Deprecated. Use deployment_name instead. Will be removed in a future release.",
     )
     definition: WorkflowCodeDefinition
     workflow_id: uuid.UUID = Field(description="Workflow ID of the workflow")
     workflow: Workflow | None = Field(default=None, description="Workflow of the workflow registration")
+    deployment_name: str | None = Field(default=None, description="Name of the deployment this registration belongs to")
     compatible_with_chat_assistant: bool = Field(
         default=False, description="Whether the workflow is compatible with chat assistant"
     )

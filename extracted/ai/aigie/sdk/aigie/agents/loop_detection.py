@@ -46,7 +46,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from ..signals import SignalReporter
+    from aigie.signals import SignalReporter
 
 
 class LoopAction(str, Enum):
@@ -333,7 +333,7 @@ class LoopDetector:
 
             # Execute action
             if self.action == LoopAction.BREAK:
-                from ..exceptions import LoopDetectedError
+                from aigie.exceptions import LoopDetectedError
 
                 raise LoopDetectedError(
                     result.message,

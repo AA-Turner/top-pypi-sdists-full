@@ -12,7 +12,6 @@
 from .common import Extractor, Message, Dispatch
 from .. import text, util
 import itertools
-import binascii
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?instagram\.com"
 USER_PATTERN = BASE_PATTERN + r"/(?!(?:p|tv|reel|explore|stories)/)([^/?#]+)"
@@ -812,8 +811,7 @@ class InstagramStoriesExtractor(InstagramExtractor):
             self.highlight_id = None
         else:
             self.subcategory = InstagramHighlightsExtractor.subcategory
-            self.highlight_id = ("highlight:" + h1 if h1 else
-                                 binascii.a2b_base64(h2).decode())
+            self.highlight_id = "highlight:" + h1 if h1 else util.b64decode(h2)
 
         self.media_id = m1 or m2
         InstagramExtractor.__init__(self, match)

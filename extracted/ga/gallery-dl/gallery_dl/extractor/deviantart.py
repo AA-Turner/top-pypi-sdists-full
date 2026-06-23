@@ -12,7 +12,6 @@ from .common import Extractor, Message, Dispatch
 from .. import text, util, dt
 import collections
 import mimetypes
-import binascii
 import time
 
 BASE_PATTERN = (
@@ -563,7 +562,7 @@ class DeviantartExtractor(Extractor):
 
         deviation["_fallback"] = (content["src"],)
         deviation["is_original"] = True
-        pl = binascii.b2a_base64(payload).rstrip(b'=\n').decode()
+        pl = util.b64encode(payload)
         content["src"] = (
             # base64 of 'header' is precomputed as 'eyJ0eX...'
             f"{url}?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJub25lIn0.{pl}.")

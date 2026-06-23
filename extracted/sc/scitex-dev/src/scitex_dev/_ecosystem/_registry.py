@@ -366,16 +366,6 @@ ECOSYSTEM: Dict[str, PackageInfo] = {
         "import_name": "scitex_context",
         "category": "library",
     },
-    "scitex-core": {
-        # Core infrastructure / fundamental utilities. Added 2026-06-07
-        # alongside scitex-audit (#132 batch) — on PyPI and GH but was
-        # absent from this registry.
-        "local_path": "~/proj/scitex-core",
-        "pypi_name": "scitex-core",
-        "github_repo": "ywatanabe1989/scitex-core",
-        "import_name": "scitex_core",
-        "category": "library",
-    },
     "scitex-events": {
         "local_path": "~/proj/scitex-events",
         "pypi_name": "scitex-events",
@@ -418,22 +408,10 @@ ECOSYSTEM: Dict[str, PackageInfo] = {
         "import_name": "scitex_nn",
         "category": "library",
     },
-    "scitex-linter": {
-        # GH-archived 2026 — AST-linter rules now live in scitex-dev
-        # (>=0.16.0, ``scitex_dev.linter._rules``); the standalone repo
-        # was archived. Kept here with archived=True so historical refs
-        # and plugin entry-points still resolve.
-        "local_path": "~/proj/scitex-linter",
-        "pypi_name": "scitex-linter",
-        "github_repo": "ywatanabe1989/scitex-linter",
-        "import_name": "scitex_linter",
-        "category": "library",
-        "archived": True,
-    },
     "scitex-math": {
         # Mathematical utilities (parity helpers, etc.). Added
-        # 2026-06-07 alongside scitex-audit / scitex-core (#132 batch) —
-        # on PyPI and GH but was absent from this registry.
+        # 2026-06-07 alongside scitex-audit (#132 batch) — on PyPI and
+        # GH but was absent from this registry.
         "local_path": "~/proj/scitex-math",
         "pypi_name": "scitex-math",
         "github_repo": "ywatanabe1989/scitex-math",
@@ -452,13 +430,6 @@ ECOSYSTEM: Dict[str, PackageInfo] = {
         "pypi_name": "scitex-genai",
         "github_repo": "ywatanabe1989/scitex-genai",
         "import_name": "scitex_genai",
-        "category": "library",
-    },
-    "scitex-gen": {
-        "local_path": "~/proj/scitex-gen",
-        "pypi_name": "scitex-gen",
-        "github_repo": "ywatanabe1989/scitex-gen",
-        "import_name": "scitex_gen",
         "category": "library",
     },
     "scitex-dsp": {

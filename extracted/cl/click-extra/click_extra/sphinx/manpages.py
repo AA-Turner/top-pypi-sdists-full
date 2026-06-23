@@ -46,7 +46,7 @@ Configuration shape::
         },
     ]
 
-* ``script`` is resolved by :func:`click_extra.wrap.resolve_target_command`
+* ``script`` is resolved by :func:`click_extra.cli_wrapper.resolve_target_command`
   exactly as it would be from the ``click-extra man`` CLI: a
   ``console_scripts`` entry-point name, a ``module:function`` path, a
   ``.py`` file, or a plain module name.
@@ -90,13 +90,13 @@ from docutils import nodes
 from sphinx.directives import SphinxDirective
 from sphinx.util import logging
 
+from ..cli_wrapper import resolve_target_command
 from ..man_page import (
     full_short_help,
     iter_command_contexts,
     iter_inline_literals,
     write_manpages,
 )
-from ..wrap import resolve_target_command
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -115,7 +115,7 @@ DEFAULT_OUTPUT_DIR = "man"
 """Subdirectory under ``app.outdir`` where ``.1`` files land when the
 caller omits the ``output_dir`` entry. Picked to match the URL fragment
 projects typically publish their man pages under
-(e.g. ``https://example.com/<project>/man/<cli>.1``)."""
+(like ``https://example.com/<project>/man/<cli>.1``)."""
 
 
 HTML_BUILDER_NAMES = frozenset({"html", "dirhtml", "singlehtml"})
@@ -152,7 +152,7 @@ _ROFF_PROBE = ".TH TEST 1\n.SH NAME\ntest \\- probe\n"
 """Minimal roff source used to verify a renderer actually produces output.
 
 Some environments install the renderer binary but not the HTML support
-package (e.g. ``groff`` without ``groff-html`` on Debian/Ubuntu ARM
+package (like ``groff`` without ``groff-html`` on Debian/Ubuntu ARM
 runners). A bare ``shutil.which`` check would accept such a broken install
 and later produce zero HTML files. The probe catches this early so the
 caller can fall through to the next candidate.
@@ -164,7 +164,7 @@ def _find_renderer() -> tuple[str, tuple[str, ...]] | None:
 
     Returns ``(executable, extra_argv)`` so the caller can append a file
     path and run it. Returns ``None`` when no candidate is available or
-    when the candidate is installed but cannot produce HTML output (e.g.
+    when the candidate is installed but cannot produce HTML output (like
     ``groff`` present but ``groff-html`` absent).
 
     A quick probe with a trivial roff snippet guards against the latter

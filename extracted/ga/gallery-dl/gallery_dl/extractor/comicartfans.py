@@ -9,7 +9,7 @@
 """Extractors for https://www.comicartfans.com/"""
 
 from .common import Extractor, Message
-from .. import text
+from .. import text, util
 
 BASE_PATTERN = r"(?i)(?:https?://)?(?:www\.)?comicartfans\.com"
 
@@ -21,6 +21,7 @@ class ComicartfansExtractor(Extractor):
     page_start = 1
     per_page = 54
     parent = True
+    browser = "chrome"  # cloudflare
 
     def items(self):
         data = {"_extractor": ComicartfansArtworkExtractor}
@@ -110,6 +111,8 @@ class ComicartfansArtworkExtractor(ComicartfansExtractor):
 
         url = work["file_url"]
         work["num"] = 1 if additional else 0
+        # 403 Forbidden
+        work["_http_headers"] = {"User-Agent": util.USERAGENT_CHROME}
         text.nameext_from_url(url, work)
         yield Message.Url, url, work
 

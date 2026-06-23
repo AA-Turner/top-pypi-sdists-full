@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Generic, Protocol, TypeVar
 
-from .evaluation import EvaluationResult, Evaluator
+from aigie.evaluation import EvaluationResult, Evaluator
 
 T_Input = TypeVar("T_Input")
 T_Output = TypeVar("T_Output")
@@ -158,7 +158,7 @@ class ExperimentsClient:
         evaluators = evaluators or []
 
         # Import Aigie client
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         aigie = get_aigie() if track_in_aigie else None
         experiment_trace_id: str | None = None

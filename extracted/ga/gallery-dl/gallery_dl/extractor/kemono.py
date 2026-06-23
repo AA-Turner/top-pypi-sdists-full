@@ -218,8 +218,8 @@ class KemonoExtractor(Extractor):
         username, password = self._get_auth_info()
         if username:
             self.cookies_update(self.cache(
-                self._login_impl, (username, self.cookies_domain), password),
-                _exp=3650*86400, _mem=False)
+                self._login_impl, (username, self.cookies_domain), password,
+                _exp=3650*86400, _mem=False))
 
     def _login_impl(self, username, password):
         username = username[0]

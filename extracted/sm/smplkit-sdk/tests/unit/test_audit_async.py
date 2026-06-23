@@ -60,7 +60,6 @@ def _forwarder_resource(*, id_: str = FWD_ID, version: int = 1) -> dict:
         "attributes": {
             "name": "Datadog production",
             "forwarder_type": "datadog",
-            "enabled": False,
             "forward_smplkit_events": False,
             "environments": {},
             "description": None,
@@ -70,7 +69,7 @@ def _forwarder_resource(*, id_: str = FWD_ID, version: int = 1) -> dict:
             "configuration": {
                 "method": "POST",
                 "url": "https://siem.example.com/in",
-                "headers": [{"name": "DD-API-KEY", "value": "dd-api-key-plaintext"}],
+                "headers": {"DD-API-KEY": "dd-api-key-plaintext"},
                 "success_status": "2xx",
             },
             "created_at": "2026-05-07T12:00:00+00:00",

@@ -114,20 +114,24 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     LINE_ITEM_UID_FIELD_NUMBER: builtins.int
     PAYG_SPEND_CENTS_FIELD_NUMBER: builtins.int
     QUANTITY_FIELD_NUMBER: builtins.int
+    PAYG_BUDGET_EXHAUSTED_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     """Refers to uid in sentry_protos.billing.v1.common.v1.LineItemDetails"""
     payg_spend_cents: builtins.int
     """Net cents consumed by this line item in the billing period (after credits/trials applied)."""
     quantity: builtins.int
-    """How much of the line item was consumed (in the line item's units)"""
+    """How much of the line item was consumed by PAYG (in the line item's units)"""
+    payg_budget_exhausted: builtins.bool
+    """Whether the usage pricer had to cap the spend based on the budget set by the contract"""
     def __init__(
         self,
         *,
         line_item_uid: builtins.str = ...,
         payg_spend_cents: builtins.int = ...,
         quantity: builtins.int = ...,
+        payg_budget_exhausted: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity"]) -> None: ...
 
 global___LineItemUsageSummary = LineItemUsageSummary
 
@@ -137,8 +141,11 @@ class SharedLineItemUsageSummary(google.protobuf.message.Message):
 
     PAYG_SPEND_CENTS_FIELD_NUMBER: builtins.int
     LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
+    PAYG_BUDGET_EXHAUSTED_FIELD_NUMBER: builtins.int
     payg_spend_cents: builtins.int
     """Net cents consumed across all SKUs in this shared budget (after credits/trials applied)."""
+    payg_budget_exhausted: builtins.bool
+    """Whether the usage pricer had to cap the spend based on the budget set by the contract"""
     @property
     def line_item_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemUsageSummary]:
         """Line item breakdown within shared budget"""
@@ -148,8 +155,9 @@ class SharedLineItemUsageSummary(google.protobuf.message.Message):
         *,
         payg_spend_cents: builtins.int = ...,
         line_item_summaries: collections.abc.Iterable[global___LineItemUsageSummary] | None = ...,
+        payg_budget_exhausted: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_item_summaries", b"line_item_summaries", "payg_spend_cents", b"payg_spend_cents"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_summaries", b"line_item_summaries", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents"]) -> None: ...
 
 global___SharedLineItemUsageSummary = SharedLineItemUsageSummary
 

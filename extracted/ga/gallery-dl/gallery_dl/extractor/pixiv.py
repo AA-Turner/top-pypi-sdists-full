@@ -173,7 +173,11 @@ class PixivExtractor(Extractor):
                                work_id, limit_type)
 
         elif work["type"] != "ugoira":
-            return ({"url": url, "_fallback": self._fallback_image(url)},)
+            return ({
+                "url": url,
+                "_fallback": (work.get("_fallback") or
+                              self._fallback_image(url)),
+            },)
 
         elif self.load_ugoira:
             try:

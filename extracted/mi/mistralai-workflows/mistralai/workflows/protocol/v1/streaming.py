@@ -72,8 +72,13 @@ class StreamEventSsePayload(BaseModel):
     broker_sequence: int
 
 
+class StreamEventSseErrorData(BaseModel):
+    error: str
+    reason: str
+
+
 class StreamEventSse(BaseModel):
     event: str | None = None
-    data: StreamEventSsePayload | None = None
+    data: StreamEventSsePayload | StreamEventSseErrorData | None = None
     id: str | None = None
     retry: int | None = None

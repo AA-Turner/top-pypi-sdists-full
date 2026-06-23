@@ -38,6 +38,7 @@ from ._context import (
     EnterDBOSTransaction,
     EnterDBOSWorkflow,
     OperationType,
+    SetEnqueueOptions,
     SetWorkflowID,
     TracedAttributes,
     assert_current_dbos_context,
@@ -446,7 +447,14 @@ def _init_workflow(
             if enqueue_options is not None
             else None
         ),
+        "attributes": ctx.workflow_attributes,
+        # schedule_name is only set by the persistent scheduler, which builds
+        # the workflow status directly rather than going through this path.
+        "schedule_name": None,
     }
+    # Consume the attributes from the workflow's context so that workflows
+    # started inside this workflow do not inherit them.
+    ctx.workflow_attributes = None
 
     # Synchronously record the status and inputs for workflows
     try:
@@ -805,7 +813,11 @@ def execute_workflow_by_id(
             if fi.func_type != DBOSFuncType.Static:
                 inputs["args"] = (class_object,) + inputs["args"]
 
-        with SetWorkflowID(workflow_id):
+        # Propagate the workflow's partition key from its persisted status.
+        with (
+            SetWorkflowID(workflow_id),
+            SetEnqueueOptions(queue_partition_key=status.get("queue_partition_key")),
+        ):
             if inspect.iscoroutinefunction(wf_func):
                 ctx = get_local_dbos_context()
                 parent_ctx_copy = copy.copy(ctx)

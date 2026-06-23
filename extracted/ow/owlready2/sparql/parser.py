@@ -59,7 +59,7 @@ lg.add("?",                    r"""\?""")
 lg.add(".",                    r"""\.""")
 lg.add("PREFIXED_NAME",        r"""[\w\.\-]*:([\w\.\-:]|%[0-9a-fA-F]{2}|\\[_~\.\-!$&"'()*+,;=/?#@%])*([\w\-:]|%[0-9a-fA-F]{2}|\\[_~\.\-!$&"'()*+,;=/?#@%])""")
 lg.add("PNAME_NS",             r"""[\w\.\-]*:""")
-lg.add("FUNC",                 r"""(?:STRLANG)|(?:STRDT)|(?:STRLEN)|(?:STRSTARTS)|(?:STRENDS)|(?:STRBEFORE)|(?:STRAFTER)|(?:LANGMATCHES)|(?:LANG)|(?:DATATYPE)|(?:BOUND)|(?:IRI)|(?:URI)|(?:BNODE)|(?:RAND)|(?:ABS)|(?:CEIL)|(?:FLOOR)|(?:ROUND)|(?:CONCAT)|(?:STR)|(?:UCASE)|(?:LCASE)|(?:ENCODE_FOR_URI)|(?:CONTAINS)|(?:YEAR)|(?:MONTH)|(?:DAY)|(?:HOURS)|(?:MINUTES)|(?:SECONDS)|(?:TIMEZONE)|(?:TZ)|(?:NOW)|(?:UUID)|(?:STRUUID)|(?:MD5)|(?:SHA1)|(?:SHA256)|(?:SHA384)|(?:SHA512)|(?:COALESCE)|(?:IF)|(?:sameTerm)|(?:isIRI)|(?:isURI)|(?:isBLANK)|(?:isLITERAL)|(?:isNUMERIC)|(?:REGEX)|(?:SUBSTR)|(?:REPLACE)|(?:SIMPLEREPLACE)|(?:NEWINSTANCEIRI)|(?:LOADED)|(?:STORID)|(?:DATETIME_DIFF)|(?:DATETIME_ADD)|(?:DATETIME_SUB)|(?:DATETIME)|(?:DATE_ADD)|(?:DATE_DIFF)|(?:DATE_SUB)|(?:DATE)|(?:TIME)|(?:LIKE)|(?:FTS)|(?:PY_FUNC_\w+)\b""", re.IGNORECASE)
+lg.add("FUNC",                 r"""(?:STRLANG)|(?:STRDT)|(?:STRLEN)|(?:STRSTARTS)|(?:STRENDS)|(?:STRBEFORE)|(?:STRAFTER)|(?:LANGMATCHES)|(?:LANG)|(?:DATATYPE)|(?:BOUND)|(?:IRI)|(?:URI)|(?:BNODE)|(?:RAND)|(?:JSON_EXTRACT)|(?:ABS)|(?:CEIL)|(?:FLOOR)|(?:ROUND)|(?:CONCAT)|(?:STR)|(?:UCASE)|(?:LCASE)|(?:ENCODE_FOR_URI)|(?:CONTAINS)|(?:YEAR)|(?:MONTH)|(?:DAY)|(?:HOURS)|(?:MINUTES)|(?:SECONDS)|(?:TIMEZONE)|(?:TZ)|(?:NOW)|(?:UUID)|(?:STRUUID)|(?:MD5)|(?:SHA1)|(?:SHA256)|(?:SHA384)|(?:SHA512)|(?:COALESCE)|(?:IF)|(?:sameTerm)|(?:isIRI)|(?:isURI)|(?:isBLANK)|(?:isLITERAL)|(?:isNUMERIC)|(?:REGEX)|(?:SUBSTR)|(?:REPLACE)|(?:SIMPLEREPLACE)|(?:NEWINSTANCEIRI)|(?:LOADED)|(?:STORID)|(?:DATETIME_DIFF)|(?:DATETIME_ADD)|(?:DATETIME_SUB)|(?:DATETIME)|(?:DATE_ADD)|(?:DATE_DIFF)|(?:DATE_SUB)|(?:DATE)|(?:TIME)|(?:LIKE)|(?:FTS)|(?:PY_FUNC_\w+)\b""", re.IGNORECASE)
 lg.add("MINUS",                r"""MINUS\b""", re.IGNORECASE)
 lg.add("AGGREGATE_FUNC",       r"""(?:COUNT)|(?:SUM)|(?:MIN)|(?:MAX)|(?:AVG)|(?:SAMPLE)|(?:GROUP_CONCAT)\b""", re.IGNORECASE)
 lg.add("BASE",                 r"""BASE\b""", re.IGNORECASE)
@@ -112,6 +112,8 @@ lg.add("STATIC",               r"STATIC")
 #lg.add("CONSTRUCT",            r"""CONSTRUCT\b""", re.IGNORECASE)
 lg.add("COMPARATOR",           r"""(?:\!=)|(?:<=)|(?:>=)|(?:<)|(?:>)""")
 lg.add("!",                    r"\!")
+lg.add("INDEX",                r'''INDEXED\s+BY\s+SUBJECT\b''')
+lg.add("INDEX",                r'''INDEXED\s+BY\s+OBJECT\b''')
 lg.add("LIST_COMPARATOR",      r"""(?:IN)|(?:NOT\s+IN)\b""", re.IGNORECASE)
 lg.add("A",                    r"""a\b""")
 lg.add("STRING_LITERAL1",      r"""'(?:[^'\n\r\\]|\\['ntbrf\\])*'(?!')""")
@@ -604,26 +606,26 @@ pg.list("property_list_not_empty_part+", ";")
 def f(p): return p
 #pg.optional("property_list_not_empty?")
 
-def _expand_triple(triples, s, ps_os):
+def _expand_triple(triples, s, ps_os, index = None):
   for p, o in ps_os:
     if   isinstance(p, rply.Token):
       if (p.name == "VAR") or (p.name == "PARAM"):
         p.inversed = False
         p.modifier = None
-      _add_triple(triples, s, p, o)
+      _add_triple(triples, s, p, o, index)
       
     elif isinstance(p, NegatedPropPath):
-      _add_triple(triples, s, p, o)
+      _add_triple(triples, s, p, o, index)
       
     elif isinstance(p, UnionPropPath):
       if p.modifier:
-        _add_triple(triples, s, p, o)
+        _add_triple(triples, s, p, o, index)
       else:
         u = []
         for p1 in p:
           t = SimpleTripleBlock()
-          if p.inversed: _expand_triple(t, o, [(p1, s)])
-          else:          _expand_triple(t, s, [(p1, o)])
+          if p.inversed: _expand_triple(t, o, [(p1, s)], index)
+          else:          _expand_triple(t, s, [(p1, o)], index)
           u.append(t)
         triples.append(UnionBlock(u))
         
@@ -636,17 +638,17 @@ def _expand_triple(triples, s, ps_os):
         for p2 in p:
           if p2 is p[-1]: o2 = o
           else:           o2 = rply.Token("VAR", translator.new_var())
-          _expand_triple(triples, s2, [(p2, o2)])
+          _expand_triple(triples, s2, [(p2, o2)], index)
           s2 = o2
         triples[-1].end_sequence = True
         
     else: raise ValueError(p)
     
-def _add_triple(triples, s, pr, o):
+def _add_triple(triples, s, pr, o, index = None):
   if isinstance(s, list): s = _expand_blank(triples, s)
   if isinstance(o, list): o = _expand_blank(triples, o)
-  if getattr(pr, "inversed", False): triples.append(Triple([o, pr, s]))
-  else:                              triples.append(Triple([s, pr, o]))
+  if getattr(pr, "inversed", False): triples.append(Triple((o, pr, s), index))
+  else:                              triples.append(Triple((s, pr, o), index))
   
 def _expand_blank(triples, x):
   translator = CURRENT_TRANSLATOR.get()
@@ -656,12 +658,19 @@ def _expand_blank(triples, x):
   _expand_triple(triples, v, x)
   return v
   
-  
-@pg.production("triples_same_subject_path : var_or_term property_list_path_not_empty")
-@pg.production("triples_same_subject_path : triples_node_path property_list_path_not_empty?")
+@pg.production("index : INDEX")
+def f(p):
+  if   p[0].value.endswith("SUBJECT"): return "SUBJECT"
+  elif p[0].value.endswith("OBJECT"):  return "OBJECT"
+  return None
+pg.optional("index?")
+
+@pg.production("triples_same_subject_path : var_or_term property_list_path_not_empty index?")
+@pg.production("triples_same_subject_path : triples_node_path property_list_path_not_empty? index?")
 def f(p): # Expand ; in triples
+  #print(p)
   triples = []
-  _expand_triple(triples, p[0], p[1])
+  _expand_triple(triples, p[0], p[1], p[2])
   return triples
 pg.list("triples_same_subject_path+", ".")
 
@@ -1269,14 +1278,19 @@ class SubQueryBlock(Block):
       
 class Triple(tuple):
   end_sequence = False
-  def __init__(self, l):
+  
+  def __new__(type, l, index = None):
+    return tuple.__new__(type, l)
+  
+  def __init__(self, l, index = None):
+    self.index        = index
     self.optional     = False
     self.likelihood_p = None
     self.likelihood_o = None
     self.var_names    = { x.value for x in self if x.name == "VAR" }
     p_storid = getattr(self[1], "storid", None)
     self.Prop = p_storid and CURRENT_TRANSLATOR.get().world._get_by_storid(p_storid)
-
+    
     if   self[2].name == "IRI":          self.table_type = "objs"
     elif self[2].name in _DATA_TYPE:     self.table_type = "datas"
     elif p_storid in _OBJ_PROPS:         self.table_type = "objs"

@@ -48,6 +48,58 @@ class ITokenBucket(metaclass=abc.ABCMeta):
         ...
 
 
+class TokenBucket(System.Object):
+    """
+    Provides extension methods for interacting with ITokenBucket instances as well
+    as access to the NullTokenBucket via TokenBucket.null
+    """
+
+    null: QuantConnect.Util.RateLimit.ITokenBucket = ...
+    """Gets an ITokenBucket that always permits consumption"""
+
+    @staticmethod
+    def consume(bucket: QuantConnect.Util.RateLimit.ITokenBucket, tokens: int, timeout: datetime.timedelta) -> None:
+        """Provides an overload of ITokenBucket.consume that accepts a TimeSpan timeout"""
+        ...
+
+
+class IRefillStrategy(metaclass=abc.ABCMeta):
+    """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
+
+    def refill(self) -> int:
+        """Computes the number of new tokens made available, typically via the passing of time."""
+        ...
+
+
+class FixedIntervalRefillStrategy(System.Object, QuantConnect.Util.RateLimit.IRefillStrategy):
+    """
+    Provides a refill strategy that has a constant, quantized refill rate.
+    For example, after 1 minute passes add 5 units. If 59 seconds has passed, it will add zero unit,
+    but if 2 minutes have passed, then 10 units would be added.
+    """
+
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, refill_amount: int, refill_interval: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of the FixedIntervalRefillStrategy class.
+        
+        :param time_provider: Provides the current time used for determining how much time has elapsed
+        between invocations of the refill method
+        :param refill_amount: Defines the constant number of tokens to be made available for consumption
+        each time the provided refill_interval has passed
+        :param refill_interval: The amount of time that must pass before adding the specified refill_amount
+        back to the bucket
+        """
+        ...
+
+    def refill(self) -> int:
+        """
+        Computes the number of new tokens made available to the bucket for consumption by determining the
+        number of time intervals that have passed and multiplying by the number of tokens to refill for
+        each time interval.
+        """
+        ...
+
+
 class ISleepStrategy(metaclass=abc.ABCMeta):
     """
     Defines a strategy for sleeping the current thread of execution. This is currently used via the
@@ -62,11 +114,38 @@ class ISleepStrategy(metaclass=abc.ABCMeta):
         ...
 
 
-class IRefillStrategy(metaclass=abc.ABCMeta):
-    """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
+class ThreadSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
+    """
+    Provides a CPU non-intensive means of waiting for more tokens to be available in ITokenBucket.
+    This strategy should be the most commonly used as it either sleeps or yields the currently executing thread,
+    allowing for other threads to execute while the current thread is blocked and waiting for new tokens to become
+    available in the bucket for consumption.
+    """
 
-    def refill(self) -> int:
-        """Computes the number of new tokens made available, typically via the passing of time."""
+    YIELDING: QuantConnect.Util.RateLimit.ISleepStrategy = ...
+    """Gets an instance of ISleepStrategy that yields the current thread"""
+
+    def __init__(self, milliseconds: int) -> None:
+        """
+        Initializes a new instance of the ThreadSleepStrategy using the specified
+        number of milliseconds for each sleep invocation.
+        
+        :param milliseconds: The duration of time to sleep, in milliseconds
+        """
+        ...
+
+    def sleep(self) -> None:
+        """Sleeps the current thread using the initialized number of milliseconds"""
+        ...
+
+    @staticmethod
+    def sleeping(milliseconds: int) -> QuantConnect.Util.RateLimit.ISleepStrategy:
+        """
+        Gets an instance of ISleepStrategy that sleeps the current thread for
+        the specified number of milliseconds
+        
+        :param milliseconds: The duration of time to sleep, in milliseconds
+        """
         ...
 
 
@@ -136,50 +215,6 @@ class LeakyBucket(System.Object, QuantConnect.Util.RateLimit.ITokenBucket):
         ...
 
 
-class TokenBucket(System.Object):
-    """
-    Provides extension methods for interacting with ITokenBucket instances as well
-    as access to the NullTokenBucket via TokenBucket.null
-    """
-
-    null: QuantConnect.Util.RateLimit.ITokenBucket = ...
-    """Gets an ITokenBucket that always permits consumption"""
-
-    @staticmethod
-    def consume(bucket: QuantConnect.Util.RateLimit.ITokenBucket, tokens: int, timeout: datetime.timedelta) -> None:
-        """Provides an overload of ITokenBucket.consume that accepts a TimeSpan timeout"""
-        ...
-
-
-class FixedIntervalRefillStrategy(System.Object, QuantConnect.Util.RateLimit.IRefillStrategy):
-    """
-    Provides a refill strategy that has a constant, quantized refill rate.
-    For example, after 1 minute passes add 5 units. If 59 seconds has passed, it will add zero unit,
-    but if 2 minutes have passed, then 10 units would be added.
-    """
-
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, refill_amount: int, refill_interval: datetime.timedelta) -> None:
-        """
-        Initializes a new instance of the FixedIntervalRefillStrategy class.
-        
-        :param time_provider: Provides the current time used for determining how much time has elapsed
-        between invocations of the refill method
-        :param refill_amount: Defines the constant number of tokens to be made available for consumption
-        each time the provided refill_interval has passed
-        :param refill_interval: The amount of time that must pass before adding the specified refill_amount
-        back to the bucket
-        """
-        ...
-
-    def refill(self) -> int:
-        """
-        Computes the number of new tokens made available to the bucket for consumption by determining the
-        number of time intervals that have passed and multiplying by the number of tokens to refill for
-        each time interval.
-        """
-        ...
-
-
 class BusyWaitSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
     """
     Provides a CPU intensive means of waiting for more tokens to be available in ITokenBucket.
@@ -190,41 +225,6 @@ class BusyWaitSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStr
 
     def sleep(self) -> None:
         """Provides a CPU intensive sleep by executing Thread.SpinWait for a single spin."""
-        ...
-
-
-class ThreadSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
-    """
-    Provides a CPU non-intensive means of waiting for more tokens to be available in ITokenBucket.
-    This strategy should be the most commonly used as it either sleeps or yields the currently executing thread,
-    allowing for other threads to execute while the current thread is blocked and waiting for new tokens to become
-    available in the bucket for consumption.
-    """
-
-    YIELDING: QuantConnect.Util.RateLimit.ISleepStrategy = ...
-    """Gets an instance of ISleepStrategy that yields the current thread"""
-
-    def __init__(self, milliseconds: int) -> None:
-        """
-        Initializes a new instance of the ThreadSleepStrategy using the specified
-        number of milliseconds for each sleep invocation.
-        
-        :param milliseconds: The duration of time to sleep, in milliseconds
-        """
-        ...
-
-    def sleep(self) -> None:
-        """Sleeps the current thread using the initialized number of milliseconds"""
-        ...
-
-    @staticmethod
-    def sleeping(milliseconds: int) -> QuantConnect.Util.RateLimit.ISleepStrategy:
-        """
-        Gets an instance of ISleepStrategy that sleeps the current thread for
-        the specified number of milliseconds
-        
-        :param milliseconds: The duration of time to sleep, in milliseconds
-        """
         ...
 
 

@@ -11,7 +11,6 @@
 from .common import Extractor, Message
 from . import gelbooru_v02
 from .. import text
-import binascii
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?gelbooru\.com/(?:index\.php)?\?"
 
@@ -295,12 +294,8 @@ class GelbooruRedirectExtractor(GelbooruBase, Extractor):
                r"/redirect\.php\?s=([^&#]+)")
     example = "https://gelbooru.com/redirect.php?s=BASE64"
 
-    def __init__(self, match):
-        Extractor.__init__(self, match)
-        self.url_base64 = match[1]
-
     def items(self):
-        url = text.ensure_http_scheme(binascii.a2b_base64(
-            self.url_base64).decode())
+        from .. import util
+        url = text.ensure_http_scheme(util.b64decode(self.groups[0]))
         data = {"_extractor": GelbooruPostExtractor}
         yield Message.Queue, url, data

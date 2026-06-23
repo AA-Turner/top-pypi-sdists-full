@@ -5,8 +5,10 @@ import pytest
 
 from mistralai.workflows import activity, get_workflow_definition, workflow
 from mistralai.workflows.core.logging import (
+    LogFormat,
     LogLevel,
     _add_temporal_context_processor,
+    build_json_log_formatter,
     setup_logging,
 )
 
@@ -48,6 +50,45 @@ def capture_structlog() -> Iterator[list[dict[str, Any]]]:
 
     yield captured
     structlog.configure(**old_config)
+
+
+class TestOtlpLogFormat:
+    def test_otlp_renders_json_while_console_keeps_user_format(self) -> None:
+        import json
+        import logging
+
+        import structlog
+
+        captured: list[logging.LogRecord] = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                captured.append(record)
+
+        setup_logging(log_level=LogLevel.INFO, log_format=LogFormat.CONSOLE)
+        root = logging.getLogger()
+        console_formatter = root.handlers[0].formatter
+        assert console_formatter is not None
+
+        capture = _Capture()
+        root.addHandler(capture)
+        try:
+            structlog.get_logger("otlp_test").info("hello", foo="bar")
+        finally:
+            root.removeHandler(capture)
+
+        assert captured
+        record = captured[-1]
+
+        otlp_body = build_json_log_formatter().format(record)
+        parsed = json.loads(otlp_body)
+        assert parsed["event"] == "hello"
+        assert parsed["foo"] == "bar"
+
+        console_body = console_formatter.format(record)
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(console_body)
+        assert "hello" in console_body
 
 
 class TestTemporalContextProcessor:

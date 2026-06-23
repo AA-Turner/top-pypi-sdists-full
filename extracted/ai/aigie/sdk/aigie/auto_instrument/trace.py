@@ -125,7 +125,7 @@ async def get_or_create_trace(
     Returns:
         TraceContext instance
     """
-    from ..client import get_aigie
+    from aigie.client import get_aigie
 
     if is_retention_suppressed():
         return None
@@ -280,7 +280,7 @@ async def _send_trace_start(trace: Any) -> None:
     callable means an unclean shutdown still ships the root (interrupted).
     (The prior dispatch did a malformed ``buffer.add`` that always failed.)"""
     try:
-        from ..tracing.trace_state import register_open_span
+        from aigie.tracing.trace_state import register_open_span
 
         finalize = getattr(trace, "_build_interrupted_root_payload", None)
         if finalize is not None and getattr(trace, "id", None):
@@ -316,7 +316,7 @@ def get_or_create_trace_sync(
     start), otherwise schedules via the safe utility. Returns None if Aigie
     isn't initialized or zero-retention is active.
     """
-    from ..client import get_aigie
+    from aigie.client import get_aigie
 
     if is_retention_suppressed():
         return None
@@ -334,7 +334,7 @@ def get_or_create_trace_sync(
             loop = asyncio.get_running_loop()
         if loop:
             return _init_trace_in_running_loop(aigie, loop, name, metadata, tags)
-        from ..utils.safe import schedule_async
+        from aigie.utils.safe import schedule_async
 
         return schedule_async(get_or_create_trace(name, metadata, tags))
     except Exception as e:

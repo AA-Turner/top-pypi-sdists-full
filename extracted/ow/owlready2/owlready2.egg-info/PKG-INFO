@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: owlready2
-Version: 0.50
+Version: 0.51
 Summary: A package for ontology-oriented programming in Python: load OWL 2.0 ontologies as Python objects, modify them, save them, and perform reasoning via HermiT. Includes an optimized RDF quadstore.
 Author-email: "Lamy Jean-Baptiste (Jiba)" <jibalamy@free.fr>
 License-Expression: LGPL-3.0-or-later
@@ -866,6 +866,19 @@ version 2 - 0.50
 * Bugfixes:
   * Fix ontology loading from file object inside a Zip file
   * Fix test test_parallel_4
+  
+version 2 - 0.51
+****************
+
+* Optimize SPARQL queries
+* Allows manual SPARQL optimization using INDEXED BY SUBJECT or OBJECT keywords
+* Support for JSON datatype (list or dict)
+* Support for JSON_EXTRACT() extra SPARQL function
+* Experimental support for triple term (for RDF 1.2)
+* When extracting UMLS, add UMLS version in PYM.metadata.versionInfo
+* Update Xerces JAR file in Pellet, to avoid vulnerability
+* Bugfixes:
+  * Fix NQuads format to behave as expected: graph label at the end (and not at the beginning)
     
    
 Links

@@ -145,21 +145,6 @@ class Utf8Formatter(System.Object):
 
     @staticmethod
     @overload
-    def try_format(value: bool, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: int, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: float, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
     def try_format(value: System.DateTimeOffset, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
         ...
 
@@ -175,46 +160,22 @@ class Utf8Formatter(System.Object):
 
     @staticmethod
     @overload
+    def try_format(value: float, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_format(value: int, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_format(value: System.Guid, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
         ...
 
-
-class Utf8Parser(System.Object):
-    """This class has no documentation."""
-
     @staticmethod
     @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[int], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, int, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[float], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, float, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[datetime.timedelta], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, datetime.timedelta, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[typing.Union[datetime.datetime, datetime.date]], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date], int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[System.DateTimeOffset], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, System.DateTimeOffset, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[bool], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[System.Guid], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, System.Guid, int]:
+    def try_format(value: bool, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
         ...
 
 
@@ -335,6 +296,45 @@ class Base64Url(System.Object):
 
     @staticmethod
     def try_encode_to_utf_8_in_place(buffer: System.Span[int], data_length: int, bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class Utf8Parser(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    @overload
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[int], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[typing.Union[datetime.datetime, datetime.date]], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date], int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[System.DateTimeOffset], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, System.DateTimeOffset, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[datetime.timedelta], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, datetime.timedelta, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[System.Guid], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, System.Guid, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[bool], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[float], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, float, int]:
         ...
 
 

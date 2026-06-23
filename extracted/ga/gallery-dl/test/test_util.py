@@ -744,6 +744,34 @@ class TestOther(unittest.TestCase):
         self.assertEqual(f("3f"), 123)
         self.assertEqual(f("kf12oi"), 1234567890)
 
+    def test_b64encode(self, f=util.b64encode):
+        self.assertEqual(f(b""), "")
+        self.assertEqual(f(b"foo"), "Zm9v")
+        self.assertEqual(f(b"bar"), "YmFy")
+        self.assertEqual(f(b"foobar"), "Zm9vYmFy")
+        self.assertEqual(f(b"Hello World"), "SGVsbG8gV29ybGQ")
+
+    def test_b64rencode(self, f=util.b64rencode):
+        self.assertEqual(f(b""), b"")
+        self.assertEqual(f(b"foo"), b"Zm9v")
+        self.assertEqual(f(b"bar"), b"YmFy")
+        self.assertEqual(f(b"foobar"), b"Zm9vYmFy")
+        self.assertEqual(f(b"Hello World"), b"SGVsbG8gV29ybGQ=")
+
+    def test_b64decode(self, f=util.b64decode):
+        self.assertEqual(f(""), "")
+        self.assertEqual(f("Zm9v"), "foo")
+        self.assertEqual(f("YmFy"), "bar")
+        self.assertEqual(f("Zm9vYmFy"), "foobar")
+        self.assertEqual(f("SGVsbG8gV29ybGQ="), "Hello World")
+        self.assertEqual(f("SGVsbG8gV29ybG=="), "Hello Worl")
+
+    def test_b64rdecode(self, f=util.b64rdecode):
+        self.assertEqual(f(""), b"")
+        self.assertEqual(f("Zm9v"), b"foo")
+        self.assertEqual(f("YmFy"), b"bar")
+        self.assertEqual(f("Zm9vYmFy"), b"foobar")
+
     def test_advance(self):
         items = range(5)
 

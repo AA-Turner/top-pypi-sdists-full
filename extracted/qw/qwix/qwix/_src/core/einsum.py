@@ -35,7 +35,7 @@ def get_how_to_quantize(
   """Get how to quantize from an einsum string.
 
   By default, use channelwise for all non-contraction axes, and subchannel for
-  contraction axes if a tile_size is given.
+  the innermost (last) contraction axis if a tile_size is given.
 
   Args:
     einsum_str: The einsum string.
@@ -54,11 +54,14 @@ def get_how_to_quantize(
 
   channelwise_axes = []
   tiled_axes = {}
+  last_contracting_axis = None
   for axis, char in enumerate(operand_subs):
     if char not in info.contract_chars:
       channelwise_axes.append(axis)
-    elif tile_size and not tiled_axes:  # Only tile the first contraction axis.
-      tiled_axes[axis] = tile_size
+    else:
+      last_contracting_axis = axis  # Only tile the last contraction axis.
+  if tile_size and last_contracting_axis is not None:
+    tiled_axes[last_contracting_axis] = tile_size
 
   return qarray.HowToQuantize(
       channelwise_axes=channelwise_axes,
@@ -142,8 +145,11 @@ def einsum(
     if len(operand_indices) == 1:
       # Fallback to dequantization for unary ops.
       op0 = operands.pop(operand_indices[0])
-      op0 = qarray.dequantize(op0)
-      res = jnp.einsum(einsum_str, op0)
+      if isinstance(op0, qarray.QArray):
+        dequantized_op0 = qarray.dequantize(op0)
+      else:
+        dequantized_op0 = op0
+      res = jnp.einsum(einsum_str, dequantized_op0)
       operands.append(res)
     elif len(operand_indices) == 2:
       idx0, idx1 = operand_indices

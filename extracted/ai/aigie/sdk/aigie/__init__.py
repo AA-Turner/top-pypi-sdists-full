@@ -104,7 +104,6 @@ __all__ = [
     "traceable",
     "trace",
     "create_traceable",
-    "set_global_mask_fn",
     "set_debug_mode",
     # Trace enrichment
     "get_current_trace",
@@ -493,7 +492,7 @@ __all__ = [
     "AutonomousRuntime",
 ]
 
-__version__ = "0.2.46"
+__version__ = "0.2.47"
 
 
 # Lazy imports for performance
@@ -511,34 +510,34 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
     # Core client
     if name == "Aigie":
-        from .client import Aigie
+        from aigie.client import Aigie
 
         return Aigie
 
     if name == "Config":
-        from .config import Config
+        from aigie.config import Config
 
         return Config
 
     if name == "init":
-        from .client import init
+        from aigie.client import init
 
         return init
 
     if name == "shutdown":
-        from .client import shutdown
+        from aigie.client import shutdown
 
         return shutdown
 
     if name == "get_aigie":
-        from .client import get_aigie
+        from aigie.client import get_aigie
 
         return get_aigie
 
     if name == "sdk_status":
 
         def _sdk_status() -> dict:
-            from .client import get_aigie
+            from aigie.client import get_aigie
 
             instance = get_aigie()
             if instance is None:
@@ -552,12 +551,12 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
     # Context managers
     if name == "TraceContext":
-        from .trace import TraceContext
+        from aigie.trace import TraceContext
 
         return TraceContext
 
     if name == "SpanContext":
-        from .span import SpanContext
+        from aigie.span import SpanContext
 
         return SpanContext
 
@@ -573,705 +572,700 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
     # Decorators (v3)
     if name in ("traceable", "trace"):
-        from .decorators_v3 import traceable
+        from aigie.decorators_v3 import traceable
 
         return traceable
 
     # Enhanced decorator utilities
     if name == "create_traceable":
-        from .decorators_v3 import create_traceable
+        from aigie.decorators_v3 import create_traceable
 
         return create_traceable
 
-    if name == "set_global_mask_fn":
-        from .decorators_v3 import set_global_mask_fn
-
-        return set_global_mask_fn
-
     if name == "set_debug_mode":
-        from .decorators_v3 import set_debug_mode
+        from aigie.decorators_v3 import set_debug_mode
 
         return set_debug_mode
 
     # Context propagation
     if name == "get_current_trace":
-        from .trace import get_current_trace
+        from aigie.trace import get_current_trace
 
         return get_current_trace
 
     if name == "update_current_trace":
-        from .trace import update_current_trace
+        from aigie.trace import update_current_trace
 
         return update_current_trace
 
     if name == "tracing_context":
-        from .context_manager import tracing_context
+        from aigie.context_manager import tracing_context
 
         return tracing_context
 
     if name == "get_current_trace_context":
-        from .context_manager import get_current_trace_context
+        from aigie.context_manager import get_current_trace_context
 
         return get_current_trace_context
 
     if name == "get_current_span_context":
-        from .context_manager import get_current_span_context
+        from aigie.context_manager import get_current_span_context
 
         return get_current_span_context
 
     if name == "is_tracing_enabled":
-        from .context_manager import is_tracing_enabled
+        from aigie.context_manager import is_tracing_enabled
 
         return is_tracing_enabled
 
     if name == "set_tracing_enabled":
-        from .context_manager import set_tracing_enabled
+        from aigie.context_manager import set_tracing_enabled
 
         return set_tracing_enabled
 
     # Wrappers
     if name == "wrap_openai":
-        from .wrappers import wrap_openai
+        from aigie.wrappers import wrap_openai
 
         return wrap_openai
 
     if name == "wrap_anthropic":
-        from .wrappers import wrap_anthropic
+        from aigie.wrappers import wrap_anthropic
 
         return wrap_anthropic
 
     if name == "wrap_gemini":
-        from .wrappers import wrap_gemini
+        from aigie.wrappers import wrap_gemini
 
         return wrap_gemini
 
     if name == "wrap_bedrock":
-        from .wrappers_bedrock import wrap_bedrock
+        from aigie.wrappers_bedrock import wrap_bedrock
 
         return wrap_bedrock
 
     if name == "create_traced_bedrock":
-        from .wrappers_bedrock import create_traced_bedrock
+        from aigie.wrappers_bedrock import create_traced_bedrock
 
         return create_traced_bedrock
 
     if name == "wrap_cohere":
-        from .wrappers_cohere import wrap_cohere
+        from aigie.wrappers_cohere import wrap_cohere
 
         return wrap_cohere
 
     if name == "create_traced_cohere":
-        from .wrappers_cohere import create_traced_cohere
+        from aigie.wrappers_cohere import create_traced_cohere
 
         return create_traced_cohere
 
     # Gateway (Real-Time Validation)
     if name == "GatewayClient":
-        from .gateway import GatewayClient
+        from aigie.gateway import GatewayClient
 
         return GatewayClient
 
     if name == "GatewayConnectionState":
-        from .gateway import GatewayConnectionState
+        from aigie.gateway import GatewayConnectionState
 
         return GatewayConnectionState
 
     if name == "ToolCallMiddleware":
-        from .gateway import ToolCallMiddleware
+        from aigie.gateway import ToolCallMiddleware
 
         return ToolCallMiddleware
 
     if name == "ToolCallResult":
-        from .gateway import ToolCallResult
+        from aigie.gateway import ToolCallResult
 
         return ToolCallResult
 
     if name == "PreExecutionRequest":
-        from .gateway import PreExecutionRequest
+        from aigie.gateway import PreExecutionRequest
 
         return PreExecutionRequest
 
     if name == "PreExecutionResponse":
-        from .gateway import PreExecutionResponse
+        from aigie.gateway import PreExecutionResponse
 
         return PreExecutionResponse
 
     if name == "GatewayDecision":
-        from .gateway import GatewayDecision
+        from aigie.gateway import GatewayDecision
 
         return GatewayDecision
 
     if name == "ValidationSignal":
-        from .gateway import ValidationSignal
+        from aigie.gateway import ValidationSignal
 
         return ValidationSignal
 
     if name == "SignalType":
-        from .gateway import SignalType
+        from aigie.gateway import SignalType
 
         return SignalType
 
     if name == "InterventionSignal":
-        from .gateway import InterventionSignal
+        from aigie.gateway import InterventionSignal
 
         return InterventionSignal
 
     if name == "FallbackMode":
-        from .gateway import FallbackMode
+        from aigie.gateway import FallbackMode
 
         return FallbackMode
 
     if name == "FallbackStrategy":
-        from .gateway import FallbackStrategy
+        from aigie.gateway import FallbackStrategy
 
         return FallbackStrategy
 
     if name == "InterventionHandler":
-        from .gateway import InterventionHandler
+        from aigie.gateway import InterventionHandler
 
         return InterventionHandler
 
     if name == "BlockHandler":
-        from .gateway import BlockHandler
+        from aigie.gateway import BlockHandler
 
         return BlockHandler
 
     if name == "ModifyHandler":
-        from .gateway import ModifyHandler
+        from aigie.gateway import ModifyHandler
 
         return ModifyHandler
 
     if name == "DelayHandler":
-        from .gateway import DelayHandler
+        from aigie.gateway import DelayHandler
 
         return DelayHandler
 
     if name == "EscalateHandler":
-        from .gateway import EscalateHandler
+        from aigie.gateway import EscalateHandler
 
         return EscalateHandler
 
     if name == "HandlerChain":
-        from .gateway import HandlerChain
+        from aigie.gateway import HandlerChain
 
         return HandlerChain
 
     if name == "HandlerResult":
-        from .gateway import HandlerResult
+        from aigie.gateway import HandlerResult
 
         return HandlerResult
 
     if name == "InterventionType":
-        from .gateway import InterventionType
+        from aigie.gateway import InterventionType
 
         return InterventionType
 
     if name == "ExecutionBlockedError":
-        from .gateway import ExecutionBlockedError
+        from aigie.gateway import ExecutionBlockedError
 
         return ExecutionBlockedError
 
     if name == "InterventionHandlerError":
-        from .gateway import InterventionHandlerError
+        from aigie.gateway import InterventionHandlerError
 
         return InterventionHandlerError
 
     # Checkpoint API
     if name == "CheckpointManager":
-        from .checkpoint import CheckpointManager
+        from aigie.checkpoint import CheckpointManager
 
         return CheckpointManager
 
     if name == "Checkpoint":
-        from .checkpoint import Checkpoint
+        from aigie.checkpoint import Checkpoint
 
         return Checkpoint
 
     if name == "CheckpointStatus":
-        from .checkpoint import CheckpointStatus
+        from aigie.checkpoint import CheckpointStatus
 
         return CheckpointStatus
 
     if name == "CheckpointType":
-        from .checkpoint import CheckpointType
+        from aigie.checkpoint import CheckpointType
 
         return CheckpointType
 
     if name == "CheckpointConfig":
-        from .checkpoint import CheckpointConfig
+        from aigie.checkpoint import CheckpointConfig
 
         return CheckpointConfig
 
     if name == "CheckpointMetrics":
-        from .checkpoint import CheckpointMetrics
+        from aigie.checkpoint import CheckpointMetrics
 
         return CheckpointMetrics
 
     # Unified Signal Reporter
     if name == "SignalReporter":
-        from .signals import SignalReporter
+        from aigie.signals import SignalReporter
 
         return SignalReporter
 
     if name == "Signal":
-        from .signals import Signal
+        from aigie.signals import Signal
 
         return Signal
 
     if name == "SignalBatch":
-        from .signals import SignalBatch
+        from aigie.signals import SignalBatch
 
         return SignalBatch
 
     if name == "SignalMetrics":
-        from .signals import SignalMetrics
+        from aigie.signals import SignalMetrics
 
         return SignalMetrics
 
     if name == "SignalSeverity":
-        from .signals import SignalSeverity
+        from aigie.signals import SignalSeverity
 
         return SignalSeverity
 
     if name == "DriftType":
-        from .signals import DriftType
+        from aigie.signals import DriftType
 
         return DriftType
 
     if name == "get_signal_reporter":
-        from .signals import get_signal_reporter
+        from aigie.signals import get_signal_reporter
 
         return get_signal_reporter
 
     if name == "set_signal_reporter":
-        from .signals import set_signal_reporter
+        from aigie.signals import set_signal_reporter
 
         return set_signal_reporter
 
     # Health Monitor
     if name == "HealthMonitor":
-        from .health import HealthMonitor
+        from aigie.health import HealthMonitor
 
         return HealthMonitor
 
     if name == "HealthStatus":
-        from .health import HealthStatus
+        from aigie.health import HealthStatus
 
         return HealthStatus
 
     if name == "HealthConfig":
-        from .health import HealthConfig
+        from aigie.health import HealthConfig
 
         return HealthConfig
 
     if name == "HealthMetrics":
-        from .health import HealthMetrics
+        from aigie.health import HealthMetrics
 
         return HealthMetrics
 
     if name == "DegradationLevel":
-        from .health import DegradationLevel
+        from aigie.health import DegradationLevel
 
         return DegradationLevel
 
     if name == "ServiceStatus":
-        from .health import ServiceStatus
+        from aigie.health import ServiceStatus
 
         return ServiceStatus
 
     if name == "ServiceHealth":
-        from .health import ServiceHealth
+        from aigie.health import ServiceHealth
 
         return ServiceHealth
 
     if name == "get_health_monitor":
-        from .health import get_health_monitor
+        from aigie.health import get_health_monitor
 
         return get_health_monitor
 
     if name == "set_health_monitor":
-        from .health import set_health_monitor
+        from aigie.health import set_health_monitor
 
         return set_health_monitor
 
     # Compression
     if name == "Compressor":
-        from .compression import Compressor
+        from aigie.compression import Compressor
 
         return Compressor
 
     if name == "is_compression_available":
-        from .compression import is_compression_available
+        from aigie.compression import is_compression_available
 
         return is_compression_available
 
     # Buffer
     if name == "EventBuffer":
-        from .buffer import EventBuffer
+        from aigie.buffer import EventBuffer
 
         return EventBuffer
 
     # W3C Trace Context
     if name == "W3CTraceContext":
-        from .context import TraceContext as W3CTraceContext
+        from aigie.context import TraceContext as W3CTraceContext
 
         return W3CTraceContext
 
     if name == "extract_trace_context":
-        from .context import extract_trace_context
+        from aigie.context import extract_trace_context
 
         return extract_trace_context
 
     if name == "inject_trace_context":
-        from .context import inject_trace_context
+        from aigie.context import inject_trace_context
 
         return inject_trace_context
 
     # Prompts
     if name == "Prompt":
-        from .prompts import Prompt
+        from aigie.prompts import Prompt
 
         return Prompt
 
     if name == "PromptManager":
-        from .prompts import PromptManager
+        from aigie.prompts import PromptManager
 
         return PromptManager
 
     if name == "PromptFormat":
-        from .prompts import PromptFormat
+        from aigie.prompts import PromptFormat
 
         return PromptFormat
 
     if name == "TextPrompt":
-        from .prompts import TextPrompt
+        from aigie.prompts import TextPrompt
 
         return TextPrompt
 
     if name == "ChatPrompt":
-        from .prompts import ChatPrompt
+        from aigie.prompts import ChatPrompt
 
         return ChatPrompt
 
     if name == "get_prompt_manager":
-        from .prompts import get_prompt_manager
+        from aigie.prompts import get_prompt_manager
 
         return get_prompt_manager
 
     if name == "register_prompt":
-        from .prompts import register_prompt
+        from aigie.prompts import register_prompt
 
         return register_prompt
 
     if name == "get_prompt":
-        from .prompts import get_prompt
+        from aigie.prompts import get_prompt
 
         return get_prompt
 
     # Evaluation
     if name == "EvaluationHook":
-        from .evaluation import EvaluationHook
+        from aigie.evaluation import EvaluationHook
 
         return EvaluationHook
 
     if name == "Evaluator":
-        from .evaluation import Evaluator
+        from aigie.evaluation import Evaluator
 
         return Evaluator
 
     if name == "EvaluationResult":
-        from .evaluation import EvaluationResult
+        from aigie.evaluation import EvaluationResult
 
         return EvaluationResult
 
     if name == "ScoreType":
-        from .evaluation import ScoreType
+        from aigie.evaluation import ScoreType
 
         return ScoreType
 
     if name == "Score":
-        from .evaluation import Score
+        from aigie.evaluation import Score
 
         return Score
 
     if name == "ScoreDataType":
-        from .evaluation import ScoreDataType
+        from aigie.evaluation import ScoreDataType
 
         return ScoreDataType
 
     if name == "ScoreManager":
-        from .evaluation import ScoreManager
+        from aigie.evaluation import ScoreManager
 
         return ScoreManager
 
     if name == "get_score_manager":
-        from .evaluation import get_score_manager
+        from aigie.evaluation import get_score_manager
 
         return get_score_manager
 
     if name == "score":
-        from .evaluation import score
+        from aigie.evaluation import score
 
         return score
 
     if name == "feedback":
-        from .evaluation import feedback
+        from aigie.evaluation import feedback
 
         return feedback
 
     # Metrics (new!)
     if name == "BaseMetric":
-        from .metrics.base import BaseMetric
+        from aigie.metrics.base import BaseMetric
 
         return BaseMetric
 
     if name == "DriftDetectionMetric":
-        from .metrics.drift import DriftDetectionMetric
+        from aigie.metrics.drift import DriftDetectionMetric
 
         return DriftDetectionMetric
 
     if name == "RecoverySuccessMetric":
-        from .metrics.recovery import RecoverySuccessMetric
+        from aigie.metrics.recovery import RecoverySuccessMetric
 
         return RecoverySuccessMetric
 
     if name == "CheckpointValidityMetric":
-        from .metrics.checkpoint import CheckpointValidityMetric
+        from aigie.metrics.checkpoint import CheckpointValidityMetric
 
         return CheckpointValidityMetric
 
     if name == "NestedAgentHealthMetric":
-        from .metrics.nested import NestedAgentHealthMetric
+        from aigie.metrics.nested import NestedAgentHealthMetric
 
         return NestedAgentHealthMetric
 
     if name == "ProductionReliabilityMetric":
-        from .metrics.reliability import ProductionReliabilityMetric
+        from aigie.metrics.reliability import ProductionReliabilityMetric
 
         return ProductionReliabilityMetric
 
     # Component-level evaluation (new!)
     if name == "observe":
-        from .observe import observe
+        from aigie.observe import observe
 
         return observe
 
     # Streaming
     if name == "StreamingSpan":
-        from .streaming import StreamingSpan
+        from aigie.streaming import StreamingSpan
 
         return StreamingSpan
 
     # Evaluations API (NEW!)
     if name == "EvaluationsClient":
-        from .evaluations import EvaluationsClient
+        from aigie.evaluations import EvaluationsClient
 
         return EvaluationsClient
 
     if name == "EvaluationType":
-        from .evaluations import EvaluationType
+        from aigie.evaluations import EvaluationType
 
         return EvaluationType
 
     if name == "EvaluationTemplate":
-        from .evaluations import EvaluationTemplate
+        from aigie.evaluations import EvaluationTemplate
 
         return EvaluationTemplate
 
     if name == "EvaluationScore":
-        from .evaluations import EvaluationScore
+        from aigie.evaluations import EvaluationScore
 
         return EvaluationScore
 
     if name == "EvaluationJob":
-        from .evaluations import EvaluationJob
+        from aigie.evaluations import EvaluationJob
 
         return EvaluationJob
 
     if name == "EvaluationRequest":
-        from .evaluations import EvaluationRequest
+        from aigie.evaluations import EvaluationRequest
 
         return EvaluationRequest
 
     if name == "evaluate":
-        from .evaluations import evaluate
+        from aigie.evaluations import evaluate
 
         return evaluate
 
     # Judges API (NEW!)
     if name == "JudgesClient":
-        from .judges import JudgesClient
+        from aigie.judges import JudgesClient
 
         return JudgesClient
 
     if name == "JudgeType":
-        from .judges import JudgeType
+        from aigie.judges import JudgeType
 
         return JudgeType
 
     if name == "Judge":
-        from .judges import Judge
+        from aigie.judges import Judge
 
         return Judge
 
     if name == "JudgeResult":
-        from .judges import JudgeResult
+        from aigie.judges import JudgeResult
 
         return JudgeResult
 
     if name == "JudgeConfig":
-        from .judges import JudgeConfig
+        from aigie.judges import JudgeConfig
 
         return JudgeConfig
 
     if name == "judge":
-        from .judges import judge
+        from aigie.judges import judge
 
         return judge
 
     if name == "judge_all":
-        from .judges import judge_all
+        from aigie.judges import judge_all
 
         return judge_all
 
     # Phase 2: Datasets
     if name == "DatasetsClient":
-        from .datasets import DatasetsClient
+        from aigie.datasets import DatasetsClient
 
         return DatasetsClient
 
     if name == "Dataset":
-        from .datasets import Dataset
+        from aigie.datasets import Dataset
 
         return Dataset
 
     if name == "DatasetExample":
-        from .datasets import DatasetExample
+        from aigie.datasets import DatasetExample
 
         return DatasetExample
 
     if name == "DatasetRunResult":
-        from .datasets import DatasetRunResult
+        from aigie.datasets import DatasetRunResult
 
         return DatasetRunResult
 
     if name == "DatasetRunSummary":
-        from .datasets import DatasetRunSummary
+        from aigie.datasets import DatasetRunSummary
 
         return DatasetRunSummary
 
     # Phase 2: Sessions
     if name == "SessionManager":
-        from .sessions import SessionManager
+        from aigie.sessions import SessionManager
 
         return SessionManager
 
     if name == "SessionAnalytics":
-        from .sessions import SessionAnalytics
+        from aigie.sessions import SessionAnalytics
 
         return SessionAnalytics
 
     if name == "Session":
-        from .sessions import Session
+        from aigie.sessions import Session
 
         return Session
 
     if name == "SessionMessage":
-        from .sessions import SessionMessage
+        from aigie.sessions import SessionMessage
 
         return SessionMessage
 
     if name == "create_session_manager":
-        from .sessions import create_session_manager
+        from aigie.sessions import create_session_manager
 
         return create_session_manager
 
     # Enhanced batch evaluation
     if name == "enhanced_batch_evaluate":
-        from .batch_evaluation import enhanced_batch_evaluate
+        from aigie.batch_evaluation import enhanced_batch_evaluate
 
         return enhanced_batch_evaluate
 
     if name == "generate_batch_report":
-        from .batch_evaluation import generate_batch_report
+        from aigie.batch_evaluation import generate_batch_report
 
         return generate_batch_report
 
     if name == "export_batch_results":
-        from .batch_evaluation import export_batch_results
+        from aigie.batch_evaluation import export_batch_results
 
         return export_batch_results
 
     if name == "export_batch_results_to_csv":
-        from .batch_evaluation import export_batch_results_to_csv
+        from aigie.batch_evaluation import export_batch_results_to_csv
 
         return export_batch_results_to_csv
 
     if name == "BatchProgress":
-        from .batch_evaluation import BatchProgress
+        from aigie.batch_evaluation import BatchProgress
 
         return BatchProgress
 
     if name == "TestCaseResult":
-        from .batch_evaluation import TestCaseResult
+        from aigie.batch_evaluation import TestCaseResult
 
         return TestCaseResult
 
     if name == "BatchStatistics":
-        from .batch_evaluation import BatchStatistics
+        from aigie.batch_evaluation import BatchStatistics
 
         return BatchStatistics
 
     if name == "BatchEvaluationResult":
-        from .batch_evaluation import BatchEvaluationResult
+        from aigie.batch_evaluation import BatchEvaluationResult
 
         return BatchEvaluationResult
 
     # Experiments API
     if name == "ExperimentsClient":
-        from .experiments import ExperimentsClient
+        from aigie.experiments import ExperimentsClient
 
         return ExperimentsClient
 
     if name == "create_experiments_client":
-        from .experiments import create_experiments_client
+        from aigie.experiments import create_experiments_client
 
         return create_experiments_client
 
     if name == "generate_experiment_report":
-        from .experiments import generate_experiment_report
+        from aigie.experiments import generate_experiment_report
 
         return generate_experiment_report
 
     if name == "ExperimentVariant":
-        from .experiments import ExperimentVariant
+        from aigie.experiments import ExperimentVariant
 
         return ExperimentVariant
 
     if name == "VariantResult":
-        from .experiments import VariantResult
+        from aigie.experiments import VariantResult
 
         return VariantResult
 
     if name == "VariantStatistics":
-        from .experiments import VariantStatistics
+        from aigie.experiments import VariantStatistics
 
         return VariantStatistics
 
     if name == "WinnerInfo":
-        from .experiments import WinnerInfo
+        from aigie.experiments import WinnerInfo
 
         return WinnerInfo
 
     if name == "ExperimentResult":
-        from .experiments import ExperimentResult
+        from aigie.experiments import ExperimentResult
 
         return ExperimentResult
 
     # Optional: Sync client
     if name == "AigieSync":
         try:
-            from .sync_client import AigieSync
+            from aigie.sync_client import AigieSync
 
             return AigieSync
         except ImportError as exc:
@@ -1279,1259 +1273,1259 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
     # Cost Tracking (Gap Fix)
     if name == "extract_usage_from_response":
-        from .cost_tracking import extract_usage_from_response
+        from aigie.cost_tracking import extract_usage_from_response
 
         return extract_usage_from_response
 
     if name == "extract_and_calculate_cost":
-        from .cost_tracking import extract_and_calculate_cost
+        from aigie.cost_tracking import extract_and_calculate_cost
 
         return extract_and_calculate_cost
 
     if name == "calculate_cost":
-        from .cost_tracking import calculate_cost
+        from aigie.cost_tracking import calculate_cost
 
         return calculate_cost
 
     if name == "add_model_pricing":
-        from .cost_tracking import add_model_pricing
+        from aigie.cost_tracking import add_model_pricing
 
         return add_model_pricing
 
     if name == "get_supported_models":
-        from .cost_tracking import get_supported_models
+        from aigie.cost_tracking import get_supported_models
 
         return get_supported_models
 
     if name == "get_model_pricing":
-        from .cost_tracking import get_model_pricing
+        from aigie.cost_tracking import get_model_pricing
 
         return get_model_pricing
 
     if name == "CostAggregator":
-        from .cost_tracking import CostAggregator
+        from aigie.cost_tracking import CostAggregator
 
         return CostAggregator
 
     if name == "UsageMetadata":
-        from .cost_tracking import UsageMetadata
+        from aigie.cost_tracking import UsageMetadata
 
         return UsageMetadata
 
     if name == "CostBreakdown":
-        from .cost_tracking import CostBreakdown
+        from aigie.cost_tracking import CostBreakdown
 
         return CostBreakdown
 
     # Summary Evaluators (Gap Fix)
     if name == "SummaryEvaluator":
-        from .summary_evaluators import SummaryEvaluator
+        from aigie.summary_evaluators import SummaryEvaluator
 
         return SummaryEvaluator
 
     if name == "AccuracySummaryEvaluator":
-        from .summary_evaluators import AccuracySummaryEvaluator
+        from aigie.summary_evaluators import AccuracySummaryEvaluator
 
         return AccuracySummaryEvaluator
 
     if name == "PrecisionSummaryEvaluator":
-        from .summary_evaluators import PrecisionSummaryEvaluator
+        from aigie.summary_evaluators import PrecisionSummaryEvaluator
 
         return PrecisionSummaryEvaluator
 
     if name == "AverageScoreSummaryEvaluator":
-        from .summary_evaluators import AverageScoreSummaryEvaluator
+        from aigie.summary_evaluators import AverageScoreSummaryEvaluator
 
         return AverageScoreSummaryEvaluator
 
     if name == "PassRateSummaryEvaluator":
-        from .summary_evaluators import PassRateSummaryEvaluator
+        from aigie.summary_evaluators import PassRateSummaryEvaluator
 
         return PassRateSummaryEvaluator
 
     if name == "CostSummaryEvaluator":
-        from .summary_evaluators import CostSummaryEvaluator
+        from aigie.summary_evaluators import CostSummaryEvaluator
 
         return CostSummaryEvaluator
 
     if name == "LatencySummaryEvaluator":
-        from .summary_evaluators import LatencySummaryEvaluator
+        from aigie.summary_evaluators import LatencySummaryEvaluator
 
         return LatencySummaryEvaluator
 
     if name == "run_summary_evaluators":
-        from .summary_evaluators import run_summary_evaluators
+        from aigie.summary_evaluators import run_summary_evaluators
 
         return run_summary_evaluators
 
     if name == "create_standard_summary_evaluators":
-        from .summary_evaluators import create_standard_summary_evaluators
+        from aigie.summary_evaluators import create_standard_summary_evaluators
 
         return create_standard_summary_evaluators
 
     if name == "RunData":
-        from .summary_evaluators import RunData
+        from aigie.summary_evaluators import RunData
 
         return RunData
 
     if name == "SummaryEvaluationResult":
-        from .summary_evaluators import SummaryEvaluationResult
+        from aigie.summary_evaluators import SummaryEvaluationResult
 
         return SummaryEvaluationResult
 
     if name == "SummaryEvaluatorFunction":
-        from .summary_evaluators import SummaryEvaluatorFunction
+        from aigie.summary_evaluators import SummaryEvaluatorFunction
 
         return SummaryEvaluatorFunction
 
     # Safety Metrics (Gap Fix)
     if name == "PIILeakageEvaluator":
-        from .safety_metrics import PIILeakageEvaluator
+        from aigie.safety_metrics import PIILeakageEvaluator
 
         return PIILeakageEvaluator
 
     if name == "ToxicityEvaluator":
-        from .safety_metrics import ToxicityEvaluator
+        from aigie.safety_metrics import ToxicityEvaluator
 
         return ToxicityEvaluator
 
     if name == "BiasEvaluator":
-        from .safety_metrics import BiasEvaluator
+        from aigie.safety_metrics import BiasEvaluator
 
         return BiasEvaluator
 
     if name == "PromptInjectionEvaluator":
-        from .safety_metrics import PromptInjectionEvaluator
+        from aigie.safety_metrics import PromptInjectionEvaluator
 
         return PromptInjectionEvaluator
 
     if name == "JailbreakEvaluator":
-        from .safety_metrics import JailbreakEvaluator
+        from aigie.safety_metrics import JailbreakEvaluator
 
         return JailbreakEvaluator
 
     if name == "RedTeamScanner":
-        from .safety_metrics import RedTeamScanner
+        from aigie.safety_metrics import RedTeamScanner
 
         return RedTeamScanner
 
     if name == "create_safety_evaluators":
-        from .safety_metrics import create_safety_evaluators
+        from aigie.safety_metrics import create_safety_evaluators
 
         return create_safety_evaluators
 
     # Guardrails (SLA Production Runtime)
     if name == "BaseGuardrail":
-        from .guardrails import BaseGuardrail
+        from aigie.guardrails import BaseGuardrail
 
         return BaseGuardrail
 
     if name == "GuardrailChain":
-        from .guardrails import GuardrailChain
+        from aigie.guardrails import GuardrailChain
 
         return GuardrailChain
 
     if name == "GuardrailResult":
-        from .guardrails import GuardrailResult
+        from aigie.guardrails import GuardrailResult
 
         return GuardrailResult
 
     if name == "GuardrailAction":
-        from .guardrails import GuardrailAction
+        from aigie.guardrails import GuardrailAction
 
         return GuardrailAction
 
     if name == "GuardrailRemediationNeeded":
-        from .guardrails import GuardrailRemediationNeeded
+        from aigie.guardrails import GuardrailRemediationNeeded
 
         return GuardrailRemediationNeeded
 
     if name == "PIIDetector":
-        from .guardrails import PIIDetector
+        from aigie.guardrails import PIIDetector
 
         return PIIDetector
 
     if name == "ToxicityDetector":
-        from .guardrails import ToxicityDetector
+        from aigie.guardrails import ToxicityDetector
 
         return ToxicityDetector
 
     if name == "HallucinationDetector":
-        from .guardrails import HallucinationDetector
+        from aigie.guardrails import HallucinationDetector
 
         return HallucinationDetector
 
     if name == "PromptInjectionDetector":
-        from .guardrails import PromptInjectionDetector
+        from aigie.guardrails import PromptInjectionDetector
 
         return PromptInjectionDetector
 
     # Pytest Integration (Gap Fix)
     if name == "AigieTestCase":
-        from .pytest_plugin import AigieTestCase
+        from aigie.pytest_plugin import AigieTestCase
 
         return AigieTestCase
 
     if name == "aigie_assert":
-        from .pytest_plugin import aigie_assert
+        from aigie.pytest_plugin import aigie_assert
 
         return aigie_assert
 
     if name == "assert_test":
-        from .pytest_plugin import assert_test
+        from aigie.pytest_plugin import assert_test
 
         return assert_test
 
     # UUID v7 (Gap Fix)
     if name == "uuidv7":
-        from .uuid7 import uuidv7
+        from aigie.uuid7 import uuidv7
 
         return uuidv7
 
     if name == "extract_timestamp":
-        from .uuid7 import extract_timestamp
+        from aigie.uuid7 import extract_timestamp
 
         return extract_timestamp
 
     if name == "is_valid_uuidv7":
-        from .uuid7 import is_valid_uuidv7
+        from aigie.uuid7 import is_valid_uuidv7
 
         return is_valid_uuidv7
 
     if name == "uuidv7_to_datetime":
-        from .uuid7 import uuidv7_to_datetime
+        from aigie.uuid7 import uuidv7_to_datetime
 
         return uuidv7_to_datetime
 
     if name == "compare_uuidv7":
-        from .uuid7 import compare_uuidv7
+        from aigie.uuid7 import compare_uuidv7
 
         return compare_uuidv7
 
     if name == "generate_batch_uuidv7":
-        from .uuid7 import generate_batch_uuidv7
+        from aigie.uuid7 import generate_batch_uuidv7
 
         return generate_batch_uuidv7
 
     if name == "uuidv7_with_timestamp":
-        from .uuid7 import uuidv7_with_timestamp
+        from aigie.uuid7 import uuidv7_with_timestamp
 
         return uuidv7_with_timestamp
 
     if name == "get_uuidv7_age":
-        from .uuid7 import get_uuidv7_age
+        from aigie.uuid7 import get_uuidv7_age
 
         return get_uuidv7_age
 
     # Sampling System (Gap Fix)
     if name == "Sampler":
-        from .sampling import Sampler
+        from aigie.sampling import Sampler
 
         return Sampler
 
     if name == "SamplingConfig":
-        from .sampling import SamplingConfig
+        from aigie.sampling import SamplingConfig
 
         return SamplingConfig
 
     if name == "AdaptiveConfig":
-        from .sampling import AdaptiveConfig
+        from aigie.sampling import AdaptiveConfig
 
         return AdaptiveConfig
 
     if name == "create_smart_sampler":
-        from .sampling import create_smart_sampler
+        from aigie.sampling import create_smart_sampler
 
         return create_smart_sampler
 
     if name == "create_adaptive_sampler":
-        from .sampling import create_adaptive_sampler
+        from aigie.sampling import create_adaptive_sampler
 
         return create_adaptive_sampler
 
     if name == "create_importance_function":
-        from .sampling import create_importance_function
+        from aigie.sampling import create_importance_function
 
         return create_importance_function
 
     # Query API (Feature Parity)
     if name == "QueryAPI":
-        from .query_api import QueryAPI
+        from aigie.query_api import QueryAPI
 
         return QueryAPI
 
     if name == "TraceAPI":
-        from .query_api import TraceAPI
+        from aigie.query_api import TraceAPI
 
         return TraceAPI
 
     if name == "ObservationsAPI":
-        from .query_api import ObservationsAPI
+        from aigie.query_api import ObservationsAPI
 
         return ObservationsAPI
 
     if name == "SessionsAPI":
-        from .query_api import SessionsAPI
+        from aigie.query_api import SessionsAPI
 
         return SessionsAPI
 
     if name == "ScoresAPI":
-        from .query_api import ScoresAPI
+        from aigie.query_api import ScoresAPI
 
         return ScoresAPI
 
     if name == "Trace":
-        from .query_api import Trace
+        from aigie.query_api import Trace
 
         return Trace
 
     if name == "Observation":
-        from .query_api import Observation
+        from aigie.query_api import Observation
 
         return Observation
 
     if name == "ObservationType":
-        from .query_api import ObservationType
+        from aigie.query_api import ObservationType
 
         return ObservationType
 
     if name == "TraceFilter":
-        from .query_api import TraceFilter
+        from aigie.query_api import TraceFilter
 
         return TraceFilter
 
     if name == "PaginatedResponse":
-        from .query_api import PaginatedResponse
+        from aigie.query_api import PaginatedResponse
 
         return PaginatedResponse
 
     # DataFrame Export Functions
     if name == "traces_to_dataframe":
-        from .query_api import traces_to_dataframe
+        from aigie.query_api import traces_to_dataframe
 
         return traces_to_dataframe
 
     if name == "observations_to_dataframe":
-        from .query_api import observations_to_dataframe
+        from aigie.query_api import observations_to_dataframe
 
         return observations_to_dataframe
 
     # Human Annotations (Feature Parity)
     if name == "AnnotationsAPI":
-        from .annotations import AnnotationsAPI
+        from aigie.annotations import AnnotationsAPI
 
         return AnnotationsAPI
 
     if name == "AnnotationQueue":
-        from .annotations import AnnotationQueue
+        from aigie.annotations import AnnotationQueue
 
         return AnnotationQueue
 
     if name == "Annotation":
-        from .annotations import Annotation
+        from aigie.annotations import Annotation
 
         return Annotation
 
     if name == "AnnotationType":
-        from .annotations import AnnotationType
+        from aigie.annotations import AnnotationType
 
         return AnnotationType
 
     if name == "AnnotationTask":
-        from .annotations import AnnotationTask
+        from aigie.annotations import AnnotationTask
 
         return AnnotationTask
 
     # Playground (Feature Parity)
     if name == "Playground":
-        from .playground import Playground
+        from aigie.playground import Playground
 
         return Playground
 
     if name == "PromptRegistry":
-        from .playground import PromptRegistry
+        from aigie.playground import PromptRegistry
 
         return PromptRegistry
 
     if name == "PromptTemplate":
-        from .playground import PromptTemplate
+        from aigie.playground import PromptTemplate
 
         return PromptTemplate
 
     if name == "PlaygroundRun":
-        from .playground import PlaygroundRun
+        from aigie.playground import PlaygroundRun
 
         return PlaygroundRun
 
     if name == "ComparisonResult":
-        from .playground import ComparisonResult
+        from aigie.playground import ComparisonResult
 
         return ComparisonResult
 
     if name == "ModelConfig":
-        from .playground import ModelConfig
+        from aigie.playground import ModelConfig
 
         return ModelConfig
 
     if name == "ModelProvider":
-        from .playground import ModelProvider
+        from aigie.playground import ModelProvider
 
         return ModelProvider
 
     if name == "create_playground":
-        from .playground import create_playground
+        from aigie.playground import create_playground
 
         return create_playground
 
     # Agent Graph View (Feature Parity)
     if name == "AgentGraph":
-        from .graph_view import AgentGraph
+        from aigie.graph_view import AgentGraph
 
         return AgentGraph
 
     if name == "GraphBuilder":
-        from .graph_view import GraphBuilder
+        from aigie.graph_view import GraphBuilder
 
         return GraphBuilder
 
     if name == "GraphNode":
-        from .graph_view import GraphNode
+        from aigie.graph_view import GraphNode
 
         return GraphNode
 
     if name == "GraphEdge":
-        from .graph_view import GraphEdge
+        from aigie.graph_view import GraphEdge
 
         return GraphEdge
 
     if name == "NodeType":
-        from .graph_view import NodeType
+        from aigie.graph_view import NodeType
 
         return NodeType
 
     if name == "EdgeType":
-        from .graph_view import EdgeType
+        from aigie.graph_view import EdgeType
 
         return EdgeType
 
     if name == "NodeStatus":
-        from .graph_view import NodeStatus
+        from aigie.graph_view import NodeStatus
 
         return NodeStatus
 
     if name == "ExecutionPath":
-        from .graph_view import ExecutionPath
+        from aigie.graph_view import ExecutionPath
 
         return ExecutionPath
 
     if name == "GraphMetrics":
-        from .graph_view import GraphMetrics
+        from aigie.graph_view import GraphMetrics
 
         return GraphMetrics
 
     if name == "create_graph":
-        from .graph_view import create_graph
+        from aigie.graph_view import create_graph
 
         return create_graph
 
     if name == "create_graph_builder":
-        from .graph_view import create_graph_builder
+        from aigie.graph_view import create_graph_builder
 
         return create_graph_builder
 
     # Alerting (Feature Parity)
     if name == "AlertManager":
-        from .alerting import AlertManager
+        from aigie.alerting import AlertManager
 
         return AlertManager
 
     if name == "AlertRule":
-        from .alerting import AlertRule
+        from aigie.alerting import AlertRule
 
         return AlertRule
 
     if name == "AlertEvent":
-        from .alerting import AlertEvent
+        from aigie.alerting import AlertEvent
 
         return AlertEvent
 
     if name == "AlertCondition":
-        from .alerting import AlertCondition
+        from aigie.alerting import AlertCondition
 
         return AlertCondition
 
     if name == "AlertSeverity":
-        from .alerting import AlertSeverity
+        from aigie.alerting import AlertSeverity
 
         return AlertSeverity
 
     if name == "AlertStatus":
-        from .alerting import AlertStatus
+        from aigie.alerting import AlertStatus
 
         return AlertStatus
 
     if name == "MetricType":
-        from .alerting import MetricType
+        from aigie.alerting import MetricType
 
         return MetricType
 
     if name == "ComparisonOperator":
-        from .alerting import ComparisonOperator
+        from aigie.alerting import ComparisonOperator
 
         return ComparisonOperator
 
     if name == "AggregationWindow":
-        from .alerting import AggregationWindow
+        from aigie.alerting import AggregationWindow
 
         return AggregationWindow
 
     if name == "NotificationChannel":
-        from .alerting import NotificationChannel
+        from aigie.alerting import NotificationChannel
 
         return NotificationChannel
 
     if name == "SlackChannel":
-        from .alerting import SlackChannel
+        from aigie.alerting import SlackChannel
 
         return SlackChannel
 
     if name == "EmailChannel":
-        from .alerting import EmailChannel
+        from aigie.alerting import EmailChannel
 
         return EmailChannel
 
     if name == "WebhookChannel":
-        from .alerting import WebhookChannel
+        from aigie.alerting import WebhookChannel
 
         return WebhookChannel
 
     if name == "PagerDutyChannel":
-        from .alerting import PagerDutyChannel
+        from aigie.alerting import PagerDutyChannel
 
         return PagerDutyChannel
 
     if name == "create_alert_manager":
-        from .alerting import create_alert_manager
+        from aigie.alerting import create_alert_manager
 
         return create_alert_manager
 
     # Span Replay (Feature Parity)
     if name == "SpanReplay":
-        from .span_replay import SpanReplay
+        from aigie.span_replay import SpanReplay
 
         return SpanReplay
 
     if name == "CapturedSpan":
-        from .span_replay import CapturedSpan
+        from aigie.span_replay import CapturedSpan
 
         return CapturedSpan
 
     if name == "ReplayResult":
-        from .span_replay import ReplayResult
+        from aigie.span_replay import ReplayResult
 
         return ReplayResult
 
     if name == "ReplayExperiment":
-        from .span_replay import ReplayExperiment
+        from aigie.span_replay import ReplayExperiment
 
         return ReplayExperiment
 
     if name == "ReplayStatus":
-        from .span_replay import ReplayStatus
+        from aigie.span_replay import ReplayStatus
 
         return ReplayStatus
 
     if name == "create_span_replay":
-        from .span_replay import create_span_replay
+        from aigie.span_replay import create_span_replay
 
         return create_span_replay
 
     # Leaderboards (Feature Parity)
     if name == "LeaderboardManager":
-        from .leaderboards import LeaderboardManager
+        from aigie.leaderboards import LeaderboardManager
 
         return LeaderboardManager
 
     if name == "Leaderboard":
-        from .leaderboards import Leaderboard
+        from aigie.leaderboards import Leaderboard
 
         return Leaderboard
 
     if name == "LeaderboardEntry":
-        from .leaderboards import LeaderboardEntry
+        from aigie.leaderboards import LeaderboardEntry
 
         return LeaderboardEntry
 
     if name == "ComparisonPair":
-        from .leaderboards import ComparisonPair
+        from aigie.leaderboards import ComparisonPair
 
         return ComparisonPair
 
     if name == "EloRating":
-        from .leaderboards import EloRating
+        from aigie.leaderboards import EloRating
 
         return EloRating
 
     if name == "RankingMetric":
-        from .leaderboards import RankingMetric
+        from aigie.leaderboards import RankingMetric
 
         return RankingMetric
 
     if name == "AggregationType":
-        from .leaderboards import AggregationType
+        from aigie.leaderboards import AggregationType
 
         return AggregationType
 
     if name == "create_leaderboard_manager":
-        from .leaderboards import create_leaderboard_manager
+        from aigie.leaderboards import create_leaderboard_manager
 
         return create_leaderboard_manager
 
     if name == "create_model_leaderboard":
-        from .leaderboards import create_model_leaderboard
+        from aigie.leaderboards import create_model_leaderboard
 
         return create_model_leaderboard
 
     if name == "create_prompt_leaderboard":
-        from .leaderboards import create_prompt_leaderboard
+        from aigie.leaderboards import create_prompt_leaderboard
 
         return create_prompt_leaderboard
 
     # License Management (Self-Hosted)
     if name == "LicenseValidator":
-        from .licensing import LicenseValidator
+        from aigie.licensing import LicenseValidator
 
         return LicenseValidator
 
     if name == "LicenseInfo":
-        from .licensing import LicenseInfo
+        from aigie.licensing import LicenseInfo
 
         return LicenseInfo
 
     if name == "UsageSummary":
-        from .licensing import UsageSummary
+        from aigie.licensing import UsageSummary
 
         return UsageSummary
 
     if name == "LicenseError":
-        from .licensing import LicenseError
+        from aigie.licensing import LicenseError
 
         return LicenseError
 
     if name == "LicenseExpiredError":
-        from .licensing import LicenseExpiredError
+        from aigie.licensing import LicenseExpiredError
 
         return LicenseExpiredError
 
     if name == "LicenseRevokedError":
-        from .licensing import LicenseRevokedError
+        from aigie.licensing import LicenseRevokedError
 
         return LicenseRevokedError
 
     if name == "LicenseLimitExceededError":
-        from .licensing import LicenseLimitExceededError
+        from aigie.licensing import LicenseLimitExceededError
 
         return LicenseLimitExceededError
 
     # Telemetry (SDK Feature Tracking)
     if name == "track_feature":
-        from .licensing import track_feature
+        from aigie.licensing import track_feature
 
         return track_feature
 
     if name == "record_error":
-        from .licensing import record_error
+        from aigie.licensing import record_error
 
         return record_error
 
     if name == "FeatureTracker":
-        from .licensing import FeatureTracker
+        from aigie.licensing import FeatureTracker
 
         return FeatureTracker
 
     if name == "ErrorCollector":
-        from .licensing import ErrorCollector
+        from aigie.licensing import ErrorCollector
 
         return ErrorCollector
 
     # Agent Observability (new!)
     if name == "LoopDetector":
-        from .agents import LoopDetector
+        from aigie.agents import LoopDetector
 
         return LoopDetector
 
     if name == "TracingLoopDetector":
-        from .agents import TracingLoopDetector
+        from aigie.agents import TracingLoopDetector
 
         return TracingLoopDetector
 
     if name == "LoopAction":
-        from .agents import LoopAction
+        from aigie.agents import LoopAction
 
         return LoopAction
 
     if name == "LoopState":
-        from .agents import LoopState
+        from aigie.agents import LoopState
 
         return LoopState
 
     if name == "LoopDetectionResult":
-        from .agents import LoopDetectionResult
+        from aigie.agents import LoopDetectionResult
 
         return LoopDetectionResult
 
     if name == "GoalTracker":
-        from .agents import GoalTracker
+        from aigie.agents import GoalTracker
 
         return GoalTracker
 
     if name == "TracingGoalTracker":
-        from .agents import TracingGoalTracker
+        from aigie.agents import TracingGoalTracker
 
         return TracingGoalTracker
 
     if name == "Goal":
-        from .agents import Goal
+        from aigie.agents import Goal
 
         return Goal
 
     if name == "Step":
-        from .agents import Step
+        from aigie.agents import Step
 
         return Step
 
     if name == "StepStatus":
-        from .agents import StepStatus
+        from aigie.agents import StepStatus
 
         return StepStatus
 
     if name == "Deviation":
-        from .agents import Deviation
+        from aigie.agents import Deviation
 
         return Deviation
 
     if name == "DeviationType":
-        from .agents import DeviationType
+        from aigie.agents import DeviationType
 
         return DeviationType
 
     if name == "PlanMetrics":
-        from .agents import PlanMetrics
+        from aigie.agents import PlanMetrics
 
         return PlanMetrics
 
     if name == "ExecutionCycle":
-        from .agents import ExecutionCycle
+        from aigie.agents import ExecutionCycle
 
         return ExecutionCycle
 
     if name == "CyclePhase":
-        from .agents import CyclePhase
+        from aigie.agents import CyclePhase
 
         return CyclePhase
 
     if name == "PhaseContext":
-        from .agents import PhaseContext
+        from aigie.agents import PhaseContext
 
         return PhaseContext
 
     if name == "PhaseResult":
-        from .agents import PhaseResult
+        from aigie.agents import PhaseResult
 
         return PhaseResult
 
     if name == "CycleMetrics":
-        from .agents import CycleMetrics
+        from aigie.agents import CycleMetrics
 
         return CycleMetrics
 
     if name == "MultiCycleExecutor":
-        from .agents import MultiCycleExecutor
+        from aigie.agents import MultiCycleExecutor
 
         return MultiCycleExecutor
 
     if name == "LoopDetectedError":
-        from .exceptions import LoopDetectedError
+        from aigie.exceptions import LoopDetectedError
 
         return LoopDetectedError
 
     # Agent Framework
     if name == "Agent":
-        from .agent import Agent
+        from aigie.agent import Agent
 
         return Agent
 
     if name == "RunContext":
-        from .run_context import RunContext
+        from aigie.run_context import RunContext
 
         return RunContext
 
     if name == "Message":
-        from .run_context import Message
+        from aigie.run_context import Message
 
         return Message
 
     if name == "ModelRetry":
-        from .run_context import ModelRetry
+        from aigie.run_context import ModelRetry
 
         return ModelRetry
 
     if name == "get_current_context":
-        from .run_context import get_current_context
+        from aigie.run_context import get_current_context
 
         return get_current_context
 
     if name == "get_current_context_or_none":
-        from .run_context import get_current_context_or_none
+        from aigie.run_context import get_current_context_or_none
 
         return get_current_context_or_none
 
     if name == "set_current_context":
-        from .run_context import set_current_context
+        from aigie.run_context import set_current_context
 
         return set_current_context
 
     if name == "reset_current_context":
-        from .run_context import reset_current_context
+        from aigie.run_context import reset_current_context
 
         return reset_current_context
 
     if name == "run_context":
-        from .run_context import run_context
+        from aigie.run_context import run_context
 
         return run_context
 
     if name == "AgentResult":
-        from .result import AgentResult
+        from aigie.result import AgentResult
 
         return AgentResult
 
     if name == "StreamedRunResult":
-        from .result import StreamedRunResult
+        from aigie.result import StreamedRunResult
 
         return StreamedRunResult
 
     if name == "UsageInfo":
-        from .result import UsageInfo
+        from aigie.result import UsageInfo
 
         return UsageInfo
 
     if name == "UnifiedError":
-        from .result import UnifiedError
+        from aigie.result import UnifiedError
 
         return UnifiedError
 
     if name == "Tool":
-        from .tools import Tool
+        from aigie.tools import Tool
 
         return Tool
 
     if name == "ToolCall":
-        from .tools import ToolCall
+        from aigie.tools import ToolCall
 
         return ToolCall
 
     if name == "ToolResult":
-        from .tools import ToolResult
+        from aigie.tools import ToolResult
 
         return ToolResult
 
     if name == "ToolRegistry":
-        from .tools import ToolRegistry
+        from aigie.tools import ToolRegistry
 
         return ToolRegistry
 
     if name == "tool":
-        from .tools import tool
+        from aigie.tools import tool
 
         return tool
 
     if name == "create_tool_registry":
-        from .tools import create_tool_registry
+        from aigie.tools import create_tool_registry
 
         return create_tool_registry
 
     if name == "execute_tool":
-        from .tools import execute_tool
+        from aigie.tools import execute_tool
 
         return execute_tool
 
     if name == "tools_to_openai_functions":
-        from .tools import tools_to_openai_functions
+        from aigie.tools import tools_to_openai_functions
 
         return tools_to_openai_functions
 
     if name == "tools_to_anthropic_tools":
-        from .tools import tools_to_anthropic_tools
+        from aigie.tools import tools_to_anthropic_tools
 
         return tools_to_anthropic_tools
 
     if name == "type_to_json_schema":
-        from .schemas import type_to_json_schema
+        from aigie.schemas import type_to_json_schema
 
         return type_to_json_schema
 
     if name == "generate_json_schema":
-        from .schemas import generate_json_schema
+        from aigie.schemas import generate_json_schema
 
         return generate_json_schema
 
     # Types (for type hints and validation)
     if name == "TraceStatus":
-        from .types import TraceStatus
+        from aigie.types import TraceStatus
 
         return TraceStatus
 
     if name == "SpanStatus":
-        from .types import SpanStatus
+        from aigie.types import SpanStatus
 
         return SpanStatus
 
     if name == "SpanType":
-        from .types import SpanType
+        from aigie.types import SpanType
 
         return SpanType
 
     if name == "ObservationLevel":
-        from .types import ObservationLevel
+        from aigie.types import ObservationLevel
 
         return ObservationLevel
 
     if name == "FailureCategory":
-        from .types import FailureCategory
+        from aigie.types import FailureCategory
 
         return FailureCategory
 
     if name == "TokenUsage":
-        from .types import TokenUsage
+        from aigie.types import TokenUsage
 
         return TokenUsage
 
     if name == "TraceResponse":
-        from .types import TraceResponse
+        from aigie.types import TraceResponse
 
         return TraceResponse
 
     if name == "SpanResponse":
-        from .types import SpanResponse
+        from aigie.types import SpanResponse
 
         return SpanResponse
 
     # Platform API Clients - Analytics
     if name == "AnalyticsClient":
-        from .analytics import AnalyticsClient
+        from aigie.analytics import AnalyticsClient
 
         return AnalyticsClient
 
     if name == "DashboardStats":
-        from .analytics import DashboardStats
+        from aigie.analytics import DashboardStats
 
         return DashboardStats
 
     if name == "TimeSeriesPoint":
-        from .analytics import TimeSeriesPoint
+        from aigie.analytics import TimeSeriesPoint
 
         return TimeSeriesPoint
 
     if name == "WorkflowStats":
-        from .analytics import WorkflowStats
+        from aigie.analytics import WorkflowStats
 
         return WorkflowStats
 
     if name == "ErrorSummary":
-        from .analytics import ErrorSummary
+        from aigie.analytics import ErrorSummary
 
         return ErrorSummary
 
     if name == "ErrorCluster":
-        from .analytics import ErrorCluster
+        from aigie.analytics import ErrorCluster
 
         return ErrorCluster
 
     if name == "CostAnalytics":
-        from .analytics import CostAnalytics
+        from aigie.analytics import CostAnalytics
 
         return CostAnalytics
 
     if name == "AgentStats":
-        from .analytics import AgentStats
+        from aigie.analytics import AgentStats
 
         return AgentStats
 
     # Platform API Clients - Workflows
     if name == "WorkflowsClient":
-        from .workflows import WorkflowsClient
+        from aigie.workflows import WorkflowsClient
 
         return WorkflowsClient
 
     if name == "WorkflowDefinition":
-        from .workflows import WorkflowDefinition
+        from aigie.workflows import WorkflowDefinition
 
         return WorkflowDefinition
 
     if name == "WorkflowExecution":
-        from .workflows import WorkflowExecution
+        from aigie.workflows import WorkflowExecution
 
         return WorkflowExecution
 
     if name == "WorkflowStep":
-        from .workflows import WorkflowStep
+        from aigie.workflows import WorkflowStep
 
         return WorkflowStep
 
     # Platform API Clients - Recommendations
     if name == "RecommendationsClient":
-        from .recommendations import RecommendationsClient
+        from aigie.recommendations import RecommendationsClient
 
         return RecommendationsClient
 
     if name == "TraceRecommendation":
-        from .recommendations import TraceRecommendation
+        from aigie.recommendations import TraceRecommendation
 
         return TraceRecommendation
 
     if name == "WorkflowRecommendation":
-        from .recommendations import WorkflowRecommendation
+        from aigie.recommendations import WorkflowRecommendation
 
         return WorkflowRecommendation
 
     if name == "ImpactAnalysis":
-        from .recommendations import ImpactAnalysis
+        from aigie.recommendations import ImpactAnalysis
 
         return ImpactAnalysis
 
     # Platform API Clients - Learning
     if name == "LearningClient":
-        from .learning import LearningClient
+        from aigie.learning import LearningClient
 
         return LearningClient
 
     if name == "LearningStats":
-        from .learning import LearningStats
+        from aigie.learning import LearningStats
 
         return LearningStats
 
     if name == "LearningPattern":
-        from .learning import LearningPattern
+        from aigie.learning import LearningPattern
 
         return LearningPattern
 
     if name == "FeedbackEntry":
-        from .learning import FeedbackEntry
+        from aigie.learning import FeedbackEntry
 
         return FeedbackEntry
 
     if name == "EvalStats":
-        from .learning import EvalStats
+        from aigie.learning import EvalStats
 
         return EvalStats
 
     # Platform API Clients - Remediation
     if name == "RemediationClient":
-        from .remediation import RemediationClient
+        from aigie.remediation import RemediationClient
 
         return RemediationClient
 
     if name == "RemediationJob":
-        from .remediation import RemediationJob
+        from aigie.remediation import RemediationJob
 
         return RemediationJob
 
     if name == "QueueStats":
-        from .remediation import QueueStats
+        from aigie.remediation import QueueStats
 
         return QueueStats
 
     if name == "AutonomousPreview":
-        from .remediation import AutonomousPreview
+        from aigie.remediation import AutonomousPreview
 
         return AutonomousPreview
 
     if name == "HallucinationDetection":
-        from .remediation import HallucinationDetection
+        from aigie.remediation import HallucinationDetection
 
         return HallucinationDetection
 
     if name == "ControlLoopStatus":
-        from .remediation import ControlLoopStatus
+        from aigie.remediation import ControlLoopStatus
 
         return ControlLoopStatus
 
     # Integration Registry (LiteLLM-style patching)
     if name == "patch":
-        from .integrations.registry import patch
+        from aigie.integrations.registry import patch
 
         return patch
 
     if name == "unpatch":
-        from .integrations.registry import unpatch
+        from aigie.integrations.registry import unpatch
 
         return unpatch
 
     if name == "is_patched":
-        from .integrations.registry import is_patched
+        from aigie.integrations.registry import is_patched
 
         return is_patched
 
     if name == "is_integration_available":
-        from .integrations.registry import is_integration_available
+        from aigie.integrations.registry import is_integration_available
 
         return is_integration_available
 
     if name == "list_integrations":
-        from .integrations.registry import list_integrations
+        from aigie.integrations.registry import list_integrations
 
         return list_integrations
 
     if name == "list_integration_names":
-        from .integrations.registry import list_integration_names
+        from aigie.integrations.registry import list_integration_names
 
         return list_integration_names
 
     if name == "get_patched_integrations":
-        from .integrations.registry import get_patched_integrations
+        from aigie.integrations.registry import get_patched_integrations
 
         return get_patched_integrations
 
     if name == "register_integration":
-        from .integrations.registry import register_integration
+        from aigie.integrations.registry import register_integration
 
         return register_integration
 
     if name == "patch_all":
-        from .integrations.registry import patch_all
+        from aigie.integrations.registry import patch_all
 
         return patch_all
 
     # Exceptions
     if name == "AigieError":
-        from .exceptions import AigieError
+        from aigie.exceptions import AigieError
 
         return AigieError
 
     if name == "ContextDriftDetected":
-        from .exceptions import ContextDriftDetected
+        from aigie.exceptions import ContextDriftDetected
 
         return ContextDriftDetected
 
     if name == "TopicDriftDetected":
-        from .exceptions import TopicDriftDetected
+        from aigie.exceptions import TopicDriftDetected
 
         return TopicDriftDetected
 
     if name == "BehaviorDriftDetected":
-        from .exceptions import BehaviorDriftDetected
+        from aigie.exceptions import BehaviorDriftDetected
 
         return BehaviorDriftDetected
 
     if name == "QualityDriftDetected":
-        from .exceptions import QualityDriftDetected
+        from aigie.exceptions import QualityDriftDetected
 
         return QualityDriftDetected
 
     if name == "RemediationFailed":
-        from .exceptions import RemediationFailed
+        from aigie.exceptions import RemediationFailed
 
         return RemediationFailed
 
     if name == "RemediationRejected":
-        from .exceptions import RemediationRejected
+        from aigie.exceptions import RemediationRejected
 
         return RemediationRejected
 
     if name == "RetryExhausted":
-        from .exceptions import RetryExhausted
+        from aigie.exceptions import RetryExhausted
 
         return RetryExhausted
 
     if name == "TraceBufferError":
-        from .exceptions import TraceBufferError
+        from aigie.exceptions import TraceBufferError
 
         return TraceBufferError
 
     if name == "TraceContextError":
-        from .exceptions import TraceContextError
+        from aigie.exceptions import TraceContextError
 
         return TraceContextError
 
     if name == "InterceptionBlocked":
-        from .exceptions import InterceptionBlocked
+        from aigie.exceptions import InterceptionBlocked
 
         return InterceptionBlocked
 
     if name == "InterceptionRetryRequested":
-        from .exceptions import InterceptionRetryRequested
+        from aigie.exceptions import InterceptionRetryRequested
 
         return InterceptionRetryRequested
 
     if name == "ConfigurationError":
-        from .exceptions import ConfigurationError
+        from aigie.exceptions import ConfigurationError
 
         return ConfigurationError
 
     if name == "IntegrationError":
-        from .exceptions import IntegrationError
+        from aigie.exceptions import IntegrationError
 
         return IntegrationError
 
     if name == "IntegrationNotFoundError":
-        from .exceptions import IntegrationNotFoundError
+        from aigie.exceptions import IntegrationNotFoundError
 
         return IntegrationNotFoundError
 
     if name == "IntegrationNotInstalledError":
-        from .exceptions import IntegrationNotInstalledError
+        from aigie.exceptions import IntegrationNotInstalledError
 
         return IntegrationNotInstalledError
 
     if name == "BackendError":
-        from .exceptions import BackendError
+        from aigie.exceptions import BackendError
 
         return BackendError
 
     if name == "BackendConnectionError":
-        from .exceptions import BackendConnectionError
+        from aigie.exceptions import BackendConnectionError
 
         return BackendConnectionError
 
     if name == "RateLimitError":
-        from .exceptions import RateLimitError
+        from aigie.exceptions import RateLimitError
 
         return RateLimitError
 
     if name == "AuthenticationError":
-        from .exceptions import AuthenticationError
+        from aigie.exceptions import AuthenticationError
 
         return AuthenticationError
 
     if name == "WebhookError":
-        from .exceptions import WebhookError
+        from aigie.exceptions import WebhookError
 
         return WebhookError
 
     # Callbacks
     if name == "GenericWebhookCallback":
-        from .callbacks import GenericWebhookCallback
+        from aigie.callbacks import GenericWebhookCallback
 
         return GenericWebhookCallback
 
     if name == "BaseCallback":
-        from .callbacks import BaseCallback
+        from aigie.callbacks import BaseCallback
 
         return BaseCallback
 
     if name == "CallbackEvent":
-        from .callbacks import CallbackEvent
+        from aigie.callbacks import CallbackEvent
 
         return CallbackEvent
 
     if name == "CallbackEventType":
-        from .callbacks import CallbackEventType
+        from aigie.callbacks import CallbackEventType
 
         return CallbackEventType
 
     if name == "create_webhook":
-        from .callbacks.generic_webhook import create_webhook
+        from aigie.callbacks.generic_webhook import create_webhook
 
         return create_webhook
 
@@ -2540,7 +2534,7 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
 # Type checking support
 if TYPE_CHECKING:
-    from .agents import (
+    from aigie.agents import (
         CycleMetrics,
         CyclePhase,
         Deviation,
@@ -2561,7 +2555,7 @@ if TYPE_CHECKING:
         TracingGoalTracker,
         TracingLoopDetector,
     )
-    from .alerting import (
+    from aigie.alerting import (
         AggregationWindow,
         AlertCondition,
         AlertEvent,
@@ -2578,7 +2572,7 @@ if TYPE_CHECKING:
         WebhookChannel,
         create_alert_manager,
     )
-    from .analytics import (
+    from aigie.analytics import (
         AgentStats,
         AnalyticsClient,
         CostAnalytics,
@@ -2588,14 +2582,14 @@ if TYPE_CHECKING:
         TimeSeriesPoint,
         WorkflowStats,
     )
-    from .annotations import (
+    from aigie.annotations import (
         Annotation,
         AnnotationQueue,
         AnnotationsAPI,
         AnnotationTask,
         AnnotationType,
     )
-    from .batch_evaluation import (
+    from aigie.batch_evaluation import (
         BatchEvaluationResult,
         BatchProgress,
         BatchStatistics,
@@ -2605,32 +2599,27 @@ if TYPE_CHECKING:
         export_batch_results_to_csv,
         generate_batch_report,
     )
-    from .buffer import EventBuffer
-    from .callbacks import (
+    from aigie.buffer import EventBuffer
+    from aigie.callbacks import (
         BaseCallback,
         CallbackEvent,
         CallbackEventType,
         GenericWebhookCallback,
     )
-    from .callbacks.generic_webhook import create_webhook
-    from .client import Aigie
-    from .compression import Compressor, is_compression_available
-    from .config import Config
-    from .context import (
-        TraceContext as W3CTraceContext,
-    )
-    from .context import (
-        extract_trace_context,
-        inject_trace_context,
-    )
-    from .context_manager import (
+    from aigie.callbacks.generic_webhook import create_webhook
+    from aigie.client import Aigie
+    from aigie.compression import Compressor, is_compression_available
+    from aigie.config import Config
+    from aigie.context import TraceContext as W3CTraceContext
+    from aigie.context import extract_trace_context, inject_trace_context
+    from aigie.context_manager import (
         get_current_span_context,
         get_current_trace_context,
         is_tracing_enabled,
         set_tracing_enabled,
         tracing_context,
     )
-    from .cost_tracking import (
+    from aigie.cost_tracking import (
         CostAggregator,
         CostBreakdown,
         UsageMetadata,
@@ -2641,15 +2630,9 @@ if TYPE_CHECKING:
         get_model_pricing,
         get_supported_models,
     )
-    from .decorators_v3 import (
-        create_traceable,
-        set_debug_mode,
-        set_global_mask_fn,
-        trace,
-        traceable,
-    )
-    from .evaluation import EvaluationHook, EvaluationResult, Evaluator, ScoreType
-    from .evaluations import (
+    from aigie.decorators_v3 import create_traceable, set_debug_mode, trace, traceable
+    from aigie.evaluation import EvaluationHook, EvaluationResult, Evaluator, ScoreType
+    from aigie.evaluations import (
         EvaluationJob,
         EvaluationRequest,
         EvaluationsClient,
@@ -2658,7 +2641,7 @@ if TYPE_CHECKING:
         EvaluationType,
         evaluate,
     )
-    from .exceptions import (
+    from aigie.exceptions import (
         AigieError,
         AuthenticationError,
         BackendConnectionError,
@@ -2682,7 +2665,7 @@ if TYPE_CHECKING:
         TraceContextError,
         WebhookError,
     )
-    from .experiments import (
+    from aigie.experiments import (
         ExperimentResult,
         ExperimentsClient,
         ExperimentVariant,
@@ -2692,7 +2675,7 @@ if TYPE_CHECKING:
         create_experiments_client,
         generate_experiment_report,
     )
-    from .graph_view import (
+    from aigie.graph_view import (
         AgentGraph,
         EdgeType,
         ExecutionPath,
@@ -2705,7 +2688,7 @@ if TYPE_CHECKING:
         create_graph,
         create_graph_builder,
     )
-    from .guardrails import (
+    from aigie.guardrails import (
         BaseGuardrail,
         GuardrailAction,
         GuardrailChain,
@@ -2716,7 +2699,7 @@ if TYPE_CHECKING:
         PromptInjectionDetector,
         ToxicityDetector,
     )
-    from .integrations.registry import (
+    from aigie.integrations.registry import (
         get_patched_integrations,
         is_integration_available,
         is_patched,
@@ -2727,7 +2710,7 @@ if TYPE_CHECKING:
         register_integration,
         unpatch,
     )
-    from .judges import (
+    from aigie.judges import (
         Judge,
         JudgeConfig,
         JudgeResult,
@@ -2736,7 +2719,7 @@ if TYPE_CHECKING:
         judge,
         judge_all,
     )
-    from .leaderboards import (
+    from aigie.leaderboards import (
         AggregationType,
         ComparisonPair,
         EloRating,
@@ -2748,14 +2731,14 @@ if TYPE_CHECKING:
         create_model_leaderboard,
         create_prompt_leaderboard,
     )
-    from .learning import (
+    from aigie.learning import (
         EvalStats,
         FeedbackEntry,
         LearningClient,
         LearningPattern,
         LearningStats,
     )
-    from .licensing import (
+    from aigie.licensing import (
         LicenseError,
         LicenseExpiredError,
         LicenseInfo,
@@ -2764,14 +2747,14 @@ if TYPE_CHECKING:
         LicenseValidator,
         UsageSummary,
     )
-    from .metrics.base import BaseMetric
-    from .metrics.checkpoint import CheckpointValidityMetric
-    from .metrics.drift import DriftDetectionMetric
-    from .metrics.nested import NestedAgentHealthMetric
-    from .metrics.recovery import RecoverySuccessMetric
-    from .metrics.reliability import ProductionReliabilityMetric
-    from .observe import observe
-    from .playground import (
+    from aigie.metrics.base import BaseMetric
+    from aigie.metrics.checkpoint import CheckpointValidityMetric
+    from aigie.metrics.drift import DriftDetectionMetric
+    from aigie.metrics.nested import NestedAgentHealthMetric
+    from aigie.metrics.recovery import RecoverySuccessMetric
+    from aigie.metrics.reliability import ProductionReliabilityMetric
+    from aigie.observe import observe
+    from aigie.playground import (
         ComparisonResult,
         ModelConfig,
         ModelProvider,
@@ -2781,13 +2764,9 @@ if TYPE_CHECKING:
         PromptTemplate,
         create_playground,
     )
-    from .prompts import Prompt, PromptManager
-    from .pytest_plugin import (
-        AigieTestCase,
-        aigie_assert,
-        assert_test,
-    )
-    from .query_api import (
+    from aigie.prompts import Prompt, PromptManager
+    from aigie.pytest_plugin import AigieTestCase, aigie_assert, assert_test
+    from aigie.query_api import (
         Observation,
         ObservationsAPI,
         ObservationType,
@@ -2799,13 +2778,13 @@ if TYPE_CHECKING:
         TraceAPI,
         TraceFilter,
     )
-    from .recommendations import (
+    from aigie.recommendations import (
         ImpactAnalysis,
         RecommendationsClient,
         TraceRecommendation,
         WorkflowRecommendation,
     )
-    from .remediation import (
+    from aigie.remediation import (
         AutonomousPreview,
         ControlLoopStatus,
         HallucinationDetection,
@@ -2813,7 +2792,7 @@ if TYPE_CHECKING:
         RemediationClient,
         RemediationJob,
     )
-    from .safety_metrics import (
+    from aigie.safety_metrics import (
         BiasEvaluator,
         JailbreakEvaluator,
         PIILeakageEvaluator,
@@ -2822,7 +2801,7 @@ if TYPE_CHECKING:
         ToxicityEvaluator,
         create_safety_evaluators,
     )
-    from .sampling import (
+    from aigie.sampling import (
         AdaptiveConfig,
         Sampler,
         SamplingConfig,
@@ -2830,8 +2809,8 @@ if TYPE_CHECKING:
         create_importance_function,
         create_smart_sampler,
     )
-    from .span import SpanContext
-    from .span_replay import (
+    from aigie.span import SpanContext
+    from aigie.span_replay import (
         CapturedSpan,
         ReplayExperiment,
         ReplayResult,
@@ -2839,8 +2818,8 @@ if TYPE_CHECKING:
         SpanReplay,
         create_span_replay,
     )
-    from .streaming import StreamingSpan
-    from .summary_evaluators import (
+    from aigie.streaming import StreamingSpan
+    from aigie.summary_evaluators import (
         AccuracySummaryEvaluator,
         AverageScoreSummaryEvaluator,
         CostSummaryEvaluator,
@@ -2854,8 +2833,8 @@ if TYPE_CHECKING:
         create_standard_summary_evaluators,
         run_summary_evaluators,
     )
-    from .trace import TraceContext
-    from .uuid7 import (
+    from aigie.trace import TraceContext
+    from aigie.uuid7 import (
         compare_uuidv7,
         extract_timestamp,
         generate_batch_uuidv7,
@@ -2865,15 +2844,10 @@ if TYPE_CHECKING:
         uuidv7_to_datetime,
         uuidv7_with_timestamp,
     )
-    from .workflows import (
-        WorkflowDefinition,
-        WorkflowExecution,
-        WorkflowsClient,
-        WorkflowStep,
-    )
-    from .wrappers import wrap_anthropic, wrap_gemini, wrap_openai
-    from .wrappers_bedrock import create_traced_bedrock, wrap_bedrock
-    from .wrappers_cohere import create_traced_cohere, wrap_cohere
+    from aigie.workflows import WorkflowDefinition, WorkflowExecution, WorkflowsClient, WorkflowStep
+    from aigie.wrappers import wrap_anthropic, wrap_gemini, wrap_openai
+    from aigie.wrappers_bedrock import create_traced_bedrock, wrap_bedrock
+    from aigie.wrappers_cohere import create_traced_cohere, wrap_cohere
 
 
 # ============================================================================

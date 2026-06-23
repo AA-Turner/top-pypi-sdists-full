@@ -115,6 +115,15 @@ def run(
     leaked_call_retries = 0
     plan_continue_nudges = 0  # consecutive "you stopped mid-plan" nudges
     empty_response_nudges = 0  # consecutive "you returned nothing" nudges
+    # Safety valve for a degenerate loop: the SAME tool call run over and over
+    # with the SAME result — success OR failure (seen failing a Write 160×, and
+    # re-running an identical passing `pytest` 92× for 25 min). The advisory
+    # loop-note is ignored by weak models, so after a cap we end the turn. Real
+    # iterative fixing changes the args, and polling yields a changing result —
+    # both reset the streak, so only a truly pointless loop trips it.
+    identical_repeat_streak = 0
+    last_call_sig = None
+    IDENTICAL_REPEAT_CAP = 8
     run_iteration = 0  # stream calls within THIS run() (resets per user message)
     loop_tracker = LoopTracker()
 
@@ -251,6 +260,18 @@ def run(
             if tc["name"] in ("Edit", "Write"):
                 session_has_edited = True
 
+            # STOP pressed: don't run the remaining tools, but still record a
+            # paired result for each (the assistant message already lists all
+            # tool_calls — leaving one without a tool result corrupts history).
+            if _stopped():
+                state.messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "name": tc["name"],
+                    "content": "[skipped — stopped by user]",
+                })
+                continue
+
             # Check tool call limit
             if max_tool_calls > 0 and tool_call_count > max_tool_calls:
                 state.messages.append({
@@ -276,6 +297,15 @@ def run(
                 )
             else:
                 result = execute(tc["name"], tc["input"], config)
+            # Track consecutive byte-identical calls — same name, args AND raw
+            # result (captured before annotate prepends its note, which changes
+            # each call) — for the safety valve below. A differing result
+            # (polling) or differing args (real iteration) resets the streak.
+            sig = (tc["name"], str(tc["input"]), result)
+            if sig == last_call_sig:
+                identical_repeat_streak += 1
+            else:
+                identical_repeat_streak, last_call_sig = 1, sig
             # Guide (never block) on exact-repeat tool calls: prepend an
             # advisory note when the same call is made again.
             result = loop_tracker.annotate(tc["name"], tc["input"], result)
@@ -289,6 +319,18 @@ def run(
                 "name": tc["name"],
                 "content": result,
             })
+
+        # Safety valve: the same call has run identically (same args AND result)
+        # too many times in a row — repeating it changes nothing. End the turn
+        # and hand control back rather than burning turns toward MAX_TOOL_TURNS.
+        if identical_repeat_streak >= IDENTICAL_REPEAT_CAP:
+            yield TextChunk(
+                f"\n[Stopped: the same {last_call_sig[0]} call ran "
+                f"{identical_repeat_streak}× in a row with the same result — "
+                "repeating it changes nothing. Control is back to you; tell me "
+                "how you'd like to proceed.]\n"
+            )
+            break
 
         # Safe point (all tool results appended): honor a STOP requested while
         # this turn's tools were running, before spending another LLM call.

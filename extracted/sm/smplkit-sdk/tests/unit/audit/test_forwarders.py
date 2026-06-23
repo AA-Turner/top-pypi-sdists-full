@@ -2,7 +2,8 @@
 
 The httpx.MockTransport pattern is reused here — none of these tests
 touch the network. Coverage target is 100% on every line in
-``smplkit.audit.forwarders``.
+``smplkit.audit.forwarders`` and the forwarder portion of
+``smplkit.audit.models``.
 """
 
 from __future__ import annotations
@@ -20,7 +21,6 @@ from smplkit.audit import (
     ForwarderEnvironment,
     ForwarderType,
     HttpConfiguration,
-    HttpHeader,
     HttpMethod,
     TransformType,
 )
@@ -44,15 +44,14 @@ def _forwarder_resource(
     environments: dict[str, Any] | None = None,
     forward_smplkit_events: bool = False,
 ) -> dict[str, Any]:
-    # The base ``enabled`` is server-pinned false (ADR-055); the audit
-    # service always returns it false regardless of per-environment state.
+    # There is no top-level ``enabled`` on the wire anymore (ADR-056);
+    # enablement is driven entirely by the per-environment overlay.
     return {
         "id": id_,
         "type": "forwarder",
         "attributes": {
             "name": name,
             "forwarder_type": forwarder_type,
-            "enabled": False,
             "forward_smplkit_events": forward_smplkit_events,
             "environments": environments if environments is not None else {},
             "description": description,
@@ -62,7 +61,7 @@ def _forwarder_resource(
             "configuration": {
                 "method": "POST",
                 "url": "https://siem.example.com/in",
-                "headers": [{"name": "DD-API-KEY", "value": "dd-api-key-plaintext"}],
+                "headers": {"DD-API-KEY": "dd-api-key-plaintext"},
                 "success_status": "2xx",
             },
             "created_at": "2026-05-07T12:00:00+00:00",
@@ -85,40 +84,51 @@ def _client_with_handler(handler) -> AuditClient:
 
 
 # ---------------------------------------------------------------------------
-# Models — round-trip and edge cases
+# HttpConfiguration — base config (headers as a name→value object)
 # ---------------------------------------------------------------------------
 
 
-class TestModels:
-    def test_http_header_to_dict(self):
-        h = HttpHeader(name="X-K", value="v")
-        assert h._to_dict() == {"name": "X-K", "value": "v"}
-
-    def test_http_configuration_round_trip(self):
+class TestHttpConfiguration:
+    def test_round_trip(self):
         h = HttpConfiguration(
             method=HttpMethod.PUT,
             url="https://x.example/in",
-            headers=[HttpHeader(name="A", value="1")],
+            headers={"A": "1"},
             success_status="200",
         )
         d = h._to_dict()
         assert d["method"] == "PUT"
+        assert d["url"] == "https://x.example/in"
+        assert d["headers"] == {"A": "1"}
         again = HttpConfiguration._from_dict(d)
-        assert again == h
-        assert isinstance(again.method, HttpMethod)
+        assert again.method == "PUT"
+        assert again.url == "https://x.example/in"
+        assert again.headers == {"A": "1"}
+        assert again.success_status == "200"
 
-    def test_http_configuration_from_dict_defaults(self):
+    def test_set_and_get_header(self):
+        h = HttpConfiguration(url="https://x")
+        assert h.get_header("A") is None
+        h.set_header("A", "1")
+        assert h.get_header("A") == "1"
+        # set_header replaces in place.
+        h.set_header("A", "2")
+        assert h.get_header("A") == "2"
+        assert h._to_dict()["headers"] == {"A": "2"}
+
+    def test_from_dict_defaults(self):
         # Empty dict should produce a sane default HttpConfiguration.
         h = HttpConfiguration._from_dict({})
         assert h.method == HttpMethod.POST
-        assert h.headers == []
+        assert h.headers == {}
+        assert h.url == ""
         assert h.success_status == "2xx"
         # Pre-existing forwarders persisted before the field landed must
         # read back as tls_verify=True so they keep their prior secure default.
         assert h.tls_verify is True
         assert h.ca_cert is None
 
-    def test_http_configuration_round_trips_tls_fields(self):
+    def test_round_trips_tls_fields(self):
         h = HttpConfiguration(
             url="https://x",
             tls_verify=False,
@@ -128,14 +138,34 @@ class TestModels:
         assert d["tls_verify"] is False
         assert "BEGIN CERTIFICATE" in d["ca_cert"]
         again = HttpConfiguration._from_dict(d)
-        assert again == h
+        assert again.tls_verify is False
+        assert again.ca_cert == h.ca_cert
 
-    def test_http_configuration_accepts_raw_string_method(self):
+    def test_from_dict_falsey_tls_verify_is_preserved(self):
+        # An explicit ``false`` on the wire must read back false, not the
+        # secure default (which only applies when the field is absent).
+        h = HttpConfiguration._from_dict({"url": "https://x", "tls_verify": False})
+        assert h.tls_verify is False
+
+    def test_accepts_raw_string_method(self):
         # ``HttpMethod`` is a ``str`` subclass, so callers passing the
         # literal still type-check and round-trip cleanly.
         h = HttpConfiguration._from_dict({"method": "PATCH", "url": "https://x"})
         assert h.method == HttpMethod.PATCH
 
+    def test_repr(self):
+        h = HttpConfiguration(url="https://x", method=HttpMethod.PUT)
+        r = repr(h)
+        assert "https://x" in r
+        assert "PUT" in r
+
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+
+class TestEnums:
     def test_http_method_enum_members_are_alphabetical(self):
         names = [m.name for m in HttpMethod]
         assert names == sorted(names)
@@ -149,21 +179,138 @@ class TestModels:
         # ``str`` subclassing keeps interop with raw strings transparent.
         assert TransformType.JSONATA == "JSONATA"
 
-    def test_forwarder_from_resource_returns_transform_type_enum(self):
-        f = Forwarder._from_resource(_forwarder_resource(transform="$", transform_type="JSONATA"))
-        assert f.transform == "$"
-        assert f.transform_type is TransformType.JSONATA
 
-    def test_forwarder_from_resource(self):
+# ---------------------------------------------------------------------------
+# ForwarderEnvironment — sparse per-environment override (ADR-056)
+# ---------------------------------------------------------------------------
+
+
+class TestForwarderEnvironment:
+    def test_defaults_disabled_and_all_leaves_none(self):
+        e = ForwarderEnvironment()
+        assert e.enabled is False
+        assert e.url is None
+        assert e.method is None
+        assert e.success_status is None
+        assert e.tls_verify is None
+        assert e.ca_cert is None
+        assert e.headers == {}
+        # An empty disabled override emits only ``enabled``.
+        assert e._to_payload() == {"enabled": False}
+
+    def test_reading_unset_leaf_returns_none_no_base_merge(self):
+        # The SDK never merges the base value in — an unset leaf reads None.
+        e = ForwarderEnvironment(enabled=True, url="https://prod")
+        assert e.url == "https://prod"
+        assert e.method is None
+        assert e.success_status is None
+
+    def test_set_and_get_header(self):
+        e = ForwarderEnvironment(enabled=True)
+        assert e.get_header("Auth") is None
+        e.set_header("Auth", "Bearer prod")
+        assert e.get_header("Auth") == "Bearer prod"
+        e.set_header("Auth", "Bearer prod2")
+        assert e.get_header("Auth") == "Bearer prod2"
+
+    def test_to_payload_emits_only_set_leaves(self):
+        e = ForwarderEnvironment(
+            enabled=True,
+            url="https://prod",
+            method="PUT",
+            success_status="200",
+            tls_verify=False,
+            ca_cert="-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----",
+        )
+        e.set_header("DD-API-KEY", "prod-secret")
+        payload = e._to_payload()
+        assert payload == {
+            "enabled": True,
+            "url": "https://prod",
+            "method": "PUT",
+            "success_status": "200",
+            "tls_verify": False,
+            "ca_cert": "-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----",
+            "headers.DD-API-KEY": "prod-secret",
+        }
+
+    def test_to_payload_omits_unset_scalar_leaves(self):
+        # Only ``enabled`` and ``url`` are set; the rest stay off the overlay.
+        e = ForwarderEnvironment(enabled=True, url="https://prod")
+        assert e._to_payload() == {"enabled": True, "url": "https://prod"}
+
+    def test_from_dict_parses_flat_overlay(self):
+        e = ForwarderEnvironment._from_dict(
+            {
+                "enabled": True,
+                "url": "https://prod",
+                "method": "PUT",
+                "success_status": "204",
+                "tls_verify": False,
+                "ca_cert": "ca-pem",
+                "headers.DD-API-KEY": "prod-secret",
+            }
+        )
+        assert e.enabled is True
+        assert e.url == "https://prod"
+        assert e.method == "PUT"
+        assert e.success_status == "204"
+        assert e.tls_verify is False
+        assert e.ca_cert == "ca-pem"
+        assert e.headers == {"DD-API-KEY": "prod-secret"}
+
+    def test_from_dict_first_dot_header_split_preserves_dotted_names(self):
+        # ``headers.X-Foo.Bar`` parses on the FIRST dot, preserving the
+        # dotted header name ``X-Foo.Bar``.
+        e = ForwarderEnvironment._from_dict({"enabled": True, "headers.X-Foo.Bar": "v"})
+        assert e.headers == {"X-Foo.Bar": "v"}
+
+    def test_from_dict_ignores_unknown_leaves(self):
+        # Forward compatibility: unknown leaves and a dotless ``headers`` key
+        # are dropped without error.
+        e = ForwarderEnvironment._from_dict(
+            {"enabled": True, "url": "https://prod", "future_leaf": "x", "headers": "no-name"}
+        )
+        assert e.url == "https://prod"
+        assert e.headers == {}
+        assert e._to_payload() == {"enabled": True, "url": "https://prod"}
+
+    def test_from_dict_empty_defaults_disabled(self):
+        e = ForwarderEnvironment._from_dict({})
+        assert e.enabled is False
+        assert e._to_payload() == {"enabled": False}
+
+    def test_from_dict_none_raw_defaults_disabled(self):
+        # ``_from_dict`` tolerates a falsey ``raw`` (e.g. ``None``) via the
+        # ``(raw or {})`` guard.
+        e = ForwarderEnvironment._from_dict(None)  # type: ignore[arg-type]
+        assert e.enabled is False
+
+    def test_repr_lists_overridden_leaves_sorted(self):
+        e = ForwarderEnvironment(enabled=True, url="https://prod", method="PUT")
+        e.set_header("Auth", "x")
+        r = repr(e)
+        assert "enabled=True" in r
+        # Overrides are sorted: headers.Auth, method, url.
+        assert r.index("headers.Auth") < r.index("method") < r.index("url")
+
+
+# ---------------------------------------------------------------------------
+# Forwarder — model behavior (environment accessor, enabled rollup, parse)
+# ---------------------------------------------------------------------------
+
+
+class TestForwarderModel:
+    def test_from_resource(self):
         f = Forwarder._from_resource(_forwarder_resource())
         assert f.id == FWD_ID
         assert f.name == "Datadog production"
-        assert f.configuration.headers[0].value == "dd-api-key-plaintext"
+        assert f.configuration.get_header("DD-API-KEY") == "dd-api-key-plaintext"
         assert f.version == 1
         assert f.deleted_at is None
         assert f.description is None
         assert f.transform_type is None
-        # Base ``enabled`` is server-pinned false; no environments by default.
+        # No environments by default → not enabled anywhere.
         assert f.enabled is False
         assert f.environments == {}
         # forward_smplkit_events defaults to false.
@@ -171,12 +318,16 @@ class TestModels:
         # No client attached when _from_resource is called bare.
         assert f._client is None
 
-    def test_forwarder_from_resource_surfaces_forward_smplkit_events(self):
-        # A forwarder opted in to platform change events reads back true.
+    def test_from_resource_returns_transform_type_enum(self):
+        f = Forwarder._from_resource(_forwarder_resource(transform="$", transform_type="JSONATA"))
+        assert f.transform == "$"
+        assert f.transform_type is TransformType.JSONATA
+
+    def test_from_resource_surfaces_forward_smplkit_events(self):
         f = Forwarder._from_resource(_forwarder_resource(forward_smplkit_events=True))
         assert f.forward_smplkit_events is True
 
-    def test_forwarder_from_resource_defaults_forward_smplkit_events_when_absent(self):
+    def test_from_resource_defaults_forward_smplkit_events_when_absent(self):
         # A forwarder persisted before the field landed has no
         # ``forward_smplkit_events`` on the wire — it must read back false.
         resource = _forwarder_resource()
@@ -184,33 +335,54 @@ class TestModels:
         f = Forwarder._from_resource(resource)
         assert f.forward_smplkit_events is False
 
-    def test_forwarder_from_resource_reads_environments(self):
-        # Per-environment overrides round-trip on read: enablement plus an
-        # optional configuration override (plaintext headers, like the base).
+    def test_from_resource_reads_sparse_environments(self):
+        # Per-environment sparse overrides round-trip on read: enablement plus
+        # only the leaves each environment overrides.
         f = Forwarder._from_resource(
             _forwarder_resource(
                 environments={
                     "production": {"enabled": True},
                     "staging": {
                         "enabled": False,
-                        "configuration": {
-                            "method": "POST",
-                            "url": "https://staging.siem.example.com/in",
-                            "headers": [{"name": "DD-API-KEY", "value": "dd-api-key-plaintext"}],
-                            "success_status": "2xx",
-                        },
+                        "url": "https://staging.siem.example.com/in",
+                        "headers.DD-API-KEY": "staging-secret",
                     },
                 }
             )
         )
         assert f.environments["production"].enabled is True
-        assert f.environments["production"].configuration is None
+        assert f.environments["production"].url is None
         assert f.environments["staging"].enabled is False
-        assert f.environments["staging"].configuration is not None
-        assert f.environments["staging"].configuration.url == "https://staging.siem.example.com/in"
-        assert f.environments["staging"].configuration.headers[0].value == "dd-api-key-plaintext"
+        assert f.environments["staging"].url == "https://staging.siem.example.com/in"
+        assert f.environments["staging"].get_header("DD-API-KEY") == "staging-secret"
 
-    def test_forwarder_repr_shows_enabled_environments(self):
+    def test_enabled_rollup_true_when_any_env_enabled(self):
+        f = Forwarder._from_resource(
+            _forwarder_resource(environments={"production": {"enabled": True}, "staging": {"enabled": False}})
+        )
+        assert f.enabled is True
+
+    def test_enabled_rollup_false_when_no_env_enabled(self):
+        f = Forwarder._from_resource(
+            _forwarder_resource(environments={"production": {"enabled": False}, "staging": {"enabled": False}})
+        )
+        assert f.enabled is False
+
+    def test_environment_accessor_lazily_creates_and_returns(self):
+        f = Forwarder._from_resource(_forwarder_resource())
+        assert f.environments == {}
+        env = f.environment("production")
+        assert isinstance(env, ForwarderEnvironment)
+        # Inserted into the map on first access.
+        assert f.environments["production"] is env
+        # Second access returns the same instance.
+        assert f.environment("production") is env
+        # Mutating through the accessor drives the enabled rollup.
+        assert f.enabled is False
+        f.environment("production").enabled = True
+        assert f.enabled is True
+
+    def test_repr_shows_enabled_environments_only(self):
         f = Forwarder._from_resource(
             _forwarder_resource(environments={"production": {"enabled": True}, "staging": {"enabled": False}})
         )
@@ -221,117 +393,15 @@ class TestModels:
         assert "production" in r
         assert "staging" not in r
 
-    # -- in-memory mutators: set_configuration / set_enabled ----------------
-
-    def test_set_configuration_base(self):
-        # environment=None replaces the base configuration.
-        f = Forwarder._from_resource(_forwarder_resource())
-        new_cfg = HttpConfiguration(url="https://base.example.com/in", method=HttpMethod.PUT)
-        f.set_configuration(new_cfg)
-        assert f.configuration is new_cfg
-        # The base set never touches per-environment overrides.
-        assert f.environments == {}
-
-    def test_set_enabled_base(self):
-        # environment=None sets the base enabled flag.
-        f = Forwarder._from_resource(_forwarder_resource())
-        assert f.enabled is False
-        f.set_enabled(True)
-        assert f.enabled is True
-        assert f.environments == {}
-
-    def test_set_configuration_creates_environment_override(self):
-        # A per-env set on an environment with no prior override creates the
-        # ForwarderEnvironment and sets its configuration (matching the
-        # showcase's set_configuration(..., environment="production")).
-        f = Forwarder._from_resource(_forwarder_resource())
-        cfg = HttpConfiguration(
-            headers=[HttpHeader(name="X-Showcase", value="ok")],
-            method=HttpMethod.POST,
-            url="https://httpbin.org/post",
-        )
-        f.set_configuration(cfg, environment="production")
-        assert "production" in f.environments
-        assert f.environments["production"].configuration is cfg
-        assert f.environments["production"].configuration.url == "https://httpbin.org/post"
-        # A freshly-created override defaults enabled to False.
-        assert f.environments["production"].enabled is False
-
-    def test_set_enabled_creates_environment_override(self):
-        # A per-env enable on an environment with no prior override creates
-        # the ForwarderEnvironment with configuration left None.
-        f = Forwarder._from_resource(_forwarder_resource())
-        f.set_enabled(True, environment="production")
-        assert "production" in f.environments
-        assert f.environments["production"].enabled is True
-        assert f.environments["production"].configuration is None
-
-    def test_set_enabled_then_set_configuration_does_not_clobber(self):
-        # Mirrors the showcase ordering: set_configuration then set_enabled on
-        # the same env must not clobber the configuration just set, and
-        # vice-versa — each mutator preserves the other field on an existing
-        # override.
-        f = Forwarder._from_resource(_forwarder_resource())
-        cfg = HttpConfiguration(url="https://httpbin.org/post")
-        f.set_configuration(cfg, environment="production")
-        f.set_enabled(True, environment="production")
-        assert f.environments["production"].configuration is cfg
-        assert f.environments["production"].enabled is True
-
-    def test_set_configuration_updates_existing_override_without_clobbering_enabled(self):
-        # An override already enabled keeps enabled when its configuration is
-        # later replaced.
-        f = Forwarder._from_resource(_forwarder_resource(environments={"production": {"enabled": True}}))
-        assert f.environments["production"].enabled is True
-        assert f.environments["production"].configuration is None
-        cfg = HttpConfiguration(url="https://new.example.com/in")
-        f.set_configuration(cfg, environment="production")
-        assert f.environments["production"].configuration is cfg
-        assert f.environments["production"].enabled is True
-
-    def test_set_enabled_updates_existing_override_without_clobbering_configuration(self):
-        # An override already carrying a configuration keeps it when enabled
-        # is later flipped.
-        f = Forwarder._from_resource(
-            _forwarder_resource(
-                environments={
-                    "production": {
-                        "enabled": False,
-                        "configuration": {
-                            "method": "POST",
-                            "url": "https://existing.example.com/in",
-                            "headers": [],
-                            "success_status": "2xx",
-                        },
-                    }
-                }
-            )
-        )
-        existing_cfg = f.environments["production"].configuration
-        assert existing_cfg is not None
-        f.set_enabled(True, environment="production")
-        assert f.environments["production"].enabled is True
-        # The configuration object is untouched.
-        assert f.environments["production"].configuration is existing_cfg
-        assert f.environments["production"].configuration.url == "https://existing.example.com/in"
-
-    def test_async_forwarder_inherits_in_memory_mutators(self):
-        # AsyncForwarder shares the (non-async) mutators with Forwarder — the
-        # async surface only differs on save()/delete(). Exercise both base
-        # and per-environment paths on the async class.
+    def test_async_forwarder_shares_model_behavior(self):
+        # AsyncForwarder shares the (non-async) model surface with Forwarder —
+        # the async surface only differs on save()/delete().
         f = AsyncForwarder._from_resource(_forwarder_resource())
         assert isinstance(f, AsyncForwarder)
-        base_cfg = HttpConfiguration(url="https://async-base.example.com/in")
-        f.set_configuration(base_cfg)
-        f.set_enabled(True)
-        assert f.configuration is base_cfg
+        f.environment("production").enabled = True
+        f.environment("production").set_header("Auth", "x")
         assert f.enabled is True
-        env_cfg = HttpConfiguration(url="https://httpbin.org/post")
-        f.set_configuration(env_cfg, environment="production")
-        f.set_enabled(True, environment="production")
-        assert f.environments["production"].configuration is env_cfg
-        assert f.environments["production"].configuration.url == "https://httpbin.org/post"
-        assert f.environments["production"].enabled is True
+        assert f.environments["production"].get_header("Auth") == "x"
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +448,7 @@ class TestForwardersCrud:
             forwarder_type="datadog",
             configuration=HttpConfiguration(
                 url="https://siem.example.com/in",
-                headers=[HttpHeader(name="DD-API-KEY", value="real-secret")],
+                headers={"DD-API-KEY": "real-secret"},
             ),
             description="Forwards user.* events.",
             filter={"==": [{"var": "event_type"}, "user.created"]},
@@ -397,11 +467,13 @@ class TestForwardersCrud:
         assert "user.created" in captured["body"]
         assert "Forwards user.* events." in captured["body"]
         assert "JSONATA" in captured["body"]
+        # Headers travel as a name→value object on the base configuration.
+        assert "real-secret" in captured["body"]
 
     def test_new_with_environments_dict_round_trips_on_create(self):
-        # The environments map travels on create. A bare ``{"enabled": True}``
-        # dict is the lightweight form; a per-env configuration override is
-        # sent as a full plaintext HttpConfiguration (like the base).
+        # The sparse environments overlay travels on create. A bare
+        # ``{"enabled": True}`` dict is the lightweight form; per-env leaves
+        # (``url``, ``headers``) travel as a flat sparse overlay.
         captured: dict[str, Any] = {}
 
         def handler(req: httpx.Request) -> httpx.Response:
@@ -414,12 +486,8 @@ class TestForwardersCrud:
                             "production": {"enabled": True},
                             "staging": {
                                 "enabled": True,
-                                "configuration": {
-                                    "method": "POST",
-                                    "url": "https://staging.example.com/in",
-                                    "headers": [{"name": "X-Env", "value": "x-env-plaintext"}],
-                                    "success_status": "2xx",
-                                },
+                                "url": "https://staging.example.com/in",
+                                "headers.X-Env": "x-env-plaintext",
                             },
                         }
                     )
@@ -436,23 +504,23 @@ class TestForwardersCrud:
                 "production": {"enabled": True},
                 "staging": {
                     "enabled": True,
-                    "configuration": HttpConfiguration(
-                        url="https://staging.example.com/in",
-                        headers=[HttpHeader(name="X-Env", value="staging-secret")],
-                    ),
+                    "url": "https://staging.example.com/in",
+                    "headers": {"X-Env": "staging-secret"},
                 },
             },
         )
         fwd.save()
-        # The map is on the wire, with the per-env override's plaintext header.
+        # The overlay is on the wire, with the per-env leaf and header.
         assert '"environments"' in captured["body"]
         assert '"production"' in captured["body"]
         assert '"staging"' in captured["body"]
         assert "staging-secret" in captured["body"]
         assert "https://staging.example.com/in" in captured["body"]
+        assert "headers.X-Env" in captured["body"]
         # Read-back populates the wrapper environments map.
         assert fwd.environments["production"].enabled is True
-        assert fwd.environments["staging"].configuration.url == "https://staging.example.com/in"
+        assert fwd.environments["staging"].url == "https://staging.example.com/in"
+        assert fwd.environments["staging"].get_header("X-Env") == "x-env-plaintext"
 
     def test_new_with_forwarder_environment_instances(self):
         # The map also accepts ForwarderEnvironment instances directly.
@@ -578,6 +646,18 @@ class TestForwardersCrud:
         # The retained forwarder_type filter is still threaded through.
         assert "filter%5Bforwarder_type%5D=datadog" in seen_urls[0] or "filter[forwarder_type]=datadog" in seen_urls[0]
 
+    def test_list_without_forwarder_type_omits_filter(self):
+        seen_urls: list[str] = []
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            seen_urls.append(str(req.url))
+            return httpx.Response(200, json={"data": [], "meta": {"pagination": {"page": 1, "size": 1000}}})
+
+        c = _client_with_handler(handler)
+        c.forwarders.list()
+        assert "filter%5Bforwarder_type%5D" not in seen_urls[0]
+        assert "filter[forwarder_type]" not in seen_urls[0]
+
     def test_new_requires_transform_type_when_transform_provided(self):
         c = _client_with_handler(lambda req: httpx.Response(204))
         with pytest.raises(ValueError, match="must be specified together"):
@@ -692,6 +772,7 @@ class TestForwardersCrud:
         assert first.pagination["page"] == 1
         iterated = list(first)
         assert len(iterated) == 1
+        assert len(first) == 1
 
         second = c.forwarders.list(page_size=1, page_number=2, meta_total=True)
         assert second.pagination["page"] == 2
@@ -729,25 +810,27 @@ class TestForwardersCrud:
         c = _client_with_handler(handler)
         fwd = c.forwarders.get(FWD_ID)
         assert fwd.environments["production"].enabled is True
-        fwd.environments["production"].enabled = False
+        assert fwd.enabled is True
+        fwd.environment("production").enabled = False
         fwd.save()
         assert captured["method"] == "PUT"
         assert FWD_ID in captured["url"]
-        # The environments map travels in the body; base ``enabled`` is
-        # server-pinned false and not driven by the wrapper.
+        # The environments overlay travels in the body.
         assert '"environments"' in captured["body"]
         assert '"production"' in captured["body"]
         # Server-truthful environments map is back on the instance.
         assert fwd.environments["production"].enabled is False
+        assert fwd.enabled is False
 
-    def test_enabled_is_read_only_and_ignored_on_save(self):
-        # Setting the base ``enabled`` to True must not flip the wire value:
-        # the base is server-pinned false and enablement is per-environment.
+    def test_enable_via_environment_accessor_then_save(self):
+        # The accessor lazily creates an override, which then travels on save.
         captured: dict[str, Any] = {}
 
         def handler(req):
             captured["body"] = req.content.decode()
-            return httpx.Response(201, json={"data": _forwarder_resource()})
+            return httpx.Response(
+                201, json={"data": _forwarder_resource(environments={"production": {"enabled": True}})}
+            )
 
         c = _client_with_handler(handler)
         fwd = c.forwarders.new(
@@ -756,13 +839,13 @@ class TestForwardersCrud:
             forwarder_type="http",
             configuration=HttpConfiguration(url="https://x"),
         )
-        fwd.enabled = True  # attempt to enable via the read-only base field
+        fwd.environment("production").enabled = True
+        fwd.environment("production").set_header("DD-API-KEY", "prod-secret")
+        assert fwd.enabled is True
         fwd.save()
-        # The body never advertises enabled:true — the wrapper does not send
-        # the base ``enabled`` as a writable enablement signal.
-        assert '"enabled":true' not in captured["body"]
-        # And the server-truthful value (always false) is reflected back.
-        assert fwd.enabled is False
+        assert '"production"' in captured["body"]
+        assert "headers.DD-API-KEY" in captured["body"]
+        assert "prod-secret" in captured["body"]
 
     def test_update_internal_with_no_id_raises(self):
         c = _client_with_handler(lambda req: httpx.Response(204))

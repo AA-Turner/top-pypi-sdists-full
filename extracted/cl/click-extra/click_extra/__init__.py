@@ -19,20 +19,39 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-# Mypy override: ``from cloup import *`` below makes mypy think Style is cloup.Style.
-# Declaring the correct type here first, before the star import, causes mypy to treat
-# the later star import's Style as a no-redef (keeping click_extra.styling.Style as
-# the canonical type for consumers of this package).
+# Mypy override: the ``from click import *`` / ``from cloup import *`` star imports
+# below make mypy resolve these re-implemented names to the click or cloup base class,
+# which hides click-extra's own attributes. Declaring the correct types here first,
+# before the star imports, makes mypy treat the later bindings as no-redefs and keeps
+# click-extra's subclasses canonical for consumers of this package.
 if TYPE_CHECKING:
+    from .commands import Command, Group
+    from .context import Context, pass_context
+    from .highlight import HelpFormatter
+    from .parameters import Argument, Option
     from .styling import Style
+    from .theme import HelpTheme
 
 # Import all click's module-level content to allow for drop-in replacement.
 # XXX Star import is really badly supported by mypy for now and leads to lots of
 # "Module 'XXX' has no attribute 'YYY'". See: https://github.com/python/mypy/issues/4930
-from click import *
-from click import NoSuchCommand, get_pager_file
+# The ignore mirrors the cloup star import below: the names pre-declared in the
+# TYPE_CHECKING block above are re-implemented by click-extra, so click's originals
+# arrive here as incompatible redefinitions.
+from click import *  # type: ignore[assignment]
 from click._utils import UNSET
 from click.core import ParameterSource
+
+# NoSuchCommand (PR pallets/click#3228) and get_pager_file (PR pallets/click#1572)
+# are Click 8.4.0 additions, absent on the Click 8.3.x releases click-extra still
+# supports. Import them only when present so click-extra mirrors Click's own public
+# surface; the matching __all__ entries are trimmed below when they are missing.
+try:
+    from click import NoSuchCommand, get_pager_file
+
+    _HAS_CLICK_8_4_EXPORTS = True
+except ImportError:  # Click < 8.4.0.
+    _HAS_CLICK_8_4_EXPORTS = False
 
 # Overrides click helpers with cloup's.
 from cloup import *  # type: ignore[no-redef, assignment]
@@ -44,23 +63,22 @@ if True:
 
 # Override cloup.Style with our own version. The override must happen after
 # ``from cloup import *`` (which would otherwise re-shadow our subclass) and
-# before any module that does ``from . import Style`` is loaded (colorize,
-# theme, themes, parameters, version, testing all do).
+# before any module that does ``from . import Style`` is loaded (parameters,
+# version, testing all do).
 from . import styling as _styling_module
 
 Style = _styling_module.Style  # type: ignore[misc]
 del _styling_module
 
 from . import context
-from .accessibility import AccessibleOption
-from .colorize import (
+from .accessibility import AccessibleOption, clear, echo_via_pager
+from .color import (
     ColorOption,
-    HelpExtraFormatter,
-    HelpKeywords,
+    NoColorOption,
 )
 from .commands import (
-    ExtraCommand,
-    ExtraGroup,
+    Command,
+    Group,
     HelpCommand,
     LazyGroup,
 )
@@ -70,19 +88,23 @@ from .config import (
     NO_CONFIG,
     PREPEND_SUBCOMMANDS_KEY,
     VCS,
+    ClickExtraConfig,
     ConfigFormat,
     ConfigOption,
     ConfigValidator,
     NoConfigOption,
+    PrebakeConfig,
+    TestPlanConfig,
     ValidateConfigOption,
     ValidationError,
     ValidationReport,
     flatten_config_keys,
     get_tool_config,
+    make_schema_callable,
     normalize_config_keys,
     run_config_validation,
 )
-from .context import ExtraContext
+from .context import Context, pass_context
 from .decorators import (  # type: ignore[no-redef]
     accessible_option,
     argument,
@@ -95,8 +117,10 @@ from .decorators import (  # type: ignore[no-redef]
     jobs_option,
     lazy_group,
     man_option,
+    no_color_option,
     no_config_option,
     option,
+    quiet_option,
     show_params_option,
     table_format_option,
     telemetry_option,
@@ -114,15 +138,21 @@ from .execution import (
     JobsOption,
     TimerOption,
     ZeroExitOption,
+    run_jobs,
+)
+from .highlight import (
+    HelpFormatter,
+    HelpKeywords,
 )
 from .logging import (
-    ExtraFormatter,
-    ExtraStreamHandler,
+    Formatter,
     LogLevel,
+    QuietOption,
+    StreamHandler,
     VerboseOption,
     VerbosityOption,
-    extraBasicConfig,
-    new_extra_logger,
+    basicConfig,
+    new_logger,
 )
 from .man_page import (
     ManOption,
@@ -139,7 +169,16 @@ from .parameters import (
     ShowParamsOption,
     format_param_row,
     get_param_spec,
+    last_param,
+    require_sibling_param,
     search_params,
+)
+from .spinner import (  # type: ignore[no-redef]
+    SPINNERS,
+    ProgressOption,
+    Spinner,
+    SpinnerPreset,
+    progressbar,
 )
 from .table import (
     ColumnsOption,
@@ -148,7 +187,6 @@ from .table import (
     TableFormat,
     TableFormatOption,
     print_data,
-    print_sorted_table,
     print_table,
     render_columns_markdown_table,
     render_table,
@@ -157,10 +195,17 @@ from .table import (
     serialize_data,
 )
 from .telemetry import TelemetryOption
-from .testing import ExtraCliRunner
+from .test_plan import (
+    DEFAULT_TEST_PLAN,
+    CLITestCase,
+    SkippedTest,
+    parse_test_plan,
+    run_test_plan,
+)
+from .testing import CliRunner, Result
 from .theme import (
     BUILTIN_THEMES,
-    HelpExtraTheme,
+    HelpTheme,
     ThemeOption,
     get_current_theme,
     get_default_theme,
@@ -168,7 +213,7 @@ from .theme import (
     set_default_theme,
     theme_registry,
 )
-from .version import ExtraVersionOption
+from .version import VersionOption
 
 __all__ = [
     "BOOL",
@@ -176,11 +221,13 @@ __all__ = [
     "CPU_COUNT",
     "DEFAULT_JOBS",
     "DEFAULT_SUBCOMMANDS_KEY",
+    "DEFAULT_TEST_PLAN",
     "EXTENSION_METADATA_KEY",
     "FLOAT",
     "INT",
     "NO_CONFIG",
     "PREPEND_SUBCOMMANDS_KEY",
+    "SPINNERS",
     "STRING",
     "UNPROCESSED",
     "UNSET",
@@ -192,9 +239,12 @@ __all__ = [
     "BadArgumentUsage",
     "BadOptionUsage",
     "BadParameter",
+    "CLITestCase",
     "Choice",
     "ChoiceSource",
+    "CliRunner",
     "ClickException",
+    "ClickExtraConfig",
     "Color",
     "ColorOption",
     "ColumnSpec",
@@ -208,21 +258,13 @@ __all__ = [
     "Context",
     "DateTime",
     "EnumChoice",
-    "ExtraCliRunner",
-    "ExtraCommand",
-    "ExtraContext",
-    "ExtraFormatter",
-    "ExtraGroup",
     "ExtraOption",
-    "ExtraStreamHandler",
-    "ExtraVersionOption",
     "File",
     "FileError",
     "FloatRange",
+    "Formatter",
     "Group",
     "HelpCommand",
-    "HelpExtraFormatter",
-    "HelpExtraTheme",
     "HelpFormatter",
     "HelpKeywords",
     "HelpSection",
@@ -235,6 +277,7 @@ __all__ = [
     "ManPage",
     "MissingParameter",
     "MultiChoice",
+    "NoColorOption",
     "NoConfigOption",
     "NoSuchCommand",
     "NoSuchOption",
@@ -246,14 +289,23 @@ __all__ = [
     "Parameter",
     "ParameterSource",
     "Path",
+    "PrebakeConfig",
+    "ProgressOption",
+    "QuietOption",
+    "Result",
     "Section",
     "SectionMixin",
     "ShowParamsOption",
+    "SkippedTest",
     "SortByOption",
+    "Spinner",
+    "SpinnerPreset",
+    "StreamHandler",
     "Style",
     "TableFormat",
     "TableFormatOption",
     "TelemetryOption",
+    "TestPlanConfig",
     "ThemeOption",
     "TimerOption",
     "Tuple",
@@ -268,6 +320,7 @@ __all__ = [
     "accessible_option",
     "annotations",
     "argument",
+    "basicConfig",
     "clear",
     "color_option",
     "columns_option",
@@ -282,7 +335,6 @@ __all__ = [
     "echo",
     "echo_via_pager",
     "edit",
-    "extraBasicConfig",
     "file_path",
     "flatten_config_keys",
     "format_filename",
@@ -300,32 +352,39 @@ __all__ = [
     "group",
     "help_option",
     "jobs_option",
+    "last_param",
     "launch",
     "lazy_group",
     "make_pass_decorator",
+    "make_schema_callable",
     "man_option",
-    "new_extra_logger",
+    "new_logger",
+    "no_color_option",
     "no_config_option",
     "normalize_config_keys",
     "open_file",
     "option",
     "option_group",
+    "parse_test_plan",
     "pass_context",
     "pass_obj",
     "password_option",
     "path",
     "pause",
     "print_data",
-    "print_sorted_table",
     "print_table",
     "progressbar",
     "prompt",
+    "quiet_option",
     "register_theme",
     "render_columns_markdown_table",
     "render_manpage",
     "render_manpages",
     "render_table",
+    "require_sibling_param",
     "run_config_validation",
+    "run_jobs",
+    "run_test_plan",
     "search_params",
     "secho",
     "select_columns",
@@ -356,33 +415,19 @@ __all__ = [
     ``ruff`` via `RUF022 <https://docs.astral.sh/ruff/rules/unsorted-dunder-all/>`_.
 """
 
+# NoSuchCommand and get_pager_file are only re-exported on Click >= 8.4.0 (see the
+# guarded import above). Drop them from the public API on older Click so ``__all__``
+# matches the names actually bound in this module.
+if not _HAS_CLICK_8_4_EXPORTS:
+    __all__.remove("NoSuchCommand")
+    __all__.remove("get_pager_file")
+del _HAS_CLICK_8_4_EXPORTS
 
-__version__ = "7.20.1"
+
+__version__ = "8.0.1"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "3193b2871a9f690e45e3473233ba42c32cee3516"
-
-
-def __getattr__(name: str) -> object:
-    import warnings
-
-    old_to_new = {
-        "extra_command": (command, "command"),
-        "extra_group": (group, "group"),
-        "extra_version_option": (version_option, "version_option"),
-    }
-
-    if name in old_to_new:
-        func, new_name = old_to_new[name]
-        warnings.warn(
-            f"{name!r} is deprecated and will be removed in Click Extra 8.0.0. Use"
-            f" {new_name!r} instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return func
-
-    raise AttributeError(name)
+__git_tag_sha__ = "e3b38fb4e6e2ee7192985ab42064dfba64cdeb13"

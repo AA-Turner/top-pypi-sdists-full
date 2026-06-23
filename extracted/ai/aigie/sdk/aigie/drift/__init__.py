@@ -5,7 +5,7 @@ This module provides drift detection capabilities to identify when
 LLM conversations deviate from expected behavior patterns.
 """
 
-from .monitor import DriftAlert, DriftConfig, DriftLevel, DriftMetrics, DriftMonitor
+from aigie.drift.monitor import DriftAlert, DriftConfig, DriftLevel, DriftMetrics, DriftMonitor
 
 __all__ = [
     "DriftAlert",

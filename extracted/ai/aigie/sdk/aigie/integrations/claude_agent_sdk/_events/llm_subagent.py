@@ -13,8 +13,9 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from ....context_manager import merge_metadata
-from ..native_callback import (
+from aigie.context_manager import merge_metadata
+from aigie.tracing.usage import Usage
+from aigie.integrations.claude_agent_sdk.native_callback import (
     _format_subagent_name,
     _parse_subagent_usage_payload,
     _sanitize_error,
@@ -28,8 +29,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-class LLMSubagentEvents:
 
+class LLMSubagentEvents:
     async def handle_llm_response(  # noqa: C901, PLR0912, PLR0915
         self,
         message: Any,
@@ -112,8 +113,7 @@ class LLMSubagentEvents:
 
         if end_time is None:
             end_time = _utc_now()
-        prompt_tokens = usage.get("input_tokens", 0) if usage else 0
-        completion_tokens = usage.get("output_tokens", 0) if usage else 0
+        usage_obj = Usage.from_mapping(usage, cost={"total_cost": cost} if cost else None)
 
         # Detect errors in the LLM response BEFORE building the span so status
         # reflects content-level API errors (e.g. "API Error: 400 invalid model").
@@ -158,14 +158,11 @@ class LLMSubagentEvents:
                     "framework": "claude_agent_sdk",
                     "response_index": response_index,
                     "depth": llm_depth,
+                    **usage_obj.to_metadata(),
                 }
             ),
             "depth": llm_depth,  # For flow view ordering
             "model": model_name,
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-            "total_cost": cost if cost else None,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "created_at": start_time.isoformat(),
@@ -176,7 +173,6 @@ class LLMSubagentEvents:
             # end_time, status, output all known) — emit it exactly once.
             # Previously open_span'd as SPAN_CREATE and dropped at transport.
             self.close_span(payload=span_data)
-
 
         # Record LLM response for drift detection (captures planning from first response)
         if text_content:
@@ -428,6 +424,12 @@ class LLMSubagentEvents:
             }
 
         subagent_model = self.metadata.get("model") if self.metadata else None
+        usage_obj = Usage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            total_cost=total_cost or None,
+        )
 
         update_data = {
             "id": subagent_data["spanId"],
@@ -440,11 +442,6 @@ class LLMSubagentEvents:
             "start_time": subagent_data.get("startTimeIso"),  # Preserve start_time
             "end_time": end_time.isoformat(),
             "duration_ns": int(duration * 1_000_000_000),
-            # Include aggregated token/cost data
-            "prompt_tokens": input_tokens,
-            "completion_tokens": output_tokens,
-            "total_tokens": total_tokens,
-            "total_cost": total_cost,
             "model": subagent_model,
             "metadata": merge_metadata(
                 {
@@ -453,6 +450,8 @@ class LLMSubagentEvents:
                     "duration_ms": int(duration_ms),
                     "status": "error" if is_error else "success",
                     "model": subagent_model,
+                    # Aggregated token/cost — placement owned by Usage.
+                    **usage_obj.to_metadata(),
                     **error_metadata,
                 }
             ),
@@ -470,7 +469,6 @@ class LLMSubagentEvents:
             )
             self.close_span(payload=update_data)
 
-
         # Restore parent context based on stored parentId
         stored_parent = subagent_data.get("parentId")
         if stored_parent:
@@ -480,5 +478,3 @@ class LLMSubagentEvents:
             self._set_current_parent(self._current_turn_span_id or self._current_query_span_id)
 
         del self.subagent_map[tool_use_id]
-
-

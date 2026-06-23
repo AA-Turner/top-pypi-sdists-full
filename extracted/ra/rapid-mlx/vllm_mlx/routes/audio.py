@@ -6,9 +6,10 @@ import os
 import re
 import tempfile
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, Form, HTTPException, Query, UploadFile
 from starlette.responses import PlainTextResponse, Response
 
+from ..api.models import AudioSpeechRequest
 from ..middleware.auth import verify_api_key
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,19 @@ STT_MODEL_ALIASES: dict[str, str] = {
     "whisper-small": "mlx-community/whisper-small-mlx",
     "parakeet": "mlx-community/parakeet-tdt-0.6b-v2",
     "parakeet-v3": "mlx-community/parakeet-tdt-0.6b-v3",
+    # R7-M9 (Bo 0.8.8 dogfood): short ``whisper`` (no size suffix) is the
+    # OpenAI-canonical id that callers reach for first ("just give me
+    # Whisper"). Pre-fix this 404'd because the alias map only listed
+    # the size-suffixed siblings. The chat lane resolves short aliases
+    # at request-time via the registry; STT now matches that contract
+    # by routing bare ``whisper`` to the largest supported variant.
+    # Mirrors OpenAI's ``whisper-1`` placeholder semantics — same
+    # destination as ``whisper-large-v3``.
+    "whisper": "mlx-community/whisper-large-v3-mlx",
+    # OpenAI-spec id from the legacy Whisper API. Some SDKs still ship
+    # ``whisper-1`` by default; map it to the largest supported variant
+    # so drop-in OpenAI code doesn't 404 on the alias check.
+    "whisper-1": "mlx-community/whisper-large-v3-mlx",
 }
 
 # F-210: model strings must canonicalize to either a bare alias name
@@ -1158,23 +1172,162 @@ async def create_translation(
     )
 
 
+# R7-H3 (Bo 0.8.8 dogfood): TTS short-alias → HF repo map. Promoted
+# from the inline ``model_map`` inside ``create_speech`` to a module-
+# level constant so STT and TTS aliases live side-by-side and the
+# unit tests can pin the table without crawling the handler body.
+# Mirrors ``STT_MODEL_ALIASES`` (R-04 contract). Any future engine
+# addition lands here once, not in the handler.
+TTS_MODEL_ALIASES: dict[str, str] = {
+    "kokoro": "mlx-community/Kokoro-82M-bf16",
+    "kokoro-4bit": "mlx-community/Kokoro-82M-4bit",
+    # R8-H4 (Bo 0.8.9 dogfood): the brief's canonical full alias
+    # ``kokoro-82m-8bit`` (and its 4bit / bf16 siblings) previously
+    # bypassed the resolver — ``_resolve_tts_model`` fell through to
+    # passthrough, mlx-audio queried ``huggingface.co/api/models/
+    # kokoro-82m-8bit`` and 404'd. The short ``kokoro`` alias worked
+    # because it WAS in the table; the full form was not. Map every
+    # documented Kokoro full alias to the same canonical HF repo as
+    # ``kokoro`` so the resolver returns the identical path for both
+    # the short and full names. ``kokoro-82m-8bit`` falls back to the
+    # bf16 build (mlx-community ships no 8bit Kokoro repo today); the
+    # alias exists so future ops who type the brief's literal name
+    # see a working engine instead of an opaque HF 404. The lowercase
+    # match here mirrors the lowercase the alias-substring boot guard
+    # uses (``is_audio_model_alias``).
+    "kokoro-82m-bf16": "mlx-community/Kokoro-82M-bf16",
+    "kokoro-82m-4bit": "mlx-community/Kokoro-82M-4bit",
+    "kokoro-82m-8bit": "mlx-community/Kokoro-82M-bf16",
+    "chatterbox": "mlx-community/chatterbox-turbo-fp16",
+    "chatterbox-4bit": "mlx-community/chatterbox-turbo-4bit",
+    "vibevoice": "mlx-community/VibeVoice-Realtime-0.5B-4bit",
+    "voxcpm": "mlx-community/VoxCPM1.5",
+}
+
+#: Default TTS alias for empty / ``"default"`` requests. Mirrors the
+#: ``DEFAULT_STT_ALIAS`` rule on the STT side — drop-in OpenAI-SDK code
+#: that omits ``model=`` lands here.
+DEFAULT_TTS_ALIAS = "kokoro"
+
+
+# R8-H5 (Bo 0.8.9 dogfood): canonical IANA Content-Type per
+# ``response_format``. Pre-fix the route inlined ``f"audio/{format}"``
+# which both mislabeled the body (every non-wav format was actually
+# WAV bytes — see ``TTSEngine.to_bytes`` for the encoder fix) AND
+# emitted non-canonical types: ``audio/opus`` instead of ``audio/ogg``
+# (Opus's IANA type is ``audio/ogg`` because the wire bytes are an
+# OGG container with the Opus codec), ``audio/mp3`` instead of the
+# IANA-canonical ``audio/mpeg``. The table below pairs each format
+# with the type that matches what the encoder actually produces so
+# browsers and ffmpeg agree on the container.
+#
+# Tied to :data:`vllm_mlx.api.models._TTS_ALLOWED_RESPONSE_FORMATS` —
+# every key here MUST be in the allowed set so a request that passes
+# the request-model validator always finds a Content-Type entry. The
+# unit test ``test_audio_r8_a_bundle.py::TestTTSContentType`` pins
+# both directions.
+_TTS_CONTENT_TYPES: dict[str, str] = {
+    "wav": "audio/wav",
+    "flac": "audio/flac",
+    "ogg": "audio/ogg",
+    "opus": "audio/ogg",
+    "mp3": "audio/mpeg",
+    "pcm": "audio/pcm",
+}
+
+
+def _resolve_tts_model(model: str | None) -> str:
+    """Map a TTS request-time alias to its HF repo id.
+
+    Recognises:
+
+    * ``None`` / ``""`` / ``"default"`` → :data:`DEFAULT_TTS_ALIAS`'s
+      mapped HF id (R-03 OpenAI-canonical placeholder).
+    * A short alias listed in :data:`TTS_MODEL_ALIASES` → its mapped
+      HF id.
+    * Anything else → pass through verbatim (a HuggingFace repo id
+      the client is opting in to). Pre-fix the handler accepted the
+      same shape inline; promotion to a helper keeps the contract
+      identical without re-implementing the rule.
+
+    R8-H4 (Bo 0.8.9 dogfood): lookup is case-insensitive so the
+    brief's literal ``"kokoro-82m-8bit"`` and the SDK-style
+    ``"Kokoro-82M-8bit"`` land on the same HF repo as the lowercase
+    short form. HF repo ids (anything containing ``/``) keep their
+    case verbatim — the case-insensitive lookup only fires for the
+    short alias table, never for passthrough.
+    """
+    if not model or model == "default":
+        return TTS_MODEL_ALIASES[DEFAULT_TTS_ALIAS]
+    return TTS_MODEL_ALIASES.get(model.lower(), model)
+
+
+def _allowed_voices_for(model_name: str) -> list[str]:
+    """Return the voice set the route should accept for ``model_name``.
+
+    R8-M4 (Bo 0.8.9 dogfood): pre-fix the route handed ``voice``
+    straight to ``mlx_audio.load_safetensors`` which 500'd on the
+    missing safetensors file. The pre-flight check fires post alias
+    resolution so the rule is "voice valid for whichever model the
+    resolver picked", not "voice valid for the literal user-supplied
+    name" — that way both ``kokoro`` and the full HF id
+    ``mlx-community/Kokoro-82M-bf16`` honour the same voice list.
+
+    The detection mirrors :func:`vllm_mlx.audio.tts.TTSEngine._detect_family`
+    so the answers stay aligned: a single substring switch ensures the
+    route AND the engine agree on which family a name belongs to, so
+    a future engine added to the registry is wired into voice
+    validation by editing one helper, not two.
+    """
+    # Lazy import: ``vllm_mlx.audio.tts`` transitively pulls ``numpy``
+    # which the API-only test runners don't install. Same lazy pattern
+    # the route uses elsewhere.
+    from ..audio.tts import CHATTERBOX_VOICES, KOKORO_VOICES
+
+    name_lower = model_name.lower()
+    if "kokoro" in name_lower:
+        return list(KOKORO_VOICES)
+    if "chatterbox" in name_lower:
+        return list(CHATTERBOX_VOICES)
+    # Unknown family — accept ``"default"`` (the catch-all the engine
+    # falls back to in :meth:`TTSEngine.get_voices`) so callers
+    # passing a HF id we don't have a voice list for can still drive
+    # the engine. Rejecting here would prematurely close the door on
+    # third-party engines mlx-audio supports but rapid-mlx doesn't
+    # ship metadata for.
+    return ["default"]
+
+
 @router.post("/v1/audio/speech", dependencies=[Depends(verify_api_key)])
-async def create_speech(
-    model: str = "kokoro",
-    input: str = "",
-    voice: str = "af_heart",
-    speed: float = 1.0,
-    response_format: str = "wav",
-):
+async def create_speech(request: AudioSpeechRequest = Body(...)):
     """Generate speech from text (OpenAI TTS API compatible).
+
+    R7-M8 (Bo 0.8.8 dogfood): Bind a Pydantic :class:`AudioSpeechRequest`
+    body model so the route honors the OpenAI JSON-body contract AND
+    so empty / blank ``input`` raises a 400 ``invalid_request_error``
+    with ``param="input"`` BEFORE the synthesis engine runs.
+    Pre-fix the handler declared each field as a bare query parameter,
+    which meant:
+
+    * The JSON body Bo (and every OpenAI SDK) sends was silently
+      dropped — ``input`` always fell back to its empty-string default,
+      so every request synthesized the empty phoneme list and 500'd
+      with ``No audio generated``.
+    * There was nowhere to attach a ``min_length=1`` constraint,
+      so the conflation with "engine genuinely failed" was structural.
 
     F-D05: probe ``mlx_audio`` availability through the shared
     :func:`vllm_mlx.audio.probe.require_mlx_audio` helper so this
     route's 503 envelope matches ``/v1/audio/voices`` and
-    ``/v1/audio/transcriptions``. Pre-fix each audio route hand-rolled
-    its own check; the voices route never probed at all, the speech
-    route only saw the ImportError, and operators couldn't tell from
-    one endpoint that the others were also broken.
+    ``/v1/audio/transcriptions``.
+
+    R7-H3 (Bo 0.8.8 dogfood): the catch-all now logs at ``exception``
+    level (full traceback) and surfaces an OpenAI-shape envelope with
+    ``type="api_error"``, ``code="tts_generation_failed"``. Pre-fix
+    the catch-all collapsed every backend failure to a single-line
+    ``logger.error`` + bare-string ``detail`` — the operator couldn't
+    diagnose the upstream ``mlx_audio==0.4.4`` istftnet regression
+    because the traceback never reached the log.
     """
     global _tts_engine
 
@@ -1190,26 +1343,54 @@ async def create_speech(
 
     require_mlx_audio_tts()
 
-    try:
-        from ..audio.tts import TTSEngine
+    # Pydantic already validated min_length / non-blank — past this
+    # point the input is safe to forward.
+    model = request.model
+    input_text = request.input
+    voice = request.voice
+    speed = request.speed
+    response_format = request.response_format
 
-        model_map = {
-            "kokoro": "mlx-community/Kokoro-82M-bf16",
-            "kokoro-4bit": "mlx-community/Kokoro-82M-4bit",
-            "chatterbox": "mlx-community/chatterbox-turbo-fp16",
-            "chatterbox-4bit": "mlx-community/chatterbox-turbo-4bit",
-            "vibevoice": "mlx-community/VibeVoice-Realtime-0.5B-4bit",
-            "voxcpm": "mlx-community/VoxCPM1.5",
-        }
-        # R-03: ``"default"`` is the OpenAI-spec placeholder LangChain /
-        # LlamaIndex / openai-python emit when the caller hasn't picked
-        # a specific model id. Map it to the same alias as omitting the
-        # field entirely (``kokoro`` — the route signature's default
-        # value) so drop-in OpenAI-SDK code works without a manual
-        # ``model=`` override.
-        if model == "default":
-            model = "kokoro"
-        model_name = model_map.get(model, model)
+    try:
+        from ..audio.tts import TTSEngine, UnsupportedAudioFormatError
+
+        # R7-H3 follow-up: alias resolution lives in a shared helper
+        # (see ``_resolve_tts_model``) so the bare alias / ``"default"``
+        # / HF-path passthrough rule is one code path. Engines added in
+        # the future land in :data:`TTS_MODEL_ALIASES` once, not in the
+        # handler body.
+        model_name = _resolve_tts_model(model)
+
+        # R8-M4 (Bo 0.8.9 dogfood): validate ``voice`` against the
+        # model's known voice set BEFORE we load weights. Pre-fix an
+        # unknown name (drop-in OpenAI SDK code sending ``alloy`` /
+        # ``nova`` / typo'd ``af_hart``) fell through to
+        # ``mlx_audio.load_safetensors`` which 500'd on the missing
+        # ``voices/<name>.safetensors`` file. The 500 envelope hid the
+        # actual cause from the operator log AND from the caller. The
+        # check fires post-resolution so a HF passthrough id (``mlx-
+        # community/Kokoro-82M-bf16``) honours the same voice set as
+        # the ``kokoro`` short alias — both go through the same model
+        # family check.
+        valid_voices = _allowed_voices_for(model_name)
+        if voice not in valid_voices:
+            preview = ", ".join(valid_voices[:8])
+            if len(valid_voices) > 8:
+                preview = f"{preview}, ..."
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "message": (
+                            f"voice {voice!r} not recognized for model "
+                            f"{model_name!r}. Available: {preview}."
+                        ),
+                        "type": "invalid_request_error",
+                        "code": "invalid_voice",
+                        "param": "voice",
+                    }
+                },
+            )
 
         # F-K-KOKORO-MISAKI: Kokoro pulls ``misaki`` lazily inside
         # ``KokoroPipeline``; the TTS-lane probe above can't catch
@@ -1225,11 +1406,36 @@ async def create_speech(
             _tts_engine = TTSEngine(model_name)
             _tts_engine.load()
 
-        audio = _tts_engine.generate(input, voice=voice, speed=speed)
-        audio_bytes = _tts_engine.to_bytes(audio, format=response_format)
+        audio = _tts_engine.generate(input_text, voice=voice, speed=speed)
+        try:
+            audio_bytes = _tts_engine.to_bytes(audio, format=response_format)
+        except UnsupportedAudioFormatError as e:
+            # R8-H5 (Bo 0.8.9 dogfood): the encoder couldn't produce the
+            # requested format (no codec / unknown name). Surface a 400
+            # ``invalid_request_error`` with ``param="response_format"``
+            # and the list of formats this build DOES support so the
+            # caller can retry with a known-good value. Pre-fix the
+            # route returned 200 with mislabeled WAV bytes.
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "message": str(e),
+                        "type": "invalid_request_error",
+                        "code": "invalid_response_format",
+                        "param": "response_format",
+                    }
+                },
+            )
 
-        content_type = (
-            "audio/wav" if response_format == "wav" else f"audio/{response_format}"
+        # R8-H5: pick a Content-Type that actually matches the produced
+        # bytes. Pre-fix the route blindly built ``audio/{format}``,
+        # which both mislabelled the body (every non-wav format was
+        # WAV) AND emitted non-canonical types (``audio/opus`` instead
+        # of ``audio/ogg``). The mapping below pairs each
+        # ``response_format`` with the IANA-canonical container type.
+        content_type = _TTS_CONTENT_TYPES.get(
+            response_format.lower(), "application/octet-stream"
         )
         return Response(content=audio_bytes, media_type=content_type)
 
@@ -1250,8 +1456,33 @@ async def create_speech(
             ),
         )
     except Exception as e:
-        logger.error(f"TTS generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # R7-H3: ``logger.exception`` writes the FULL traceback to the
+        # operator log so future regressions in mlx_audio (or any other
+        # upstream backend) leave enough breadcrumbs to root-cause from
+        # the log alone. The pre-fix ``logger.error(f"...: {e}")`` only
+        # captured the leaf exception's str() — operators chasing the
+        # 0.4.4 istftnet shape mismatch never saw which istftnet line
+        # raised, only the catch-all's ``No audio generated`` (which was
+        # in fact the inner ``tts.py`` raise, NOT the upstream
+        # broadcast_shapes error). Two-source confusion that the
+        # traceback solves on its own.
+        logger.exception("TTS generation failed: %s", e)
+        # Replace the legacy bare-string ``detail`` with the OpenAI
+        # envelope so clients can pattern-match on
+        # ``error.type=="api_error"`` and ``error.code=="tts_generation_failed"``.
+        # Mirrors the transcriptions ``code="transcription_failed"``
+        # convention so cross-lane error handling stays uniform.
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "message": "Audio speech synthesis failed",
+                    "type": "api_error",
+                    "code": "tts_generation_failed",
+                    "param": None,
+                }
+            },
+        )
 
 
 @router.get("/v1/audio/voices", dependencies=[Depends(verify_api_key)])

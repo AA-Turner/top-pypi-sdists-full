@@ -10,6 +10,7 @@ import copy
 import json
 import time
 import uuid
+import warnings
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -19,6 +20,7 @@ from typing import (
     Generator,
     Iterable,
     Literal,
+    NoReturn,
     TypeAlias,
     cast,
 )
@@ -41,6 +43,7 @@ from ibm_watsonx_ai.utils import (
 )
 from ibm_watsonx_ai.utils.autoai.utils import all_logging_disabled
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
+from ibm_watsonx_ai.utils.warnings import WatsonxAPIWarning
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     InvalidValue,
@@ -91,7 +94,7 @@ class Deployments(WMLResource):
         deployment_details: dict[str, Any],
         operation_name: str,
         deployment_id: str,
-    ) -> None:
+    ) -> NoReturn:
         try:
             if "failure" not in deployment_details["entity"]["status"]:
                 print(deployment_details["entity"]["status"])
@@ -239,6 +242,20 @@ class Deployments(WMLResource):
 
         return deployment_details
 
+    @staticmethod
+    def _print_system_warnings(
+        notifications: set[str], deployment_details: dict
+    ) -> None:
+        if "system" not in deployment_details:
+            return
+
+        notification = deployment_details["system"]["warnings"][0]["message"]
+        if notification in notifications:
+            return
+
+        print("\nNote: " + notification)
+        notifications.add(notification)
+
     def _wait_for_deployment_creation(
         self, artifact_id: str, deployment_details: dict[str, Any]
     ) -> dict[str, Any]:
@@ -250,22 +267,19 @@ class Deployments(WMLResource):
 
         status = deployment_details["entity"]["status"]["state"]
 
-        notifications = set()
+        notifications: set[str] = set()
         with StatusLogger(status) as status_logger:
             while True:
                 time.sleep(5)
-                deployment_details = self._client.deployments.get_details(
-                    deployment_id, _silent=True
-                )
 
-                # this is wrong , needs to update for ICP
-                if "system" in deployment_details:
-                    notification = deployment_details["system"]["warnings"][0][
-                        "message"
-                    ]
-                    if notification not in notifications:
-                        print("\nNote: " + notification)
-                        notifications.add(notification)
+                with warnings.catch_warnings(
+                    category=WatsonxAPIWarning, action="ignore"
+                ):
+                    deployment_details = self._client.deployments.get_details(
+                        deployment_id, _silent=True
+                    )
+
+                self._print_system_warnings(notifications, deployment_details)
 
                 status = deployment_details["entity"]["status"]["state"]
                 status_logger.log_state(status)
@@ -283,8 +297,6 @@ class Deployments(WMLResource):
         self._deployment_status_errors_handling(
             deployment_details, "creation", deployment_id
         )
-        # This line is unreachable but satisfies type checker
-        raise RuntimeError("Unreachable code")
 
     def create(
         self,
@@ -372,25 +384,22 @@ class Deployments(WMLResource):
 
         status = deployment_details["entity"]["status"]["state"]
 
-        notifications = set()
+        notifications: set[str] = set()
         with StatusLogger(status) as status_logger:
             while True:
                 await asyncio.sleep(5)
-                deployment_details = cast(
-                    dict,
-                    await self._client.deployments.aget_details(
-                        deployment_id, _silent=True
-                    ),
-                )
 
-                # this is wrong , needs to update for ICP
-                if "system" in deployment_details:
-                    notification = deployment_details["system"]["warnings"][0][
-                        "message"
-                    ]
-                    if notification not in notifications:
-                        print("\nNote: " + notification)
-                        notifications.add(notification)
+                with warnings.catch_warnings(
+                    category=WatsonxAPIWarning, action="ignore"
+                ):
+                    deployment_details = cast(
+                        dict,
+                        await self._client.deployments.aget_details(
+                            deployment_id, _silent=True
+                        ),
+                    )
+
+                self._print_system_warnings(notifications, deployment_details)
 
                 status = deployment_details["entity"]["status"]["state"]
                 status_logger.log_state(status)
@@ -408,8 +417,6 @@ class Deployments(WMLResource):
         self._deployment_status_errors_handling(
             deployment_details, "creation", deployment_id
         )
-        # This line is unreachable but satisfies type checker
-        raise RuntimeError("Unreachable code")
 
     async def acreate(
         self,
@@ -1607,8 +1614,6 @@ class Deployments(WMLResource):
         self._deployment_status_errors_handling(
             deployment_details, "update", deployment_id
         )
-        # This line is unreachable but satisfies type checker
-        raise RuntimeError("Unreachable code")
 
     @staticmethod
     def _validate_update_inputs(
@@ -1752,8 +1757,6 @@ class Deployments(WMLResource):
         self._deployment_status_errors_handling(
             deployment_details, "update", deployment_id
         )
-        # This line is unreachable but satisfies type checker
-        raise RuntimeError("Unreachable code")
 
     async def aupdate(
         self,

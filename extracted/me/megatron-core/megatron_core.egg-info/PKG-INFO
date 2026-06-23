@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-core
-Version: 0.17.1
+Version: 0.18.0
 Summary: Megatron Core - a library for efficient and scalable training of transformer based models
 Author-email: NVIDIA <nemo-toolkit@nvidia.com>
 Maintainer-email: NVIDIA <nemo-toolkit@nvidia.com>
@@ -37,31 +37,29 @@ Requires-Dist: flask-restful; extra == "training"
 Requires-Dist: sentencepiece; extra == "training"
 Requires-Dist: tiktoken; extra == "training"
 Requires-Dist: wandb; extra == "training"
-Requires-Dist: transformers<=5.3.0; extra == "training"
+Requires-Dist: transformers; extra == "training"
 Requires-Dist: accelerate; extra == "training"
+Requires-Dist: omegaconf; extra == "training"
 Provides-Extra: mlm
 Requires-Dist: flask-restful; extra == "mlm"
 Requires-Dist: sentencepiece; extra == "mlm"
 Requires-Dist: tiktoken; extra == "mlm"
 Requires-Dist: wandb; extra == "mlm"
-Requires-Dist: transformers<=5.3.0; extra == "mlm"
+Requires-Dist: transformers; extra == "mlm"
 Requires-Dist: accelerate; extra == "mlm"
+Requires-Dist: omegaconf; extra == "mlm"
 Provides-Extra: dev
-Requires-Dist: nvidia-modelopt[torch]; sys_platform != "darwin" and extra == "dev"
-Requires-Dist: transformer-engine[core_cu13,pytorch]; extra == "dev"
+Requires-Dist: nvidia-modelopt[torch]>=0.44; sys_platform != "darwin" and extra == "dev"
 Requires-Dist: nvidia-resiliency-ext==0.6.0; extra == "dev"
 Requires-Dist: tqdm; extra == "dev"
 Requires-Dist: einops~=0.8; extra == "dev"
 Requires-Dist: tensorstore!=0.1.46,!=0.1.72,~=0.1; extra == "dev"
-Requires-Dist: nvtx~=0.2; extra == "dev"
 Requires-Dist: multi-storage-client~=0.27; extra == "dev"
 Requires-Dist: opentelemetry-api~=1.33.1; extra == "dev"
-Requires-Dist: mamba-ssm~=2.2; extra == "dev"
-Requires-Dist: causal-conv1d~=1.5; extra == "dev"
 Requires-Dist: flash-linear-attention~=0.4.0; extra == "dev"
-Requires-Dist: megatron-energon[av_decode]~=6.0; extra == "dev"
+Requires-Dist: megatron-energon[av_decode]~=7.0; extra == "dev"
 Requires-Dist: av; extra == "dev"
-Requires-Dist: flashinfer-python~=0.5.0; extra == "dev"
+Requires-Dist: flashinfer-python<0.7.0,>=0.5.0; extra == "dev"
 Requires-Dist: wget; extra == "dev"
 Requires-Dist: onnxscript; extra == "dev"
 Requires-Dist: fastapi~=0.50; extra == "dev"
@@ -72,22 +70,11 @@ Requires-Dist: quart; extra == "dev"
 Requires-Dist: openai[aiohttp]; extra == "dev"
 Requires-Dist: orjson; extra == "dev"
 Provides-Extra: lts
-Requires-Dist: tqdm; extra == "lts"
-Requires-Dist: einops~=0.8; extra == "lts"
-Requires-Dist: tensorstore!=0.1.46,!=0.1.72,~=0.1; extra == "lts"
-Requires-Dist: nvtx~=0.2; extra == "lts"
-Requires-Dist: multi-storage-client~=0.27; extra == "lts"
-Requires-Dist: opentelemetry-api~=1.33.1; extra == "lts"
-Requires-Dist: mamba-ssm~=2.2; extra == "lts"
-Requires-Dist: causal-conv1d~=1.5; extra == "lts"
-Requires-Dist: megatron-energon[av_decode]~=6.0; extra == "lts"
-Requires-Dist: av; extra == "lts"
-Requires-Dist: flashinfer-python~=0.5.0; extra == "lts"
-Requires-Dist: wget; extra == "lts"
-Requires-Dist: onnxscript; extra == "lts"
-Requires-Dist: fastapi~=0.50; extra == "lts"
-Requires-Dist: datasets; extra == "lts"
-Requires-Dist: emerging_optimizers; extra == "lts"
+Provides-Extra: te
+Requires-Dist: transformer-engine[core_cu13,pytorch]; extra == "te"
+Provides-Extra: ssm
+Requires-Dist: mamba-ssm~=2.2; extra == "ssm"
+Requires-Dist: causal-conv1d~=1.5; extra == "ssm"
 
 <div align="center">
 

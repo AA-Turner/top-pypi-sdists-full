@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import click
 
-from ovide.assemble import assemble_changelog, bump_version, compute_bump, get_latest_version
-from ovide.config import VALID_BUMPS, VALID_KINDS
+from ovide.assemble import (
+    assemble_changelog,
+    bump_version,
+    changelog_has_version,
+    compute_bump,
+    get_latest_version,
+)
+from ovide.config import CHANGELOG_DIR, CHANGELOG_FILE, VALID_BUMPS, VALID_KINDS
 from ovide.fragment import Fragment, FragmentError, create_fragment, list_fragments
 
 
@@ -52,6 +58,38 @@ def check() -> None:
         raise SystemExit(1)
 
     click.echo(f"All {len(paths)} fragment(s) are valid.")
+
+
+@main.command("verify-release")
+@click.option("--version", type=str, required=True, help="Release version to verify (e.g. 2.2.0)")
+def verify_release(version: str) -> None:
+    """Verify the changelog is release-ready for the given version.
+
+    Fails if the changelog has no entry for the version, or if unassembled
+    fragments still remain in changelog.d/.
+    """
+    errors: list[str] = []
+
+    if not changelog_has_version(version):
+        errors.append(
+            f"{CHANGELOG_FILE} has no entry for version {version}. "
+            f"Run 'uv run ovide assemble --version {version}' and commit the result before releasing."
+        )
+
+    leftover = list_fragments()
+    if leftover:
+        names = ", ".join(p.name for p in leftover)
+        errors.append(
+            f"Unassembled changelog fragments remain in {CHANGELOG_DIR}/: {names}. "
+            f"Run 'uv run ovide assemble --version {version}' and commit the result before releasing."
+        )
+
+    if errors:
+        for err in errors:
+            click.echo(f"ERROR: {err}", err=True)
+        raise SystemExit(1)
+
+    click.echo(f"Changelog is release-ready for version {version}.")
 
 
 @main.command()

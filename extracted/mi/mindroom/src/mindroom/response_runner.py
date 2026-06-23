@@ -39,6 +39,7 @@ from mindroom.orchestration.runtime import (
     classify_cancel_source,
     log_cancelled_response,
     log_cancelled_response_source,
+    request_task_cancel,
 )
 from mindroom.post_response_effects import PostResponseEffectsSupport, ResponseOutcome
 from mindroom.response_attempt import ResponseAttemptDeps, ResponseAttemptRequest, ResponseAttemptRunner
@@ -47,6 +48,7 @@ from mindroom.response_terminal import (
     build_placeholder_terminal_stream_transport_outcome,
     build_terminal_stream_transport_outcome,
 )
+from mindroom.runtime_shutdown import GENERIC_SHUTDOWN, RuntimeShutdownIntent
 from mindroom.streaming import (
     PROGRESS_PLACEHOLDER,
     ReplacementStreamingResponse,
@@ -376,7 +378,12 @@ class ResponseRunner:
                 error=str(error),
             )
 
-    async def drain_inbox_responses(self, *, cancel_after_seconds: float | None = None) -> bool:
+    async def drain_inbox_responses(
+        self,
+        *,
+        cancel_after_seconds: float | None = None,
+        shutdown_intent: RuntimeShutdownIntent = GENERIC_SHUTDOWN,
+    ) -> bool:
         """Settle detached inbox responses: graceful drains await, bounded drains cancel.
 
         Returns False when a bounded drain had to cancel or abandon running work.
@@ -393,7 +400,7 @@ class ResponseRunner:
         if not pending:
             return True
         for task in pending:
-            task.cancel()
+            request_task_cancel(task, cancel_source=shutdown_intent.cancel_source)
         await asyncio.wait(pending, timeout=cancel_after_seconds)
         return False
 
@@ -827,6 +834,8 @@ class ResponseRunner:
         turns are recovered by that replay instead; retrying them too would
         answer twice.
         """
+        delivery_cancelled = delivery_cancelled or final_outcome.terminal_status == "cancelled"
+        delivery_failure_reason = delivery_failure_reason or final_outcome.failure_reason
         if request.on_sync_restart_cancelled is None or not delivery_cancelled:
             return
         if not final_outcome.mark_handled:
@@ -971,9 +980,6 @@ class ResponseRunner:
         agent_names = [
             registry.current_entity_name_for_user_id(mid.full_id) or mid.username for mid in team_request.team_agents
         ]
-        self.deps.runtime.config.assert_team_agents_supported(
-            [agent_name for agent_name in agent_names if agent_name != ROUTER_AGENT_NAME],
-        )
         include_matrix_prompt_context = any(
             _agent_has_matrix_messaging_tool(self.deps.runtime.config, name, resolved_target.session_id)
             for name in agent_names
@@ -1014,11 +1020,24 @@ class ResponseRunner:
             correlation_id=resolved_correlation_id,
             source_envelope=request.response_envelope,
         )
-        session_scope = self.deps.state_writer.team_history_scope(list(team_request.team_agents))
+        execution_identity = tool_dispatch.execution_identity
+        allow_direct_private_agents = (
+            self.deps.agent_name not in self.deps.runtime.config.teams
+            and execution_identity.channel == "matrix"
+            and bool(execution_identity.requester_id)
+        )
+        self.deps.runtime.config.assert_team_agents_supported(
+            [agent_name for agent_name in agent_names if agent_name != ROUTER_AGENT_NAME],
+            allow_direct_private_agents=allow_direct_private_agents,
+        )
+        session_scope = self.deps.state_writer.team_history_scope(
+            list(team_request.team_agents),
+            requester_user_id=execution_identity.requester_id,
+        )
         session_type = self.deps.state_writer.session_type_for_scope(session_scope)
 
         def team_storage_factory() -> BaseDb:
-            return self.deps.state_writer.create_storage(tool_dispatch.execution_identity, scope=session_scope)
+            return self.deps.state_writer.create_storage(execution_identity, scope=session_scope)
 
         session_started_watch = lifecycle.setup_session_watch(
             tool_context=runtime_context_from_dispatch_context(tool_dispatch),
@@ -1580,6 +1599,8 @@ class ResponseRunner:
             turn_recorder.set_run_id(current_run_id)
             attempt_run_id_collector.append(current_run_id)
 
+        show_tool_calls = self._show_tool_calls()
+
         async def build_response_text() -> str:
             knowledge_resolution = self.deps.knowledge_access.resolve_for_agent(
                 self.deps.agent_name,
@@ -1608,7 +1629,8 @@ class ResponseRunner:
                 reply_to_event_id=request.reply_to_event_id,
                 correlation_id=self._correlation_id_for_request(request),
                 active_event_ids=active_event_ids,
-                show_tool_calls=self._show_tool_calls(),
+                show_tool_calls=show_tool_calls,
+                collect_streamed_response=show_tool_calls,
                 tool_trace_collector=tool_trace,
                 run_metadata_collector=run_metadata_content,
                 execution_identity=runtime.tool_dispatch.execution_identity,

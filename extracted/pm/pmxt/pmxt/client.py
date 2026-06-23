@@ -1346,6 +1346,33 @@ class Exchange(ABC):
         except ApiException as e:
             raise self._parse_api_exception(e) from None
 
+    def fetch_events_paginated(self, params: Optional[dict] = None, **kwargs) -> PaginatedEventsResult:
+        try:
+            args = []
+            if kwargs:
+                params = {**(params or {}), **kwargs}
+            if params is not None:
+                args.append(_convert_params_to_camel(params))
+            body: dict = {"args": args}
+            creds = self._get_credentials_dict()
+            if creds:
+                body["credentials"] = creds
+            url = f"{self._resolve_sidecar_host()}/api/{self.exchange_name}/fetchEventsPaginated"
+            headers = {"Content-Type": "application/json", "Accept": "application/json"}
+            headers.update(self._get_auth_headers())
+            response = self._fetch_with_retry(
+                lambda: self._api_client.call_api(method="POST", url=url, body=body, header_params=headers)
+            )
+            response.read()
+            data = self._handle_response(json.loads(response.data))
+            return PaginatedEventsResult(
+                data=[_convert_event(e) for e in data.get("data", [])],
+                total=data.get("total"),
+                next_cursor=data.get("nextCursor"),
+            )
+        except ApiException as e:
+            raise self._parse_api_exception(e) from None
+
     def fetch_events(self, params: Optional[dict] = None, **kwargs) -> List[UnifiedEvent]:
         try:
             args = []
@@ -1601,6 +1628,12 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_closed_orders(self, params: Optional[dict] = None, **kwargs) -> List[Order]:
+        if self.is_hosted:
+            from pmxt.errors import NotSupported
+            raise NotSupported(
+                "fetch_closed_orders is not supported in hosted mode; "
+                "use fetch_my_trades to see executed fills instead.",
+            )
         try:
             args = []
             if kwargs:
@@ -1624,6 +1657,12 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_all_orders(self, params: Optional[dict] = None, **kwargs) -> List[Order]:
+        if self.is_hosted:
+            from pmxt.errors import NotSupported
+            raise NotSupported(
+                "fetch_all_orders is not supported in hosted mode; "
+                "use fetch_open_orders + fetch_my_trades to reconstruct order history.",
+            )
         try:
             args = []
             if kwargs:
@@ -1703,24 +1742,13 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def unwatch_order_book(self, outcome_id: Union[str, "MarketOutcome"] = _UNSET, **_compat_kwargs) -> None:
-        try:
-            args = []
-            outcome_id = _compat_id(outcome_id, _compat_kwargs)
-            args.append(_resolve_outcome_id(outcome_id))
-            body: dict = {"args": args}
-            creds = self._get_credentials_dict()
-            if creds:
-                body["credentials"] = creds
-            url = f"{self._resolve_sidecar_host()}/api/{self.exchange_name}/unwatchOrderBook"
-            headers = {"Content-Type": "application/json", "Accept": "application/json"}
-            headers.update(self._get_auth_headers())
-            response = self._fetch_with_retry(
-                lambda: self._api_client.call_api(method="POST", url=url, body=body, header_params=headers)
-            )
-            response.read()
-            self._handle_response(json.loads(response.data))
-        except ApiException as e:
-            raise self._parse_api_exception(e) from None
+        outcome_id = _compat_id(outcome_id, _compat_kwargs)
+        resolved = _resolve_outcome_id(outcome_id)
+        self._unwatch_required_via_ws(
+            "unwatch_order_book",
+            "unwatchOrderBook",
+            [resolved],
+        )
 
     def unwatch_address(self, address: str) -> None:
         try:
@@ -2235,7 +2263,7 @@ class Exchange(ABC):
                     params_dict[key] = value
 
             args = [outcome_id, params_dict]
-            query = {"id": outcome_id, **params_dict}
+            query = {"outcomeId": outcome_id, **params_dict}
             data = self._handle_response(
                 self._sidecar_read_request("fetchOHLCV", query, args)
             )
@@ -2295,7 +2323,7 @@ class Exchange(ABC):
                     params_dict[key] = value
 
             args = [outcome_id, params_dict]
-            query = {"id": outcome_id, **params_dict}
+            query = {"outcomeId": outcome_id, **params_dict}
             data = self._handle_response(
                 self._sidecar_read_request("fetchTrades", query, args)
             )

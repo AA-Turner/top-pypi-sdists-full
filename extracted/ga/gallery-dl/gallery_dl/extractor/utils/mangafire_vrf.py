@@ -12,8 +12,7 @@ adapted from dazedcat19/FMD2
 https://github.com/dazedcat19/FMD2/blob/master/lua/modules/MangaFire.lua
 """
 
-from ... import text
-import binascii
+from ... import text, util
 
 
 def generate(input):
@@ -27,14 +26,14 @@ def generate(input):
         (key_F, seed_k, prefix_W, schedule_e),
     ):
         input = transform(
-            rc4(binascii.a2b_base64(key_b64), input),
-            binascii.a2b_base64(seed_b64),
-            binascii.a2b_base64(prefix_b64),
+            rc4(util.b64rdecode(key_b64), input),
+            util.b64rdecode(seed_b64),
+            util.b64rdecode(prefix_b64),
             schedule,
         )
 
-    return binascii.b2a_base64(bytes(input), newline=False).rstrip(
-        b"=").replace(b"+", b"-").replace(b"/", b"_")
+    return util.b64rencode(
+        bytes(input)).replace(b"+", b"-").replace(b"/", b"_")
 
 
 def transform(input, seed, prefix, schedule):

@@ -21,12 +21,11 @@ if TYPE_CHECKING:
 class BeetsHTTPError(requests.exceptions.HTTPError):
     STATUS: ClassVar[HTTPStatus]
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(
-            f"HTTP Error: {self.STATUS.value} {self.STATUS.phrase}",
-            *args,
-            **kwargs,
-        )
+    def __init__(self, *args, message: str | None = None, **kwargs) -> None:
+        if not message:
+            message = f"HTTP Error: {self.STATUS.value} {self.STATUS.phrase}"
+
+        super().__init__(message, *args, **kwargs)
 
 
 class HTTPNotFoundError(BeetsHTTPError):
@@ -79,15 +78,15 @@ class TimeoutAndRetrySession(requests.Session, metaclass=SingletonMeta):
         retry = Retry(
             total=6,
             backoff_factor=0.5,
-            # Retry on server errors
             status_forcelist=[
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 HTTPStatus.BAD_GATEWAY,
                 HTTPStatus.SERVICE_UNAVAILABLE,
                 HTTPStatus.GATEWAY_TIMEOUT,
+                HTTPStatus.TOO_MANY_REQUESTS,
             ],
         )
-        adapter = HTTPAdapter(max_retries=retry)
+        adapter = RateLimitAdapter(rate_limit=0.25, max_retries=retry)
         self.mount("https://", adapter)
         self.mount("http://", adapter)
 

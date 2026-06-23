@@ -112,7 +112,9 @@ def echo_safe_humanfriendly_tables_format_smart_table(data: Iterable[Any], colum
     try:
         click.echo(humanfriendly.tables.format_smart_table(data, column_names=column_names))
     except ValueError as exc:
-        if str(exc) == "max() arg is an empty sequence":
+        # Python 3.11 wording: "max() arg is an empty sequence"
+        # Python 3.12 wording: "max() iterable argument is empty"
+        if str(exc) in ("max() arg is an empty sequence", "max() iterable argument is empty"):
             click.echo("------------")
             click.echo("Empty")
             click.echo("------------")

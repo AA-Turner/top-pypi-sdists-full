@@ -38,6 +38,10 @@ import { resolveLicenseKey, validateLicense, getProLatestVersion } from "./licen
 
 const DOWNLOAD_TIMEOUT_MS = 600_000; // 10 minutes
 const UPDATE_CHECK_INTERVAL_MS = 3_600_000; // 1 hour
+// Pro Chromium major shown in the welcome banner. Bump at each Pro major release
+// (no local constant to derive it from — the live Pro version comes from the
+// network, which we don't call just to print a banner). Mirrors download.py.
+const PRO_MAJOR = "148";
 
 /**
  * A downloaded binary could not be authenticated (bad/missing signature,
@@ -205,15 +209,26 @@ export async function checkForUpdate(): Promise<string | null> {
 // Welcome message (shown once per install)
 // ---------------------------------------------------------------------------
 
-function showWelcome(): void {
+function showWelcome(pro = false): void {
   const marker = path.join(getCacheDir(), ".welcome_shown");
   if (fs.existsSync(marker)) return;
   console.error();
   console.error("  CloakBrowser — stealth Chromium for automation");
   console.error("  https://github.com/CloakHQ/CloakBrowser");
   console.error();
-  console.error("  Issues?  https://github.com/CloakHQ/CloakBrowser/issues");
-  console.error("  Donate?  https://ko-fi.com/cloakhq");
+  if (pro) {
+    console.error(
+      `  CloakBrowser Pro active (v${PRO_MAJOR}) — latest binary, newest patches.`,
+    );
+    console.error("  Pro support → support@cloakbrowser.dev");
+  } else {
+    const freeMajor = CHROMIUM_VERSION.split(".")[0];
+    console.error(
+      `  Running free tier (v${freeMajor}). ` +
+        `Pro = latest binary (v${PRO_MAJOR}) + newest anti-bot patches.`,
+    );
+    console.error("  Stay ahead of detection → https://cloakbrowser.dev");
+  }
   console.error("  Star us if CloakBrowser helps your project!");
   console.error();
   try {
@@ -590,7 +605,7 @@ async function ensureProBinary(licenseKey: string): Promise<string> {
   const effectivePath = getBinaryPath(effective, true);
 
   if (fs.existsSync(effectivePath) && isExecutable(effectivePath)) {
-    showWelcome();
+    showWelcome(true);
     maybeTriggerProUpdateCheck(licenseKey);
     return effectivePath;
   }
@@ -602,7 +617,7 @@ async function ensureProBinary(licenseKey: string): Promise<string> {
 
   const versionPath = getBinaryPath(version, true);
   if (fs.existsSync(versionPath) && isExecutable(versionPath)) {
-    showWelcome();
+    showWelcome(true);
     return versionPath;
   }
 
@@ -628,7 +643,7 @@ async function ensureProBinary(licenseKey: string): Promise<string> {
     // Non-fatal
   }
 
-  showWelcome();
+  showWelcome(true);
   return downloadedPath;
 }
 

@@ -595,6 +595,37 @@ from .middleware.body_size import install_request_body_limit_middleware  # noqa:
 
 install_request_body_limit_middleware(app)
 
+# R8-H6: ASGI fast-path for ``GET /healthz`` + ``GET /livez``.
+#
+# Stack ordering note (codex r3 NIT clarification): Starlette stacks
+# user middleware in REVERSE install order — last install runs FIRST
+# per request. The fast-path is installed here (after the body-size +
+# body-depth + audio middlewares), so it sits OUTSIDE those three at
+# request time. ``cli.configure_cors_from_env`` runs LATER (at boot,
+# after this module loads) and ALSO uses ``app.add_middleware``, so
+# CORS lands OUTSIDE the fast-path when it's enabled. That ordering
+# is intentional + acceptable:
+#
+#   * Starlette's CORSMiddleware short-circuits with a single
+#     ``await self.app(scope, receive, send)`` when the request
+#     carries no ``Origin`` header — and k8s / supervisord / Docker /
+#     systemd probes do not send Origin. So for the probe slice that
+#     this fast-path targets, the CORS layer is effectively a
+#     1-microsecond pass-through; the fast-path still answers the
+#     probe without touching the router, dependency graph, or
+#     response serialization.
+#   * Browser cross-origin hits (which DO carry Origin) take the
+#     fall-through path inside the fast-path (``_has_origin`` returns
+#     True), reach CORSMiddleware on the way back out via the inner
+#     app's response, and ship with the correct ACAO header.
+#
+# Among the body-size + body-depth + audio middlewares, the fast-path
+# IS outermost — and those middlewares already early-return for GET
+# requests anyway, so the probe path was never paying for them.
+from .middleware.probe_fastpath import install_probe_fastpath_middleware  # noqa: E402
+
+install_probe_fastpath_middleware(app)
+
 # CORS configuration — configurable via --cors-origins CLI flag and the
 # ``RAPID_MLX_CORS_*`` env-var family (F-090 / F-091). The previous default
 # registered CORSMiddleware with ``allow_origins=["*"]`` and

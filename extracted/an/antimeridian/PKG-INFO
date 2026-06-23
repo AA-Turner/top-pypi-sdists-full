@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: antimeridian
-Version: 0.4.7
+Version: 0.4.8
 Summary: Correct GeoJSON geometries that cross the 180th meridian
 Project-URL: Documentation, https://www.gadom.ski/antimeridian
 Project-URL: Github, https://github.com/gadomski/antimeridian
